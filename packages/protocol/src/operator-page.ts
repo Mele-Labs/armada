@@ -1,5 +1,5 @@
 // The Operator's page — Bridge's mirror of `crates/ipc/src/operator_page.rs`.
-// `crates/ipc/operations/operator_page.toml`, `operator_answer.toml`, `operator_later.toml`,
+// `crates/ipc/operations/operator_page.toml`, `operator_answer.toml`, `operator_later.toml`, `operator_undo_ruling.toml`,
 // `operator_turn_order.toml`, `operator.page_changed.toml` and `operator_in_front.toml`.
 
 import type { OperatorRead, WaitingAct, WaitingItem } from "./sessions";
@@ -98,6 +98,10 @@ export type OperatorRuled = {
   follows: OperatorFollows;
   /** RFC 3339. */
   at: string;
+  /** When he took it back with `operator_undo_ruling`, RFC 3339. Absent while it stands. Since 13 Nov 2026. */
+  undone_at?: string;
+  /** Whether `operator_undo_ruling` takes it back now: it is not taken back and its Job is live. Absent when false. Since 13 Nov 2026. */
+  undo?: boolean;
 };
 
 /** What the Operator is reading now. */
@@ -291,6 +295,12 @@ export type OperatorAnswered = {
   handed_to?: string;
   /** The page as `operator_page` serves it after the press. */
   page: OperatorPage;
+};
+
+/** `operator_undo_ruling` (`POST /operator/page/undo`): take back a ruling the Operator made by following something he said. Answers `OperatorPage`. Since 13 Nov 2026. */
+export type OperatorUndoRuling = {
+  /** The ruling's `OperatorRuled.id`, `turn:<n>`. */
+  id: string;
 };
 
 /** `operator_turn_order` (`POST /operator/page/order`): the items as he dragged them. */

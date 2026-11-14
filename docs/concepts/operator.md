@@ -190,6 +190,7 @@ An answer must be one kept for the item's repository or for one in a project wit
 Under the rule `question:precedent` the question is answered as it arrives, and the Job's thread says which answer it followed.
 Without the rule the question is queued as a go-ahead with the citation beside it, Always here and Always keep the rule, and Yes answers only that one.
 An answer given in his place is never kept, so the Operator never follows itself.
+Each such answer of the last seven days can be taken back: Undo tells the Job the answer is withdrawn and puts the question on its list as his, with the same options, which the Operator never answers again.
 
 | Role | What it does |
 |---|---|

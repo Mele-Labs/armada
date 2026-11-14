@@ -97,6 +97,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("move_on_operator_board", "moves the Operator's board"),
     ("answer_operator_suggestion", "answers the Operator"),
     ("operator_answer", "answers the Operator"),
+    ("operator_undo_ruling", "answers the Operator"),
     ("operator_turn_order", "orders the Operator's Your turn"),
     ("operator_later", "puts an item of the Operator's Your turn last"),
     ("talk_to_operator", "talks to the Operator"),

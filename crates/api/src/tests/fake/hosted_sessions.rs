@@ -114,6 +114,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn operator_undo_ruling(self: Arc<Self>, _undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn operator_turn_order(self: Arc<Self>, _order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         Err(nothing_hosted())
     }

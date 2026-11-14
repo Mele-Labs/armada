@@ -6,8 +6,8 @@
 use std::sync::Arc;
 
 use api::HostedSessions;
-use ipc::operator_page::{OperatorAnswer, OperatorFollowsKind, OperatorRule, OperatorTurnKind, RuleScope};
-use ipc::{AnswerWaiting, SavePreference, SessionId};
+use ipc::operator_page::{OperatorAnswer, OperatorFollowsKind, OperatorRule, OperatorTurnKind, OperatorUndoRuling, RuleScope};
+use ipc::{AnswerWaiting, CloseSession, SavePreference, SessionId, WaitingActKind, WaitingSource};
 use store::{KeptAnswer, KeptOrder};
 
 use super::operator_raises::{page, pause, press, question, queued, seated, waiting};
@@ -274,4 +274,79 @@ async fn a_question_answer_rule_still_answers_first() {
     assert!(after.digest.ruled.is_empty(), "the rule answered it, not a precedent");
     let turns = rig.fleet.store().lock().await.operator_turn_settled_since("2000-01-01T00:00:00.000Z").expect("read");
     assert!(turns.iter().any(|row| row.answer.as_deref() == Some("rule") && row.follows.is_none()), "{turns:#?}");
+}
+
+/// A Job whose question was answered by following his answer: the rig, the Job and the ruling's `turn:<n>`.
+async fn ruled_by_precedent() -> (Rig, SessionId, String) {
+    let rig = super::session_host::rig_placing(None);
+    let n = answer_kept(&rig, rig.manifest.as_str()).await;
+    rule_kept(&rig, "question:precedent").await;
+    seated(&rig, &[Some(&review("none", "yes", &format!("a{n}")))]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    let job = rig.start_titled(Some("Build the pane")).await;
+    waiting(&rig, &job, vec![question("full", SUITE, &OPTIONS)]).await;
+    eventually(|| async { !page(&rig).await.digest.ruled.is_empty() }).await;
+    let ruled = page(&rig).await.digest.ruled.remove(0);
+    assert_eq!((ruled.undone_at.is_none(), ruled.undo), (true, true), "it can be taken back while its Job is live");
+    (rig, job, ruled.id)
+}
+
+fn undo(id: &str) -> OperatorUndoRuling {
+    OperatorUndoRuling { id: id.into() }
+}
+
+async fn thread_of(rig: &Rig, job: &SessionId) -> Vec<String> {
+    Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").rows.iter().map(|row| format!("{row:?}")).collect()
+}
+
+#[tokio::test]
+async fn taking_a_ruling_back_tells_the_job_and_puts_its_question_on_the_jobs_list_with_the_same_options() {
+    let (rig, job, id) = ruled_by_precedent().await;
+
+    let after = rig.fleet.operator_ruling_undone(undo(&id)).await.expect("undone");
+
+    let ruled = &after.digest.ruled[0];
+    assert_eq!((ruled.id.as_str(), ruled.undone_at.is_some(), ruled.undo), (id.as_str(), true, false));
+    let withdrawn = format!("The Operator's answer to \\\"{SUITE}\\\" is withdrawn. The person will answer it; wait for his answer.");
+    assert!(thread_of(&rig, &job).await.iter().any(|row| row.contains(&withdrawn)), "the Job is told");
+    let record = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session;
+    let item = record.waiting_for.iter().find(|item| item.id == format!("undone:{}", id.trim_start_matches("turn:"))).expect("his question is on the Job's list");
+    assert_eq!((item.source, item.text.as_str()), (WaitingSource::OperatorUndone, SUITE));
+    assert_eq!(item.options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), OPTIONS);
+    assert_eq!(item.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((WaitingActKind::Answer, item.id.as_str())));
+    let ruled_again = rig.fleet.store().lock().await.operator_turn_settled_since("2000-01-01T00:00:00.000Z").expect("read");
+    assert!(ruled_again.iter().filter(|row| row.answer.as_deref() == Some("precedent")).all(|row| row.undone_at.is_some()));
+}
+
+#[tokio::test]
+async fn his_answer_to_a_question_put_back_goes_to_the_job_and_the_item_leaves_the_list() {
+    let (rig, job, id) = ruled_by_precedent().await;
+    rig.fleet.operator_ruling_undone(undo(&id)).await.expect("undone");
+    let item = format!("undone:{}", id.trim_start_matches("turn:"));
+
+    Arc::clone(&rig.fleet).answer_waiting(said_to(&rig, &job, &item, 1)).await.expect("answered");
+
+    assert_eq!(super::autopilot_decisions::told(&rig, &job).await.last().map(String::as_str), Some(format!("Re: {SUITE}\nPush now").as_str()));
+    let record = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session;
+    assert!(record.waiting_for.iter().all(|one| one.id != item), "answered, so it goes");
+    let kept = answers_kept(&rig).await;
+    assert!(kept.iter().any(|one| one.question == SUITE && one.choice.as_deref() == Some("Push now") && one.via == "job"), "his own answer is kept: {kept:#?}");
+}
+
+#[tokio::test]
+async fn a_ruling_is_taken_back_once_and_never_for_a_job_that_has_ended() {
+    let (rig, _, id) = ruled_by_precedent().await;
+    rig.fleet.operator_ruling_undone(undo(&id)).await.expect("undone");
+    let twice = rig.fleet.operator_ruling_undone(undo(&id)).await.expect_err("taken back already");
+    assert_eq!((twice.status(), twice.error().code.as_str()), (422, "fleet.operator_ruling_undone"));
+
+    let (rig, job, id) = ruled_by_precedent().await;
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: job.clone() }).await.expect("ended");
+    assert!(!page(&rig).await.digest.ruled[0].undo, "an ended Job has nothing to give back to");
+    let ended = rig.fleet.operator_ruling_undone(undo(&id)).await.expect_err("the Job has ended");
+    assert_eq!((ended.status(), ended.error().code.as_str()), (422, "fleet.operator_ruling_ended"));
+    assert!(page(&rig).await.digest.ruled[0].undone_at.is_none(), "nothing was changed");
+
+    let unknown = rig.fleet.operator_ruling_undone(undo("turn:99999")).await.expect_err("no such row");
+    assert_eq!((unknown.status(), unknown.error().code.as_str()), (404, "fleet.operator_turn_unknown"));
 }

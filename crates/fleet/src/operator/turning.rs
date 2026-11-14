@@ -142,7 +142,7 @@ fn utc_millis(text: &str) -> Option<i64> {
     Some(at - offset * 60_000)
 }
 
-fn turn_number(id: &str) -> Option<i64> {
+pub(super) fn turn_number(id: &str) -> Option<i64> {
     id.strip_prefix(TURN).and_then(|n| n.parse().ok())
 }
 
@@ -172,7 +172,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn turn_unknown(&self, id: &str) -> Refusal {
+    pub(super) fn turn_unknown(&self, id: &str) -> Refusal {
         Refusal::NotFound(WireError::raised(TURN_UNKNOWN, format!("{id} is not an item waiting in Your turn"), self.run_id()))
     }
 

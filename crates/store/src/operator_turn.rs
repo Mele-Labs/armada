@@ -41,6 +41,8 @@ pub struct KeptTurn {
     /// What it followed, as the JSON of the citation Fleet checked: the person's answer to the same
     /// question in the project, or a setting of his. Since 13 Nov 2026.
     pub follows: Option<String>,
+    /// When the person took a precedent ruling back, which left its question to him. Since 13 Nov 2026.
+    pub undone_at: Option<String>,
 }
 
 /// What the page remembers between two looks.
@@ -55,7 +57,7 @@ pub struct KeptPage {
     pub top_at: Option<String>,
 }
 
-const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows";
+const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
     Ok(KeptTurn {
@@ -77,6 +79,7 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
         left_at: row.get(15)?,
         call: row.get(16)?,
         follows: row.get(17)?,
+        undone_at: row.get(18)?,
     })
 }
 
@@ -105,6 +108,19 @@ impl Store {
         let mut statement = self.conn.prepare(sql).map_err(failed(doing))?;
         let rows = statement.query_map(args, row_of).map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// The precedent ruling `n` taken back at `at`. `false` where it was not a precedent ruling or was taken back already.
+    pub fn undo_operator_turn(&mut self, n: i64, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE operator_turn SET undone_at = ?2 WHERE n = ?1 AND answer = 'precedent' AND undone_at IS NULL", params![n, at])
+            .map(|changed| changed > 0)
+            .map_err(failed("taking back a ruling of the Operator"))
+    }
+
+    /// The precedent rulings of `session` the person took back, oldest first.
+    pub fn operator_turn_undone_of(&self, session: &str) -> Result<Vec<KeptTurn>, WriteError> {
+        self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE session = ?1 AND answer = 'precedent' AND undone_at IS NOT NULL ORDER BY n"), params![session])
     }
 
     /// Every item still waiting, in the order the person left them.

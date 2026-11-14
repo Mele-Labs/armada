@@ -79,6 +79,7 @@ fn cases() -> Vec<Case> {
         case(item("suggestion:1", Source::OperatorSuggestion, Some((Act::Answer, "suggestion:1")), &["Do it", "Skip"], &[]), Section::Questions, Dismiss::Skip, false),
         case(item("browser_ask:t", Source::BrowserAsk, Some((Act::Answer, "browser_ask:t")), &["Allow", "Block"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("gate:g", Source::Gate, Some((Act::Answer, JOB)), &["Approve", "Skip this group"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
     ]
 }
 
@@ -109,6 +110,7 @@ fn counted(source: Source) -> usize {
         Source::OperatorSuggestion => 21,
         Source::BrowserAsk => 22,
         Source::Gate => 23,
+        Source::OperatorUndone => 24,
     }
 }
 
@@ -155,7 +157,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..24).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..25).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);

@@ -249,6 +249,8 @@ where
                     pick: row.pick.clone().unwrap_or_default(),
                     follows,
                     at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)),
+                    undone_at: row.undone_at.as_deref().map(Instant::carried),
+                    undo: row.undone_at.is_none() && store.session(&row.session).ok().flatten().is_some_and(|session| session.state != store::SessionState::Ended),
                 })
             })
             .collect();

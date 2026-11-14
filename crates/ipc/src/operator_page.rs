@@ -285,6 +285,12 @@ pub struct OperatorRuled {
     pub pick: String,
     pub follows: OperatorFollows,
     pub at: Instant,
+    /// When he took it back. Absent while it stands. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub undone_at: Option<Instant>,
+    /// Whether `operator_undo_ruling` takes it back now: it is not taken back and its Job is live. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub undo: bool,
 }
 
 /// Since he last looked, and what stands.
@@ -400,6 +406,13 @@ pub struct OperatorAnswered {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handed_to: Option<SessionId>,
     pub page: OperatorPage,
+}
+
+/// `operator_undo_ruling`: take back a ruling the Operator made by following something he said. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorUndoRuling {
+    /// The ruling's `id`, `turn:<n>`, as `OperatorRuled` names it.
+    pub id: String,
 }
 
 /// `operator_turn_order`: the items as he dragged them.
