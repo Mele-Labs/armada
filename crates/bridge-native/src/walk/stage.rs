@@ -632,7 +632,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             });
             Ok(())
         }
-        Verb::Carry(role, from, across, down, more_across, more_down) => {
+        Verb::CarryAt(role, from, across, down, more_across, more_down) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let start = cx
                 .try_global::<LabelBook>()

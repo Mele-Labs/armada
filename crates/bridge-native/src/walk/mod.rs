@@ -104,7 +104,7 @@ pub enum Verb {
     Release,
     /// The element of this role and name pressed and carried, the button still held, to a point of the target:
     /// so many thousandths across and down its box, then so many points more. The picture shows where it would land.
-    Carry(&'static str, &'static str, i32, i32, i32, i32),
+    CarryAt(&'static str, &'static str, i32, i32, i32, i32),
     /// The element of this role and name pressed in its middle and carried this many points across and down,
     /// the button let go there: a divider dragged.
     DragBy(&'static str, &'static str, i32, i32),
@@ -1056,17 +1056,17 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-panes",
         steps: &[
             press_on("A Job as it always opened: the thread, then Open, Done and Deferred over Now", "row", "Fix the merge line freshness chip", "tab", "Job column: Deferred"),
-            step("Done dragged along its strip: a bar shows where it would go", Verb::Carry("tab", "Job column: Done", 150, 500, 0, 0), "tab", "Job column: Open"),
+            step("Done dragged along its strip: a bar shows where it would go", Verb::CarryAt("tab", "Job column: Done", 150, 500, 0, 0), "tab", "Job column: Open"),
             step("Let go: Done stands first", Verb::Release, "tab", "Job column: Done"),
-            step("Now over the bottom of the thread's pane: the half a new pane would take is shaded", Verb::Carry("tab", "Job column: Now", 500, 1000, 0, 60), "region", "Thread"),
+            step("Now over the bottom of the thread's pane: the half a new pane would take is shaded", Verb::CarryAt("tab", "Job column: Now", 500, 1000, 0, 60), "region", "Thread"),
             step("Let go: Now has a pane of its own under the thread", Verb::Release, "tab", "Job column: Now"),
-            step("Done over the middle of the thread's pane: the whole pane is shaded", Verb::Carry("tab", "Job column: Done", 500, 1000, 0, 0), "region", "Thread"),
+            step("Done over the middle of the thread's pane: the whole pane is shaded", Verb::CarryAt("tab", "Job column: Done", 500, 1000, 0, 0), "region", "Thread"),
             step("Let go: Done joins the thread's pane, in front", Verb::Release, "tab", "Job column: Done"),
-            step("Open over the gap above Now: a bar in the gap", Verb::Carry("tab", "Job column: Open", 500, 0, 0, -5), "region", "Pane: Now"),
+            step("Open over the gap above Now: a bar in the gap", Verb::CarryAt("tab", "Job column: Open", 500, 0, 0, -5), "region", "Pane: Now"),
             step("Let go: Open has a pane of its own in that gap", Verb::Release, "tab", "Job column: Open"),
-            step("Deferred over the left edge of all the panes: a bar along it", Verb::Carry("tab", "Job column: Deferred", 0, 500, 2, 0), "region", "Job panes"),
+            step("Deferred over the left edge of all the panes: a bar along it", Verb::CarryAt("tab", "Job column: Deferred", 0, 500, 2, 0), "region", "Job panes"),
             step("Let go: Deferred has a pane along the whole left", Verb::Release, "tab", "Job column: Deferred"),
-            step("Now over its own pane's edge, where it is its only tab: a drop would change nothing, so no part is shaded", Verb::Carry("tab", "Job column: Now", 100, 500, 0, 0), "region", "Pane: Now"),
+            step("Now over its own pane's edge, where it is its only tab: a drop would change nothing, so no part is shaded", Verb::CarryAt("tab", "Job column: Now", 100, 500, 0, 0), "region", "Pane: Now"),
             step("Esc lets go of the drag where it was", Verb::Key("escape"), "tab", "Job column: Now"),
             step("Command Z takes the last drop back", Verb::Key("cmd-z"), "tab", "Job column: Deferred"),
         ],
