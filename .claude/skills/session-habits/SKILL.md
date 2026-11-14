@@ -27,6 +27,12 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   it** (11 Oct). Build a branch without checking it out instead.
 - **While any walk on a branch is unapproved, no agent on that branch runs
   tests.** Writing them is fine, and so are `tsc` and `cargo check` (8 and 12 Oct).
+- **Native work reaches him through his preview, not a walk** (13 Nov). Offer
+  the branch with `offer_preview`; he presses Refresh preview and takes notes on
+  it with ⌥⌘A. A native walk is only for a state a live Fleet cannot reach, such
+  as Fleet down or a refused send. It plays from the build behind his preview in
+  one press, never from a Job's slot, so show it once he has refreshed onto a
+  preview holding it: `show_window` refuses a walk that build does not play.
 - **A phone-sized UI is the real app on fixtures at a plain url** he narrows. No
   frame, captions or scripted walk (8 Oct).
 
