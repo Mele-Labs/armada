@@ -1080,6 +1080,7 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);
             self.macs_keys(cx);
+            self.macs_settle(window, cx);
         }
         if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
             self.read_prefs(cx);

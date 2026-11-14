@@ -227,15 +227,26 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Keep that a turn ended at `ended_at` on `said`, in place of any earlier one. **The first reply
-    /// after a tell** is marked on the tell, which is the one reply read for a refusal of it.
-    pub fn keep_turn_end(&mut self, session_id: &str, ended_at: &str, said: &str) -> Result<(), WriteError> {
+    /// Whether the turn end that stands put a question card to the person: its reply asks nothing more.
+    pub fn turn_end_carded(&self, session_id: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT carded FROM session_turn_end WHERE session_id = ?1", [session_id], |row| row.get::<_, i64>(0))
+            .optional()
+            .map(|carded| carded.is_some_and(|one| one != 0))
+            .map_err(fault("reading how a job's turn ended"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that a turn ended at `ended_at` on `said`, and whether it put a question card to the person
+    /// (`carded`), in place of any earlier one. **The first reply after a tell** is marked on the tell,
+    /// which is the one reply read for a refusal of it.
+    pub fn keep_turn_end(&mut self, session_id: &str, ended_at: &str, said: &str, carded: bool) -> Result<(), WriteError> {
         let kept = (|| {
             let transaction = self.conn.transaction()?;
             transaction.execute(
-                "INSERT INTO session_turn_end (session_id, ended_at, said) VALUES (?1, ?2, ?3)
-                 ON CONFLICT (session_id) DO UPDATE SET ended_at = ?2, said = ?3",
-                params![session_id, ended_at, said],
+                "INSERT INTO session_turn_end (session_id, ended_at, said, carded) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (session_id) DO UPDATE SET ended_at = ?2, said = ?3, carded = ?4",
+                params![session_id, ended_at, said, carded],
             )?;
             transaction.execute(
                 "UPDATE session_tells SET first_end = ?2 WHERE session_id = ?1 AND first_end IS NULL AND at < ?2",

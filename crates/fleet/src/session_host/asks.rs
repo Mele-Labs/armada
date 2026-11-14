@@ -11,11 +11,14 @@ pub(crate) fn asking_line(reply: &str) -> Option<String> {
     // A command fenced for the person is run by him, so the line that hands it over asks. Those are
     // looked for further back, since the reply goes on to say what happens after he has run it.
     let handed = blocks[blocks.len().saturating_sub(4)..].iter().flatten().rev().find(|line| line.command.is_some());
+    // A close whose last sentence says nothing is owed asks only by a question: a line that reads as an
+    // instruction ("Approve all and Dismiss all") names what it built.
+    let settled = closing_sentences(reply).last().is_some_and(|last| owes_nothing(last));
     let found = blocks[from..]
         .iter()
         .flatten()
         .rev()
-        .find_map(|line| sentences(unmarked(line.text)).into_iter().rev().find(|sentence| asks(sentence)));
+        .find_map(|line| sentences(unmarked(line.text)).into_iter().rev().find(|sentence| asks(sentence) && (!settled || questions(sentence))));
     found.or_else(|| handed.and_then(|line| sentences(unmarked(line.text)).pop()))
         .map(|sentence| sentence.replace("**", ""))
 }
@@ -318,6 +321,10 @@ const NOTHING_OWED: &[&str] = &[
     "no longer waiting on you",
     "may need you",
     "might need you",
+    // What it put to him is taken back: "so it no longer asks you to approve it".
+    "no longer asks you",
+    // Another Job puts the question itself, later: "it's your call, so it will ask you about that".
+    "will ask you",
 ];
 
 /// The plan is a card in the thread with its own Approve, so a line pointing at it asks for nothing more.
@@ -360,14 +367,28 @@ fn unquoted(said: &str) -> String {
     out
 }
 
+fn lowered(sentence: &str) -> String {
+    unquoted(&sentence.replace('*', "").replace('’', "'").to_lowercase())
+}
+
+fn owes_nothing(sentence: &str) -> bool {
+    let said = lowered(sentence);
+    NOTHING_OWED.iter().any(|phrase| said.contains(phrase))
+}
+
+/// A sentence that ends on a question mark and is not quoted.
+fn questions(sentence: &str) -> bool {
+    let said = lowered(sentence);
+    said.trim_end_matches(['"', '\'', ')', '_', ' ']).ends_with('?') && !said.starts_with(['"', '“'])
+}
+
 fn asks(sentence: &str) -> bool {
-    let said = unquoted(&sentence.replace('*', "").replace('’', "'").to_lowercase());
-    if NOTHING_OWED.iter().any(|phrase| said.contains(phrase)) {
+    let said = lowered(sentence);
+    if owes_nothing(sentence) {
         return false;
     }
-    let quoted = said.starts_with(['"', '“']);
     if said.trim_end_matches(['"', '\'', ')', '_', ' ']).ends_with('?') {
-        return !quoted;
+        return questions(sentence);
     }
     if CONDITIONAL.iter().chain(PLAN_CARD).any(|phrase| said.contains(phrase)) {
         return false;
