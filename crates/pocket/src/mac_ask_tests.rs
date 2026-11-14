@@ -7,7 +7,7 @@ use axum::http::{Method, StatusCode};
 use ipc::{FoundMac, FoundMacs, Mac, MacColour, MacLink};
 
 use crate::mac_tests::{until, Side};
-use crate::macs::{digits, Asking, HeldClaim, MacAsk, MacHello};
+use crate::macs::{digits, hashed, Asking, HeldClaim, MacAsk, MacHello};
 use crate::tunnel::{tunnel_name, AccountTunnel};
 use crate::tunnel_tests::{fake_tunnel, Fake};
 use crate::MacKeys;
@@ -62,6 +62,7 @@ async fn a_mac_on_the_account_is_found_asked_and_paired_with_the_same_code_on_bo
         online: true,
         paired: false,
         build: None,
+        nearby: false,
     };
     assert_eq!(listed, FoundMacs { macs: vec![expected], why: None }, "only his other Armada Mac, and never this one");
 
@@ -128,8 +129,9 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
     let home = Side::new("Home", &[]).await;
     let stranger = |n: u8| {
         let key = p256::ecdsa::SigningKey::from_slice(&[n; 32]).unwrap();
-        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None, wire: None, built_at: None, source: None };
-        ipc::encode(&MacAsk { mac, spki_hex: crate::mac_keys::spki_hex(&key).unwrap(), back_code: "ab".into() }).unwrap()
+        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None, wire: None, built_at: None, source: None, pin: None };
+        let commit = hashed("ab");
+        ipc::encode(&MacAsk { mac, spki_hex: crate::mac_keys::spki_hex(&key).unwrap(), back_code: "ab".into(), commit }).unwrap()
     };
     let post = |body: String| {
         let address = home.address.clone();
@@ -150,7 +152,8 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
     let (status, why) = post(stranger(4)).await;
     assert_eq!((status, why.as_str()), (429, "Other Macs are already waiting to pair with Home. Wait a few minutes, then press Pair again."));
     assert_eq!(post(stranger(1)).await.0, 202, "a Mac asking again replaces its own ask");
-    assert_eq!(home.gateway.macs.claims(home.gateway.pairing.now()).len(), 3);
+    assert_eq!(home.gateway.macs.asks_held(home.gateway.pairing.now()), 3);
+    assert!(home.gateway.macs.claims(home.gateway.pairing.now()).is_empty(), "none is listed before its half is revealed");
     let mut last = (0, String::new());
     for n in 5..=15 {
         last = post(stranger(n)).await;
@@ -197,21 +200,39 @@ async fn an_asleep_mac_keeps_the_name_it_was_last_read_with() {
 }
 
 #[test]
-fn both_macs_draw_the_same_four_digits_from_the_key_and_the_random_half() {
-    let one = digits("3059301306072a8648ce3d0201", "00112233445566778899aabbccddeeff");
-    assert_eq!(one, digits("3059301306072a8648ce3d0201", "00112233445566778899aabbccddeeff"));
+fn both_macs_draw_the_same_four_digits_from_the_key_both_certificates_and_both_halves() {
+    let (spki, a, b) = ("3059301306072a8648ce3d0201", Some("aa"), Some("bb"));
+    let (reveal, nonce) = ("00112233445566778899aabbccddeeff", "ffeeddccbbaa99887766554433221100");
+    let one = digits(spki, a, b, reveal, nonce);
+    assert_eq!(one, digits(spki, a, b, reveal, nonce));
     assert_eq!(one.len(), 4);
-    assert_ne!(one, digits("3059301306072a8648ce3d0201", "ffeeddccbbaa99887766554433221100"));
-    // A claim held for an ask lives five minutes; one on a link waits for Confirm.
-    let macs = crate::macs::quiet_macs();
-    let claim = |digits: Option<String>| HeldClaim {
-        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None, wire: None, built_at: None, source: None },
+    assert_ne!(one, digits(spki, a, b, reveal, reveal), "the asked Mac's half");
+    assert_ne!(one, digits(spki, a, b, nonce, nonce), "the asking Mac's half");
+    assert_ne!(one, digits(spki, a, Some("cc"), reveal, nonce), "a door that is not the asked Mac's");
+}
+
+fn held(commit: &str) -> HeldClaim {
+    HeldClaim {
+        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None, wire: None, built_at: None, source: None, pin: None },
         public_key: vec![],
         back_code: "cd".into(),
         at: 100,
-        digits,
-    };
-    assert!(macs.hold_ask("n1".into(), claim(Some("1234".into()))));
+        digits: None,
+        commit: Some(hashed(commit)),
+        spki_hex: Some("3059".into()),
+    }
+}
+
+#[test]
+fn an_ask_is_listed_only_once_the_half_it_committed_to_is_revealed() {
+    let macs = crate::macs::quiet_macs();
+    assert!(macs.hold_ask("n1".into(), held("right")));
+    assert!(macs.claims(100).is_empty(), "not listed, and not confirmable, before the reveal");
+    assert!(!macs.reveal("ab", "wrong", 100, |_, _| "0000".into()), "a half it did not commit to");
+    assert!(macs.reveal("ab", "right", 100, |claim, nonce| format!("{}{nonce}", claim.spki_hex.clone().unwrap())));
+    assert_eq!(macs.claim_of("ab", 100).and_then(|claim| claim.digits), Some("3059n1".into()));
+    assert!(!macs.reveal("ab", "right", 100, |_, _| "1111".into()), "drawn once");
+    // A claim held for an ask lives five minutes; one on a link waits for Confirm.
     assert!(macs.claims(100 + crate::pairing::CODE_TTL).is_empty());
 }
 

@@ -34,6 +34,8 @@ struct Running {
     /// The link to each paired Mac. Aborting it stops every Mac's task.
     linking: JoinHandle<()>,
     tunnel: pocket::Tunnel,
+    /// The Wi-Fi door and Bonjour, for his other Macs on the same network. `None` where it could not open.
+    door: Option<pocket::Door>,
     gateway: Gateway,
 }
 
@@ -159,7 +161,12 @@ impl Phone {
             }
         });
         tunnel.start(port);
-        Ok(Running { stop, serving, following, linking, tunnel, gateway: kept })
+        // One line where it cannot open: the tunnel and the phone still work without it.
+        let door = pocket::Door::open(&self.machine, kept.clone()).map_err(|why| eprintln!("Wi-Fi door not opened: {why}")).ok();
+        if let Some(why) = door.as_ref().and_then(|door| door.bonjour_off.as_deref()) {
+            eprintln!("Bonjour not started: {why}");
+        }
+        Ok(Running { stop, serving, following, linking, tunnel, door, gateway: kept })
     }
 
     /// Stop listening and stop pushing. A phone's open `/api/live` is cut with the listener.
@@ -172,6 +179,9 @@ impl Phone {
             running.following.abort();
             running.linking.abort();
             running.tunnel.stop();
+            if let Some(door) = running.door {
+                door.stop();
+            }
         }
     }
 
@@ -215,6 +225,22 @@ impl PhoneSwitch for Phone {
         let running = self.running.lock().unwrap();
         match running.as_ref() {
             Some(running) => Box::pin(pocket::read_other_mac(&running.gateway, mac, path)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn follow_other_mac(&self, mac: &str, path: &str) -> fleet::phone::OtherMacFollowing {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let following = pocket::follow_other_mac(&running.gateway, mac, path);
+                Box::pin(async move {
+                    following.await.map(|followed| match followed {
+                        pocket::Followed::Open(lines) => fleet::phone::OtherMacFollowed::Open(lines),
+                        pocket::Followed::Refused { status, body } => fleet::phone::OtherMacFollowed::Refused { status, body },
+                    })
+                })
+            }
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
         }
     }

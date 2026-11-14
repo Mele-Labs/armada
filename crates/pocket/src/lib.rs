@@ -6,12 +6,16 @@
 //! the owner's tunnel to reach (`tailscale serve` unless `pocket-address` names
 //! another), calling Fleet over HTTP with no `Origin`.
 //!
+//! **Macs on the same network reach a second listener, the Wi-Fi door** (`door`), which serves only
+//! what Macs call each other on, over TLS with a certificate the other Mac pins when they pair.
+//!
 //! **Every route is on a list.** [`router`] names each one, and anything else
 //! is 404. The routes whose issue has not landed answer 501.
 
 mod admin;
 mod cloudflared;
 mod cors;
+mod door;
 mod fleet_client;
 mod fleet_events;
 mod forward;
@@ -23,9 +27,11 @@ mod mac_link;
 mod mac_pages;
 mod mac_pair_routes;
 mod mac_routes;
+mod mac_terminals;
 mod mac_setup;
 mod machine;
 mod macs;
+mod nearby;
 mod pair_routes;
 mod pairing;
 mod phone_sessions;
@@ -49,9 +55,11 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
 pub use fleet_client::{Answer, Unreachable};
+pub use door::{bind_door, Door, DoorCert, CERT_FILE};
 pub use mac_keys::{MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
 pub use mac_pages::{open_other_mac_page, PageOpen};
+pub use mac_terminals::{follow_other_mac, Followed};
 pub use mac_setup::{mac_setup, set_up_mac};
 pub use macs::{MacHello, Macs, Timing};
 pub use pairing::{
@@ -84,6 +92,8 @@ pub fn bind_now(port: u16) -> io::Result<TcpListener> {
 mod mac_ask_tests;
 #[cfg(test)]
 mod mac_tests;
+#[cfg(test)]
+mod nearby_tests;
 #[cfg(test)]
 mod pairing_tests;
 #[cfg(test)]

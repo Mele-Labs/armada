@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk draws a mock page as the fixture picture: no web view is opened.
+        crate::scene::mock_view::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
         crate::pairing::begin_mock(walk.scenario, cx);
@@ -500,6 +502,25 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
+        Verb::DragBy(role, on, across, down) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to drag")))?;
+            let from = drawn.bounds.center();
+            let to = point(from.x + px(across as f32), from.y + px(down as f32));
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
+                cx,
+            );
+            for part in 1..=8 {
+                let at = point(from.x + (to.x - from.x) * (part as f32 / 8.), from.y + (to.y - from.y) * (part as f32 / 8.));
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: Some(MouseButton::Left), modifiers: Modifiers::default() }), cx);
+            }
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
+            Ok(())
+        }
         Verb::RightPressOn(role, name) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let at = cx
@@ -570,6 +591,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     crate::pairing::scene(name, cx).map_err(Missed)?;
                     JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
                 }
+                // The link to Air for its Jobs' shells: carrying, refusing keys and opens, or its streams dropping.
+                "link-up" | "link-down" | "link-drops" => crate::terminal::shells::walk_link(&name["link-".len()..], cx).map_err(Missed),
                 other => crate::pairing::scene(other, cx).map_err(Missed),
             }
         }
@@ -679,6 +702,38 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.defer(cx, move |window, cx| {
                 window.draw(cx).clear(cx);
                 window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+            });
+            Ok(())
+        }
+        Verb::CarryAt(role, from, across, down, more_across, more_down) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, from))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{from}\" to carry")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(
+                over.origin.x + over.size.width * (across as f32 / 1000.) + gpui::px(more_across as f32),
+                over.origin.y + over.size.height * (down as f32 / 1000.) + gpui::px(more_down as f32),
+            );
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // The first move past the threshold starts the drag; the panes are drawn again so the next move is read against them.
+            let past = point(start.x + gpui::px(8.), start.y);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                window.defer(cx, move |window, cx| {
+                    window.draw(cx).clear(cx);
+                    window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                });
             });
             Ok(())
         }

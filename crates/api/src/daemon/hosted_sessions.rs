@@ -23,6 +23,17 @@ pub struct StoredFile {
     pub bytes: Vec<u8>,
 }
 
+/// One kept revision of a page, sealed, as `get_artifact_page` serves it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SealedPage {
+    /// The revision served: the one asked, else the newest.
+    pub revision: u32,
+    /// The whole page, its policy the first child of its `<head>`.
+    pub html: String,
+    /// The same policy, for the `Content-Security-Policy` header.
+    pub policy: String,
+}
+
 pub trait HostedSessions: Send + Sync + 'static {
     /// `start_session`. The row exists and holds no slot and no branch; no
     /// process starts until the first message.
@@ -189,6 +200,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::operator_page::OperatorAnswerPress,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
 
+    /// `operator_undo_ruling`: take back a ruling the Operator made by following something he said.
+    /// [`Refusal::NotFound`] where no precedent ruling has the id, [`Refusal::Unacceptable`] where it is taken
+    /// back already or its Job has ended.
+    fn operator_undo_ruling(
+        self: Arc<Self>,
+        undo: ipc::operator_page::OperatorUndoRuling,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
     /// `operator_turn_order`: Your turn as he dragged it.
     fn operator_turn_order(
         self: Arc<Self>,
@@ -248,6 +267,22 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `answer_items`: his verdict on several items that ask for his approval, each settled as its own answer
+    /// settles it. `refused` names the items the route refused itself, which are not settled. Never refused whole.
+    fn answer_items(
+        self: Arc<Self>,
+        answer: ipc::AnswerItems,
+        refused: Vec<Option<ipc::ItemSettled>>,
+    ) -> impl Future<Output = ipc::ItemsSettled> + Send;
+
+    /// `dismiss_items`: several items that ask for his approval off his list with no verdict, each Job told in one
+    /// message. `refused` as for `answer_items`. Never refused whole.
+    fn dismiss_items(
+        self: Arc<Self>,
+        dismiss: ipc::DismissItems,
+        refused: Vec<Option<ipc::ItemSettled>>,
+    ) -> impl Future<Output = ipc::ItemsSettled> + Send;
 
     /// `convert_draft_to_document`: the person turns an open draft into a Document in the job's worktree.
     /// [`Refusal::NotFound`] for a draft the job has no row for, [`Refusal::IllegalMove`] for one already
@@ -433,6 +468,40 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         edit: ipc::SaveArtifactEdit,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `press_page_action`: his press of an action a page's kept revision declares, run as a message, a start or an
+    /// answer, and kept. Answers with the press. [`Refusal::Unacceptable`] for an action the revision does not hold,
+    /// an act off the list, an ask no longer open, or a page archived or not held.
+    fn press_page_action(
+        self: Arc<Self>,
+        press: ipc::PressPageAction,
+    ) -> impl Future<Output = Result<ipc::PagePress, Refusal>> + Send;
+
+    /// `cast_page_vote`: his vote on a vote a page's kept revision declares, sent to the Job with every note and
+    /// kept. Answers with the cast. [`Refusal::Unacceptable`] for a vote the revision does not hold, a result of
+    /// another form, a take or part the vote does not hold, or a page archived or not held.
+    fn cast_page_vote(
+        self: Arc<Self>,
+        cast: ipc::CastPageVote,
+    ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
+
+    /// `mark_artifact_seen`: the newest revision of an artifact he opened, kept where it is newer than what is kept.
+    /// Answers with the newest kept; an older revision is answered, not refused. Nothing is sent to the Job.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold, or a revision never kept.
+    fn mark_artifact_seen(
+        &self,
+        mark: ipc::MarkArtifactSeen,
+    ) -> impl Future<Output = Result<ipc::ArtifactSeen, Refusal>> + Send;
+
+    /// `get_artifact_page`: one kept revision of a page, the newest where `revision` is `None`, sealed: no network,
+    /// its own scripts inert, and the kit's script drawing its actions and votes. An archived page still serves.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.

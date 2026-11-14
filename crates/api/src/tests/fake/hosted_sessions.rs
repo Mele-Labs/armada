@@ -21,6 +21,13 @@ fn nothing_hosted() -> Refusal {
     ))
 }
 
+fn not_waiting(items: impl Iterator<Item = (SessionId, String)>) -> ipc::ItemsSettled {
+    let refused = || ipc::ItemSettled::Refused { code: "fleet.items_not_waiting".into(), message: "the fake hosts no sessions".into() };
+    ipc::ItemsSettled {
+        outcomes: items.map(|(session_id, item)| ipc::ItemOutcome { session_id, item, outcome: refused() }).collect(),
+    }
+}
+
 impl HostedSessions for FakeDaemon {
     async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
         self.started.lock().expect("not poisoned").push(start);
@@ -114,6 +121,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn operator_undo_ruling(self: Arc<Self>, _undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn operator_turn_order(self: Arc<Self>, _order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         Err(nothing_hosted())
     }
@@ -167,6 +178,15 @@ impl HostedSessions for FakeDaemon {
         _dismiss: ipc::DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
+    }
+
+    /// Holds nothing waiting: every item reads as no longer waiting. Fleet's tests read the settling.
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(answer.items.into_iter().map(|one| (one.session_id, one.item)))
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(dismiss.items.into_iter().map(|one| (one.session_id, one.item)))
     }
 
     async fn convert_draft_to_document(
@@ -294,6 +314,22 @@ impl HostedSessions for FakeDaemon {
 
     async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", edit.artifact), run_id())))
+    }
+
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", press.artifact), run_id())))
+    }
+
+    async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", cast.artifact), run_id())))
+    }
+
+    async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", mark.artifact), run_id())))
+    }
+
+    async fn get_artifact_page(&self, _id: SessionId, artifact: String, _revision: Option<u32>) -> Result<crate::SealedPage, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

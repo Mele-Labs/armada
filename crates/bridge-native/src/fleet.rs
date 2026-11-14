@@ -99,6 +99,10 @@ pub struct Held {
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
     /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
     pub build: Option<FleetBuildReport>,
+    /// The disk under the first served repository, as `GET /health` last said it: read on connect and each time the
+    /// Fleet popover opens. **Cleared when the connection drops**, since free space held across one reads as live.
+    /// `None` until read, and where Fleet reports none.
+    pub disk: Option<ipc::DiskHealth>,
     /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
     /// drop** as the build is. `None` until Fleet has answered.
     pub offers: Option<ipc::PreviewOffers>,
@@ -180,6 +184,7 @@ impl Held {
             first_run_answered: None,
             mods: None,
             build: None,
+            disk: None,
             offers: None,
             queued: None,
             calls: None,
@@ -381,6 +386,7 @@ impl Held {
                         lines.push(describe(&state));
                         if !matches!(state, LinkState::Connected) {
                             self.clashes = None;
+                            self.disk = None;
                         }
                         if matches!(self.state, LinkState::Connected) {
                             self.dropped = Some(std::time::Instant::now());
@@ -410,6 +416,8 @@ impl Held {
                     crate::settings::layout::hold(&preferences.layout_choices);
                 }
                 Signal::PreferencesFailed(why) => lines.push(Note::warn("preferences could not be read").field("why", why)),
+                Signal::Disk(disk) => self.disk = disk,
+                Signal::DiskFailed(why) => lines.push(Note::warn("the disk could not be read").field("why", why)),
                 Signal::Mods(list) => {
                     lines.push(Note::info("mods read on connect").field("mods", list.mods.len()));
                     self.listed(list.mods);
@@ -863,6 +871,31 @@ impl FleetConnection {
                     });
                 }
                 cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Read the disk again (`GET /health`), as the Fleet popover opens, so the figure it shows is fresh. A read
+    /// that failed leaves what is held, and says so in the log.
+    pub fn read_disk(&mut self, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        cx.spawn(async move |this, cx| {
+            let read = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(crate::link::read_disk(port))
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| match read {
+                Ok(disk) => {
+                    if this.held.disk != disk {
+                        this.held.disk = disk;
+                        cx.notify();
+                    }
+                }
+                Err(why) => Note::warn("the disk could not be read").field("why", why).emit(),
             });
         })
         .detach();

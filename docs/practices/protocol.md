@@ -224,6 +224,11 @@ WebSocket event stream, read this first.
 | [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
 | [His Edit of an artifact: `save_artifact_edit`](protocol/his-edit-of-an-artifact.md) |
 | [A plan carries its sketches: `sketches` on `record_plan` and `SessionPlan`, and `in_plan` on `JobArtifact`](protocol/a-plan-carries-its-sketches.md) |
+| [Approve all and Dismiss all: `answer_items` and `dismiss_items`](protocol/approve-all-and-dismiss-all.md) |
+| [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
+| [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
+| [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -731,7 +736,7 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, session_id? }`; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
+| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, notice_words?, session_id? }`, `notice_words` since 13 Nov 2026: the opening words of the disputed notice, which ties the dispute to the newest Fleet message holding them, else the latest; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
 | `SessionRow::Disputed` (`kind: "disputed"`) | Bridge reads | `{ id, at, notice, why, spotted, review? }`: `notice` is the Fleet message row's id, `spotted` is `called` or `read`, `review` the review job's session id, absent where none was started |
 
 **The review job's title is `Disputed: <a few words>`**, named by one `models.dispute` call, or `Disputed notice` where that call names nothing usable.

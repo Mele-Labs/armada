@@ -67,6 +67,31 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-pages`: each Settings page still drawn as rows, one step a page, as it is today.
+pub const PAGES: &str = "native-settings-pages";
+
+pub static PAGES_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Pull requests: how work lands, per project", "button", "Pull requests", "button", "Pull requests"),
+    press_on("Starting Jobs: Jobs that Jobs start, per project", "button", "Starting Jobs", "button", "Starting Jobs"),
+    press_on("Look: the look, per project", "button", "Look", "button", "Look"),
+    press_on("Prompts: the Drone's prompts", "button", "Prompts", "button", "Prompts"),
+    press_on("Harness: the agent program", "button", "Harness", "button", "Harness"),
+    press_on("Timeouts: how long Fleet waits", "button", "Timeouts", "button", "Timeouts"),
+    press_on("Retention: what Fleet keeps, and for how long", "button", "Retention", "button", "Retention"),
+    press_on("Plan: stepping down on the weekly plan", "button", "Plan", "button", "Plan"),
+    press_on("Machine: this Mac's name", "button", "Machine", "button", "Machine"),
+    press_on("Account: the sign-in app", "button", "Account", "button", "Account"),
+    press_on("Store: the central store's address", "button", "Store", "button", "Store"),
+    press_on("Features: switches and folders", "button", "Features", "button", "Features"),
+    press_on("Spacing: density", "button", "Spacing", "button", "Spacing"),
+    press_on("Time: how stamps are written", "button", "Time", "button", "Time"),
+    press_on("Editor: where code opens", "button", "Editor", "button", "Editor"),
+    press_on("Terminal: which terminal opens", "button", "Terminal", "button", "Terminal"),
+    press_on("Links: where pull requests open", "button", "Links", "button", "Links"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-settings-limits`: Settings › Limits as tiles, group by group, then a count stepped and put back.
 pub const LIMITS: &str = "native-settings-limits";
 

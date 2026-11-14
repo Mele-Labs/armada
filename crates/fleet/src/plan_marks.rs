@@ -154,6 +154,18 @@ pub(crate) fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Res
         .collect()
 }
 
+/// His notes on the plan as a whole, worded as marks are: each numbered, in order.
+pub(crate) fn plan_notes(notes: &[String]) -> Vec<Said> {
+    notes
+        .iter()
+        .enumerate()
+        .map(|(at, note)| {
+            let text = format!("{}. {}", at + 1, note.trim());
+            Said { agent: format!("Note on the plan: {text}"), line: line("Note", String::from("The plan"), None, Some(text)) }
+        })
+        .collect()
+}
+
 /// The one message the agent gets for the marks. `approve` says the plan is approved with them.
 pub(crate) fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
     let version = plan.version;

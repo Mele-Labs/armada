@@ -1,0 +1,10 @@
+[operations.share_job_terminal_output]
+kind = "query"
+transport = "WebSocket"
+agent_access = "No"
+description = "What one of a shared Job's open terminals printed and prints next, for another Mac following it through the link"
+notes = """
+`GET /other_mac/terminal/observe?session_id=&run_id=`, answered as `observe_session_run` answers for `run_id`: `SessionRunMessage`s, `opened`, `output` and `missed`, then `exited` once. Refused before the upgrade as `share_job_terminal` refuses: 404 `fleet.no_such_session` for a Job not shared and for a run that is not one of its open terminals.
+
+The Gateway relays it to the other Mac as `/api/mac/terminal/observe`, one message a line, with an empty line whenever it is quiet for a beat, as `/api/mac/live`.
+"""

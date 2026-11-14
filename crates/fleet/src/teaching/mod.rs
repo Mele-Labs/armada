@@ -15,7 +15,7 @@ pub(crate) mod link;
 mod ruling;
 mod saving;
 mod serving;
-mod tokens;
+pub(crate) mod tokens;
 
 pub(crate) use finding::Searched;
 pub(crate) use forgetting::forget_effects;

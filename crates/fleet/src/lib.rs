@@ -170,6 +170,7 @@ pub mod models_read;
 pub mod phone;
 /// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
 mod other_macs;
+mod mac_terminals;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;
 /// What a Judge is shown, and how its answer is read and pinned. Pure.

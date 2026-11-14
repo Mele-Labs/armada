@@ -127,7 +127,8 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 
 | Control | How |
 |---|---|
-| Loopback bind | `pocket::bind` and `pocket::bind_now` take a port and no host, so no setting opens the Gateway to a network. The tunnel the owner points at it is the only way in |
+| Loopback bind | `pocket::bind` and `pocket::bind_now` take a port and no host, so no setting opens the Gateway to a network. The tunnel the owner points at it is the only way in for the phone |
+| Wi-Fi door | A second listener on every network the Mac is on, for his other Macs nearby: TLS, and only `/pair/mac/*` and `/api/mac/*`, so `/admin/*`, the phone's routes and the app are 404 there. See [Macs nearby](#macs-nearby) |
 | Allowlist | `router` in `crates/pocket/src/routes.rs` names every route. Anything else is 404, and so is a listed path asked with an unlisted method |
 | `/admin/*` | For Bridge's main process. Refused (403) when the request carries `Origin`, which means a web page sent it, or a header `tailscale serve`, Funnel, ngrok or `cloudflared` adds, or a `Host` other than loopback, which means it came through a tunnel, Armada's own included |
 | Signed `/api/*` | The phone sends `X-Pocket-Device`, `X-Pocket-Time` and `X-Pocket-Signature`: ECDSA P-256 over the method, path and query, time, and the body's SHA-256. The private key is made on the phone, one per Mac, and never leaves it |
@@ -286,17 +287,20 @@ What crosses has passed the share filter of the Fleet that holds the Job: `/othe
 | 4. Home confirms | `POST /admin/macs/pair/confirm { mac }` | Home makes its own key, Keychain again, and posts `{ back_code, mac, spki_hex }` to work's `POST /pair/mac/back`. Work takes it only with the back code it minted for that Mac, and links. Home links on a 2xx. If work does not answer, home keeps the claim and answers 502, `Work did not answer. Press Confirm again.` |
 | 5. Either forgets | `POST /admin/macs/forget { mac }` | A signed `POST /api/mac/forget` to the other, as far as it answers, then the row and the key go here and Fleet is told with `POST /other_macs/forget`. The other side does the same on its own. Forget on a claim waiting here drops the claim |
 
-**Pairing without a link.** Both Macs are on his Cloudflare account, so Settings lists the other and he presses Pair.
+**Pairing without a link.** Both Macs are on his Cloudflare account or on the same network, so Settings lists the other and he presses Pair.
 
 | Step | Route | What happens |
 |---|---|---|
 | 0. Set up | Fleet's `POST /phone/setup`, no body | One press for the whole setup: the Gateway on, as `set_phone` turns it on, then the tunnel's press in the background. Answers `MacSetup { step, working, login?, why?, address? }`, and `GET /phone/setup` reads it with the Gateway off. `step` is `gateway`, `sign_in`, `tunnel` or `done`. `working` has nothing to press, `login` is the page to sign in on, and `why` is the setup to press again. A tunnel that is made but not connected is `working` for 30 seconds before it says why |
-| 1. Work lists the account | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build? }`: `online` is the tunnel connected, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three and nothing else. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
-| 2. Work asks | `POST /admin/macs/pair/ask { tunnel }` | Work makes its key and back code as for a claim and posts `{ mac, spki_hex, back_code }` to home's `POST /pair/mac/ask`, unsigned. Home answers 202 with itself and a random `nonce`, and holds the ask as a claim. Each side draws the same four digits from work's key and the nonce. Work keeps home as `confirm_waiting` with `code`, and refuses a Mac that answers with an id that is not its tunnel's |
+| 1. Work lists his other Macs | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds, then each Mac Bonjour sees nearby. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build?, nearby }`: `online` is the tunnel connected or the Mac seen nearby, `nearby` is Bonjour seeing it now, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three and nothing else. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
+| 2. Work asks | `POST /admin/macs/pair/ask { tunnel }` | At home's Wi-Fi door while Bonjour sees it, else at its tunnel. Work makes its key and back code as for a claim, and a random half it keeps, and posts `{ mac, spki_hex, back_code, commit }` to home's `POST /pair/mac/ask`, unsigned, `commit` the SHA-256 of its half. Home answers 202 with itself and its own random half, `nonce`, and holds the ask unlisted. Work refuses a Mac that answers with an id that is not its tunnel name's, or, at a door, that names another certificate than the one it showed |
+| 2b. Work reveals | `POST /pair/mac/reveal { mac, reveal }` | Home takes the half only where it hashes to `commit`, and lists the ask. Each side draws the same four digits from work's key, both doors' certificates and both halves. Work keeps home as `confirm_waiting` with `code` |
 | 3. Home lists the ask | `GET /admin/macs` | Work, `claim_waiting`, with the same `code` and `why` `Work wants to pair. Confirm if it shows 4821.` |
 | 4. Home confirms or declines | `POST /admin/macs/pair/confirm { mac }` or `POST /admin/macs/forget { mac }` | Confirm is step 4 above. Decline drops the ask and posts `{ mac, back_code }` to work's `POST /pair/mac/declined`, which forgets home's row and key on that code alone |
 
-**Home's address is public, so an ask is held three ways.** `/pair/mac/ask` and `/pair/mac/declined` count against the same minute's share as `/pair`.
+**Work commits to its half before it sees home's**, so a Mac between them cannot try halves until the digits match: it gets one guess in ten thousand.
+
+**Home's address is public, so an ask is held three ways.** `/pair/mac/ask`, `/pair/mac/reveal` and `/pair/mac/declined` count against the same minute's share as `/pair`.
 At most three asks wait at once, and a fourth answers 429; a Mac asking again replaces its own.
 An ask nobody confirms is gone from both sides after five minutes, as a link is.
 
@@ -327,6 +331,8 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET`, `POST` and any method of `/api/mac/page/<job>/<port>/<path>` | The page itself: Fleet's `/other_mac/page` asked again, then the request sent on to `127.0.0.1:<port>/<path>` with its query, and the page's status, type and body handed back whole. Uncompressed. A Job not shared is Fleet's 404, worded as for a Job that does not exist |
 | `GET /api/mac/live` | Fleet's `/other_mac/events` as NDJSON: each `StreamMessage` on a line as Fleet wrote it, and an empty line after 15 seconds of quiet. It ends when the Gateway stops |
 | `POST /api/mac/update` | Fleet's `POST /macs/update`, as the Mac the signature names: this Mac restarts onto the build it sends. Taken while the link is frozen |
+| `POST /api/mac/terminal` | Fleet's `POST /other_mac/terminal`, as the Mac the signature names: open, list, type into, resize or stop a terminal of a shared Job. Fleet's status and body come back as they were said |
+| `GET /api/mac/terminal/observe?session_id=&run_id=` | Fleet's `/other_mac/terminal/observe` as NDJSON, one `SessionRunMessage` a line and an empty line on a quiet beat, as `live`. Fleet's refusal comes back before anything streams |
 | `POST /api/mac/forget` | Forgets the caller on this side |
 
 **The link.** For each linked Mac the Gateway holds one task.
@@ -340,10 +346,15 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
 Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` path, read as `/api/mac/thread?…`; any other is refused.
-Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`.
+Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act`, `/other_mac/update` and `/other_mac/terminal`.
 Its `open_other_mac_page` asks `/api/mac/page` and, where that answers 204, opens one loopback port on this Mac for that Job and page port, which signs every request through to `/api/mac/page/<job>/<port>/<path>`.
 A Mac with `asleep_since` is answered asleep without a call, and a frozen link with its why; a page port already open answers 503 with that why while the link is frozen, as the other Mac's `/api/mac/page` routes do.
 *Pages across Macs* in `docs/practices/protocol/his-other-macs-fleets-half.md` says the rest.
+Its `follow_other_mac` follows only `/other_mac/terminal/observe?…`, as `/api/mac/terminal/observe?…`, and refuses it on a frozen link.
+
+**A terminal of a Job on the other Mac** opens here with the calls Bridge makes at home, and its shell runs on the Mac that holds the Job, in that Job's slot.
+Typing goes at once, one keystroke after another, and is never queued: a keystroke the link cannot carry is refused, and is not typed when the Mac wakes.
+The stream ends when the link drops, the Mac sleeps or 45 seconds pass without a line, and the terminal here shows it ended.
 
 **Builds that differ.** Two Macs whose builds speak another wire do not talk half matched: the link freezes until one updates.
 The wire is the protocol ID, a hash of what the builds send each other, so two builds on different commits that speak the same wire stay linked.
@@ -391,6 +402,27 @@ The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other
 | A shared Job on the other Mac needs him | It sounds, posts its notification, joins Needs you and counts on the Dock, with its Mac named, as a Job of this Mac does |
 | The Macs first link, or a Mac wakes with nothing changed | Nothing rings. What already waited stands in Needs you |
 
+## Macs nearby
+
+**Two of his Macs on the same network find each other with no Cloudflare sign-in.** Only the Gateway must be on, the first step of Set up.
+Each Gateway opens its Wi-Fi door and says so over Bonjour, and Settings, Macs lists the other within a few seconds with Pair.
+Pair keeps Confirm and the four digits, because nothing has proved the two Macs are his.
+
+| Piece | What it does |
+|---|---|
+| The Wi-Fi door | `pocket::Door`: a listener on every IPv4 network the Mac is on, at a port the system picks. TLS with the certificate in `pocket-door.key`, self-signed, since no CA signs for an address on a home network. It serves the Gateway's own router behind a filter that lets through `/pair/mac/*` and `/api/mac/*` and nothing else |
+| Bonjour | `_armada._tcp`, named `armada-<id's first 12>`, at the door's port, with `id`, `name`, `colour` and `build` in its TXT record. The Gateway browses for the same type and keeps each Mac it resolves, with a routable IPv4 address where it has one. What Bonjour says only says where to knock |
+| The found list | A Mac seen nearby is marked `nearby` on its row, which is the row of its tunnel name, so a Mac found on the account and nearby is one row. One found only nearby has no `address` |
+| Pairing | As without a link, at the door. The asking Mac's client takes any certificate and notes the one it met, and the four digits cover both doors' certificates as the asking Mac met them. A Mac between them shows its own, so the two sides draw different digits. Each paired row keeps the other's certificate as `pin` |
+| Every later call | `mac_client::signed`: at the door while Bonjour sees the Mac and its `pin` is kept, with a client that refuses any other certificate, else at its tunnel. A door that cannot be connected to falls back to the tunnel, since a request that never connected was never counted as a seen signature |
+| Apart | A Mac paired nearby keeps the address its hello names, its tunnel, where it has one, and is reached there while Bonjour does not see it. A Mac with no tunnel is asleep until they share a network again |
+
+**macOS asks once for Local Network access.** It asks for the process that runs Fleet, `armada`, when the Gateway first starts Bonjour: at Fleet's start on a Mac with the Gateway on, or at Set up's first press.
+A Mac where it is denied finds no Mac nearby, and the Cloudflare list still works.
+A network that drops multicast, as some work networks and VPNs do, hides a Mac the same way.
+
+**A phone cannot use this.** A web app cannot browse the network.
+
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.
@@ -437,7 +469,8 @@ A subscription without one is pushed to under the Mac's own key.
 | Devices, push subscriptions | The store, tables `pocket_devices` and `pocket_push_subscriptions`. A subscription made with another Mac's VAPID key keeps it in `vapid_private`, read into a `Secret` so it cannot be printed |
 | Pairing codes, claims, seen signatures | Memory. A Gateway that stops drops them, and a half-finished pairing starts again |
 | This Mac's id, name and colour | The store, table `pocket_this_mac`, one row |
-| Other Macs | The store, table `pocket_macs`: id, name, colour, address, the other's public key, build, when paired, state, the back code while waiting, `last_heard_at`, `asleep_since` and `why` |
+| Other Macs | The store, table `pocket_macs`: id, name, colour, address, the other's public key, build, when paired, state, the back code while waiting, `last_heard_at`, `asleep_since`, `why` and `pin`, its Wi-Fi door's certificate |
+| The Wi-Fi door's certificate | `pocket-door.key` in Armada's machine directory: the certificate and its private key, made on first start, mode 600 |
 | This Mac's key toward each other Mac | The Keychain, a generic password under `armada-mac-key` with the other Mac's id as its account, written through `security -i` so it is never in a process's arguments. A test keeps them in memory |
 | A Mac's pairing codes and claims | Memory, as a phone's are |
 | `cloudflared`, its sign-in and the tunnel's credentials | `cloudflared/` in the machine directory: `bin/`, `home/.cloudflared/cert.pem`, `tunnel.json`, and `tunnel`, the tunnel's name and host |
