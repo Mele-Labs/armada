@@ -160,10 +160,11 @@ where
 
     /// Each report kept, issue new and note left since the last tick, handed
     /// to the Operator once. While it is off, what waited is let go.
-    pub async fn sources_handed(&self) {
+    pub async fn sources_handed(self: &Arc<Self>) {
         let seat = self.operator_seat();
         let reports = std::mem::take(&mut *held(&seat.sources.reports));
         let fresh = std::mem::take(&mut *held(&seat.sources.fresh));
+        self.job_asks_handed().await;
         if !self.operator_on() {
             return;
         }
@@ -182,6 +183,37 @@ where
         }
         for arrival in arrivals {
             self.hand_once(arrival).await;
+        }
+    }
+
+    /// What Jobs asked the Operator that nothing has raised yet. **While the Operator is off, or none is seated, they
+    /// stand on the sending Job's Needs you at once**; while it is on each is handed to it, once, and a call that
+    /// ruled nothing raises it too, so no ask is left where nobody sees it.
+    async fn job_asks_handed(self: &Arc<Self>) {
+        let asks = self.store().lock().await.unraised_job_asks().unwrap_or_default();
+        for ask in asks {
+            let arrival = super::sources::ask_arrival(&ask);
+            let seat = self.operator_seat();
+            let operator = seat.operator().filter(|_| self.operator_on());
+            let ruled = self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true);
+            let Some(operator) = operator.filter(|_| !ruled) else {
+                // Off, or ruled already and still unraised: where it was ruled to wait, it waits for him.
+                self.job_ask_raised(&ask.id).await;
+                continue;
+            };
+            let out = Arc::clone(&seat.sources.out);
+            if !held(&out).insert(arrival.id.clone()) {
+                continue;
+            }
+            let fleet = Arc::clone(self);
+            tokio::spawn(async move {
+                let id = arrival.id.clone();
+                let ruled = operator.ruled(arrival, NEEDS_YOU_WAIT).await;
+                held(&out).remove(&id);
+                if matches!(ruled, super::Ruled::PassedOn(_)) {
+                    fleet.job_ask_raised(super::sources::ask_id_of(&id)).await;
+                }
+            });
         }
     }
 
@@ -359,6 +391,10 @@ where
                     None => return undone("the group names neither duplicate nor part"),
                 }
             }
+            (Arrived::Conflict | Arrived::Held, Way::Raise, _, _) => {
+                self.job_ask_raised(super::sources::ask_id_of(&arrival.id)).await;
+            }
+            (Arrived::Conflict | Arrived::Held, Way::Tell, _, _) => Box::pin(self.operator_told_ask(arrival, ruling)).await?,
             (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
             (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),
             (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await?,
@@ -402,6 +438,34 @@ where
         let title = self.title_of(into).await;
         self.note_given_by_operator(manifest, note, into, &title, arrival.is_sent_note()).await;
         Ok(())
+    }
+
+    /// A conflict or a landing question the Operator answered itself: the ask is settled and the Jobs it names told, in
+    /// its words. **Refused where the answer names a Job that is neither of the two, or a verdict that is neither land nor hold**,
+    /// so the item goes on to the person.
+    async fn operator_told_ask(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
+        use crate::session_host::job_asks::{Said, Voice};
+        let id = super::sources::ask_id_of(&arrival.id);
+        let ask = self.store().lock().await.open_job_ask(id).ok().flatten().ok_or("it was answered already")?;
+        let said = match arrival.arrived {
+            Arrived::Held => match ruling.verdict.as_deref() {
+                Some("land") => Said::Land,
+                Some("hold") => Said::Hold,
+                _ => return Err("it named neither land nor hold".to_string()),
+            },
+            _ => match ruling.other.as_deref() {
+                None => Said::HoldBoth,
+                Some(job) => {
+                    let named = |session: &str| session == job || crate::session_host::address_of(session) == job;
+                    match (named(&ask.session_id), ask.other_session_id.as_deref().is_some_and(named)) {
+                        (true, _) => Said::ChangeSender,
+                        (_, true) => Said::ChangeOther,
+                        _ => return Err("the Job it named is neither of the two".to_string()),
+                    }
+                }
+            },
+        };
+        self.job_ask_settled(&ask, said, Voice::Operator(ruling.because.clone())).await
     }
 
     /// A report the Operator ruled a Job of its own: started on it, briefed with it, and holding it.

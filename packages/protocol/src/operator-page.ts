@@ -64,6 +64,43 @@ export type OperatorTurnItem = {
   group?: string;
   /** What the Operator's pick follows: his own earlier answer in the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026. */
   follows?: OperatorFollows;
+  /** On a `job_conflict` item: the two Jobs, what each does and what breaks, which the card draws. Since 14 Nov 2026. */
+  conflict?: OperatorConflict;
+  /** On a `job_held` item: the pull request or branch asked about, and the Job that asked. Since 14 Nov 2026. */
+  held?: OperatorHeld;
+};
+
+/** A Job on a card of Your turn, as a chip: its title and its address. */
+export type OperatorAskJob = {
+  session_id: string;
+  /** `s-` and eight characters. */
+  address: string;
+  /** Empty where the Job had none. */
+  title: string;
+};
+
+/** A conflict as the card draws it: it leads with `breaks`, shows the two Jobs as chips and folds `files` and `wire` behind a press. */
+export type OperatorConflict = {
+  /** The Job that raised it, whose side `mine` is. */
+  raised_by: OperatorAskJob;
+  /** The other Job, whose side `theirs` is. */
+  with: OperatorAskJob;
+  files: string[];
+  wire: string[];
+  mine: string;
+  theirs: string;
+  breaks: string;
+};
+
+/** A landing question as the card draws it. Exactly one of `pull` and `branch` is set. */
+export type OperatorHeld = {
+  pull?: number;
+  branch?: string;
+  /** The pull request's title, where one was read. */
+  title?: string;
+  /** Its checks, where the forge said. */
+  checks?: "passed" | "pending" | "failed";
+  asked_by: OperatorAskJob;
 };
 
 /** What an answer follows: `answer`, his answer to the same question in the same project, or `setting`, one he saved. Since 13 Nov 2026. */

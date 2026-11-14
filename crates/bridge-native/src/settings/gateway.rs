@@ -1,6 +1,7 @@
 //! The Phone Gateway's own routes on its loopback port, for Settings › Macs: `GET /admin/setup`,
 //! `POST /admin/setup/cloudflare`, `GET /admin/macs`, `POST /admin/macs/pair/{start,claim,confirm}`,
-//! `POST /admin/macs/forget`, `POST /admin/pair/{start,confirm,decline}`, `GET /admin/pair/pending`, `GET /admin/devices`
+//! `POST /admin/macs/forget`, `GET /admin/macs/found`, `POST /admin/macs/pair/ask`,
+//! `POST /admin/pair/{start,confirm,decline}`, `GET /admin/pair/pending`, `GET /admin/devices`
 //! and `DELETE /admin/devices/{id}` (`crates/pocket/src/routes.rs`).
 //!
 //! **Not Fleet's port, and not Fleet's errors.** The Gateway answers a refusal as a plain sentence, and refuses
@@ -16,7 +17,7 @@ use hyper::body::Bytes;
 use hyper::header::{CONTENT_TYPE, HOST};
 use hyper::Request;
 use hyper_util::rt::TokioIo;
-use ipc::{BuildSource, ClaimMacLink, CloudflareState, FleetBuildChanging, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState, UpdateMac};
+use ipc::{AskMacPair, BuildSource, ClaimMacLink, CloudflareState, FleetBuildChanging, FoundMac, FoundMacs, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState, UpdateMac};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tokio::net::TcpStream;
@@ -96,6 +97,11 @@ pub fn macs(cx: &App) -> Task<Result<Vec<Mac>, String>> {
     read("/admin/macs", "Macs", cx)
 }
 
+/// `GET /admin/macs/found`: his other Macs on the Cloudflare account, and those Bonjour sees on this network.
+pub fn found(cx: &App) -> Task<Result<FoundMacs, String>> {
+    read("/admin/macs/found", "FoundMacs", cx)
+}
+
 pub fn devices(cx: &App) -> Task<Result<Vec<PairedPhone>, String>> {
     read("/admin/devices", "PairedPhones", cx)
 }
@@ -145,6 +151,12 @@ pub fn pair_claim(link: String, cx: &App) -> Task<Result<Mac, String>> {
 /// `POST /admin/macs/pair/confirm`: the Mac whose claim waits here, linked.
 pub fn pair_confirm(mac: String, cx: &App) -> Task<Result<Mac, String>> {
     posted("/admin/macs/pair/confirm", named(mac), "Mac", cx)
+}
+
+/// `POST /admin/macs/pair/ask`: ask the Mac with this tunnel to pair, with no link. Answers that Mac, waiting on its
+/// Confirm, with the four digits both show in its `why`.
+pub fn pair_ask(tunnel: String, cx: &App) -> Task<Result<Mac, String>> {
+    posted("/admin/macs/pair/ask", serde_json::to_string(&AskMacPair { tunnel }).ok(), "Mac", cx)
 }
 
 /// `POST /admin/macs/forget`: the pairing forgotten here and on the other Mac.
@@ -252,6 +264,11 @@ pub struct MockGateway {
     pub refuse_update: Option<String>,
     /// Updates under way: the Mac, whether this Mac is the one that moves, and the reads left before the row is linked.
     updating: Vec<(String, bool, u8)>,
+    /// What `GET /admin/macs/found` lists, and the sentence it gives when the account could not be read.
+    pub found: Vec<FoundMac>,
+    pub found_why: Option<String>,
+    /// Every tunnel `POST /admin/macs/pair/ask` took, in order.
+    pub asks: Vec<String>,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
@@ -262,6 +279,8 @@ const MOCK_FUNNEL: &str = "https://studio.example.ts.net";
 pub const MOCK_OTHER_LINK: &str = "https://office.example.ts.net/pair/mac?code=7c41e0b2";
 /// The code in the link the mock's Start makes.
 const MOCK_CODE: &str = "5e0c1f7a";
+/// The four digits both Macs show while a pairing the mock asked waits for Confirm.
+const MOCK_DIGITS: &str = "4821";
 /// The code the mock's phone pairing makes.
 const MOCK_PHONE_CODE: &str = "a41f09c2";
 /// The phone that enters it, from the second poll.
@@ -300,7 +319,33 @@ impl MockGateway {
             updates: Vec::new(),
             refuse_update: None,
             updating: Vec::new(),
+            found: Vec::new(),
+            found_why: None,
+            asks: Vec::new(),
         }
+    }
+
+    /// Macs found beside the paired ones: Work MacBook is paired and on this network; Office iMac is on this network;
+    /// MacBook Pro is on the account only and does not answer; Old iMac is asleep. Pair on Office iMac waits on its Confirm.
+    pub fn nearby() -> MockGateway {
+        let found = |tunnel: &str, name: &str, colour: Option<MacColour>, online: bool, paired: bool, nearby: bool| FoundMac {
+            tunnel: tunnel.into(),
+            name: name.into(),
+            colour,
+            address: (!nearby).then(|| format!("{}.example.com", tunnel.trim_start_matches("armada-"))),
+            online,
+            paired,
+            build: Some("2930ac0".into()),
+            nearby,
+        };
+        let mut gateway = MockGateway::new();
+        gateway.found = vec![
+            found("armada-mac-work", "Work MacBook", Some(MacColour::Orange), true, true, true),
+            found("armada-mac-office", "Office iMac", Some(MacColour::Blue), true, false, true),
+            found("armada-mac-book-pro", "MacBook Pro", Some(MacColour::Teal), true, false, false),
+            found("armada-mac-old", "Old iMac", None, false, false, false),
+        ];
+        gateway
     }
 
     /// Two Macs on other builds: Mac mini on an older one, Mac Pro on a newer one, each with the Gateway's own why.
@@ -487,6 +532,44 @@ impl MockGateway {
         }
         self.finish_updates();
         Ok(self.macs.clone())
+    }
+
+    pub fn read_found(&mut self) -> Result<FoundMacs, String> {
+        self.up()?;
+        Ok(FoundMacs { macs: self.found.clone(), why: self.found_why.clone() })
+    }
+
+    /// `POST /admin/macs/pair/ask`: a Mac on this network waits on its Confirm, with the four digits both show. One only
+    /// on the account does not answer, and one asleep has no address to ask. The Gateway's own sentences.
+    pub fn pair_ask(&mut self, tunnel: &str) -> Result<Mac, String> {
+        self.up()?;
+        self.asks.push(tunnel.to_string());
+        let Some(at) = self.found.iter().position(|one| one.tunnel == tunnel) else {
+            return Err("That Mac is not on your Cloudflare account or on this network any more.".into());
+        };
+        let one = self.found[at].clone();
+        if one.paired {
+            return Err(format!("{} is paired with this Mac already.", one.name));
+        }
+        if !one.online && !one.nearby {
+            return Err(format!("{} is not on this network and has no address on your domain. Pair with a link instead.", one.name));
+        }
+        if !one.nearby {
+            return Err(format!("{} did not answer. Check Armada is open there, then press Pair again.", one.name));
+        }
+        self.found[at].paired = true;
+        let mac = Mac {
+            id: tunnel.trim_start_matches("armada-").to_string(),
+            name: one.name.clone(),
+            colour: one.colour.unwrap_or_default(),
+            build: one.build,
+            link: Some(MacLink::ConfirmWaiting),
+            why: Some(format!("Confirm on {} if it shows {MOCK_DIGITS}.", one.name)),
+            code: Some(MOCK_DIGITS.into()),
+            ..Default::default()
+        };
+        self.put_paired(mac.clone());
+        Ok(mac)
     }
 
     /// `POST /macs/update` on Fleet: 202, the restart has begun. The Mac is on the same build once the list has been
@@ -683,6 +766,21 @@ mod tests {
         assert_eq!(gateway.forget("mac-gone"), Err("No Mac is paired with that id.".into()));
         let mut bare = MockGateway::without_funnel();
         assert_eq!(bare.pair_start(), Err("Tailscale is not signed in on this Mac. Sign in to it, then start pairing again.".into()));
+    }
+
+    #[test]
+    fn pair_ask_waits_on_confirm_for_a_mac_nearby_and_is_refused_in_the_gateways_words_otherwise() {
+        let mut gateway = MockGateway::nearby();
+        let found = gateway.read_found().expect("read");
+        assert_eq!(found.macs.iter().filter(|one| !one.paired).count(), 3);
+        assert_eq!(gateway.pair_ask("armada-mac-book-pro"), Err("MacBook Pro did not answer. Check Armada is open there, then press Pair again.".into()));
+        assert!(gateway.pair_ask("armada-mac-old").is_err_and(|said| said.contains("Pair with a link instead")));
+        assert_eq!(gateway.pair_ask("armada-mac-gone"), Err("That Mac is not on your Cloudflare account or on this network any more.".into()));
+        assert_eq!(gateway.pair_ask("armada-mac-work"), Err("Work MacBook is paired with this Mac already.".into()));
+        let asked = gateway.pair_ask("armada-mac-office").expect("ask");
+        assert_eq!((asked.link, asked.code.as_deref(), asked.why.as_deref()), (Some(MacLink::ConfirmWaiting), Some("4821"), Some("Confirm on Office iMac if it shows 4821.")));
+        assert!(gateway.read_found().expect("read").macs.iter().any(|one| one.tunnel == "armada-mac-office" && one.paired), "it is paired from then on");
+        assert!(ids(&mut gateway).contains(&"mac-office".to_string()));
     }
 
     #[test]

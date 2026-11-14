@@ -212,6 +212,9 @@ where
             if self.followed_told(served, &base, &before, pull).await {
                 queued.push(pull.number);
             }
+            if pull.queue != PullQueue::Outside {
+                self.wire_told(served, pull).await;
+            }
             self.comments_told(served, pull, &mine).await;
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
@@ -566,6 +569,7 @@ where
                 .await;
             }
             self.slots_told_of_merge(served, one.pull.number, branch).await;
+            self.wire_told_of_merge(served, one.pull.number, branch).await;
         }
     }
 

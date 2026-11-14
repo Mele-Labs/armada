@@ -97,6 +97,9 @@ pub enum Notice {
     /// A claim of the Job's in its project's store: an item it waits on, the end of that wait, or a
     /// file another Job writes too.
     Claims,
+    /// A pull request that changes the wire types is in the merge queue or merged, and the Job's
+    /// branch reads some of them.
+    WireChanged,
 }
 
 impl Notice {
@@ -124,6 +127,7 @@ impl Notice {
                 | Notice::AutoLandRefused
                 | Notice::DeliveryAsked
                 | Notice::DeliveryChosen
+                | Notice::WireChanged
         )
     }
 
@@ -173,6 +177,7 @@ impl Notice {
             Notice::GateClosed => "gate_closed",
             Notice::GateHold => "gate_hold",
             Notice::Claims => "claims",
+            Notice::WireChanged => "wire_changed",
         }
     }
 }
