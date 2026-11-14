@@ -85,6 +85,8 @@ pub use run::{
     CAPTURE_LIMIT, GRACE,
 };
 pub use serving::Served;
-pub use slots::{already_held, CheckSlots, Held, InUse, AHEAD_ENV, HELD_ENV};
+pub use slots::{
+    already_held, fifteen_minute_load, CheckSlots, Held, InUse, Loaded, AHEAD_ENV, HELD_ENV, LOAD_LIMIT,
+};
 pub use touched::{touched, Touched};
 pub use width::{resolve_width, CheckWidth, SOLE_TENANT_ENV, WIDTH_ENV};

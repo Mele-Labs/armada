@@ -19,6 +19,7 @@ pub mod fleet;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
+pub mod project_filter;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -1742,6 +1743,13 @@ pub static WALKS: &[Walk] = &[
         steps: &new_project::STEPS,
     },
     Walk {
+        name: "native-project-filter",
+        title: "The project switcher narrows the Jobs list, and ⌘T starts its Job in the project",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &project_filter::STEPS,
+    },
+    Walk {
         name: "jobs-ended-glyph",
         title: "An ended Job's mark beside a quiet one",
         screen: Screen::Jobs,
@@ -3312,14 +3320,15 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             pairing("Air is awake and linked: a Job this Mac holds can go there", "air-awake", "row", "Native Bridge foundation"),
             step("A right press on it offers Move to Air under Snooze, with M at its right", Verb::RightPress("Native Bridge foundation"), "menuitem", "Move to Air"),
-            step("Move to Air asks Fleet. The Job finishes its turn first: the row turns a ring before its state, with Air's dot in place of this Mac's", Verb::Open("menuitem", "Move to Air"), "img", "Moving to Air"),
-            step("The ring's tooltip says where it goes", Verb::Hover, "img", "Moving to Air"),
+            step("Move to Air asks Fleet. The Job finishes its turn first: its row stays one line, with its edge in amber and, at its end, this Mac's dot, an arrow, Air's dot and Moving in amber", Verb::Open("menuitem", "Move to Air"), "status", "Moving to Air"),
+            step("The pointer on the mark says where it goes", Verb::Hover, "status", "Moving to Air"),
             press_on("The Job's head carries the same: the ring, then Air's chip in place of this Mac's", "row", "Native Bridge foundation", "status", "Moving to Air"),
+            step("Its thread ends on a card: Moving to Air, with the move's three steps", Verb::Look, "region", "Moving"),
             pairing("The turn ends, the branch is pushed and Air takes the Job: its row here ends, reading Moved to Air", "move-ended", "img", "Moved to Air"),
             step("Its thread ends on the same words, which open the Job where it is now", Verb::Look, "button", "Moved to Air"),
             pairing("Air's row of the same Job stands in its place, with Air's dot", "move-landed", "row", "Native Bridge foundation"),
             step("A Job Air holds offers Bring here instead", Verb::RightPress("Audit the docs index"), "menuitem", "Bring here"),
-            step("Bring here asks Air to send it: the row turns the ring, with this Mac's dot", Verb::Open("menuitem", "Bring here"), "img", "Moving to Studio"),
+            step("Bring here asks Air to send it: the row's end reads Air's dot, an arrow, this Mac's dot and Moving", Verb::Open("menuitem", "Bring here"), "status", "Moving to Studio"),
             pairing("Air has let go of it: the row stands under this Mac again", "move-landed", "row", "Audit the docs index"),
             pairing("Another window asked for a move of it first: Fleet refuses the next one", "move-refused", "row", "Audit the docs index"),
             step("A right press on it again", Verb::RightPress("Audit the docs index"), "menuitem", "Move to Air"),

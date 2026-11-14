@@ -65,12 +65,21 @@ pub const SHOWN: usize = 3;
 #[derive(Default)]
 pub struct Shelf {
     toasts: Vec<Toast>,
+    /// Where this sitting's toasts start: the ones before it came from an earlier sitting's history.
+    from: usize,
 }
 
 impl Shelf {
-    /// The history kept from an earlier sitting, oldest first.
+    /// The history kept from an earlier sitting, oldest first. None of it is drawn again at start: an
+    /// item still waiting is in Your turn, and only what arrives after the start raises a toast.
     pub fn kept(toasts: Vec<Toast>) -> Shelf {
-        Shelf { toasts }
+        Shelf { from: toasts.len(), toasts }
+    }
+
+    /// The Operator's page is in front and holds every item itself: nothing raised so far is drawn, now
+    /// or after he leaves the page. History keeps them as they are.
+    pub fn hush(&mut self) {
+        self.from = self.toasts.len();
     }
 
     pub fn is_open(&self, id: &str) -> bool {
@@ -106,7 +115,7 @@ impl Shelf {
     /// What the corner draws, top to bottom: the open toasts, urgent ones held whatever their age,
     /// then the newest of the rest, to `SHOWN` in all; the newest is at the bottom, by the corner.
     pub fn shown(&self) -> Vec<&Toast> {
-        let open: Vec<&Toast> = self.toasts.iter().filter(|toast| toast.ended.is_none()).collect();
+        let open: Vec<&Toast> = self.toasts[self.from..].iter().filter(|toast| toast.ended.is_none()).collect();
         let held = open.iter().filter(|toast| toast.urgency == Urgency::Urgent).count();
         let room = SHOWN.saturating_sub(held);
         let others = open.iter().filter(|toast| toast.urgency != Urgency::Urgent).count();
@@ -175,5 +184,27 @@ mod tests {
         assert!(shelf.shown().is_empty());
         let ended: Vec<_> = shelf.history().map(|toast| toast.ended).collect();
         assert_eq!(ended, [Some(Ended::Closed), Some(Ended::Settled)]);
+    }
+
+    #[test]
+    fn toasts_left_open_last_sitting_are_not_drawn_at_start_nor_raised_again() {
+        let kept = (1..=4).map(|n| Toast { urgency: Urgency::Urgent, item: item(&format!("turn:{n}"), OperatorTurnKind::Decision), ended: None }).collect();
+        let mut shelf = Shelf::kept(kept);
+        assert!(shelf.shown().is_empty(), "nothing from the last sitting is drawn at start");
+        assert!(shelf.raise(&[item("turn:1", OperatorTurnKind::Decision)]).is_empty(), "an item already told is not told again");
+        shelf.raise(&[item("turn:5", OperatorTurnKind::Decision)]);
+        assert_eq!(ids(shelf.shown()), ["turn:5"]);
+        assert_eq!(shelf.history().count(), 5);
+    }
+
+    #[test]
+    fn toasts_raised_while_the_operator_page_is_in_front_are_never_drawn() {
+        let mut shelf = Shelf::default();
+        shelf.raise(&[item("turn:1", OperatorTurnKind::Decision), item("turn:2", OperatorTurnKind::GoAhead)]);
+        shelf.hush();
+        assert!(shelf.shown().is_empty(), "the page holds them");
+        shelf.raise(&[item("turn:3", OperatorTurnKind::Decision)]);
+        assert_eq!(ids(shelf.shown()), ["turn:3"], "what arrives after he leaves the page is drawn");
+        assert_eq!(shelf.history().count(), 3);
     }
 }
