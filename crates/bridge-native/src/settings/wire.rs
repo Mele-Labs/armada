@@ -642,6 +642,16 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// `POST /projects/project/:id/workflow`: one workflow switched on or off for the project.
+    pub fn set_project_workflow(&mut self, project: &str, workflow: &str, on: bool, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_project_workflow(project, workflow, on));
+        }
+        let path = format!("/projects/project/{}/workflow", crate::link::percent_encoded(project));
+        let said = body(&ipc::SetProjectWorkflow { workflow: workflow.to_string(), on });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+    }
+
     /// `POST /projects/project/:id/delete`, no body: the project and its rows. Fleet answers every project that is left.
     pub fn delete_project(&mut self, project: &str, cx: &App) -> Task<Result<Projects, Refused>> {
         if let Wire::Mock(mock) = self {

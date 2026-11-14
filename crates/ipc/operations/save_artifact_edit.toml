@@ -1,0 +1,20 @@
+[operations.save_artifact_edit]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Save his Edit of a page's or a draft's words as the artifact's next revision, his, and send the Job what changed"
+notes = """
+`POST /sessions/artifacts/edit`, body `SaveArtifactEdit`: `session_id`, `artifact` (the `JobArtifact` id: the page's path or `draft:<title>`), `revision` (the number he edited, which must be the newest) and `text`. Answered with the `JobArtifact` as it now reads, its newest revision `by` `owner`, and `SessionChanged` is published.
+
+**Words only.** A page's `text` is the whole edited HTML: it must hold the same elements, with the same attributes, in the same order, as the revision he edited, and change text only inside `p`, `h1` to `h6`, `li`, `td`, `th`, `dt`, `dd`, `blockquote`, `figcaption` or `caption`, never inside `script`, `style`, `title`, `textarea`, `svg` or `armada-sketch`. Whitespace outside them may differ. A draft's `text` is its new markdown, trimmed. A sketch takes notes, not edits.
+
+**The Job is sent his message first**, so a send that fails keeps nothing: `He edited "<title>": revision <n> is his, from revision <n-1>.`, then one line a change, then `The page at <path> holds his words. Build on them.` for a page or `Use his text as the draft from now on.` for a draft. A page's change is a block whose words changed, in page order, as `- <the h2 it comes under, or Top>: "<old>" → "<new>"`. A draft's is a line diff, `- <line>` and `+ <line>`. At most 40, then `and <k> more`, each quote cut at 300 characters.
+
+**Then it is kept.** A page is written to its file in the worktree, so the agent's next write builds on it, and kept as the next revision; the turn's end reads the same bytes and keeps nothing more. A draft is kept as the next revision, its open row's `text` becomes his, and so does a linked pull request draft's, so his Approve sends `Approved with his edit: <title>` and his text. Who wrote each revision is kept in Fleet's store, `artifact_owner_revisions`, and `get_job_artifacts` reads it.
+
+**An Edit settles nothing**: a page or a draft that asked still asks on his revision. An Edit that changes no words keeps nothing and sends nothing, and answers the artifact as it was.
+
+Refused, with nothing sent or written: a 409 `fleet.edit_not_newest` for a `revision` not the newest, naming the newest; a 422 `fleet.edit_not_words` for a sketch, or a page whose elements differ or whose words changed outside the elements above, naming the first element that differs; `fleet.edit_settled` for a draft settled already, or an artifact being answered now; `fleet.edit_archived` for one archived; `fleet.artifact_not_held`, naming at most 20 it does hold, and `fleet.session_unnamed` as `archive_artifact` refuses them. A 500 `fleet.edit_unkept` where the revision could not be read, or where his Edit was sent and could not be written.
+
+`agent_access` is `No`: it is the person's Edit.
+"""

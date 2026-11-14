@@ -103,4 +103,8 @@ impl OtherMacs for FakeDaemon {
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
     }
+
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        Ok(claims)
+    }
 }

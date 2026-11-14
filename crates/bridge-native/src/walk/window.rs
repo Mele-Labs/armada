@@ -891,6 +891,8 @@ impl Render for WalkWindow {
                         .children(self.stage.as_ref().map(|stage| stage.view.clone()))
                         .child(canvas(move |bounds, _, _| stage_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
                 )
+                // An option's still opened large covers the app below the bar, whichever panel it was pressed in.
+                .children(crate::option_pictures::over(window, cx))
                 // A target its pane has scrolled out of sight shows nothing; its clipped bounds turn inside out and would draw as a stray line.
                 .children(ring.filter(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).map(|drawn| {
                     let shown = drawn.shown;

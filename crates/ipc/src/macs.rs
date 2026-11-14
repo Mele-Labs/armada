@@ -94,3 +94,22 @@ pub struct OtherMacEvent {
     pub mac: String,
     pub event: Event,
 }
+
+/// `PUT /other_macs/claims` on Fleet: every other Mac waiting for his Confirm here, as this Mac's Phone Gateway
+/// holds them, replacing all Fleet held. Fleet calls him with one `mac_pairing` call for each.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimsWaiting {
+    pub claims: Vec<MacClaimWaiting>,
+}
+
+/// One Mac waiting for his Confirm here: it pasted this Mac's link, or asked from its Settings.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimWaiting {
+    /// The asking Mac's id: what Confirm and Decline name.
+    pub mac: String,
+    pub name: String,
+    /// What `GET /admin/macs` says of it, with the four digits where it asked.
+    pub why: String,
+    /// Unix seconds: when the claim arrived.
+    pub at: i64,
+}

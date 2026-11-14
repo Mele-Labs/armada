@@ -35,6 +35,8 @@ pub(crate) mod draft_page;
 mod artifact_for;
 mod artifacts;
 mod archiving;
+mod artifact_editing;
+mod page_words;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

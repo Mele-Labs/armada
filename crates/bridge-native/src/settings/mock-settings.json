@@ -7,12 +7,13 @@
    "group": "Fleet",
    "section": "Limits",
    "title": "Drones at once",
-   "description": "How many drones Fleet runs at the same time. A job past this waits for one to finish.",
+   "description": "How many Jobs have a Drone working at the same time. A lower number stops nothing already running; new starts wait until enough finish.",
    "tip": null,
    "kind": {
     "kind": "integer",
     "min": 1,
-    "max": 8
+    "max": 8,
+    "unit": "Drones"
    },
    "default": 2,
    "value": 3,
@@ -26,15 +27,56 @@
    "group": "Fleet",
    "section": "Limits",
    "title": "Checks at once",
-   "description": "How many of a step's checks run at the same time. Ships at half this machine's cores.",
+   "description": "How many Checks run at the same time on this machine, across every Job and every repository. One already running finishes.",
    "tip": null,
    "kind": {
     "kind": "integer",
     "min": 1,
-    "max": 8
+    "max": 8,
+    "unit": "Checks"
    },
-   "default": 4,
-   "value": 4,
+   "default": 8,
+   "value": 8,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.watchesAtOnce",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Watches at once",
+   "description": "How many watches run their command at the same time on this machine. One that is due waits for a place.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 8,
+    "unit": "watches"
+   },
+   "default": 2,
+   "value": 2,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.watchesPerJob",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Watches a Job may hold",
+   "description": "How many live watches one Job may hold. Starting one more is refused, and the refusal says so.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 20,
+    "unit": "watches"
+   },
+   "default": 5,
+   "value": 5,
    "saved": null,
    "applies": "live",
    "pending_restart": false,
@@ -45,13 +87,13 @@
    "group": "Fleet",
    "section": "Limits",
    "title": "Memory to keep free",
-   "description": "The share of memory Fleet leaves free before it starts another drone.",
+   "description": "The share of memory that must be free before another Drone starts. A Job approved onto a machine short of it waits.",
    "tip": null,
    "kind": {
     "kind": "integer",
     "min": 0,
     "max": 50,
-    "unit": "%"
+    "unit": "percent"
    },
    "default": 15,
    "value": 15,
@@ -65,13 +107,170 @@
    "group": "Fleet",
    "section": "Limits",
    "title": "Disk to keep free",
-   "description": "The disk space Fleet leaves free on the worktree volume before it starts another drone.",
+   "description": "The gibibytes that must be free on a Job's volume before its Drone starts. Zero accepts a full disk.",
    "tip": null,
    "kind": {
     "kind": "integer",
     "min": 0,
     "max": 100,
     "unit": "GiB"
+   },
+   "default": 30,
+   "value": 30,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.diskReclaimFloorGib",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Disk to start reclaiming at",
+   "description": "The gibibytes free on a repository's volume under which Fleet drops old build output, oldest first, until there are twenty more. Zero never reclaims.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 0,
+    "max": 500,
+    "unit": "GiB"
+   },
+   "default": 100,
+   "value": 100,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.slotBuildTrimAfterDays",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Build output kept",
+   "description": "How old a file in a checkout's build output may grow before the sweep removes it.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 365,
+    "unit": "days"
+   },
+   "default": 14,
+   "value": 14,
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.slotBuildCeilingGib",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Build output ceiling",
+   "description": "How large one checkout's build output may stay after a sweep before it is removed whole.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 1000,
+    "unit": "GiB"
+   },
+   "default": 20,
+   "value": 20,
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.standingRulesKib",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Standing rules shown to the Judge",
+   "description": "How much of a repository's standing rules file every Judge call is given. The rest is cut, and the Judge is told so.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 64,
+    "unit": "KiB"
+   },
+   "default": 4,
+   "value": 4,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.operatorPlanPause",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Pause the Operator at",
+   "description": "How much of the weekly plan window must be used before the Operator makes no more calls until the window resets. Everything that needed a call goes to you.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 0,
+    "max": 100,
+    "unit": "percent"
+   },
+   "default": 80,
+   "value": 80,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.contextWatch",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Tell a Job its context is large",
+   "description": "Whether a Job is told once when the context of its last turn passes the limit below.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": true,
+   "value": true,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.contextWatchKtokens",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Context to tell a Job at",
+   "description": "Thousands of tokens in the last turn's context.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 50,
+    "max": 1000,
+    "unit": "thousand tokens"
+   },
+   "default": 300,
+   "value": 300,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.disputeReadMinutes",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Read a Job's replies to a Fleet notice after",
+   "description": "Minutes after a Fleet notice that asks a Job something, with no dispute of it, before the Job's next replies are read for whether it pushed back.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 240,
+    "unit": "minutes"
    },
    "default": 10,
    "value": 10,
@@ -84,16 +283,37 @@
    "key": "limits.portRangeBase",
    "group": "Fleet",
    "section": "Limits",
-   "title": "First port",
-   "description": "Where the ports Fleet lends a job's servers start.",
+   "title": "First port Fleet hands out",
+   "description": "The low end of the range a Job's ports, and Fleet's own, are claimed from.",
    "tip": null,
    "kind": {
     "kind": "integer",
     "min": 1024,
-    "max": 60000
+    "max": 60000,
+    "unit": "port"
    },
    "default": 40000,
    "value": 40000,
+   "saved": null,
+   "applies": "at_restart",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "limits.portBlockGranule",
+   "group": "Fleet",
+   "section": "Limits",
+   "title": "Port block size",
+   "description": "The unit a Job's claim of ports is rounded up to.",
+   "tip": null,
+   "kind": {
+    "kind": "integer",
+    "min": 1,
+    "max": 64,
+    "unit": "ports"
+   },
+   "default": 8,
+   "value": 8,
    "saved": null,
    "applies": "at_restart",
    "pending_restart": false,

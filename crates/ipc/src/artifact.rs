@@ -51,6 +51,19 @@ pub struct ArtifactRef {
     pub session_id: Option<SessionId>,
 }
 
+/// `save_artifact_edit`: his Edit of a page's or a draft's words, kept as the next revision, his.
+/// `crates/ipc/operations/save_artifact_edit.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaveArtifactEdit {
+    pub session_id: SessionId,
+    /// The artifact's id: the page's path or `draft:<title>`.
+    pub artifact: String,
+    /// The revision he edited, which must be the newest.
+    pub revision: u32,
+    /// A page's whole HTML, or a draft's markdown.
+    pub text: String,
+}
+
 /// On a sketch or page's attachment: `agent` where the Job took it back with `withdraw_sketch` or
 /// `withdraw_document`, so it reads `withdrawn` and his Dismiss reads `dismissed`.
 pub const ARTIFACT_WITHDRAWN_BY: &str = "withdrawn_by";
