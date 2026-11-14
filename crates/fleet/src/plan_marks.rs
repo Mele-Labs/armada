@@ -178,6 +178,19 @@ fn the_tasks(plan: &KeptPlan) -> String {
     format!("{} The tasks:{tasks}", ipc::TASK_LIST_IS_THE_PLAN)
 }
 
+/// `message` with the sketches its Approve settles named on one line after its first.
+pub(crate) fn with_sketches(message: String, asking: &[crate::session_host::planning::AskingSketch]) -> String {
+    if asking.is_empty() {
+        return message;
+    }
+    let named: Vec<String> = asking.iter().map(|one| format!("\"{}\"", one.title)).collect();
+    let line = format!("With it: {}.", named.join(", "));
+    match message.split_once('\n') {
+        Some((head, rest)) => format!("{head}\n{line}\n{rest}"),
+        None => format!("{message}\n{line}"),
+    }
+}
+
 /// The one message for an approval with no marks.
 pub(crate) fn approved_message(plan: &KeptPlan) -> String {
     format!(

@@ -31,7 +31,14 @@ pub(super) fn waiting_plan_of(record: &SessionRecord) -> Option<ThreadPlan> {
 /// The newest sketch put to him and neither answered nor taken back, as the ledger kept it: what is drawn
 /// after the plan while it waits. Fleet's own waiting item names which, so the two never disagree.
 pub(super) fn pinned_of(record: &SessionRecord, revisions: &Revisions) -> Option<ThreadSketch> {
-    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str()).next()?;
+    // A sketch the pending plan names waits with the plan, not on its own.
+    let in_plan: Vec<String> = record
+        .plan
+        .as_ref()
+        .filter(|plan| !plan.approved && plan.set_aside_at.is_none())
+        .map(|plan| plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())).map(|one| one.title.clone()).collect())
+        .unwrap_or_default();
+    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan).next()?;
     let held = record.attachments.iter().find(|one| form_of(one) == Some("sketch") && one.target == item.id)?;
     // Fleet refuses a sketch whose scene will not draw, so a kept one always reads.
     let drawing = held.detail.get("scene").and_then(|scene| ipc::scene_of_detail(scene))?;

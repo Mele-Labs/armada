@@ -89,7 +89,7 @@ async fn a_merge_closes_its_gate_while_an_earlier_gate_is_open_and_stays_closed_
 }
 
 fn kept(groups: &[PlanGroupInput]) -> KeptPlan {
-    let mut plan = plan_record::recorded(None, groups, None, None, false, "You get it.".into(), "2026-11-08T10:00:00.000Z");
+    let mut plan = plan_record::recorded(None, groups, None, Vec::new(), None, false, "You get it.".into(), "2026-11-08T10:00:00.000Z");
     plan.approved_at = None;
     plan
 }

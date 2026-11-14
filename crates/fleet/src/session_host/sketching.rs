@@ -310,7 +310,7 @@ where
     }
 
     /// The job's harness, and the sketch it holds as `target`.
-    async fn sketch_held(&self, id: &str, target: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
+    pub(crate) async fn sketch_held(&self, id: &str, target: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
         let store = self.store().lock().await;
         let session = store
             .session(id)
@@ -381,6 +381,11 @@ fn is_open(sketch: &ipc::Attachment) -> bool {
     !sketch.detail.contains_key(SKETCH_SETTLED) && !sketch.detail.contains_key(SKETCH_WITHDRAWN)
 }
 
+/// Whether a sketch was put to him and is neither answered nor taken back.
+pub(crate) fn still_asks(sketch: &ipc::Attachment) -> bool {
+    sketch.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && is_open(sketch)
+}
+
 /// Every sketch put to the person and neither answered nor taken back.
 fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     asked_sketches(attachments).filter(|one| is_open(one))
@@ -388,10 +393,16 @@ fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::
 
 /// Every sketch put to the person and not answered or taken back, newest drawn first, as the items that
 /// wait on him: id the sketch's target, text its title, opening the Session. A plan's sketch is approved
-/// with the plan, so it is never one of these. The first is the thread head's pin, so an answered
+/// with the plan, so it is never one of these, and neither is one titled in `in_plan`, the titles the
+/// pending plan names: its Approve settles them. The first is the thread head's pin, so an answered
 /// sketch never stays it.
-pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
-    let mut open = open_sketches(attachments).collect::<Vec<_>>();
+pub(crate) fn sketch_items<'a>(
+    attachments: &'a [ipc::Attachment],
+    session: &'a str,
+    in_plan: &'a [String],
+) -> impl Iterator<Item = WaitingItem> + 'a {
+    let titled = |one: &ipc::Attachment| one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string());
+    let mut open = open_sketches(attachments).filter(|one| !in_plan.contains(&titled(one))).collect::<Vec<_>>();
     open.sort_by_key(|one| std::cmp::Reverse(drawn_at(one)));
     open.into_iter().map(move |one| WaitingItem {
             approves: false,

@@ -133,8 +133,9 @@ pub(crate) struct WaitingReads {
     turn_end: Option<(String, String)>,
     /// The last Fleet tell it was sent whose refusal is read.
     tell: Option<store::KeptTell>,
-    /// The version, recording time and walk of the plan the person has not approved.
-    plan: Option<(u32, String, Option<String>)>,
+    /// The version, recording time and walk of the plan the person has not approved, and the sketch titles
+    /// it names.
+    plan: Option<(u32, String, Option<String>, Vec<String>)>,
     /// Every sentence read from a reply that he marked Not a question, in any Session.
     misreads: Vec<String>,
     /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
@@ -211,7 +212,10 @@ pub(crate) fn waiting_reads(
         plan: store
             .session_plan(&session.id)?
             .filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
-            .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
+            .map(|plan| {
+                let sketches = crate::plan_record::pending_sketches(&plan);
+                (plan.version, plan.recorded_at, plan.walk, sketches)
+            }),
         misreads: store.misreads()?,
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
@@ -565,7 +569,7 @@ where
             })
             .collect();
         let ended = session.state == store::SessionState::Ended;
-        let holds = plan.as_ref().map(|(_, recorded, walk)| {
+        let holds = plan.as_ref().map(|(_, recorded, walk, _)| {
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
@@ -710,8 +714,10 @@ where
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             // What a role at Suggest would do, until he takes it or skips it.
             items.extend(crate::operator::suggestion_items(&suggestions));
-            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
-            items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
+            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
+            // pending plan names waits with the plan instead, and its Approve settles it.
+            let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
+            items.extend(super::sketching::sketch_items(attachments, &session.id, in_plan).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.

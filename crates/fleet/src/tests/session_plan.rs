@@ -17,6 +17,7 @@ use crate::session_host::Heard;
 
 pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], tasks: &[(Option<&str>, &str)]) -> PlanGroupInput {
     PlanGroupInput {
+        sketches: Vec::new(),
         id: id.map(String::from),
         title: title.to_string(),
         agent: agent.to_string(),
@@ -31,7 +32,7 @@ pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], 
 }
 
 pub(super) fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(session.clone()) }
+    RecordPlan { sketches: Vec::new(), summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.

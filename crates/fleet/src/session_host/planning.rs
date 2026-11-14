@@ -11,8 +11,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    ApprovePlan, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord, SessionReport,
-    SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError, DOCUMENT_ASKED, DOCUMENT_SETTLED, DOCUMENT_SETTLED_AT,
+    ApprovePlan, AttachmentReport, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord,
+    SessionReport, SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError, DOCUMENT_ASKED, DOCUMENT_SETTLED,
+    DOCUMENT_SETTLED_AT, SKETCH_DRAWN, SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
 };
 use store::{Holder, KeptPlan};
 
@@ -26,7 +27,7 @@ use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
 use crate::session_host::document_answers::{in_front_of_him, is_document};
 use crate::session_host::walking;
-use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
+use crate::session_host::sketching::{sketch_attachment, still_asks, TARGET_PREFIX};
 
 const PLAN_REFUSED: &str = "fleet.plan_refused";
 const PLAN_UNNAMED: &str = "fleet.plan_unnamed";
@@ -187,6 +188,17 @@ pub(crate) fn plan_called(session: &str, version: u32, holds: &Holds) -> Option<
     holds.held_by.is_empty().then(|| plan_item(session, version, holds.since.as_str()))
 }
 
+/// The most held sketch titles a refusal names.
+const MOST_TITLES_SAID: usize = 20;
+
+/// A sketch the plan names that still asks him, as it was when his Approve was read: its ledger target,
+/// its title and which drawing it is, so a redraw made meanwhile is not settled.
+pub(crate) struct AskingSketch {
+    target: String,
+    pub(crate) title: String,
+    drawn: Option<String>,
+}
+
 /// The Job's thread, as `rail_read` reads it.
 fn decoded_rows(store: &store::Store, id: &str) -> Vec<SessionRow> {
     store
@@ -230,6 +242,32 @@ where
                 .ok_or_else(|| self.hosted_refusal(PLAN_UNNAMED, "a job Fleet knows"))?;
             (session, store.session_plan(&id).map_err(|why| self.ledger_fault(why))?)
         };
+        // A sketch named by title is one this Job drew with show_sketch.
+        let named = checked.sketch_titles();
+        if !named.is_empty() {
+            let held: Vec<String> = {
+                let store = self.store().lock().await;
+                self.ledger_row(&store, &session)?
+                    .attachments
+                    .into_iter()
+                    .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
+                    .filter_map(|one| one.target.strip_prefix(TARGET_PREFIX).map(str::to_string))
+                    .collect()
+            };
+            let unknown: Vec<String> = named.iter().filter(|title| !held.contains(title)).map(|title| format!("`{title}`")).collect();
+            if !unknown.is_empty() {
+                let said: Vec<&str> = held.iter().take(MOST_TITLES_SAID).map(String::as_str).collect();
+                let held = if said.is_empty() { String::from("none") } else { said.join(", ") };
+                return Err(self.hosted_refusal(
+                    PLAN_REFUSED,
+                    &format!(
+                        "the plan was not recorded: `sketches` names {}, and this job holds no sketch titled so. \
+                         Sketches it holds: {held}. Draw it with show_sketch first, or leave it out",
+                        unknown.join(", ")
+                    ),
+                ));
+            }
+        }
         // The scene is on the ledger once, as `show_sketch` keeps it, and the plan names it.
         let sketch = match checked.sketch {
             None => None,
@@ -258,7 +296,7 @@ where
             .collect();
         name_the_tickets(&mut checked.groups, &tickets);
         let now = self.now().as_str().to_string();
-        let mut kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
+        let mut kept = recorded(before.as_ref(), &checked.groups, sketch, checked.sketches, checked.walk, seen, checked.summary, &now);
         // A group the person would see makes a plan he would see.
         for (group, seen) in kept.groups.iter_mut().zip(groups_seen) {
             group.seen = *seen;
@@ -394,14 +432,17 @@ where
         let id = approve.session_id.as_str().trim().to_string();
         let plan = self.plan_at(&id, approve.version).await?;
         if plan.approved_at.is_none() {
+            let asking = self.plan_sketches_asking(&id, &plan).await?;
+            let text = plan_marks::with_sketches(plan_marks::approved_message(&plan), &asking);
             // Told before it is settled, so a send that fails leaves the plan to approve again.
-            self.told_by_fleet(&id, &plan_marks::approved_message(&plan), ipc::Notice::PlanApproved).await?;
+            self.told_by_fleet(&id, &text, ipc::Notice::PlanApproved).await?;
             let now = self.now().as_str().to_string();
             self.store()
                 .lock()
                 .await
                 .approve_session_plan(&id, plan.version, &now)
                 .map_err(|why| self.ledger_fault(why))?;
+            self.plan_sketches_settled(&id, plan.version, &asking).await?;
         }
         self.published_hosted(&id).await
     }
@@ -412,7 +453,11 @@ where
         let said = plan_marks::checked(&plan, &sent.marks, sent.approve)
             .map_err(|why| self.hosted_refusal(PLAN_MARK_REFUSED, &why))?;
         let approving = sent.approve && plan.approved_at.is_none();
-        let text = plan_marks::message(&plan, approving, &said);
+        let asking = match approving {
+            true => self.plan_sketches_asking(&id, &plan).await?,
+            false => Vec::new(),
+        };
+        let text = plan_marks::with_sketches(plan_marks::message(&plan, approving, &said), &asking);
         let row = SessionRow::PlanChanges {
             id: self.row_id(&id),
             at: self.instant(),
@@ -428,7 +473,52 @@ where
                 .await
                 .approve_session_plan(&id, plan.version, &now)
                 .map_err(|why| self.ledger_fault(why))?;
+            self.plan_sketches_settled(&id, plan.version, &asking).await?;
         }
         self.published_hosted(&id).await
+    }
+
+    /// The sketches `plan` names that still ask him: put to him, not answered, taken back or dismissed.
+    async fn plan_sketches_asking(&self, id: &str, plan: &KeptPlan) -> Result<Vec<AskingSketch>, Refusal> {
+        let named = crate::plan_record::named_sketches(plan);
+        if named.is_empty() {
+            return Ok(Vec::new());
+        }
+        let store = self.store().lock().await;
+        let session = store.session(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PLAN_UNNAMED, "a job Fleet knows"))?;
+        let dismissed = store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?;
+        let attachments = self.ledger_row(&store, &session)?.attachments;
+        Ok(named
+            .into_iter()
+            .filter_map(|title| {
+                let target = format!("{TARGET_PREFIX}{title}");
+                let sketch = attachments.iter().find(|one| one.kind == "artifact" && one.target == target)?;
+                (still_asks(sketch) && !dismissed.contains(&target))
+                    .then(|| AskingSketch { drawn: sketch.detail.get(SKETCH_DRAWN).cloned(), target, title })
+            })
+            .collect())
+    }
+
+    /// Settle each of `asking` approved with plan `version`, as his own Approve of it would, with no words.
+    /// One drawn again or answered since is left as it is.
+    async fn plan_sketches_settled(&self, id: &str, version: u32, asking: &[AskingSketch]) -> Result<(), Refusal> {
+        for one in asking {
+            let (harness, held) = self.sketch_held(id, &one.target).await?;
+            let Some(mut sketch) = held.filter(|sketch| sketch.detail.get(SKETCH_DRAWN) == one.drawn.as_ref() && still_asks(sketch)) else {
+                continue;
+            };
+            sketch.detail.insert(SKETCH_SETTLED.into(), ipc::SketchHow::Approved.word().into());
+            sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
+            sketch.detail.insert(SKETCH_IN_PLAN.into(), version.to_string());
+            self.report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport { kind: sketch.kind, target: sketch.target, detail: sketch.detail },
+                },
+            })
+            .await?;
+        }
+        Ok(())
     }
 }

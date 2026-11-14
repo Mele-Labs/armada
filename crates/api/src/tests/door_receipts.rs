@@ -291,6 +291,7 @@ const PLAN: &str = r#"{"groups":[{"title":"Rotate","agent":"rust-engineer","path
 
 fn pending_plan() -> ipc::SessionPlan {
     ipc::SessionPlan {
+        sketches: Vec::new(),
         version: 2,
         summary: String::new(),
         recorded_at: at(),
@@ -299,6 +300,7 @@ fn pending_plan() -> ipc::SessionPlan {
         set_aside_at: None,
         scope: vec!["crates/store".to_string()],
         groups: vec![ipc::SessionPlanGroup {
+            sketches: Vec::new(),
             id: "g1".to_string(),
             agent: "rust-engineer".to_string(),
             title: "Rotate".to_string(),

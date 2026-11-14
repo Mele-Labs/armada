@@ -8,8 +8,8 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, DraftHow, DraftSettled, Instant, JobArtifact, SessionRow,
-    ARTIFACT_WITHDRAWN_BY, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_SETTLED, DOCUMENT_WORDS, SKETCH_ASKED, SKETCH_SETTLED,
-    SKETCH_WITHDRAWN, SKETCH_WORDS,
+    ARTIFACT_WITHDRAWN_BY, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_SETTLED, DOCUMENT_WORDS, SKETCH_ASKED, SKETCH_IN_PLAN,
+    SKETCH_SETTLED, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 use store::{Holder, KeptArchive, KeptAttachment, KeptAttachmentVersion};
 
@@ -30,7 +30,7 @@ where
     /// Every artifact the Job holds, newest first by when its newest revision was kept.
     pub(crate) async fn job_artifacts(&self, id: &str) -> Result<Vec<JobArtifact>, Refusal> {
         let id = id.trim();
-        let (held, versions, dismissed, archives, his) = {
+        let (held, versions, dismissed, archives, his, plan) = {
             let store = self.store().lock().await;
             if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
                 return Err(self.ledger_unnamed("a job Fleet knows"));
@@ -40,8 +40,10 @@ where
             let versions = store.attachment_versions(&holder).map_err(|why| self.ledger_fault(why))?;
             let dismissed = store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?;
             let archives = store.artifact_archives(id).map_err(|why| self.ledger_fault(why))?;
-            (held, versions, dismissed, archives, store.owner_revisions(id).map_err(|why| self.ledger_fault(why))?)
+            let plan = store.session_plan(id).map_err(|why| self.ledger_fault(why))?;
+            (held, versions, dismissed, archives, store.owner_revisions(id).map_err(|why| self.ledger_fault(why))?, plan)
         };
+        let pending = plan.as_ref().map(|plan| (plan.version, crate::plan_record::pending_sketches(plan)));
         let made: Vec<(ArtifactForm, KeptAttachment)> =
             held.into_iter().filter(|one| one.kind == "artifact").filter_map(|one| Some((form_of(&one)?, one))).collect();
         let drafts: BTreeMap<String, Option<DraftSettled>> = match made.iter().any(|(form, _)| *form == ArtifactForm::Draft) {
@@ -57,7 +59,7 @@ where
             false => BTreeMap::new(),
         };
         let mut artifacts: Vec<JobArtifact> =
-            made.iter().map(|(form, one)| archived(*form, one, &versions, &dismissed, &drafts, &archives)).collect();
+            made.iter().map(|(form, one)| in_plan(archived(*form, one, &versions, &dismissed, &drafts, &archives), one, pending.as_ref())).collect();
         for artifact in &mut artifacts {
             for revision in &mut artifact.revisions {
                 if let Some(kept) = his.iter().find(|kept| kept.artifact == artifact.id && kept.revision == revision.number) {
@@ -67,6 +69,23 @@ where
         }
         artifacts.sort_by(|a, b| newest(b).cmp(&newest(a)));
         Ok(artifacts)
+    }
+}
+
+/// A sketch with the plan version it goes with. **One still asking that the pending plan names waits as the
+/// plan's item**, so the plan's one Approve answers it; one that plan's Approve settled names its version.
+fn in_plan(artifact: JobArtifact, one: &KeptAttachment, pending: Option<&(u32, Vec<String>)>) -> JobArtifact {
+    if artifact.form != ArtifactForm::Sketch {
+        return artifact;
+    }
+    if let Some(version) = one.detail.get(SKETCH_IN_PLAN).and_then(|version| version.parse().ok()) {
+        return JobArtifact { in_plan: Some(version), ..artifact };
+    }
+    match pending {
+        Some((version, titles)) if artifact.state == ArtifactState::Asking && artifact.item.is_some() && titles.contains(&artifact.title) => {
+            JobArtifact { in_plan: Some(*version), item: Some(format!("plan:{version}")), ..artifact }
+        }
+        _ => artifact,
     }
 }
 
@@ -171,7 +190,7 @@ fn whole(form: ArtifactForm, one: &KeptAttachment, versions: &[KeptAttachmentVer
         one.target.strip_prefix(TARGET_PREFIX).or_else(|| one.target.strip_prefix(DRAFT_PREFIX)).unwrap_or(&one.target).to_string()
     });
     let for_line = ipc::ArtifactFor::of_detail(&one.detail);
-    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line }
+    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line, in_plan: None }
 }
 
 /// Every revision the row's `revisions` names, oldest first, and one where it names none. The first was

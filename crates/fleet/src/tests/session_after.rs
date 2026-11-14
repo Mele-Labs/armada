@@ -307,6 +307,7 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         .map(|(at, state)| ipc::SessionPlanTask { id: format!("T{at}"), text: format!("Task {at}"), state: *state, seen: true, marked: None, stale: None, changed_at: None })
         .collect();
     record.plan = Some(ipc::SessionPlan {
+        sketches: Vec::new(),
         version: 1,
         summary: String::new(),
         recorded_at: ipc::Instant::carried("2026-10-16T10:00:00.000Z"),
@@ -314,7 +315,7 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         approved_at: None,
         set_aside_at: None,
         scope: Vec::new(),
-        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), gives: None, paths: Vec::new(), tasks, issue: None, worked_at: None, lands_in: Default::default(), own_job: false, gate: Default::default(), gate_closed: None, gate_checks: None }],
+        groups: vec![ipc::SessionPlanGroup { sketches: Vec::new(), id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), gives: None, paths: Vec::new(), tasks, issue: None, worked_at: None, lands_in: Default::default(), own_job: false, gate: Default::default(), gate_closed: None, gate_checks: None }],
         changes: None,
         sketch: None,
         held_by: Vec::new(),
