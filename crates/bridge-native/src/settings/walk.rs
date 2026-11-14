@@ -690,3 +690,25 @@ pub static STEPS: &[Step] = &[
     step("It opens where it was, on All", Verb::Look, "region", "All"),
     press_on("Create mod starts an empty Mod Job and gets Settings out of the way", "button", "Create mod", "button", "Menu"),
 ];
+
+/// `native-claims-store`: Settings › Claims store under Storefront. Deploy asks for a Cloudflare token, a token typed and
+/// Deploy again put a store up with the Macs signed in to it, Use none takes it away, and Join by address is refused in
+/// Fleet's words.
+pub const CLAIMS_STORE: &str = "native-claims-store";
+
+pub static CLAIMS_STORE_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings editing every project", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
+    press_on("Claims store, with every project picked: each project picks its own store", "button", "Claims store", "button", "Pick a project"),
+    press_on("Its press opens the picker", "button", "Pick a project", "menu", "Editing"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    step("Storefront names no store: None, and Deploy, which has a sign-in to try", Verb::Look, "button", "Deploy"),
+    press_on("Deploy: Cloudflare refused every sign-in this Mac has, so a token is asked for in place", "button", "Deploy", "textbox", "Cloudflare token"),
+    step("The token is typed into a masked field", Verb::Type("cfut_mock_token"), "textbox", "Cloudflare token"),
+    press_on("Deploy again puts the store up, and the Macs signed in to it are listed", "button", "Deploy again", "list", "Macs signed in"),
+    press_on("Use none: its Jobs send nothing, and the Macs go with the store", "button", "Use none", "status", "None"),
+    step("Join by address: the address typed", Verb::Type("https://armada-store-acme-platform.mele.workers.dev"), "textbox", "Address"),
+    step("And the team", Verb::Type("acme/platform"), "textbox", "Team"),
+    press_on("Join is refused", "button", "Join", "alert", "GitHub says you are not a member of acme/platform."),
+    step("Fleet's words stand under the press, the press is back, and what was typed is kept", Verb::Wheel("region", "Claims store", 600), "alert", "GitHub says you are not a member of acme/platform."),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];

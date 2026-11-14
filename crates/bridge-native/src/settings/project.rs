@@ -566,6 +566,7 @@ pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, wind
             chips: learned(this, key, look).into_iter().collect(),
             says: vec![says(look, key.description()).into_any_element()],
             changed: false,
+            glyph: None,
             control: cells.into_any_element(),
         };
         labelled(split_row(look, spread, row, n == 0), Role::Row, key.title()).into_any_element()

@@ -3132,6 +3132,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::DELETE_PROJECT_STEPS,
     },
     Walk {
+        name: crate::settings::walk::CLAIMS_STORE,
+        title: "Settings › Claims store: deploy, use none and join",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::CLAIMS_STORE_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::TAKE,
         title: "Choose what to take from Armada",
         screen: Screen::Settings,

@@ -137,6 +137,8 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
+    /// Settings › Claims store.
+    pub store: super::store::StorePage,
     /// Settings › Layout and Settings › Time: the preferences they write.
     pub prefs: super::prefs::Prefs,
     /// Settings › Ways of working: what the helper and Whisper said, and the sample.
@@ -230,6 +232,7 @@ impl SettingsOverlay {
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(window, cx),
+            store: super::store::StorePage::new(window, cx),
             prefs: super::prefs::Prefs::new(),
             ways: super::ways::WaysPage::new(cx),
             lanes,
@@ -265,6 +268,7 @@ impl SettingsOverlay {
         self.mods.refused.clear();
         self.models.reopen();
         self.macs.reopen();
+        self.store.reopen();
         self.prefs.reopen();
         self.ways.reopen();
         self.lanes.reopen(cx);
@@ -804,6 +808,9 @@ impl SettingsOverlay {
         if let Body::Workflows = shown.body {
             return self.workflow_stops(window, cx);
         }
+        if let Body::Store = shown.body {
+            return self.store_stops(cx);
+        }
         if let Body::Macs = shown.body {
             let mut stops = self.grid_stops(cx);
             stops.extend(self.macs_stops());
@@ -960,6 +967,9 @@ impl SettingsOverlay {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Store) && self.store_key(key, window, cx) {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Ways) && self.ways_key(key, window, cx) {
