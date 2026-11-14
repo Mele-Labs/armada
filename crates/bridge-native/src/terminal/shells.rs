@@ -11,7 +11,7 @@
 //! | the Job's shells | `GET /sessions/terminal/list` |
 //! | Rename | `POST /sessions/terminal/rename` |
 //! | Run a command an agent showed | `POST /sessions/run/start` |
-//! | A Side Job | `POST /sessions/terminal/start` |
+//! | A terminal Job | `POST /sessions/terminal/start` |
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -39,14 +39,14 @@ pub enum Which {
     Command(String),
 }
 
-/// Where a Side Job starts: a Manifest (or a repository's implicit id), or any folder.
+/// Where a terminal Job starts: a Manifest (or a repository's implicit id), or any folder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Place {
     Repository(String),
     Folder(String),
 }
 
-/// What a Side Job is started with: where, and the size a shell would open at.
+/// What a quick Job is started with: where, and the size a shell would open at.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Start {
     pub place: Place,
@@ -56,7 +56,7 @@ pub struct Start {
     pub project: Option<String>,
 }
 
-/// A Side Job Fleet started: the Job and its first shell.
+/// A terminal Job Fleet started: the Job and its first shell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Started {
     pub job: String,
@@ -73,9 +73,9 @@ pub trait Shells {
     fn stop(&self, run: &str, cx: &mut App);
     fn list(&self, job: &str, cx: &mut App) -> Task<Result<JobTerminals, String>>;
     fn rename(&self, job: &str, terminal: &str, name: &str, cx: &mut App) -> Task<Result<ListedTerminal, String>>;
-    /// A Side Job: no words, its first shell open.
+    /// A terminal Job: no words, its first shell open.
     fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>>;
-    /// Whether `start` can start a Side Job here: ⌘T and the palette's New Side Job are offered only where
+    /// Whether `start` can start a quick Job here: ⌘T and the palette's New Job here are offered only where
     /// it can.
     fn starts(&self) -> bool;
     /// A command run where Job `job` works, as `$SHELL -lc` runs it, on a terminal of `size`.
@@ -567,7 +567,7 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
     cx.set_global(Held(Rc::new(Live { port: Rc::new(move |cx: &App| fleet.read(cx).held().port()) })));
 }
 
-/// A walk's shells: one open on the first mock Job, and each Side Job started is the scenario's fresh one.
+/// A walk's shells: one open on the first mock Job, and each terminal Job started is the scenario's fresh one.
 pub fn hold_walk(cx: &mut App) {
     cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 8]))));
 }
@@ -597,7 +597,7 @@ fn start_body(start: Start) -> StartSideJob {
     }
 }
 
-/// Whether a Side Job can be started here (`Shells::starts`).
+/// Whether a terminal Job can be started here (`Shells::starts`).
 pub fn starts(cx: &App) -> bool {
     cx.try_global::<Held>().is_some_and(|held| held.0.starts())
 }

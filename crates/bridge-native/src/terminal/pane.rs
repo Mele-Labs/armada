@@ -134,7 +134,7 @@ impl TerminalPane {
         }
     }
 
-    /// A pane on a shell already open, such as a Side Job's first: it attaches as it is drawn.
+    /// A pane on a shell already open, such as a terminal Job's first: it attaches as it is drawn.
     pub fn attached(job: impl Into<SharedString>, terminal: String, shells: Rc<dyn Shells>, cx: &mut Context<Self>) -> Self {
         Self::new(job, Which::Named(terminal), shells, cx)
     }

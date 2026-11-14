@@ -2872,6 +2872,24 @@ pub static WALKS: &[Walk] = &[
             step("Space shuts it", Verb::Key("space"), "button", "Fleet turn"),
         ],
     },
+    Walk {
+        name: "native-side-job-tabs-picture",
+        title: "New Side Job in the palette, a shown picture's row, and a file opened as a tab beside the thread",
+        screen: Screen::Jobs,
+        scenario: "ways-buttons",
+        steps: &[
+            step("⌘K opens the palette", Verb::Key("cmd-k"), "dialog", "Command palette"),
+            step("Typing narrows to the Job ⌘T starts", Verb::Type("side job"), "searchbox", "Search actions, jobs and settings"),
+            step("It reads New Side Job", Verb::Look, "option", "New Side Job"),
+            step("Esc shuts the palette", Verb::Key("escape"), "row", "Jobs rows mark their Mac"),
+            step("A Job that showed a picture and a file", Verb::Press, "row", "Jobs rows mark their Mac"),
+            step("The picture's name stays beside Opened and runs to the row's end", Verb::Fits("region", "Thread"), "row", "Opened Row with its Mac mark.png"),
+            step("The picture starts under the row's glyph", Verb::Look, "button", "Row with its Mac mark.png"),
+            step("The other file opens as a tab beside the thread", Verb::Open("button", "Opened mac-mark.md"), "tab", "Job column: mac-mark.md"),
+            step("The tab holds the file, read-only", Verb::Look, "region", "mac-mark.md"),
+            step("Esc closes the tab and the thread is back", Verb::Key("escape"), "button", "Opened mac-mark.md"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
