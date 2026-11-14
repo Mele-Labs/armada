@@ -61,3 +61,48 @@ export type StoreDeployed =
       page: string;
       said: string;
     };
+
+/**
+ * `GET /projects/project/:project/claims`: every live claim in the project's store, grouped by who holds it. The store
+ * holds hashes, so a claim is `named` only where this Mac has the repository and matched the hash; a teammate's claim in a
+ * repository this Mac does not have carries its Job's title alone. `store` is false where the project names none, and
+ * `unread` says why the claims could not be read. Since 14 Nov 2026.
+ */
+export type ProjectClaims = {
+  project: string;
+  store: boolean;
+  unread?: string;
+  holders: ClaimsHolder[];
+};
+
+/** One Job holding claims or waiting on one. `renewed` is when it last renewed, and a claim lapses 30 minutes after it. */
+export type ClaimsHolder = {
+  name: string;
+  machine: string;
+  title: string;
+  job: string;
+  this_mac: boolean;
+  renewed: string;
+  claims: HeldClaim[];
+  waits: ClaimsWait[];
+};
+
+/** One claim. `waits_on` is a pull request's: the failing test or main's red its Job waits for. */
+export type HeldClaim = {
+  kind: HeldClaimKind;
+  named?: string;
+  repository?: string;
+  since: string;
+  waits_on?: ClaimsWait[];
+};
+
+export type HeldClaimKind = "item" | "file" | "test" | "pull_request" | "red_main";
+
+/** A claim another Job holds that a Job waits on, with the holding Job's person, Mac and title. */
+export type ClaimsWait = {
+  kind: HeldClaimKind;
+  named?: string;
+  name: string;
+  machine: string;
+  title: string;
+};

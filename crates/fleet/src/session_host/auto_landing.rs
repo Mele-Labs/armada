@@ -211,6 +211,10 @@ where
         for owner in self.owners_of(served, pull.number, pull.branch.as_written(), false).await {
             let Owner::Session(id) = &owner;
             let recipient = owner.key();
+            // Thrown out by a test another Job fixes: queued again when that fix merges, not before.
+            if !queued && self.waits_on_a_fix(id, pull.number).await {
+                continue;
+            }
             if queued && self.queued_retested(served, pull, head, id, &recipient).await {
                 continue;
             }
