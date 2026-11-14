@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@armada/brand": "workspace:*",
     "@armada/components": "workspace:*",
     "@armada/protocol": "workspace:*",
     "@armada/screens": "workspace:*",

@@ -45,6 +45,12 @@ A moved Job keeps the values it froze when it started and the tasks it holds.
 From the move on, what Fleet reads of the Job's project as it goes follows the new one: its tracker, the delivery setting, the lifecycles and rules scoped to it, and whether the Job is shared with his other Macs.
 A Job started for a project still needs its repository to be a member when it starts.
 
+**In the native Bridge the dispatch sheet starts a Job in a project.**
+Its picker lists his projects by name, each with its repository on a line under the name, once for every repository the project holds.
+Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project.
+A window scoped to a project offers that project's rows alone, and a window on one repository in no project starts there.
+The words of the request choose the first row of the repository they name, a project's before none.
+
 > **Rule.** A project whose file cannot be read is shown as unread, with its members empty, and is not written over.
 > Why: a write over a file Fleet could not read would lose what it held.
 
