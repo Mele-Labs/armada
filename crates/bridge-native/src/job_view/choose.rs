@@ -3,7 +3,8 @@
 //! the thread, each still large with its words and Choose under it. Choose and `1` to `9` answer; ← and → light the
 //! next option; a press on a still opens it full size (`option_pictures::large`) and answers nothing.
 //!
-//! The answer goes as the band's own option press sends it (`answer_row`).
+//! The answer goes as the band's own option press sends it (`answer_row`). Answer in words sets the box to answer
+//! the question, and what he sends goes as the panel's Answer in words box sends it (`answer_row_words`).
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -19,14 +20,17 @@ use crate::look::{token, ActiveLook, Look};
 use crate::operator::view::{press, Weight};
 use crate::titlebar::parts::kbd;
 
-/// The options open over the thread: the question's row, the option ← and → have lit, and where each still's
-/// place was last drawn, so a still fits the room its column gives it.
+/// The options open over the thread: the question's row, the option ← and → have lit, and what was last laid out,
+/// so each still takes its column's width and the height its words leave.
 pub(super) struct Choosing {
     pub item: String,
     pub lit: usize,
-    slots: Rc<RefCell<HashMap<usize, Size<Pixels>>>>,
-    /// How wide the row of stills was last drawn: it decides how many stand side by side.
-    across: Rc<Cell<f32>>,
+    /// The room the options have inside the sheet.
+    area: Rc<Cell<Size<Pixels>>>,
+    /// How tall each pictured option's words were drawn.
+    words: Rc<RefCell<HashMap<usize, f32>>>,
+    /// How tall the options in words under the stills were drawn, together.
+    worded: Rc<Cell<f32>>,
 }
 
 /// Which of `count` stills stand side by side when `fits` do: all when they fit, else a run that holds the lit one.
@@ -65,14 +69,14 @@ pub(super) fn chosen_by_key(key: &str, count: usize) -> Option<usize> {
     (1..=count.min(9)).contains(&n).then(|| n - 1)
 }
 
-/// The size a still is drawn at in a place `room` big: its whole shape inside the place, never past its own size.
-pub(super) fn fit(width: u32, height: u32, room: Size<Pixels>) -> Option<(f32, f32)> {
+/// The size a still is drawn at: its column's whole inner width `across`, unless the height `down` left under its
+/// words is less. Its shape is kept.
+pub(super) fn fit(width: u32, height: u32, across: f32, down: f32) -> Option<(f32, f32)> {
     let (w, h) = (width.max(1) as f32, height.max(1) as f32);
-    let (across, down) = (f32::from(room.width), f32::from(room.height));
     if across < 1. || down < 1. {
         return None;
     }
-    let scale = (across / w).min(down / h).min(1.);
+    let scale = (across / w).min(down / h);
     Some((w * scale, h * scale))
 }
 
@@ -116,6 +120,11 @@ impl JobView {
 
     /// The band's row for a question asked in pictures: its stills small, the question, and Look and choose.
     pub(super) fn render_look_row(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        // While its options are open over the thread the row would say the same again; the sheet takes its room.
+        // So does it while the box answers the question, which the line over the box names.
+        if self.dock_of(id).is_some_and(|dock| dock.choosing.is_some()) || self.answering_row(id, cx).is_some() {
+            return None;
+        }
         let row = self.pictured_front(id, cx)?;
         let options = row_options(row);
         let port = self.port(cx);
@@ -144,6 +153,8 @@ impl JobView {
                     .relative()
                     .flex_none()
                     .flex()
+                    // A narrow band puts Look and choose on a line of its own, so the question keeps its words.
+                    .flex_wrap()
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .px(look.length(token::SPACE_3))
@@ -155,13 +166,13 @@ impl JobView {
                     .child(
                         div()
                             .flex_1()
-                            .min_w_0()
+                            .min_w(look.length(token::SPACE_12) * 4.)
                             .flex()
                             .flex_col()
-                            .child(div().truncate().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone())))
-                            .child(div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(drawn_in_words(count))),
+                            .child(div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone())))
+                            .child(div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(drawn_in_words(count))),
                     )
-                    .child(open)
+                    .child(div().flex_none().ml_auto().child(open))
                     .child(measure(move |size, window| {
                         if measured.replace(f32::from(size.width)) != f32::from(size.width) {
                             window.refresh();
@@ -182,7 +193,8 @@ impl JobView {
         if let Some(dock) = self.dock_mut() {
             dock.open = Some(false);
             dock.detail = None;
-            dock.choosing = Some(Choosing { item, lit, slots: Rc::default(), across: Rc::default() });
+            dock.choosing = Some(Choosing { item, lit, area: Rc::default(), words: Rc::default(), worded: Rc::default() });
+            dock.answering = None;
         }
         window.focus(&self.choose_focus, cx);
         cx.notify();
@@ -195,6 +207,77 @@ impl JobView {
         }
         self.to_composer(window, cx);
         cx.notify();
+    }
+
+    /// Answer in words: the options go, and the box answers the question until he sends or presses Esc.
+    fn words_for_choosing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(item) = self.dock_mut().and_then(|dock| dock.choosing.take()).map(|open| open.item) else { return };
+        if let Some(dock) = self.dock_mut() {
+            dock.answering = Some(item);
+        }
+        self.to_composer(window, cx);
+        cx.notify();
+    }
+
+    /// The question the box answers now, while it is still waiting.
+    pub(super) fn answering_row<'a>(&'a self, id: &str, cx: &'a gpui::App) -> Option<&'a NeedsYouRow> {
+        let item = self.dock_of(id)?.answering.as_ref()?;
+        self.choosing_row(id, item, cx)
+    }
+
+    /// Esc in the box while it answers: it is a plain message again, its words kept.
+    pub(super) fn drop_answering(&mut self, cx: &mut Context<Self>) -> bool {
+        let held = self.dock_mut().and_then(|dock| dock.answering.take()).is_some();
+        if held {
+            cx.notify();
+        }
+        held
+    }
+
+    /// Over the box while it answers: what it answers, and the way back to a message.
+    pub(super) fn render_answering(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let row = self.answering_row(id, cx)?;
+        let hue = look.color(token::STEP_WAITING);
+        let back = labelled(
+            pressed(
+                div().id("answering-back").flex_none().cursor_pointer().rounded(look.length(token::RADIUS_SM)).child(kbd("Esc", look)),
+                cx,
+                |this, _, cx| {
+                    this.drop_answering(cx);
+                },
+            )
+            .focusable()
+            .tooltip(crate::titlebar::parts::tip("Message instead")),
+            Role::Button,
+            "Message instead",
+        );
+        Some(
+            labelled(
+                div()
+                    .id("answering")
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_4))
+                    .pt(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_col()
+                            .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child("Answer in words"))
+                            .child(div().line_clamp(2).text_ellipsis().text_color(look.color(token::FG_MUTED)).child(SharedString::from(row.text.clone()))),
+                    )
+                    .child(back),
+                Role::Status,
+                format!("Answer in words: {}", row.text),
+            )
+            .into_any_element(),
+        )
     }
 
     /// Choose, or its number: the option goes as the band's press sends it, and the band moves on.
@@ -248,16 +331,18 @@ impl JobView {
         let pick = crate::ways::pick_of(options).unwrap_or(0);
         let title = self.title_of(id, cx).unwrap_or_default();
         let question = SharedString::from(row.text.clone());
-        let across = open.across.get();
+        let area = open.area.get();
+        let (across, down) = (f32::from(area.width), f32::from(area.height));
         // Narrower than this the Job's name goes under the question, and the foot keeps only ← → and Answer in words.
         let narrow = across < f32::from(look.length(token::SPACE_12)) * 9.;
-        let words_of = |at: usize, option: &WaitingOption| {
+        let words_of = |at: usize, option: &WaitingOption, measured: Option<Rc<RefCell<HashMap<usize, f32>>>>| {
             let label = crate::ways::name_of(&option.label).to_string();
             let mut choose = press(format!("choose:{}:{at}", row.id), "Choose".into(), None, None, Weight::Plain, look);
             if at == pick {
                 choose = primary(choose, look);
             }
             div()
+                .relative()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
@@ -268,26 +353,36 @@ impl JobView {
                         .min_w_0()
                         .flex()
                         .flex_col()
-                        .child(div().truncate().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(label.clone())))
+                        .child(div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(label.clone())))
                         .children(option.description.as_ref().filter(|said| !said.is_empty()).map(|said| {
-                            div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
+                            div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
                         })),
                 )
                 .child(labelled(pressed(choose, cx, move |this, window, cx| this.choose_option(at, window, cx)), Role::Button, format!("Choose {label}")))
+                .children(measured.map(|words| {
+                    measure(move |size, window| {
+                        let high = f32::from(size.height);
+                        if words.borrow_mut().insert(at, high) != Some(high) {
+                            window.refresh();
+                        }
+                    })
+                }))
         };
+        let pad = look.length(token::SPACE_2);
+        let edge = look.length(token::BORDER_WIDTH);
         let frame = |at: usize, option: &WaitingOption, body: Div, grow: bool| {
             let lit = open.lit == at;
             let label = crate::ways::name_of(&option.label).to_string();
             labelled(
                 div()
                     .id(SharedString::from(format!("choose-option:{at}")))
-                    .map(|one| if grow { one.flex_1().min_w_0().min_h_0() } else { one.flex_none() })
+                    .map(|one| if grow { one.flex_1().min_w_0() } else { one.flex_none() })
                     .flex()
                     .flex_col()
-                    .gap(look.length(token::SPACE_2))
-                    .p(look.length(token::SPACE_2))
+                    .gap(pad)
+                    .p(pad)
                     .rounded(look.length(token::RADIUS_LG) * 1.5)
-                    .border(look.length(token::BORDER_WIDTH))
+                    .border(edge)
                     .border_color(if lit { hue.opacity(0.55) } else { look.color(token::BORDER_SUBTLE) })
                     .bg(if lit { hue.opacity(0.12) } else { look.color(token::FG_DEFAULT).opacity(0.02) })
                     .child(body),
@@ -298,31 +393,28 @@ impl JobView {
         let (pictured, worded): (Vec<_>, Vec<_>) = options.iter().enumerate().partition(|(_, option)| option.picture.is_some());
         let gap = look.length(token::SPACE_3);
         let fits = how_many_fit(across, f32::from(look.length(token::SPACE_12)) * 3.5, f32::from(gap));
-        let run = shown_run(pictured.iter().position(|(at, _)| *at == open.lit), pictured.len(), fits);
-        let columns = pictured[run].iter().map(|&(at, option)| {
-            let picture = option.picture.as_ref().expect("partitioned on its picture");
-            let slots = open.slots.clone();
-            // A part's label hangs past its box's foot or over its head, so the still leaves a label's height free at each end.
-            let hang = (look.length(token::LEADING_2XS) + look.length(token::SPACE_1)) * 2.;
-            let size = slots.borrow().get(&at).copied().and_then(|room| fit(picture.width, picture.height, gpui::size(room.width, room.height - hang)));
-            let still = div()
-                .relative()
-                .flex_1()
-                .min_h_0()
-                .w_full()
-                .flex()
-                .items_center()
-                .justify_center()
-                .children(size.and_then(|size| crate::option_pictures::large(&row.id, options, at, size, open.lit == at, port, hue, look)))
-                // The place is measured as it is laid out; a change of it draws once more with the still fitted.
-                .child(measure(move |size, window| {
-                    if slots.borrow_mut().insert(at, size) != Some(size) {
-                        window.refresh();
-                    }
-                }));
-            frame(at, option, div().flex_1().min_h_0().flex().flex_col().gap(look.length(token::SPACE_2)).child(still).child(words_of(at, option)), true).into_any_element()
+        // When the stills do not all fit side by side, every option takes its turn in the same place, one run at a time,
+        // options in words among them; otherwise the options in words stand under the stills.
+        let turns = fits < pictured.len();
+        let (pool, worded) = if turns { (options.iter().enumerate().collect::<Vec<_>>(), Vec::new()) } else { (pictured, worded) };
+        let run = if turns { shown_run(Some(open.lit), pool.len(), fits) } else { 0..pool.len() };
+        let shown = run.len().max(1) as f32;
+        // Each still takes its column's inner width, unless the height its words and the options in words leave is less.
+        let inner = (across - f32::from(gap) * (shown - 1.)) / shown - f32::from(pad + edge) * 2.;
+        let under = if worded.is_empty() { 0. } else { open.worded.get() + f32::from(look.length(token::SPACE_2)) };
+        let least = f32::from(look.length(token::SPACE_12)) * 1.5;
+        let columns = pool[run].iter().map(|&(at, option)| {
+            let words_high = open.words.borrow().get(&at).copied().unwrap_or(0.);
+            let left = (down - under - f32::from(pad + edge) * 2. - f32::from(pad) - words_high).max(least);
+            let still = option
+                .picture
+                .as_ref()
+                .and_then(|picture| fit(picture.width, picture.height, inner, left))
+                .and_then(|size| crate::option_pictures::large(&row.id, options, at, size, open.lit == at, port, hue, look))
+                .map(|still| div().flex().justify_center().child(still));
+            frame(at, option, div().flex().flex_col().gap(pad).children(still).child(words_of(at, option, Some(open.words.clone()))), true).into_any_element()
         });
-        let measured = open.across.clone();
+        let (measured_area, measured_worded) = (open.area.clone(), open.worded.clone());
         let close = labelled(
             pressed(div().id("choose-close").flex_none().cursor_pointer().rounded(look.length(token::RADIUS_SM)).child(kbd("Esc", look)), cx, |this, window, cx| this.close_choose(window, cx))
                 .focusable()
@@ -330,7 +422,7 @@ impl JobView {
             Role::Button,
             "Close",
         );
-        let said = div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(question.clone());
+        let said = div().flex_1().min_w_0().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(question.clone());
         let from = div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(title);
         let top = div()
             .flex_none()
@@ -345,30 +437,39 @@ impl JobView {
             .map(|top| if narrow { top.child(div().flex_1().min_w_0().flex().flex_col().child(said).child(from)) } else { top.child(said).child(from.flex_none().max_w(look.length(token::SPACE_12) * 5.)) })
             .child(close);
         let body = div()
+            .relative()
             .flex_1()
             .min_h_0()
+            .m(look.length(token::SPACE_2))
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_2))
-            .p(look.length(token::SPACE_3))
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .flex()
-                    .gap(gap)
-                    .children(columns)
-                    .child(measure(move |size, window| {
-                        if measured.replace(f32::from(size.width)) != f32::from(size.width) {
-                            window.refresh();
-                        }
-                    })),
-            )
-            .children(worded.into_iter().map(|(at, option)| frame(at, option, words_of(at, option), false).into_any_element()));
+            .overflow_hidden()
+            .child(div().flex().items_start().gap(gap).children(columns))
+            .when(!worded.is_empty(), |body| {
+                body.child(
+                    div()
+                        .relative()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_2))
+                        .children(worded.into_iter().map(|(at, option)| frame(at, option, words_of(at, option, None), false).into_any_element()))
+                        .child(measure(move |size, window| {
+                            let high = f32::from(size.height);
+                            if measured_worded.replace(high) != high {
+                                window.refresh();
+                            }
+                        })),
+                )
+            })
+            .child(measure(move |size, window| {
+                if measured_area.replace(size) != size {
+                    window.refresh();
+                }
+            }));
         let keys = (1..=options.len().min(9)).map(|n| kbd(n.to_string(), look));
         let words = labelled(
-            pressed(press("choose-words", "Answer in words".into(), None, None, Weight::Plain, look), cx, |this, window, cx| this.close_choose(window, cx)),
+            pressed(press("choose-words", "Answer in words".into(), None, None, Weight::Plain, look), cx, |this, window, cx| this.words_for_choosing(window, cx)),
             Role::Button,
             "Answer in words",
         );
@@ -378,7 +479,7 @@ impl JobView {
             .items_center()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .text_size(look.length(token::TEXT_2XS))
@@ -430,7 +531,6 @@ fn measure(then: impl Fn(Size<Pixels>, &mut Window) + 'static) -> impl IntoEleme
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::px;
 
     #[test]
     fn the_band_says_how_many_options_are_drawn_in_words() {
@@ -470,12 +570,11 @@ mod tests {
     }
 
     #[test]
-    fn a_still_fits_its_place_whole_and_is_never_drawn_past_its_size() {
-        let room = |w: f32, h: f32| gpui::size(px(w), px(h));
-        assert_eq!(fit(760, 380, room(380., 400.)), Some((380., 190.)), "a wide place: the width decides");
-        let (w, h) = fit(760, 2000, room(380., 400.)).unwrap();
-        assert!((h - 400.).abs() < 1e-3 && (w - 152.).abs() < 1e-3, "a tall still: the height decides, {w} by {h}");
-        assert_eq!(fit(300, 120, room(1000., 1000.)), Some((300., 120.)));
-        assert_eq!(fit(760, 380, room(0., 0.)), None, "a place not yet laid out draws nothing");
+    fn a_still_takes_its_columns_width_unless_the_height_left_is_less() {
+        assert_eq!(fit(760, 380, 380., 400.), Some((380., 190.)), "the column's width decides");
+        assert_eq!(fit(760, 380, 1520., 2000.), Some((1520., 760.)), "and a still is drawn past its own size to fill it");
+        let (w, h) = fit(760, 2000, 380., 400.).unwrap();
+        assert!((h - 400.).abs() < 1e-3 && (w - 152.).abs() < 1e-3, "a tall still: the height left decides, {w} by {h}");
+        assert_eq!(fit(760, 380, 0., 0.), None, "a place not yet laid out draws nothing");
     }
 }

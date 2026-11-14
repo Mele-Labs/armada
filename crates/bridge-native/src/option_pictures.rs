@@ -144,17 +144,31 @@ fn shrink(window: &mut Window, cx: &mut App) {
 
 /// One still with its parts' boxes, `w` by `h`. `named` shows every part's label; otherwise a label shows
 /// while the pointer is on its box. A label hangs under its box's right end, where a row's words
-/// seldom are, and over it when the box reaches the still's foot.
-fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (f32, f32), named: bool, hue: Hsla, look: &Look) -> gpui::Div {
+/// seldom are, and over it when the box reaches the still's foot. `inside` keeps every label within the still
+/// (`label_spots`): where they cannot all stand apart there, none shows until the pointer is on its part.
+#[allow(clippy::too_many_arguments)]
+fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (f32, f32), named: bool, inside: bool, hue: Hsla, look: &Look) -> gpui::Div {
     let source = source.clone();
     let tiers = label_tiers(picture, w);
     let step = f32::from(look.length(token::LEADING_2XS)) + 4.;
-    let parts = picture.parts.iter().zip(tiers).map(|(part, tier)| {
+    let measure = (f32::from(look.length(token::TEXT_2XS)) * 0.62, f32::from(look.length(token::SPACE_1)) * 2., f32::from(look.length(token::LEADING_2XS)) + 2.);
+    let apart = inside.then(|| label_spots(picture, (w, h), measure, true)).flatten();
+    let spots = if inside { apart.clone().or_else(|| label_spots(picture, (w, h), measure, false)) } else { None };
+    let named = named && (!inside || apart.is_some());
+    let parts = picture.parts.iter().zip(tiers).enumerate().map(|(at, (part, tier))| {
         let [x, y, pw, ph] = part_box(picture, part);
         let name = SharedString::from(format!("{id}:{}", part.name));
-        let label = div().absolute().right_0();
-        let gap = px(2. + tier as f32 * step);
-        let label = if y + ph > 0.88 { label.bottom_full().mb(gap) } else { label.top_full().mt(gap) };
+        let label = div().absolute();
+        let label = match spots.as_ref().map(|spots| spots[at]) {
+            Some(Some((lx, ly))) => label.left(px(lx - x * w)).top(px(ly - y * h)).line_height(look.length(token::LEADING_2XS)),
+            Some(None) => label,
+            None => {
+                let gap = px(2. + tier as f32 * step);
+                let label = label.right_0();
+                if y + ph > 0.88 { label.bottom_full().mb(gap) } else { label.top_full().mt(gap) }
+            }
+        };
+        let placed = !matches!(spots.as_ref().map(|spots| spots[at]), Some(None));
         let label = label
             .px(look.length(token::SPACE_1))
             .py(px(1.))
@@ -177,7 +191,7 @@ fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (
             .border(look.length(token::BORDER_WIDTH))
             .border_color(if named { hue } else { gpui::transparent_black() })
             .hover(|style| style.border_color(hue).bg(hue.opacity(0.12)))
-            .child(if named { label } else { label.opacity(0.).group_hover(name, |style| style.opacity(1.)) });
+            .when(placed, |part_box| part_box.child(if named { label } else { label.opacity(0.).group_hover(name, |style| style.opacity(1.)) }));
         labelled(part_box, Role::Image, part.label.clone())
     });
     div()
@@ -189,6 +203,35 @@ fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (
         .bg(look.color(token::BG_SUNKEN))
         .child(img(move |window: &mut Window, cx: &mut App| window.use_asset::<Still>(&source, cx)).size_full().rounded(look.length(token::RADIUS_MD)).object_fit(ObjectFit::Fill))
         .children(parts)
+}
+
+/// Where each part's label stands inside a still `w` by `h`, as its top-left in points: under its box at the box's
+/// right end, else over the box, else inside the box's top. `measure` is a letter's width, the label's side padding
+/// and its height. With `apart`, each label must stand clear of those placed before it, or there is no place for
+/// any (`None`); without, each is placed as if alone. A label wider than the still has no place.
+fn label_spots(picture: &OptionPicture, (w, h): (f32, f32), (letter, padding, high): (f32, f32, f32), apart: bool) -> Option<Vec<Option<(f32, f32)>>> {
+    const GAP: f32 = 2.;
+    let mut placed: Vec<[f32; 4]> = Vec::new();
+    let mut spots = Vec::new();
+    for part in &picture.parts {
+        let [x, y, pw, ph] = part_box(picture, part);
+        let (bx, by, bw, bh) = (x * w, y * h, pw * w, ph * h);
+        let wide = part.label.chars().count() as f32 * letter + padding;
+        let lx = (bx + bw - wide).max(0.);
+        let fits = lx + wide <= w;
+        let tries = [by + bh + GAP, by - high - GAP, by + GAP].into_iter().filter(|ly| *ly >= 0. && ly + high <= h);
+        let clear = |ly: &f32| !apart || !placed.iter().any(|&[ax, ay, aw, ah]| lx < ax + aw + GAP && ax < lx + wide + GAP && *ly < ay + ah + GAP && ay < ly + high + GAP);
+        let spot = if fits { tries.into_iter().find(clear) } else { None };
+        match spot {
+            Some(ly) => {
+                placed.push([lx, ly, wide, high]);
+                spots.push(Some((lx, ly)));
+            }
+            None if apart => return None,
+            None => spots.push(None),
+        }
+    }
+    Some(spots)
 }
 
 /// How many label heights each part's label drops below (or rises above) its box, so labels whose boxes end
@@ -239,7 +282,7 @@ pub fn stills(
         let (w, h) = card_size(picture);
         let (space_ring, press_ring) = (ring.clone(), ring.clone());
         let picture_press = labelled(
-            still(&card_key, picture, &source, (w, h), false, hue, look)
+            still(&card_key, picture, &source, (w, h), false, false, hue, look)
                 .id(SharedString::from(format!("{card_key}:picture")))
                 .w_full()
                 .max_w(px(w))
@@ -324,7 +367,7 @@ pub fn large(key: &str, options: &[WaitingOption], at: usize, size: (f32, f32), 
     let Shown { key, picture, source, label, .. } = ring.get(place)?.clone();
     Some(
         labelled(
-            still(&key, &picture, &source, size, named, hue, look)
+            still(&key, &picture, &source, size, named, true, hue, look)
                 .id(SharedString::from(format!("{key}:large")))
                 .cursor_pointer()
                 .tooltip(crate::titlebar::parts::tip("Full size"))
@@ -413,7 +456,7 @@ fn full_size(shown: &Shown, focus: &FocusHandle, many: bool, within: gpui::Bound
                 .when(many, |head| head.child(crate::titlebar::parts::kbd("\u{2190}", look)).child(crate::titlebar::parts::kbd("\u{2192}", look)))
                 .child(crate::titlebar::parts::kbd("Esc", look)),
         )
-        .child(still(&id, picture, source, natural_in(picture, room, look), true, hue, look).mt(look.length(token::SPACE_4)));
+        .child(still(&id, picture, source, natural_in(picture, room, look), true, false, hue, look).mt(look.length(token::SPACE_4)));
     deferred(
         anchored().position(within.origin).child(
             labelled(
@@ -496,6 +539,25 @@ mod tests {
         let part = |name: &str, x: u32, w: u32| PicturePart { name: name.into(), label: name.into(), x, y: 134, w, h: 24 };
         let tiers = label_tiers(&OptionPicture { width: 760, height: 540, ..picture(vec![part("Main act", 623, 80), part("More menu", 707, 24), part("Row note", 29, 100)]) }, 760.);
         assert_eq!(tiers, vec![0, 1, 0], "the second label drops a line; one far off keeps its place");
+    }
+
+    #[test]
+    fn labels_inside_a_still_stand_apart_or_none_stand_at_all() {
+        let part = |name: &str, x: u32, y: u32, w: u32, h: u32| PicturePart { name: name.into(), label: name.into(), x, y, w, h };
+        let wide = OptionPicture { width: 760, height: 540, ..picture(vec![part("Main act", 623, 134, 80, 24), part("More menu", 707, 134, 24, 24), part("Row note", 29, 229, 702, 100)]) };
+        let measure = (7., 8., 18.);
+        let large = label_spots(&wide, (760., 540.), measure, true).expect("a large still has room for every label");
+        for (at, a) in large.iter().enumerate() {
+            let (ax, ay) = a.unwrap();
+            for b in &large[at + 1..] {
+                let (bx, by) = b.unwrap();
+                assert!((ax - bx).abs() > 60. || (ay - by).abs() >= 18., "labels stand apart: {a:?} {b:?}");
+            }
+            assert!(ax >= 0. && ay >= 0. && ay + 18. <= 540., "and inside the still");
+        }
+        assert!(label_spots(&wide, (90., 64.), measure, true).is_none(), "a small still has no room for them apart");
+        let alone = label_spots(&wide, (90., 64.), measure, false).unwrap();
+        assert!(alone.iter().all(Option::is_some), "each alone still has a place inside it");
     }
 
     #[test]
