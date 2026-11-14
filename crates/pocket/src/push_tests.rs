@@ -540,3 +540,31 @@ async fn a_mac_pushes_under_its_own_key_where_the_subscription_carries_none() {
     assert_eq!(signed_with(&got[0].headers), test_push().vapid.public_key());
     assert!(opened(&got[0].body).ends_with(r#","origin":"https://mac.tail.ts.net"}"#));
 }
+
+/// What pushes is read from `/events` as the phone, which Fleet cuts to the Jobs in a shared project.
+#[tokio::test]
+async fn the_watcher_reads_fleets_events_as_the_phone() {
+    let callers: Arc<Mutex<Vec<String>>> = Arc::default();
+    let seen = Arc::clone(&callers);
+    let app = Router::new().route(
+        "/events",
+        axum::routing::get(move |headers: HeaderMap, upgrade: axum::extract::ws::WebSocketUpgrade| async move {
+            let caller = headers.get("x-armada-caller").and_then(|said| said.to_str().ok()).unwrap_or("").to_string();
+            seen.lock().unwrap().push(caller);
+            upgrade.on_upgrade(|_socket| async {})
+        }),
+    );
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let rig = rig_with(Arc::new(move || Ok(port)));
+    let following = tokio::spawn(crate::watch::follow(rig.gateway.clone()));
+    for _ in 0..200 {
+        if !callers.lock().unwrap().is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    following.abort();
+    assert_eq!(callers.lock().unwrap().first().map(String::as_str), Some("phone"));
+}
