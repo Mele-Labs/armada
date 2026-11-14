@@ -350,7 +350,7 @@ impl WebWalkTab {
                 )
             })))
             .child(icon_button("web-walk-reload", "refresh-cw", "Reload", Some("\u{2318}R"), Weight::Quiet, true, cx, cx.listener(|this, _, window, cx| this.reload(&Reload, window, cx))))
-            .children((!self.live).then(|| div().flex_none().w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))))));
+            .children((!self.live).then(|| div().min_w(look.length(token::SPACE_8) * 3.).w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))))));
         let line = row()
             .child(icon_button("web-walk-back", "chevron-left", "Replay to the step before", Some("\u{2325}\u{2318}\u{2190}"), Weight::Quiet, !first && !self.finding, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
             .child(
