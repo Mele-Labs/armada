@@ -468,6 +468,20 @@ impl Wire {
         }
     }
 
+    pub fn gateway_found(&mut self, cx: &App) -> Task<Result<ipc::FoundMacs, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_found()),
+            Wire::Live(_) => super::gateway::found(cx),
+        }
+    }
+
+    pub fn pair_ask(&mut self, tunnel: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_ask(&tunnel)),
+            Wire::Live(_) => super::gateway::pair_ask(tunnel, cx),
+        }
+    }
+
     pub fn pair_start(&mut self, cx: &App) -> Task<Result<ipc::MacPairLink, String>> {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.pair_start()),
