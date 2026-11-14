@@ -63,6 +63,8 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Merge { number, .. } => said(&format!("Merge #{number}"), None),
         JobAct::Start(_) => said("Start", None),
         JobAct::Dispatch(_) => said("Start", None),
+        // A `Move` sent from here asks the other Mac to send its Job here; Arrive and MoveSettled are the two
+        // Fleets' halves of the move he pressed.
         JobAct::Move { .. } => said("Bring here", None),
         JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
     }

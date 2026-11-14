@@ -1,12 +1,12 @@
 //! A running Job moved from Work to Home: it finishes its turn, its branch is pushed, Work's slot is freed, and
 //! Home resumes the same conversation under the same id, read across in pieces. A Job in an unshared project
-//! cannot move.
+//! cannot move, and one that moved into a copy stops crossing back once its project is unshared.
 
 use std::sync::Arc;
 
 use adapter_traits::Vcs;
-use api::{OtherMacs, Refusal};
-use ipc::{MoveJobToMac, SessionId, SessionState};
+use api::{HostedSessions, OtherMacs, Refusal};
+use ipc::{Event, JobThreadRead, MoveJobToMac, SessionId, SessionState};
 use testkit::{Delivered, Delivering, FakeVcs};
 
 use super::{from, job_in, paired, project, shared, until, OneMac, Ticking};
@@ -86,6 +86,19 @@ async fn a_running_job_finishes_its_turn_and_home_resumes_its_conversation_in_a_
     let (_, listed) = home.sessions().await;
     let row = listed.sessions.iter().find(|one| one.id == job).expect("Home's row");
     assert_eq!(row.state, SessionState::Live);
+
+    // **Unshared, the moved Job stops crossing back**: Work turns Shop off, so Home drops its copy, and the Job,
+    // still running on Home in a project Home no longer holds, is neither listed, streamed nor read to Work.
+    shared(&work.rig, &shop, false).await;
+    until("Home drops its copy of Shop", || async { !home.projects().await.1.projects.iter().any(|one| one.id == shop) }).await;
+    assert!(home.rig.fleet.share_sessions().await.expect("listed").sessions.iter().all(|one| one.id != job), "Home still shares it");
+    let record = Arc::clone(&home.rig.fleet).get_session(job.clone()).await.expect("Home's Job").session;
+    assert!(home.rig.fleet.share_event(Event::SessionChanged(record)).await.is_none(), "a live change of it still crosses");
+    let read = JobThreadRead { session_id: job.clone(), before: None, limit: None, upto: None };
+    let refused = Arc::clone(&home.rig.fleet).share_job_thread(read).await.expect_err("its thread is refused");
+    assert!(matches!(refused, Refusal::NotFound(_)), "not refused as no Job: {refused:?}");
+    let on_work = job.clone();
+    until("Work no longer lists the Job as Home's", || async { from(&work.sessions().await.1, &on_work) != Some(Some(home.id.clone())) }).await;
 }
 
 /// **A move that cannot push loses nothing**: the Job stays on Work, resumed and told why, and Home starts nothing.
