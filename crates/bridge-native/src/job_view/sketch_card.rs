@@ -126,8 +126,8 @@ fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: b
         .rounded(look.length(token::RADIUS_MD))
         .border(look.length(token::BORDER_WIDTH))
         .border_color(gpui::transparent_black())
-        .text_size(look.length(token::TEXT_SM))
-        .line_height(look.length(token::LEADING_SM))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)));
     let (styled, key_cap) = match kind {
         Kind::Approve => {
@@ -250,9 +250,8 @@ impl JobView {
             .bg(kind.opacity(0.18))
             .child(gpui::svg().path(icon_path("layers")).flex_none().size(look.length(token::TEXT_BASE)).text_color(kind));
         let title = div()
-            .flex_1()
+            .flex_grow(1.)
             .min_w_0()
-            .truncate()
             .text_size(look.length(token::TEXT_BASE))
             .line_height(look.length(token::LEADING_BASE))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
@@ -276,6 +275,7 @@ impl JobView {
         );
         let top = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .child(tile)
@@ -301,8 +301,16 @@ impl JobView {
                         .flex_wrap()
                         .items_center()
                         .gap(look.length(token::SPACE_2))
-                        .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
-                        .children(line.text.clone().map(|text| div().min_w_0().child(SharedString::from(text))))
+                        .max_w_full()
+                        .child(
+                            div()
+                                .flex()
+                                .gap(look.length(token::SPACE_1))
+                                .min_w_0()
+                                .max_w_full()
+                                .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
+                                .children(line.text.clone().map(|text| div().flex_1().min_w_0().child(SharedString::from(text)))),
+                        )
                         .children(line.links.iter().map(|link| link_chip(look, link)))
                 }))
                 .when(card.replaced, |row| row.child(muted("Replaced".to_string())))
@@ -414,6 +422,7 @@ impl JobView {
                         "a" if acts.asking => this.approve_sketch(&acts, window, cx),
                         "c" if acts.asking => this.ask_changes(&acts, window, cx),
                         "d" if acts.asking => this.dismiss_sketch(&acts, window, cx),
+                        "d" => this.archive_sketch(&acts, window, cx),
                         _ => return,
                     }
                     cx.stop_propagation();
@@ -494,7 +503,7 @@ impl JobView {
             .child(div().flex_1())
             .child(tail("Dismiss", "D", "Put it away with no answer", Box::new(move |this, window, cx| this.dismiss_sketch(&a3, window, cx)), "dismiss", cx))
         } else {
-            row.child(div().flex_1()).child(tail("Archive", "X", "Fold it away from your list", Box::new(move |this, window, cx| this.archive_sketch(&a3, window, cx)), "archive", cx))
+            row.child(div().flex_1()).child(tail("Archive", "D", "Fold it away from your list", Box::new(move |this, window, cx| this.archive_sketch(&a3, window, cx)), "archive", cx))
         };
         let open = tail("Open", "\u{21b5}", "Read it on its own", Box::new(move |this, window, cx| this.read_sketch(&a4.key, &a4.key, window, cx)), "open", cx);
         let row = row.child(open);
