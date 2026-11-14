@@ -20,6 +20,8 @@ pub(super) const ASKS: &str = "Carry on in a new Job?";
 pub(super) const ITEM_PREFIX: &str = "handoff:";
 /// How many lines of the brief show before Show all, and about how many the opened well holds.
 const FOLDED_LINES: f32 = 4.;
+/// The fewest lines an opened brief keeps when the thread is short.
+const OPEN_LEAST_LINES: f32 = 3.;
 /// Under this width the head puts the question on a line of its own, and the card draws its presses closer.
 const NARROW: f32 = 420.;
 
@@ -156,12 +158,13 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT));
         let well = if opened {
             // Opened, it scrolls inside its well, so the picks under it stay where they are. The well takes what the
-            // thread has left after the rest of the card, never under four lines, so the head stays in view.
+            // thread has left after the rest of the card, never under three lines, so the head stays in view.
             let room = self.pane_height.unwrap_or_default() - look.length(token::SPACE_4) * 2.;
             let rest = whole.get() - boxed.get();
             let chrome = look.length(token::SPACE_2) * 2. + look.length(token::BORDER_WIDTH) * 2.;
-            let fits = if whole.get() > gpui::px(0.) && boxed.get() > gpui::px(0.) { room - rest - chrome } else { folded };
-            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(fits.max(folded)).overflow_y_scroll().child(words))
+            let least = line * OPEN_LEAST_LINES;
+            let fits = if whole.get() > gpui::px(0.) && boxed.get() > gpui::px(0.) { room - rest - chrome } else { least };
+            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(fits.max(least)).overflow_y_scroll().child(words))
         } else {
             well.child(div().max_h(folded).overflow_hidden().child(words)).when(tall, |well| {
                 let clear = sunken.opacity(0.);
