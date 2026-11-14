@@ -230,10 +230,10 @@ async fn an_act_on_an_unshared_job_answers_as_an_act_on_no_job_and_a_shared_one_
             let unshared = phone.call("POST", &route, &body.replace("{id}", job.as_str()), job.as_str()).await;
             assert_eq!(unshared, missing, "{act}: the answer says nothing of it");
         }
-        // A Job of its own, so an act before it (a close, a stop) is not what this one meets. A change to a wait
-        // needs a Job that waits: Fleet answers one that does not exactly as it answers no Job.
+        // A Job of its own, so an act before it (a close, a stop) is not what this one meets. A change to a wait,
+        // or a start out of one, needs a Job that waits: Fleet answers one that does not exactly as it answers no Job.
         let open = match *act {
-            "change_waiting" => waiting_in(&phone.rig, &garden, &jobs.open).await,
+            "change_waiting" | "start_waiting" => waiting_in(&phone.rig, &garden, &jobs.open).await,
             _ => job_in(&phone.rig, Some(&garden)).await,
         };
         let reached = phone.call("POST", &route, &body.replace("{id}", open.as_str()), open.as_str()).await;
