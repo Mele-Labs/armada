@@ -1181,7 +1181,7 @@ impl SettingsOverlay {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(chip(look, mac))
-                    .child(
+                    .child(labelled(
                         div()
                             .id("macs-this-name")
                             .min_w_0()
@@ -1191,7 +1191,9 @@ impl SettingsOverlay {
                             .text_color(look.color(token::FG_DEFAULT))
                             .tooltip(tip(mac.name.clone()))
                             .child(SharedString::from(mac.name.clone())),
-                    )
+                        Role::Label,
+                        mac.name.clone(),
+                    ))
                     .children(mac.build.as_ref().map(|build| build_mark(look, "macs-this-build", build)))
                     .into_any_element(),
             },
@@ -1243,7 +1245,7 @@ impl SettingsOverlay {
                 step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), lines, Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             }
             CloudflareState::Down { address, since, why } => {
-                let name = div().id("macs-down-address").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.clone())).child(SharedString::from(address.clone()));
+                let name = labelled(div().id("macs-down-address").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.clone())).child(SharedString::from(address.clone())), Role::Label, address.clone());
                 let since = format!("Not connected since {}", clock_of(*since));
                 let mut lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
                 lines.extend(refused);
@@ -1626,7 +1628,7 @@ fn reach_line(look: &Look, id: &'static str, lead: &str, address: &str) -> gpui:
         .text_size(look.length(token::TEXT_SM))
         .text_color(look.color(token::FG_MUTED))
         .child(SharedString::from(lead.to_string()))
-        .child(div().id(id).min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.to_string())).child(SharedString::from(address.to_string())))
+        .child(labelled(div().id(id).min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.to_string())).child(SharedString::from(address.to_string())), Role::Label, address.to_string()))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
@@ -1676,7 +1678,7 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
                         .min_w_0()
                         .items_baseline()
                         .gap(look.length(token::SPACE_2))
-                        .child(div().id(SharedString::from(format!("macs-name-{name}"))).min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).tooltip(tip(name.to_string())).child(SharedString::from(name.to_string())))
+                        .child(labelled(div().id(SharedString::from(format!("macs-name-{name}"))).min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).tooltip(tip(name.to_string())).child(SharedString::from(name.to_string())), Role::Label, name.to_string()))
                         .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside))),
                 )
                 .children(why.map(|why| caption(look, why))),
@@ -1806,6 +1808,11 @@ mod tests {
                 assert!(copy.1 <= tunnel_card.right(), "at {width:?} a 90 character address does not push Copy address out of its card");
                 let tunnel = bounds_of(window, cx, Role::Status, &format!("Reached at {LONG_ADDRESS}")).expect("the tunnel's row is drawn");
                 assert!(tunnel.right() <= copy.0, "at {width:?} the address stops before Copy address");
+                // Not truncated, a text this long wraps onto a second line, so one line is what proves the ellipsis.
+                for text in [LONG_THIS_MAC, LONG_MAC, LONG_ADDRESS] {
+                    let drawn = bounds_of(window, cx, Role::Label, text).unwrap_or_else(|| panic!("{text} is drawn"));
+                    assert!(drawn.size.height < gpui::px(30.), "at {width:?} {text} is on one line, not {:?} tall", drawn.size.height);
+                }
             });
         }
     }
