@@ -1,0 +1,144 @@
+{
+ "sessions": [
+  {
+   "id": "handoff-long",
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Carry the alerts across Macs",
+   "last_turn_at": "2026-11-09T15:52:00Z",
+   "so_far": "Wrote the brief for a new Job",
+   "state": "live",
+   "started_at": "2026-11-08T08:00:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "slot",
+     "target": "/work/slots/slot-4",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "branch",
+     "target": "native/alerts-across-macs",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
+   "standing": "idle",
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "running": false,
+    "commands": [
+     "compact",
+     "review",
+     "simplify",
+     "update-config",
+     "security-review",
+     "init",
+     "recompile"
+    ]
+   },
+   "waiting_for": [
+    {
+     "id": "handoff:ho-1",
+     "text": "Carry on in a new Job?",
+     "since": "2026-11-13T09:12:00Z",
+     "source": "handoff",
+     "options": [
+      {
+       "label": "Carry on in a new Job"
+      },
+      {
+       "label": "Stay here"
+      },
+      {
+       "label": "Don't ask again"
+      },
+      {
+       "label": "Remind at 400k"
+      },
+      {
+       "label": "Remind at 450k"
+      },
+      {
+       "label": "Remind at 500k"
+      }
+     ],
+     "act": {
+      "kind": "answer",
+      "target": "handoff:ho-1"
+     }
+    }
+   ]
+  },
+  {
+   "id": "handoff-short",
+   "mark": {
+    "state": "idle",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Tidy the docs index",
+   "last_turn_at": "2026-11-09T15:52:00Z",
+   "so_far": "Kept going past its context limit",
+   "state": "live",
+   "started_at": "2026-11-08T08:00:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "slot",
+     "target": "/work/slots/slot-5",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "branch",
+     "target": "docs/index-tidy",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
+   "standing": "idle",
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "running": false,
+    "commands": [
+     "compact",
+     "review",
+     "simplify",
+     "update-config",
+     "security-review",
+     "init",
+     "recompile"
+    ]
+   }
+  }
+ ]
+}

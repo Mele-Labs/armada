@@ -143,6 +143,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
+        // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
+        // one that was answered with a figure to be asked again at.
+        "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
         "job-panes" => include_bytes!("../fixtures/jobs-panes.json"),
         // The same Jobs, the first holding something of every kind the Ledger groups.
@@ -438,6 +441,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
         "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
+        "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
@@ -971,7 +975,8 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
         WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
         WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
         WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
-        _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: true },
+        // Fleet's handoff card takes no words.
+        _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: item.source != WaitingSource::Handoff },
         // A restart is the band's key even where the agent gave steps, as Classic's `restartOf` reads it.
         _ if !item.steps.is_empty() && command.as_deref().and_then(mock_restart).is_none() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
         _ => {
@@ -1044,6 +1049,7 @@ fn mock_place(item: &WaitingItem, act: &NeedsYouAct) -> (NeedsYouSectionKind, Ne
         WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::WatchNotOurs | WaitingSource::BrowserAsk => (Section::Questions, Dismiss::Plain),
         WaitingSource::RuleAct | WaitingSource::OperatorSuggestion => (Section::Questions, Dismiss::Skip),
         WaitingSource::OperatorUndone => (by_act(), Dismiss::Plain),
+        WaitingSource::Handoff => (Section::Questions, Dismiss::Plain),
         _ => (Section::Questions, Dismiss::None),
     }
 }
@@ -1135,6 +1141,8 @@ mod tests {
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
+        assert_eq!(super::jobs("handoff-card").expect("decodes").len(), 2);
+        assert_eq!(super::threads("handoff-card").expect("decodes").len(), 2);
         assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
         let tabs = super::threads("job-tabs").expect("decodes");
         for id in ["mock-01", "mock-02", "mock-04", "mock-06"] {

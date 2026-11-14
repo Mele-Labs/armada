@@ -113,6 +113,7 @@ impl JobView {
             | SessionRow::Draft { .. }
             | SessionRow::WindowAsk { .. }
             | SessionRow::Ask { .. } => Some(self.body_row(ix, row, page, look, now, cx)),
+            SessionRow::Handoff { .. } => super::handoff::Card::of(row).map(|card| self.handoff_card(&card, super::handoff::Place::Thread(ix), page, look, cx)),
             // Never drawn in the thread: the plan's card is its own item, and the others have no screen.
             SessionRow::Plan { .. } | SessionRow::Delivery { .. } | SessionRow::BrowserReminder { .. } => None,
             _ => self.line(ix, row, page, look, now, cx),
