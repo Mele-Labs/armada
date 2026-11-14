@@ -229,10 +229,7 @@ pub fn stills(
     if drawn.is_empty() {
         return None;
     }
-    let ring: Vec<Shown> = drawn
-        .iter()
-        .map(|(at, picture)| Shown { key: SharedString::from(format!("still:{key}:{at}")), picture: (*picture).clone(), source: StillAt { port, image: picture.image.clone() }, label: options[*at].label.clone(), hue })
-        .collect();
+    let ring = ring_of(key, options, port, hue);
     let cards = drawn.into_iter().enumerate().map(|(place, (at, picture))| {
         let option = &options[at];
         let label = option.label.clone();
@@ -308,6 +305,62 @@ pub fn stills(
         div().flex_none().max_w_full().child(labelled(card, Role::Group, label.clone())).into_any_element()
     });
     Some(labelled(div().id(SharedString::from(format!("stills:{key}"))).flex().flex_wrap().gap(look.length(token::SPACE_3)).children(cards), Role::Group, "Pictures").into_any_element())
+}
+
+/// Every still of a question, in order, as the full-size view steps through them.
+fn ring_of(key: &str, options: &[WaitingOption], port: Option<u16>, hue: Hsla) -> Vec<Shown> {
+    drawn(options)
+        .into_iter()
+        .map(|(at, picture)| Shown { key: SharedString::from(format!("still:{key}:{at}")), picture: picture.clone(), source: StillAt { port, image: picture.image.clone() }, label: options[at].label.clone(), hue })
+        .collect()
+}
+
+/// Option `at`'s still at `size` for the band's focus view, every part named when `named`, else on the pointer. A
+/// press opens it full size, where ← and → reach the question's other stills; it never picks.
+#[allow(clippy::too_many_arguments)]
+pub fn large(key: &str, options: &[WaitingOption], at: usize, size: (f32, f32), named: bool, port: Option<u16>, hue: Hsla, look: &Look) -> Option<AnyElement> {
+    let ring = ring_of(key, options, port, hue);
+    let place = drawn(options).iter().position(|(one, _)| *one == at)?;
+    let Shown { key, picture, source, label, .. } = ring.get(place)?.clone();
+    Some(
+        labelled(
+            still(&key, &picture, &source, size, named, hue, look)
+                .id(SharedString::from(format!("{key}:large")))
+                .cursor_pointer()
+                .tooltip(crate::titlebar::parts::tip("Full size"))
+                .on_click(move |_, window, cx| {
+                    cx.stop_propagation();
+                    enlarge(ring.clone(), place, window, cx);
+                }),
+            Role::Button,
+            format!("Picture of {label}"),
+        )
+        .into_any_element(),
+    )
+}
+
+/// Option `at`'s still as a thumbnail `w` by `h`, cropped to fill it: to glance at, not to press.
+pub fn thumb(key: &str, options: &[WaitingOption], at: usize, (w, h): (f32, f32), port: Option<u16>, look: &Look) -> Option<AnyElement> {
+    let option = options.get(at)?;
+    let source = StillAt { port, image: option.picture.as_ref()?.image.clone() };
+    Some(
+        labelled(
+            div()
+                .id(SharedString::from(format!("thumb:{key}:{at}")))
+                .flex_none()
+                .w(px(w))
+                .h(px(h))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::BG_SUNKEN))
+                .overflow_hidden()
+                .child(img(move |window: &mut Window, cx: &mut App| window.use_asset::<Still>(&source, cx)).size_full().rounded(look.length(token::RADIUS_MD)).object_fit(ObjectFit::Cover)),
+            Role::Image,
+            format!("Picture of {}", option.label),
+        )
+        .into_any_element(),
+    )
 }
 
 /// The still whole at its own size, or scaled down to fit the room left inside the dim, the frame around it

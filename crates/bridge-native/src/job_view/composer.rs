@@ -707,6 +707,10 @@ impl JobView {
         }
         let kept = self.kept(cx);
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
+            // Return in an empty box opens a question asked in pictures, as the band's Look and choose does.
+            if self.pictured_front(&id, cx).is_some() {
+                self.open_choose(window, cx);
+            }
             return;
         }
         if self.paused(&id, cx) {
@@ -1448,6 +1452,7 @@ impl JobView {
                             .bg(look.color(token::BG_SUNKEN))
                             .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
+                            .children(self.render_look_row(id, look, cx))
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
                             .children(self.render_tray(id, look, cx))
