@@ -446,6 +446,22 @@ A network that drops multicast, as some work networks and VPNs do, hides a Mac t
 
 **A phone cannot use this.** A web app cannot browse the network.
 
+## Through his store
+
+**A Mac or phone signed in to his claims store pairs with his other devices with one press, and no code and no Confirm.**
+The store has proved each device is his GitHub account's, so nothing is left for the four digits to prove.
+The link, the ask with digits, Bonjour and the phone's code all stay as they are.
+
+| Piece | What it does |
+|---|---|
+| Presence | Each Mac puts `PUT /v1/presence { kind: "mac", address }` to every store a project names that it joined: when the Gateway starts, after a join, and when its address changes, read each minute. A store that did not take it is tried again then |
+| The found list | `GET /admin/macs/found` adds each Mac his stores list with an address, from `GET /v1/peers`, greeted at `GET /pair/mac/hello`, which now names its tunnel too. Each row carries `vouched`, `store` and `device` (`ipc::VouchedMac`). A Mac the account or Bonjour shows as well, by tunnel name or address, is one row |
+| A signed request | Signed as a store request is, with the sender's key for that store and the four `X-Armada-*` headers, plus `X-Armada-Store` naming the store. The receiver takes it only where it joined that store, the time is within a minute, the nonce is unseen in the last two, and its own `GET /v1/peers` lists the sender with the key that signed. Anything else is `403 {"error":"not_vouched"}`, and nothing is kept |
+| Pair on a Mac | `POST /admin/macs/pair/vouched { store, device }`. This Mac makes a fresh key and posts `{ mac, public_key }`, signed, to the other's `POST /pair/mac/vouched`. The other keeps this Mac linked at once and answers its own hello and key, signed the same way on the answer's headers. This Mac checks the answer against its own peers before it keeps the other linked, and answers it as a `Mac` |
+| A phone | `GET /pair/store`, unsigned, answers `{ store, client_id }`: the first store joined that names no team, and the sign-in app's client id, each `null` where there is none. A phone signed in to that store posts `{ name, spki_hex }`, signed with its store key, to `POST /pair/vouched`, and is a device at once: `{ device_id }` |
+
+**A team store keeps members apart.** `GET /v1/peers` lists only the caller's own account's devices, so a teammate's Mac is never listed and never vouched.
+
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.

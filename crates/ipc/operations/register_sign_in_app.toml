@@ -1,0 +1,14 @@
+[operations.register_sign_in_app]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Begin registering the app Armada signs in with, and answer with the page Bridge opens in the person's browser"
+notes = """
+`POST /accounts/sign_in_app`, no body. Answered with `SignInAppRegistration`: `url`, `http://127.0.0.1:<port>/accounts/sign_in_app/form?state=<state>` on Fleet's own port. Bridge opens it in the default browser.
+
+**The state is Fleet's, fresh for each press, held in memory for an hour and good for one use.** Every press issues another and leaves the earlier ones live until they lapse or are used. A restart forgets them all.
+
+The page posts the app's manifest to the forge (`get_sign_in_app_form`), the person names nothing and presses Create, and the forge sends the browser back to `sign_in_app_registered`, which writes the app's client id into `account.clientId` and sends the browser on to the app's settings page, where the person turns the device flow on. **A client reads `get_settings` to see it done**: `account.clientId` is no longer blank, and `settings.changed` carries the list when it is written.
+
+Never refused while the setting is filled: a second app replaces the first's client id. `agent_access` is `No`: registering the app is the person's.
+"""

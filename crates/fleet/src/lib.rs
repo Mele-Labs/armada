@@ -467,6 +467,7 @@ pub use adrift::Adrift;
 pub use budget::CheckBudget;
 pub use clock::{Clock, SystemClock};
 pub use daemon::{Fittings, Fleet, Host, Reconciled, StartingIn};
+pub use project_store::JoinedStore;
 pub use detach::Detached;
 pub use drone::{environment, HostPaths};
 pub use headroom::{Bytes, Headroom, InUse, Machine, Polling, Reading, Short, Spare, TheMachine};
