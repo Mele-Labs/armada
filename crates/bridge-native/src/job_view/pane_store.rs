@@ -1,7 +1,8 @@
 //! Where a Job's arrangement is kept between runs, behind one trait so what keeps it can change (a file,
 //! Fleet) without the panes knowing. Nothing here names a file or a wire. A store held in memory is
 //! installed until something else is.
-#![allow(dead_code)] // PR 2 draws the panes from this.
+#![allow(dead_code)] // The file store and the shared layouts come after the panes are drawn.
+
 
 use std::cell::RefCell;
 use std::collections::HashMap;

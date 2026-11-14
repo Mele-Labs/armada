@@ -107,7 +107,7 @@ pub(super) struct Editor {
 pub(super) struct Bar {
     copied: Option<String>,
     held: Option<String>,
-    editor: Option<Editor>,
+    pub(super) editor: Option<Editor>,
     next: u32,
 }
 

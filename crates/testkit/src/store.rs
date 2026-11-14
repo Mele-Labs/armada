@@ -12,17 +12,18 @@
 //!
 //! The claim is atomic: the check and the write are one lock, as the real
 //! store's one-request-at-a-time object makes them. It is **not** faithful
-//! about time or signing, and a row keeps whatever `since` it was handed.
+//! about time or signing: a row keeps whatever `since` it was handed, and a
+//! claim never lapses here, so a renewal only counts.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use adapter_traits::{Claimed, Holder, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
+use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, OwnerKey, RepositoryKey, RunRow, Store, StoreError};
 
 #[derive(Debug, Default)]
 struct Rows {
-    claims: BTreeMap<(RepositoryKey, RedKey), Holder>,
+    claims: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Claimant>,
     owners: BTreeMap<OwnerKey, Holder>,
     devices: BTreeSet<String>,
     runs: BTreeMap<RepositoryKey, Vec<RunRow>>,
@@ -89,36 +90,42 @@ impl FakeStore {
 }
 
 impl Store for FakeStore {
-    fn claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError> {
+    fn claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
         let mut rows = self.rows("claim")?;
-        match rows.claims.get(&(repository.clone(), red.clone())) {
+        match rows.claims.get(&(repository.clone(), kind, key.clone())) {
             Some(held) => Ok(Claimed::Held(held.clone())),
             None => {
-                rows.claims.insert((repository.clone(), red.clone()), holder.clone());
+                rows.claims.insert((repository.clone(), kind, key.clone()), claimant.clone());
                 Ok(Claimed::Won)
             }
         }
     }
 
-    fn read_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<Option<Holder>, StoreError> {
-        Ok(self.rows("read_claim")?.claims.get(&(repository.clone(), red.clone())).cloned())
+    fn read_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<Option<Claimant>, StoreError> {
+        Ok(self.rows("read_claim")?.claims.get(&(repository.clone(), kind, key.clone())).cloned())
     }
 
-    fn release_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<(), StoreError> {
-        self.rows("release_claim")?.claims.remove(&(repository.clone(), red.clone()));
+    fn release_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<(), StoreError> {
+        self.rows("release_claim")?.claims.remove(&(repository.clone(), kind, key.clone()));
         Ok(())
     }
 
-    fn replace_claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError> {
+    fn replace_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
         self.rows("replace_claim")?
             .claims
-            .insert((repository.clone(), red.clone()), holder.clone());
+            .insert((repository.clone(), kind, key.clone()), claimant.clone());
         Ok(Claimed::Won)
     }
 
-    fn clear_repository(&self, repository: &RepositoryKey) -> Result<(), StoreError> {
-        self.rows("clear_repository")?.claims.retain(|(under, _), _| under != repository);
+    fn clear_kind(&self, repository: &RepositoryKey, kind: ClaimKind) -> Result<(), StoreError> {
+        self.rows("clear_kind")?.claims.retain(|(under, of, _), _| under != repository || *of != kind);
         Ok(())
+    }
+
+    fn renew(&self, holder: &Holder) -> Result<u64, StoreError> {
+        let rows = self.rows("renew")?;
+        let same = |held: &Claimant| held.holder.kind == holder.kind && held.holder.id == holder.id && held.holder.machine == holder.machine;
+        Ok(rows.claims.values().filter(|held| same(held)).count() as u64)
     }
 
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError> {
@@ -171,8 +178,12 @@ mod tests {
         RepositoryKey::from_hash("aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111").unwrap()
     }
 
-    fn red() -> RedKey {
-        RedKey::from_hash("bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222").unwrap()
+    fn claimant(machine: &str) -> Claimant {
+        Claimant::new(holder(machine), "nick", "Fix the flaky queue test")
+    }
+
+    fn red() -> ClaimKey {
+        ClaimKey::from_hash("bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222").unwrap()
     }
 
     #[test]
@@ -183,14 +194,14 @@ mod tests {
                 .into_iter()
                 .map(|machine| {
                     let store = store.view();
-                    scope.spawn(move || store.claim(&repository(), &red(), &holder(machine)).unwrap())
+                    scope.spawn(move || store.claim(&repository(), ClaimKind::Red, &red(), &claimant(machine)).unwrap())
                 })
                 .collect();
             racers.into_iter().map(|r| r.join().unwrap()).collect()
         });
         let won = winners.iter().filter(|c| **c == Claimed::Won).count();
         assert_eq!(won, 1, "{winners:?}");
-        let held = store.read_claim(&repository(), &red()).unwrap().expect("a row");
+        let held = store.read_claim(&repository(), ClaimKind::Red, &red()).unwrap().expect("a row");
         let loser = winners.iter().find_map(|c| if let Claimed::Held(h) = c { Some(h) } else { None });
         assert_eq!(loser, Some(&held), "the loser is told who won");
     }
@@ -199,10 +210,10 @@ mod tests {
     fn a_view_meets_the_claim_another_view_made() {
         let a = FakeStore::new();
         let b = a.view();
-        assert_eq!(a.claim(&repository(), &red(), &holder("mac-a")).unwrap(), Claimed::Won);
+        assert_eq!(a.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap(), Claimed::Won);
         assert_eq!(
-            b.claim(&repository(), &red(), &holder("mac-b")).unwrap(),
-            Claimed::Held(holder("mac-a"))
+            b.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-b")).unwrap(),
+            Claimed::Held(claimant("mac-a"))
         );
     }
 
@@ -211,37 +222,48 @@ mod tests {
         let a = FakeStore::new();
         let b = a.view();
         b.set_unreachable(true);
-        let said = b.claim(&repository(), &red(), &holder("mac-b")).unwrap_err();
+        let said = b.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-b")).unwrap_err();
         assert!(said.is_unreachable());
-        assert!(b.read_claim(&repository(), &red()).unwrap_err().is_unreachable());
+        assert!(b.read_claim(&repository(), ClaimKind::Red, &red()).unwrap_err().is_unreachable());
         assert!(b.owners(&[]).unwrap_err().is_unreachable());
         assert_eq!(a.calls(), Vec::<&str>::new(), "the other view's log is its own");
-        assert_eq!(a.read_claim(&repository(), &red()).unwrap(), None, "nothing was written");
+        assert_eq!(a.read_claim(&repository(), ClaimKind::Red, &red()).unwrap(), None, "nothing was written");
         assert_eq!(b.calls().len(), 3, "a call that failed is still a call");
     }
 
     #[test]
     fn replace_takes_it_over_and_release_gives_it_back() {
         let store = FakeStore::new();
-        store.claim(&repository(), &red(), &holder("mac-a")).unwrap();
-        assert_eq!(store.replace_claim(&repository(), &red(), &holder("mac-b")).unwrap(), Claimed::Won);
-        assert_eq!(store.read_claim(&repository(), &red()).unwrap(), Some(holder("mac-b")));
-        store.release_claim(&repository(), &red()).unwrap();
-        assert_eq!(store.read_claim(&repository(), &red()).unwrap(), None);
+        store.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
+        assert_eq!(store.replace_claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-b")).unwrap(), Claimed::Won);
+        assert_eq!(store.read_claim(&repository(), ClaimKind::Red, &red()).unwrap(), Some(claimant("mac-b")));
+        store.release_claim(&repository(), ClaimKind::Red, &red()).unwrap();
+        assert_eq!(store.read_claim(&repository(), ClaimKind::Red, &red()).unwrap(), None);
     }
 
     #[test]
-    fn green_clears_every_claim_under_one_repository_and_no_other() {
+    fn green_clears_every_red_under_one_repository_and_no_other_kind_or_repository() {
         let store = FakeStore::new();
         let other = RepositoryKey::from_hash("cccccccc33333333cccccccc33333333cccccccc33333333cccccccc33333333").unwrap();
-        let older = RedKey::from_hash("dddddddd44444444dddddddd44444444dddddddd44444444dddddddd44444444").unwrap();
-        store.claim(&repository(), &red(), &holder("mac-a")).unwrap();
-        store.claim(&repository(), &older, &holder("mac-a")).unwrap();
-        store.claim(&other, &red(), &holder("mac-a")).unwrap();
-        store.clear_repository(&repository()).unwrap();
-        assert_eq!(store.read_claim(&repository(), &red()).unwrap(), None);
-        assert_eq!(store.read_claim(&repository(), &older).unwrap(), None);
-        assert!(store.read_claim(&other, &red()).unwrap().is_some());
+        let older = ClaimKey::from_hash("dddddddd44444444dddddddd44444444dddddddd44444444dddddddd44444444").unwrap();
+        store.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
+        store.claim(&repository(), ClaimKind::Red, &older, &claimant("mac-a")).unwrap();
+        store.claim(&repository(), ClaimKind::Item, &red(), &claimant("mac-a")).unwrap();
+        store.claim(&other, ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
+        store.clear_kind(&repository(), ClaimKind::Red).unwrap();
+        assert_eq!(store.read_claim(&repository(), ClaimKind::Red, &red()).unwrap(), None);
+        assert_eq!(store.read_claim(&repository(), ClaimKind::Red, &older).unwrap(), None);
+        assert!(store.read_claim(&repository(), ClaimKind::Item, &red()).unwrap().is_some());
+        assert!(store.read_claim(&other, ClaimKind::Red, &red()).unwrap().is_some());
+    }
+
+    #[test]
+    fn a_renewal_counts_the_claims_of_one_holder_on_one_machine() {
+        let store = FakeStore::new();
+        store.claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
+        store.claim(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
+        assert_eq!(store.renew(&holder("mac-a")).unwrap(), 2);
+        assert_eq!(store.renew(&holder("mac-b")).unwrap(), 0);
     }
 
     #[test]
