@@ -713,7 +713,7 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use mac_acts::{ArrivingJob, CarriedConversation, DispatchOn, JobAct, JobMessage, MacAct, MoveJobToMac, MoveSettled, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{
     ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
     OtherMacProjects, OtherMacSessions,

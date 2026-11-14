@@ -50,12 +50,28 @@ where
         ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).map(|one| one.shared_with_macs())).unwrap_or(false)
     }
 
-    /// Whether Job `job` is in a shared project. A Job in none, and a Job this Fleet does not hold, is not.
+    /// Whether Job `job` is in a shared project. A Job in none, and a Job this Fleet does not hold, is not. **A
+    /// project held as a copy of another Mac's is shared**, since only a shared one is copied: a Job moved here
+    /// in it is still the other Mac's to see.
     pub async fn job_shared(&self, job: &str) -> bool {
         match self.project_of_job(job).await {
-            Some(project) => self.project_shared(&project),
+            Some(project) if self.project_own(&project) => self.project_shared(&project),
+            Some(project) => self.copy_held(&project, None).await,
             None => false,
         }
+    }
+
+    /// Whether project `id` is one of this Mac's own, shared or not.
+    pub fn project_own(&self, id: &str) -> bool {
+        ScopeId::new(id).ok().is_some_and(|scope| self.projects_held().get(&scope).is_some())
+    }
+
+    /// Whether this Mac holds a copy of another Mac's project `id`, and where `manifest` is named, one with that
+    /// repository among its members.
+    pub async fn copy_held(&self, id: &str, manifest: Option<&str>) -> bool {
+        self.copies_held().await.unwrap_or_default().iter().any(|copy| {
+            copy.id == id && manifest.is_none_or(|manifest| copy.members.iter().any(|member| member.manifest_id.as_str() == manifest))
+        })
     }
 
     /// A Job's row, its thread, its live changes, its documents, sketches and shown files: `item`, where

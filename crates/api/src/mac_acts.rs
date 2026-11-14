@@ -5,6 +5,9 @@
 //! **The holder runs the very handler the person's press reaches**, so every status, refusal and body is the one
 //! it gives at home; the door it runs under is `mac`, named by the caller header before any handler sees it.
 
+use std::future::Future;
+use std::pin::Pin;
+
 use axum::body::{Body, Bytes};
 use axum::extract::{Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -44,6 +47,16 @@ fn carried<T: Serialize>(value: &T, run_id: &ipc::RunId) -> Result<Bytes, Respon
     })
 }
 
+/// The future `make` gives, made and boxed in this call's frame. A debug build keeps a slot for every arm's future
+/// in `run`'s own frame, and inline their sum overflowed a worker's stack once the moves were added.
+fn boxed<'a, F, Fut>(make: F) -> Pin<Box<dyn Future<Output = Response> + Send + 'a>>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Response> + Send + 'a,
+{
+    Box::pin(make())
+}
+
 /// The act run by the handler its own route has.
 async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Served<D>, mac: String, act: JobAct) -> Response {
     use crate::{hosted_sessions as hosted, pull_requests, sessions};
@@ -51,7 +64,7 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Se
     macro_rules! through {
         ($handler:path, $body:expr) => {
             match carried($body, &run_id) {
-                Ok(body) => $handler(State(served), body).await,
+                Ok(body) => boxed(move || $handler(State(served), body)).await,
                 Err(problem) => problem,
             }
         };
@@ -67,13 +80,13 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Se
         JobAct::DocumentAnswer(body) => through!(sessions::answer_document, &body),
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
         JobAct::Merge { repository, number, .. } => {
-            pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number))).await
+            boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
         }
         // The words a Job acts as the person on are Bridge's to give, never another Mac's.
         JobAct::Start(mut start) => {
             start.on_your_words = None;
             match carried(&start, &run_id) {
-                Ok(body) => hosted::start_session(State(served), None, body).await,
+                Ok(body) => boxed(move || hosted::start_session(State(served), None, body)).await,
                 Err(problem) => problem,
             }
         }
@@ -82,10 +95,80 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Se
             through!(hosted::dispatch_job, &dispatch)
         }
         // No route of the person's own takes a Job's words, so it has its own call.
-        JobAct::JobMessage(message) => match served.shared().message_from_mac(mac, message).await {
-            Ok(()) => StatusCode::NO_CONTENT.into_response(),
-            Err(refusal) => refused(refusal),
-        },
+        JobAct::JobMessage(message) => {
+            boxed(move || async move {
+                match served.shared().message_from_mac(mac, message).await {
+                    Ok(()) => StatusCode::NO_CONTENT.into_response(),
+                    Err(refusal) => refused(refusal),
+                }
+            })
+            .await
+        }
+        // A move names the Mac it goes to by who sent it, so it has its own call too.
+        JobAct::Move { session_id } => {
+            boxed(move || async move {
+                match served.shared().move_from_mac(mac, session_id).await {
+                    Ok(record) => answer(StatusCode::OK, &record, &run_id),
+                    Err(refusal) => refused(refusal),
+                }
+            })
+            .await
+        }
+        // Taken at once: the Job is resumed here once its conversation is read, and the Mac it left told.
+        JobAct::Arrive(job) => {
+            boxed(move || async move {
+                match served.shared().arrive_from_mac(mac, job).await {
+                    Ok(record) => answer(StatusCode::ACCEPTED, &record, &run_id),
+                    Err(refusal) => refused(refusal),
+                }
+            })
+            .await
+        }
+        JobAct::MoveSettled(settled) => {
+            boxed(move || async move {
+                match served.shared().move_settled_from_mac(mac, settled).await {
+                    Ok(()) => StatusCode::NO_CONTENT.into_response(),
+                    Err(refusal) => refused(refusal),
+                }
+            })
+            .await
+        }
+    }
+}
+
+/// `POST /sessions/move_to_mac`: the person moves a Job to another of his Macs.
+pub(crate) async fn move_job_to_mac<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::MoveJobToMac = match ipc::decode_body("a Job to move to another Mac", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().move_job_to_mac(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=` and `?from=` on `share_job_conversation`.
+#[derive(Deserialize)]
+pub(crate) struct ConversationPiece {
+    session_id: String,
+    #[serde(default)]
+    from: u64,
+}
+
+/// `GET /other_mac/conversation`: a piece of a moving Job's conversation, as bytes, for the Mac it moves to.
+pub(crate) async fn share_job_conversation<D: OtherMacs>(
+    State(served): State<Served<D>>,
+    headers: HeaderMap,
+    Query(piece): Query<ConversationPiece>,
+) -> Response {
+    let named = headers.get(MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    let Some(mac) = named else {
+        return undecodable("a read from another Mac names the Mac in x-armada-mac", served.run_id());
+    };
+    match served.daemon().share_job_conversation(mac.to_string(), ipc::SessionId::carried(piece.session_id), piece.from).await {
+        Ok(bytes) => (StatusCode::OK, [(header::CONTENT_TYPE, "application/octet-stream")], bytes).into_response(),
+        Err(refusal) => refused(refusal),
     }
 }
 

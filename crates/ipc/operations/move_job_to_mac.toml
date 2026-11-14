@@ -1,0 +1,14 @@
+[operations.move_job_to_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Moves a hosted Job to another of his Macs: its turn finishes, its branch is pushed, and the other Mac resumes the same conversation in a fresh slot"
+notes = """
+`POST /sessions/move_to_mac`, body `MoveJobToMac`: `session_id`, and `mac`, the Mac to move it to, for a Job this Mac holds. A Job held from another Mac is asked of that Mac as an `act_from_mac` `move`, to come here, and `mac` is not read. Answers the `SessionRecord` as it stands, with `hosted.moving_to_mac` set while the move runs. `docs/practices/protocol/his-other-macs-fleets-half.md`, *Moving a Job between Macs*.
+
+**The move waits for the turn.** Once the turn and the agents it started have ended, the Job is paused as `pause_session` pauses it, so its work is committed to its branch and its slot is freed, and the branch is pushed. Then the other Mac is sent an `arrive` with the row, the branch and the conversation's length and SHA-256. That Mac reads the conversation through `share_job_conversation` in pieces, checks it, keeps the Job under the same id and resumes it in a fresh slot on the pushed branch. Only once it answers is the Job ended here, with `end_reason` `moved_to_mac` and everything it held given back, and its row comes back from that Mac with that Mac's `mac`.
+
+**A move that cannot finish leaves the Job here.** A push that fails, or a Mac that refuses or cannot be reached, resumes the Job on this Mac and tells it why in its thread.
+
+Refused with nothing changed: 404 `fleet.no_such_session` for a Job in a project that is not shared, in none, or not hosted, worded as for a Job that does not exist; 404 `fleet.other_mac_not_linked` for a Mac this one is not linked to; 409 `fleet.session_not_movable` for a Job that has ended, is paused, is on your words, or is already moving.
+"""
