@@ -89,6 +89,11 @@ pub(super) struct RowTabs {
 }
 
 impl RowTabs {
+    /// How many tabs stand beside the thread.
+    pub(super) fn len(&self) -> usize {
+        self.tabs.len()
+    }
+
     fn at(&self, kind: RowKind, key: &str) -> Option<usize> {
         self.tabs.iter().position(|tab| tab.kind == kind && tab.key == key)
     }

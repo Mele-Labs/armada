@@ -166,8 +166,8 @@ impl JobView {
         if pane == ViewPane::Thread {
             self.rows_back(key);
         }
-        if pane == ViewPane::Top && self.shown.as_ref() == Some(key) {
-            self.scroll_to_view_tab(id);
+        if self.shown.as_ref() == Some(key) {
+            self.scroll_to_view_tab(pane, id);
         }
     }
 
@@ -308,15 +308,20 @@ impl JobView {
         }
     }
 
-    fn scroll_to_view_tab(&self, id: &str) {
-        let zones = super::side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).count();
-        let at = self
-            .shown
-            .as_ref()
-            .and_then(|job| self.view_tabs.by_job.get(job))
-            .and_then(|tabs| tabs.iter().filter(|one| one.0 == ViewPane::Top).position(|one| one.1.id == id));
-        if let Some(at) = at {
-            self.panes.top_tabs.scroll_to_item(zones + at);
+    fn scroll_to_view_tab(&self, pane: ViewPane, id: &str) {
+        let Some(job) = self.shown.as_ref() else { return };
+        let Some(at) = self.view_tabs.by_job.get(job).and_then(|tabs| tabs.iter().filter(|one| one.0 == pane).position(|one| one.1.id == id)) else { return };
+        match pane {
+            ViewPane::Top => {
+                let zones = super::side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).count();
+                self.panes.top_tabs.scroll_to_item(zones + at);
+            }
+            // The thread's strip holds its own tab while open, then the rows' tabs, then these.
+            ViewPane::Thread => {
+                let rows = self.row_tabs.get(job).map_or(0, |tabs| tabs.len());
+                self.row_strip.scroll_to_item(usize::from(!self.tab_closed("thread")) + rows + at);
+            }
+            ViewPane::Bottom => {}
         }
     }
 
