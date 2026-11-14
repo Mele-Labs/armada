@@ -8,12 +8,13 @@
 //! `GET /projects/values` says came from Kit. **A kind of review falls through on its own** (#3504): a project sets
 //! only the kinds it names.
 
-use gpui::{div, prelude::*, svg, AnyElement, App, Context, FocusHandle, FontWeight, Pixels, Role, SharedString, Window};
+use gpui::{div, prelude::*, px, svg, AnyElement, App, Context, FocusHandle, FontWeight, Role, SharedString, Toggled, Window};
 use ipc::{LookSet, PrMode, Projects, ResolvedValues, ReviewsSet, ValueLayer, ValuesSet};
 
 use super::entries::Body;
 use super::overlay::{Picking, SettingsOverlay};
-use super::view::{bone, bounds_of, card, ringed, small, switch_track, tip};
+use super::rows::{says, segment, segment_track, split_row, rows_card, Pick, Row, SEGMENTS_MAX, SELECT_W};
+use super::view::{bone, bounds_of, ringed, small, switch_track, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -113,19 +114,19 @@ impl Key {
 
     fn description(self) -> &'static str {
         match self {
-            Key::Delivery => "Your first answer in a project is kept",
-            Key::PrMode => "Draft or ready for review",
-            Key::AutoMerge => "When Fleet merges a pull request",
-            Key::Plans => "How the Operator reviews a plan",
-            Key::PullRequests => "How the Operator reviews a pull request",
-            Key::Walks => "How the Operator reviews a walk",
-            Key::ReviewModel => "The model an Operator review runs on",
-            Key::AgentStarts => "Whether they start at once or wait on your start card",
-            Key::Tracker => "This project only",
-            Key::Theme => "The colours Bridge is drawn in",
-            Key::Layout => "The layout mod Bridge arranges its panels by",
-            Key::Density => "How much room Bridge leaves around things",
-            Key::Shared => "Its Jobs can be seen and acted on from your other Macs",
+            Key::Delivery => "What a Job does with its branch when the work is done. Your first answer in a project is kept.",
+            Key::PrMode => "Whether a new pull request starts as a draft or ready for review.",
+            Key::AutoMerge => "When Fleet merges a pull request a Job opened.",
+            Key::Plans => "How the Operator reviews a plan before you do.",
+            Key::PullRequests => "How the Operator reviews a pull request before you do.",
+            Key::Walks => "How the Operator reviews a walk before you do.",
+            Key::ReviewModel => "The model an Operator review runs on.",
+            Key::AgentStarts => "Whether Jobs that a Job or the Operator starts begin at once or wait on your start card.",
+            Key::Tracker => "The issue tracker this project's Jobs read from. It is set for this project only.",
+            Key::Theme => "The colours Bridge is drawn in.",
+            Key::Layout => "The layout mod Bridge arranges its panels by.",
+            Key::Density => "How much room Bridge leaves around things.",
+            Key::Shared => "Its Jobs can be seen and acted on from your other Macs.",
         }
     }
 
@@ -418,7 +419,7 @@ impl SettingsOverlay {
         let ticked = now.filter(|_| own);
         let options = self.options(cell.0, ticked.as_deref(), cx).into_iter().map(|(word, said)| (SharedString::from(said), ticked.as_deref() == Some(word.as_str()))).collect();
         let name = self.cell_name(cell);
-        let at = bounds_of(window, cx, Role::ComboBox, &name).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+        let at = bounds_of(window, cx, Role::ComboBox, &name).or_else(|| bounds_of(window, cx, Role::RadioGroup, &name)).map(|bounds| bounds.bottom_left()).unwrap_or_default();
         self.open_choice(Picking::Cell(cell.0, cell.1), name.into(), options, at, from_keys, window, cx);
     }
 
@@ -524,89 +525,58 @@ pub fn delete_sentence(name: &str, tasks: usize) -> String {
     }
 }
 
-/// Whether a page this wide lays its grid out in columns; narrower, each setting's words sit over its cells.
-fn wide(page: Pixels, columns: usize, look: &Look) -> bool {
-    let cell = look.length(token::W_MENU) + look.length(token::SPACE_4);
-    page >= look.length(token::W_GUIDE_LIST_MIN) + cell * columns as f32
-}
-
-/// The width a page's card holds inside, as the overlay is laid out now.
-fn page_inside(look: &Look, window: &Window, cx: &App) -> Pixels {
-    let room = crate::room::of(window, cx);
-    room.size.width * 0.9 - look.length(token::GAP_PANEL) * 3. - look.length(token::W_SETTINGS_INDEX) - look.length(token::PAD_CARD) * 2.
-}
-
-fn header(look: &Look, glyph: Option<&str>, said: String, accent: bool) -> gpui::Div {
-    let ink = if accent { look.color(token::ACCENT) } else { look.color(token::FG_MUTED) };
+/// A cell under its caption, where a project is picked and every project's value stands beside its own.
+fn captioned(look: &Look, caption: Option<(String, bool)>, cell: AnyElement) -> gpui::Div {
     div()
         .flex()
-        .items_center()
-        .gap(look.length(token::SPACE_2))
-        .min_w_0()
-        .pb(look.length(token::SPACE_2))
-        .border_b(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::BORDER_DEFAULT))
-        .text_size(look.length(token::TEXT_2XS))
-        .line_height(look.length(token::LEADING_2XS))
-        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-        .text_color(ink)
-        .children(glyph.map(|glyph| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_3)).text_color(ink)))
-        .child(div().truncate().child(SharedString::from(said)))
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .children(caption.map(|(said, accent)| {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(if accent { look.color(token::ACCENT) } else { look.color(token::FG_SUBTLE) })
+                .child(svg().flex_none().path(icon_path(if accent { "layers" } else { "globe" })).size(look.length(token::SPACE_3)).text_color(if accent { look.color(token::ACCENT) } else { look.color(token::FG_SUBTLE) }))
+                .child(SharedString::from(said))
+        }))
+        .child(cell)
 }
 
-/// A page's grid of values, in a card under the page's name: every project beside the project picked, or every
-/// project's alone. Bones stand in its cells until both are read.
-pub fn grid(this: &SettingsOverlay, title: &str, description: Option<&str>, keys: &[Key], look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
+/// A page's values as rows in one card: each key's words at the left, and at the right its control, with the project
+/// picked beside every project where one is. Bones stand in the controls until both are read.
+pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
     let project = this.scope.project.clone();
-    let columns = if project.is_some() { 2 } else { 1 };
-    let wide = wide(page_inside(look, window, cx), columns, look);
-    let cell_w = look.length(token::W_MENU);
-    let gap = look.length(token::SPACE_4);
-    let place = |cell: gpui::Div| if wide { cell.flex_none().w(cell_w) } else { cell.flex_1().min_w_0() };
-    let mut heads = div().flex().gap(gap);
-    if wide {
-        heads = heads.child(header(look, None, "Setting".into(), false).flex_1());
-    }
-    heads = heads.child(place(header(look, Some("globe"), "Every project".into(), false)));
-    if let Some((_, name)) = &project {
-        heads = heads.child(place(header(look, Some("layers"), name.clone(), true)));
-    }
-    let rows = rows(keys, project.is_some()).into_iter().map(|key| {
-        let words = div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .min_w_0()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(key.title()))
-                    .children(learned(this, key, look)),
-            )
-            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(key.description()));
-        // Wide, the words are the row's first column; narrow, they sit over its cells.
-        let (mut cells, above) = if wide { (div().flex().items_center().gap(gap).child(words.flex_1()), None) } else { (div().flex().items_center().gap(gap), Some(words)) };
-        cells = cells.child(place(div().child(cell(this, (key, Column::Every), look, window, cx))));
-        if project.is_some() {
-            cells = cells.child(place(div().child(cell(this, (key, Column::Own), look, window, cx))));
+    let spread = this.spread(look, window, cx);
+    let rows = rows(keys, project.is_some()).into_iter().enumerate().map(|(n, key)| {
+        let mut cells = div().flex().flex_wrap().items_start().gap_x(look.length(token::SPACE_6)).gap_y(look.length(token::SPACE_3));
+        if key.every() {
+            let caption = project.as_ref().map(|_| ("Every project".to_string(), false));
+            cells = cells.child(captioned(look, caption, cell(this, (key, Column::Every), look, window, cx)));
         }
-        let row = div().id(SharedString::from(format!("values-row-{key:?}"))).flex().flex_col().gap(look.length(token::SPACE_2)).py(look.length(token::SPACE_3)).border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
-        let row = row.children(above).child(cells);
-        labelled(row, Role::Row, key.title()).into_any_element()
+        if let Some((_, name)) = &project {
+            cells = cells.child(captioned(look, Some((name.clone(), true)), cell(this, (key, Column::Own), look, window, cx)));
+        }
+        let row = Row {
+            id: SharedString::from(format!("values-row-{key:?}")),
+            title: key.title().into(),
+            tip: None,
+            chips: learned(this, key, look).into_iter().collect(),
+            says: vec![says(look, key.description()).into_any_element()],
+            changed: false,
+            control: cells.into_any_element(),
+        };
+        labelled(split_row(look, spread, row, n == 0), Role::Row, key.title()).into_any_element()
     });
     let refused = this.scope.refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("values-refused"), Role::Alert, said).into_any_element());
     let shared_refused = this.scope.share_refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("project-shared-refused"), Role::Alert, said).into_any_element());
-    let table = labelled(div().id(SharedString::from(format!("values-grid-{title}"))).flex().flex_col().child(heads).children(rows), Role::Table, title.to_string());
-    let mut body: Vec<AnyElement> = Vec::new();
-    if let Some(description) = description {
-        body.push(small(look, description, look.color(token::FG_MUTED)).into_any_element());
+    let table = labelled(rows_card(look, SharedString::from(format!("values-grid-{title}")), rows.collect()), Role::Table, title.to_string());
+    if refused.is_none() && shared_refused.is_none() {
+        return table.into_any_element();
     }
-    body.push(table.into_any_element());
-    body.extend(refused);
-    body.extend(shared_refused);
-    labelled(card(look, SharedString::from(format!("values-card-{title}")), title, None, body), Role::Region, title.to_string()).into_any_element()
+    div().flex().flex_col().gap(look.length(token::SPACE_2)).child(table).children(refused).children(shared_refused).into_any_element()
 }
 
 /// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer.
@@ -632,15 +602,17 @@ fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> 
 
 const LEARNED_WHY: &str = "Fleet learned this from your first answer";
 
-/// A page of values: its grid under its name.
-pub fn render(this: &SettingsOverlay, page: Page, label: &str, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Vec<AnyElement> {
-    vec![grid(this, label, Some(page.description()), page.keys(), look, window, cx)]
+/// A page of values: its band, then its rows.
+pub fn page(this: &SettingsOverlay, entry: &'static super::entries::Entry, page: Page, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
+    let who = this.scope.project.as_ref().map_or("every project".to_string(), |(_, name)| name.clone());
+    let card = grid(this, entry.label, page.keys(), look, window, cx);
+    this.rows_page(entry, format!("{}, for {who}.", page.description()).into(), false, Vec::new(), vec![card], look, window, cx)
 }
 
 /// One cell: a control that opens its choices, an empty place where every project has none, the share switch, or
 /// a bone while its values are read.
 fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
-    let tall = look.length(token::H_CONTROL_LG);
+    let tall = look.length(token::H_CONTROL);
     if column == Column::Every && !key.every() {
         return div().h(tall).into_any_element();
     }
@@ -654,7 +626,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
         Column::Every => this.scope.every.as_ref(),
         Column::Own => this.scope.values.as_ref(),
     };
-    let Some(values) = values else { return bone(look, look.length(token::W_GUIDE_LIST_MIN), tall).into_any_element() };
+    let Some(values) = values else { return bone(look, px(SELECT_W), tall).into_any_element() };
     let Some(focus) = this.scope.cells.get(&(key, column)) else { return div().into_any_element() };
     // Nothing below the project sets it: the default's word, muted. A repository's or this Mac's word is shown and
     // cannot be changed here.
@@ -673,9 +645,70 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     let off = !this.live || this.scope.saving.is_some() || lock.is_some();
     let name = this.cell_name((key, column));
     let ink = if same || off || defaulted { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) };
+    let tooltip = (column == Column::Every && picked).then(|| lock.unwrap_or(if defaulted { "Armada's default" } else { "Changes every project" }));
+    let clear = set.then(|| {
+        let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
+        let clear = div()
+            .id(SharedString::from(format!("value-clear-{key:?}")))
+            .flex_none()
+            .size(look.length(token::SPACE_4))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(look.length(token::RADIUS_SM))
+            .when(!off, |clear| clear.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+            .tooltip(tip(format!("Clears {project}'s value, so it follows every project again")))
+            .child(svg().path(icon_path("x")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
+            .when(!off, |clear| {
+                clear.on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.clear_cell(key, window, cx);
+                }))
+            });
+        labelled(clear, Role::Button, format!("Clear {} for {project}", key.title()))
+    });
+    let options = this.options(key, word.as_deref(), cx);
+    if !options.is_empty() && options.len() <= SEGMENTS_MAX {
+        // Up to three words are segments: the word in force raised, in the accent where it is set at this layer.
+        let strong = !same && !defaulted && lock.is_none();
+        let mut track = segment_track(look, SharedString::from(format!("value-{key:?}-{column:?}"))).track_focus(focus);
+        for (n, (option, option_said)) in options.iter().enumerate() {
+            let on = word.as_deref() == Some(option.as_str());
+            let pick = match (on, strong) {
+                (true, true) => Pick::Set,
+                (true, false) => Pick::Muted,
+                (false, _) => Pick::No,
+            };
+            let press = option.clone();
+            let segment = segment(look, SharedString::from(format!("value-{key:?}-{column:?}-{n}")), option_said.clone().into(), pick, off)
+                .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                .when(!off && !(on && strong), |segment| {
+                    segment.on_click(cx.listener(move |this, _, window, cx| {
+                        if let Some(handle) = this.scope.cells.get(&(key, column)) {
+                            window.focus(handle, cx);
+                        }
+                        this.write_cell((key, column), Some(press.clone()), window, cx);
+                    }))
+                });
+            track = track.child(labelled(segment, Role::RadioButton, option_said.clone()));
+        }
+        let track = ringed(look, track, focus, window).when_some(tooltip, |track, said| track.tooltip(tip(said)));
+        let beside = if same { Some(said.clone()) } else if defaulted { Some("Armada's default".to_string()) } else { lock.map(String::from) };
+        return div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .h(tall)
+            .child(labelled(track, Role::RadioGroup, name))
+            .children(beside.filter(|beside| !beside.is_empty()).map(|beside| small(look, beside, look.color(token::FG_SUBTLE))))
+            .children(clear)
+            .into_any_element();
+    }
     let control = div()
         .id(SharedString::from(format!("value-{key:?}-{column:?}")))
         .track_focus(focus)
+        .flex_none()
+        .w(px(SELECT_W))
         .flex()
         .items_center()
         .gap(look.length(token::SPACE_2))
@@ -696,32 +729,12 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
             }
         })
         .when(!off, |control| control.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.open_cell((key, column), false, window, cx))))
-        .when(column == Column::Every && picked, |control| control.tooltip(tip(lock.unwrap_or(if defaulted { "Armada's default" } else { "Changes every project" }))))
+        .when_some(tooltip, |control, said| control.tooltip(tip(said)))
         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)));
-    let control = if set {
-        let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
-        let clear = div()
-            .id(SharedString::from(format!("value-clear-{key:?}")))
-            .flex_none()
-            .size(look.length(token::SPACE_4))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(look.length(token::RADIUS_SM))
-            .when(!off, |clear| clear.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-            .tooltip(tip(format!("Clears {project}'s value, so it follows every project again")))
-            .child(svg().path(icon_path("x")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
-            .when(!off, |clear| {
-                clear.on_click(cx.listener(move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.clear_cell(key, window, cx);
-                }))
-            });
-        control.child(labelled(clear, Role::Button, format!("Clear {} for {project}", key.title())))
-    } else if lock.is_some() {
-        control
-    } else {
-        control.child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+    let control = match clear {
+        Some(clear) => control.child(clear),
+        None if lock.is_some() => control,
+        None => control.child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
     };
     labelled(ringed(look, control, focus, window), Role::ComboBox, name).into_any_element()
 }

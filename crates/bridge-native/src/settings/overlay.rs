@@ -849,7 +849,7 @@ impl SettingsOverlay {
                 if self.dirty(&one.key, cx) || self.saving.as_deref() == Some(one.key.as_str()) {
                     stops.push(held.save.clone());
                 }
-                if one.saved.is_some() {
+                if super::limits::changed(one) {
                     stops.push(held.reset.clone());
                 }
             }
@@ -981,6 +981,9 @@ impl SettingsOverlay {
         if bare && self.grid_key(&key.key, window, cx) {
             return true;
         }
+        if bare && matches!(key.key.as_str(), "left" | "right") && self.segment_key(&key.key, window, cx) {
+            return true;
+        }
         match key.key.as_str() {
             "escape" if bare => {
                 if !self.query_text(cx).is_empty() {
@@ -1054,6 +1057,27 @@ impl SettingsOverlay {
             _ => return false,
         }
         true
+    }
+
+    /// ← and → on a choice drawn as segments move the pick to the next word and save it. ← from the first word is
+    /// the sidebar's, as it is from a grid's first column.
+    fn segment_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((name, options)) = self.stops.iter().find(|(_, stops)| stops.control.is_focused(window)).and_then(|(name, _)| match self.setting(name).map(|one| (&one.kind, held_text(&one.value))) {
+            Some((SettingKind::Choice { options }, now)) if options.len() <= super::rows::SEGMENTS_MAX => Some((name.clone(), (options.clone(), now))),
+            _ => None,
+        }) else {
+            return false;
+        };
+        let (options, now) = options;
+        let at = options.iter().position(|word| *word == now).unwrap_or(0);
+        let to = if key == "left" { at.checked_sub(1) } else { Some(at + 1).filter(|to| *to < options.len()) };
+        match to {
+            Some(to) => {
+                self.chose(&Picking::Setting(name), to, window, cx);
+                true
+            }
+            None => key == "right",
+        }
     }
 
     fn on_slider(&self, window: &Window) -> bool {
