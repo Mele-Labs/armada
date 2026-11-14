@@ -274,12 +274,19 @@ where
         session: &KeptSession,
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
-        crate::session_host::sketching::answerable(self.ledger_built(session, reads))
+        let (record, held) = self.ledger_parts(session, reads);
+        crate::session_host::sketching::answerable(record.waiting_for, held)
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
     /// under the store lock.
     pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
+        self.ledger_parts(session, reads).0
+    }
+
+    /// The row, and the sketches drawn in the turn still running that it does not raise yet, off the one look at
+    /// the turn its items took, so an answer finds what the row held back.
+    pub(crate) fn ledger_parts(&self, session: &KeptSession, reads: LedgerReads) -> (SessionRecord, Vec<ipc::WaitingItem>) {
         let mut record = session_wire(session, &reads.held);
         if session.state == store::SessionState::Live {
             self.slots_held_drawn(session, &mut record.attachments);
@@ -347,7 +354,8 @@ where
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let reply_owed_since = reads.waiting.reply_owed_since();
         let (checks_running, spoken) = reads.waiting.thread_facts();
-        let waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        let mut waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        let held = std::mem::take(&mut waited.held);
         // Whether the Job that owns a failure has been told of it is read by the calls, which hear the row next.
         self.hosts().calls.told_noted(&session.id, waited.told.as_deref());
         record.waiting_for = waited.items;
@@ -478,15 +486,14 @@ where
                 .workflow_step
                 .is_some_and(|at| crate::rail_ends::ends_of(&reads.rail.steps, at as usize).contains(&crate::rail_ends::End::SketchApproved));
             if gated || stepped {
-                let held = crate::session_host::sketching::held_in_turn(&record);
-                record.waiting_for.extend(held);
+                record.waiting_for = crate::session_host::sketching::answerable(std::mem::take(&mut record.waiting_for), held.clone());
             }
         }
         let thread = super::marking::Thread { lapsed, checks_running, spoken };
         let on_screen = self.hosts().on_screen.now(&session.id);
         record.mark = Some(super::marking::mark_of(&record, &thread, on_screen, self.now().epoch_millis()));
         record.compact = Some(super::compact::compact_of(&record));
-        record
+        (record, held)
     }
 
     /// The numbers of the session's open pull requests that Fleet told it failed or conflicts, at the

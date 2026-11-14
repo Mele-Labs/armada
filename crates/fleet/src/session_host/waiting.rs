@@ -198,6 +198,9 @@ pub(crate) struct Waited {
     pub plan_held: Vec<ipc::PlanHold>,
     /// A question that lapsed still stands for him: it is no item, but it waits on him all the same.
     pub lapsed: bool,
+    /// The sketches drawn in the turn still running, read off the one look at the turn the items took: not raised
+    /// until it ends, and answered on their cards meanwhile.
+    pub held: Vec<WaitingItem>,
 }
 
 pub(crate) fn waiting_reads(
@@ -581,6 +584,7 @@ where
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
@@ -741,11 +745,11 @@ where
                     matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
                 })
                 .flatten();
-            items.extend(
-                super::sketching::sketch_items(attachments, &session.id, in_plan)
-                    .filter(|one| !dismissed.contains(&one.id))
-                    .filter(|one| !super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref())),
-            );
+            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan)
+                .filter(|one| !dismissed.contains(&one.id))
+                .partition(|one| super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref()));
+            items.extend(raised);
+            held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -875,7 +879,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open, held }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -1535,7 +1539,8 @@ where
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-        Ok(super::sketching::answerable(self.ledger_row(&store, &session)?))
+        let (record, held) = self.ledger_parts(&session, self.ledger_reads(&store, &session)?);
+        Ok(super::sketching::answerable(record.waiting_for, held))
     }
 
     /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by
