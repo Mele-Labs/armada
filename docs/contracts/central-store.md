@@ -361,7 +361,8 @@ No call is logged to replay; a claim taken and given back while the store is dow
 Why: the owner ruled on 13 Nov 2026 that Jobs carry on while the store is down (`.claude/decisions/2026-11-13-claims-store.md`).
 The Job's claims and the waits they make are [Fleet](../concepts/fleet.md#claims-a-job-holds).
 
-**Rule.** A Job's own claims call the store of the projects holding its repository, whatever the Manifest says of pull request owners: naming a store in the project is the switch.
+**Rule.** A Job's own claims, a red main's and a failing test's call the store of the projects holding its repository, whatever the Manifest says of pull request owners: naming a store in the project is the switch.
+Why: a red main's or a flaky test's fix Job always starts, so two Macs that skipped the claim would both start one. The owner ruled on 13 Nov 2026 that the first claim wins.
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
