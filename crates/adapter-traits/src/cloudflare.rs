@@ -4,6 +4,10 @@
 //! **Blocking**: every call is a round trip to Cloudflare or a run of `security`, so a caller makes it
 //! on a blocking thread.
 
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+
 use crate::Secret;
 
 /// The Worker to put on an account: its name, the script, and what it is bound to.
