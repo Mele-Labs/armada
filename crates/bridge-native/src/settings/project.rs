@@ -648,7 +648,7 @@ fn learned(this: &SettingsOverlay, key: Key, look: &Look, window: &Window, cx: &
         .line_height(look.length(token::LEADING_2XS))
         .text_color(ink)
         .cursor_pointer()
-        .hover(|chip| chip.bg(ink).text_color(look.color(token::STATUS_AWAITING_REVIEW_BG)))
+        .hover(|chip| chip.bg(ink).text_color(look.color(token::BG_RAISED)))
         .tooltip(tip(LEARNED_WHY))
         .on_click(cx.listener(|this, _, window, cx| this.go_to_learned(window, cx)))
         .child("Learned");
