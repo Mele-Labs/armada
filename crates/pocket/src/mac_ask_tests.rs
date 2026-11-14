@@ -63,6 +63,7 @@ async fn a_mac_on_the_account_is_found_asked_and_paired_with_the_same_code_on_bo
         paired: false,
         build: None,
         nearby: false,
+        older_build: false,
     };
     assert_eq!(listed, FoundMacs { macs: vec![expected], why: None }, "only his other Armada Mac, and never this one");
 
@@ -162,13 +163,14 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
 }
 
 #[tokio::test]
-async fn the_unsigned_hello_says_only_name_colour_and_build() {
+async fn the_unsigned_hello_says_only_name_colour_build_and_wire() {
     let home = Side::new("Home", &[]).await;
     let answer = reqwest::get(format!("{}/pair/mac/hello", home.address)).await.unwrap();
     assert_eq!(answer.status().as_u16(), 200);
+    let wire = &home.gateway.way_in.wire;
     // Its tunnel's name, which is public on his account already, so a Mac his store lists is known for one found there.
     let tunnel = crate::tunnel::tunnel_name(&home.id());
-    assert_eq!(answer.text().await.unwrap(), format!(r#"{{"name":"Home","colour":"teal","tunnel":"{tunnel}"}}"#));
+    assert_eq!(answer.text().await.unwrap(), format!(r#"{{"name":"Home","colour":"teal","wire":"{wire}","tunnel":"{tunnel}"}}"#));
 }
 
 #[tokio::test]

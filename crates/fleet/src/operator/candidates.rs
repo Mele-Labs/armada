@@ -2,7 +2,8 @@
 //! them. A Job shares something with the item when, in the same repository, a path of one is a
 //! path of the other or under it, they name the same issue, or their words share two uncommon
 //! ones. **A Job sharing nothing is not shown**, so the call cannot name it, and an item no Job
-//! shares anything with is a new Job without a call.
+//! shares anything with is a new Job without a call. **Nor is a Job in an unshared project, for work
+//! from his phone or another Mac**, so it is there for that work no more than a Job that does not exist.
 
 use std::collections::BTreeSet;
 
@@ -56,6 +57,7 @@ pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
     let words = uncommon(&format!("{} {}", item.subject, item.words));
     live.iter()
         .filter(|job| job.session_id != item.session_id && job.manifest_id == item.manifest_id)
+        .filter(|job| job.shared || !item.reaches_only_shared())
         .filter_map(|job| {
             let paths: Vec<String> = shared_paths(&item.paths, &job.paths);
             let issues: Vec<String> = item.issues.iter().filter(|one| job.issues.contains(one)).cloned().collect();

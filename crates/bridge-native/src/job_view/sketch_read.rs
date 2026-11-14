@@ -14,7 +14,7 @@ use gpui::{
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
 
-use super::cards::{shown_against, shown_scene};
+use super::cards::{picked_revision, shown_against, shown_scene};
 use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -54,6 +54,9 @@ enum Face {
 /// The sketch open over the window.
 pub(super) struct Reading {
     key: String,
+    /// The card it is the drawing of, and the key its revision choice and answers are kept under.
+    card: String,
+    answer: String,
     title: SharedString,
     scene: Rc<Scene>,
     /// The sketch it is read as a change to, its title and drawing, and whether it is read so
@@ -83,10 +86,21 @@ const WHEEL_SPEED: f32 = 0.002;
 const LINE_HEIGHT: f32 = 16.;
 
 /// The card with this id: the pinned one, else the one in the thread.
-fn card_of<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
+pub(super) fn card_of<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
     head.sketch.as_ref().filter(|card| card.id == id).or_else(|| {
         items.iter().find_map(|item| match item {
             ThreadItem::Sketch(card) if card.id == id => Some(card),
+            _ => None,
+        })
+    })
+}
+
+/// The newest card of a sketch (its ledger id): the pinned one, else the last in the thread. A Job that redraws a sketch under
+/// its title puts a card after the one that was read, and it is that one the read follows.
+pub(super) fn newest_card<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], sketch: &str) -> Option<&'a ThreadSketch> {
+    head.sketch.as_ref().filter(|card| card.sketch == sketch).or_else(|| {
+        items.iter().rev().find_map(|item| match item {
+            ThreadItem::Sketch(card) if card.sketch == sketch => Some(card),
             _ => None,
         })
     })
@@ -96,11 +110,13 @@ impl JobView {
     /// A press on a sketch card: its drawing, the revision shown under `shown`, opens over the window.
     pub(super) fn read_sketch(&mut self, key: &str, shown: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let picked = self.pages.get(&job).and_then(|page| page.cards.revision.get(shown).copied());
         let Some((title, (scene_key, scene), against)) = self
             .thread(&job, cx)
             .and_then(|held| card_of(&held.head, &held.items, key))
-            .map(|card| (card.title.clone(), shown_scene(card, picked), shown_against(card, picked).map(|(title, scene)| (title.into(), scene))))
+            .map(|card| {
+                let picked = self.pages.get(&job).and_then(|page| picked_revision(&page.cards.revision, shown, card.revisions.len()));
+                (card.title.clone(), shown_scene(card, picked), shown_against(card, picked).map(|(title, scene)| (title.into(), scene)))
+            })
         else {
             return;
         };
@@ -109,7 +125,35 @@ impl JobView {
         let back = window.focused(cx);
         window.focus(&focus, cx);
         // It opens paused with every step drawn lit, and Play starts it from the first.
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps: None, opened: Instant::now(), focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
+        self.sketch_reading = Some(Reading { key: scene_key, card: key.to_string(), answer: shown.to_string(), title: title.into(), scene, against, changes: true, steps: None, opened: Instant::now(), focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
+        cx.notify();
+    }
+
+    /// A sketch read on its own follows the Job's redraws: where a newer drawing of it has come, and he has picked no earlier
+    /// revision by hand, the read shows that one. A revision he picked stays picked until a newer one arrives.
+    pub(super) fn follow_reading(&mut self, cx: &mut Context<Self>) {
+        let (Some(job), Some(reading)) = (self.shown.clone(), self.sketch_reading.as_ref()) else { return };
+        let Some(held) = self.thread(&job, cx) else { return };
+        let Some(read) = card_of(&held.head, &held.items, &reading.card) else { return };
+        let Some(newest) = newest_card(&held.head, &held.items, &read.sketch) else { return };
+        // The pinned card keeps its answers under `pin:<id>`, and a card in the thread under its own id.
+        let pinned = held.head.sketch.as_ref().is_some_and(|pin| pin.id == newest.id);
+        let answer = if pinned { format!("pin:{}", newest.id) } else { newest.id.clone() };
+        let picks = self.pages.get(&job).map(|page| &page.cards.revision);
+        let picked = picks.and_then(|picks| picked_revision(picks, &answer, newest.revisions.len()));
+        let (key, scene) = shown_scene(newest, picked);
+        if key == reading.key {
+            return;
+        }
+        let Some(scene) = scene else { return };
+        let against = shown_against(newest, picked).map(|(title, scene)| (title.into(), scene));
+        let (card, title) = (newest.id.clone(), newest.title.clone());
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            (reading.key, reading.scene, reading.against, reading.card, reading.answer, reading.title) = (key, scene, against, card, answer, title.into());
+            // A drawing that is new starts paused and whole, as one opened does.
+            reading.steps = None;
+            reading.opened = Instant::now();
+        }
         cx.notify();
     }
 
@@ -634,5 +678,83 @@ impl JobView {
             )
             .with_priority(3),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+    use crate::job_view::cards::picked_revision;
+
+    fn drawn(node: &str) -> String {
+        format!(r#"{{"nodes":[{{"id":"{node}","kind":"box","x":0,"y":0,"title":"{node}"}}],"edges":[]}}"#)
+    }
+
+    /// The pinned card of `sketch:Tail` as Fleet builds it: its id is the ledger's, and the same under every redraw.
+    fn pinned(at: &str, kept: &[&str]) -> ThreadSketch {
+        let revisions = kept.iter().map(|node| drawn(node)).collect::<Vec<_>>().join(",");
+        let now = drawn(kept.last().expect("a drawing"));
+        let wire = format!(r#"{{"id":"sketch:Tail","at":"{at}","sketch":"sketch:Tail","title":"Tail","drawing":{now},"asked":true,"revisions":[{revisions}]}}"#);
+        ipc::decode::<ThreadSketch>("a card", wire.as_bytes()).expect("a sketch card")
+    }
+
+    fn first_node(scene: Option<Rc<Scene>>) -> String {
+        scene.expect("a scene that reads").nodes[0].id.clone()
+    }
+
+    #[test]
+    fn a_sketch_redrawn_under_its_title_shows_revision_two_and_its_scene() {
+        let one = pinned("2026-11-14T10:00:00Z", &["first"]);
+        let two = pinned("2026-11-14T10:05:00Z", &["first", "second"]);
+        let (was, scene_one) = shown_scene(&one, None);
+        assert_eq!(first_node(scene_one), "first");
+        let (now, scene_two) = shown_scene(&two, None);
+        assert_ne!(was, now, "the redraw is read again, not found under the key the first drawing was read by");
+        assert_eq!(first_node(scene_two), "second");
+        assert_eq!(two.revisions.len(), 2, "the card is at revision 2");
+    }
+
+    #[test]
+    fn a_revision_picked_by_hand_stays_picked_until_a_newer_one_arrives() {
+        let picks = HashMap::from([("pin:sketch:Tail".to_string(), (0, 2))]);
+        assert_eq!(picked_revision(&picks, "pin:sketch:Tail", 2), Some(0));
+        assert_eq!(picked_revision(&picks, "pin:sketch:Tail", 3), None, "a third drawing takes its place");
+        assert_eq!(picked_revision(&picks, "other", 2), None);
+    }
+
+    #[test]
+    fn a_read_follows_the_newest_card_of_its_sketch() {
+        let (head, items) = {
+            let wire = format!(
+                r#"{{"session_id":"j","head":{{"trail":{{"started":"2026-11-14T09:00:00Z"}}}},"items":[{{"kind":"sketch","id":"row-1","at":"2026-11-14T10:00:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{},"asked":true}},{{"kind":"sketch","id":"row-2","at":"2026-11-14T10:05:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{},"asked":true}}]}}"#,
+                drawn("first"),
+                drawn("second")
+            );
+            let read = ipc::decode::<ipc::JobThread>("thread", wire.as_bytes()).expect("a thread");
+            (read.head, read.items)
+        };
+        assert_eq!(newest_card(&head, &items, "sketch:Tail").map(|card| card.id.as_str()), Some("row-2"));
+        assert!(newest_card(&head, &items, "sketch:Other").is_none());
+    }
+
+    #[test]
+    fn a_sketch_sent_back_then_redrawn_asks_again_at_revision_two() {
+        use crate::job_view::acts::{Answer, CardState};
+        use crate::job_view::cards::{newest_of, settled_of};
+        let key = "pin:sketch:Tail";
+        let one = pinned("2026-11-14T10:00:00Z", &["first"]);
+        let mut cards = CardState::default();
+        cards.answers.insert(key.to_string(), Answer::SentBack("Move the tail left".into()));
+        cards.answered_on.insert(key.to_string(), newest_of(&one));
+        let sent_back = settled_of(one.settled.as_ref(), cards.pressed(key, &one));
+        assert!(matches!(sent_back, Some((crate::job_view::cards::Said::SentBack, _))), "it reads as sent back while it is the drawing he answered");
+        let two = pinned("2026-11-14T10:05:00Z", &["first", "second"]);
+        assert!(cards.pressed(key, &two).is_none(), "the redraw is not the drawing he answered");
+        assert!(settled_of(two.settled.as_ref(), cards.pressed(key, &two)).is_none());
+        assert!(two.asked, "it asks again");
+        assert_eq!(two.revisions.len(), 2, "at revision 2");
+        assert_eq!(first_node(shown_scene(&two, None).1), "second");
     }
 }

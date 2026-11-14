@@ -63,6 +63,10 @@ pub struct FoundMac {
     /// only nearby has no `address`.
     #[serde(default)]
     pub nearby: bool,
+    /// It runs a build older than this Mac's, on another wire, so Pair is off until it updates. False where
+    /// it speaks this Mac's wire, or where nothing was heard from it to tell.
+    #[serde(default)]
+    pub older_build: bool,
 }
 
 /// `GET /admin/macs/found` as the Gateway answers it now: each [`FoundMac`] with what his store says of it. A
