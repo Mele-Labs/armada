@@ -20,8 +20,16 @@ async fn a_session_told_its_slot_is_free(held: SlotAfterMerge) -> (Rig, SessionI
 }
 
 async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) -> (Rig, SessionId) {
+    a_session_whose_slot_branch_merged_or_reused(held, branch, false).await
+}
+
+/// As above; `reused` is a branch whose name a merged pull request had, now holding commits the base lacks.
+async fn a_session_whose_slot_branch_merged_or_reused(held: SlotAfterMerge, branch: &str, reused: bool) -> (Rig, SessionId) {
     let rig = rig_placing(None);
     rig.fleet.vcs().slot_holds_after_merge(3, held);
+    if reused {
+        rig.fleet.vcs().branch_has_unmerged_commits(branch);
+    }
     let id = rig.start().await;
     rig.send(&id, "do the thing").await;
     rig.stand_in.init(0);
@@ -144,6 +152,32 @@ async fn a_slot_nobody_told_is_not_given_back_at_a_turn_s_end() {
     rig.stand_in.init(0);
     rig.stand_in.finishes(0, "done");
     eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+}
+
+/// A branch name reused after its pull request merged holds commits the base lacks: the slot on it
+/// is the next pull request's, and is neither told it merged nor given back (`armada-x3l7`).
+#[tokio::test]
+async fn a_slot_on_a_reused_branch_is_neither_told_nor_given_back() {
+    let (rig, _id) = a_session_whose_slot_branch_merged_or_reused(SlotAfterMerge::Idle, BRANCH, true).await;
+    assert_eq!(said_to_the_session(&rig), Vec::<String>::new(), "no notice for a reused branch");
+
+    the_turn_ends(&rig);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+}
+
+/// A slot told its branch merged, then given new commits on the same name before its turn ended,
+/// is kept.
+#[tokio::test]
+async fn a_told_slot_whose_branch_gained_commits_is_kept() {
+    let (rig, _id) = a_session_told_its_slot_is_free(SlotAfterMerge::Idle).await;
+    rig.fleet.vcs().branch_has_unmerged_commits(BRANCH);
+
+    the_turn_ends(&rig);
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
     assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());

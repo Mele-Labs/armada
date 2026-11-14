@@ -201,7 +201,8 @@ A row carries what native's Jobs-list row reads: its mark, project, last turn, p
 | A file the Job showed: text up to 1 MiB, or a picture's bytes up to 8 MiB | A file the Job did not show, or text over 1 MiB or a picture over 8 MiB (413) |
 | A video the Job showed, of any size, in ranges from the Mac's disk | A video the Job did not show, or one through an address that has lapsed or whose phone is unpaired |
 | A revision the Job kept of its document, up to 1 MiB, as text | The page in the worktree, or a revision another Job kept |
-| A sketch the Job drew, from the scene its record carries | A terminal |
+| A sketch the Job drew, from the scene its record carries | A terminal the phone opens, resizes or stops: it follows the ones the Mac opened |
+| The terminals the Mac opened in a Job, what they printed so far and what they print next, and keys typed into them | A run Fleet has ended and forgotten (422), or keys the Gateway could not deliver, which are never queued |
 
 **`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed, or one a `document` artifact's `revisions` names.
 **The phone asks for a revision by its kept path**, as the record names it, oldest first, so a page has no route of its own.
@@ -226,6 +227,13 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
 | `POST /api/sessions/start_waiting` | `start_waiting_now` |
 | `GET /api/queued`, `POST /api/queued/take_back` | `list_queued` and `take_back_queued`, as Fleet answers them |
+| `GET /api/sessions/terminals?session_id=` | `list_terminals`, answered as Fleet's `JobTerminals`: each terminal's `terminal`, `name`, `run_id` and whether a program is `running` in it |
+| `POST /api/sessions/terminal/write`, body `{run_id, data}` | `write_session_run`, Fleet's status and body as it said them: 422 for a run that has ended |
+| `GET /api/sessions/terminal/observe?run_id=` | `observe_session_run` as NDJSON, one `SessionRunMessage` a line and an empty line on a quiet beat, as `/api/live` |
+
+**A terminal is followed and typed into, never opened.**
+The phone lists the terminals the Mac opened in a Job, follows one from what it printed so far to `exited`, and writes keys to it as they are (Ctrl-C is the byte 3).
+Nothing is queued: a key the Gateway cannot hand to Fleet is refused at once, and a stream Fleet ends or drops ends.
 
 **A Job that waits on another opens to its waiting screen**, in place of its thread and message box.
 It holds what Bridge's waiting pane holds: the brief, the Job it waits on, the condition as a select, what it needs, where it starts from, Approve and Start now.
