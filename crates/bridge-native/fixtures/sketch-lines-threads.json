@@ -1,0 +1,2098 @@
+{
+ "threads": [
+  {
+   "session_id": "tool-read",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Why does the router build its table on every call?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "r-1",
+     "names": [
+      "Grep",
+      "Read"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "r-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Grep router"
+      },
+      {
+       "kind": "tool",
+       "id": "r-2",
+       "at": "2026-11-10T22:00:04Z",
+       "text": "Read crates/api/src/router.rs"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-run",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Run the docs check and the native walk."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "u-1",
+     "names": [
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "u-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "u-2",
+       "at": "2026-11-10T22:00:20Z",
+       "description": "Build the native app and play the tool-rows walk",
+       "text": "Bash cd crates/bridge-native && ARMADA_LOG=debug cargo build --release --features walk-shots,native-menus && ./target/release/bridge-native --walk tool-rows --check --width 900 --shots /tmp/armada-red/tool-rows\necho done"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-edit",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    },
+    "sketch": {
+     "id": "sk-kinds",
+     "at": "2026-11-10T22:00:41Z",
+     "sketch": "sketch:Arrow kinds",
+     "title": "Arrow kinds",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "k00a",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "w": 130,
+        "title": "Solid",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k00b",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "w": 130,
+        "title": "To solid",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k01a",
+        "kind": "box",
+        "x": 0,
+        "y": 125,
+        "w": 130,
+        "title": "Dashed",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k01b",
+        "kind": "box",
+        "x": 260,
+        "y": 125,
+        "w": 130,
+        "title": "To dashed",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k02a",
+        "kind": "box",
+        "x": 0,
+        "y": 250,
+        "w": 130,
+        "title": "Dotted",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k02b",
+        "kind": "box",
+        "x": 260,
+        "y": 250,
+        "w": 130,
+        "title": "To dotted",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k03a",
+        "kind": "box",
+        "x": 0,
+        "y": 375,
+        "w": 130,
+        "title": "Elbow",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k03b",
+        "kind": "box",
+        "x": 260,
+        "y": 445,
+        "w": 130,
+        "title": "To elbow",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k04a",
+        "kind": "box",
+        "x": 0,
+        "y": 500,
+        "w": 130,
+        "title": "Straight",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k04b",
+        "kind": "box",
+        "x": 260,
+        "y": 570,
+        "w": 130,
+        "title": "To straight",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k05a",
+        "kind": "box",
+        "x": 0,
+        "y": 625,
+        "w": 130,
+        "title": "Curve",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k05b",
+        "kind": "box",
+        "x": 260,
+        "y": 695,
+        "w": 130,
+        "title": "To curve",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k10a",
+        "kind": "box",
+        "x": 470,
+        "y": 0,
+        "w": 130,
+        "title": "Head at end",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k10b",
+        "kind": "box",
+        "x": 730,
+        "y": 0,
+        "w": 130,
+        "title": "To end head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k11a",
+        "kind": "box",
+        "x": 470,
+        "y": 125,
+        "w": 130,
+        "title": "Head at start",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k11b",
+        "kind": "box",
+        "x": 730,
+        "y": 125,
+        "w": 130,
+        "title": "To start head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k12a",
+        "kind": "box",
+        "x": 470,
+        "y": 250,
+        "w": 130,
+        "title": "Head both",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k12b",
+        "kind": "box",
+        "x": 730,
+        "y": 250,
+        "w": 130,
+        "title": "To both head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k13a",
+        "kind": "box",
+        "x": 470,
+        "y": 375,
+        "w": 130,
+        "title": "No head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k13b",
+        "kind": "box",
+        "x": 730,
+        "y": 375,
+        "w": 130,
+        "title": "To no head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k14a",
+        "kind": "box",
+        "x": 470,
+        "y": 500,
+        "w": 130,
+        "title": "Dotted both curve",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k14b",
+        "kind": "box",
+        "x": 730,
+        "y": 570,
+        "w": 130,
+        "title": "To dotted both curve",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k15a",
+        "kind": "box",
+        "x": 470,
+        "y": 625,
+        "w": 130,
+        "title": "Dashed start straight",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k15b",
+        "kind": "box",
+        "x": 730,
+        "y": 695,
+        "w": 130,
+        "title": "To dashed start straight",
+        "shape": "pill",
+        "color": "green"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e00",
+        "from": "k00a",
+        "to": "k00b",
+        "label": "solid",
+        "step": 1,
+        "color": "teal",
+        "line": "solid"
+       },
+       {
+        "id": "e01",
+        "from": "k01a",
+        "to": "k01b",
+        "label": "dashed",
+        "step": 1,
+        "color": "teal",
+        "line": "dashed"
+       },
+       {
+        "id": "e02",
+        "from": "k02a",
+        "to": "k02b",
+        "label": "dotted",
+        "step": 1,
+        "color": "teal",
+        "line": "dotted"
+       },
+       {
+        "id": "e03",
+        "from": "k03a",
+        "to": "k03b",
+        "label": "elbow",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "elbow"
+       },
+       {
+        "id": "e04",
+        "from": "k04a",
+        "to": "k04b",
+        "label": "straight",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "straight"
+       },
+       {
+        "id": "e05",
+        "from": "k05a",
+        "to": "k05b",
+        "label": "curve",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "curve"
+       },
+       {
+        "id": "e10",
+        "from": "k10a",
+        "to": "k10b",
+        "label": "end",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "end"
+       },
+       {
+        "id": "e11",
+        "from": "k11a",
+        "to": "k11b",
+        "label": "start",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "start"
+       },
+       {
+        "id": "e12",
+        "from": "k12a",
+        "to": "k12b",
+        "label": "both",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "both"
+       },
+       {
+        "id": "e13",
+        "from": "k13a",
+        "to": "k13b",
+        "label": "none",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "none"
+       },
+       {
+        "id": "e14",
+        "from": "k14a",
+        "to": "k14b",
+        "label": "dotted, both, curve",
+        "step": 4,
+        "color": "green",
+        "line": "dotted",
+        "head": "both",
+        "path": "curve"
+       },
+       {
+        "id": "e15",
+        "from": "k15a",
+        "to": "k15b",
+        "label": "dashed, start, straight",
+        "step": 4,
+        "color": "green",
+        "line": "dashed",
+        "head": "start",
+        "path": "straight"
+       }
+      ],
+      "strokes": []
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "k00a",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "w": 130,
+         "title": "Solid",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k00b",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "w": 130,
+         "title": "To solid",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k01a",
+         "kind": "box",
+         "x": 0,
+         "y": 125,
+         "w": 130,
+         "title": "Dashed",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k01b",
+         "kind": "box",
+         "x": 260,
+         "y": 125,
+         "w": 130,
+         "title": "To dashed",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k02a",
+         "kind": "box",
+         "x": 0,
+         "y": 250,
+         "w": 130,
+         "title": "Dotted",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k02b",
+         "kind": "box",
+         "x": 260,
+         "y": 250,
+         "w": 130,
+         "title": "To dotted",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k03a",
+         "kind": "box",
+         "x": 0,
+         "y": 375,
+         "w": 130,
+         "title": "Elbow",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k03b",
+         "kind": "box",
+         "x": 260,
+         "y": 445,
+         "w": 130,
+         "title": "To elbow",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k04a",
+         "kind": "box",
+         "x": 0,
+         "y": 500,
+         "w": 130,
+         "title": "Straight",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k04b",
+         "kind": "box",
+         "x": 260,
+         "y": 570,
+         "w": 130,
+         "title": "To straight",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k05a",
+         "kind": "box",
+         "x": 0,
+         "y": 625,
+         "w": 130,
+         "title": "Curve",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k05b",
+         "kind": "box",
+         "x": 260,
+         "y": 695,
+         "w": 130,
+         "title": "To curve",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k10a",
+         "kind": "box",
+         "x": 470,
+         "y": 0,
+         "w": 130,
+         "title": "Head at end",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k10b",
+         "kind": "box",
+         "x": 730,
+         "y": 0,
+         "w": 130,
+         "title": "To end head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k11a",
+         "kind": "box",
+         "x": 470,
+         "y": 125,
+         "w": 130,
+         "title": "Head at start",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k11b",
+         "kind": "box",
+         "x": 730,
+         "y": 125,
+         "w": 130,
+         "title": "To start head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k12a",
+         "kind": "box",
+         "x": 470,
+         "y": 250,
+         "w": 130,
+         "title": "Head both",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k12b",
+         "kind": "box",
+         "x": 730,
+         "y": 250,
+         "w": 130,
+         "title": "To both head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k13a",
+         "kind": "box",
+         "x": 470,
+         "y": 375,
+         "w": 130,
+         "title": "No head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k13b",
+         "kind": "box",
+         "x": 730,
+         "y": 375,
+         "w": 130,
+         "title": "To no head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k14a",
+         "kind": "box",
+         "x": 470,
+         "y": 500,
+         "w": 130,
+         "title": "Dotted both curve",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k14b",
+         "kind": "box",
+         "x": 730,
+         "y": 570,
+         "w": 130,
+         "title": "To dotted both curve",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k15a",
+         "kind": "box",
+         "x": 470,
+         "y": 625,
+         "w": 130,
+         "title": "Dashed start straight",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k15b",
+         "kind": "box",
+         "x": 730,
+         "y": 695,
+         "w": 130,
+         "title": "To dashed start straight",
+         "shape": "pill",
+         "color": "green"
+        }
+       ],
+       "edges": [
+        {
+         "id": "e00",
+         "from": "k00a",
+         "to": "k00b",
+         "label": "solid",
+         "step": 1,
+         "color": "teal",
+         "line": "solid"
+        },
+        {
+         "id": "e01",
+         "from": "k01a",
+         "to": "k01b",
+         "label": "dashed",
+         "step": 1,
+         "color": "teal",
+         "line": "dashed"
+        },
+        {
+         "id": "e02",
+         "from": "k02a",
+         "to": "k02b",
+         "label": "dotted",
+         "step": 1,
+         "color": "teal",
+         "line": "dotted"
+        },
+        {
+         "id": "e03",
+         "from": "k03a",
+         "to": "k03b",
+         "label": "elbow",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "elbow"
+        },
+        {
+         "id": "e04",
+         "from": "k04a",
+         "to": "k04b",
+         "label": "straight",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "straight"
+        },
+        {
+         "id": "e05",
+         "from": "k05a",
+         "to": "k05b",
+         "label": "curve",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "curve"
+        },
+        {
+         "id": "e10",
+         "from": "k10a",
+         "to": "k10b",
+         "label": "end",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "end"
+        },
+        {
+         "id": "e11",
+         "from": "k11a",
+         "to": "k11b",
+         "label": "start",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "start"
+        },
+        {
+         "id": "e12",
+         "from": "k12a",
+         "to": "k12b",
+         "label": "both",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "both"
+        },
+        {
+         "id": "e13",
+         "from": "k13a",
+         "to": "k13b",
+         "label": "none",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "none"
+        },
+        {
+         "id": "e14",
+         "from": "k14a",
+         "to": "k14b",
+         "label": "dotted, both, curve",
+         "step": 4,
+         "color": "green",
+         "line": "dotted",
+         "head": "both",
+         "path": "curve"
+        },
+        {
+         "id": "e15",
+         "from": "k15a",
+         "to": "k15b",
+         "label": "dashed, start, straight",
+         "step": 4,
+         "color": "green",
+         "line": "dashed",
+         "head": "start",
+         "path": "straight"
+        }
+       ],
+       "strokes": []
+      }
+     ],
+     "asked": true
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Make the freshness chip amber while the branch is behind."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "e-1",
+     "names": [
+      "Read",
+      "Edit"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "e-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "e-2",
+       "at": "2026-11-10T22:00:09Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3b",
+      "at": "2026-11-10T22:00:40Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Here is where the chip takes its colour."
+     }
+    },
+    {
+     "id": "sk-cross",
+     "at": "2026-11-10T21:58:12Z",
+     "sketch": "sketch:Crossing arrows",
+     "title": "Crossing arrows",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "a",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "w": 140,
+        "title": "Push",
+        "shape": "box",
+        "color": "blue"
+       },
+       {
+        "id": "b",
+        "kind": "box",
+        "x": 420,
+        "y": 0,
+        "w": 140,
+        "title": "Gate",
+        "shape": "box",
+        "color": "amber"
+       },
+       {
+        "id": "c",
+        "kind": "box",
+        "x": 660,
+        "y": 0,
+        "w": 140,
+        "title": "Merge",
+        "shape": "box",
+        "color": "green"
+       },
+       {
+        "id": "d",
+        "kind": "box",
+        "x": 0,
+        "y": 230,
+        "w": 140,
+        "title": "Checks",
+        "shape": "box",
+        "color": "teal"
+       },
+       {
+        "id": "e",
+        "kind": "box",
+        "x": 420,
+        "y": 230,
+        "w": 140,
+        "title": "Review",
+        "shape": "box",
+        "color": "orange"
+       },
+       {
+        "id": "f",
+        "kind": "box",
+        "x": 660,
+        "y": 230,
+        "w": 140,
+        "title": "Land",
+        "shape": "box",
+        "color": "green"
+       }
+      ],
+      "edges": [
+       {
+        "id": "c1",
+        "from": "a",
+        "to": "b",
+        "step": 1,
+        "color": "blue",
+        "line": "solid"
+       },
+       {
+        "id": "c2",
+        "from": "b",
+        "to": "c",
+        "step": 2,
+        "color": "amber",
+        "line": "solid"
+       },
+       {
+        "id": "c3",
+        "from": "d",
+        "to": "e",
+        "step": 2,
+        "color": "teal",
+        "line": "solid"
+       },
+       {
+        "id": "c4",
+        "from": "e",
+        "to": "f",
+        "step": 3,
+        "color": "orange",
+        "line": "solid"
+       },
+       {
+        "id": "c5",
+        "from": "a",
+        "to": "f",
+        "step": 3,
+        "color": "red",
+        "line": "solid",
+        "path": "straight"
+       },
+       {
+        "id": "c6",
+        "from": "d",
+        "to": "c",
+        "step": 4,
+        "color": "green",
+        "line": "solid",
+        "path": "straight"
+       },
+       {
+        "id": "c7",
+        "from": "b",
+        "to": "e",
+        "step": 3,
+        "color": "grey",
+        "line": "solid"
+       }
+      ],
+      "strokes": []
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "a",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "w": 140,
+         "title": "Push",
+         "shape": "box",
+         "color": "blue"
+        },
+        {
+         "id": "b",
+         "kind": "box",
+         "x": 420,
+         "y": 0,
+         "w": 140,
+         "title": "Gate",
+         "shape": "box",
+         "color": "amber"
+        },
+        {
+         "id": "c",
+         "kind": "box",
+         "x": 660,
+         "y": 0,
+         "w": 140,
+         "title": "Merge",
+         "shape": "box",
+         "color": "green"
+        },
+        {
+         "id": "d",
+         "kind": "box",
+         "x": 0,
+         "y": 230,
+         "w": 140,
+         "title": "Checks",
+         "shape": "box",
+         "color": "teal"
+        },
+        {
+         "id": "e",
+         "kind": "box",
+         "x": 420,
+         "y": 230,
+         "w": 140,
+         "title": "Review",
+         "shape": "box",
+         "color": "orange"
+        },
+        {
+         "id": "f",
+         "kind": "box",
+         "x": 660,
+         "y": 230,
+         "w": 140,
+         "title": "Land",
+         "shape": "box",
+         "color": "green"
+        }
+       ],
+       "edges": [
+        {
+         "id": "c1",
+         "from": "a",
+         "to": "b",
+         "step": 1,
+         "color": "blue",
+         "line": "solid"
+        },
+        {
+         "id": "c2",
+         "from": "b",
+         "to": "c",
+         "step": 2,
+         "color": "amber",
+         "line": "solid"
+        },
+        {
+         "id": "c3",
+         "from": "d",
+         "to": "e",
+         "step": 2,
+         "color": "teal",
+         "line": "solid"
+        },
+        {
+         "id": "c4",
+         "from": "e",
+         "to": "f",
+         "step": 3,
+         "color": "orange",
+         "line": "solid"
+        },
+        {
+         "id": "c5",
+         "from": "a",
+         "to": "f",
+         "step": 3,
+         "color": "red",
+         "line": "solid",
+         "path": "straight"
+        },
+        {
+         "id": "c6",
+         "from": "d",
+         "to": "c",
+         "step": 4,
+         "color": "green",
+         "line": "solid",
+         "path": "straight"
+        },
+        {
+         "id": "c7",
+         "from": "b",
+         "to": "e",
+         "step": 3,
+         "color": "grey",
+         "line": "solid"
+        }
+       ],
+       "strokes": []
+      }
+     ],
+     "kind": "sketch"
+    },
+    {
+     "id": "sk-kinds",
+     "at": "2026-11-10T22:00:41Z",
+     "sketch": "sketch:Arrow kinds",
+     "title": "Arrow kinds",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "k00a",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "w": 130,
+        "title": "Solid",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k00b",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "w": 130,
+        "title": "To solid",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k01a",
+        "kind": "box",
+        "x": 0,
+        "y": 125,
+        "w": 130,
+        "title": "Dashed",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k01b",
+        "kind": "box",
+        "x": 260,
+        "y": 125,
+        "w": 130,
+        "title": "To dashed",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k02a",
+        "kind": "box",
+        "x": 0,
+        "y": 250,
+        "w": 130,
+        "title": "Dotted",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k02b",
+        "kind": "box",
+        "x": 260,
+        "y": 250,
+        "w": 130,
+        "title": "To dotted",
+        "shape": "pill",
+        "color": "teal"
+       },
+       {
+        "id": "k03a",
+        "kind": "box",
+        "x": 0,
+        "y": 375,
+        "w": 130,
+        "title": "Elbow",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k03b",
+        "kind": "box",
+        "x": 260,
+        "y": 445,
+        "w": 130,
+        "title": "To elbow",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k04a",
+        "kind": "box",
+        "x": 0,
+        "y": 500,
+        "w": 130,
+        "title": "Straight",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k04b",
+        "kind": "box",
+        "x": 260,
+        "y": 570,
+        "w": 130,
+        "title": "To straight",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k05a",
+        "kind": "box",
+        "x": 0,
+        "y": 625,
+        "w": 130,
+        "title": "Curve",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k05b",
+        "kind": "box",
+        "x": 260,
+        "y": 695,
+        "w": 130,
+        "title": "To curve",
+        "shape": "pill",
+        "color": "blue"
+       },
+       {
+        "id": "k10a",
+        "kind": "box",
+        "x": 470,
+        "y": 0,
+        "w": 130,
+        "title": "Head at end",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k10b",
+        "kind": "box",
+        "x": 730,
+        "y": 0,
+        "w": 130,
+        "title": "To end head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k11a",
+        "kind": "box",
+        "x": 470,
+        "y": 125,
+        "w": 130,
+        "title": "Head at start",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k11b",
+        "kind": "box",
+        "x": 730,
+        "y": 125,
+        "w": 130,
+        "title": "To start head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k12a",
+        "kind": "box",
+        "x": 470,
+        "y": 250,
+        "w": 130,
+        "title": "Head both",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k12b",
+        "kind": "box",
+        "x": 730,
+        "y": 250,
+        "w": 130,
+        "title": "To both head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k13a",
+        "kind": "box",
+        "x": 470,
+        "y": 375,
+        "w": 130,
+        "title": "No head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k13b",
+        "kind": "box",
+        "x": 730,
+        "y": 375,
+        "w": 130,
+        "title": "To no head",
+        "shape": "pill",
+        "color": "amber"
+       },
+       {
+        "id": "k14a",
+        "kind": "box",
+        "x": 470,
+        "y": 500,
+        "w": 130,
+        "title": "Dotted both curve",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k14b",
+        "kind": "box",
+        "x": 730,
+        "y": 570,
+        "w": 130,
+        "title": "To dotted both curve",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k15a",
+        "kind": "box",
+        "x": 470,
+        "y": 625,
+        "w": 130,
+        "title": "Dashed start straight",
+        "shape": "pill",
+        "color": "green"
+       },
+       {
+        "id": "k15b",
+        "kind": "box",
+        "x": 730,
+        "y": 695,
+        "w": 130,
+        "title": "To dashed start straight",
+        "shape": "pill",
+        "color": "green"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e00",
+        "from": "k00a",
+        "to": "k00b",
+        "label": "solid",
+        "step": 1,
+        "color": "teal",
+        "line": "solid"
+       },
+       {
+        "id": "e01",
+        "from": "k01a",
+        "to": "k01b",
+        "label": "dashed",
+        "step": 1,
+        "color": "teal",
+        "line": "dashed"
+       },
+       {
+        "id": "e02",
+        "from": "k02a",
+        "to": "k02b",
+        "label": "dotted",
+        "step": 1,
+        "color": "teal",
+        "line": "dotted"
+       },
+       {
+        "id": "e03",
+        "from": "k03a",
+        "to": "k03b",
+        "label": "elbow",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "elbow"
+       },
+       {
+        "id": "e04",
+        "from": "k04a",
+        "to": "k04b",
+        "label": "straight",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "straight"
+       },
+       {
+        "id": "e05",
+        "from": "k05a",
+        "to": "k05b",
+        "label": "curve",
+        "step": 2,
+        "color": "blue",
+        "line": "solid",
+        "path": "curve"
+       },
+       {
+        "id": "e10",
+        "from": "k10a",
+        "to": "k10b",
+        "label": "end",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "end"
+       },
+       {
+        "id": "e11",
+        "from": "k11a",
+        "to": "k11b",
+        "label": "start",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "start"
+       },
+       {
+        "id": "e12",
+        "from": "k12a",
+        "to": "k12b",
+        "label": "both",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "both"
+       },
+       {
+        "id": "e13",
+        "from": "k13a",
+        "to": "k13b",
+        "label": "none",
+        "step": 3,
+        "color": "amber",
+        "line": "solid",
+        "head": "none"
+       },
+       {
+        "id": "e14",
+        "from": "k14a",
+        "to": "k14b",
+        "label": "dotted, both, curve",
+        "step": 4,
+        "color": "green",
+        "line": "dotted",
+        "head": "both",
+        "path": "curve"
+       },
+       {
+        "id": "e15",
+        "from": "k15a",
+        "to": "k15b",
+        "label": "dashed, start, straight",
+        "step": 4,
+        "color": "green",
+        "line": "dashed",
+        "head": "start",
+        "path": "straight"
+       }
+      ],
+      "strokes": []
+     },
+     "revisions": [
+      {
+       "nodes": [
+        {
+         "id": "k00a",
+         "kind": "box",
+         "x": 0,
+         "y": 0,
+         "w": 130,
+         "title": "Solid",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k00b",
+         "kind": "box",
+         "x": 260,
+         "y": 0,
+         "w": 130,
+         "title": "To solid",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k01a",
+         "kind": "box",
+         "x": 0,
+         "y": 125,
+         "w": 130,
+         "title": "Dashed",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k01b",
+         "kind": "box",
+         "x": 260,
+         "y": 125,
+         "w": 130,
+         "title": "To dashed",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k02a",
+         "kind": "box",
+         "x": 0,
+         "y": 250,
+         "w": 130,
+         "title": "Dotted",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k02b",
+         "kind": "box",
+         "x": 260,
+         "y": 250,
+         "w": 130,
+         "title": "To dotted",
+         "shape": "pill",
+         "color": "teal"
+        },
+        {
+         "id": "k03a",
+         "kind": "box",
+         "x": 0,
+         "y": 375,
+         "w": 130,
+         "title": "Elbow",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k03b",
+         "kind": "box",
+         "x": 260,
+         "y": 445,
+         "w": 130,
+         "title": "To elbow",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k04a",
+         "kind": "box",
+         "x": 0,
+         "y": 500,
+         "w": 130,
+         "title": "Straight",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k04b",
+         "kind": "box",
+         "x": 260,
+         "y": 570,
+         "w": 130,
+         "title": "To straight",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k05a",
+         "kind": "box",
+         "x": 0,
+         "y": 625,
+         "w": 130,
+         "title": "Curve",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k05b",
+         "kind": "box",
+         "x": 260,
+         "y": 695,
+         "w": 130,
+         "title": "To curve",
+         "shape": "pill",
+         "color": "blue"
+        },
+        {
+         "id": "k10a",
+         "kind": "box",
+         "x": 470,
+         "y": 0,
+         "w": 130,
+         "title": "Head at end",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k10b",
+         "kind": "box",
+         "x": 730,
+         "y": 0,
+         "w": 130,
+         "title": "To end head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k11a",
+         "kind": "box",
+         "x": 470,
+         "y": 125,
+         "w": 130,
+         "title": "Head at start",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k11b",
+         "kind": "box",
+         "x": 730,
+         "y": 125,
+         "w": 130,
+         "title": "To start head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k12a",
+         "kind": "box",
+         "x": 470,
+         "y": 250,
+         "w": 130,
+         "title": "Head both",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k12b",
+         "kind": "box",
+         "x": 730,
+         "y": 250,
+         "w": 130,
+         "title": "To both head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k13a",
+         "kind": "box",
+         "x": 470,
+         "y": 375,
+         "w": 130,
+         "title": "No head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k13b",
+         "kind": "box",
+         "x": 730,
+         "y": 375,
+         "w": 130,
+         "title": "To no head",
+         "shape": "pill",
+         "color": "amber"
+        },
+        {
+         "id": "k14a",
+         "kind": "box",
+         "x": 470,
+         "y": 500,
+         "w": 130,
+         "title": "Dotted both curve",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k14b",
+         "kind": "box",
+         "x": 730,
+         "y": 570,
+         "w": 130,
+         "title": "To dotted both curve",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k15a",
+         "kind": "box",
+         "x": 470,
+         "y": 625,
+         "w": 130,
+         "title": "Dashed start straight",
+         "shape": "pill",
+         "color": "green"
+        },
+        {
+         "id": "k15b",
+         "kind": "box",
+         "x": 730,
+         "y": 695,
+         "w": 130,
+         "title": "To dashed start straight",
+         "shape": "pill",
+         "color": "green"
+        }
+       ],
+       "edges": [
+        {
+         "id": "e00",
+         "from": "k00a",
+         "to": "k00b",
+         "label": "solid",
+         "step": 1,
+         "color": "teal",
+         "line": "solid"
+        },
+        {
+         "id": "e01",
+         "from": "k01a",
+         "to": "k01b",
+         "label": "dashed",
+         "step": 1,
+         "color": "teal",
+         "line": "dashed"
+        },
+        {
+         "id": "e02",
+         "from": "k02a",
+         "to": "k02b",
+         "label": "dotted",
+         "step": 1,
+         "color": "teal",
+         "line": "dotted"
+        },
+        {
+         "id": "e03",
+         "from": "k03a",
+         "to": "k03b",
+         "label": "elbow",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "elbow"
+        },
+        {
+         "id": "e04",
+         "from": "k04a",
+         "to": "k04b",
+         "label": "straight",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "straight"
+        },
+        {
+         "id": "e05",
+         "from": "k05a",
+         "to": "k05b",
+         "label": "curve",
+         "step": 2,
+         "color": "blue",
+         "line": "solid",
+         "path": "curve"
+        },
+        {
+         "id": "e10",
+         "from": "k10a",
+         "to": "k10b",
+         "label": "end",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "end"
+        },
+        {
+         "id": "e11",
+         "from": "k11a",
+         "to": "k11b",
+         "label": "start",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "start"
+        },
+        {
+         "id": "e12",
+         "from": "k12a",
+         "to": "k12b",
+         "label": "both",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "both"
+        },
+        {
+         "id": "e13",
+         "from": "k13a",
+         "to": "k13b",
+         "label": "none",
+         "step": 3,
+         "color": "amber",
+         "line": "solid",
+         "head": "none"
+        },
+        {
+         "id": "e14",
+         "from": "k14a",
+         "to": "k14b",
+         "label": "dotted, both, curve",
+         "step": 4,
+         "color": "green",
+         "line": "dotted",
+         "head": "both",
+         "path": "curve"
+        },
+        {
+         "id": "e15",
+         "from": "k15a",
+         "to": "k15b",
+         "label": "dashed, start, straight",
+         "step": 4,
+         "color": "green",
+         "line": "dashed",
+         "head": "start",
+         "path": "straight"
+        }
+       ],
+       "strokes": []
+      }
+     ],
+     "asked": true,
+     "kind": "sketch"
+    }
+   ]
+  },
+  {
+   "session_id": "tool-search",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-4",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Where is the webhook queue drained?"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "s-1",
+     "names": [
+      "Glob",
+      "Grep"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "s-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Glob crates/**/webhook*.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "s-2",
+       "at": "2026-11-10T22:00:03Z",
+       "text": "Grep drain_queue"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-agent",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-5",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Have someone review the merge line change."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "a-1",
+     "names": [
+      "Read",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "a-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "a-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "tool-done",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-6",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Fix the merge line chip.\nThen have it reviewed."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "d-1",
+     "names": [
+      "Read",
+      "Grep",
+      "Edit",
+      "Bash",
+      "WebFetch",
+      "Agent"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "d-1",
+       "at": "2026-11-10T22:00:02Z",
+       "text": "Read crates/api/src/router.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-2",
+       "at": "2026-11-10T22:00:05Z",
+       "text": "Grep mergeLineTone"
+      },
+      {
+       "kind": "tool",
+       "id": "d-3",
+       "at": "2026-11-10T22:00:06Z",
+       "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+      },
+      {
+       "kind": "tool",
+       "id": "d-4",
+       "at": "2026-11-10T22:00:14Z",
+       "text": "Bash armada check docs"
+      },
+      {
+       "kind": "tool",
+       "id": "d-5",
+       "at": "2026-11-10T22:01:02Z",
+       "text": "WebFetch https://docs.rs/gpui"
+      },
+      {
+       "kind": "tool",
+       "id": "d-6",
+       "at": "2026-11-10T22:01:05Z",
+       "text": "Agent Review the merge line change"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-7",
+      "at": "2026-11-10T22:02:31Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The chip is amber while the branch is behind. The review found nothing."
+     }
+    }
+   ]
+  }
+ ]
+}
