@@ -20,7 +20,6 @@ import {
   MAX_RUNS,
   MAX_RUNS_BODY_BYTES,
   MAX_CLAIMS,
-  MAX_DEVICES,
   MAX_KEYS,
   MAX_OWNERS,
   RATE_WINDOW_SECONDS,
@@ -94,10 +93,10 @@ export class Account extends DurableObject<Env> {
    * before them has them from its first verified request. */
   private upgraded = false;
 
-  /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has its devices. */
-  register(device: string, publicKey: string, machine: string): "ok" | "full" {
+  /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has `limit` devices. */
+  register(device: string, publicKey: string, machine: string, limit: number): "ok" | "full" {
     this.makeTables();
-    if (this.count("devices") >= MAX_DEVICES) return "full";
+    if (this.count("devices") >= limit) return "full";
     this.sql.exec(
       "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)",
       device,
