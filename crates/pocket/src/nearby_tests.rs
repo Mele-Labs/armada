@@ -128,7 +128,7 @@ async fn the_door_answers_only_what_macs_call_each_other_on() {
     for path in ["/admin/macs", "/admin/status", "/pair", "/api/sessions", "/api/machine", "/", "/index.html"] {
         assert_eq!(get(path).await, 404, "{path}");
     }
-    assert_eq!(get("/api/mac/sessions").await, 401, "a Mac's route, and unsigned");
+    assert_eq!(get("/api/mac/sessions").await, 400, "a Mac's route, refused by the signed layer for want of a signature");
 }
 
 #[test]
