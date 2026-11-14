@@ -178,6 +178,15 @@ The phone asks once more for an address when one lapses, and the video keeps its
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
 
+> **Rule (12 Nov).** The phone sees only Jobs in a project he shares, and Jobs held from another Mac, which only a shared project sends.
+> A Job in an unshared project, or in none, is answered on every route as a Job that does not exist, and is in no list, stream or push.
+> Why: he called keeping private projects private "absolutely critical", and a phone is a paired device like his other Macs.
+
+**Fleet rules on every route the Gateway calls as the phone, by name** (`crates/api/src/phone_share.rs`, with the rulings in `crates/fleet/src/share.rs`).
+A route asked about a Job the phone does not see is asked with an id no Job has, so it answers in its own words for a missing Job.
+The Jobs list, the repositories and the projects are cut to what the phone sees, `/events` drops every other Job's change, and a route with no ruling is 404.
+A Job the phone starts goes into the first shared project of this Mac holding its repository, which the Gateway names, and Fleet refuses one into any other.
+
 **Waiting follows Bridge's order.** A Job is not waiting while it is paused, failed to start, waits on another Job, sits on its start card or is held by the plan's limit, whatever it owes.
 Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
 
@@ -327,7 +336,7 @@ The signed layer finds the device among the phones, then among the linked Macs.
 | A linked Mac | Only `/api/mac/*` | 404 |
 
 The wrong side gets 404 and never 401, so it reads as a route that is not there.
-**This line keeps private work off the other Mac**: the phone's routes are not share-filtered.
+**This line keeps the other Mac off the phone's routes**, which show Jobs held from a third Mac that the other Mac was never sent.
 
 | Route, for a linked Mac | Answers |
 |---|---|
@@ -442,6 +451,7 @@ A network that drops multicast, as some work networks and VPNs do, hides a Mac t
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.
+Only a Job the phone sees pushes: the watcher reads `/events` as the phone, cut as *What the phone sees* says.
 
 | Job | Pushes |
 |---|---|

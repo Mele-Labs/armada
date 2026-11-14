@@ -106,7 +106,11 @@ impl Stage {
             }
             Screen::App => {
                 super::strip_marks::leave(cx);
-                crate::titlebar::scenes::begin(cx);
+                if walk.scenario == "project-filter" {
+                    crate::titlebar::scenes::begin_on_all(cx);
+                } else {
+                    crate::titlebar::scenes::begin(cx);
+                }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let keys = list.read(cx).focus_handle().clone();
@@ -149,6 +153,9 @@ impl Stage {
                 }
                 if walk.name == crate::settings::walk::MACS_CLAIM {
                     over.update(cx, |over, cx| over.claim_later(cx));
+                }
+                if walk.name == crate::settings::walk::MACS_NEARBY {
+                    over.update(cx, |over, cx| over.nearby_macs(cx));
                 }
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
