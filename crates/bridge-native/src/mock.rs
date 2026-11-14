@@ -1524,3 +1524,9 @@ const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused
 {"label":"Wait for main to move","description":"Nothing retries until main has a new commit. The branch is merged with it first, the Checks run again on the merge, and only a green run pushes. A refusal that names the branch protection stops at once."},
 {"label":"Ask each time","description":"Every refusal comes here as its own question with the forge's words, the branch and how far behind main it is. Nothing is pushed until you answer, and an answer applies to that one push only."},
 {"label":"Hand it to the merge queue","description":"The pull request is queued as it stands and the queue's own retries take over. The Job ends its part once the queue has it, and a queue failure opens a new Job for the fix with the failing Check named."}]}"#;
+
+/// A kept style set as `GET /sessions/kept_styles` answers it. A mock scene's mock nodes name no hash, so the one set
+/// answers every hash asked.
+pub fn kept_styles(_hash: &str) -> ipc::KeptStyles {
+    ipc::decode("kept styles", include_bytes!("../fixtures/kept-styles.json")).unwrap_or_else(|why| panic!("the kept styles fixture does not decode: {why}"))
+}

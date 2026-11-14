@@ -212,7 +212,7 @@ impl JobView {
         let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
         let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
         let drawing = scene.map(|scene| {
-            let height = self.drawing_height(&scene, None, look);
+            let height = self.drawing_height(&scene, None, look, cx);
             let drawn = drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default());
             self.well(height, card.replaced, false, drawn, look)
         });
@@ -256,7 +256,7 @@ impl JobView {
         let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
         let column = self.plan_columns.get(key).copied();
         let drawing = scene.map(|scene| {
-            let height = self.drawing_height(&scene, column, look);
+            let height = self.drawing_height(&scene, column, look, cx);
             let drawn = drawn_against(card, None, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default());
             self.well(height, false, true, drawn, look)
         });
@@ -402,14 +402,14 @@ impl JobView {
     /// How tall the drawing stands where the card is as wide as the thread, or, inside a plan, where its frame is
     /// `frame` wide and its well runs edge to edge: the scene's own extent at the scale the card fits it to, which
     /// is never above one.
-    fn drawing_height(&self, scene: &ipc::Scene, frame: Option<gpui::Pixels>, look: &Look) -> gpui::Pixels {
+    fn drawing_height(&self, scene: &ipc::Scene, frame: Option<gpui::Pixels>, look: &Look, cx: &gpui::App) -> gpui::Pixels {
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         let mut reach = |x: f64, y: f64| {
             (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
         };
         for node in &scene.nodes {
             reach(node.x, node.y);
-            reach(node.x + node.w.unwrap_or(180.), node.y + node.h.unwrap_or(80.));
+            reach(node.x + node.w.unwrap_or(180.), node.y + crate::scene::node_height(node, look, 80., cx));
         }
         for point in scene.strokes.iter().flat_map(|stroke| stroke.points.iter()) {
             reach(point.x, point.y);

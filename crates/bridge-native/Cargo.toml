@@ -34,6 +34,9 @@ gpui-component = "=0.9.0"
 gpui-base = "=0.9.0"
 # The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
 gpui-kit-assets = "=0.9.0"
+# A mock's markup is parsed and cleaned as the browser parses it; gpui-component already links these exact versions.
+html5ever = "=0.27.0"
+markup5ever_rcdom = "=0.3.0"
 # The wire, linked and never copied: the protocol ID covers this crate.
 ipc = { path = "../ipc" }
 # The log envelope's own type, so a line from here joins to a line from Fleet.

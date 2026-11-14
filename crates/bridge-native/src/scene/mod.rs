@@ -4,13 +4,15 @@
 //!
 //! Sizes are CSS pixels, as `SketchScene.css` gives them, worked out once per scene with the
 //! app's own text measure; the drawing is then scaled to fit, never up, as `fitView` does. A mock
-//! node draws nothing until the app can draw a page (plan task #20). A screen node is a wireframe
+//! node draws the picture of its page (`mock_view`), as tall as its content once the picture has come. A screen node is a wireframe
 //! sheet gpui lays out as the browser lays out `ScreenView`, under its title.
 
 mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
+pub(crate) mod mock_page;
+pub(crate) mod mock_view;
 mod route;
 mod screen;
 mod settle;
@@ -143,6 +145,15 @@ pub(crate) fn read(key: &str, raw: &ipc::RawScene) -> Option<Rc<Scene>> {
     let read = raw.scene().map(Rc::new);
     READ.with(|held| held.borrow_mut().insert(key.to_string(), read.clone()));
     read
+}
+
+/// A node's height as a place that sizes a drawing without laying it out should take it: a mock's is its title and the
+/// content of its page once a picture has come, else the node's own `h`, else `floor`.
+pub(crate) fn node_height(node: &SceneNode, look: &Look, floor: f64, cx: &App) -> f64 {
+    match mock_view::content_height(node, mock_view::dark(look), cx) {
+        Some(content) => f64::from(sheet_top(node) + content),
+        None => node.h.unwrap_or(floor),
+    }
 }
 
 /// Whether the scene has steps to play.
@@ -282,6 +293,8 @@ struct Laid {
     bounds: Rect,
     /// The step numbers, sorted and unique: the same number plays together.
     steps: Vec<f64>,
+    /// The content height each mock was laid out with, by node index: the layout is worked out again when one is known that was not.
+    mocks: Vec<Option<f32>>,
 }
 
 struct Way {
@@ -353,6 +366,7 @@ fn size_of(node: &SceneNode, measure: &Measure, (floor, ceiling): (f32, f32)) ->
     let heading = measure.width(title, TEXT, 600., false);
     match node.kind {
         SceneKind::Group | SceneKind::Lane => fixed(0., 0.),
+        // At its floor until its picture has come: `laid` gives the node its content's height then.
         SceneKind::Mock => fixed(floor, 160.),
         SceneKind::Screen => fixed(floor, 90.),
         SceneKind::Label => {
@@ -409,7 +423,7 @@ fn size_of(node: &SceneNode, measure: &Measure, (floor, ceiling): (f32, f32)) ->
     }
 }
 
-fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32, f32)>], look: &Look, window: &Window) -> Laid {
+fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32, f32)>], mocks: Vec<Option<f32>>, look: &Look, window: &Window) -> Laid {
     let measure = Measure {
         window,
         sans: look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_else(|| "IBM Plex Sans".into()),
@@ -431,7 +445,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
         .collect();
     steps.sort_by(f64::total_cmp);
     steps.dedup();
-    Laid { rects, ways, bounds, steps }
+    Laid { rects, ways, bounds, steps, mocks }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -528,7 +542,11 @@ thread_local! {
 
 fn laid(key: &SharedString, scene: &Scene, look: &Look, window: &mut Window, cx: &mut App) -> Rc<Laid> {
     let at = (key.clone(), look.id().to_string());
-    if let Some(held) = LAID.with(|held| held.borrow().get(&at).cloned()) {
+    let mocks = mock_view::sources(key, scene);
+    let dark = mock_view::dark(look);
+    // Each mock's content height, where a picture of its page has come.
+    let heights: Vec<Option<f32>> = scene.nodes.iter().zip(mocks.iter()).map(|(node, mock)| mock_view::height(mock.as_deref()?, node.w? as f32, dark, cx)).collect();
+    if let Some(held) = LAID.with(|held| held.borrow().get(&at).cloned()).filter(|held| held.mocks == heights) {
         return held;
     }
     // Each screen's sheet laid out once at full size, as the browser measures the node before React Flow places it.
@@ -537,7 +555,11 @@ fn laid(key: &SharedString, scene: &Scene, look: &Look, window: &mut Window, cx:
         .nodes
         .iter()
         .zip(trees.iter())
-        .map(|(node, tree)| {
+        .zip(heights.iter())
+        .map(|((node, tree), mock)| {
+            if let Some(content) = mock {
+                return Some((node.w? as f32, sheet_top(node) + content));
+            }
             let tree = tree.as_ref()?;
             let w = sheet_width(node, tree);
             let mut sheet = screen::sheet(tree, None, 1., &screen::Paper::new(look, 1., w, false, window));
@@ -545,7 +567,7 @@ fn laid(key: &SharedString, scene: &Scene, look: &Look, window: &mut Window, cx:
             Some((w, sheet_top(node) + f32::from(h)))
         })
         .collect();
-    let made = Rc::new(lay(scene, &trees, &sheets, look, window));
+    let made = Rc::new(lay(scene, &trees, &sheets, heights, look, window));
     LAID.with(|held| held.borrow_mut().insert(at, made.clone()));
     made
 }
@@ -693,6 +715,8 @@ struct Prepared {
     now: Option<Playing>,
     /// Each with how far it stands back, which its title shares.
     sheets: Vec<Option<(AnyElement, f32)>>,
+    /// Each mock's picture, where one has come, by its node's index: `None` for a node that is not a mock.
+    mocks: Vec<Option<mock_view::Shown>>,
 }
 
 /// The nodes the step playing lights: those it names and those its arrows reach.
@@ -715,6 +739,11 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
     let trees = trees(key, scene);
+    // Each mock asks for the picture its zoom wants, and draws the nearest it has until that comes.
+    let sources = mock_view::sources(key, scene);
+    let dark = mock_view::dark(&look);
+    let mocks: Vec<Option<mock_view::Shown>> =
+        scene.nodes.iter().zip(sources.iter()).map(|(node, mock)| Some(mock_view::Shown { image: mock_view::picture(mock.as_ref()?, node.w? as f32, view.zoom, dark, window, cx) })).collect();
     let mut sheets: Vec<Option<(AnyElement, f32)>> = Vec::new();
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
         for (index, (node, tree)) in scene.nodes.iter().zip(trees.iter()).enumerate() {
@@ -736,7 +765,7 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
             sheets.push(Some((sheet, alpha)));
         }
     });
-    Prepared { laid, view, changes, now, sheets }
+    Prepared { laid, view, changes, now, sheets, mocks }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -779,6 +808,10 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
             let sheet = prepared.sheets.get_mut(index).and_then(Option::take);
             let lit_here = lit.contains(node.id.as_str());
             let dim = (now.is_some() && !lit_here) || change == Some(Change::Same);
+            if let Some(Some(shown)) = prepared.mocks.get(index) {
+                mock_view::paint(&ink.changed(change), node, *rect, shown, if dim { DIMMED } else { 1. }, now.is_some() && lit_here, window, cx);
+                continue;
+            }
             if let Some((mut sheet, alpha)) = sheet {
                 // A screen is a sheet of its own on the ground: its title above it, and the ring on the sheet.
                 if let Some(title) = node.title.as_deref() {
@@ -859,7 +892,7 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
     match node.kind {
-        // A mock comes with the app's own page view (#20), a screen with its own walk: their place is kept, nothing drawn.
+        // A mock is drawn by `mock_view` and a screen as a sheet, before this is reached: their place is kept, nothing drawn.
         SceneKind::Mock | SceneKind::Screen | SceneKind::Group | SceneKind::Lane => {}
         SceneKind::Label => {
             let words = node.title.as_deref().or(node.body.as_deref()).unwrap_or("");
