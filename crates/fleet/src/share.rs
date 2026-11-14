@@ -6,12 +6,16 @@
 //! held at once and the other Mac is never sent private work to hide.
 //!
 //! **A Job in an unshared project and a Job in none are one case**: nothing of either leaves, and an act on
-//! either is answered as an act on a Job that does not exist. The phone's routes do not pass here yet.
+//! either is answered as an act on a Job that does not exist.
+//!
+//! **The phone is ruled here too** (`.claude/decisions/2026-11-12-two-macs-as-one-armada.md`): it sees a Job in
+//! a shared project, and a Job held from another Mac, which only a shared one is. `api::phone_share` puts every
+//! route the Phone Gateway calls through these.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::ScopeId;
-use ipc::{BugReports, Event, ProjectAct, Projects, SessionId, WireError};
+use ipc::{BugReports, Event, ManifestSummary, ProjectAct, Projects, SessionId, StartSession, WireError};
 use store::LOOSE_PROJECT;
 
 use crate::daemon::Fleet;
@@ -155,15 +159,75 @@ where
     /// A Job started from another Mac goes only into a shared project. An unshared project, one he does not
     /// have, and none at all are refused alike, so the refusal names no project of this Mac.
     pub fn start_from_other_mac(&self, project: Option<&str>) -> Result<(), Refusal> {
+        self.start_in_shared(project, "a Job started from another Mac needs a project")
+    }
+
+    fn start_in_shared(&self, project: Option<&str>, none_said: &str) -> Result<(), Refusal> {
         match project {
             Some(id) if self.project_shared(id) => Ok(()),
             Some(id) => Err(Refusal::NotFound(WireError::raised(NO_SUCH_PROJECT, format!("there is no project {id}"), self.run_id()))),
-            None => Err(Refusal::NotFound(WireError::raised(
-                NO_SUCH_PROJECT,
-                "a Job started from another Mac needs a project",
-                self.run_id(),
-            ))),
+            None => Err(Refusal::NotFound(WireError::raised(NO_SUCH_PROJECT, none_said, self.run_id()))),
         }
+    }
+
+    /// Whether the phone sees Job `job`: one of this Mac's in a shared project, or one held from another Mac.
+    pub async fn job_for_phone(&self, job: &str) -> bool {
+        self.mac_holding(job).await.is_some() || self.job_shared(job).await
+    }
+
+    /// `event`, where the phone is sent it. **Only the kinds the phone reads are ruled on**, and every other kind
+    /// stays, so a new kind reaches the phone only once someone names it here.
+    pub async fn event_for_phone(&self, event: Event) -> Option<Event> {
+        let seen = match &event {
+            Event::SessionChanged(record) => self.job_for_phone(record.id.as_str()).await,
+            Event::OperatorDispatched(dispatched) => match &dispatched.session_id {
+                Some(job) => self.job_for_phone(job.as_str()).await,
+                None => self.manifest_for_phone(&dispatched.manifest_id).await,
+            },
+            // Only acts waiting for another Mac, which holds nothing but what it shared.
+            Event::QueuedChanged(_) => true,
+            _ => false,
+        };
+        seen.then_some(event)
+    }
+
+    /// A Job the phone starts here goes only into a shared project, and a fork only from a Job it sees. Refused
+    /// as [`Fleet::start_from_other_mac`] and [`Fleet::act_from_other_mac`] refuse, so nothing private is named.
+    pub async fn start_from_phone(&self, start: &StartSession) -> Result<(), Refusal> {
+        if let Some(fork) = &start.fork {
+            if !self.job_for_phone(fork.session_id.as_str()).await {
+                let said = format!("No Job has the id {}.", fork.session_id.as_str());
+                return Err(Refusal::NotFound(WireError::raised(NO_SUCH_SESSION, said, self.run_id())));
+            }
+        }
+        self.start_in_shared(start.project.as_deref(), "a Job started from the phone needs a project")
+    }
+
+    /// The projects the phone is named: this Mac's shared ones and the copies held from another Mac.
+    pub async fn projects_for_phone(&self, projects: Projects) -> Projects {
+        let seen = projects
+            .projects
+            .into_iter()
+            .filter(|one| one.mac.is_some() || (one.unread.is_none() && self.project_shared(&one.id)))
+            .collect();
+        Projects { projects: seen, loose: Vec::new(), left_out: Vec::new() }
+    }
+
+    /// The repositories the phone is named: those in a project it sees.
+    pub async fn manifests_for_phone(&self, manifests: Vec<ManifestSummary>) -> Vec<ManifestSummary> {
+        let mut seen = Vec::with_capacity(manifests.len());
+        for manifest in manifests {
+            if self.manifest_for_phone(manifest.id.as_str()).await {
+                seen.push(manifest);
+            }
+        }
+        seen
+    }
+
+    async fn manifest_for_phone(&self, manifest: &str) -> bool {
+        let held = self.projects_held();
+        let own = held.running().any(|one| one.shared_with_macs() && one.members().iter().any(|member| member.repository().as_str() == manifest));
+        own || self.copies_held().await.unwrap_or_default().iter().any(|copy| copy.members.iter().any(|member| member.manifest_id.as_str() == manifest))
     }
 
     /// A message from Job `from` to a Job on another Mac leaves only where `from` is in a shared project. The

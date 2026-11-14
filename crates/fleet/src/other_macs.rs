@@ -247,6 +247,26 @@ where
         Ok(self.projects_for_other_mac(own).sent())
     }
 
+    async fn job_for_phone(&self, job: &str) -> bool {
+        Fleet::job_for_phone(self, job).await
+    }
+
+    async fn event_for_phone(&self, event: ipc::Event) -> Option<ipc::Event> {
+        Fleet::event_for_phone(self, event).await
+    }
+
+    async fn start_from_phone(&self, start: &ipc::StartSession) -> Result<(), Refusal> {
+        Fleet::start_from_phone(self, start).await
+    }
+
+    async fn projects_for_phone(&self, projects: ipc::Projects) -> ipc::Projects {
+        Fleet::projects_for_phone(self, projects).await
+    }
+
+    async fn manifests_for_phone(&self, manifests: Vec<ipc::ManifestSummary>) -> Vec<ipc::ManifestSummary> {
+        Fleet::manifests_for_phone(self, manifests).await
+    }
+
     async fn project_act_from_mac(&self, sent: ProjectActFromMac) -> Result<ipc::Projects, Refusal> {
         self.project_act_run(sent).await
     }
