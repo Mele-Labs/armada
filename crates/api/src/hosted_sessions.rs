@@ -3,7 +3,7 @@
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::Extension;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -961,6 +961,39 @@ pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Serve
     };
     match served.shared().cast_page_vote(cast).await {
         Ok(cast) => answer(StatusCode::OK, &cast, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
+#[derive(Deserialize)]
+pub(crate) struct WhichPage {
+    session_id: String,
+    artifact: String,
+    revision: Option<u32>,
+}
+
+/// One kept revision of a page, sealed. 200 with the page as `text/html`, its policy sent again as the header, as
+/// `get_session_file` answers its bytes; 422 for an artifact the Job does not hold as a page or a revision never kept.
+pub(crate) async fn get_artifact_page<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichPage>,
+) -> Response {
+    let asked = served
+        .daemon()
+        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision)
+        .await;
+    match asked {
+        Ok(page) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+            headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+            // Base64 and plain words, which always make a header. The page carries the policy either way.
+            if let Ok(policy) = HeaderValue::from_str(&page.policy) {
+                headers.insert(header::CONTENT_SECURITY_POLICY, policy);
+            }
+            (StatusCode::OK, headers, page.html).into_response()
+        }
         Err(refusal) => refused(refusal),
     }
 }

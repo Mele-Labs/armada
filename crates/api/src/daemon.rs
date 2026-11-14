@@ -58,7 +58,7 @@ pub use authoring::Authoring;
 pub use clashing::Clashing;
 pub use commands::Commands;
 pub use conversing::Conversations;
-pub use hosted_sessions::{HostedSessions, StoredFile};
+pub use hosted_sessions::{HostedSessions, SealedPage, StoredFile};
 pub use sessions::ShownFile;
 pub use issues::{Autopilots, Issues};
 pub use lifecycles::Lifecycles;

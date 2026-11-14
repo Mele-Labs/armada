@@ -613,6 +613,10 @@ where
         self.page_vote_cast(cast).await
     }
 
+    async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.artifact_page(id.as_str(), &artifact, revision).await
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let act = super::mcp_servers::McpAct::from(asked.act);
         let acted = self.session_mcp_acted(asked.session_id.as_str(), &asked.server, act).await?;

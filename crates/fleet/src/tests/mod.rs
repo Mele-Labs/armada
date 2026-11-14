@@ -35,6 +35,7 @@ mod draft_documents;
 mod artifacts;
 mod page_actions;
 mod page_votes;
+mod page_sealed;
 mod drafts;
 mod pull_request_drafts;
 mod phone;

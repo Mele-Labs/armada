@@ -196,6 +196,61 @@ export type PagePress = {
   did: PressDid;
 };
 
+/**
+ * `GET /sessions/artifacts/page?session_id=&artifact=&revision=`: one kept revision of a page, the newest where
+ * `revision` is left out, answered as the page itself, `text/html`, sealed: no network, its own scripts inert, and the
+ * kit's script drawing its actions and votes. An archived page serves. 422 `fleet.artifact_not_held` for an artifact
+ * not held or not a page, `fleet.artifact_revision_unknown` for a revision never kept, and `fleet.session_unnamed`.
+ * `docs/practices/protocol/a-pages-sealed-serving.md`.
+ */
+export type GetArtifactPage = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  revision?: number;
+};
+
+/** What the kit's script on a sealed page posts to `window.parent`. The host makes the Fleet call with the Job's `session_id`. */
+export type PageToHost =
+  | {
+      armada: 1;
+      kind: "press";
+      artifact: string;
+      revision: number;
+      action: string;
+      words?: string;
+    }
+  | {
+      armada: 1;
+      kind: "vote";
+      artifact: string;
+      revision: number;
+      vote: string;
+      result: VoteResult;
+    };
+
+/** What the host posts back to the sealed page for it to draw: Fleet's answer, or its refusal. */
+export type HostToPage =
+  | {
+      armada: 1;
+      kind: "pressed";
+      press: PagePress;
+    }
+  | {
+      armada: 1;
+      kind: "voted";
+      cast: VoteCast;
+    }
+  | {
+      armada: 1;
+      kind: "refused";
+      /** The action pressed, or the vote cast, that was refused. */
+      action?: string;
+      vote?: string;
+      code: string;
+      message: string;
+    };
+
 /** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
 export type ArtifactLinkKind = "plan_step" | "task" | "pull_request" | "link";
 
