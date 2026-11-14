@@ -121,7 +121,6 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "retention", label: "Retention", palette: "Retention", words: &["Retention", "keep", "days", "history", "clean up"] },
     Section { id: "machine", label: "Machine", palette: "Machine name", words: &["Machine name", "host", "computer", "name"] },
     Section { id: "account", label: "Account", palette: "Sign-in app", words: &["Sign-in app", "account", "sign in", "client id", "oauth", "forge"] },
-    Section { id: "store", label: "Store", palette: "Store address", words: &["Store address", "store", "central store", "sign in", "url"] },
     Section { id: "token-use", label: "Token use", palette: "Token use", words: &["Token use", "tokens", "cost", "compaction", "turn summaries", "cache", "thinking"] },
     Section { id: "harness", label: "Harness", palette: "Harness", words: &["Harness", "agent", "program", "binary", "path"] },
     Section { id: "plan", label: "Plan", palette: "Plan step down", words: &["Plan", "weekly", "limit", "downshift", "lower default", "step down", "percent"] },
@@ -168,7 +167,6 @@ pub const ENTRIES: &[Entry] = &[
     page("fleet:token-use", "Token use", Group::Fleet, Body::Schema(&["token-use"]), "zap", RUNNING),
     page("fleet:machine", "Machine", Group::Fleet, Body::Schema(&["machine"]), "laptop", SUCCESS),
     page("fleet:account", "Account", Group::Fleet, Body::Schema(&["account"]), "lock", SUCCESS),
-    page("fleet:store", "Store", Group::Fleet, Body::Schema(&["store"]), "database", DELIVERY),
     page("fleet:features", "Features", Group::Fleet, Body::Features, "toggle-left", RUNNING),
     page("fleet:repository", "Repository", Group::Fleet, Body::Repository, "plug", ESCALATED),
     page("bridge:all", "All", Group::Mods, Body::Mods(None), "puzzle", ESCALATED),
@@ -327,7 +325,7 @@ mod tests {
         assert_eq!(
             mac,
             [
-                "kit:models", "kit:prompts", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:store", "fleet:features",
+                "kit:models", "kit:prompts", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:features",
                 "fleet:repository", "bridge:all", "bridge:theme", "bridge:layout", "bridge:words", "bridge:tracker", "bridge:fleet", "bridge:ways", "bridge:spacing", "bridge:keyboard", "bridge:time", "bridge:editor",
                 "bridge:terminal", "bridge:links",
             ],

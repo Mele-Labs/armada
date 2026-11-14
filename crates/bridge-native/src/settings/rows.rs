@@ -36,7 +36,6 @@ pub fn purpose_of(entry: &Entry) -> &'static str {
         "fleet:token-use" => "What Jobs spend on tokens.",
         "fleet:machine" => "This Mac's name.",
         "fleet:account" => "The sign-in app Armada uses.",
-        "fleet:store" => "Where the central store is.",
         "fleet:features" => "Switches for what Armada does, and the folders Jobs reach.",
         "bridge:spacing" => "How much room Bridge leaves around things.",
         "bridge:time" => "How every stamp Bridge draws is written.",
