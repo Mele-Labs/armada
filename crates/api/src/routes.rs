@@ -406,6 +406,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
+        .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
+        .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
         .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
         .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
         .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))

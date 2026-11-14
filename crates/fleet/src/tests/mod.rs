@@ -162,6 +162,7 @@ mod session_note_artifacts;
 mod pull_request_notes;
 mod session_dispute;
 mod bug_reports;
+mod job_asks;
 mod share;
 mod other_macs;
 mod other_mac_projects;

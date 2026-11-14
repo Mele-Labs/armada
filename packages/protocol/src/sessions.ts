@@ -486,6 +486,10 @@ export type WaitingAct = {
  * `operator_undone` (id `undone:<n>`, `<n>` the row of a ruling he took back with `operator_undo_ruling`, text the question, the options the question had, act `answer` whose `target` is the id)
  * is a question the Operator answered by following something he said and he took back. Answering it sends the agent `Re: <question>` and his choice, as for an
  * `agent` item, and the item goes. Dismissing it drops it. The Operator's own review never answers it. Since 13 Nov 2026.
+ * `job_conflict` (id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, act `answer`) is a `raise_conflict` nothing answered:
+ * `Tell <sender> to change` (choice 0), `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds it; each Job named is told his answer.
+ * `job_held` (id `held:<repository>:<pull or branch>`, act `answer`) is an `ask_held` Fleet could not answer: `Land it` (choice 0) and `Hold it` (choice 1);
+ * the Job that asked is told. Neither can be dismissed. Since 14 Nov 2026.
  */
 export type WaitingSource =
   | "agent"
@@ -513,7 +517,9 @@ export type WaitingSource =
   | "sketch"
   | "document"
   | "gate"
-  | "operator_undone";
+  | "operator_undone"
+  | "job_conflict"
+  | "job_held";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
