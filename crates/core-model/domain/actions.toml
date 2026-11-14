@@ -1412,6 +1412,39 @@ destructive = false
 confirms = false
 notes = "Folds the open Job's Needs you card to its band, or opens it, from anywhere in the Job, so the thread can be read with it shut. Where a review waits ⇧⌘Y opens the sheet; this key only folds. A scroll of the thread or a press in it folds the card too. Asked for by the owner on 10 Nov 2026."
 
+[actions.thread_find]
+kind = "Action"
+tier = "Global"
+verb = "Find in thread"
+icon = "search"
+shortcut = "⌘F"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens a find bar over the open Job's thread with the keys in it, or puts them back in it while it is open. It searches the whole thread, rows not drawn and folds included: messages, reasoning and tool calls. Every match is marked, the current one more strongly, and a match in a folded tool run or folded reasoning opens that fold. Enter and ⇧Enter step to the next and the previous match in the bar; Esc shuts it and puts the keys in the message box. From the message box too, which leaves ⌘F to the Job. Native only. Asked for by the owner on 13 Nov 2026."
+
+[actions.thread_find_next]
+kind = "Action"
+tier = "Global"
+verb = "Next match"
+icon = "chevron-down"
+shortcut = "⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Steps to the next match of the thread's find bar while it is open, from the last back to the first, opening a fold that holds it. Enter in the bar does the same. Native only."
+
+[actions.thread_find_previous]
+kind = "Action"
+tier = "Global"
+verb = "Previous match"
+icon = "chevron-up"
+shortcut = "⇧⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Steps to the previous match of the thread's find bar while it is open, from the first round to the last. ⇧Enter in the bar does the same. Native only."
+
 [actions.handoff_retry]
 kind = "Action"
 tier = "Contextual"

@@ -29,6 +29,7 @@ mod open;
 mod deferred;
 mod watching;
 mod edit;
+mod find;
 mod fork;
 pub(crate) mod format;
 pub(crate) mod head;
@@ -382,6 +383,8 @@ pub struct JobView {
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// The find bar over the thread, while it is open.
+    find: Option<find::Find>,
     /// Hide Open group pressed here, with Fleet's setting then: it stands until Fleet's says otherwise.
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
@@ -620,6 +623,7 @@ impl JobView {
             listen,
             heard: crate::listen::Seen::default(),
             mock_records: None,
+            find: None,
             _subscriptions: subscriptions,
         }
     }
@@ -958,6 +962,7 @@ impl JobView {
         }
         self.arrive(id, cx);
         self.open_made(id, cx);
+        self.find_thread_changed(id, cx);
     }
 
     /// A message from the person puts the thread at its end again (A1.5).
@@ -1196,12 +1201,14 @@ impl Render for JobView {
         // The thread draws where its tab is in front; a closed Thread tab leaves its pane empty under the strip, as Electron's does.
         let thread_body = self.thread_open().then(|| {
             let origin = self.render_origin(&id, window, cx);
+            let find = self.render_find(&id, cx);
             let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
             div()
                 .size_full()
                 .flex()
                 .flex_col()
                 .children(origin)
+                .children(find)
                 .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)

@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { Bell, BellRing, Bot, ChartNoAxesGantt, Check, ChevronLeft, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bell, BellRing, Bot, ChartNoAxesGantt, Check, ChevronDown, ChevronLeft, ChevronUp, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, Search, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -1574,6 +1574,45 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥⌘Y",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "thread_find",
+    kind: "Action",
+    tier: "Global",
+    verb: "Find in thread",
+    icon: Search,
+    iconAbsent: null,
+    shortcut: "⌘F",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "thread_find_next",
+    kind: "Action",
+    tier: "Global",
+    verb: "Next match",
+    icon: ChevronDown,
+    iconAbsent: null,
+    shortcut: "⌘G",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "thread_find_previous",
+    kind: "Action",
+    tier: "Global",
+    verb: "Previous match",
+    icon: ChevronUp,
+    iconAbsent: null,
+    shortcut: "⇧⌘G",
     scope: "thread",
     destructive: false,
     confirms: false,

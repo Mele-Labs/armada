@@ -106,7 +106,7 @@ impl JobView {
             .on_mouse_up_out(MouseButton::Left, release_out)
             .children(drawn)
             // What is left over when no pane holds the thread: the sheets and menus lie over the whole area.
-            .when(host.is_none(), |root| root.key_context("thread").on_action(cx.listener(Self::on_act)).child(gpui_base::TextSelectionLayer).children(std::mem::take(&mut frame.popups)))
+            .when(host.is_none(), |root| root.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer).children(std::mem::take(&mut frame.popups)))
             .child(
                 canvas(
                     move |bounds, _, _| area.set(Some(tree::Size { w: f64::from(f32::from(bounds.size.width)), h: f64::from(f32::from(bounds.size.height)) })),
@@ -314,7 +314,7 @@ impl JobView {
         let popups = if hosts { std::mem::take(&mut frame.popups) } else { Vec::new() };
         let press = one.id.clone();
         let element = sized(pane(look).id(SharedString::from(format!("pane:{}", one.id))), share)
-            .when(hosts, |pane| pane.relative().key_context("thread").on_action(cx.listener(Self::on_act)).child(gpui_base::TextSelectionLayer))
+            .when(hosts, |pane| pane.relative().key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
             .child(strip_el)
