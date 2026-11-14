@@ -107,7 +107,7 @@ impl OperatorPageView {
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::OPERATOR_EDGE))
             .child(kind_chip(face::kind_of(turn), look))
-            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
+            .child(div().flex_1().min_w(gpui::relative(0.5)).text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
             .children(self.names(turn, true, look, cx));
         let card = div()
             .id(SharedString::from(format!("card-{}", turn.id)))
@@ -296,8 +296,8 @@ impl OperatorPageView {
             .focus_visible(move |style| style.border_color(ring))
             .tooltip(tip(if open { "Fold the card to one line" } else { "Open the card beside the talk" }))
             .child(kind_chip(face::kind_of(turn), look))
-            .child(div().flex_1().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
-            .children(self.names(turn, false, look, cx))
+            .child(div().flex_none().max_w(gpui::relative(0.5)).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
+            .child(div().flex_1().min_w_0().overflow_hidden().flex().items_center().gap(look.length(token::SPACE_2)).children(self.names(turn, false, look, cx)))
             .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_4), look.color(token::OPERATOR)));
         labelled(pressed(line, cx, |this, _, cx| this.toggle_fold(cx)), Role::Button, said).into_any_element()
     }

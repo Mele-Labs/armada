@@ -106,6 +106,10 @@ impl MockFleet {
             self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
             return Err(Failed::Refused(format!("{option} is not one of the options")));
         }
+        // A card raised in a talk carries it on: settling it settles the card the talk was about.
+        if let Some(about) = turn.card.as_ref().and_then(|card| card.talk_of.clone()) {
+            self.take(&about);
+        }
         let mut answered = OperatorAnswered::default();
         if press.answer != OperatorAnswer::No {
             let then = press.then.or_else(|| turn.then.iter().find(|offer| offer.pick).map(|offer| offer.then));
@@ -169,12 +173,21 @@ impl MockFleet {
         Ok(OperatorActsList { projects: self.page.operator_acts.clone() })
     }
 
+    /// The title of a card on the page, as Fleet's tag line names it.
+    fn titled(&self, id: &str) -> String {
+        self.page.turn.iter().find(|turn| turn.id == id).map(|turn| turn.item.text.clone()).unwrap_or_default()
+    }
+
     /// The Operator answers the words it was sent last, in its thread, and where they were about a card raises one that
     /// carries on from it: the walk's second card, with its own options.
     pub fn said(&mut self) -> Option<()> {
         let (words, about) = self.heard.pop()?;
         let n = self.thread.items.len();
-        self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &words));
+        let said = match &about {
+            Some(about) => format!("[About card {about} \"{}\"]\n{words}", self.titled(about)),
+            None => words,
+        };
+        self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &said));
         self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files."));
         if let Some(about) = about {
             let wire = format!(

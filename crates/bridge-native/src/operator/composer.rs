@@ -199,6 +199,12 @@ impl OperatorComposer {
         cx.notify();
     }
 
+    /// The card the box is tagged with, and its title.
+    #[cfg(test)]
+    pub fn tagged(&self) -> Option<(String, SharedString)> {
+        self.tag.clone()
+    }
+
     pub fn untag(&mut self, cx: &mut Context<Self>) {
         if self.tag.take().is_some() {
             cx.notify();
@@ -851,6 +857,28 @@ mod tests {
         cx.run_until_parked();
         assert!(sent.borrow().is_empty());
         assert!(!composer.read_with(cx, |composer, _| composer.is_sending()));
+    }
+
+    #[gpui::test]
+    fn a_tagged_send_is_a_talk_about_its_card_with_words_only_and_keeps_the_tag(cx: &mut TestAppContext) {
+        let (composer, cx) = open(cx);
+        let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let seen = heard.clone();
+        let _held = cx.update(|_, cx| cx.subscribe(&composer, move |_, event: &Composed, _| seen.borrow_mut().push(event.clone())));
+        composer.update_in(cx, |composer, window, cx| {
+            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), cx);
+            composer.input.update(cx, |input, cx| input.set_value("Why hold Pocket?", window, cx));
+            composer.send(window, cx);
+        });
+        cx.run_until_parked();
+        assert!(matches!(heard.borrow().as_slice(), [Composed::Talk { words, about }] if words == "Why hold Pocket?" && about == "turn:31"));
+        composer.update_in(cx, |composer, window, cx| {
+            composer.sent(window, cx);
+            assert_eq!(composer.words(cx), "", "a sent talk empties the box");
+            assert!(composer.tagged().is_some(), "and keeps the tag, for the next words");
+            composer.untag(cx);
+            assert!(composer.tagged().is_none());
+        });
     }
 
     #[gpui::test]

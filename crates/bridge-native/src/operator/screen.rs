@@ -146,7 +146,7 @@ impl OperatorScreen {
             .read(cx)
             .records()
             .iter()
-            .filter(|job| job.state != ipc::SessionState::Ended && !job.operator)
+            .filter(|job| job.state != ipc::SessionState::Ended)
             .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
             .collect();
         // A card's chips name every Job it is about, ended ones too.

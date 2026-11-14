@@ -46,7 +46,7 @@ impl OperatorPageView {
                     .focus_visible(move |style| style.border_color(ring).bg(raised))
                     .child(kind_chip(face::kind_of(turn), look))
                     .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(title.clone()))
-                    .children(self.about(turn).map(|about| chip(about, look.color(token::FG_DEFAULT), look.color(token::BG_HOVER), look).max_w(look.length(token::SPACE_12) * 3.).overflow_hidden()));
+                    .children(self.about(turn).map(|about| chip(about, look.color(token::FG_DEFAULT), look.color(token::BG_HOVER), look).flex_none().max_w(look.length(token::SPACE_12) * 3.).overflow_hidden()));
                 labelled(pressed(row, cx, move |this, window, cx| {
                     this.bring(&id, cx);
                     window.focus(&this.focus, cx);
@@ -87,7 +87,7 @@ impl OperatorPageView {
                 }
             }))
             .occlude()
-            .w(look.length(token::SPACE_12) * 8.)
+            .w(look.length(token::SPACE_12) * 11.)
             .max_h(window.viewport_size().height - look.length(token::SPACE_12) * 2.)
             .overflow_y_scroll()
             .flex()

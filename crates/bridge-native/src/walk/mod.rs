@@ -224,9 +224,6 @@ pub enum Screen {
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
-const PRECEDENT_ANSWER: &str = "Follows your answer in Walk window takes: Only the tests it reaches: the whole suite is CI's";
-const PRECEDENT_RULED: &str = "Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
-const PRECEDENT_UNDO: &str = "Undo Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
     Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
@@ -359,11 +356,6 @@ static EDGE_PARTS: &[&[Step]] = &[
         part("A subagent's own thread", Screen::Jobs, "subagent", "row", "Brief a reviewer"),
         press_on("Open the Job", "row", "Brief a reviewer", "button", "Subagent Review the merge line change, finished"),
         press_on("A press on a subagent opens its thread as a tab beside the Job's: what it was asked, its calls and what it said", "button", "Subagent Review the merge line change, finished", "tab", "Job tab: Review the merge line change"),
-    ],
-    &[
-        part("Your turn: an option the Operator did not pick", Screen::Operator, "jobs-many", "tab", "Jobs"),
-        step("↓ opens a red main. Its card lists Start a fix and Hand to a Job, the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
-        step("1 picks Start a fix. Yes, Always here and Always now carry it in place of the Operator's pick", Verb::Key("1"), "radio", "Start a fix"),
     ],
     &[
         part("A sketch read against an earlier one", Screen::Jobs, "sketch-changes", "row", "Edit the merge line"),
@@ -1907,11 +1899,11 @@ pub static WALKS: &[Walk] = &[
         scenario: "jobs-many",
         steps: &[
             step("The Jobs screen in front, the Operator's page behind it", Verb::Press, "tab", "Jobs"),
-            answer("Work asks to pair with this Mac. A press on its banner brings the Operator's page forward with Work's card first in Your turn", "pairing", "article", "Confirm Work pairing"),
+            answer("Work asks to pair with this Mac. A press on its banner brings the Operator's page forward with Work's card in front", "pairing", "article", "Confirm Work pairing"),
             step("It is blocked, as a question is: it says the code Work shows, and when it asked. The keys are on Confirm", Verb::Look, "button", "Confirm"),
             answer("Decline forgets the ask here and on Work", "pairing-refused", "button", "Decline"),
             step("The Gateway refused it, and its sentence stands on the card. Confirm and Decline press again", Verb::Open("button", "Decline"), "alert", "Work's ask ran out. Ask again from Work's Settings."),
-            step("Confirm pairs the two Macs, and the card leaves Your turn", Verb::Gone, "button", "Confirm"),
+            step("Confirm pairs the two Macs, and the card leaves the page", Verb::Gone, "button", "Confirm"),
         ],
     },
     Walk {
@@ -1921,14 +1913,14 @@ pub static WALKS: &[Walk] = &[
         scenario: "jobs-many",
         steps: &[
             step("The Jobs screen in front, the Operator's page behind it", Verb::Press, "tab", "Jobs"),
-            answer("At 14:10 three items join Your turn: each raises a toast in the corner, the newest by the corner", "raised", "alert", "Toast: File your note as an issue"),
+            answer("At 14:10 three items join the queue: each raises a toast in the corner, the newest by the corner", "raised", "alert", "Toast: File your note as an issue"),
             step("A red main is urgent: its edge is red and it holds its place. With no window of the app in front it would also post a banner, with the blocked sound", Verb::Look, "alert", "Toast: storefront's main is red at 9f2c1e0"),
             step("A decision's edge is amber, a go-ahead's the accent; the pick is filled, then Later and Open the Operator", Verb::Look, "alert", "Toast: Slot pool controls"),
             step("The bell in the title bar has a dot: a toast not seen yet", Verb::Look, "button", "Toasts"),
             step("⌥⌘J puts the keys on the newest toast: A is its pick, L Later, Esc closes", Verb::Key("alt-cmd-j"), "alert", "Toast: File your note as an issue"),
-            step("L puts it Later, last in Your turn for today; the keys go to the next", Verb::Key("l"), "alert", "Toast: Slot pool controls"),
+            step("L puts it Later, last in the queue for today; the keys go to the next", Verb::Key("l"), "alert", "Toast: Slot pool controls"),
             step("A says its pick, Open it, as the page's Yes would", Verb::Key("a"), "alert", "Toast: storefront's main is red at 9f2c1e0"),
-            step("× closes it; the item still waits in Your turn", Verb::Gone, "button", "Close toast: storefront's main is red at 9f2c1e0"),
+            step("× closes it; the item still waits in the queue", Verb::Gone, "button", "Close toast: storefront's main is red at 9f2c1e0"),
             step("⌥⌘N opens the history: every toast this sitting and how it went. The bell's dot is gone", Verb::Key("alt-cmd-n"), "dialog", "Toasts"),
             step("A row opens the Operator's page on its item", Verb::Look, "listitem", "Slot pool controls, Settled"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Toasts"),
@@ -1970,56 +1962,6 @@ pub static WALKS: &[Walk] = &[
             step("Return presses Reopen Armada", Verb::Key("enter"), "button", "Reopening Armada"),
             scene("Fleet answers on this protocol: the panel goes, and the face is green again", "fleet-live-running", "button", "Fleet — Running"),
             step("Nothing stands over the screen", Verb::Absent("dialog", "This app runs an older build"), "button", "Fleet — Running"),
-        ],
-    },
-    Walk {
-        name: "native-operator-options",
-        title: "Choose an option the Operator did not pick",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            step("A new design to approve, not a port: Electron never had Your turn. ↓ opens a red main, which offers Start a fix or Hand to a Job; the card lists both under Options with the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
-            step("1 picks Start a fix, the option the Operator did not pick. A press on the row picks it too", Verb::Key("1"), "radio", "Start a fix"),
-            step("Yes, Always here and Always now carry Start a fix in place of the Operator's pick", Verb::Look, "button", "Always here"),
-            step("H is Always here: Start a fix goes to Fleet with the answer, and the rule keeps it for armada", Verb::Key("h"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test, done"),
-        ],
-    },
-    Walk {
-        name: "native-operator-groups",
-        title: "A Job's asks as one card",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            answer("A Job with two asks waiting is one row: its title, and what each asks under it", "rest", "row", "Pocket sign-in on the phone"),
-            press_on("A press opens its card where the row was", "row", "Pocket sign-in on the phone", "article", "Pocket sign-in on the phone"),
-            step("The Job's title and project once, then each ask with its own answers, Later and Ask. The edge marks the ask the keys act on", Verb::Wheel("article", "Pocket sign-in on the phone", -320), "group", "Which sign-in should Pocket offer first?"),
-            step("J puts the keys on the second ask: the edge moves to it, and so do the keys under its presses. It has its own Yes, Later and Ask", Verb::Key("j"), "group", "Keep the old sign-in page for a week?"),
-            step("⌥↑ moves the card whole: both asks go above the red main", Verb::Key("alt-up"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test"),
-            step("Yes on the second ask answers it alone: it leaves for Answered today, and the card keeps the first", Verb::Open("button", "Yes"), "button", "Passkey"),
-            step("One ask left is a card like any other, its kind beside the title", Verb::Look, "article", "Pocket sign-in on the phone"),
-            step("⌥↓ moves it back under the red main", Verb::Key("alt-down"), "article", "Pocket sign-in on the phone"),
-        ],
-    },
-    Walk {
-        name: "native-operator-precedent",
-        title: "The Operator follows what you said before",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            answer("A go-ahead question whose pick follows your own answer: under My read, the Job you gave it in, when, and what you said", "precedent", "group", PRECEDENT_ANSWER),
-            step("Its tooltip says what you were asked then", Verb::Hover, "group", PRECEDENT_ANSWER),
-            step("The Job's name is a link: Enter or a press opens that Job", Verb::Look, "link", "Open Walk window takes"),
-            step("Yes answers this one. Always here keeps the rule, and then such a question is answered as it arrives", Verb::Look, "button", "Always here"),
-            step("↓ opens the next: this pick follows a setting of yours, its key and value in mono", Verb::Key("down"), "group", "Follows your setting time_format = 24h"),
-            step("Ruled, first in Since you last looked: the questions it answered by following you, under each Job, newest first", Verb::Look, "button", "Ruled"),
-            step("Each row is the question, then the pick and what it followed, and its time", Verb::Look, "listitem", PRECEDENT_RULED),
-            step("A ruling you took back is struck through and says so", Verb::Hover, "img", "You took it back at 12:40:00. It is in Your turn"),
-            step("A ruling whose Job has ended cannot be given back", Verb::Hover, "img", "Its Job has ended, so it cannot be given back"),
-            step("Undo, or U while it has the keys, gives the question back: the row reads Taken back at once, and the keys go to Ruled", Verb::Open("button", PRECEDENT_UNDO), "img", "You took it back at 13:05:00. It is in Your turn"),
-            answer("The question joins Your turn at its end, as yours", "rest", "row", "Pocket install banner"),
-            press_on("A press opens it where its row was", "row", "Pocket install banner", "article", "Pocket install banner"),
-            step("Its head says it was taken back, beside its kind; the tooltip says when, and that the Operator does not answer it again", Verb::Wheel("article", "Pocket install banner", -320), "img", "You took back the Operator's answer at 13:05:00. It does not answer this again"),
-            step("Its options are the ones the Job asked with, and the Operator gives no read. As on any question with no pick, the first is filled until you pick another; A sends it to the Job", Verb::Look, "radio", "Merge main in"),
         ],
     },
     Walk {

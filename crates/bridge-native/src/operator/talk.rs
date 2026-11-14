@@ -28,11 +28,10 @@ impl OperatorPageView {
         let Some(talk) = self.talk.clone() else { return div().id("operator-main") };
         let card = self.items().iter().find(|turn| turn.id == talk.about).cloned();
         let mut parts: Vec<AnyElement> = Vec::new();
-        if let Some(card) = &card {
-            parts.push(self.folded(card, talk.unfolded, look, cx));
-            if talk.unfolded {
-                parts.push(self.card(card, false, look, cx));
-            }
+        // The folded card stays at the head of the column, out of the scroll, so the line it is about is always in sight.
+        let folded = card.as_ref().map(|card| self.folded(card, talk.unfolded, look, cx));
+        if let Some(card) = card.as_ref().filter(|_| talk.unfolded) {
+            parts.push(self.card(card, false, look, cx));
         }
         parts.extend(self.talk_rows(cx).iter().enumerate().filter_map(|(at, item)| self.talk_row(at, item, look, cx)));
         // What he sent, until the thread echoes it.
@@ -62,6 +61,7 @@ impl OperatorPageView {
             .h_full()
             .flex()
             .flex_col()
+            .children(folded.map(|folded| div().flex_none().px(look.length(token::SPACE_6)).pt(look.length(token::SPACE_4) + look.length(token::SPACE_1)).pb(look.length(token::SPACE_2)).child(folded)))
             .child(labelled(scroll, Role::Log, "Talk with the Operator"))
             .child(div().flex_none().px(look.length(token::SPACE_6)).child(self.composer.clone()))
     }

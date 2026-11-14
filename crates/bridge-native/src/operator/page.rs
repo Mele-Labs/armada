@@ -545,18 +545,20 @@ impl OperatorPageView {
         if self.pending.contains(id) {
             return;
         }
-        let at = self.queue().iter().position(|one| one.id == id).unwrap_or(0);
-        let was_front = self.open_item().is_some_and(|front| front.id == id);
+        // A card the Operator raised in a talk carries the talk on: settling it ends the talk and the card it was about.
+        let base = turn.card.as_ref().and_then(|card| card.talk_of.clone()).filter(|about| self.talk.as_ref().is_some_and(|talk| &talk.about == about)).unwrap_or_else(|| id.to_string());
+        let at = self.queue().iter().position(|one| one.id == base).unwrap_or(0);
+        let was_front = self.open_item().is_some_and(|front| front.id == base);
         self.settled.insert(id.to_string());
         self.pending.insert(id.to_string());
-        if let Some(page) = self.page.as_mut() {
-            page.turn.retain(|one| one.id != id);
-        }
-        self.refused = None;
-        if self.talk.as_ref().is_some_and(|talk| talk.about == id) {
+        if self.talk.as_ref().is_some_and(|talk| talk.about == base) {
             self.talk = None;
             self.composer.update(cx, |composer, cx| composer.untag(cx));
         }
+        if let Some(page) = self.page.as_mut() {
+            page.turn.retain(|one| one.id != id && one.id != base);
+        }
+        self.refused = None;
         if was_front || self.open.is_none() {
             let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
             self.open = queue.get(at).or(queue.last()).cloned();
@@ -1081,3 +1083,158 @@ pub(super) const ACTS: [(&str, OperatorActs, &str, &str); 3] = [
     ("ask_before_starting", OperatorActs::AskBeforeStarting, "Ask before starting", "It asks before it starts a Job"),
     ("only_when_told", OperatorActs::OnlyWhenTold, "Only when told", "It does nothing until you say"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{TestAppContext, VisualTestContext};
+
+    fn open(cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
+        cx.run_until_parked();
+        (page, cx)
+    }
+
+    fn front(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> String {
+        page.read_with(cx, |page, _| page.open_item().map(|turn| turn.id.clone()).unwrap_or_default())
+    }
+
+    #[gpui::test]
+    fn one_card_is_in_front_and_four_wait_behind_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"));
+            assert_eq!(page.waiting().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:32", "turn:33", "turn:34", "turn:35"]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_press_on_an_option_settles_the_card_at_once_with_yes_and_that_option(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| {
+            page.settle_option("turn:31", "Let both run", cx);
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:32"), "the next card is in front before Fleet answers");
+        });
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed.len(), 1);
+            assert_eq!((pressed[0].id.as_str(), pressed[0].answer, pressed[0].option.as_deref()), ("turn:31", OperatorAnswer::Yes, Some("Let both run")));
+            assert_eq!(page.waiting().len(), 3);
+        });
+    }
+
+    #[gpui::test]
+    fn a_number_settles_the_option_in_that_place_and_yes_takes_the_operators_pick(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.digit(3, cx));
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed[0].option.as_deref(), Some("Hand Pocket's change to Jobs screens"));
+        });
+        page.update_in(cx, |page, window, cx| page.answer(OperatorAnswer::Yes, window, cx));
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed[1].id, "turn:32");
+            assert!(pressed[1].option.is_some(), "Yes sends the card's pick");
+        });
+    }
+
+    #[gpui::test]
+    fn a_refused_press_puts_the_card_back_in_front_with_fleets_why(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").fail_answer = Some(Failed::Refused("The Operator could not settle the card.".into()));
+            page.digit(1, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(front(&page, cx), "turn:31");
+        page.read_with(cx, |page, _| assert_eq!(page.refused.as_ref().map(|(id, why)| (id.as_str(), why.as_ref())), Some(("turn:31", "The Operator could not settle the card."))));
+    }
+
+    #[gpui::test]
+    fn a_waiting_card_comes_to_the_front_and_the_one_it_replaced_waits(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.bring("turn:34", cx));
+        assert_eq!(front(&page, cx), "turn:34");
+        page.read_with(cx, |page, _| assert!(page.waiting().iter().any(|turn| turn.id == "turn:31")));
+    }
+
+    #[gpui::test]
+    fn discuss_tags_the_box_with_the_card_and_leaves_the_card_in_front(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.discuss(window, cx));
+        let tagged = page.read_with(cx, |page, cx| page.composer.read(cx).tagged());
+        assert_eq!(tagged.map(|(id, title)| (id, title.to_string())), Some(("turn:31".to_string(), "Two Jobs are changing paging.rs".to_string())));
+        assert_eq!(front(&page, cx), "turn:31");
+    }
+
+    #[gpui::test]
+    fn a_talk_about_a_card_goes_to_the_operator_with_its_id_and_folds_the_card(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update(cx, |page, _| {
+            assert_eq!(page.talk.as_ref().map(|talk| talk.about.as_str()), Some("turn:31"));
+            assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_card_the_operator_raises_in_the_talk_is_drawn_in_it_and_settling_it_ends_the_talk(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        page.read_with(cx, |page, cx| {
+            assert_eq!(page.talk_cards().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:36"]);
+            assert_eq!(page.waiting().len(), 4, "the raised card does not wait in line");
+            let rows = page.talk_rows(cx);
+            assert_eq!(rows.len(), 2, "his words, then the Operator's");
+        });
+        page.update(cx, |page, cx| page.digit(2, cx));
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            assert!(page.talk.is_none(), "the talk ends with its card");
+            assert_eq!(page.mock_fleet().expect("the walk's Fleet").pressed[0].id, "turn:36");
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:32"), "the card it was about is settled too, and the next is in front");
+        });
+    }
+
+    #[gpui::test]
+    fn discuss_later_takes_the_card_out_of_line_and_a_refusal_brings_it_back(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.later(None, cx));
+        cx.run_until_parked();
+        assert_eq!(front(&page, cx), "turn:32");
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").refuse_later = Some("That time has passed. Pick a later one.".into());
+            page.later(None, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(front(&page, cx), "turn:32");
+        page.read_with(cx, |page, _| assert_eq!(page.refused.as_ref().map(|(id, _)| id.as_str()), Some("turn:32")));
+    }
+
+    #[gpui::test]
+    fn a_value_for_what_the_operator_does_unasked_is_set_and_a_refusal_says_why(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.set_acts("armada".into(), Some(OperatorActs::OnlyWhenTold), cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, cx| assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold)));
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").refuse_acts = Some("No project has that id".into());
+            page.set_acts("armada".into(), Some(OperatorActs::ActThenTell), cx);
+        });
+        cx.run_until_parked();
+        page.read_with(cx, |page, cx| {
+            assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold), "the value stays");
+            assert!(page.acts_refused.is_some());
+        });
+    }
+}
