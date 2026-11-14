@@ -33,15 +33,17 @@ async fn call(app: &Router, method: &str, uri: &str, body: &str, caller: Option<
 const SEND: &str = r#"{"method":"GET","url":"https://api.example.test/v1/me","headers":[]}"#;
 
 #[tokio::test]
-async fn only_bridge_and_the_phone_send_as_the_owner() {
+async fn only_bridge_sends_as_the_owner() {
     let app = wired();
-    for (caller, by) in [(Some(BRIDGE), "\"owner\""), (Some(PHONE), "\"owner\""), (None, "\"agent\""), (Some("script"), "\"agent\"")] {
+    for (caller, by) in [(Some(BRIDGE), "\"owner\""), (None, "\"agent\""), (Some("script"), "\"agent\"")] {
         let (status, body) = call(&app, "POST", "/requests/send", SEND, caller).await;
         assert_eq!(status, StatusCode::OK);
         let sent: RequestSent = ipc::decode("sent", &body).expect("decodes");
         assert_eq!((caller, sent.body.as_str()), (caller, by));
         assert_eq!(sent.url, "https://api.example.test/v1/me");
     }
+    // The phone sends no requests: `crate::phone_share` has no ruling for the route, so it is not there for it.
+    assert_eq!(call(&app, "POST", "/requests/send", SEND, Some(PHONE)).await.0, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

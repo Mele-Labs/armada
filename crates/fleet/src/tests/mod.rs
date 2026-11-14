@@ -162,6 +162,7 @@ mod pull_request_notes;
 mod session_dispute;
 mod bug_reports;
 mod share;
+mod phone_share;
 mod other_macs;
 mod other_mac_projects;
 mod two_macs;
