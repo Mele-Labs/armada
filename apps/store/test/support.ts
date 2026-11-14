@@ -10,9 +10,12 @@ export const STORE = "https://store.test";
 /** The Worker vars a test sets on top of the bindings: `TEAM` makes the store a team store. */
 export type Vars = Partial<Pick<Env, "TEAM">>;
 
-/** A request to the Worker, as the platform would hand it over. */
+/** A request to the Worker, as the platform would hand it over. The vars go on a copy of the bindings, because writing them to `env` would stay set for every later test. */
 export const toStore = (url: string, init?: RequestInit, vars: Vars = {}): Promise<Response> =>
-  worker.fetch(new Request(url, init), Object.assign(Object.create(env), vars) as Env);
+  worker.fetch(new Request(url, init), {
+    ...env,
+    ...vars,
+  } as Env);
 
 /** 64 characters standing for a hash a machine made. */
 export const hash = (letter: string): string => letter.repeat(64);

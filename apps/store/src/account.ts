@@ -279,6 +279,9 @@ export class Account extends DurableObject<Env> {
     const [v1, area, first, second, third] = parts;
     if (v1 !== "v1" || parts.length > 5) return refuse(404, "no_route");
 
+    if (area === "devices" && parts.length === 2) {
+      return method === "GET" ? this.listDevices() : refuse(405, "bad_method");
+    }
     if (area === "devices" && parts.length === 3) {
       return method === "DELETE" ? this.signOut(first!) : refuse(405, "bad_method");
     }
@@ -311,6 +314,19 @@ export class Account extends DurableObject<Env> {
       return method === "GET" ? this.readRuns(first!) : refuse(405, "bad_method");
     }
     return refuse(404, "no_route");
+  }
+
+  /** Every device of this object and the machine it named, never its key. The table has no enrolment time, so its rowid, which a new row always takes past the last, is the order they enrolled in. */
+  private listDevices(): Response {
+    const devices = this.sql
+      .exec<{
+        device: string;
+        machine: string;
+      }>("SELECT id AS device, machine FROM devices ORDER BY rowid")
+      .toArray();
+    return reply(200, {
+      devices,
+    });
   }
 
   private signOut(device: string): Response {

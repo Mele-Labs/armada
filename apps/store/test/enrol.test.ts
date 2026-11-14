@@ -450,3 +450,86 @@ describe("a team store", () => {
     expect(forge).not.toHaveBeenCalled();
   });
 });
+
+describe("listing the devices", () => {
+  it("answers a personal store's two devices, oldest first, with no key", async () => {
+    const first = await enrolDevice(8901, "studio");
+    const second = await enrolDevice(8901, "laptop");
+    await enrolDevice(8902, "someone else's");
+
+    const answer = await call(second, "GET", "/v1/devices");
+
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toEqual({
+      devices: [
+        {
+          device: first.id,
+          machine: "studio",
+        },
+        {
+          device: second.id,
+          machine: "laptop",
+        },
+      ],
+    });
+    expect(JSON.stringify(await (await call(first, "GET", "/v1/devices")).json())).not.toContain(
+      "public_key",
+    );
+  });
+
+  it("answers both members' Macs of a team store", async () => {
+    const vars = team("Listing");
+    const a = await enrolMember(vars, 8911, "first", "studio");
+    const b = await enrolMember(vars, 8912, "second", "laptop");
+
+    const answer = await call(b, "GET", "/v1/devices");
+
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toEqual({
+      devices: [
+        {
+          device: a.id,
+          machine: "studio",
+        },
+        {
+          device: b.id,
+          machine: "laptop",
+        },
+      ],
+    });
+  });
+
+  it("drops a device that signed out, and answers 405 bad_method to any other method", async () => {
+    const a = await enrolDevice(8921, "studio");
+    const b = await enrolDevice(8921, "laptop");
+    expect((await call(b, "DELETE", `/v1/devices/${a.id}`)).status).toBe(204);
+    expect(await (await call(b, "GET", "/v1/devices")).json()).toEqual({
+      devices: [
+        {
+          device: b.id,
+          machine: "laptop",
+        },
+      ],
+    });
+
+    for (const method of [
+      "POST",
+      "PUT",
+      "DELETE",
+    ]) {
+      const answer = await call(b, method, "/v1/devices");
+      expect(answer.status, method).toBe(405);
+      expect(await answer.json()).toEqual({
+        error: "bad_method",
+      });
+    }
+  });
+
+  it("answers 401 to an unsigned call", async () => {
+    const answer = await toStore(`${STORE}/v1/devices`);
+    expect(answer.status).toBe(401);
+    expect(await answer.json()).toEqual({
+      error: "unsigned",
+    });
+  });
+});
