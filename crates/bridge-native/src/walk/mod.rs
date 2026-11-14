@@ -519,12 +519,12 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "native-agent-signed-out",
-        title: "Claude signed out",
+        title: "The agents' account signed out",
         screen: Screen::JobsInApp,
         scenario: "agent-signed-out",
         steps: &[
-            step("Claude is signed out for every Job: a toast holds its place in the corner, with Sign in", Verb::Look, "alert", "Toast: Claude is signed out"),
-            press_on("Sign in runs Claude's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
+            step("The agents' account is signed out for every Job: a toast holds its place in the corner, named as Fleet names the account, with Sign in", Verb::Look, "button", "Sign in"),
+            press_on("Sign in runs the agent's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
         ],
     },
     Walk {

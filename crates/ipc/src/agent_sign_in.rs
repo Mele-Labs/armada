@@ -15,4 +15,8 @@ pub struct AgentSignIn {
     /// Fleet is running the sign-in now, waiting on the browser.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub signing_in: bool,
+    /// The account's name as a person knows it, from the harness's adapter, so Bridge names it without
+    /// spelling it. Absent from a Fleet that does not say.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub account: String,
 }

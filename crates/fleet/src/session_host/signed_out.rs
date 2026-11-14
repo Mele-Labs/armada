@@ -89,7 +89,9 @@ pub(crate) struct Held {
 
 impl Held {
     pub(crate) fn running(run: SignInRun) -> Held {
-        Held { state: Mutex::default(), run: Mutex::new(run), owed: Mutex::default() }
+        // The account's name rides on every state, so Bridge names it without spelling it.
+        let state = ipc::AgentSignIn { account: adapters::HeadlessAgent::account_name().to_string(), ..Default::default() };
+        Held { state: Mutex::new(state), run: Mutex::new(run), owed: Mutex::default() }
     }
 
     fn owe(&self, woken: impl IntoIterator<Item = String>) {

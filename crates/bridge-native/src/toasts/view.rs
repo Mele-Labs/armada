@@ -57,8 +57,21 @@ struct FleetNotices(Vec<FleetNotice>);
 impl Global for FleetNotices {}
 
 /// The words of the agents' signed-out toast, and of its banner when no window is in front.
-const SIGNED_OUT: &str = "Claude is signed out";
 const SIGNED_OUT_NEXT: &str = "Jobs stop at their next reply until it signs in again.";
+
+/// The account as the toast names it: Fleet's word for it, or the agent where Fleet does not say.
+fn account_said(account: &str) -> &str {
+    if account.is_empty() {
+        "The agent"
+    } else {
+        account
+    }
+}
+
+/// The toast's and the banner's headline: the account, with its name as Fleet sends it, is signed out.
+fn signed_out_said(account: &str) -> String {
+    format!("{} is signed out", account_said(account))
+}
 const SIGNING_IN_NEXT: &str = "Finish signing in in your browser.";
 
 /// Whether `now` begins a signed-out spell `was` did not hold. **The state found on connecting is not
@@ -83,11 +96,11 @@ fn signed_out_notice(cx: &App) -> Option<FleetNotice> {
     let state = cx.try_global::<SignedOut>().and_then(|kept| kept.0.clone()).filter(|state| state.signed_out_since.is_some())?;
     Some(FleetNotice {
         id: "agent-sign-in",
-        headline: SIGNED_OUT.into(),
+        headline: signed_out_said(&state.account).into(),
         next: if state.signing_in { SIGNING_IN_NEXT } else { SIGNED_OUT_NEXT }.into(),
         code: "",
         fault: true,
-        act: Some(NoticeAct::SignIn { running: state.signing_in }),
+        act: Some(NoticeAct::SignIn { running: state.signing_in, account: state.account.into() }),
     })
 }
 
@@ -95,7 +108,7 @@ fn signed_out_notice(cx: &App) -> Option<FleetNotice> {
 fn notice_act(act: NoticeAct, look: &Look) -> gpui::AnyElement {
     use gpui::AnimationExt as _;
     match act {
-        NoticeAct::SignIn { running: true } => labelled(
+        NoticeAct::SignIn { running: true, .. } => labelled(
             div()
                 .id("toast-signing-in-row")
                 .flex()
@@ -113,9 +126,9 @@ fn notice_act(act: NoticeAct, look: &Look) -> gpui::AnyElement {
             "Signing in",
         )
         .into_any_element(),
-        NoticeAct::SignIn { running: false } => labelled(
+        NoticeAct::SignIn { running: false, account } => labelled(
             press("toast-sign-in", "Sign in".into(), Some("user"), None, Weight::JobPick, look)
-                .tooltip(tip("Opens Claude's sign-in in your browser"))
+                .tooltip(tip(format!("Opens {}'s sign-in in your browser", if account.is_empty() { "the agent" } else { account.as_ref() })))
                 .on_click(|_, _, cx| sign_in_pressed(cx)),
             Role::Button,
             "Sign in",
@@ -352,8 +365,10 @@ impl Toasts {
             cx.observe(&page, |this, page, cx| this.page_moved(&page, cx)),
         ];
         // A mock scenario with no Fleet stands signed out, so the toast can be looked at.
+        // Its state is a fixture, as Fleet would send it, so the account's name is not spelled here.
         let mock = crate::mock::scenario_is("agent-signed-out")
-            .then(|| AgentSignIn { signed_out_since: Some(ipc::Instant::carried("2026-11-14T09:00:00Z")), signing_in: false });
+            .then(|| ipc::decode::<AgentSignIn>("AgentSignIn", include_bytes!("../../fixtures/agent-signed-out.json")).ok())
+            .flatten();
         cx.set_global(SignedOut(mock));
         // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
         if let Some(fleet) = page.read(cx).fleet().cloned() {
@@ -638,9 +653,9 @@ impl Toasts {
     fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
         let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
         // The agents' sign-in is the agent's state, not Fleet's, and carries no code.
-        let (mark, source) = match notice.act {
-            Some(NoticeAct::SignIn { .. }) => ("bot", "Claude"),
-            None => ("server-off", "Fleet"),
+        let (mark, source): (&str, SharedString) = match &notice.act {
+            Some(NoticeAct::SignIn { account, .. }) => ("bot", if account.is_empty() { "Agent".into() } else { account.clone() }),
+            None => ("server-off", "Fleet".into()),
         };
         let head = div()
             .flex()
@@ -671,7 +686,7 @@ impl Toasts {
             .child(head)
             .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(notice.headline.clone()))
             .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()))
-            .children(notice.act.map(|act| div().flex().justify_end().pt(look.length(token::SPACE_1)).child(notice_act(act, look))));
+            .children(notice.act.clone().map(|act| div().flex().justify_end().pt(look.length(token::SPACE_1)).child(notice_act(act, look))));
         labelled(
             div()
                 .id(SharedString::from(format!("toast:{}", notice.id)))
@@ -705,7 +720,7 @@ impl Toasts {
         if signed_out_news(was.as_ref(), &now) {
             self.unseen = true;
             if held.notifications && !window.is_window_active() {
-                crate::banner::post("agent-sign-in", SIGNED_OUT, SIGNED_OUT_NEXT, crate::notify::sound_of(CallTone::Blocked));
+                crate::banner::post("agent-sign-in", &signed_out_said(&now.account), SIGNED_OUT_NEXT, crate::notify::sound_of(CallTone::Blocked));
             }
         }
         cx.set_global(SignedOut(Some(now)));

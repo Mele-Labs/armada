@@ -28,10 +28,11 @@ pub struct FleetNotice {
 }
 
 /// A press a held state's toast offers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NoticeAct {
-    /// The agents' account is signed out for every Job: Sign in, or the ring while `running`.
-    SignIn { running: bool },
+    /// The agents' account is signed out for every Job: Sign in, or the ring while `running`. `account`
+    /// is its name as Fleet sends it, empty where Fleet does not say.
+    SignIn { running: bool, account: gpui::SharedString },
 }
 
 /// How hard a toast asks, as Fleet serves it: its edge, whether it sounds, and whether it holds its

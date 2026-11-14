@@ -6,7 +6,7 @@
 
 **Every Job shares the account, so the Fleet signs out as one.**
 The first Job heard signed out sets one Fleet-wide state with the time it happened, and a repeat failure in any Job keeps that time.
-Fleet sends the state whole to Bridge, which shows one alert with a Sign in button and a Mac notification.
+Fleet sends the state whole to Bridge, with the account's name from the harness's adapter, and Bridge shows one alert naming it, with a Sign in button and a Mac notification.
 No Job carries an item of its own for it.
 Each Job the failure stopped is marked, so Fleet knows which ones to wake.
 

@@ -2014,3 +2014,20 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
+
+## The signed-out account's name: `AgentSignIn.account`
+
+Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge names the account with it on the signed-out toast, and says "the agent" where it is absent.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `AgentSignIn` (`get_agent_sign_in`, `start_agent_sign_in`, `agent_sign_in.changed`) | Fleet writes, Bridge reads | Gains `account`, absent when empty: the account's name as a person knows it, from the harness's adapter |
+
+**So Bridge names the account without spelling it.** A vendor's name lives in `adapters` alone, and Fleet fills the field from there on every state it sends.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.
