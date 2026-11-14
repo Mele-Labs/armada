@@ -1,4 +1,4 @@
-//! The account's four routes over the router: signing in answers the code, the
+//! The account's routes over the router: signing in answers the code, the
 //! profile list reads back, an account this machine has not joined is a 422
 //! by name, and a body that names none is a 400 the daemon never sees.
 
@@ -108,6 +108,53 @@ async fn an_account_the_machine_has_not_joined_is_a_422_by_name_and_a_body_with_
         assert_eq!(refused.code, "fleet.no_such_account");
 
         let (status, _) = call(&app, "POST", uri, r#"{"login":"work"}"#).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{uri}");
+    }
+}
+
+/// The same call, with every header of the answer.
+async fn opened(app: &Router, uri: &str) -> (StatusCode, axum::http::HeaderMap, String) {
+    let request = Request::builder().method("GET").uri(uri).body(Body::empty()).expect("a well-formed request");
+    let response = app.clone().oneshot(request).await.expect("an answer");
+    let (parts, body) = response.into_parts();
+    let bytes = body.collect().await.expect("a body").to_bytes();
+    (parts.status, parts.headers, String::from_utf8_lossy(&bytes).into_owned())
+}
+
+#[tokio::test]
+async fn registering_the_sign_in_app_answers_a_page_on_this_listener_that_a_browser_opens() {
+    use crate::tests::fake::accounts::{APP_CODE, APP_SETTINGS_PAGE, APP_STATE};
+    let app = wired(Vec::new());
+    let (status, body) = call(&app, "POST", "/accounts/sign_in_app", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let registration: ipc::SignInAppRegistration = ipc::decode("a registration", &body).expect("decodes");
+    let path = registration.url.trim_start_matches("http://127.0.0.1:7777");
+    assert_eq!(path, format!("/accounts/sign_in_app/form?state={APP_STATE}"));
+
+    let (status, headers, page) = opened(&app, path).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["content-type"], "text/html; charset=utf-8");
+    assert_eq!(headers["referrer-policy"], "no-referrer", "the address carries the state");
+    assert_eq!(headers["cache-control"], "no-store");
+    assert!(page.contains("<form"), "{page}");
+
+    let back = format!("/accounts/sign_in_app/registered?code={APP_CODE}&state={APP_STATE}");
+    let (status, headers, _) = opened(&app, &back).await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert_eq!(headers["location"], APP_SETTINGS_PAGE);
+}
+
+#[tokio::test]
+async fn a_state_not_issued_is_refused_to_the_browser_in_words_and_a_missing_one_is_a_400() {
+    let app = wired(Vec::new());
+    for uri in ["/accounts/sign_in_app/form?state=forged", "/accounts/sign_in_app/registered?code=fake-code&state=forged"] {
+        let (status, headers, said) = opened(&app, uri).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{uri}");
+        assert_eq!(headers["content-type"], "text/plain; charset=utf-8", "{uri}");
+        assert!(said.contains("Press Register in Armada again"), "{said}");
+    }
+    for uri in ["/accounts/sign_in_app/form", "/accounts/sign_in_app/registered?state=fake-state"] {
+        let (status, _, _) = opened(&app, uri).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{uri}");
     }
 }

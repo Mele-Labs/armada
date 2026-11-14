@@ -1589,7 +1589,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable: starting one is refused with a plain reason until the owner has registered an app with the device flow enabled. It is not a secret, and the device flow holds no client secret. `docs/concepts/account.md`, *Sign-in*.
+The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable: starting one is refused with a plain reason until an app is registered and its device flow ticked. `register_sign_in_app` registers one from a press in Settings and writes its client id here; the device flow is ticked on the app's page at the forge. It is not a secret, and the device flow holds no client secret. `docs/concepts/account.md`, *Sign-in*.
 
 **The value lives in settings.json under `account.clientId`** (live), read when a sign-in starts.
 """

@@ -21,8 +21,8 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Secret, Store, StoreDevice,
-    StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, DeviceKind, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Secret, Store,
+    StoreDevice, StoreError, StorePeer,
 };
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -310,13 +310,13 @@ struct Enrolled {
     device: String,
 }
 
-fn body_of<T: Serialize>(value: &T) -> Result<Vec<u8>, StoreError> {
+pub(crate) fn body_of<T: Serialize>(value: &T) -> Result<Vec<u8>, StoreError> {
     ipc::encode(value)
         .map(String::into_bytes)
         .map_err(|why| StoreError::Refused(why.to_string()))
 }
 
-fn decoded<T: serde::de::DeserializeOwned>(what: &'static str, reply: &Reply) -> Result<T, StoreError> {
+pub(crate) fn decoded<T: serde::de::DeserializeOwned>(what: &'static str, reply: &Reply) -> Result<T, StoreError> {
     ipc::decode(what, &reply.body).map_err(|why| StoreError::Refused(why.to_string()))
 }
 
@@ -336,7 +336,7 @@ pub(crate) fn not_answered(reply: &Reply) -> StoreError {
     }
 }
 
-fn succeeded(reply: &Reply) -> bool {
+pub(crate) fn succeeded(reply: &Reply) -> bool {
     (200..300).contains(&reply.status)
 }
 
@@ -391,7 +391,7 @@ pub(crate) fn deleted(reply: &Reply) -> Result<(), StoreError> {
     }
 }
 
-fn stored(reply: &Reply) -> Result<(), StoreError> {
+pub(crate) fn stored(reply: &Reply) -> Result<(), StoreError> {
     if succeeded(reply) {
         Ok(())
     } else {
@@ -446,7 +446,7 @@ pub struct HttpStore {
     nonce: fn() -> String,
 }
 
-fn unix_now() -> i64 {
+pub(crate) fn unix_now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |since| i64::try_from(since.as_secs()).unwrap_or(i64::MAX))
@@ -636,6 +636,14 @@ impl Store for HttpStore {
     fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
         let call = Call { method: "GET", target: "/v1/devices".to_string(), body: Vec::new() };
         devices_held(&self.send(&call)?)
+    }
+
+    fn peers(&self) -> Result<Vec<StorePeer>, StoreError> {
+        crate::store_peers::peers_held(&self.send(&crate::store_peers::peers_call())?)
+    }
+
+    fn put_presence(&self, kind: DeviceKind, address: &str) -> Result<(), StoreError> {
+        stored(&self.send(&crate::store_peers::presence_call(kind, address)?)?)
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {
