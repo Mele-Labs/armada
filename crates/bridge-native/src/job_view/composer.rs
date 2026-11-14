@@ -714,7 +714,27 @@ impl JobView {
             return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
+        // The box answers a question from the sheet's Answer in words: the words go as the panel's box sends them.
+        if let Some(item) = self.answering_row(&id, cx).map(|row| row.id.clone()) {
+            if kept.text.trim().is_empty() {
+                return;
+            }
+            self.set_box(&Kept::default(), window, cx);
+            if self.composer.drafts.set(&id, Kept::default()) {
+                self.keep_soon(cx);
+            }
+            if let Some(dock) = self.dock_mut() {
+                dock.answering = None;
+            }
+            self.answer_row_words(&item, kept.text, window, cx);
+            self.to_composer(window, cx);
+            return;
+        }
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
+            // Return in an empty box opens a question asked in pictures, as the band's Look and choose does.
+            if self.pictured_front(&id, cx).is_some() {
+                self.open_choose(window, cx);
+            }
             return;
         }
         if self.paused(&id, cx) {
@@ -949,6 +969,9 @@ impl JobView {
             cx.stop_propagation();
         } else if key == "up" && self.reporting.is_none() && self.edit_last(window, cx) {
             // ↑ in an empty box edits the last message he sent.
+            cx.stop_propagation();
+        } else if key == "escape" && self.drop_answering(cx) {
+            // Esc while the box answers a question makes it a plain message again.
             cx.stop_propagation();
         } else if key == "escape" && self.reporting.is_some() {
             // Esc puts the report away, as the dialog's Cancel does.
@@ -1459,10 +1482,12 @@ impl JobView {
                             .bg(look.color(token::BG_SUNKEN))
                             .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
+                            .children(self.render_look_row(id, look, cx))
+                            .children(self.render_answering(id, look, cx))
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
                             .children(self.render_tray(id, look, cx))
-                            .child(labelled(words, Role::TextInput, "Message"))
+                            .child(labelled(words, Role::TextInput, if self.answering_row(id, cx).is_some() { "Answer in words" } else { "Message" }))
                             .child(bar),
                         Role::Group,
                         "Message box",

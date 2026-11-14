@@ -17,6 +17,7 @@ mod bar;
 mod calls;
 mod call_tabs;
 mod callchip;
+mod choose;
 mod cards;
 pub(crate) mod composer;
 mod deck;
@@ -388,6 +389,8 @@ pub struct JobView {
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
     dock_focus: FocusHandle,
+    /// The options of a question asked in pictures, open over the thread (`choose.rs`).
+    choose_focus: FocusHandle,
     /// A thread scroll key ran in the frame now drawing: a row it carries out of the list keeps the keys nearby.
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
@@ -580,6 +583,7 @@ impl JobView {
             pop: None,
             open_group_set: None,
             dock_focus: cx.focus_handle(),
+            choose_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
             confirm: None,
@@ -1215,7 +1219,7 @@ impl Render for JobView {
             .child(gpui_base::TextSelectionLayer)
             .child(head)
             .children(origin)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)))
+            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)).children(self.render_choose(&id, cx).filter(|_| open)))
             .children(self.render_bands(&id, cx).filter(|_| open))
             .children(dock)
             .children(self.tabs_menu.as_ref().map(|open| open.menu.clone()))
