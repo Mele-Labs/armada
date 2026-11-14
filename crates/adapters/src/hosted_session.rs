@@ -116,6 +116,8 @@ pub struct HostedLaunch {
     compaction_window: Option<u32>,
     /// The skills hidden from the model's list in this process.
     skills_off: Vec<String>,
+    /// Whether the CLI is asked for its thinking summaries.
+    thinking_summaries: bool,
 }
 
 impl HostedLaunch {
@@ -182,6 +184,7 @@ impl HostedLaunch {
             connectors: true,
             compaction_window: None,
             skills_off: Vec::new(),
+            thinking_summaries: false,
         })
     }
 }
@@ -256,6 +259,15 @@ impl HostedLaunch {
     /// works. **Armada's own are never hidden**, whatever is named: a Job needs them.
     pub fn without_skills(mut self, names: &[String]) -> HostedLaunch {
         self.skills_off = names.iter().filter(|name| !name.starts_with(OWN_SKILLS)).cloned().collect();
+        self
+    }
+
+    /// Ask the CLI for a summary of each stretch of thinking. **A print-mode CLI sends its
+    /// thinking blocks empty** unless `--thinking-display` asks otherwise: `showThinkingSummaries`
+    /// in `--settings` is read only by an interactive CLI. Hidden in the CLI's help; measured on
+    /// 2.1.322.
+    pub fn summarising_thinking(mut self) -> HostedLaunch {
+        self.thinking_summaries = true;
         self
     }
 
@@ -385,6 +397,10 @@ impl HeadlessAgent {
         if let Some(effort) = &hosted.effort {
             args.push("--effort".into());
             args.push(effort.clone());
+        }
+        if hosted.thinking_summaries {
+            args.push("--thinking-display".into());
+            args.push("summarized".into());
         }
         for directory in &hosted.readable {
             args.push("--add-dir".into());

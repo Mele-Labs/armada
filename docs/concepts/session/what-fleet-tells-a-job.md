@@ -82,7 +82,10 @@ Fleet never ends, forks or moves the Job for this, and a model change is only ev
 `where-the-tokens-went.md` has the rules and the words.
 
 **A Job can dispute a notice it thinks is wrong.** A hosted Job that finds Fleet's notice does not fit what it was doing calls `dispute_fleet` with `why`, the reason in a sentence.
-Fleet ties the dispute to the Job's latest message in Fleet's voice, keeps it, and the Job carries on.
+It may pass `notice_words`, the opening words of the notice as it read them, since it sees no row ids.
+Fleet ties the dispute to the newest message in Fleet's voice whose text holds those words, read without case and with runs of spaces as one, and to the latest such message where the Job named none or no message holds them; it keeps the dispute, and the Job carries on.
+**The mod's send-back is a notice too.** When the mod stops a turn from ending because its reply names what the owner owes and `waiting_for` lacks it, the mod tells Fleet the words it gave the agent (`sent_back`), and Fleet writes them to a hosted Job's thread as a `reply_claim` notice.
+The row starts no turn and sends the agent nothing, since the stop hook already gave it the words, so a dispute can name it and a count can join it to its disputes.
 A Job Fleet has told nothing, an ended Job and an empty `why` are refused.
 A terminal Job cannot dispute, because Fleet keeps no thread for it to tie the dispute to.
 `crates/ipc/operations/dispute_fleet.toml` has the operation.

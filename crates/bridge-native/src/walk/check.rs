@@ -48,6 +48,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
         cx.run_until_parked();
+        settle_pages(&mut cx, handle.into())?;
         // The check's clock is its own: a step that lets time go by is played to its end by moving it on.
         for _ in 0..600 {
             if !walking.read_with(&cx, |walking, _| walking.playing()) {
@@ -63,6 +64,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.run_until_parked();
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
+        settle_pages(&mut cx, handle.into())?;
         let read = cx
             .update_window(handle.into(), |_, window, cx| {
                 window.draw(cx).clear(cx);
@@ -92,3 +94,26 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
     Ok(())
 }
 
+
+/// A web page answers on the main run loop, which nothing turns in this window: it is turned here for as long as
+/// WebKit owes an answer, a few quiet turns in a row so what an answer sets off is seen to its end.
+fn settle_pages(cx: &mut HeadlessAppContext, handle: gpui::AnyWindowHandle) -> Result<(), String> {
+    if !crate::web::in_use() {
+        return Ok(());
+    }
+    let mut quiet = 0;
+    for _ in 0..1000 {
+        crate::web::pump(0.01);
+        cx.run_until_parked();
+        cx.update_window(handle, |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        if crate::web::pending() {
+            quiet = 0;
+        } else {
+            quiet += 1;
+            if quiet >= 5 {
+                break;
+            }
+        }
+    }
+    Ok(())
+}

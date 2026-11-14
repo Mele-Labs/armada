@@ -17,7 +17,7 @@ use gpui::{anchored, canvas, deferred, div, point, prelude::*, Anchor, AnyElemen
 use gpui_component::input::InputEvent;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
-    AnswerWaiting, ReachesTo, SessionId, ThreadAsk,
+    AnswerWaiting, ReachesTo, SessionId, ThreadAsk, WaitingSource,
 };
 
 use super::acts::Mode;
@@ -59,6 +59,12 @@ pub(super) struct DockState {
     pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
     /// What he reads when he takes a Job's work in as pictures: the stills, the parts taken, the done card's lead.
     pub looked: super::look_dock::Looked,
+    /// A question asked in pictures, open over the thread from the band's Look and choose.
+    pub choosing: Option<super::choose::Choosing>,
+    /// The question the message box answers, from the sheet's Answer in words, until he sends or presses Esc.
+    pub answering: Option<String>,
+    /// How wide the band's row for a question asked in pictures was last drawn: it decides how many thumbnails fit.
+    pub look_row: Rc<std::cell::Cell<f32>>,
 }
 
 /// How many draws a run started from a row is kept in view for.
@@ -847,6 +853,12 @@ impl JobView {
                 }
                 cx.stop_propagation();
             }
+            "b" if !typing && !event.keystroke.modifiers.modified() && self.keyed_handoff(&id, cx).is_some() => {
+                if let Some(row) = self.keyed_handoff(&id, cx) {
+                    self.flip_handoff_brief(&row, super::handoff::Place::Needs, cx);
+                }
+                cx.stop_propagation();
+            }
             key if !typing && key.len() == 1 && key.chars().all(|c| c.is_ascii_digit()) && !event.keystroke.modifiers.alt => {
                 let n = key.parse::<usize>().unwrap_or(0);
                 if n >= 1 {
@@ -939,6 +951,10 @@ impl JobView {
                 self.list_row(id, &key, "message-circle-question-mark", "Unanswered".into(), text, Box::new(move |this, window, cx| this.set_needs(true, Some(open.clone()), window, cx)), None, look, cx)
             }
             Thing::Row(row) => {
+                // Fleet's handoff card is drawn as the thread draws it, in place of a question's row.
+                if let Some(card) = (row.source == WaitingSource::Handoff).then(|| self.handoff_in_needs(id, row, look, cx)).flatten() {
+                    return card;
+                }
                 let command = match &row.act {
                     NeedsYouAct::Run { command } | NeedsYouAct::Restart { command, .. } | NeedsYouAct::Steps { command: Some(command), .. } => Some(command),
                     _ => None,
@@ -954,7 +970,7 @@ impl JobView {
 
     /// What a press on a row does, as Fleet's `act` says.
     fn press_row(&mut self, key: &str, item: &str, act: &NeedsYouAct, window: &mut Window, cx: &mut Context<Self>) {
-        // In Look a sketch, a walk and a command open whole before anything is done to them.
+        // In Look a sketch and a command open whole before anything is done to them; a walk starts at once.
         if crate::ways::looks() && super::look_dock::opens_whole(act) {
             self.set_needs(true, Some(key.to_string()), window, cx);
             return;
@@ -1426,6 +1442,29 @@ impl JobView {
         }
     }
 
+    /// The handoff card the number keys and B press now: the item open, else the first question the list
+    /// shows, where that is a handoff. Its thread row's id.
+    pub(super) fn keyed_handoff(&self, id: &str, cx: &gpui::App) -> Option<String> {
+        let (things, _) = self.things(id, cx);
+        let asking = |thing: &Thing<'_>| match thing {
+            Thing::Row(row) if !row_options(row).is_empty() => Some(row.id.clone()),
+            _ => None,
+        };
+        let item = match self.dock_of(id).and_then(|dock| dock.detail.clone()) {
+            Some(open) => things.iter().find(|thing| Self::thing_key(thing) == open).and_then(asking),
+            None if things.iter().any(|thing| matches!(thing, Thing::Ask(_) | Thing::Lapsed(_))) => None,
+            None => things.iter().find_map(asking),
+        }?;
+        item.strip_prefix(super::handoff::ITEM_PREFIX).map(str::to_string)
+    }
+
+    /// A handoff item drawn as its card, read off the thread's row. None where the thread does not hold it yet.
+    fn handoff_in_needs(&self, id: &str, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let card = self.handoff_of(id, row.id.strip_prefix(super::handoff::ITEM_PREFIX)?, cx)?;
+        let page = self.pages.get(id)?;
+        Some(self.handoff_card(&card, super::handoff::Place::Needs, page, look, cx))
+    }
+
     /// A button pressed: the option goes to Fleet as the whole pick and the row goes at once.
     pub(super) fn answer_row(&mut self, item: &str, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
@@ -1434,7 +1473,7 @@ impl JobView {
     }
 
     /// Answer in words: what he typed goes as his own words, and what was kept for the box goes.
-    fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let words = words.trim().to_string();
         if words.is_empty() {
@@ -1538,6 +1577,11 @@ impl JobView {
                         .children(said.map(|why| super::acts::refusal(look, "dock", why)))
                         .into_any_element());
                 }
+            }
+        }
+        if let Thing::Row(row) = thing {
+            if let Some(card) = (row.source == WaitingSource::Handoff).then(|| self.handoff_in_needs(id, row, look, cx)).flatten() {
+                return Pinned::body(card);
             }
         }
         let back = labelled(

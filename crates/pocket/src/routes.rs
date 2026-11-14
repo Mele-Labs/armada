@@ -94,9 +94,11 @@ pub fn router(gateway: Gateway) -> Router {
         // Another Mac pairing, unsigned: the claim carries the key its calls are signed with after.
         .route("/pair/mac", post(mac_pair_routes::claimed_here))
         .route("/pair/mac/back", post(mac_pair_routes::back))
-        // Another Mac on his account: who this is, its ask to pair, and word that the ask was declined.
+        // Another Mac on his account or nearby: who this is, its ask to pair and its half of the code, and
+        // word that the ask was declined.
         .route("/pair/mac/hello", get(mac_ask_routes::hello))
         .route("/pair/mac/ask", post(mac_ask_routes::asked_here))
+        .route("/pair/mac/reveal", post(mac_ask_routes::revealed_here))
         .route("/pair/mac/declined", post(mac_pair_routes::declined))
         // Only a linked Mac, and never a phone: `signing::signed`.
         .route("/api/mac/hello", get(mac_routes::hello))

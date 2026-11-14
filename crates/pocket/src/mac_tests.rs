@@ -118,11 +118,11 @@ pub(crate) struct Side {
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
 }
 
-fn pairing(name: &str, address: String) -> Pairing {
+fn pairing(name: &str, address: Option<String>) -> Pairing {
     let dir = std::env::temp_dir().join(format!("pocket-macs-{}-{}", std::process::id(), DIRS.fetch_add(1, Ordering::Relaxed)));
     std::fs::create_dir_all(&dir).unwrap();
     let store = store::Store::open_migrated_copy(&dir.join("armada.db")).unwrap();
-    let pairing = Pairing::new(store, Arc::new(now), Arc::new(move || Ok(address.clone())));
+    let pairing = Pairing::new(store, Arc::new(now), Arc::new(move || address.clone().ok_or_else(|| "This Mac has no address.".to_string())));
     let mac = store::ThisMac { id: to_hex(name.as_bytes()), name: name.to_string(), colour: "teal".into(), minted_at: 1 };
     pairing.store.lock().unwrap().this_mac_or(&mac).unwrap();
     pairing
@@ -130,6 +130,15 @@ fn pairing(name: &str, address: String) -> Pairing {
 
 impl Side {
     pub(crate) async fn new(name: &str, rows: &[&str]) -> Side {
+        Side::made(name, rows, true).await
+    }
+
+    /// A Mac with no tunnel: only its Wi-Fi door, once a test opens one, reaches it.
+    pub(crate) async fn unaddressed(name: &str) -> Side {
+        Side::made(name, &[], false).await
+    }
+
+    async fn made(name: &str, rows: &[&str], addressed: bool) -> Side {
         let (fleet, fleet_port) = fake_fleet(rows).await;
         let port = crate::bind(0).await.unwrap().local_addr().unwrap().port();
         let address = format!("http://127.0.0.1:{port}");
@@ -137,7 +146,7 @@ impl Side {
         let gateway = Gateway {
             fleet: Arc::new(move || Ok(fleet_port)),
             assets: None,
-            pairing: pairing(name, address.clone()),
+            pairing: pairing(name, addressed.then(|| address.clone())),
             push: crate::push_tests::test_push(),
             way_in: crate::setup::quiet_way_in(),
             macs: Macs::with_timing(keys.clone(), QUICK).unwrap(),
@@ -359,6 +368,7 @@ async fn a_request_this_mac_signs_passes_another_gateways_check() {
         wire: None,
         built_at: None,
         source: None,
+        pin: None,
     };
     other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
     let time = other.gateway.pairing.now();
@@ -402,6 +412,7 @@ async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_he
         wire: None,
         built_at: None,
         source: None,
+        pin: None,
     };
     other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
     let ask = |method: &'static str, path: &'static str| {

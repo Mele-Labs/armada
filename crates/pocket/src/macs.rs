@@ -53,6 +53,9 @@ pub struct MacHello {
     /// `main` or `preview`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// The pin of its Wi-Fi door's certificate, where the door is open. `crate::door`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pin: Option<String>,
 }
 
 /// `POST /pair/mac`: the Mac that pasted the link claims it.
@@ -74,13 +77,24 @@ pub struct MacBack {
     pub spki_hex: String,
 }
 
-/// `POST /pair/mac/ask`: another Mac on his account asks this one to pair, with no link. What a claim
-/// carries, since the owner's Confirm here answers it the same way.
+/// `POST /pair/mac/ask`: another of his Macs asks this one to pair, with no link. What a claim
+/// carries, since the owner's Confirm here answers it the same way, and the hash of the asking Mac's half
+/// of the code, which it reveals only once this Mac has drawn its own.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MacAsk {
     pub mac: MacHello,
     pub spki_hex: String,
     pub back_code: String,
+    /// [`hashed`] of the half [`MacReveal`] brings.
+    pub commit: String,
+}
+
+/// `POST /pair/mac/reveal`: the asking Mac's half of the code, now this Mac has answered with its own.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MacReveal {
+    /// The asking Mac.
+    pub mac: String,
+    pub reveal: String,
 }
 
 /// The answer to [`MacAsk`]: who this Mac is, and the random half of the code both Macs show.
@@ -108,12 +122,20 @@ pub struct MacGreeting {
     pub build: Option<String>,
 }
 
-/// The four digits both Macs show for an ask: from the asking Mac's key and the asked Mac's random half,
-/// which only the two of them hold.
-pub(crate) fn digits(spki_hex: &str, nonce: &str) -> String {
+/// The four digits both Macs show for an ask: from the asking Mac's key, each Mac's door certificate as
+/// the asking Mac met them, and a random half from each. **The asking Mac commits to its half before it
+/// sees the other's**, so nobody between them can try halves until the digits match.
+pub(crate) fn digits(spki_hex: &str, asking_pin: Option<&str>, asked_pin: Option<&str>, reveal: &str, nonce: &str) -> String {
     use sha2::{Digest, Sha256};
-    let hash = Sha256::digest(format!("{spki_hex}:{nonce}").as_bytes());
+    let (asking_pin, asked_pin) = (asking_pin.unwrap_or_default(), asked_pin.unwrap_or_default());
+    let hash = Sha256::digest(format!("{spki_hex}:{asking_pin}:{asked_pin}:{reveal}:{nonce}").as_bytes());
     format!("{:04}", u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]) % 10_000)
+}
+
+/// What an ask commits to: the SHA-256 of the asking Mac's half, as hex.
+pub(crate) fn hashed(reveal: &str) -> String {
+    use sha2::{Digest, Sha256};
+    crate::pairing::to_hex(&Sha256::digest(reveal.as_bytes()))
 }
 
 /// How many asks from other Macs wait here at once. His address is public, so a stranger can fill no more.
@@ -126,8 +148,25 @@ pub(crate) struct HeldClaim {
     pub public_key: Vec<u8>,
     pub back_code: String,
     pub at: i64,
-    /// The four digits, where the claim is an ask from Settings rather than a pasted link.
+    /// The four digits, where the claim is an ask from Settings rather than a pasted link, once the
+    /// asking Mac revealed its half.
     pub digits: Option<String>,
+    /// What an ask committed to. `None` on a pasted link.
+    pub commit: Option<String>,
+    /// The asking Mac's key as it sent it, for the digits. `None` on a pasted link.
+    pub spki_hex: Option<String>,
+}
+
+impl HeldClaim {
+    /// An ask from Settings, rather than a pasted link.
+    pub(crate) fn asked(&self) -> bool {
+        self.commit.is_some()
+    }
+
+    /// Listed, and Confirm takes it: a link's at once, an ask's once its digits are drawn.
+    fn shown(&self) -> bool {
+        !self.asked() || self.digits.is_some()
+    }
 }
 
 struct Code {
@@ -139,7 +178,7 @@ impl Code {
     /// An ask is gone once its time is past, claimed or not. A claim on a link waits for Confirm.
     fn live(&self, now: i64) -> bool {
         match &self.claim {
-            Some(claim) if claim.digits.is_none() => true,
+            Some(claim) if !claim.asked() => true,
             _ => self.expires > now,
         }
     }
@@ -176,6 +215,10 @@ pub struct Macs {
     closing: Arc<watch::Sender<bool>>,
     pub(crate) timing: Timing,
     pub(crate) http: reqwest::Client,
+    /// This Mac's Wi-Fi door and the Macs Bonjour sees. `crate::nearby`.
+    pub(crate) nearby: crate::nearby::Nearby,
+    /// A client to each paired Mac's door, by its pin.
+    pinned: Arc<Mutex<HashMap<String, reqwest::Client>>>,
     /// The loopback ports opened for other Macs' pages. `crate::mac_pages`.
     pub(crate) pages: crate::mac_pages::Opened,
 }
@@ -201,8 +244,21 @@ impl Macs {
             closing: Arc::new(watch::channel(false).0),
             timing,
             http,
+            nearby: Default::default(),
+            pinned: Arc::default(),
             pages: Default::default(),
         })
+    }
+
+    /// The client that reaches a door only where its certificate is `pin`.
+    pub(crate) fn pinned(&self, pin: &str) -> Result<reqwest::Client, String> {
+        let mut pinned = self.pinned.lock().unwrap();
+        if let Some(client) = pinned.get(pin) {
+            return Ok(client.clone());
+        }
+        let (client, _) = crate::door::client(Some(pin))?;
+        pinned.insert(pin.to_string(), client.clone());
+        Ok(client)
     }
 
     /// The Gateway is stopping: every other Mac's open `/api/mac/live` ends now, so it sees the drop.
@@ -230,7 +286,7 @@ impl Macs {
         let mut codes = self.codes.lock().unwrap();
         let now = claim.at;
         codes.retain(|_, c| c.live(now) && c.claim.as_ref().is_none_or(|held| held.mac.id != claim.mac.id));
-        let waiting = codes.values().filter(|c| c.claim.as_ref().is_some_and(|held| held.digits.is_some())).count();
+        let waiting = codes.values().filter(|c| c.claim.as_ref().is_some_and(HeldClaim::asked)).count();
         if waiting >= ASKS_HELD {
             return false;
         }
@@ -258,9 +314,33 @@ impl Macs {
     /// forgotten, so a Confirm the other Mac missed can be pressed again.
     pub(crate) fn claims(&self, now: i64) -> Vec<HeldClaim> {
         let codes = self.codes.lock().unwrap();
-        let mut all: Vec<HeldClaim> = codes.values().filter(|c| c.live(now)).filter_map(|c| c.claim.clone()).collect();
+        let mut all: Vec<HeldClaim> =
+            codes.values().filter(|c| c.live(now)).filter_map(|c| c.claim.clone()).filter(HeldClaim::shown).collect();
         all.sort_by(|a, b| (a.at, &a.mac.id).cmp(&(b.at, &b.mac.id)));
         all
+    }
+
+    /// Draw the digits of `mac`'s ask, held against its nonce, where `reveal` is what it committed to.
+    /// `false` where no such ask waits for its half, or the half is not the one committed to.
+    pub(crate) fn reveal(&self, mac: &str, reveal: &str, now: i64, draw: impl FnOnce(&HeldClaim, &str) -> String) -> bool {
+        let mut codes = self.codes.lock().unwrap();
+        let waiting = codes.iter_mut().find(|(_, c)| {
+            c.live(now) && c.claim.as_ref().is_some_and(|held| held.mac.id == mac && held.asked() && held.digits.is_none())
+        });
+        let Some((nonce, code)) = waiting else { return false };
+        let Some(claim) = code.claim.as_mut() else { return false };
+        if claim.commit.as_deref() != Some(hashed(reveal).as_str()) {
+            return false;
+        }
+        claim.digits = Some(draw(claim, nonce));
+        true
+    }
+
+    /// Asks held, revealed or not.
+    #[cfg(test)]
+    pub(crate) fn asks_held(&self, now: i64) -> usize {
+        let codes = self.codes.lock().unwrap();
+        codes.values().filter(|c| c.live(now) && c.claim.as_ref().is_some_and(HeldClaim::asked)).count()
     }
 
     pub(crate) fn claim_of(&self, mac: &str, now: i64) -> Option<HeldClaim> {
@@ -305,11 +385,17 @@ pub(crate) fn read_link(link: &str) -> Option<(String, String)> {
     (reachable(address) && plain).then(|| (address.to_string(), code.to_string()))
 }
 
-/// A Mac's id, name and address as one that pairs must give them.
+/// A Mac's id, name and a way to reach it as one that pairs must give them: an address, or the pin of
+/// a door, which Bonjour says where to find. An address it gives must be one this Mac would call.
 pub(crate) fn sane(hello: &MacHello) -> bool {
     let id = !hello.id.is_empty() && hello.id.len() <= 64 && hello.id.bytes().all(|b| b.is_ascii_hexdigit());
     let name = !hello.name.trim().is_empty() && hello.name.len() <= 80;
-    id && name && hello.address.as_deref().is_some_and(reachable)
+    let pin = hello.pin.as_deref().map(crate::door::a_pin);
+    let way = match hello.address.as_deref() {
+        Some(address) => reachable(address) && pin != Some(false),
+        None => pin == Some(true),
+    };
+    id && name && way
 }
 
 /// Whether linked Mac `row` runs a build whose wire this one's cannot read, and which of the two is older.
@@ -350,7 +436,8 @@ pub(crate) fn listed(row: store::PairedMac, me: &crate::WayIn) -> Mac {
         id: row.id,
         colour: MacColour::named(&row.colour).unwrap_or_default(),
         name: row.name,
-        address: Some(row.address),
+        // A Mac paired nearby with no tunnel has no address: Bonjour says where its door is.
+        address: (!row.address.is_empty()).then_some(row.address),
         this_mac: false,
         build: row.build,
         link: Some(link),

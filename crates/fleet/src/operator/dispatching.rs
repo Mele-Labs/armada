@@ -157,7 +157,7 @@ where
 
     /// The Job `dispatch` makes, and what followed it sent into it. `overlap` is whether the Operator weighs the
     /// Job against the live ones once it exists, which a dispatch it has ruled on already is not.
-    async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob, overlap: bool) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob, overlap: bool) -> Result<SessionRecord, Refusal> {
         let DispatchJob { start, then, .. } = dispatch;
         let manifest = start.manifest_id.as_str().to_string();
         let words = start.request.clone().unwrap_or_default();

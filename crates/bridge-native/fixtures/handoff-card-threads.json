@@ -1,0 +1,120 @@
+{
+ "threads": [
+  {
+   "session_id": "handoff-long",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T08:00:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-13T08:10:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-13T08:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Carry the alerts across Macs, as the step says."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-13T09:10:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Fleet sends each alert to every paired Mac once, and the phone draws it with the Mac's name. The native fixture still names a Mac by its old id."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "handoff",
+      "id": "ho-1",
+      "at": "2026-11-13T09:12:00Z",
+      "tokens": 312000,
+      "limit": 300000,
+      "brief": "Where the work is\nBranch native/alerts-across-macs in slot 4, three commits ahead of main. The alerts a Job raises now reach every paired Mac: crates/fleet/src/other_macs.rs sends each one as an alert row, and crates/pocket/src/mac_pages.rs draws it on the phone. Pull request 3601 is open on that branch and its ci is green but for the native job, which failed on a fixture that names a Mac by its old id.\n\nWhat is done\n1. Fleet sends an alert to each paired Mac once, keyed by the alert's id, so a Mac that comes back from sleep reads it once and never twice.\n2. A Mac that refuses the alert is retried at its next heartbeat, at most three times, then the alert is kept for its next pairing.\n3. The phone draws the alert with the Mac's name beside it, and a press opens the Job on the Mac it runs on.\n4. The settings page lists each Mac with the last alert it read, and Forget removes a Mac and every alert kept for it.\n\nWhat is open\n1. The native fixture in crates/bridge-native/fixtures/listen.json names the Mac air-2, where Fleet now names it by its pairing id. Change the fixture, run armada check crates/bridge-native:test listen, and push.\n2. The walk native-alerts-across-macs has not been shown. It plays at 820 and at 1400 with --check, and its shots are in /tmp/alerts-shots. The owner has not seen it.\n3. The question of whether a muted Mac still gets alerts is his. I asked nothing yet. The two answers are in docs/practices/protocol/his-other-macs-fleets-half.md, under Muted.\n4. The retro for step two is not written.\n\nWhat the Job holds\nSlot 4, leased since 08:10. Branch native/alerts-across-macs. Pull request 3601. A server on port 5410 in slot 4, the mock Fleet the walk plays against; stop it once the walk is approved. Two subagents finished and hold nothing.\n\nWhat to read first\ndocs/concepts/pocket.md, the part on other Macs. crates/fleet/src/tests/two_macs/pages.rs, which pins the three requests a Mac answers. The owner's note of 12 Nov on alerts: one alert, one Mac, never a count beside it.\n\nCommands that matter\narmada check crates/fleet:test two_macs ran green at 09:02. armada check crates/bridge-native:test listen is red on the fixture above. cargo build --release in crates/bridge-native, then --walk native-alerts-across-macs --check, plays to the end at both widths.\n\nWhat not to do\nDo not merge 3601 before the walk is approved. Do not touch crates/ipc: the wire for alerts landed in 3579 and is frozen for this step. Do not start the muted question as a Job; it waits on his answer.\n\nWhere it was going next\nAfter the fixture, the walk goes to him alone. Once approved, the pull request lands with --auto, the slot is released, and the step closes with the retro. The step after it, alerts that carry a picture, has a beads issue of its own and is not part of this Job.\n\nHow it got here\nThe step began with the alerts going to the Mac that raised them only. The first attempt sent every alert to every Mac on each heartbeat, which the owner saw as the same alert three times on the phone; that was undone in the second commit. The second attempt keyed alerts by id and kept a read mark per Mac, which is what stands. A third attempt to batch alerts per heartbeat was dropped: it held an alert up to thirty seconds, and the owner's rule is that an alert is front and centre at once.\n\nMeasured\nA paired Mac reads a new alert within one heartbeat, two seconds on the bench, in twenty runs. A Mac woken from sleep reads what it missed in one request. Forget on a Mac with forty kept alerts took 12 ms.\n\nKnown gaps\nThe phone does not yet draw an alert from a Mac that has since been forgotten; it shows the Job's title alone. Fleet logs a refused alert at warn, which fills the log on a Mac left asleep for a day; a quieter level is a one line change in other_macs.rs, not made.",
+      "remind_at": [
+       400000,
+       450000,
+       500000
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "handoff-short",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T07:00:00Z",
+     "bays": [
+      {
+       "slot": 5,
+       "from": "2026-11-13T07:05:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-13T07:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Tidy the docs index."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "handoff",
+      "id": "ho-2",
+      "at": "2026-11-13T08:40:00Z",
+      "tokens": 456000,
+      "limit": 300000,
+      "brief": "The index lists every page under docs/ again. Branch docs/index-tidy, pull request 3598, ci green. Left: the two pages under spikes/ that name no milestone.",
+      "remind_at": [
+       500000,
+       550000,
+       600000
+      ],
+      "answer": {
+       "kind": "remind_at",
+       "tokens": 600000
+      }
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3",
+      "at": "2026-11-13T08:44:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The two spike pages now name their milestones."
+     }
+    }
+   ]
+  }
+ ]
+}

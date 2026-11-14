@@ -59,20 +59,23 @@ impl adapter_traits::Bucket for Held {
 pub(super) struct Viewed(pub(super) Arc<FakeStore>);
 
 impl Store for Viewed {
-    fn claim(&self, repository: &adapter_traits::RepositoryKey, red: &adapter_traits::RedKey, holder: &Holder) -> Result<Claimed, adapter_traits::StoreError> {
-        self.0.claim(repository, red, holder)
+    fn claim(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind, key: &adapter_traits::ClaimKey, claimant: &adapter_traits::Claimant) -> Result<Claimed, adapter_traits::StoreError> {
+        self.0.claim(repository, kind, key, claimant)
     }
-    fn read_claim(&self, repository: &adapter_traits::RepositoryKey, red: &adapter_traits::RedKey) -> Result<Option<Holder>, adapter_traits::StoreError> {
-        self.0.read_claim(repository, red)
+    fn read_claim(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind, key: &adapter_traits::ClaimKey) -> Result<Option<adapter_traits::Claimant>, adapter_traits::StoreError> {
+        self.0.read_claim(repository, kind, key)
     }
-    fn release_claim(&self, repository: &adapter_traits::RepositoryKey, red: &adapter_traits::RedKey) -> Result<(), adapter_traits::StoreError> {
-        self.0.release_claim(repository, red)
+    fn release_claim(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind, key: &adapter_traits::ClaimKey) -> Result<(), adapter_traits::StoreError> {
+        self.0.release_claim(repository, kind, key)
     }
-    fn replace_claim(&self, repository: &adapter_traits::RepositoryKey, red: &adapter_traits::RedKey, holder: &Holder) -> Result<Claimed, adapter_traits::StoreError> {
-        self.0.replace_claim(repository, red, holder)
+    fn replace_claim(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind, key: &adapter_traits::ClaimKey, claimant: &adapter_traits::Claimant) -> Result<Claimed, adapter_traits::StoreError> {
+        self.0.replace_claim(repository, kind, key, claimant)
     }
-    fn clear_repository(&self, repository: &adapter_traits::RepositoryKey) -> Result<(), adapter_traits::StoreError> {
-        self.0.clear_repository(repository)
+    fn clear_kind(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind) -> Result<(), adapter_traits::StoreError> {
+        self.0.clear_kind(repository, kind)
+    }
+    fn renew(&self, holder: &Holder) -> Result<u64, adapter_traits::StoreError> {
+        self.0.renew(holder)
     }
     fn put_owner(&self, key: &adapter_traits::OwnerKey, holder: &Holder) -> Result<(), adapter_traits::StoreError> {
         self.0.put_owner(key, holder)

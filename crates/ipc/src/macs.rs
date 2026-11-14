@@ -31,7 +31,8 @@ pub struct MacNamed {
     pub mac: String,
 }
 
-/// `GET /admin/macs/found` on the Gateway: his other Macs on the Cloudflare account this Mac signed in with.
+/// `GET /admin/macs/found` on the Gateway: his other Macs on the Cloudflare account this Mac signed in with,
+/// and those Bonjour sees on the same network.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundMacs {
     pub macs: Vec<FoundMac>,
@@ -40,7 +41,7 @@ pub struct FoundMacs {
     pub why: Option<String>,
 }
 
-/// One of his other Macs, by the tunnel Armada made for it on his account.
+/// One of his other Macs, by the tunnel Armada names for it on his account, whether or not it made one.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundMac {
     /// The tunnel's name on the account, `armada-<its id's first 12>`. What Pair names.
@@ -49,15 +50,19 @@ pub struct FoundMac {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colour: Option<crate::MacColour>,
-    /// Its address under his domain, where the account routes one to it. Without one it cannot be asked.
+    /// Its address under his domain, where the account routes one to it. Without one it is asked only while `nearby`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
-    /// Cloudflare says its tunnel is connected. Not online is a Mac asleep or with Armada closed.
+    /// Cloudflare says its tunnel is connected, or Bonjour sees it nearby. Not online is a Mac asleep or with Armada closed.
     pub online: bool,
     /// It is paired with this Mac already, or a pairing with it waits on a Confirm.
     pub paired: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+    /// Bonjour sees it on the same network now, so Pair reaches it there, with no tunnel. A Mac found
+    /// only nearby has no `address`.
+    #[serde(default)]
+    pub nearby: bool,
 }
 
 /// `POST /admin/macs/pair/ask` on the Gateway: ask the Mac with this tunnel to pair, with no link.

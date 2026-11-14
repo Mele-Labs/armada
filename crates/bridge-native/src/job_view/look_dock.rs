@@ -1,5 +1,5 @@
-//! The Needs you panel as he reads it when he takes a Job's work in as pictures (`take_in` = look). A press on a row
-//! swaps the list for that one item, under a head that reads Needs you and where it stands among the items; Esc or ←
+//! The Needs you panel as he reads it when he takes a Job's work in as pictures (`take_in` = look). A press on a row,
+//! except a walk's, which starts the walk, swaps the list for that one item, under a head that reads Needs you and where it stands among the items; Esc or ←
 //! goes back and ↑ ↓ move between items. A sketch to review is drawn large with its answers, a walk is a strip of its
 //! stops, a command is its steps as a row of chips with the command under them, and a question whose options carry
 //! pictures is `look_question.rs`'s. At the default way, `read`, none of this is drawn and the panel is as it was.
@@ -83,9 +83,10 @@ pub(super) fn kind_of(row: &NeedsYouRow) -> Option<Kind<'_>> {
     }
 }
 
-/// Whether Look opens the row whole where it is pressed, which every question already did.
+/// Whether Look opens the row whole where it is pressed, which every question already did. A walk
+/// is not: its press starts the walk, one press as at read, and ↑ ↓ still reach its stops.
 pub(super) fn opens_whole(act: &NeedsYouAct) -> bool {
-    matches!(act, NeedsYouAct::OpenSketch { .. } | NeedsYouAct::Walk { .. } | NeedsYouAct::Run { .. } | NeedsYouAct::Steps { command: Some(_), .. })
+    matches!(act, NeedsYouAct::OpenSketch { .. } | NeedsYouAct::Run { .. } | NeedsYouAct::Steps { command: Some(_), .. })
 }
 
 /// Whether a thing of the list has a page of its own to open: the items ↑ ↓ move between.

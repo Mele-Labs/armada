@@ -305,6 +305,7 @@ impl Keeper {
                         text: text.clone(),
                         tone: tone_of(*blocks),
                         kind: CallArrivalKind::Needs,
+                        key: None,
                     });
                 }
             }
@@ -318,6 +319,7 @@ impl Keeper {
                     text: stopped_said(reason).into(),
                     tone: CallTone::Waiting,
                     kind: CallArrivalKind::Stopped,
+                    key: None,
                 });
             }
         }
@@ -341,7 +343,8 @@ impl Keeper {
             if !self.claims.iter().any(|held| held.mac == claim.mac) {
                 let call = Self::claim_call(claim);
                 self.news.push(CallArrival {
-                    session_id: ipc::SessionId::carried(call.key),
+                    session_id: ipc::SessionId::carried(call.key.clone()),
+                    key: Some(call.key),
                     title: call.title,
                     text: call.text,
                     tone: call.tone,

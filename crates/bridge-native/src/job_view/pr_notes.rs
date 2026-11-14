@@ -119,11 +119,12 @@ impl JobView {
         cx.notify();
     }
 
-    /// Cancel puts the box away and leaves its words kept (`LineComposer`).
-    fn cancel_note(&mut self, keep: &str, cx: &mut Context<Self>) {
+    /// Cancel puts the box away and leaves its words kept (`LineComposer`). The keys go back to the panel, which the box had.
+    fn cancel_note(&mut self, keep: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(panel) = self.pull_panel_mut() {
             panel.note_boxes.retain(|open| open.keep != keep);
         }
+        self.keys_to_panel(window, cx);
         cx.notify();
     }
 
@@ -142,6 +143,8 @@ impl JobView {
         if let Some(panel) = self.pull_panel_mut() {
             panel.note_boxes.retain(|open| open.keep != keep);
         }
+        // The box held the keys; they go back to the panel, or the window has none to hand an act to.
+        self.keys_to_panel(window, cx);
         if self.fleet.is_none() {
             let notes = self.panes.notes.entry(key).or_default();
             match editing {
@@ -377,7 +380,7 @@ impl JobView {
             .child(Textarea::new(&open.input).appearance(false));
         let (cancel_key, save_key, sent_key) = (open.keep.clone(), open.keep.clone(), open.keep.clone());
         let cancel = labelled(
-            small_button(look, SharedString::from(format!("note-box-cancel:{}", open.keep)), "Cancel", false, true).on_click(cx.listener(move |this, _, _, cx| this.cancel_note(&cancel_key, cx))),
+            small_button(look, SharedString::from(format!("note-box-cancel:{}", open.keep)), "Cancel", false, true).on_click(cx.listener(move |this, _, window, cx| this.cancel_note(&cancel_key, window, cx))),
             Role::Button,
             "Cancel",
         );

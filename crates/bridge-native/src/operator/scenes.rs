@@ -26,6 +26,10 @@ pub struct MockFleet {
     pub fail_answer: Option<Failed>,
     /// Why the next Later is refused, where a scene wants the time it names to have passed.
     pub refuse_later: Option<String>,
+    /// The Macs waiting for his Confirm to pair, as Fleet's calls carry them.
+    pub pairings: Vec<ipc::StandingCall>,
+    /// What the Gateway says to the next Confirm or Decline, where a scene wants it refused.
+    pub refuse_pairing: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
     /// The ideas Fleet keeps for later, oldest first.
@@ -82,7 +86,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, pairings: Vec::new(), refuse_pairing: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -239,6 +243,66 @@ impl MockFleet {
                 self.page.turn.push(turn);
             }
         }
+    }
+}
+
+/// When he presses Undo in the walk: the walk's clock.
+const UNDONE_AT: &str = "2026-11-11T13:05:00-05:00";
+
+impl MockFleet {
+    /// The Operator follows what he said before: two go-ahead questions whose pick follows an answer of his or a
+    /// setting, first in Your turn, and four questions it answered that way since he last looked, newest first. One
+    /// is taken back already, and one's Job has ended, so neither offers Undo.
+    pub fn precedent(&mut self) {
+        let asks: [&[u8]; 2] = [
+            br#"{"id":"turn:20","kind":"go_ahead","urgency":"go_ahead","session_id":"mock-07","job":"Store reports its size","manifest_id":"armada","repository":"armada","item":{"id":"agent-20","text":"Run the whole test suite before pushing, or only the tests the change reaches?","since":"2026-11-11T13:01:00-05:00","source":"agent","options":[{"label":"The whole suite"},{"label":"Only the tests it reaches"}]},"read":{"read":"You answered this for Walk window takes on Monday, and nothing about this Job is different.","pick":"Only the tests it reaches"},"raised_at":"2026-11-11T13:01:00-05:00","keeps":true,"follows":{"kind":"answer","session_id":"mock-11","job":"Walk window takes","question":"Run the whole test suite before pushing, or only the tests the change reaches?","said":"Only the tests it reaches: the whole suite is CI's","at":"2026-11-09T16:20:00-05:00"}}"#,
+            br#"{"id":"turn:21","kind":"go_ahead","urgency":"go_ahead","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"agent-21","text":"Show the meter's times as 24-hour or 12-hour?","since":"2026-11-11T13:03:00-05:00","source":"agent","options":[{"label":"24-hour"},{"label":"12-hour"}]},"read":{"read":"Your saved time format is 24-hour.","pick":"24-hour"},"raised_at":"2026-11-11T13:03:00-05:00","keeps":true,"follows":{"kind":"setting","said":"time_format = 24h"}}"#,
+        ];
+        let asks: Vec<OperatorTurnItem> = asks.into_iter().filter_map(|wire| ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()).collect();
+        self.page.turn.splice(0..0, asks);
+        let ruled = br#"[
+            {"id":"turn:17","session_id":"mock-14","job":"Pocket install banner","question":"Rebase on main before pushing?","pick":"Rebase","follows":{"kind":"answer","session_id":"mock-06","job":"Tail-first thread loading","question":"Rebase on main before pushing?","said":"Rebase","at":"2026-11-10T11:40:00-05:00"},"at":"2026-11-11T12:52:00-05:00","undo":true},
+            {"id":"turn:16","session_id":"mock-05","job":"Slot pool controls","question":"Write the tooltip's times in 24-hour?","pick":"24-hour","follows":{"kind":"setting","said":"time_format = 24h"},"at":"2026-11-11T12:31:00-05:00","undo":true},
+            {"id":"turn:15","session_id":"mock-05","job":"Slot pool controls","question":"Squash the commits before the pull request?","pick":"Keep them","follows":{"kind":"answer","session_id":"mock-13","job":"Merge strip freshness","question":"Squash the commits before the pull request?","said":"Keep them: each says why","at":"2026-11-08T10:05:00-05:00"},"at":"2026-11-11T12:24:00-05:00","undone_at":"2026-11-11T12:40:00-05:00"},
+            {"id":"turn:14","session_id":"mock-10","job":"Sentence case labels","question":"Keep the old label keys for a release?","pick":"No","follows":{"kind":"answer","session_id":"mock-12","job":"Store reports its size","question":"Keep the old setting keys for a release?","said":"No","at":"2026-11-07T15:30:00-05:00"},"at":"2026-11-11T12:15:00-05:00"}
+        ]"#;
+        self.page.digest.ruled = ipc::decode::<Vec<ipc::operator_page::OperatorRuled>>("OperatorRuled", ruled).unwrap_or_default();
+        self.regroup();
+    }
+
+    /// What `operator_undo_ruling` does: the ruling is marked taken back, and the question joins Your turn again from
+    /// the Job's list, as his, with the options it had. Refused in Fleet's words where it cannot be.
+    pub fn undo(&mut self, id: &str) -> Result<OperatorPage, String> {
+        let Some(ruled) = self.page.digest.ruled.iter_mut().find(|ruled| ruled.id == id) else { return Err("No ruling has that id".into()) };
+        if ruled.undone_at.is_some() {
+            return Err("That ruling is taken back already".into());
+        }
+        if !ruled.undo {
+            return Err("That Job has ended, so the question cannot be given back to it".into());
+        }
+        ruled.undone_at = Some(Instant::carried(UNDONE_AT));
+        ruled.undo = false;
+        let n = id.trim_start_matches("turn:");
+        let options = match ruled.pick.as_str() {
+            "Rebase" => ["Rebase", "Merge main in"],
+            "24-hour" => ["24-hour", "12-hour"],
+            _ => [ruled.pick.as_str(), "No"],
+        };
+        let repository = "armada";
+        let wire = format!(
+            r#"{{"id":"turn:{turn}","kind":"decision","urgency":"decision","session_id":"{session}","job":"{job}","manifest_id":"{repository}","repository":"{repository}","item":{{"id":"undone:{n}","text":"{question}","since":"{UNDONE_AT}","source":"operator_undone","act":{{"kind":"answer","target":"undone:{n}"}},"options":[{{"label":"{first}"}},{{"label":"{second}"}}]}},"raised_at":"{UNDONE_AT}"}}"#,
+            turn = 100 + n.parse::<u32>().unwrap_or_default(),
+            session = ruled.session_id.as_str(),
+            job = ruled.job.as_deref().unwrap_or_default(),
+            question = ruled.question,
+            first = options[0],
+            second = options[1],
+        );
+        if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire.as_bytes()) {
+            self.page.turn.push(turn);
+        }
+        self.regroup();
+        Ok(self.page.clone())
     }
 }
 

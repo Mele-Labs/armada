@@ -3,7 +3,7 @@
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::Extension;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -336,6 +336,19 @@ pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Serv
     };
     match served.shared().operator_answer(press).await {
         Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A precedent ruling taken back. 200 with the page; 404 where no precedent ruling has the id, 422 where it is
+/// taken back already or its Job has ended.
+pub(crate) async fn operator_undo_ruling<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let undo: ipc::operator_page::OperatorUndoRuling = match ipc::decode_body("a ruling taken back", &body) {
+        Ok(undo) => undo,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_undo_ruling(undo).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -922,6 +935,78 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
     };
     match served.shared().save_artifact_edit(edit).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
+/// list, an ask no longer open, or a page archived or not held.
+pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().press_page_action(press).await {
+        Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His vote on a page's vote. 200 with the cast; 422 for a vote the revision does not hold, a result of another
+/// form, a take or part the vote does not hold, or a page archived or not held.
+pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let cast: ipc::CastPageVote = match ipc::decode_body("a vote on a page", &body) {
+        Ok(cast) => cast,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().cast_page_vote(cast).await {
+        Ok(cast) => answer(StatusCode::OK, &cast, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He opened a revision of an artifact. 200 with the newest he has opened, an older revision included; 422 for a
+/// revision never kept or an artifact not held.
+pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let mark: ipc::MarkArtifactSeen = match ipc::decode_body("an artifact he opened", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mark_artifact_seen(mark).await {
+        Ok(seen) => answer(StatusCode::OK, &seen, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
+#[derive(Deserialize)]
+pub(crate) struct WhichPage {
+    session_id: String,
+    artifact: String,
+    revision: Option<u32>,
+}
+
+/// One kept revision of a page, sealed. 200 with the page as `text/html`, its policy sent again as the header, as
+/// `get_session_file` answers its bytes; 422 for an artifact the Job does not hold as a page or a revision never kept.
+pub(crate) async fn get_artifact_page<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichPage>,
+) -> Response {
+    let asked = served
+        .daemon()
+        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision)
+        .await;
+    match asked {
+        Ok(page) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+            headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+            // Base64 and plain words, which always make a header. The page carries the policy either way.
+            if let Ok(policy) = HeaderValue::from_str(&page.policy) {
+                headers.insert(header::CONTENT_SECURITY_POLICY, policy);
+            }
+            (StatusCode::OK, headers, page.html).into_response()
+        }
         Err(refusal) => refused(refusal),
     }
 }

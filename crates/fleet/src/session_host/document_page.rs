@@ -1,6 +1,6 @@
-//! What Fleet reads out of a Job's document, a page of HTML the Job designed: its title, and the
+//! What Fleet reads out of a Job's document, a page of HTML the Job designed: its title, the actions and votes it declares, and the
 //! sketches it embeds. **A scan and not a parse**: the page is the Job's own and may be any HTML, and
-//! Fleet needs four things from it. Bridge reads the same page with a real parser
+//! Fleet needs a few things from it. Bridge reads the same page with a real parser
 //! (`session-view/document-page.ts`), and `sketches_in` follows the rules it reads a sketch by.
 
 /// One `<armada-sketch>` of a page, in the order the page holds them.
@@ -88,9 +88,110 @@ pub(crate) fn sketches_in(html: &str) -> Vec<PageSketch> {
     found
 }
 
+/// One `<armada-action>` of a page, in the order the page holds them, its attributes trimmed and nothing checked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PageAction {
+    pub id: String,
+    pub act: String,
+    pub label: String,
+    pub item: String,
+    pub brief: String,
+    pub repository: String,
+    pub ask: String,
+    pub option: String,
+    /// The text of the `<tr>`, else the `<li>`, it sits in, cut to [`MOST_ROW_CHARS`] characters. Empty where it
+    /// sits in neither.
+    pub row: String,
+}
+
+/// The most characters of the row an action sits in that Fleet reads.
+pub(crate) const MOST_ROW_CHARS: usize = 300;
+
+/// Every action the page declares.
+pub(crate) fn actions_in(html: &str) -> Vec<PageAction> {
+    let lower = html.to_ascii_lowercase();
+    let mut found = Vec::new();
+    let mut from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "armada-action", from) {
+        let said = |name: &str| attribute(&html[tag..end], name).map(|value| squeezed(&value)).unwrap_or_default();
+        let row = ["tr", "li"].iter().find_map(|name| row_around(html, &lower, name, tag)).unwrap_or_default();
+        found.push(PageAction {
+            id: said("id"),
+            act: said("act"),
+            label: said("label"),
+            item: said("item"),
+            brief: attribute(&html[tag..end], "brief").map(|value| value.trim().to_string()).unwrap_or_default(),
+            repository: said("repository"),
+            ask: said("ask"),
+            option: said("option"),
+            row: row.chars().take(MOST_ROW_CHARS).collect(),
+        });
+        from = end;
+    }
+    found
+}
+
+/// One `<armada-vote>` of a page, in the order the page holds them, its attributes trimmed and nothing checked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PageVote {
+    pub id: String,
+    pub form: String,
+    pub question: String,
+    /// The named parts a `score` vote marks, in the order its `parts` lists them.
+    pub parts: Vec<String>,
+    pub takes: Vec<PageTake>,
+}
+
+/// One `<armada-take>` of a vote.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PageTake {
+    pub id: String,
+    pub title: String,
+}
+
+/// Every vote the page declares, each with the takes between its tag and its close. A vote is not read inside
+/// another.
+pub(crate) fn votes_in(html: &str) -> Vec<PageVote> {
+    let lower = html.to_ascii_lowercase();
+    let mut found = Vec::new();
+    let mut from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "armada-vote", from) {
+        let said = |name: &str| attribute(&html[tag..end], name).map(|value| squeezed(&value)).unwrap_or_default();
+        let close = lower[end..].find("</armada-vote").map_or(lower.len(), |at| end + at);
+        let mut takes = Vec::new();
+        let mut at = end;
+        while let Some((take, after)) = open_tag(&lower[..close], "armada-take", at) {
+            let take_said = |name: &str| attribute(&html[take..after], name).map(|value| squeezed(&value)).unwrap_or_default();
+            takes.push(PageTake { id: take_said("id"), title: take_said("title") });
+            at = after;
+        }
+        let parts = said("parts").split(',').map(str::trim).filter(|part| !part.is_empty()).map(str::to_string).collect();
+        found.push(PageVote { id: said("id"), form: said("form"), question: said("question"), parts, takes });
+        from = close;
+    }
+    found
+}
+
+/// The words of the `<name>` element open around offset `at`, where one is: the last that opens before it and
+/// does not close before it.
+fn row_around(html: &str, lower: &str, name: &str, at: usize) -> Option<String> {
+    let (mut open, mut from) = (None, 0);
+    while let Some((start, after)) = open_tag(&lower[..at], name, from) {
+        open = Some(start);
+        from = after;
+    }
+    let start = open?;
+    if lower[start..at].contains(&format!("</{name}")) {
+        return None;
+    }
+    let end = lower[at..].find(&format!("</{name}")).map_or(lower.len(), |found| at + found);
+    let words = squeezed(&unescaped(&without_tags(&html[start..end])));
+    (!words.is_empty()).then_some(words)
+}
+
 /// Where the next `<name ...>` opens at or after `from`, as `(start of the tag, after its '>')`.
 /// `lower` is the page in lower case, so the offsets are the page's own.
-fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
+pub(super) fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
     let needle = format!("<{name}");
     let mut at = from;
     loop {

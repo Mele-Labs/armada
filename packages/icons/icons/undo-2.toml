@@ -33,3 +33,10 @@
     size = "16px"
     status = "Specified"
     notes = "Specified 5 Nov 2026 on the walk `fleetBuildRevert`, which the owner walked and approved, tooltip `Back to the build of <when>, <commit>`. It takes back the person's own move onto a build, as the steps panel's Bring back takes back his own drop. Never a refresh, which the Refresh preview button above it draws with `rotate-cw`."
+
+  [[icons.undo-2.usage]]
+    means = "Undo on a row of Ruled, on the Operator's page: the question the Operator answered by following him goes back to him; and the Taken back mark on that question in Your turn"
+    group = "Operator"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 13 Nov 2026 for the walk `native-operator-precedent`. Tooltip `Give the question back to you. The Job waits for your answer`. It takes back an answer given in his name, as the steps panel's Bring back takes back his own drop. Never a retry, which is `rotate-cw`."

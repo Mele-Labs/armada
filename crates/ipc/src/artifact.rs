@@ -1,6 +1,8 @@
 //! A Job's sketches, drafts and pages as one record: `get_job_artifacts`.
 //! `crates/ipc/operations/get_job_artifacts.toml` is the contract, `docs/concepts/artifact.md` the rules.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Instant, SessionId};
@@ -36,6 +38,278 @@ pub struct JobArtifact {
     /// What the newest revision is for, and what it links to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_line: Option<ArtifactFor>,
+    /// Every press of a page's action, oldest first. Empty for a sketch, a draft, and a page never pressed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub presses: Vec<PagePress>,
+    /// The newest cast of each vote a page declares, in the order first cast. Empty for every form but a page,
+    /// and for a page never voted on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub votes: Vec<VoteCast>,
+    /// The newest revision he opened. Absent where he opened none. Only moves forward.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seen: Option<u32>,
+}
+
+/// `mark_artifact_seen`: he opened revision `revision` of an artifact. `crates/ipc/operations/mark_artifact_seen.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkArtifactSeen {
+    pub session_id: SessionId,
+    /// The artifact's id, as `JobArtifact::id`.
+    pub artifact: String,
+    /// A kept revision. An older one than `seen` leaves `seen` as it is.
+    pub revision: u32,
+}
+
+/// The answer to `mark_artifact_seen`: the newest revision he has opened, after the mark.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactSeen {
+    pub seen: u32,
+}
+
+/// `press_page_action`: his press of an action a page declares with `<armada-action>`.
+/// `crates/ipc/operations/press_page_action.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PressPageAction {
+    pub session_id: SessionId,
+    /// The page's artifact id: its path.
+    pub artifact: String,
+    /// The kept revision whose action he pressed. The action is read off it, never off the page as it is now.
+    pub revision: u32,
+    /// The action's `id` attribute.
+    pub action: String,
+    /// What he typed with the press.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<String>,
+}
+
+/// One press of a page's action, as Fleet kept it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PagePress {
+    pub revision: u32,
+    /// The action's `id`.
+    pub action: String,
+    /// The row or part it sits on, its `item` attribute. Absent where the page gave none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
+    pub act: PageAct,
+    pub at: Instant,
+    pub did: PressDid,
+}
+
+/// The acts a page may run. **Fleet keeps this list and refuses anything off it**: anything that lands,
+/// merges, deletes or stops goes to the Job as a `message`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageAct {
+    Message,
+    Start,
+    Answer,
+}
+
+impl PageAct {
+    /// The act a page's `act` attribute names, where it is one on the list.
+    pub fn named(word: &str) -> Option<PageAct> {
+        match word.trim().to_ascii_lowercase().as_str() {
+            "message" => Some(PageAct::Message),
+            "start" => Some(PageAct::Start),
+            "answer" => Some(PageAct::Answer),
+            _ => None,
+        }
+    }
+
+    pub fn word(self) -> &'static str {
+        match self {
+            PageAct::Message => "message",
+            PageAct::Start => "start",
+            PageAct::Answer => "answer",
+        }
+    }
+}
+
+/// What a press did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PressDid {
+    /// The Job was sent his press as his message.
+    Sent,
+    /// A Job started, at once, with the action's brief.
+    Started { job: SessionId },
+    /// The Job's ask, by its waiting id, was answered with the action's option.
+    Answered { item: String },
+}
+
+/// `cast_page_vote`: his vote on an `<armada-vote>` a page declares. `crates/ipc/operations/cast_page_vote.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CastPageVote {
+    pub session_id: SessionId,
+    /// The page's artifact id: its path.
+    pub artifact: String,
+    /// The kept revision whose vote he cast. The vote is read off it, never off the page as it is now.
+    pub revision: u32,
+    /// The vote's `id` attribute.
+    pub vote: String,
+    pub result: VoteResult,
+}
+
+/// The forms a vote takes, its `form` attribute.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VoteForm {
+    /// One take picked, with a note on any of the rest.
+    Pick,
+    /// Every take in an order.
+    Rank,
+    /// A keep or a drop on each named part of each take.
+    Score,
+}
+
+impl VoteForm {
+    /// The form a page's `form` attribute names, where it is one.
+    pub fn named(word: &str) -> Option<VoteForm> {
+        match word.trim().to_ascii_lowercase().as_str() {
+            "pick" => Some(VoteForm::Pick),
+            "rank" => Some(VoteForm::Rank),
+            "score" => Some(VoteForm::Score),
+            _ => None,
+        }
+    }
+
+    pub fn word(self) -> &'static str {
+        match self {
+            VoteForm::Pick => "pick",
+            VoteForm::Rank => "rank",
+            VoteForm::Score => "score",
+        }
+    }
+}
+
+/// What he voted, tagged by `form`. `notes` are his words on a take, by the take's id.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "form", rename_all = "snake_case")]
+pub enum VoteResult {
+    /// The take he picked.
+    Pick {
+        take: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+    /// Every take once, first place first.
+    Rank {
+        order: Vec<String>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+    /// A keep or a drop on a take's part. A part left out is no vote.
+    Score {
+        marks: Vec<VoteMark>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+}
+
+impl VoteResult {
+    pub fn form(&self) -> VoteForm {
+        match self {
+            VoteResult::Pick { .. } => VoteForm::Pick,
+            VoteResult::Rank { .. } => VoteForm::Rank,
+            VoteResult::Score { .. } => VoteForm::Score,
+        }
+    }
+
+    pub fn notes(&self) -> &BTreeMap<String, String> {
+        match self {
+            VoteResult::Pick { notes, .. } | VoteResult::Rank { notes, .. } | VoteResult::Score { notes, .. } => notes,
+        }
+    }
+}
+
+/// One keep or drop on one named part of one take.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoteMark {
+    pub take: String,
+    pub part: String,
+    pub keep: bool,
+}
+
+/// One cast of a page's vote, as Fleet kept it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoteCast {
+    pub revision: u32,
+    /// The vote's `id`.
+    pub vote: String,
+    pub form: VoteForm,
+    pub result: VoteResult,
+    pub at: Instant,
+}
+
+/// The `armada` every message between a sealed page and its host carries. It is always `1`, and a message with
+/// another value does not parse: a page and a host that disagree about the messages are not talking.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PageMessages;
+
+impl Serialize for PageMessages {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(1)
+    }
+}
+
+impl<'de> Deserialize<'de> for PageMessages {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        match u8::deserialize(deserializer)? {
+            1 => Ok(PageMessages),
+            other => Err(serde::de::Error::custom(format!("`armada` is {other}, and the only one read is 1"))),
+        }
+    }
+}
+
+/// One message between a sealed page and its host, as it crosses: `armada: 1` beside the message's own `kind` and
+/// fields. **Not a route body, so it has no operation file**: the page posts it to its host, and the host's call
+/// to Fleet is `press_page_action` or `cast_page_vote`. `docs/practices/protocol/a-pages-sealed-serving.md`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageMessage<T> {
+    pub armada: PageMessages,
+    #[serde(flatten)]
+    pub message: T,
+}
+
+impl<T> PageMessage<T> {
+    pub fn new(message: T) -> Self {
+        PageMessage { armada: PageMessages, message }
+    }
+}
+
+/// What the kit's script on a sealed page posts to its host, tagged by `kind`. Cross as `PageMessage<PageToHost>`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PageToHost {
+    /// His press of an action: `press_page_action`'s body without the `session_id`, which the host adds.
+    Press {
+        artifact: String,
+        revision: u32,
+        action: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        words: Option<String>,
+    },
+    /// His vote: `cast_page_vote`'s body without the `session_id`.
+    Vote { artifact: String, revision: u32, vote: String, result: VoteResult },
+}
+
+/// What the host sends back to the sealed page for it to draw, tagged by `kind`: Fleet's answer, or its refusal.
+/// Cross as `PageMessage<HostToPage>`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HostToPage {
+    Pressed { press: PagePress },
+    Voted { cast: VoteCast },
+    /// Fleet's refusal of a press (`action`) or a vote (`vote`), with the error's own `code` and `message`.
+    Refused {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        vote: Option<String>,
+        code: String,
+        message: String,
+    },
 }
 
 /// An artifact the agent or he archived as stale. `archive_artifact`.

@@ -22,7 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::{BuildAct, FleetConnection};
-use crate::job_view::{JobSide, JobView};
+use crate::job_view::JobView;
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -881,12 +881,14 @@ impl JobsList {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
                 let build = fleet.read(cx).held().build.clone();
                 let offers = fleet.read(cx).held().offers.clone();
+                let disk = fleet.read(cx).held().disk.clone();
                 let link = fleet.read(cx).held().link();
                 bar.update(cx, |bar, cx| {
                     bar.set_fleet(&link, cx);
                     bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
                     bar.set_build(build.as_ref(), cx);
                     bar.set_offers(offers.as_ref(), cx);
+                    bar.set_disk(disk.as_ref(), cx);
                 });
             }
             // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
@@ -2561,11 +2563,6 @@ impl Render for DeckHandle {
     }
 }
 
-/// The thread's share of the Job beside its right column, as Electron's inner split draws it (0.62 to
-/// 0.38), and the least a pane needs (`MIN_PANE_W`).
-const SPLIT_ARRIVES: f32 = 0.62;
-const PANE_LEAST: f32 = 160.;
-
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
 /// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
@@ -2573,8 +2570,6 @@ pub struct JobsScreen {
     pub list: Entity<JobsList>,
     /// The open Job, in the middle.
     view: Entity<JobView>,
-    /// The open Job's right column: Open, Done and Deferred over Now.
-    side: Entity<JobSide>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
@@ -2594,15 +2589,6 @@ impl JobsScreen {
     ) -> Self {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
-        let side = cx.new(|cx| JobSide::new(view.clone(), cx));
-        // A zoom or a closed pane changes which halves of the split this screen draws.
-        let shows = std::cell::Cell::new(view.read(cx).split_shows());
-        cx.observe(&view, move |_, view, cx| {
-            if shows.replace(view.read(cx).split_shows()) != shows.get() {
-                cx.notify();
-            }
-        })
-        .detach();
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -2661,6 +2647,13 @@ impl JobsScreen {
                 .detach();
                 return;
             }
+            // The Fleet popover opened: the disk is read again. A walk has no Fleet and reads nothing.
+            if *asked == crate::titlebar::Asked::ReadDisk {
+                if let Some(fleet) = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
+                    fleet.update(cx, |fleet, cx| fleet.read_disk(cx));
+                }
+                return;
+            }
             // The step down's acts, each its own command; Choose settles it, as Electron's does before the model setting.
             if let crate::titlebar::Asked::Remedy(remedy) = asked {
                 let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
@@ -2691,7 +2684,6 @@ impl JobsScreen {
         JobsScreen {
             list,
             view,
-            side,
             left,
             handle: cx.focus_handle(),
             within: cx.focus_handle(), remember, palette }
@@ -2764,6 +2756,10 @@ impl JobsScreen {
         } else if act.is("message_job") {
             // ⌥M from anywhere on the deck puts the caret in the open Job's box.
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
+        } else if self.palette.read(cx).is_open() {
+            cx.propagate();
+        } else if self.view.update(cx, |view, cx| view.pane_act(act, window, cx)) {
+            // A key that arranges the open Job's panes, from wherever on the deck the keys are.
         } else {
             cx.propagate();
         }
@@ -2961,8 +2957,6 @@ impl Render for JobsScreen {
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
         let look = cx.look();
-        // A zoomed pane covers the Job's own area, right of the list (`zoom.ts`); a closed pane gives its room up.
-        let (thread, side) = self.view.read(cx).split_shows();
         div()
             .key_context("deck")
             .track_focus(&self.within)
@@ -2997,38 +2991,8 @@ impl Render for JobsScreen {
                         this.resize(Some(to), window, cx);
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
-                    .child(
-                        // The Job's own split, as Electron's tree draws it: the thread and the right column, 0.62 to 0.38.
-                        div()
-                            .id("job-split")
-                            .h_full()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .when(thread && side, |split| split.gap(look.length(token::GAP_PANEL)))
-                            .child(
-                                // Covered by a zoomed pane of the column, the thread's place keeps no room but stays drawn,
-                                // so the sheets and dialogs the Job view lays over the window still show.
-                                panel(look)
-                                    .min_w_0()
-                                    .overflow_hidden()
-                                    .map(|place| match (thread, side) {
-                                        (true, true) => place.flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)),
-                                        (true, false) => place.flex_1(),
-                                        (false, _) => place.flex_none().w_0().border_0(),
-                                    })
-                                    .child(self.view.clone()),
-                            )
-                            .when(side, |split| {
-                                split.child(
-                                    div()
-                                        .h_full()
-                                        .min_w_0()
-                                        .map(|column| if thread { column.flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)) } else { column.flex_1() })
-                                        .child(self.side.clone()),
-                                )
-                            }),
-                    ),
+                    // The Job's own area: its panes, as the Job's arrangement lays them out (`job_view/place_draw.rs`).
+                    .child(div().id("job-split").h_full().flex_1().min_w_0().child(self.view.clone())),
             )
             // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
             .when(!crate::settings::layout::hidden("dashboard.panels", "merge-line"), |page| page.child(crate::merge_strip::strip(&self.list, window, cx)))

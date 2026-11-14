@@ -318,6 +318,10 @@ where
         self.operator_answered(press).await
     }
 
+    async fn operator_undo_ruling(self: Arc<Self>, undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_ruling_undone(undo).await
+    }
+
     async fn operator_turn_order(self: Arc<Self>, order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         self.operator_turn_ordered(order).await
     }
@@ -599,6 +603,22 @@ where
 
     async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
         self.artifact_edited(edit).await
+    }
+
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        self.page_action_pressed(press).await
+    }
+
+    async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
+        self.page_vote_cast(cast).await
+    }
+
+    async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
+        self.artifact_seen_marked(mark).await
+    }
+
+    async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.artifact_page(id.as_str(), &artifact, revision).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
