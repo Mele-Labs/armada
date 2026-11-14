@@ -703,6 +703,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::cast_page_vote::<D>),
         )
         .route(
+            "/sessions/artifacts/seen",
+            post(crate::hosted_sessions::mark_artifact_seen::<D>),
+        )
+        .route(
             "/sessions/artifacts/page",
             get(crate::hosted_sessions::get_artifact_page::<D>),
         )

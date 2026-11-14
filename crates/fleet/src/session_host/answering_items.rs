@@ -7,8 +7,8 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    AnswerDocument, AnswerItems, AnswerSketch, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemOutcome,
-    ItemSettled, ItemsSettled, SendSessionMessage, SessionId, SketchHow, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
+    AnswerDocument, AnswerItems, AnswerSketch, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemNote,
+    ItemOutcome, ItemSettled, ItemsSettled, SendSessionMessage, SessionId, SketchHow, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
     DOCUMENT_REVISION, SKETCH_DRAWN,
 };
 
@@ -33,9 +33,22 @@ fn approvable(item: &WaitingItem) -> bool {
     }
 }
 
-/// His notes, blanks left out, each on its own numbered line.
-fn numbered(notes: &[String]) -> Vec<String> {
-    notes.iter().map(|note| note.trim()).filter(|note| !note.is_empty()).map(str::to_string).collect()
+/// His notes as a Job reads them, blanks left out. A note on words reads `On "<quote>": <text>`, and one with no
+/// `on`, or a quote blank after trimming, reads as its text alone.
+fn numbered(notes: &[ItemNote]) -> Vec<String> {
+    notes
+        .iter()
+        .filter_map(|note| {
+            let text = note.text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            match note.on.as_ref().map(|on| on.quote.trim()).filter(|quote| !quote.is_empty()) {
+                Some(quote) => Some(format!("On \"{quote}\": {text}")),
+                None => Some(text.to_string()),
+            }
+        })
+        .collect()
 }
 
 fn as_words(notes: &[String]) -> Option<String> {

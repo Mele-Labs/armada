@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemRef, ItemSettled, ProposeDraft, SessionId, SessionRecord, ShowSketch,
+    AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemRef, ItemSettled, ProposeDraft, SessionId, SessionRecord, ShowSketch,
     WaitingSource,
 };
 
@@ -36,7 +36,7 @@ async fn drafted(rig: &Rig, id: &SessionId) -> String {
 }
 
 fn answering(id: &SessionId, item: &str, how: ItemHow, notes: &[&str]) -> ItemAnswer {
-    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| one.to_string()).collect() }
+    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| ItemNote { text: one.to_string(), on: None }).collect() }
 }
 
 async fn answered(rig: &Rig, items: Vec<ItemAnswer>) -> Vec<ItemSettled> {
