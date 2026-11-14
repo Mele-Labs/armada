@@ -1184,3 +1184,81 @@ button.pk-send__title {
 .pk-glyph[data-bucket="draft"] {
   color: var(--status-not-started);
 }
+
+/* Pair: his Macs from the store first, then the pairing link as the other way. */
+.pk-pair {
+  align-content: start;
+  justify-items: stretch;
+}
+.pk-pair .pk-code {
+  justify-self: center;
+}
+.pk-pair .pk-group__head {
+  margin-right: 0;
+  margin-left: 0;
+}
+.pk-macs,
+.pk-with-link {
+  display: grid;
+  gap: var(--space-3);
+}
+.pk-macs__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.pk-macs__head .pk-group__head {
+  flex: 1;
+  margin-bottom: 0;
+}
+.pk-macs .pk-jobs {
+  padding: 0;
+}
+.pk-macs .pk-job__card {
+  align-items: center;
+}
+.pk-macs__wait {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pk-glyph[data-bucket="done"] {
+  color: var(--status-completed-success);
+}
+.pk-glyph[data-bucket="failed"] {
+  color: var(--status-completed-failed);
+}
+/* GitHub's code: the one number on the screen, drawn as the rare hero figure on a card with the waiting lamp. */
+.pk-card {
+  --pk-lamp: var(--status-awaiting-review);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-left: 4px solid var(--pk-lamp);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--pk-lamp) 6%, var(--bg-sunken));
+}
+.pk-card__code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  user-select: all;
+}
+.pk-card__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-card .armada-button {
+  min-height: var(--space-12);
+  text-decoration: none;
+}
+.pk-card .pk-waiting {
+  font-size: var(--text-xs);
+}

@@ -6,11 +6,11 @@ import { LoaderCircle } from "lucide-react";
 import { Button } from "@armada/components";
 
 import { refusal } from "./client";
-import { addMac, macOf, useFleet } from "./fleet";
-import { claim, defaultName, linkOf, linkTrouble, named, waitForConfirm } from "./pairing";
-import { subscribe } from "./push";
+import { macOf, useFleet } from "./fleet";
+import { claim, defaultName, keepPaired, linkOf, linkTrouble, waitForConfirm } from "./pairing";
 import { go } from "./router";
 import { Band, Trouble } from "./ui";
+import { YourMacs } from "./YourMacs";
 
 export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: string }) {
   const fleet = useFleet();
@@ -44,17 +44,10 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
       setPhase("link");
       return;
     }
-    const kept = await named(machine);
-    await addMac(kept);
-    const held = fleet.macs.map((mac) => (mac.machine.origin === kept.origin ? kept : mac.machine));
-    void subscribe(
-      held.some((one) => one.origin === kept.origin)
-        ? held
-        : [
-            ...held,
-            kept,
-          ],
-    ).catch(() => undefined);
+    await keepPaired(
+      machine,
+      fleet.macs.map((mac) => mac.machine),
+    );
     go("/", true);
   };
   const paired = fleet.macs.length > 0;
@@ -70,30 +63,9 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
           : {})}
       />
       <div className="pk-body pk-pair">
-        <div className="pk-code" data-phase={phase} aria-hidden="true">
-          {Array.from(
-            {
-              length: 169,
-            },
-            (_, i) => (
-              <i key={i} data-on={(i * 7 + (i >> 3) * 5) % 3 === 0 || i % 13 === 0} />
-            ),
-          )}
-        </div>
+        <YourMacs name={name} />
         {phase === "link" ? (
           <>
-            {fromUrl === "" && (
-              <input
-                className="pk-line"
-                aria-label="Pairing link"
-                placeholder="Pairing link"
-                value={link}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                onChange={(event) => setLink(event.target.value)}
-              />
-            )}
             <input
               className="pk-line"
               aria-label="Name"
@@ -101,7 +73,32 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
               autoCapitalize="words"
               onChange={(event) => setName(event.target.value)}
             />
-            <Trouble says={trouble || (fromUrl === "" ? linkTrouble(link) : "")} />
+            <section className="pk-group pk-with-link" aria-label="With a pairing link">
+              <h2 className="pk-group__head">With a pairing link</h2>
+              <div className="pk-code" data-phase={phase} aria-hidden="true">
+                {Array.from(
+                  {
+                    length: 169,
+                  },
+                  (_, i) => (
+                    <i key={i} data-on={(i * 7 + (i >> 3) * 5) % 3 === 0 || i % 13 === 0} />
+                  ),
+                )}
+              </div>
+              {fromUrl === "" && (
+                <input
+                  className="pk-line"
+                  aria-label="Pairing link"
+                  placeholder="Pairing link"
+                  value={link}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  onChange={(event) => setLink(event.target.value)}
+                />
+              )}
+              <Trouble says={trouble || (fromUrl === "" ? linkTrouble(link) : "")} />
+            </section>
           </>
         ) : (
           <p className="pk-fact pk-waiting">
@@ -112,7 +109,7 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
       {phase === "link" && (
         <footer className="pk-bar">
           <Button
-            variant="primary"
+            variant={target === undefined ? "secondary" : "primary"}
             className="pk-big"
             disabled={target === undefined || name.trim() === ""}
             onClick={() => void pair()}
