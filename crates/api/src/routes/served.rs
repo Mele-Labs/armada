@@ -742,6 +742,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/waiting/dismiss",
     },
     Route {
+        operation: "answer_items",
+        method: "POST",
+        path: "/sessions/items/answer",
+    },
+    Route {
+        operation: "dismiss_items",
+        method: "POST",
+        path: "/sessions/items/dismiss",
+    },
+    Route {
         operation: "convert_draft_to_document",
         method: "POST",
         path: "/sessions/draft/document",

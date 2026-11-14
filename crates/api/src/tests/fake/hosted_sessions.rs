@@ -21,6 +21,13 @@ fn nothing_hosted() -> Refusal {
     ))
 }
 
+fn not_waiting(items: impl Iterator<Item = (SessionId, String)>) -> ipc::ItemsSettled {
+    let refused = || ipc::ItemSettled::Refused { code: "fleet.items_not_waiting".into(), message: "the fake hosts no sessions".into() };
+    ipc::ItemsSettled {
+        outcomes: items.map(|(session_id, item)| ipc::ItemOutcome { session_id, item, outcome: refused() }).collect(),
+    }
+}
+
 impl HostedSessions for FakeDaemon {
     async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
         self.started.lock().expect("not poisoned").push(start);
@@ -167,6 +174,15 @@ impl HostedSessions for FakeDaemon {
         _dismiss: ipc::DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
         Err(nothing_hosted())
+    }
+
+    /// Holds nothing waiting: every item reads as no longer waiting. Fleet's tests read the settling.
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(answer.items.into_iter().map(|one| (one.session_id, one.item)))
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(dismiss.items.into_iter().map(|one| (one.session_id, one.item)))
     }
 
     async fn convert_draft_to_document(

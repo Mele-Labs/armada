@@ -452,7 +452,20 @@ where
         let plan = self.plan_at(&id, sent.version).await?;
         let said = plan_marks::checked(&plan, &sent.marks, sent.approve)
             .map_err(|why| self.hosted_refusal(PLAN_MARK_REFUSED, &why))?;
-        let approving = sent.approve && plan.approved_at.is_none();
+        self.plan_said(&id, plan, said, sent.approve).await
+    }
+
+    /// His notes on plan `version` as a whole, from `answer_items`: sent as `send_plan_changes` sends its marks, with
+    /// the plan approved where `approve`.
+    pub(crate) async fn plan_noted(self: Arc<Self>, id: &str, version: u32, approve: bool, notes: &[String]) -> Result<SessionRecord, Refusal> {
+        let plan = self.plan_at(id, version).await?;
+        self.plan_said(id, plan, plan_marks::plan_notes(notes), approve).await
+    }
+
+    /// The one message for marks already worded, kept as a `plan_changes` row, and the approval with them.
+    async fn plan_said(self: Arc<Self>, id: &str, plan: KeptPlan, said: Vec<plan_marks::Said>, approve: bool) -> Result<SessionRecord, Refusal> {
+        let id = id.to_string();
+        let approving = approve && plan.approved_at.is_none();
         let asking = match approving {
             true => self.plan_sketches_asking(&id, &plan).await?,
             false => Vec::new(),
