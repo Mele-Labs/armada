@@ -277,7 +277,7 @@ pub static LEARNED_LINKS_STEPS: &[Step] = &[
     step("Shift-Tab twice goes back to Learned from the keys", Verb::Keys(&["shift-tab", "shift-tab"]), "button", "Learned: How work lands"),
     step("Enter on it takes the keys to the setting as a press does", Verb::Key("enter"), "combobox", "How work lands for Armada"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
-    press_on("A Job in Armada: Fleet says in its thread that the work lands as Armada's setting", "button", "Native Bridge foundation", "link", "Change it in Settings, in the project's settings."),
+    press_on("A Job in Armada: Fleet says in its thread that the work lands as Armada's setting", "row", "Native Bridge foundation", "link", "Change it in Settings, in the project's settings."),
     step("The line is quiet, in Fleet's words, and its last sentence is a link", Verb::Hover, "link", "Change it in Settings, in the project's settings."),
     step("Its tooltip", Verb::Later(800), "link", "Change it in Settings, in the project's settings."),
     press_on("A press opens Settings on How work lands for Armada, ringed", "link", "Change it in Settings, in the project's settings.", "combobox", "How work lands for Armada"),

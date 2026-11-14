@@ -51,7 +51,8 @@ impl JobView {
             div()
                 .id(SharedString::from(format!("delivery-link:{id}")))
                 .track_focus(&spot.focus)
-                .flex_none()
+                .max_w_full()
+                .whitespace_normal()
                 .rounded(look.length(token::RADIUS_SM))
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(gpui::transparent_black())
@@ -75,16 +76,24 @@ impl JobView {
             div()
                 .id(SharedString::from(format!("delivery:{id}")))
                 .flex()
-                .flex_wrap()
-                .items_center()
-                .gap_x(look.length(token::SPACE_2))
+                .items_start()
+                .gap(look.length(token::SPACE_2))
                 .min_w_0()
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_MUTED))
-                .child(glyph(look, "git-merge", Size::Small, look.color(token::FG_SUBTLE)))
-                .child(SharedString::from(words.to_string()))
-                .child(link),
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph(look, "git-merge", Size::Small, look.color(token::FG_SUBTLE))))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .flex()
+                        .flex_wrap()
+                        .items_center()
+                        .gap_x(look.length(token::SPACE_2))
+                        .child(div().max_w_full().whitespace_normal().child(SharedString::from(words.to_string())))
+                        .child(link),
+                ),
             Role::Label,
             said.to_string(),
         )
