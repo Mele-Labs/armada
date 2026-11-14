@@ -66,7 +66,7 @@ fn marked(mut record: SessionRecord, state: JobState) -> SessionRecord {
 }
 
 fn arrival(record: &SessionRecord, text: &str, tone: CallTone, kind: CallArrivalKind) -> CallArrival {
-    CallArrival { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| "Job".into()), text: text.into(), tone, kind }
+    CallArrival { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| "Job".into()), text: text.into(), tone, kind, key: None }
 }
 
 /// Seeded on what stands.
@@ -625,6 +625,7 @@ fn a_mac_waiting_to_pair_calls_him_with_its_id_and_digits_once_and_stops_when_ha
         text: why.into(),
         tone: CallTone::Blocked,
         kind: CallArrivalKind::MacPairing,
+        key: Some("mac:0a0b".into()),
     };
     assert_eq!(told.arrived, [arrival]);
 

@@ -26,6 +26,10 @@ pub struct MockFleet {
     pub fail_answer: Option<Failed>,
     /// Why the next Later is refused, where a scene wants the time it names to have passed.
     pub refuse_later: Option<String>,
+    /// The Macs waiting for his Confirm to pair, as Fleet's calls carry them.
+    pub pairings: Vec<ipc::StandingCall>,
+    /// What the Gateway says to the next Confirm or Decline, where a scene wants it refused.
+    pub refuse_pairing: Option<String>,
     /// The week's Log, as Fleet writes it.
     pub log: String,
     /// The ideas Fleet keeps for later, oldest first.
@@ -82,7 +86,7 @@ pub fn day() -> SharedString {
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, pairings: Vec::new(), refuse_pairing: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
