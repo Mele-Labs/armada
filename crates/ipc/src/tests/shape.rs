@@ -35,6 +35,7 @@ fn a_refused_body_names_its_shape_after_serdes_own_words() {
 fn every_agent_body_reads_as_an_object_of_named_fields() {
     let shapes = [
         ("all_done", shape::of::<crate::AllDone>()),
+        ("add_for_you", shape::of::<crate::AddForYou>()),
         ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
         ("call_test_flaky", shape::of::<crate::CallTestFlaky>()),
@@ -46,8 +47,10 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("finish_up", shape::of::<crate::FinishUp>()),
         ("fork_this_session", shape::of::<crate::ForkThisSession>()),
         ("handoff_brief", shape::of::<crate::HandoffBrief>()),
+        ("line_for_you", shape::of::<crate::LineForYou>()),
         ("mark_annotation_done", shape::of::<crate::MarkAnnotationDone>()),
         ("move_session", shape::of::<crate::MoveSession>()),
+        ("order_for_you", shape::of::<crate::OrderForYou>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
         ("report_bug", shape::of::<crate::ReportBug>()),
         ("raise_conflict", shape::of::<crate::RaiseConflict>()),
@@ -71,6 +74,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("weigh_watch", shape::of::<crate::WeighWatch>()),
         ("withdraw_document", shape::of::<crate::WithdrawDocument>()),
         ("withdraw_draft", shape::of::<crate::WithdrawDraft>()),
+        ("withdraw_for_you", shape::of::<crate::WithdrawForYou>()),
         ("withdraw_sketch", shape::of::<crate::WithdrawSketch>()),
         ("withdraw_window", shape::of::<crate::WithdrawWindow>()),
     ];

@@ -1,0 +1,12 @@
+[operations.withdraw_for_you]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take one row off this job's For you, whether Fleet or you added it, by its id from get_for_you. It stays off: Fleet does not list it again. Body: {id, session_id?}"
+notes = """
+`POST /sessions/for_you/withdraw`, body `WithdrawForYou` `{ id, session_id? }`. Answers 200 with the `ForYou` after it, and publishes `session.for_you`.
+
+**It stays gone.** The id is kept withdrawn, so the item it names is left off every later read even while it is still in `waiting_for`. An id that names no row is kept all the same and is not refused. **Only the For you row goes**: the item stays in Needs you, and nothing is sent to the Job.
+
+The Job is placed as `get_for_you`'s is.
+"""

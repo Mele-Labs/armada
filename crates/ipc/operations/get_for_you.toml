@@ -1,0 +1,14 @@
+[operations.get_for_you]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "This job's For you tab as the person sees it: what waits on him in order, the jobs it started that are still live, and its own pull requests still open. Each waiting row has the id that withdraw_for_you, order_for_you and line_for_you take"
+notes = """
+`GET /sessions/for_you?session_id=`, since 14 Nov 2026. Answers 200 with `ForYou` `{ job, waiting[], building[], landing[] }`. `docs/practices/protocol/for-you.md`.
+
+**One Job's own items, never another Job's.** `waiting` is read on every call off the Job's `waiting_for`, less the `done:` item, with what was said on top kept beside it: each `ForYouItem` `{ id, kind, title, line?, placed, since, added_by, opens, approves }`. Placed rows come first in the order `order_for_you` set, then the rest oldest first. `building` is each live Job it started, oldest first, `{ job, title, standing?, line? }`, `line` the step it is on. `landing` is each of its own pull requests still open, `{ pr, title }`.
+
+**Nothing has to be filled in.** A row clears when its item leaves `waiting_for`: his approval or answer, a withdrawn walk or sketch, a document replaced by a revision he has not been asked about, the Job ending. A row `add_for_you` added stays until it is withdrawn or the Job ends.
+
+**The Job is the one the connection places** when Fleet hosts it, else `session_id`; 422 `fleet.session_waiting_unnamed` where neither names one, 404 `fleet.no_such_session` where Fleet holds no such Job. An ended Job answers three empty lists.
+"""

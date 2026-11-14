@@ -1,0 +1,8 @@
+[operations."session.for_you"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's For you moved, and a client holding it reads get_for_you again"
+notes = """
+`ForYouChanged`: `session_id` alone. Published after each `withdraw_for_you`, `order_for_you`, `line_for_you` and `add_for_you`, and when a `session.changed` moves what the Job's view is read from: its waiting items, its own pull requests, or the Jobs it started. A change to a Job it started (its title, state or step) publishes it for that Job's starter. Not published where the view read the same as before. A client that missed one reads `get_for_you` on the resync that follows a `Missed`.
+"""

@@ -1,0 +1,14 @@
+[operations.order_for_you]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Set the order of this job's For you rows you know the sequence of, first to last, by their ids from get_for_you. Every call states the whole order; rows you leave out sit after them, oldest first. Body: {ids: [id], session_id?}"
+notes = """
+`POST /sessions/for_you/order`, body `OrderForYou` `{ ids[], session_id? }`. Answers 200 with the `ForYou` after it, and publishes `session.for_you`.
+
+**Replace-all.** The rows named are `placed`, in this order, and every row placed before and not named is no longer. An empty list places none.
+
+Refused whole with 422 `fleet.for_you_unknown`, naming each id that is not a row on the Job's For you now, and nothing changes.
+
+The Job is placed as `get_for_you`'s is.
+"""

@@ -1,0 +1,14 @@
+[operations.line_for_you]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Put one short line under a row of this job's For you: why it is there or what he decides, such as \"a look only, it already merged\" or \"pick take A or B\". A blank line clears it. Body: {id, line, session_id?}"
+notes = """
+`POST /sessions/for_you/line`, body `LineForYou` `{ id, line, session_id? }`. Answers 200 with the `ForYou` after it, and publishes `session.for_you`.
+
+The line is trimmed. A blank one clears the row's line. It is kept by the row's id, so it stays while the item stays.
+
+Refused with 422 `fleet.for_you_unknown` for an id that is not a row on the Job's For you now.
+
+The Job is placed as `get_for_you`'s is.
+"""

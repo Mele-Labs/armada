@@ -304,6 +304,8 @@ mod autopilot;
 mod autopilot_decisions;
 /// How much of the plan's windows is used.
 mod plan_usage;
+/// One Job's For you tab: what waits on him, what it builds, what lands.
+mod for_you;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
 /// The agents' account signed out, for the whole Fleet.
@@ -834,6 +836,10 @@ pub use model_downshift::{
 pub use agent_sign_in::AgentSignIn;
 pub use plan_usage::{
     PlanUsage, PlanWindow,
+};
+pub use for_you::{
+    AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding, ForYouOpens, LineForYou,
+    OrderForYou, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,

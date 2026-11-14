@@ -193,6 +193,9 @@ pub enum Event {
     // A row held from another Mac went: that Mac left it out of its rows, or was forgotten.
     #[serde(rename = "session.removed")]
     SessionRemoved(SessionRemoved),
+    // A Job's For you moved: read `get_for_you` for it again. `docs/practices/protocol/for-you.md`.
+    #[serde(rename = "session.for_you")]
+    SessionForYou(crate::ForYouChanged),
     // A Job's shell opened or ended, whoever opened or ended it. Its output is
     // `observe_session_run`'s, on the run id these carry.
     #[serde(rename = "terminal.opened")]
