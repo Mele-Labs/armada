@@ -410,7 +410,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             // Its own, drawn after it: a scrolled element's bounds can reach under a bar drawn later.
             let button = drawn[at..]
                 .iter()
-                .find(|one| one.role == gpui::Role::Button && one.name == on && outer.bounds.contains(&one.bounds.center()))
+                .find(|one| matches!(one.role, gpui::Role::Button | gpui::Role::RadioButton) && one.name == on && outer.bounds.contains(&one.bounds.center()))
                 .cloned()
                 .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{within}\"")))?;
             press(MouseButton::Left, aim(&reveal(button, window, cx)), window, cx);
