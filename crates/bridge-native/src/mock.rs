@@ -128,6 +128,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // A plan with a sketch for the whole plan and one for a group, waiting on him beside a question; and the same plan once approved.
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches.json"),
         // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons.json"),
         // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
@@ -417,6 +419,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches-threads.json"),
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),

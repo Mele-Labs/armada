@@ -49,6 +49,7 @@ mod place;
 mod plan;
 mod plan_edit;
 mod plan_marks;
+mod plan_sketches;
 mod pop;
 mod quick;
 mod teach;

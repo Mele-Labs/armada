@@ -37,7 +37,7 @@ fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
 
 /// The card's frame in the spacious take: a quiet fill and a hairline edge, reaching a little past
 /// the words (`--spacious-bleed`).
-fn frame(look: &Look, bleed: bool) -> gpui::Div {
+pub(super) fn frame(look: &Look, bleed: bool) -> gpui::Div {
     div()
         .flex()
         .flex_col()
@@ -242,9 +242,11 @@ impl JobView {
     pub(super) fn sketch(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let key = card.id.clone();
         let optimistic = page.cards.answers.get(&key);
-        let framed = (card.asked && !card.withdrawn) || card.settled.is_some() || optimistic.is_some();
+        // One the waiting plan names is answered by the plan's Approve, so its card asks nothing of its own.
+        let asked = card.asked && !self.sketch_waits_with_plan(&card.sketch, cx);
+        let framed = (asked && !card.withdrawn) || card.settled.is_some() || optimistic.is_some();
         let settled = settled_of(card.settled.as_ref(), optimistic);
-        let open = card.asked && !card.withdrawn && settled.is_none() && !card.replaced;
+        let open = asked && !card.withdrawn && settled.is_none() && !card.replaced;
         let revisions = card.revisions.len();
         let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
@@ -254,7 +256,7 @@ impl JobView {
         let pointed = page.cards.pointed.as_deref() == Some(key.as_str()) || page.cards.focused.as_deref() == Some(key.as_str());
         let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
         let glass = glass(look, card.replaced, scene.clone().map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default())));
-        let press = self.sketch_press(&key, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
+        let press = self.sketch_press(&key, &card.id, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
         let body = frame(look, true)
             .when(pointed, |frame| frame.border_color(look.color(token::ACCENT)))
             .child(press)
@@ -693,10 +695,11 @@ pub(super) fn glass(look: &Look, replaced: bool, scene: Option<AnyElement>) -> A
 
 impl JobView {
     /// The band and the drawing as one press, `Open sketch …`, which plays the steps while the
-    /// pointer or the keys are on it, as Electron's `SketchRow` does.
-    fn sketch_press(&self, key: &str, title: &str, band: AnyElement, glass: AnyElement, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
+    /// pointer or the keys are on it, as Electron's `SketchRow` does. It opens the card `card`.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn sketch_press(&self, key: &str, card: &str, title: &str, band: AnyElement, glass: AnyElement, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
         let spot = page.keys.spot(&format!("sketch-press:{key}"), cx);
-        let (hover_key, open_key, enter_key) = (key.to_string(), key.to_string(), key.to_string());
+        let (hover_key, open_key, enter_key) = (key.to_string(), card.to_string(), card.to_string());
         let was = page.cards.focused.as_deref() == Some(key);
         let (focus, me, focus_key) = (spot.focus.clone(), cx.entity().downgrade(), key.to_string());
         labelled(
