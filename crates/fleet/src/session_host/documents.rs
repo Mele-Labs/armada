@@ -3,7 +3,8 @@
 //! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
 //! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
-//! holds one that will not draw is told. The write is never refused. **A revision is put to the person
+//! holds one that will not draw is told, as is one whose page declares an action that will not run. The
+//! write is never refused. **A revision is put to the person
 //! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
 //! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
 //! kept here and never off the tool call: `document_answers` answers it.
@@ -23,6 +24,7 @@ use store::{Holder, KeptAttachment};
 
 use super::document_answers::is_document;
 use super::artifact_for::with_for;
+use super::page_actions::actions_that_will_not_run;
 use super::document_page::{asks_approval, for_of, sketches_in, title_of};
 use crate::daemon::Fleet;
 use crate::rail_ends;
@@ -100,7 +102,10 @@ where
                 },
             })
             .await;
-        let told = sketches_that_will_not_draw(html, path);
+        let told = match (sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path)) {
+            (Some(sketches), Some(actions)) => Some(format!("{sketches} {actions}")),
+            (sketches, actions) => sketches.or(actions),
+        };
         match (styles.told(told, path), links_dropped(&dropped)) {
             (Some(told), Some(links)) => Some(format!("{told} {links}")),
             (None, Some(links)) => Some(format!("In the page {path}, {}", links.replacen("The", "the", 1))),
