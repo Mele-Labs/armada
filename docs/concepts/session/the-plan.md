@@ -24,8 +24,9 @@ His approval of a plan closes every `plan_approved` gate for the version that as
 Any other fact closes the first open gate of its kind in plan order, and no other: his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
 **A merge closes only the `merged` gate of the group Fleet ties it to** (`crates/fleet/src/gate_merges.rs`, armada-ffus).
 A group handed to a Job of its own is tied to that Job's pull requests, by the `group` on its `started_to` row, followed through a handoff.
-The Job's own pull requests are tied to a group only where the plan has one `merged` group that is not handed on.
-Fleet keeps no file list for a pull request and no branch for an edit, so with several such groups nothing ties a merge to one, and it closes none; the gate then waits on his `Approve` or `Skip this group`.
+The Job's own pull requests are tied to its one `merged` group that is not handed on.
+With several such groups Fleet keeps no file list for a pull request to tell them apart, so a merge is tied by when it came: to a group whose tasks are all done, merged after the first of them was completed.
+A group none of whose tasks was ever completed is tied to no merge, and its gate waits on his `Approve` or `Skip this group`.
 A group closes on its newest tied merge once nothing tied to it is still open and none of its tasks reads pending or in progress, so a group that lands in several pull requests closes on the last.
 A merge from before the group was recorded closes nothing of it; Fleet knows that time for a group the newest version added, and reads the plan's first recording for the rest.
 **A walk shown for a group is that group's part** (owner, 8 Nov 2026).

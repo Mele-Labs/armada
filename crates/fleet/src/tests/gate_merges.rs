@@ -8,7 +8,8 @@ use ipc::{AttachmentReport, PlanGate, PlanGroupInput, SessionFact, SessionId, Se
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use super::session_host::{rig_placing, Rig};
-use super::session_plan::{group, plan, read, recorded, running};
+use super::session_plan::{group, plan, read, recorded, running, task, tasks};
+use ipc::ReportedTaskStatus::{Completed, Pending};
 
 fn gated(id: Option<&str>, title: &str, gate: PlanGate, own_job: bool) -> PlanGroupInput {
     PlanGroupInput { gate, own_job, ..group(id, title, "rust-engineer", &["crates/fleet"], &[(None, &format!("Do {title}"))]) }
@@ -113,4 +114,26 @@ async fn a_group_landing_in_several_pull_requests_closes_on_its_last_merge_not_i
     pull(&rig, &id, "3454", "merged").await;
     assert_eq!(closed_now(&rig, &id).await, ["g1"]);
     assert_eq!(closes(&read(&rig, &id).await)[0].1.as_deref(), Some("Pull request #3454 merged"));
+}
+
+#[tokio::test]
+async fn with_several_groups_of_its_own_a_merge_closes_the_group_whose_work_was_done_before_it() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let groups = [gated(None, "Routine questions", PlanGate::Merged, false), gated(None, "Red main", PlanGate::Merged, false)];
+    recorded(&rig, plan(&id, groups.to_vec())).await;
+
+    tasks(&rig, &id, vec![task("Do Routine questions", Completed), task("Do Red main", Pending)]).await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    pull(&rig, &id, "3442", "merged").await;
+    assert_eq!(closed_now(&rig, &id).await, ["g1"], "Red main has work still open");
+
+    // Its work done after #3442 merged: #3442 is not its pull request.
+    tasks(&rig, &id, vec![task("Do Routine questions", Completed), task("Do Red main", Completed)]).await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    assert!(closed_now(&rig, &id).await.is_empty(), "#3442 merged before Red main's work was done");
+
+    pull(&rig, &id, "3450", "merged").await;
+    assert_eq!(closed_now(&rig, &id).await, ["g2"]);
+    assert_eq!(closes(&read(&rig, &id).await)[1].1.as_deref(), Some("Pull request #3450 merged"));
 }

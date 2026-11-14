@@ -2,9 +2,9 @@
 //!
 //! **A merge closes only a group Fleet can tie it to from what it keeps**: a group handed to a Job of
 //! its own is tied to that Job's pull requests, by the `group` its `started_to` row carries; the Job's
-//! own pull requests are tied to a group only where the plan has one group with a `merged` gate that is
-//! not handed on. Fleet keeps no file list for a pull request and no branch for an edit, so where the
-//! plan has several, nothing ties a merge to one of them and it closes none (armada-ffus).
+//! own pull requests are tied to its one group with a `merged` gate that is not handed on. Where the plan
+//! has several, Fleet keeps no file list for a pull request to tell them apart, so a merge is tied by
+//! when it came: to a group whose tasks are all done, merged after the first of them was completed.
 
 use store::{AttachmentState, Holder, KeptAttachment, KeptPlan, KeptPlanGroup, Store};
 
@@ -49,7 +49,7 @@ pub(crate) fn handed_pulls(store: &Store, held: &[KeptAttachment]) -> Vec<Handed
 pub(crate) fn merges_seen(plan: &KeptPlan, since: &str, held: &[KeptAttachment], handed: &[HandedPull]) -> Vec<Seen> {
     let merged_gate = |group: &&KeptPlanGroup| group.gate.as_deref() == Some(PlanGate::Merged.word());
     let mut own = plan.groups.iter().filter(merged_gate).filter(|group| !group.own_job);
-    let own = match (own.next(), own.next()) {
+    let only = match (own.next(), own.next()) {
         (Some(only), None) => Some(only.id.as_str()),
         _ => None,
     };
@@ -57,10 +57,8 @@ pub(crate) fn merges_seen(plan: &KeptPlan, since: &str, held: &[KeptAttachment],
     for group in plan.groups.iter().filter(merged_gate) {
         let tied: Vec<&KeptAttachment> = if group.own_job {
             handed.iter().filter(|one| one.group == group.id).map(|one| &one.row).collect()
-        } else if own == Some(group.id.as_str()) {
-            held.iter().filter(|one| one.kind == "pr").collect()
         } else {
-            continue;
+            held.iter().filter(|one| one.kind == "pr").collect()
         };
         // A group that lands in several pull requests is not done at the first: another still open, or
         // a task of its own still open, is work on the way. A handed group's tasks are its Job's.
@@ -69,7 +67,14 @@ pub(crate) fn merges_seen(plan: &KeptPlan, since: &str, held: &[KeptAttachment],
         if tasks_open || tied.iter().any(|one| open(one)) {
             continue;
         }
-        let floor = recorded_at(plan, &group.id).unwrap_or(since);
+        let recorded = recorded_at(plan, &group.id).unwrap_or(since);
+        // One of several groups of its own: only a merge after its work was first completed is its.
+        let first_done = group.tasks.iter().filter_map(|task| task.completed_at.as_deref()).min();
+        let floor = match (only == Some(group.id.as_str()) || group.own_job, first_done) {
+            (true, _) => recorded,
+            (false, Some(done)) => done.max(recorded),
+            (false, None) => continue,
+        };
         let newest = tied
             .into_iter()
             .filter(|one| crate::build_record::merged(one) && one.changed_at.as_str() >= floor)
