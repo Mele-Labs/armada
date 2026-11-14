@@ -49,7 +49,29 @@ pub trait PhoneSwitch: Send + Sync + 'static {
         let why = format!("this Mac has no link to Mac {mac}");
         Box::pin(async move { Err(why) })
     }
+
+    /// Open the page Job `job` of paired Mac `mac` serves on its loopback port `port`, at `rest` (its path and
+    /// query, `/` first), as an address on this Mac. A Gateway with no link to it says why.
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> OtherMacPageOpening {
+        let _ = (job, port, rest);
+        let why = format!("this Mac has no link to Mac {mac}");
+        Box::pin(async move { Err(why) })
+    }
 }
+
+/// What opening another Mac's page came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OtherMacPage {
+    /// The page's address on this Mac.
+    Open(String),
+    /// The Mac is asleep, by its name and since when (Unix seconds).
+    Asleep { name: String, since: i64 },
+    /// The other Mac refused, with its status and bytes as it said them.
+    Refused { status: u16, body: Vec<u8> },
+}
+
+/// What [`PhoneSwitch::open_other_mac_page`] answers.
+pub type OtherMacPageOpening = std::pin::Pin<Box<dyn std::future::Future<Output = Result<OtherMacPage, String>> + Send>>;
 
 /// What [`PhoneSwitch::read_other_mac`] answers, once the other Mac has.
 pub type OtherMacRead = std::pin::Pin<Box<dyn std::future::Future<Output = Result<(u16, Vec<u8>), String>> + Send>>;
@@ -93,8 +115,15 @@ where
         Ok(self.phone_switch()?.state())
     }
 
+    /// A Gateway that stops, or starts afresh, holds no claim from another Mac, so none calls him any more.
     pub(crate) fn phone_set(&self, on: bool) -> Result<PhoneGateway, Refusal> {
-        Ok(self.phone_switch()?.set(on))
+        let switch = self.phone_switch()?;
+        let was = switch.state().listening;
+        let state = switch.set(on);
+        if !was || !state.listening {
+            self.calls_claimed(Vec::new());
+        }
+        Ok(state)
     }
 
     pub(crate) fn mac_setup_now(&self) -> Result<MacSetup, Refusal> {

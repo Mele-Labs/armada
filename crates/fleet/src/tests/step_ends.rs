@@ -145,6 +145,7 @@ fn draft(how: Option<DraftHow>) -> SessionRow {
         before: None,
         settled: how.map(|how| DraftSettled { how, words: None, at: at_second(2) }),
         change: None,
+        for_line: None,
     }
 }
 
@@ -211,13 +212,6 @@ fn an_idea_is_picked_by_choosing_an_option_the_question_gave_a_preview() {
     let plain = question("Ship it?", vec![choice("Yes", ""), choice("No", "")]);
     let rows = [ask("c2", vec![plain], SessionAskState::AllowedOnce), answered("c2", &[("Ship it?", "Yes")])];
     assert!(!thread_facts(&rows, None).idea_picked, "a question with no previews offers no ideas");
-}
-
-#[test]
-fn fleets_own_questions_never_count_as_an_idea_picked() {
-    let remind = question(ipc::HANDOFF_REMIND_QUESTION, vec![choice("450k", "450,000 tokens")]);
-    let rows = [ask("c3", vec![remind], SessionAskState::AllowedOnce), answered("c3", &[(ipc::HANDOFF_REMIND_QUESTION, "450k")])];
-    assert!(!thread_facts(&rows, None).idea_picked);
 }
 
 #[test]

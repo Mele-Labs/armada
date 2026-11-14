@@ -2,12 +2,12 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive and a restore publish.
+// which an archive, a restore and his Edit publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
 
-/** Who wrote a revision, always `agent` today, or who archived an artifact. */
+/** Who wrote a revision, `owner` for his Edit, or who archived an artifact. */
 export type ArtifactBy = "agent" | "owner";
 
 /** Who folded an artifact away, and when. Only `restore_artifact` lifts it; a new revision does not. */
@@ -26,6 +26,23 @@ export type ArtifactRef = {
   /** The artifact's `id`. */
   artifact: string;
   session_id?: string;
+};
+
+/**
+ * `POST /sessions/artifacts/edit`: his Edit of a page's or a draft's words, answered with the `JobArtifact` as it now
+ * reads, its newest revision `by` `owner`. The Job is sent each change first. A page's `text` is its whole HTML, the same
+ * elements and attributes in the same order, with words changed only in text, headings, lists and table cells; a
+ * draft's is its markdown. 409 `fleet.edit_not_newest`, naming the newest; 422 `fleet.edit_not_words` for a sketch or
+ * an edit of anything but words, naming the first element that differs; `fleet.edit_settled`, `fleet.edit_archived`,
+ * `fleet.artifact_not_held` and `fleet.session_unnamed`. 500 `fleet.edit_unkept`.
+ */
+export type SaveArtifactEdit = {
+  session_id: string;
+  /** The artifact's `id`: the page's path or `draft:<title>`. */
+  artifact: string;
+  /** The revision he edited, which must be the newest. */
+  revision: number;
+  text: string;
 };
 
 /** Where an artifact's newest revision stands. */
@@ -64,10 +81,98 @@ export type JobArtifact = {
   /** His note on a send back, his words with an approval, or his reason with a draft's dismissal. */
   words?: string;
   /**
-   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`. Absent while an
-   * archive keeps it off his list.
+   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or `plan:<version>`
+   * for a sketch the pending plan names. Absent while an archive keeps it off his list.
    */
   item?: string;
+  /** The plan version a sketch goes with: the pending one naming it, or the one whose Approve settled it. */
+  in_plan?: number;
   /** Set while archived. `state` still reads as it stood. */
   archived?: ArtifactArchived;
+  /** What the newest revision is for, and what it links to. */
+  for_line?: ArtifactFor;
+};
+
+/** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
+export type ArtifactLinkKind = "plan_step" | "task" | "pull_request" | "link";
+
+/** One link on a For line. */
+export type ArtifactLink = {
+  kind: ArtifactLinkKind;
+  label: string;
+  /** A plan group's id, a plan task's id, `#<n>`, or an `http(s)` address. */
+  target: string;
+};
+
+/**
+ * What an artifact is for: the agent's one sentence (at most 200 characters), its links, then the links Fleet knows
+ * (the task in progress, its plan step, each open pull request the Job holds). Kept per revision.
+ */
+export type ArtifactFor = {
+  text?: string;
+  links: ArtifactLink[];
+};
+
+/** A link as the agent gives it to `show_sketch` or `propose_draft`: `http://` or `https://`, at most 5. */
+export type ForLink = {
+  label: string;
+  url: string;
+};
+
+/** His verdict on one item with an Approve. */
+export type ItemHow = "approve" | "send_back";
+
+/**
+ * `POST /sessions/items/answer`: his verdict on several items with an Approve, across Jobs, answered 200 with
+ * `ItemsSettled` even where some are refused. Each settles as its own answer would, in order. `notes` go with that
+ * item's verdict, numbered by Fleet; a `send_back` needs one. 422 only for a body that does not decode.
+ */
+export type AnswerItems = {
+  items: ItemAnswer[];
+};
+
+export type ItemAnswer = {
+  session_id: string;
+  /** The `WaitingItem` id. */
+  item: string;
+  how: ItemHow;
+  notes?: string[];
+};
+
+/**
+ * `POST /sessions/items/dismiss`: several items with an Approve off his list with no verdict, answered as
+ * `AnswerItems` is. Each Job is sent one message, a line per item.
+ */
+export type DismissItems = {
+  items: ItemRef[];
+};
+
+export type ItemRef = {
+  session_id: string;
+  item: string;
+};
+
+/**
+ * How one item ended. Refusal codes: `fleet.items_not_waiting`, `fleet.items_not_approvable`,
+ * `fleet.items_send_back_empty`, `fleet.items_on_another_mac`, or the item's own answer's code.
+ */
+export type ItemSettled =
+  | {
+      kind: "settled";
+    }
+  | {
+      kind: "refused";
+      code: string;
+      message: string;
+    };
+
+export type ItemOutcome = {
+  session_id: string;
+  item: string;
+  outcome: ItemSettled;
+};
+
+/** One outcome per item asked, in the order asked. */
+export type ItemsSettled = {
+  outcomes: ItemOutcome[];
 };

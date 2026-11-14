@@ -80,6 +80,8 @@ Until one is bound a group reads only its label.
 **Recording again replaces the plan as a new version.** Fleet keeps the current version and the diff from the one before: a group or task is matched to the old one by its id, then by its text with case and spacing ignored, and what differs is `added`, `renamed`, `moved` (to another group) or `removed`.
 An id the old version never held is not an id.
 The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps it, and the plan names it.
+**A plan also names sketches already drawn**, by title in `sketches`, on the plan or beside a group.
+While that version is pending they wait with it, and his Approve of it settles them; [Artifact](../artifact.md), *A plan's sketches*.
 
 **A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** Once he has approved a plan, a version recorded after it is not pending unless the agent passed `ask_again: true`: it keeps the earlier `approved_at`, the receipt says it `stands`, and the agent goes on.
 A pending plan is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.

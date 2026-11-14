@@ -5,23 +5,27 @@
 //! it on, and why where there is a why; nothing tells him to go and do something outside Bridge, and nothing asks
 //! him to type. Cloudflare's sign-in page opens only when he presses for it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served};
+use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac};
 
 use super::entries::Body;
+use crate::dropdown::{Dropdown, Entry, Picked};
 use super::gateway::{PhoneClaim, PhoneCode, Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
-use super::view::{bone, card, ghost, mono, ringed, tip};
+use super::view::{bone, bounds_of, card, ghost, mono, ringed, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
 /// The setup is read again this often until the tunnel runs (`RETRY_EVERY`).
 const RETRY: Duration = Duration::from_secs(5);
+
+/// The Macs and phones are read again this often while the page is shown, as a phone's claim is polled.
+const LIST_EVERY: Duration = Duration::from_secs(2);
 
 /// The page's own state: what the Gateway answered, the press out and what it said, and the key of each control.
 pub struct MacsPage {
@@ -38,13 +42,18 @@ pub struct MacsPage {
     /// Where the other Mac's link is pasted.
     paste: Entity<InputState>,
     paste_focus: FocusHandle,
-    /// A pairing act's refusal, said under it, by the act's key: `pair`, `claim`, `confirm:<id>` or `forget:<id>`.
+    /// A pairing act's refusal, said under it, by the act's key: `pair`, `claim`, `confirm:<id>`, `forget:<id>`,
+    /// `update:<id>` or `update-this:<id>`.
     refused: BTreeMap<String, String>,
+    /// The Macs whose Update was pressed and whose row still reads another build: the press says Updating.
+    updating: BTreeSet<String>,
     /// The pairing act out; another waits for its answer.
     out: Option<String>,
     keys: BTreeMap<String, FocusHandle>,
     _poll: Option<Task<()>>,
     _reads: Vec<Task<()>>,
+    /// Reads the list again while Settings is open, so a claim from another Mac draws its Confirm.
+    _list: Option<Task<()>>,
     /// The link's time left, drawn again each second while it is good.
     _tick: Option<Task<()>>,
     _paste: Subscription,
@@ -148,10 +157,12 @@ impl MacsPage {
             paste,
             paste_focus,
             refused: BTreeMap::new(),
+            updating: BTreeSet::new(),
             out: None,
             keys: BTreeMap::new(),
             _poll: None,
             _reads: Vec::new(),
+            _list: None,
             _tick: None,
             _paste: sub,
             lead: None,
@@ -255,13 +266,36 @@ fn time_left(seconds: i64) -> String {
     format!("{}:{:02}", whole / 60, whole % 60)
 }
 
-/// The press a Mac's row carries, by its key's prefix and its words: Confirm on a claim waiting here, Forget on a
-/// paired Mac or one waiting for Confirm there, and none on this Mac.
+/// The press a Mac's row carries, by its key's prefix and its words: Confirm on a claim waiting here, Update on a
+/// Mac on another build, Forget on a paired Mac or one waiting for Confirm there, and none on this Mac.
 fn press_of_mac(mac: &Mac) -> Option<(&'static str, &'static str)> {
     match mac.link.as_ref()? {
         MacLink::ClaimWaiting => Some(("confirm", "Confirm")),
-        MacLink::Linked | MacLink::Asleep { .. } | MacLink::OlderBuild | MacLink::NewerBuild | MacLink::ConfirmWaiting => Some(("forget", "Forget")),
+        MacLink::OlderBuild => Some(("update", "Update")),
+        MacLink::NewerBuild => Some(("update-this", "Update this Mac")),
+        MacLink::Linked | MacLink::Asleep { .. } | MacLink::ConfirmWaiting => Some(("forget", "Forget")),
     }
+}
+
+/// Whether the link is frozen on a build that differs: Update replaces Forget, which moves to the row's menu.
+fn frozen(mac: &Mac) -> bool {
+    matches!(mac.link, Some(MacLink::OlderBuild | MacLink::NewerBuild))
+}
+
+/// What a press on one row is called for VoiceOver and for a walk, and what its tooltip says it does.
+fn press_said(mac: &Mac, said: &str, going: bool) -> (String, Option<String>) {
+    match (&mac.link, going) {
+        (Some(MacLink::OlderBuild), false) => (format!("Update {}", mac.name), Some(format!("Update {} onto this Mac's build", mac.name))),
+        (Some(MacLink::OlderBuild), true) => (format!("Updating {}", mac.name), Some(format!("Updating {} onto this Mac's build", mac.name))),
+        (Some(MacLink::NewerBuild), false) => (format!("Update this Mac onto {}", mac.name), Some(format!("Update this Mac onto {}'s build", mac.name))),
+        (Some(MacLink::NewerBuild), true) => (format!("Updating this Mac onto {}", mac.name), Some(format!("Updating this Mac onto {}'s build", mac.name))),
+        _ => (format!("{said} {}", mac.name), None),
+    }
+}
+
+/// The key that opens a row's menu from the keyboard: Shift+F10, or the menu key.
+fn opens_menu(key: &Keystroke) -> bool {
+    key.key == "menu" || (key.key == "f10" && key.modifiers.shift)
 }
 
 fn age_of(at: i64) -> String {
@@ -322,6 +356,26 @@ impl SettingsOverlay {
         self.macs.asked = true;
         self.read_setup(window, cx);
         self.read_devices(cx);
+        self.watch_list(window, cx);
+    }
+
+    /// `GET /admin/macs` and the phones every two seconds while the page is shown, whatever the tunnel's state: the
+    /// other Mac's claim arrives after the page opened, and its Confirm must be drawn without reopening Settings.
+    fn watch_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.macs._list = Some(cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor().timer(LIST_EVERY).await;
+            let going = this
+                .update(cx, |this, cx| {
+                    if this.macs_shown(cx) {
+                        this.read_devices(cx);
+                    }
+                    this.open
+                })
+                .unwrap_or(false);
+            if !going {
+                break;
+            }
+        }));
     }
 
     fn read_devices(&mut self, cx: &mut Context<Self>) {
@@ -331,6 +385,11 @@ impl SettingsOverlay {
                 let answer = macs.await;
                 let _ = this.update(cx, |this, cx| {
                     this.macs.macs = Some(answer);
+                    // A row that no longer reads another build is done updating.
+                    let page = &mut this.macs;
+                    if let Some(Ok(macs)) = &page.macs {
+                        page.updating.retain(|id| macs.iter().any(|mac| &mac.id == id && frozen(mac)));
+                    }
                     cx.notify();
                 });
             }),
@@ -500,12 +559,68 @@ impl SettingsOverlay {
     /// Enter and Space press the control the keys are on.
     pub(super) fn macs_key(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let mods = &key.modifiers;
+        if opens_menu(key) && !mods.platform && !mods.control && !mods.alt {
+            return self.open_menu_from_keys(window, cx);
+        }
         if mods.platform || mods.control || mods.alt || !matches!(key.key.as_str(), "enter" | "space") {
             return false;
         }
         let Some(name) = self.macs.keys.iter().find(|(_, focus)| focus.is_focused(window)).map(|(name, _)| name.clone()) else { return false };
         self.press_macs(&name, window, cx);
         true
+    }
+
+    /// The Mac whose Update holds the keys, by id.
+    fn update_held(&self, window: &Window) -> Option<String> {
+        self.macs.keys.iter().filter(|(_, focus)| focus.is_focused(window)).find_map(|(name, _)| name.strip_prefix("update-this:").or_else(|| name.strip_prefix("update:")).map(String::from))
+    }
+
+    /// Shift+F10 on a Mac whose link is frozen: its menu opens under its press.
+    fn open_menu_from_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(id) = self.update_held(window) else { return false };
+        let Some(mac) = self.macs.macs.as_ref().and_then(|macs| macs.as_ref().ok()).and_then(|macs| macs.iter().find(|one| one.id == id)).cloned() else { return false };
+        let (name, _) = press_said(&mac, "", self.macs.updating.contains(&id));
+        let at = bounds_of(window, cx, Role::Button, &name).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+        self.open_mac_menu(id, mac.name, at, true, window, cx);
+        true
+    }
+
+    /// Forget stays reachable on a row whose press is Update: a menu of one item, at the pointer or under the press.
+    fn open_mac_menu(&mut self, id: String, name: String, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let back = window.focused(cx);
+        let entries = vec![Entry::Act { id: "forget", label: format!("Forget {name}").into(), icon: None, danger: false }];
+        let menu = cx.new(|cx| Dropdown::new(name, entries, at, gpui::Anchor::TopLeft, from_keys, cx));
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id: pick, .. } = picked;
+            if *pick == "forget" {
+                this.forget_mac(id.clone(), window, cx);
+            }
+        });
+        let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
+            this.popup = None;
+            if let Some(back) = &back {
+                window.focus(back, cx);
+            }
+            cx.notify();
+        });
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.popup = Some((menu, vec![picked, dismissed]));
+        cx.notify();
+    }
+
+    /// An Update that held the keys and is no longer drawn, because its Mac is linked or forgotten, hands them on:
+    /// to the Mac's Forget, or to the list.
+    pub(super) fn macs_settle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.update_held(window) else { return };
+        let drawn = matches!(&self.macs.macs, Some(Ok(macs)) if macs.iter().any(|mac| mac.id == id && frozen(mac)));
+        if drawn {
+            return;
+        }
+        let present = matches!(&self.macs.macs, Some(Ok(macs)) if macs.iter().any(|mac| mac.id == id));
+        let forget = present.then(|| self.macs.keys.get(&format!("forget:{id}"))).flatten();
+        let Some(to) = forget.or_else(|| self.macs.keys.get(AT_REST)).cloned() else { return };
+        window.defer(cx, move |window, cx| window.focus(&to, cx));
     }
 
     fn press_macs(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -560,6 +675,10 @@ impl SettingsOverlay {
                     self.confirm_mac(id.to_string(), window, cx);
                 } else if let Some(id) = name.strip_prefix("forget:") {
                     self.forget_mac(id.to_string(), window, cx);
+                } else if let Some(id) = name.strip_prefix("update-this:") {
+                    self.update_mac(id.to_string(), true, window, cx);
+                } else if let Some(id) = name.strip_prefix("update:") {
+                    self.update_mac(id.to_string(), false, window, cx);
                 }
             }
         }
@@ -823,6 +942,29 @@ impl SettingsOverlay {
                         *row = mac;
                     }
                     this.read_devices(cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// `POST /macs/update` on Fleet: the Mac moves onto this Mac's build, or this Mac onto the Mac's. The press says
+    /// Updating from the press until the list reads the row linked; a refusal is said under the row, in Fleet's words.
+    fn update_mac(&mut self, id: String, this_moves: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let act = format!("{}:{id}", if this_moves { "update-this" } else { "update" });
+        if self.macs.updating.contains(&id) || !self.begin(&act) {
+            return;
+        }
+        self.macs.updating.insert(id.clone());
+        let asked = if this_moves { UpdateMac { like: Some(id.clone()), ..UpdateMac::default() } } else { UpdateMac { mac: Some(id.clone()), ..UpdateMac::default() } };
+        let press = self.wire.update_mac(asked, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                if this.answered(&act, answer).is_none() {
+                    this.macs.updating.remove(&id);
                 }
                 cx.notify();
             });
@@ -1099,7 +1241,7 @@ impl SettingsOverlay {
                     lines.push(alert(look, "macs-tunnel-why", why));
                 }
                 lines.extend(refused);
-                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, "No tunnel yet"), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), first)
+                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, if funnel.is_some() { "No tunnel for your other Macs yet" } else { "No tunnel yet" }), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), first)
             }
         };
         rows.push(row);
@@ -1111,8 +1253,21 @@ impl SettingsOverlay {
         let mut rows: Vec<AnyElement> = Vec::new();
         let mut first = true;
         // Each row, with what its press was refused under it.
-        let mut take = |row: gpui::Div, refused: Option<AnyElement>, rows: &mut Vec<AnyElement>| {
-            let row = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(refused);
+        let mut take = |row: gpui::Div, refused: Option<AnyElement>, frozen: Option<(String, String)>, rows: &mut Vec<AnyElement>| {
+            let row = div().relative().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(refused);
+            // A row on another build has an amber edge, and Forget in a menu a right press or Shift+F10 opens.
+            let row = match frozen {
+                Some((id, name)) => row
+                    .child(div().absolute().top_0().bottom_0().left(-look.length(token::SPACE_3)).w(look.length(token::BORDER_WIDTH) * 3.).bg(look.color(token::STATUS_ESCALATED)))
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.open_mac_menu(id.clone(), name.clone(), event.position, false, window, cx);
+                        }),
+                    ),
+                None => row,
+            };
             rows.push(row.when(!first, |row| row.pt(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE))).pb(look.length(token::SPACE_3)).into_any_element());
             first = false;
         };
@@ -1120,7 +1275,7 @@ impl SettingsOverlay {
         match (&page.macs, &page.phones) {
             (None, _) | (_, None) => {
                 for _ in 0..3 {
-                    take(div().flex().items_center().gap(look.length(token::SPACE_3)).child(bone(look, look.length(token::SPACE_3), look.length(token::SPACE_3))).child(bone(look, look.length(token::SPACE_6) * 5., look.length(token::LEADING_SM))), None, &mut rows);
+                    take(div().flex().items_center().gap(look.length(token::SPACE_3)).child(bone(look, look.length(token::SPACE_3), look.length(token::SPACE_3))).child(bone(look, look.length(token::SPACE_6) * 5., look.length(token::LEADING_SM))), None, None, &mut rows);
                 }
             }
             (Some(macs), Some(phones)) => {
@@ -1133,13 +1288,15 @@ impl SettingsOverlay {
                         glyph(look, SharedString::from(format!("macs-link-{}", mac.id)), name, ink, &said)
                     });
                     let asleep = matches!(mac.link, Some(MacLink::Asleep { .. }));
+                    let differs = frozen(mac);
                     let act = press_of_mac(mac).map(|(act, said)| (format!("{act}:{}", mac.id), said));
-                    let press = act.as_ref().and_then(|(key, said)| self.row_button(key, said, format!("{said} {}", mac.name), matches!(mac.link, Some(MacLink::ConfirmWaiting)), look, window, cx));
+                    let press = act.as_ref().and_then(|(key, said)| if differs { self.update_button(mac, key, said, look, window, cx) } else { self.row_button(key, said, format!("{said} {}", mac.name), matches!(mac.link, Some(MacLink::ConfirmWaiting)), look, window, cx) });
+                    let ink = if differs { token::STATUS_ESCALATED } else { token::FG_MUTED };
                     let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), mac.why.as_deref(), asleep)
-                        .child(div().flex_none().children(mac.build.as_ref().map(|build| build_mark(look, format!("macs-build-{}", mac.id), build))))
+                        .child(div().flex_none().children(mac.build.as_ref().map(|build| build_mark_in(look, format!("macs-build-{}", mac.id), build, look.color(ink)))))
                         .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().children(mark))
                         .child(press_column(look, press));
-                    take(row, act.and_then(|(key, _)| refused_at(&key)), &mut rows);
+                    take(row, act.and_then(|(key, _)| refused_at(&key)), differs.then(|| (mac.id.clone(), mac.name.clone())), &mut rows);
                 }
                 // A press refused on a Mac the list no longer draws is said at its foot.
                 let drawn = |key: &str| macs.iter().flatten().any(|mac| press_of_mac(mac).is_some_and(|(act, _)| key == format!("{act}:{}", mac.id)));
@@ -1157,7 +1314,7 @@ impl SettingsOverlay {
                         .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(seen)))
                         .child(div().flex_none().w(look.length(token::SPACE_6)))
                         .child(press_column(look, unpair));
-                    take(row, None, &mut rows);
+                    take(row, None, None, &mut rows);
                 }
             }
         }
@@ -1274,6 +1431,44 @@ impl SettingsOverlay {
         let key = key.to_string();
         let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
         let button = button.when(withdraws, |button| button.tooltip(tip("Withdraws this pairing")));
+        Some(labelled(button, Role::Button, name).into_any_element())
+    }
+
+    /// Update on a row whose build differs: an amber outline on an amber wash, and while it runs, a muted Updating with
+    /// a turning mark. Its tooltip says which Mac moves onto which build.
+    fn update_button(&self, mac: &Mac, key: &str, said: &str, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let focus = self.macs.keys.get(key)?.clone();
+        let going = self.macs.updating.contains(&mac.id);
+        let off = going || !self.live_gateway();
+        let (name, tip_said) = press_said(mac, said, going);
+        let button = div()
+            .id(SharedString::from(format!("macs-{key}")))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .h(look.length(token::H_CONTROL_SM))
+            .px(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .when(going, |button| button.border_color(look.color(token::BORDER_DEFAULT)).text_color(look.color(token::FG_MUTED)))
+            .when(!going, |button| button.border_color(look.color(token::STATUS_ESCALATED)).bg(look.color(token::STATUS_ESCALATED_BG)).text_color(look.color(if off { token::FG_SUBTLE } else { token::FG_DEFAULT })))
+            .when(!off, |button| button.cursor_pointer())
+            .when(going, |button| {
+                button.child(svg().flex_none().path(icon_path("loader-circle")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)).with_animation(
+                    "macs-updating",
+                    Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
+                    |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
+                ))
+            })
+            .child(SharedString::from(if going { "Updating" } else { said }.to_string()))
+            .when_some(tip_said, |button, said| button.tooltip(tip(said)));
+        let button = ringed(look, button, &focus, window).track_focus(&focus);
+        let key = key.to_string();
+        let button = button.when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
         Some(labelled(button, Role::Button, name).into_any_element())
     }
 
@@ -1404,8 +1599,13 @@ fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
 
 /// A build's short hash, with a tooltip saying what the figure is.
 fn build_mark(look: &Look, id: impl Into<SharedString>, build: &str) -> AnyElement {
+    build_mark_in(look, id, build, look.color(token::FG_MUTED))
+}
+
+/// A build's hash in the ink given: amber on a Mac whose build differs.
+fn build_mark_in(look: &Look, id: impl Into<SharedString>, build: &str, ink: Hsla) -> AnyElement {
     let said = format!("Build {build}");
-    let hash = div().id(id.into()).flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
+    let hash = div().id(id.into()).flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
     labelled(hash, Role::Label, said).into_any_element()
 }
 
@@ -1450,9 +1650,9 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
         )
 }
 
-/// The column every row's press sits in, the same width down the list.
+/// The column every row's press sits in, the same width down the list: wide enough for Update this Mac.
 fn press_column(look: &Look, press: Option<AnyElement>) -> gpui::Div {
-    div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_6)).flex().justify_end().children(press)
+    div().flex_none().w(look.length(token::SPACE_12) * 3.).flex().justify_end().children(press)
 }
 
 #[cfg(test)]
@@ -1475,6 +1675,31 @@ mod tests {
         cx.run_until_parked();
         cx.update(|_, cx| overlay.update(cx, |this, cx| this.macs_keys(cx)));
         (overlay, cx)
+    }
+
+    /// The page on a Gateway whose Mac mini runs an older build and whose Mac Pro runs a newer one.
+    fn opened_differing(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| {
+            let mut fleet = MockFleet::new();
+            fleet.gateway = super::super::gateway::MockGateway::builds_differ();
+            SettingsOverlay::new(Wire::Mock(Box::new(fleet)), window, cx)
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.read_macs(window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| this.macs_keys(cx)));
+        (overlay, cx)
+    }
+
+    fn updates(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<UpdateMac> {
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.gateway.updates.clone(),
+            Wire::Live(_) => Vec::new(),
+        })
     }
 
     fn press(overlay: &Entity<SettingsOverlay>, name: &str, cx: &mut VisualTestContext) {
@@ -1578,6 +1803,67 @@ mod tests {
         assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-air"), "a pairing waiting on Confirm there is withdrawn by the same route");
     }
 
+    #[gpui::test]
+    fn an_older_mac_presses_update_with_its_id_and_a_newer_one_update_this_mac_with_like(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_differing(cx);
+        let presses: Vec<_> = overlay.read_with(cx, |this, _| this.macs.macs.iter().flatten().flatten().map(|mac| press_of_mac(mac)).collect());
+        assert_eq!(presses, [None, Some(("forget", "Forget")), Some(("update", "Update")), Some(("update-this", "Update this Mac"))]);
+
+        press(&overlay, "update:mac-mini", cx);
+        assert_eq!(updates(&overlay, cx), [UpdateMac { mac: Some("mac-mini".into()), ..UpdateMac::default() }]);
+        assert!(overlay.read_with(cx, |this, _| this.macs.updating.contains("mac-mini")), "the press says Updating once it is sent");
+        assert_eq!(refused(&overlay, "update:mac-mini", cx), None);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            this.open = true;
+            this.picked = "bridge:macs";
+        }));
+        for _ in 0..2 {
+            cx.executor().advance_clock(LIST_EVERY);
+            cx.run_until_parked();
+        }
+        assert!(links(&overlay, cx).contains(&("mac-mini".into(), Some(MacLink::Linked))), "the list reads it linked once it is on this Mac's build");
+        assert!(overlay.read_with(cx, |this, _| this.macs.updating.is_empty()), "and the press is done");
+
+        press(&overlay, "update-this:mac-pro", cx);
+        assert_eq!(updates(&overlay, cx).last(), Some(&UpdateMac { like: Some("mac-pro".into()), ..UpdateMac::default() }));
+        assert_eq!(updates(&overlay, cx).len(), 2);
+    }
+
+    #[gpui::test]
+    fn a_refused_update_is_said_under_the_row_in_fleets_words_and_the_press_comes_back(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_differing(cx);
+        let said = "Mac Pro did not answer, so its build is not known. Try again once it is awake.";
+        overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.gateway.refuse_update = Some(said.into());
+            }
+        });
+        press(&overlay, "update-this:mac-pro", cx);
+        assert_eq!(refused(&overlay, "update-this:mac-pro", cx).as_deref(), Some(said));
+        assert!(overlay.read_with(cx, |this, _| this.macs.updating.is_empty()), "a refused press is not Updating");
+        press(&overlay, "update-this:mac-pro", cx);
+        assert_eq!(refused(&overlay, "update-this:mac-pro", cx), None, "a press that goes through clears what was said");
+        assert!(overlay.read_with(cx, |this, _| this.macs.updating.contains("mac-pro")));
+    }
+
+    #[gpui::test]
+    fn forget_on_a_frozen_row_is_one_item_in_a_menu_that_shift_f10_opens(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_differing(cx);
+        let held = overlay.read_with(cx, |this, _| this.macs.keys.get("update-this:mac-pro").cloned()).expect("the press has keys");
+        cx.update(|window, cx| window.focus(&held, cx));
+        let opened = cx.update(|window, cx| overlay.update(cx, |this, cx| this.macs_key(&Keystroke::parse("shift-f10").expect("a key"), window, cx)));
+        assert!(opened, "Shift+F10 on the press is taken");
+        let labels: Vec<String> = overlay.read_with(cx, |this, cx| {
+            let (menu, _) = this.popup.as_ref().expect("the menu is open");
+            menu.read(cx).entries.iter().filter_map(|entry| if let Entry::Act { label, .. } = entry { Some(label.to_string()) } else { None }).collect()
+        });
+        assert_eq!(labels, ["Forget Mac Pro"]);
+        let menu = overlay.read_with(cx, |this, _| this.popup.as_ref().map(|(menu, _)| menu.clone())).expect("the menu is open");
+        menu.update(cx, |_, cx| cx.emit(Picked::Entry { id: "forget", keep: false }));
+        cx.run_until_parked();
+        assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-pro"), "picking it forgets the Mac");
+    }
+
     fn ticks(seconds: u64, cx: &mut VisualTestContext) {
         for _ in 0..seconds {
             cx.executor().advance_clock(TICK);
@@ -1666,6 +1952,30 @@ mod tests {
         press(&overlay, "phone-new", cx);
         assert_eq!(phone_claim(&overlay, cx), Some(None), "Make a new link starts again");
         assert!(overlay.read_with(cx, |this, _| !this.macs.lapsed));
+    }
+
+    #[gpui::test]
+    fn a_claim_from_another_mac_after_the_page_opened_draws_its_confirm(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            this.open = true;
+            this.picked = "bridge:macs";
+        }));
+        assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-office"));
+        cx.update(|_, cx| overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.gateway.macs.push(Mac { id: "mac-office".into(), name: "Office Mac".into(), link: Some(MacLink::ClaimWaiting), ..Default::default() });
+            }
+        }));
+        cx.executor().advance_clock(LIST_EVERY);
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| this.macs_keys(cx)));
+        assert!(links(&overlay, cx).contains(&("mac-office".into(), Some(MacLink::ClaimWaiting))), "the list is read again with the page open");
+        overlay.read_with(cx, |this, _| {
+            let office = this.macs.macs.iter().flatten().flatten().find(|mac| mac.id == "mac-office").expect("listed");
+            assert_eq!(press_of_mac(office), Some(("confirm", "Confirm")));
+            assert!(this.macs.keys.get("confirm:mac-office").is_some_and(|confirm| this.macs_stops().contains(confirm)), "its Confirm is a stop");
+        });
     }
 
     #[test]

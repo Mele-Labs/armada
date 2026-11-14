@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
-    ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
+    OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 
 use super::FakeDaemon;
@@ -76,6 +76,18 @@ impl OtherMacs for FakeDaemon {
         )))
     }
 
+    async fn share_job_page(&self, job: SessionId, _port: u16) -> Result<(), Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_session",
+            format!("No Job Fleet holds is named {}.", job.as_str()),
+            super::shapes::run_id(),
+        )))
+    }
+
+    async fn open_other_mac_page(&self, open: OpenOtherMacPage) -> Result<OtherMacPageOpened, Refusal> {
+        Ok(OtherMacPageOpened { url: open.url })
+    }
+
     async fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> Result<MacNamed, Refusal> {
         Ok(MacNamed { mac: held.mac })
     }
@@ -102,5 +114,9 @@ impl OtherMacs for FakeDaemon {
 
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
+    }
+
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        Ok(claims)
     }
 }

@@ -19,7 +19,7 @@ Each ask is its own item ([A reply that asks](waiting-on-the-person.md)).
 
 **The reply is read off the turn.** For a hosted Job the turn is on its stream: the last thing the agent said before the turn ended.
 For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the close of the last assistant message (its last 1,500 characters, from a line start), when the turn ends; the agent is never asked to.
-Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), so a reply survives a restart.
+Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), with whether the turn put a question card to him, so a reply survives a restart.
 A terminal Job's mod sends that same close, so an ask is read from a terminal reply as from a hosted one; a mod older than 0.3.39 sent only the first line, and its asks are not read.
 The item's text is the sentence that asks.
 It stops standing when the person writes to the Job, when another turn begins by any route and when the Job ends.
@@ -37,7 +37,7 @@ Fleet keeps the same visits (`view_session`, read onto `viewed_at`), and the row
 The owner chose that on 20 Oct 2026: on 300 fresh replies it found 54 of 81 asks where the rules alone found 21, for 20 wrong calls where they made 8 (`docs/spikes/reply-asks-classifier.md`).
 Until the model is loaded, the rules read alone.
 The reading leans toward yes: a wrong call costs a dismiss, and a missed ask leaves a Job waiting unseen.
-The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where a `done` stands, or while a subagent works.
+The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where the turn put a question card to him (the agent's prose before the card and its reply after his answer both close as an ask would), where a `done` stands, or while a subagent works.
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.
 A `done` is an item too: it asks whether to end the Job.
 

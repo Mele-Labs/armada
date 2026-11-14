@@ -51,6 +51,8 @@ impl Typed {
 pub struct Stops {
     pub control: FocusHandle,
     pub slider: FocusHandle,
+    /// The More press of a stepped count; its Fewer press takes `control`.
+    pub more: FocusHandle,
     pub save: FocusHandle,
     pub reset: FocusHandle,
 }
@@ -147,7 +149,7 @@ pub struct SettingsOverlay {
     keys: Option<Subscription>,
     _typing: Vec<Subscription>,
     _read: Option<Task<()>>,
-    _save: Option<Task<()>>,
+    pub(super) _save: Option<Task<()>>,
 }
 
 /// The ids a choice's entries carry in the dropdown: its place among the options.
@@ -320,12 +322,13 @@ impl SettingsOverlay {
     pub fn set_list(&mut self, list: SettingsList, window: &mut Window, cx: &mut Context<Self>) {
         let was = self.list.take();
         for one in &list.settings {
-            if !entries::drawn(one) {
+            if !entries::drawn(one) && !super::limits::holds(one) {
                 continue;
             }
             self.stops.entry(one.key.clone()).or_insert_with(|| Stops {
                 control: cx.focus_handle().tab_stop(true),
                 slider: cx.focus_handle().tab_stop(true),
+                more: cx.focus_handle().tab_stop(true),
                 save: cx.focus_handle().tab_stop(true),
                 reset: cx.focus_handle().tab_stop(true),
             });
@@ -493,7 +496,9 @@ impl SettingsOverlay {
                 // Save and Reset go once the value is in force: the keys go to the setting's own control.
                 let gone = this.stops.get(&key).is_some_and(|stops| stops.save.is_focused(window) || stops.reset.is_focused(window));
                 if gone {
-                    let to = this.typed.get(&key).map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone()));
+                    // A stepped count has a field made for it that is never drawn: its keys go to the press, not to that.
+                    let typed = this.setting(&key).filter(|one| !super::limits::is_stepped(one)).and_then(|_| this.typed.get(&key));
+                    let to = typed.map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone()));
                     if let Some(to) = to {
                         window.focus(&to, cx);
                     }
@@ -613,7 +618,7 @@ impl SettingsOverlay {
 
     /// Read the projects, what every project uses and what the project picked comes to, each off the main
     /// thread. The review model's choices are the models the harness offers, read as Models reads them.
-    fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.read_models(cx);
         let picked = self.scope.project.clone();
         let (projects, every) = (self.wire.projects_now(cx), self.wire.every_values(cx));
@@ -654,6 +659,9 @@ impl SettingsOverlay {
         let name = self.scope.project.as_ref().map_or("Every project".to_string(), |(_, name)| name.clone());
         let at = super::view::bounds_of(window, cx, gpui::Role::ComboBox, &format!("Editing {name}")).map(|bounds| bounds.bottom_left()).unwrap_or_default();
         let back = window.focused(cx);
+        // A project picked changes the page under the keys: the row that had them may be gone, so they go to the picker.
+        let moved = Rc::new(std::cell::Cell::new(false));
+        let was_moved = moved.clone();
         let menu = cx.new(|cx| Dropdown::new("Editing", rows, at, gpui::Anchor::TopLeft, from_keys, cx));
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
@@ -675,13 +683,18 @@ impl SettingsOverlay {
                     Some((one.id.clone(), one.name.clone()))
                 }
             };
+            was_moved.set(this.scope.project != project);
             this.edit(project, window, cx);
         });
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
             this.popup = None;
             // A sheet or a confirm the pick opened has the keys now.
-            if let Some(back) = back.as_ref().filter(|_| this.open && this.scope.deleting.is_none()) {
-                window.focus(back, cx);
+            if this.open && this.scope.deleting.is_none() {
+                match &back {
+                    _ if moved.get() => window.focus(&this.scope.picker, cx),
+                    Some(back) => window.focus(back, cx),
+                    None => {}
+                }
             }
             cx.notify();
         });
@@ -812,6 +825,9 @@ impl SettingsOverlay {
         }
         if let Some(page) = super::mods::page_of(shown.body) {
             return self.mod_stops(page, cx);
+        }
+        if let (Body::Schema(["limits"]), Some(list)) = (shown.body, &self.list) {
+            return super::limits::stops(self, list, cx);
         }
         stops.push(self.file_stop.clone());
         let Some(list) = &self.list else { return stops };

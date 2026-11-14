@@ -64,6 +64,8 @@ pub struct KeptPlanGroup {
     /// The last edit seen under one of the paths.
     pub worked_at: Option<String>,
     pub tasks: Vec<KeptPlanTask>,
+    /// The titles of the sketches shown beside the group, as the agent named them.
+    pub sketches: Vec<String>,
 }
 
 /// One difference from the version before. `kind` is `added`, `renamed`, `moved` or `removed`:
@@ -92,6 +94,8 @@ pub struct KeptPlan {
     pub set_aside_at: Option<String>,
     /// The ledger target and the title of the sketch drawn with it.
     pub sketch: Option<(String, String)>,
+    /// The titles of the sketches drawn with `show_sketch` the plan names as a whole. Each group's are on it.
+    pub sketches: Vec<String>,
     /// The page the plan depends on: its call waits until the person approves that walk.
     pub walk: Option<String>,
     /// The agent's word that the person would see the change, so a walk follows approval. It holds nothing.
@@ -118,6 +122,11 @@ pub struct KeptTouch {
     pub at: String,
 }
 
+/// A column of one entry a line, as `sketches` is kept.
+fn lines(kept: String) -> Vec<String> {
+    kept.lines().map(str::to_string).collect()
+}
+
 fn reading(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("reading a job's plan")(why))
 }
@@ -132,7 +141,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version, sketches
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -143,6 +152,7 @@ impl Store {
                         recorded_at: row.get(1)?,
                         approved_at: row.get(2)?,
                         sketch: sketch.zip(title),
+                        sketches: lines(row.get(14)?),
                         changes: (row.get::<_, i64>(5)? == 1).then(Vec::new),
                         next_group: row.get(6)?,
                         next_task: row.get(7)?,
@@ -164,7 +174,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate, sketches FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -187,6 +197,7 @@ impl Store {
                     // A group kept before keys has its number in `issue` alone.
                     issue: row.get::<_, Option<String>>(6)?.or(row.get::<_, Option<i64>>(5)?.map(|number| number.to_string())),
                     tasks: Vec::new(),
+                    sketches: lines(row.get(12)?),
                 })
             })
             .map_err(reading)?
@@ -275,8 +286,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version, sketches)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 session_id,
                 plan.version,
@@ -293,14 +304,15 @@ impl Store {
                 plan.calls,
                 plan.seen,
                 plan.asked_version,
+                plan.sketches.join("\n"),
             ],
         )
         .map_err(keeping)?;
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_plan_groups
-                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate, sketches)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                 params![
                     session_id,
                     at as i64,
@@ -317,6 +329,7 @@ impl Store {
                     group.own_job,
                     group.seen,
                     group.gate,
+                    group.sketches.join("\n"),
                 ],
             )
             .map_err(keeping)?;

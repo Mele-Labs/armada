@@ -481,6 +481,39 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// His verdict on several items that ask for his approval. 200 with one outcome per item, even where some are refused;
+/// 422 for a body that does not decode. **An item whose Job another Mac holds is refused here**, not sent on.
+pub(crate) async fn answer_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerItems = match ipc::decode_body("verdicts on waiting items", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().answer_items(said, elsewhere).await, served.run_id())
+}
+
+/// Several items that ask for his approval, off his list with no verdict. 200 and 422 as for [`answer_items`].
+pub(crate) async fn dismiss_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::DismissItems = match ipc::decode_body("waiting items to pass on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().dismiss_items(said, elsewhere).await, served.run_id())
+}
+
+/// Per item, the refusal for a Job another of his Macs holds: a batch is not sent on in pieces.
+async fn held_elsewhere<'a, D: OtherMacs>(served: &Served<D>, jobs: impl Iterator<Item = &'a str>) -> Vec<Option<ipc::ItemSettled>> {
+    let mut refused = Vec::new();
+    for job in jobs {
+        refused.push(served.daemon().mac_holding_job(job).await.map(|mac| ipc::ItemSettled::Refused {
+            code: String::from("fleet.items_on_another_mac"),
+            message: format!("the Job is held on {mac}: answer it there"),
+        }));
+    }
+    refused
+}
+
 /// The person did what an agent's item asked of him. 200 with the row; 409 where nothing holds the item, 422 for an item the
 /// agent did not state.
 pub(crate) async fn done_waiting<D: HostedSessions>(
@@ -875,6 +908,19 @@ pub(crate) async fn restore_artifact<D: HostedSessions>(State(served): State<Ser
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().restore_artifact(crate::acting::asking(), restore).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His Edit of a page's or a draft's words. 200 with the artifact; 409 for a revision not the newest; 422 for a sketch,
+/// an edit that is not words alone, or an artifact archived, settled or not held.
+pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let edit: ipc::SaveArtifactEdit = match ipc::decode_body("an edit to save", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().save_artifact_edit(edit).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),
     }

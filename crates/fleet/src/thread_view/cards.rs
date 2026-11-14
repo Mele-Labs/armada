@@ -38,6 +38,7 @@ pub(super) fn sketch_card_of(id: &str, at: &Instant, text: &str, ledger: &[Attac
         withdrawn: false,
         settled: None,
         revisions: Vec::new(),
+        for_line: None,
     }))
 }
 
@@ -111,6 +112,7 @@ pub(super) fn with_sketch_state(entries: &mut [Entry<'_>], ledger: &[Attachment]
                 held.detail.get("withdrawn").is_some_and(|withdrawn| withdrawn == "true"),
                 settled_of(&held.detail),
                 revisions_of(held, revisions),
+                ipc::ArtifactFor::of_detail(&held.detail),
             )
         });
         states.push((*at, earlier, !latest, answer));
@@ -119,8 +121,8 @@ pub(super) fn with_sketch_state(entries: &mut [Entry<'_>], ledger: &[Attachment]
         let Piece::Card(ThreadItem::Sketch(card)) = &mut entries[at].piece else { continue };
         card.against_drawing = earlier;
         card.replaced = replaced;
-        if let Some((asked, withdrawn, settled, kept)) = answer {
-            (card.asked, card.withdrawn, card.settled, card.revisions) = (asked, withdrawn, settled, kept);
+        if let Some((asked, withdrawn, settled, kept, for_line)) = answer {
+            (card.asked, card.withdrawn, card.settled, card.revisions, card.for_line) = (asked, withdrawn, settled, kept, for_line);
         }
     }
 }
@@ -174,6 +176,7 @@ pub(super) fn document_card_of(one: &Attachment) -> Option<ThreadDocument> {
         revision,
         asked: given.is_some() && detail.get("asked").is_some_and(|asked| asked == "true"),
         settled,
+        for_line: ipc::ArtifactFor::of_detail(detail),
     })
 }
 

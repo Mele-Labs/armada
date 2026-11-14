@@ -12,7 +12,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{ActAnswered, ActBegun, ActTurn, OtherMacs, Refusal, Sessions};
 use ipc::{
-    BugReport, BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects,
+    BugReport, BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacPageOpened, OtherMacEvent, OtherMacProjects,
     OtherMacSessions, ProjectActFromMac, QueuedList, SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, TakeBack, WireError,
 };
 use serde::Serialize;
@@ -292,6 +292,14 @@ where
         self.job_thread_served(read).await
     }
 
+    async fn share_job_page(&self, job: SessionId, port: u16) -> Result<(), Refusal> {
+        self.job_page_shared(job, port).await
+    }
+
+    async fn open_other_mac_page(&self, open: OpenOtherMacPage) -> Result<OtherMacPageOpened, Refusal> {
+        self.other_mac_page_opened(open).await
+    }
+
     async fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         let before = self.sessions_held_from(&mac).await?;
@@ -392,5 +400,10 @@ where
         self.every_bug_report_relayed().await?;
         self.projects_relayed().await?;
         Ok(MacNamed { mac })
+    }
+
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        self.calls_claimed(claims.claims.clone());
+        Ok(claims)
     }
 }

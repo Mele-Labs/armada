@@ -19,8 +19,10 @@ const TWO: &str = "http://localhost:5173/two";
 
 fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
     RecordPlan {
+        sketches: Vec::new(),
         summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
+            sketches: Vec::new(),
             id: None,
             title: "Store".into(),
             agent: "rust-engineer".into(),

@@ -524,6 +524,16 @@ impl Wire {
         }
     }
 
+    /// `POST /macs/update` on Fleet's socket, which the Gateway does not carry: 202 says the restart has begun.
+    pub fn update_mac(&mut self, asked: ipc::UpdateMac, cx: &App) -> Task<Result<ipc::FleetBuildChanging, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.gateway.update(&asked));
+        }
+        let said = body(&asked);
+        let sent = self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/macs/update".into(), said), "FleetBuildChanging", cx));
+        cx.background_spawn(async move { sent.await.map_err(|refused| refused.said) })
+    }
+
     pub fn gateway_phones(&mut self, cx: &App) -> Task<Result<Vec<ipc::PairedPhone>, String>> {
         match self {
             Wire::Mock(mock) => Task::ready(if mock.gateway.running { Ok(mock.gateway.phones.clone()) } else { Err(super::gateway::NOT_RUNNING.into()) }),
@@ -639,6 +649,16 @@ impl Wire {
         }
         let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(project));
         let said = body(&EditProject { shared_with_macs: Some(on), ..EditProject::default() });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+    }
+
+    /// `POST /projects/project/:id/workflow`: one workflow switched on or off for the project.
+    pub fn set_project_workflow(&mut self, project: &str, workflow: &str, on: bool, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_project_workflow(project, workflow, on));
+        }
+        let path = format!("/projects/project/{}/workflow", crate::link::percent_encoded(project));
+        let said = body(&ipc::SetProjectWorkflow { workflow: workflow.to_string(), on });
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 

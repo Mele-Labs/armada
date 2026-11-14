@@ -177,6 +177,8 @@ pub(crate) fn sketch_call(operation: &str, call: &Arguments) -> Option<String> {
         scene: fields.scene.clone()?,
         session_id: None,
         against: said(&fields.against),
+        for_line: None,
+        links: Vec::new(),
     };
     ipc::encode(&show).ok()
 }

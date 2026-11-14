@@ -44,6 +44,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("dispute_fleet", shape::of::<crate::DisputeFleet>()),
         ("finish_up", shape::of::<crate::FinishUp>()),
         ("fork_this_session", shape::of::<crate::ForkThisSession>()),
+        ("handoff_brief", shape::of::<crate::HandoffBrief>()),
         ("mark_annotation_done", shape::of::<crate::MarkAnnotationDone>()),
         ("move_session", shape::of::<crate::MoveSession>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),

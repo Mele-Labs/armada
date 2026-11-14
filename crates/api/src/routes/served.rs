@@ -527,6 +527,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_draft",
     },
     Route {
+        operation: "handoff_brief",
+        method: "POST",
+        path: "/sessions/handoff_brief",
+    },
+    Route {
         operation: "answer_sketch",
         method: "POST",
         path: "/sessions/sketch/answer",
@@ -735,6 +740,16 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "answer_items",
+        method: "POST",
+        path: "/sessions/items/answer",
+    },
+    Route {
+        operation: "dismiss_items",
+        method: "POST",
+        path: "/sessions/items/dismiss",
     },
     Route {
         operation: "convert_draft_to_document",

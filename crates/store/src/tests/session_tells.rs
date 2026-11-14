@@ -13,10 +13,10 @@ fn only_the_first_reply_after_a_tell_is_marked_on_it() {
     let mut store = open(&dir);
     store.keep_tell("s1", "context", SENT).unwrap();
     // A reply from before the tell is no answer to it.
-    store.keep_turn_end("s1", "2026-10-20T09:59:00.000Z", "Earlier.").unwrap();
+    store.keep_turn_end("s1", "2026-10-20T09:59:00.000Z", "Earlier.", false).unwrap();
     assert_eq!(store.tell_of("s1").unwrap().unwrap().first_end, None);
-    store.keep_turn_end("s1", FIRST, "No.").unwrap();
-    store.keep_turn_end("s1", SECOND, "Done.").unwrap();
+    store.keep_turn_end("s1", FIRST, "No.", false).unwrap();
+    store.keep_turn_end("s1", SECOND, "Done.", false).unwrap();
     drop(store);
 
     let store = open(&dir);
@@ -30,10 +30,10 @@ fn a_tell_sent_again_replaces_the_last_and_waits_for_its_own_reply() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store.keep_tell("s1", "context", SENT).unwrap();
-    store.keep_turn_end("s1", FIRST, "No.").unwrap();
+    store.keep_turn_end("s1", FIRST, "No.", false).unwrap();
     store.keep_tell("s1", "subagents", "2026-10-20T10:03:00.000Z").unwrap();
     assert_eq!(store.tell_of("s1").unwrap().unwrap().first_end, None);
-    store.keep_turn_end("s1", SECOND, "Fine.").unwrap();
+    store.keep_turn_end("s1", SECOND, "Fine.", false).unwrap();
     let kept = store.tell_of("s1").unwrap().unwrap();
     assert_eq!((kept.kind.as_str(), kept.first_end.as_deref()), ("subagents", Some(SECOND)));
 }

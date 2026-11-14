@@ -680,6 +680,12 @@ pub struct ProposeDraft {
     /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// What the draft is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the
@@ -689,6 +695,17 @@ pub struct WithdrawDraft {
     /// The id `propose_draft`'s receipt gave, `draft:<row id>`. The bare row id reads the same.
     pub draft: String,
     /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// `handoff_brief`: a Job the Context rule told it is past its limit sends its brief, and Fleet raises
+/// the handoff card for the person. **Refused unless Fleet asked this Job for one.**
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandoffBrief {
+    /// Where the work is, what is open, what the Job holds. The new Job starts from it.
+    pub brief: String,
+    /// Which Job sends it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
 }
@@ -745,6 +762,9 @@ pub enum WaitingSource {
     /// Fleet: a draft the session proposed with `propose_draft` waits on the person. Read off its
     /// row as `draft:<row>`; settled by `answer_waiting`.
     Draft,
+    /// Fleet: the handoff card a Job's `handoff_brief` raised is not answered. Read off its `handoff`
+    /// row as `handoff:<row>`; settled by `answer_waiting` with a `choice`, and Dismiss is Stay.
+    Handoff,
     /// Fleet: a sketch the session showed with `show_sketch` is not answered. Derived on every read off
     /// the sketch, never kept: id the sketch's target `sketch:<title>`, text its title, a `message` act
     /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it
