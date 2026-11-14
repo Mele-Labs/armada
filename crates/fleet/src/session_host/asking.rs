@@ -248,7 +248,12 @@ where
             state,
             via,
         };
-        self.hosts().of(id).state().asked = Some(waiting.clone());
+        {
+            let host = self.hosts().of(id);
+            let mut state = host.state();
+            state.asked = Some(waiting.clone());
+            state.carded |= !asking.questions().is_empty();
+        }
         self.row_put(id, put(SessionAskState::Waiting, None)).await;
         let _ = self.published_hosted(&session.id).await;
         // The person is about to answer without opening the Job: bring its summary up to date.
@@ -457,7 +462,12 @@ where
             .keep_terminal_ask(id, &kept)
             .map_err(|why| self.ledger_fault(why))?;
         self.hosts().terminals().polled(&waiting.call);
-        self.hosts().of(id).state().asked = Some(waiting.clone());
+        {
+            let host = self.hosts().of(id);
+            let mut state = host.state();
+            state.asked = Some(waiting.clone());
+            state.carded |= question;
+        }
         // A question is a card in the thread. A permission is answered on its call and in Needs you.
         if question {
             self.row_put(id, self.ask_row(id, &waiting, SessionAskState::Waiting, None))

@@ -41,7 +41,8 @@
 //!
 //! **A reply is a wait only where it asks.** The turn ending on a message that only reports makes the
 //! Session read as `replied` (an unread mark under Idle) and raises no item. One whose close asks him
-//! something raises `replied:<turn ended at>`, unless the agent already asked through a tool; dismissing
+//! something raises `replied:<turn ended at>`, unless the agent already asked through a tool, a question
+//! card put to him in the same turn included; dismissing
 //! it tells the agent nothing. A done raises an item too, and stays.
 
 use std::sync::Arc;
@@ -131,6 +132,8 @@ pub(crate) struct WaitingReads {
     pub(crate) so_far: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
+    /// That turn put a question card to him, which was its ask.
+    carded: bool,
     /// The last Fleet tell it was sent whose refusal is read.
     tell: Option<store::KeptTell>,
     /// The version, recording time and walk of the plan the person has not approved, and the sketch titles
@@ -208,6 +211,7 @@ pub(crate) fn waiting_reads(
         done_summary: store.done_summary(&session.id)?,
         so_far: store.so_far(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
+        carded: store.turn_end_carded(&session.id)?,
         tell: store.tell_of(&session.id)?,
         plan: store
             .session_plan(&session.id)?
@@ -519,7 +523,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -629,6 +633,10 @@ where
         };
         // Each sentence of the close, the same way: nothing until the model has read the reply.
         let extracted = |said: &str| {
+            // A turn that put a question card to him asked through it: what it said around the card asks nothing more.
+            if carded {
+                return None;
+            }
             let model = self.language_model().model()?;
             let read = self.extract_reads().read_of(super::extracting::read, model, &session.id, said)?;
             Some(if windows.is_empty() { read } else { read.beside_a_walk() })
@@ -645,6 +653,9 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| {
+                if carded {
+                    return None;
+                }
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
                 // A walk already waiting on him asked for his approval; a line that only says what follows it asks nothing more.
                 line.filter(|line| windows.is_empty() || !super::asks::only_approving(line))
@@ -1033,10 +1044,10 @@ where
     /// A turn ended at `at`, on `said` where the agent said something to the person: its end is kept, so
     /// the Session reads as having replied, and as asking where the close asks. A turn that ended on tools alone leaves what stood as it was: the turn that
     /// began it already forgot the reply before.
-    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
+    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>, carded: bool) {
         let tail = said.map(super::standing::tail).filter(|tail| !tail.is_empty());
         if let Some(tail) = tail {
-            let _ = self.store().lock().await.keep_turn_end(id, at, &tail);
+            let _ = self.store().lock().await.keep_turn_end(id, at, &tail, carded);
         }
     }
 

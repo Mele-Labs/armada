@@ -19,9 +19,10 @@ use ipc::{
 };
 use resvg::{tiny_skia, usvg};
 
+use super::arrows::{self, Pattern};
 use super::geometry::{Pt, Rect};
-use super::route::Seg;
-use super::{along, ground, hue, laid, part_label, shaped, shaped_padding, sheet_top, tint, trees, Laid, Measure, Way, BORDER, DASH, ICON, LEAD, PAD_X, PAD_Y, RADIUS};
+use super::route::{self, Seg};
+use super::{along, ground, hue, laid, part_label, shaped, shaped_padding, sheet_top, tint, trees, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, ICON, LEAD, PAD_X, PAD_Y, RADIUS};
 use crate::look::{token, Look, Token};
 
 /// What the toast names after a copy (`MERMAID_COPIED`).
@@ -203,6 +204,35 @@ impl<'a> Flow<'a> {
     }
 }
 
+/// The link between two Mermaid ids: `-->`, `---`, `<-->`, and the same dotted as `-.->`, with the arrow's words
+/// between the halves as `-- "words" -->`. Mermaid has no per-arrow path, so an elbow, a straight run and a curve
+/// are one link.
+fn mermaid_link(pattern: Pattern, both: bool, headed: bool, said: Option<&str>) -> String {
+    let solid = pattern == Pattern::Solid;
+    let open = if solid { "--" } else { "-." };
+    let head = if both { "<" } else { "" };
+    match said {
+        Some(text) => {
+            let close = match (solid, headed) {
+                (true, true) => "-->",
+                (true, false) => "---",
+                (false, true) => ".->",
+                (false, false) => ".-",
+            };
+            format!("{head}{open} {} {close}", quoted(text))
+        }
+        None => {
+            let close = match (solid, headed) {
+                (true, true) => ">",
+                (true, false) => "-",
+                (false, true) => "->",
+                (false, false) => "-",
+            };
+            format!("{head}{open}{close}")
+        }
+    }
+}
+
 /// Mermaid lays the boxes out itself, so where they sit and the order they play in are not carried; what is: each
 /// box's words, each arrow and its words, and every group or lane that holds a box, as a `subgraph`. Each colour is
 /// the theme's value now, since Mermaid draws in values and not in tokens.
@@ -234,13 +264,20 @@ pub(crate) fn mermaid(scene: &Scene, look: &Look) -> String {
     for edge in &scene.edges {
         let (Some(from), Some(to)) = (flow.ids.get(edge.from.as_str()), flow.ids.get(edge.to.as_str())) else { continue };
         let said = edge.label.as_deref().map(str::trim).filter(|label| !label.is_empty()).map(mermaid_text);
-        let line = match said {
-            Some(text) => format!("  {from} -- {} --> {to}", quoted(&text)),
-            None => format!("  {from} --> {to}"),
-        };
-        flow.lines.push(line);
+        let (pattern, (start, end)) = (arrows::pattern(edge), arrows::heads(edge));
+        // Mermaid has no arrow with a head only at its start, so that arrow is written from the other end.
+        let (from, to) = if start && !end { (to, from) } else { (from, to) };
+        flow.lines.push(format!("  {from} {} {to}", mermaid_link(pattern, start && end, start || end, said.as_deref())));
+        let mut styles: Vec<String> = Vec::new();
         if let Some(value) = hued(edge.color) {
-            links.push(format!("  linkStyle {written} stroke:{value}"));
+            styles.push(format!("stroke:{value}"));
+        }
+        // Mermaid's dotted link is its one broken line, so a dashed arrow is that with longer dashes.
+        if pattern == Pattern::Dashed {
+            styles.push(format!("stroke-dasharray:{} {}", n(DASH), n(DASH)));
+        }
+        if !styles.is_empty() {
+            links.push(format!("  linkStyle {written} {}", styles.join(",")));
         }
         written += 1;
     }
@@ -666,6 +703,8 @@ fn path_text(path: &[Seg]) -> String {
             Seg::Move(p) => format!("M{} {}", n(p.x), n(p.y)),
             Seg::Line(p) => format!("L{} {}", n(p.x), n(p.y)),
             Seg::Quad(c, p) => format!("Q{} {} {} {}", n(c.x), n(c.y), n(p.x), n(p.y)),
+            Seg::Cubic(a, b, p) => format!("C{} {} {} {} {} {}", n(a.x), n(a.y), n(b.x), n(b.y), n(p.x), n(p.y)),
+            Seg::Arc(p, r, sweep) => format!("A{} {} 0 0 {} {} {}", n(r), n(r), u8::from(sweep), n(p.x), n(p.y)),
         })
         .collect::<Vec<_>>()
         .join("")
@@ -693,6 +732,21 @@ fn ink_path(points: &[Pt]) -> String {
 
 fn dashed() -> String {
     format!(r#" stroke-dasharray="{} {}""#, n(DASH), n(DASH))
+}
+
+/// The dashes or dots of an arrow's line, as the attributes that draw them; a solid line has none.
+fn line_dashes(pattern: Pattern) -> String {
+    match pattern {
+        Pattern::Solid => String::new(),
+        Pattern::Dashed => format!(r#" stroke-dasharray="{} {}""#, n(DASH), n(DASH)),
+        Pattern::Dotted => format!(r#" stroke-dasharray="{} {}" stroke-linecap="round""#, n(DOT), n(DOT_PERIOD - DOT)),
+    }
+}
+
+/// An arrowhead as a polygon with its tip at `at`, pointing away from `from`.
+fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
+    let Some([tip, left, right]) = route::head_triangle(at, from, HEAD, HEAD / 2.) else { return String::new() };
+    format!(r#"<polygon class="sk-edge__head" points="{},{} {},{} {},{}" fill="{fill}"/>"#, n(tip.x), n(tip.y), n(left.x), n(left.y), n(right.x), n(right.y))
 }
 
 /// `--text-base`: what a frame's name is set in where it has no node of its own to say.
@@ -985,7 +1039,22 @@ fn draw_wire(kit: &Kit, node: &SceneNode, w: f32, h: f32, out: &mut String) {
     }
 }
 
-/// One arrow: its way in its hue, dashed where it is a flow, a filled head at its end, and its words on a sunken backing.
+/// An arrow's line and its heads: the way as a path, solid, dashed or dotted by its words, and a head at each end that carries one.
+fn edge_line_svg(edge: &SceneEdge, path: &[Seg], stroke: &str) -> String {
+    let mut out = format!(r#"<path class="sk-edge__line" d="{}" fill="none" stroke="{stroke}" stroke-width="2"{}/>"#, path_text(path), line_dashes(arrows::pattern(edge)));
+    let (start, end) = arrows::heads(edge);
+    if let Some(tips) = route::tips(path) {
+        if end {
+            out.push_str(&head_svg(tips.end, tips.before_end, stroke));
+        }
+        if start {
+            out.push_str(&head_svg(tips.start, tips.after_start, stroke));
+        }
+    }
+    out
+}
+
+/// One arrow: its way in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its words on a sunken backing.
 fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     let look = kit.look;
     let stroke = css(edge.color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)));
@@ -995,48 +1064,13 @@ fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     if let Some(color) = edge.color {
         let _ = write!(attrs, r#" data-color="{}""#, color_word(color));
     }
-    let flow = edge.flow != Some(false);
-    if flow {
+    // Only a dashed flow crawls on the page; a line named dashed or dotted lies still.
+    if arrows::crawls(edge) {
         attrs.push_str(r#" data-flow="""#);
     }
     let _ = write!(attrs, r#" role="group" aria-label="{}""#, xml(&said));
 
-    let (mut last, mut before) = (Pt::default(), Pt::default());
-    for seg in &way.path {
-        match *seg {
-            Seg::Move(p) => {
-                last = p;
-                before = p;
-            }
-            Seg::Line(p) => {
-                before = last;
-                last = p;
-            }
-            Seg::Quad(ctrl, p) => {
-                before = ctrl;
-                last = p;
-            }
-        }
-    }
-    let mut out = format!(r#"<path class="sk-edge__line" d="{}" fill="none" stroke="{stroke}" stroke-width="2"{}/>"#, path_text(&way.path), if flow { dashed() } else { String::new() });
-    // The marker's 10-unit triangle drawn 16px long, its point a tenth past the way's end.
-    let (dx, dy) = (last.x - before.x, last.y - before.y);
-    let long = dx.hypot(dy);
-    if long > 0. {
-        let (ux, uy) = (dx / long, dy / long);
-        let tip = Pt { x: last.x + ux * 1.6, y: last.y + uy * 1.6 };
-        let back = Pt { x: tip.x - ux * 16., y: tip.y - uy * 16. };
-        let _ = write!(
-            out,
-            r#"<polygon class="sk-edge__head" points="{},{} {},{} {},{}" fill="{stroke}"/>"#,
-            n(tip.x),
-            n(tip.y),
-            n(back.x - uy * 8.),
-            n(back.y + ux * 8.),
-            n(back.x + uy * 8.),
-            n(back.y - ux * 8.)
-        );
-    }
+    let mut out = edge_line_svg(edge, &way.path, &stroke);
     if let (Some((rect, lines)), Some(label)) = (&way.words, edge.label.as_deref()) {
         let _ = write!(out, r#"<g class="sk-edge__words" role="img" aria-label="{}">"#, xml(label));
         let _ = write!(out, r#"<rect x="{}" y="{}" width="{}" height="{}" rx="3" fill="{}"/>"#, n(rect.x), n(rect.y), n(rect.w), n(rect.h), kit.sunken);
@@ -1731,6 +1765,8 @@ pub(crate) fn file_name(title: &str, extension: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use ipc::{SceneHead, SceneLine, ScenePath};
+
     use super::*;
 
     fn node(id: &str, title: &str) -> SceneNode {
@@ -1782,6 +1818,91 @@ mod tests {
         let look = Look::dark();
         let text = mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &look);
         assert!(text.contains(&format!("linkStyle 0 stroke:{}", css(look.color(token::SKETCH_RED)))), "{text}");
+    }
+
+    fn arrow(line: Option<SceneLine>, head: Option<SceneHead>, path: Option<ScenePath>, flow: Option<bool>) -> SceneEdge {
+        SceneEdge { id: "e".into(), from: "a".into(), to: "b".into(), label: None, flow, step: None, color: None, line, head, path }
+    }
+
+    fn drawn(edge: &SceneEdge, path: Vec<Seg>) -> String {
+        edge_line_svg(edge, &path, "#123456")
+    }
+
+    fn across() -> Vec<Seg> {
+        vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Line(Pt { x: 100., y: 0. })]
+    }
+
+    #[test]
+    fn the_svg_draws_each_line_word_as_its_dash_pattern() {
+        let line = |line| drawn(&arrow(Some(line), None, None, None), across());
+        assert!(!line(SceneLine::Solid).contains("stroke-dasharray"));
+        assert!(line(SceneLine::Dashed).contains(r#"stroke-dasharray="8 8""#));
+        let dotted = line(SceneLine::Dotted);
+        assert!(dotted.contains(r#"stroke-dasharray="0.5 5.5""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
+        assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="8 8""#), "a flow reads as dashed");
+        assert!(!drawn(&arrow(None, None, None, None), across()).contains("stroke-dasharray"), "an arrow that says nothing is solid");
+    }
+
+    #[test]
+    fn the_svg_draws_a_head_at_each_end_the_head_word_names() {
+        let heads = |head| drawn(&arrow(None, head, None, None), across()).matches("sk-edge__head").count();
+        assert_eq!(heads(None), 1);
+        assert_eq!(heads(Some(SceneHead::End)), 1);
+        assert_eq!(heads(Some(SceneHead::Start)), 1);
+        assert_eq!(heads(Some(SceneHead::Both)), 2);
+        assert_eq!(heads(Some(SceneHead::NoHead)), 0);
+        // A head's tip is where the way ends, never past it.
+        let start = drawn(&arrow(None, Some(SceneHead::Start), None, None), across());
+        assert!(start.contains(r#"points="0,0 "#), "{start}");
+        let end = drawn(&arrow(None, Some(SceneHead::End), None, None), across());
+        assert!(end.contains(r#"points="100,0 "#), "{end}");
+    }
+
+    #[test]
+    fn the_svg_writes_a_curve_and_a_hop_as_their_own_commands() {
+        let curve = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Cubic(Pt { x: 10., y: 0. }, Pt { x: 20., y: 30. }, Pt { x: 30., y: 30. })];
+        assert!(drawn(&arrow(None, None, Some(ScenePath::Curve), None), curve).contains(r#"d="M0 0C10 0 20 30 30 30""#));
+        let hop = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Line(Pt { x: 46., y: 0. }), Seg::Arc(Pt { x: 54., y: 0. }, 4., true), Seg::Line(Pt { x: 100., y: 0. })];
+        assert!(drawn(&arrow(None, None, None, None), hop).contains(r#"d="M0 0L46 0A4 4 0 0 1 54 0L100 0""#));
+    }
+
+    #[test]
+    fn mermaid_writes_each_line_and_head_word_as_its_arrow() {
+        let link = |line, head| {
+            let edge = SceneEdge { line, head, flow: None, ..arrow(None, None, None, None) };
+            let text = mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &Look::dark());
+            text.lines().find(|row| row.contains("n1") && row.contains("n2") && !row.contains('[')).unwrap_or_default().trim().to_string()
+        };
+        assert_eq!(link(None, None), "n1 --> n2", "an arrow that says nothing stays the plain link");
+        assert_eq!(link(Some(SceneLine::Solid), Some(SceneHead::End)), "n1 --> n2");
+        assert_eq!(link(Some(SceneLine::Solid), Some(SceneHead::Both)), "n1 <--> n2");
+        assert_eq!(link(Some(SceneLine::Solid), Some(SceneHead::NoHead)), "n1 --- n2");
+        assert_eq!(link(Some(SceneLine::Solid), Some(SceneHead::Start)), "n2 --> n1", "a head only at the start is written from the other end");
+        assert_eq!(link(Some(SceneLine::Dotted), Some(SceneHead::End)), "n1 -.-> n2");
+        assert_eq!(link(Some(SceneLine::Dotted), Some(SceneHead::Both)), "n1 <-.-> n2");
+        assert_eq!(link(Some(SceneLine::Dotted), Some(SceneHead::NoHead)), "n1 -.- n2");
+        assert_eq!(link(Some(SceneLine::Dashed), Some(SceneHead::End)), "n1 -.-> n2");
+    }
+
+    #[test]
+    fn mermaid_keeps_the_words_of_a_dotted_or_headless_arrow() {
+        let said = |line, head| {
+            let edge = SceneEdge { label: Some("later".into()), line, head, ..arrow(None, None, None, None) };
+            mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &Look::dark())
+        };
+        assert!(said(Some(SceneLine::Dotted), None).contains(r#"n1 -. "later" .-> n2"#));
+        assert!(said(Some(SceneLine::Solid), Some(SceneHead::NoHead)).contains(r#"n1 -- "later" --- n2"#));
+        assert!(said(Some(SceneLine::Dotted), Some(SceneHead::Both)).contains(r#"n1 <-. "later" .-> n2"#));
+    }
+
+    #[test]
+    fn mermaid_draws_a_dashed_arrow_with_longer_dashes_than_its_dotted_one() {
+        let text = |line| {
+            let edge = SceneEdge { line: Some(line), ..arrow(None, None, None, None) };
+            mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &Look::dark())
+        };
+        assert!(text(SceneLine::Dashed).contains("linkStyle 0 stroke-dasharray:8 8"));
+        assert!(!text(SceneLine::Dotted).contains("stroke-dasharray"));
     }
 
     #[test]

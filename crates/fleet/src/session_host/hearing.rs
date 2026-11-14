@@ -300,6 +300,7 @@ where
                     state.activity.turn_began();
                     state.turn_began = Some(began);
                     state.said = None;
+                    state.carded = false;
                     state.resolved_model = (!model.is_empty()).then_some(model);
                     state.last_active = std::time::Instant::now();
                     if state.queued > 0 {
@@ -446,7 +447,7 @@ where
         }
         // Ending the process for a move would take them with it, so the move waits and this turn ends as any other.
         let working = self.work_beyond_the_turn(id).await;
-        let (moving, restart, began, said) = {
+        let (moving, restart, began, said, carded) = {
             let mut state = runtime.state();
             state.last_active = std::time::Instant::now();
             let moving = match state.moving.take() {
@@ -456,7 +457,7 @@ where
                 }
                 moving => moving,
             };
-            (moving, state.restart_after_turn, state.turn_began.take(), state.said.take())
+            (moving, state.restart_after_turn, state.turn_began.take(), state.said.take(), std::mem::take(&mut state.carded))
         };
         // What the Job ran this far is remembered, off the turn so the board is not held for a file.
         {
@@ -471,7 +472,7 @@ where
         // How the turn ended, read off what the agent said and never off a tool it called. A turn held
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
-            self.turn_end_kept(id, &now, said.as_deref()).await;
+            self.turn_end_kept(id, &now, said.as_deref(), carded).await;
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }
