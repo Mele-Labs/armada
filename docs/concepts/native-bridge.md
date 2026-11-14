@@ -193,7 +193,8 @@ The parity check takes each row here as chosen.
 ## Notifying
 
 **Needs you lives inside the Jobs list, and the Operator raises what needs him through toasts.**
-A banner and sound fire only when a Job needs him or stops.
+A banner and sound fire only when a Job needs him or stops, or another Mac waits for his Confirm to pair.
+That last names no Job: its banner opens the Operator's page, where the Mac's card stands first in Your turn with Confirm and Decline, and a refusal's sentence stays on the card. Settings › Macs keeps its own Confirm on the Mac's row.
 From the day the native Jobs screens land, only the native app notifies, sounds and badges the dock.
 
 ## Logic lives in Fleet
