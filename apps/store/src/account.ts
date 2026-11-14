@@ -168,7 +168,8 @@ export class Account extends DurableObject<Env> {
     if (!this.upgraded) this.upgrade();
     // Nothing in `route` awaits, so a read and the write after it cannot be split by another request.
     const answer = this.route(request.method, url, new TextDecoder().decode(body));
-    if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals") await this.keepAlarm();
+    if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals")
+      await this.keepAlarm();
     return answer;
   }
 

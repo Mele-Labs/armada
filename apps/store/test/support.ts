@@ -155,7 +155,13 @@ export async function call(
   });
 }
 
-export async function claim(device: Device, repo: string, kind: ClaimKind, key: string, who: ClaimHolder) {
+export async function claim(
+  device: Device,
+  repo: string,
+  kind: ClaimKind,
+  key: string,
+  who: ClaimHolder,
+) {
   return call(device, "POST", "/v1/claims", {
     repo,
     kind,
@@ -168,7 +174,8 @@ export async function claim(device: Device, repo: string, kind: ClaimKind, key: 
 export const claimRed = (device: Device, repo: string, red: string, who: ClaimHolder) =>
   claim(device, repo, "red", red, who);
 
-export const claimPath = (repo: string, kind: ClaimKind, key: string) => `/v1/claims/${repo}/${kind}/${key}`;
+export const claimPath = (repo: string, kind: ClaimKind, key: string) =>
+  `/v1/claims/${repo}/${kind}/${key}`;
 
 export async function renew(device: Device, who: Pick<Holder, "kind" | "id" | "machine">) {
   return call(device, "POST", "/v1/renewals", {

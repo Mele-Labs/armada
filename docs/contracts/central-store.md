@@ -94,15 +94,18 @@ Why: the store does not know whose claim it is; the machine does.
 
 **Rule.** Deleting a row that is not there answers `204`.
 
-**Rule.** A claim lapses 30 minutes after its holder last renewed. A won claim renews its holder; so does `POST /renewals`.
+**Rule.** A claim lapses 30 minutes after its holder last renewed.
+A won claim renews its holder; so does `POST /renewals`.
 An alarm on the account's object drops the lapsed holders and their claims, and every claims route reads a lapsed claim as gone before the alarm has run.
-Why: a Mac that stops, sleeps or loses its network must not hold work forever. A Mac asleep that long takes its claims again when it wakes.
+Why: a Mac that stops, sleeps or loses its network must not hold work forever.
+A Mac asleep that long takes its claims again when it wakes.
 
 **Rule.** `POST /renewals` renews every claim of one holder (kind, id and machine) in one call, and answers how many it still holds.
 `0` is a holder whose claims lapsed, and it claims them again.
 Why: a renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written ([Cost](#cost)).
 
-**Rule.** Green on main clears every `red` claim under the repository, `DELETE /claims/{repo}/red`. Its other claims stand.
+**Rule.** Green on main clears every `red` claim under the repository, `DELETE /claims/{repo}/red`.
+Its other claims stand.
 
 **Rule.** `GET /owners` answers only the keys that have a row, at most 100 keys, and a key with none is absent.
 

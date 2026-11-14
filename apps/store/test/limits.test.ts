@@ -233,7 +233,9 @@ describe("claims", () => {
     expect(await over.json()).toEqual({
       error: "claims_full",
     });
-    expect((await call(device, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`)).status).toBe(404);
+    expect((await call(device, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`)).status).toBe(
+      404,
+    );
   });
 
   it("still answer 409 with the holder when the claim already exists and the table is full", async () => {

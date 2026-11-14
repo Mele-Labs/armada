@@ -289,7 +289,9 @@ describe("the lapse", () => {
       "s-1": LAPSE_SECONDS,
     });
     expect((await call(work, "GET", claimPath(hash("a"), "item", hash("b")))).status).toBe(404);
-    expect((await claim(work, hash("a"), "item", hash("b"), claimant("s-2", "Work Mac"))).status).toBe(200);
+    expect(
+      (await claim(work, hash("a"), "item", hash("b"), claimant("s-2", "Work Mac"))).status,
+    ).toBe(200);
   });
 });
 
@@ -311,7 +313,11 @@ describe("a store built on the October schema", () => {
         CREATE TABLE claims (repo TEXT NOT NULL, red TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, red));
         CREATE TABLE owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
       `);
-      sql.exec("INSERT INTO devices (id, public_key, machine) VALUES (?, ?, 'studio')", device.id, spki);
+      sql.exec(
+        "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, 'studio')",
+        device.id,
+        spki,
+      );
       sql.exec(
         "INSERT INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, 'session', 's-old', 'studio', 1)",
         hash("a"),
@@ -361,12 +367,16 @@ describe("a row", () => {
       claimant("j-1", "studio", "Nick", "two\nlines"),
     ])
       expect((await claimRed(a, hash("a"), hash("b"), bad as never)).status).toBe(400);
-    expect((await claimRed(a, hash("a"), hash("b"), claimant("j-1", "studio", "", ""))).status).toBe(200);
+    expect(
+      (await claimRed(a, hash("a"), hash("b"), claimant("j-1", "studio", "", ""))).status,
+    ).toBe(200);
   });
 
   it("refuses a kind it does not know, in a body and in a path", async () => {
     const a = await enrolDevice(5105);
-    expect((await claim(a, hash("a"), "branch" as never, hash("b"), claimant("j-1"))).status).toBe(400);
+    expect((await claim(a, hash("a"), "branch" as never, hash("b"), claimant("j-1"))).status).toBe(
+      400,
+    );
     const read = await call(a, "GET", `/v1/claims/${hash("a")}/branch/${hash("b")}`);
     expect(read.status).toBe(400);
     expect(await read.json()).toEqual({
