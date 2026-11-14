@@ -435,6 +435,8 @@ where
             || record.attachments.iter().any(|one| open_pull_request(one) && !red_of(one, &reads.red_pulls))
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
             || self.hosts().of(&session.id).state().moving.is_some()
+            // In the slot line, or its lease still asking, it was told to stop, and Fleet moves it when a slot frees.
+            || self.hosts().slot_queue().waits(&session.id)
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
             || !record.running.is_empty()
             // A Side Job with no plan was asked something and answered it: its turn ending is the answer.

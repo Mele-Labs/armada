@@ -39,8 +39,7 @@ async fn a_full_pool_asks_the_person_and_tells_the_agent_so() {
     let (waiting, told) = queued_and_idle(&rig, "change a file").await;
 
     assert!(told.contains("Every worktree slot is in use"), "{told}");
-    assert!(told.contains("The owner is being asked"), "{told}");
-    assert!(told.contains("Stop here"), "{told}");
+    assert!(told.contains("End your turn now and say nothing to the owner"), "{told}");
     let asked = calls(&rig, &waiting).await;
     assert_eq!(asked.len(), 1, "one call, however many writes were refused");
     let item = &asked[0];
@@ -75,6 +74,41 @@ async fn waiting_takes_the_call_off_and_the_next_freed_slot_is_the_sessions() {
     close(&rig, &holder).await;
     eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 1));
+    keeper.abort();
+}
+
+/// While it waits for a slot Fleet tells it nothing: the notice is left unsettled, for its caller to tell once it is in.
+#[tokio::test]
+async fn a_job_waiting_for_a_slot_is_sent_no_notice() {
+    let (rig, _holder) = with_slot_one_held().await;
+    let (waiting, _) = queued_and_idle(&rig, "change a file").await;
+    choose(&rig, &waiting, 0).await.expect("answered");
+    let at = rig.stand_in.starts().len() - 1;
+    let before = rig.stand_in.process(at).sent.lock().unwrap().len();
+
+    let told = rig.fleet.told_by_fleet(waiting.as_str(), "#7 merged: its wire change is on main.", ipc::Notice::WireChanged).await;
+
+    assert!(!told.expect("answered"), "unsettled, so it is told again once it is in a slot");
+    assert_eq!(rig.stand_in.process(at).sent.lock().unwrap().len(), before, "the agent is sent nothing");
+}
+
+/// A freed slot wakes the waiting Job with one message, which says the slot is its now.
+#[tokio::test]
+async fn a_freed_slot_wakes_the_waiting_job_with_one_message() {
+    let (rig, holder) = with_slot_one_held().await;
+    let keeper = the_keeper(&rig);
+    let (waiting, _) = queued_and_idle(&rig, "change a file").await;
+    choose(&rig, &waiting, 0).await.expect("answered");
+
+    close(&rig, &holder).await;
+    eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
+    let at = rig.stand_in.starts().len() - 1;
+    eventually(|| async { !rig.stand_in.process(at).sent.lock().unwrap().is_empty() }).await;
+
+    let sent = rig.stand_in.process(at).sent.lock().unwrap().clone();
+    let [arrived] = sent.as_slice() else { panic!("one message: {sent:?}") };
+    assert!(arrived.contains("You are now in"), "{arrived}");
+    assert!(arrived.contains(&adapter_traits::slot_path(&rig.root, 1)), "{arrived}");
     keeper.abort();
 }
 
