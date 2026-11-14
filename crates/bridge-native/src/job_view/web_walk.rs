@@ -6,6 +6,9 @@
 //! ringed, as `finder.ts` finds them. A press is a click the page hears. The pages stay alive while the
 //! tab is hidden, and keep their scroll and state.
 //!
+//! A page a Job serves and has not shown as a walk (its dev server) takes the same tab with its name and Reload alone.
+//! A Job held on another Mac is drawn from the address Fleet answered on this one (`web_pages.rs`).
+//!
 //! Left out, as Classic has more here: popups, site permissions, the burn and annotation layer, held notes,
 //! local-network prompts, takes, and acts other than a press (type, key, select, paste, drag), which ring their
 //! target and go on.
@@ -112,11 +115,26 @@ pub fn source_of(url: &str) -> Source {
     }
 }
 
+/// What a tab shows: the Job's page as it named it (`url`, which the walk is approved by), and the address it is drawn
+/// from (`here`), which is `url` itself unless the Job is held on another Mac and Fleet answered an address on this one.
+pub struct Shown {
+    pub job: SharedString,
+    pub url: String,
+    pub here: String,
+    pub title: String,
+    pub steps: Vec<WalkStep>,
+    /// The Job's dev server or the page it showed last, not a walk: the bar is its name and Reload alone.
+    pub live: bool,
+    pub manifest: Option<String>,
+}
+
 pub struct WebWalkTab {
     job: SharedString,
     url: String,
     title: SharedString,
     steps: Vec<WalkStep>,
+    /// A page the Job serves, not a walk of it: no steps and no Approve.
+    live: bool,
     /// The step on screen, from 0.
     at: usize,
     page: Entity<WebPage>,
@@ -138,15 +156,15 @@ pub struct WebWalkTab {
 impl EventEmitter<WebWalkEvent> for WebWalkTab {}
 
 impl WebWalkTab {
-    pub fn new(job: SharedString, url: String, title: String, steps: Vec<WalkStep>, manifest: Option<&str>, focus: FocusHandle, cx: &mut Context<Self>) -> Self {
-        let source = source_of(&url);
-        let manifest = manifest.map(str::to_string);
+    pub fn new(shown: Shown, focus: FocusHandle, cx: &mut Context<Self>) -> Self {
+        let Shown { job, url, here, title, steps, live, manifest } = shown;
+        let source = source_of(&here);
         let page = cx.new(|cx| WebPage::new(manifest.as_deref(), source, cx));
         let watch = cx.subscribe(&page, |this, _, _: &WebPageEvent, cx| {
             this.start(cx);
             cx.notify();
         });
-        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, replay: None, focus, _page: watch, _find: None }
+        WebWalkTab { job, url, title: title.into(), steps, live, at: 0, page, said: None, finding: false, started: false, replay: None, focus, _page: watch, _find: None }
     }
 
     pub fn job(&self) -> &SharedString {
@@ -287,6 +305,9 @@ impl WebWalkTab {
     }
 
     fn approve(&mut self, _: &Approve, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.live {
+            return;
+        }
         self.said = Some("Approved".into());
         cx.emit(WebWalkEvent::Approve);
         cx.notify();
@@ -329,7 +350,7 @@ impl WebWalkTab {
                 )
             })))
             .child(icon_button("web-walk-reload", "refresh-cw", "Reload", Some("\u{2318}R"), Weight::Quiet, true, cx, cx.listener(|this, _, window, cx| this.reload(&Reload, window, cx))))
-            .child(div().flex_none().w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx)))));
+            .children((!self.live).then(|| div().min_w(look.length(token::SPACE_8) * 3.).w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))))));
         let line = row()
             .child(icon_button("web-walk-back", "chevron-left", "Replay to the step before", Some("\u{2325}\u{2318}\u{2190}"), Weight::Quiet, !first && !self.finding, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
             .child(
@@ -360,7 +381,7 @@ impl WebWalkTab {
                 // A press on the bar leaves the keys where they were.
                 .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
                 .child(top)
-                .child(line),
+                .children((!self.live).then_some(line)),
             Role::Toolbar,
             format!("Walk {}", self.title),
         )
@@ -444,6 +465,55 @@ mod tests {
             held_at(0, &steps),
             "Step 1 of 1: nothing to press, no button named \u{201C}Save\u{201D} in a dialog named \u{201C}New\u{201D} came within 5 seconds"
         );
+    }
+
+    /// A tab drawn in a window of its own, and the events it told the Job view.
+    fn drawn<'a>(live: bool, cx: &'a mut gpui::TestAppContext) -> (Entity<WebWalkTab>, std::rc::Rc<std::cell::RefCell<usize>>, &'a mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let steps = if live { Vec::new() } else { vec![WalkStep { press: Some(target("button", "Add")), ..step("Add one") }, step("Then look")] };
+        let shown = Shown { job: "mock-01".into(), url: "http://localhost:5173/".into(), here: "file:///tmp/page.html".into(), title: "Orders dev server".into(), steps, live, manifest: None };
+        let (tab, cx) = cx.add_window_view(|_, cx| WebWalkTab::new(shown, cx.focus_handle(), cx));
+        let approved = std::rc::Rc::new(std::cell::RefCell::new(0));
+        let heard = approved.clone();
+        cx.update(|_, cx| cx.subscribe(&tab, move |_, _: &WebWalkEvent, _| *heard.borrow_mut() += 1).detach());
+        (tab, approved, cx)
+    }
+
+    /// The names of the buttons and the toolbar the window drew.
+    fn bar_of(cx: &mut gpui::VisualTestContext) -> (Vec<String>, Vec<String>) {
+        cx.update(|window, cx| {
+            let drawn = cx.try_global::<crate::labels::LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+            let named = |role: Role| drawn.iter().filter(|one| one.role == role).map(|one| one.name.to_string()).collect::<Vec<_>>();
+            (named(Role::Toolbar), named(Role::Button))
+        })
+    }
+
+    #[gpui::test]
+    fn a_live_pages_tab_has_its_name_and_reload_and_no_steps_and_no_approve(cx: &mut gpui::TestAppContext) {
+        let (tab, approved, cx) = drawn(true, cx);
+        let (bars, buttons) = bar_of(cx);
+        assert_eq!(bars, ["Walk Orders dev server"], "the bar is named for the page");
+        assert!(buttons.iter().any(|name| name == "Reload"), "{buttons:?}");
+        for gone in ["Approve", "Replay to the step before", "Act on the ringed target and go on"] {
+            assert!(!buttons.iter().any(|name| name == gone), "a live page draws no {gone}: {buttons:?}");
+        }
+        tab.update_in(cx, |tab, window, cx| tab.approve(&Approve, window, cx));
+        assert_eq!(*approved.borrow(), 0, "⌘↵ on a live page tells the Job nothing");
+        tab.read_with(cx, |tab, _| assert!(tab.said.is_none() && tab.steps.is_empty()));
+    }
+
+    #[gpui::test]
+    fn a_walks_tab_has_reload_the_steps_and_approve_which_tells_the_job(cx: &mut gpui::TestAppContext) {
+        let (tab, approved, cx) = drawn(false, cx);
+        let (_, buttons) = bar_of(cx);
+        for there in ["Reload", "Approve", "Replay to the step before", "Act on the ringed target and go on"] {
+            assert!(buttons.iter().any(|name| name == there), "a walk draws {there}: {buttons:?}");
+        }
+        tab.update_in(cx, |tab, window, cx| tab.approve(&Approve, window, cx));
+        assert_eq!(*approved.borrow(), 1);
     }
 
     #[test]
