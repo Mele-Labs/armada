@@ -222,10 +222,6 @@ impl TitleBar {
         let held = &key.modifiers;
         let bare = !held.platform && !held.control && !held.alt && !held.function;
         match key.key.as_str() {
-            "enter" if bare && !held.shift => {
-                self.start_fix(cx);
-                true
-            }
             "escape" if bare => {
                 self.later(cx);
                 true
@@ -238,7 +234,8 @@ impl TitleBar {
                 cx.notify();
                 true
             }
-            "space" if bare => {
+            // Return and Space press the button that has the keys, as the Fleet panel's do; Start has them first.
+            "enter" | "space" if bare && !held.shift => {
                 if self.crash.open_focus.is_focused(window) {
                     self.open_crash_file(cx);
                 } else if self.crash.later_focus.is_focused(window) {
