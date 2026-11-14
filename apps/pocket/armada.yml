@@ -17,6 +17,8 @@ depends_on:
   - "packages/protocol/**"
   - "packages/screens/**"
   - "packages/shell/**"
+  # `src/pageKit.test.ts` runs the kit's script from this file.
+  - "crates/fleet/src/session_host/page_kit.js"
   - "package.json"
   - "pnpm-lock.yaml"
   - "pnpm-workspace.yaml"

@@ -485,6 +485,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         cast: ipc::CastPageVote,
     ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
 
+    /// `mark_artifact_seen`: the newest revision of an artifact he opened, kept where it is newer than what is kept.
+    /// Answers with the newest kept; an older revision is answered, not refused. Nothing is sent to the Job.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold, or a revision never kept.
+    fn mark_artifact_seen(
+        &self,
+        mark: ipc::MarkArtifactSeen,
+    ) -> impl Future<Output = Result<ipc::ArtifactSeen, Refusal>> + Send;
+
     /// `get_artifact_page`: one kept revision of a page, the newest where `revision` is `None`, sealed: no network,
     /// its own scripts inert, and the kit's script drawing its actions and votes. An archived page still serves.
     /// [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.

@@ -1,12 +1,17 @@
 // The kit's script on a sealed page, the one script the page's policy lets run. It draws each <armada-action> as a
-// labelled button and each <armada-vote> as a vote, and hands his presses and votes to the host with
-// window.parent.postMessage. It reaches nothing else: the host makes the Fleet call and posts the answer back.
+// labelled button and each <armada-vote> as a vote, and hands his presses and votes to the host: to
+// window.webkit.messageHandlers.armada where there is one (Native's WKWebView, a top-level page with no parent),
+// otherwise to window.parent.postMessage (Classic's iframe). The host answers through window.armadaHost(message), or
+// with a message event from the parent. It reaches nothing else: the host makes the Fleet call and sends the answer back.
 // docs/practices/protocol/a-pages-sealed-serving.md holds the messages both ways.
 (() => {
   "use strict";
   const record = JSON.parse(document.getElementById("armada-page-record").textContent);
   const { artifact, revision } = record;
-  const post = (message) => window.parent.postMessage({ armada: 1, ...message, artifact, revision }, "*");
+  // Which way to the host is decided once, at load.
+  const handler = window.webkit?.messageHandlers?.armada;
+  const send = handler ? (message) => handler.postMessage(message) : (message) => window.parent.postMessage(message, "*");
+  const post = (message) => send({ armada: 1, ...message, artifact, revision });
   const said = (element, name) => (element.getAttribute(name) || "").trim();
   const make = (name, attributes = {}, text) => {
     const element = document.createElement(name);
@@ -347,12 +352,16 @@
     }
   };
 
-  window.addEventListener("message", (event) => {
-    const message = event.data;
-    if (event.source !== window.parent || !message || message.armada !== 1) return;
+  // One handler for both ways in: the host's own call, and a message event from the parent frame.
+  const hear = (message) => {
+    if (!message || message.armada !== 1) return;
     if (message.kind === "pressed" && message.press) pressed(message.press);
     else if (message.kind === "voted" && message.cast) voted(message.cast);
     else if (message.kind === "refused") refused(message);
+  };
+  window.armadaHost = hear;
+  window.addEventListener("message", (event) => {
+    if (event.source === window.parent) hear(event.data);
   });
 
   for (const one of record.presses) pressed(one);
