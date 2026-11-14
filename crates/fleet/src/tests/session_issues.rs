@@ -374,11 +374,13 @@ async fn the_pull_reading_keeps_an_issue_held_by_a_trackers_key_as_the_tracker_h
 
 fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
     ipc::RecordPlan {
+        sketches: Vec::new(),
         summary: "You get a plan.".into(),
         groups: issues
             .iter()
             .enumerate()
             .map(|(at, issue)| ipc::PlanGroupInput {
+                sketches: Vec::new(),
                 id: None,
                 title: format!("Group {at}"),
                 agent: "rust-engineer".into(),

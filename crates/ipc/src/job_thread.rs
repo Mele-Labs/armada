@@ -415,6 +415,7 @@ impl SessionRow {
             | SessionRow::Retro { at, .. }
             | SessionRow::WindowAsk { at, .. }
             | SessionRow::Draft { at, .. }
+            | SessionRow::Handoff { at, .. }
             | SessionRow::Sent { at, .. }
             | SessionRow::Plan { at, .. }
             | SessionRow::PlanChanges { at, .. }

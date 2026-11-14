@@ -67,6 +67,10 @@ pub enum Signal {
     /// `GET /preferences`, once per connection. Nothing but a save changes them.
     Preferences(Preferences),
     PreferencesFailed(String),
+    /// The disk out of `GET /health`, once per connection and again each time the Fleet popover opens.
+    /// `None` where Fleet reports none.
+    Disk(Option<ipc::DiskHealth>),
+    DiskFailed(String),
     /// `GET /mods`, once per connection; `mods.changed` carries the list after that.
     Mods(ModList),
     ModsFailed(String),
@@ -258,6 +262,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tell_or_stop!(tx, LinkState::Connected);
                     tokio::spawn(fetch_jobs(tx.clone(), fleet.port));
                     tokio::spawn(fetch_preferences(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_disk(tx.clone(), fleet.port));
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
                     tokio::spawn(fetch_calls(tx.clone(), fleet.port));
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
@@ -360,6 +365,20 @@ async fn fetch_preferences(tx: Sender<Signal>, port: u16) {
         Err(why) => Signal::PreferencesFailed(why),
     };
     let _ = tx.send(signal).await;
+}
+
+/// `GET /health`, once per connection, retried as the Jobs are. Bridge draws the disk and nothing else of it.
+async fn fetch_disk(tx: Sender<Signal>, port: u16) {
+    let signal = match read_disk(port).await {
+        Ok(disk) => Signal::Disk(disk),
+        Err(why) => Signal::DiskFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// The disk `GET /health` reports: none from a Fleet that reads none.
+pub(crate) async fn read_disk(port: u16) -> Result<Option<ipc::DiskHealth>, String> {
+    read_with_retries::<ipc::FleetHealth>(port, "/health", "health").await.map(|health| health.disk)
 }
 
 /// `GET /calls`, once per connection, retried as the Jobs are.

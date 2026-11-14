@@ -340,6 +340,19 @@ pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Serv
     }
 }
 
+/// A precedent ruling taken back. 200 with the page; 404 where no precedent ruling has the id, 422 where it is
+/// taken back already or its Job has ended.
+pub(crate) async fn operator_undo_ruling<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let undo: ipc::operator_page::OperatorUndoRuling = match ipc::decode_body("a ruling taken back", &body) {
+        Ok(undo) => undo,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_undo_ruling(undo).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Your turn as he dragged it. 200 with the page.
 pub(crate) async fn operator_turn_order<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let order: ipc::operator_page::OperatorTurnOrder = match ipc::decode_body("an order of Your turn", &body) {
@@ -479,6 +492,39 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
+}
+
+/// His verdict on several items that ask for his approval. 200 with one outcome per item, even where some are refused;
+/// 422 for a body that does not decode. **An item whose Job another Mac holds is refused here**, not sent on.
+pub(crate) async fn answer_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerItems = match ipc::decode_body("verdicts on waiting items", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().answer_items(said, elsewhere).await, served.run_id())
+}
+
+/// Several items that ask for his approval, off his list with no verdict. 200 and 422 as for [`answer_items`].
+pub(crate) async fn dismiss_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::DismissItems = match ipc::decode_body("waiting items to pass on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().dismiss_items(said, elsewhere).await, served.run_id())
+}
+
+/// Per item, the refusal for a Job another of his Macs holds: a batch is not sent on in pieces.
+async fn held_elsewhere<'a, D: OtherMacs>(served: &Served<D>, jobs: impl Iterator<Item = &'a str>) -> Vec<Option<ipc::ItemSettled>> {
+    let mut refused = Vec::new();
+    for job in jobs {
+        refused.push(served.daemon().mac_holding_job(job).await.map(|mac| ipc::ItemSettled::Refused {
+            code: String::from("fleet.items_on_another_mac"),
+            message: format!("the Job is held on {mac}: answer it there"),
+        }));
+    }
+    refused
 }
 
 /// The person did what an agent's item asked of him. 200 with the row; 409 where nothing holds the item, 422 for an item the
@@ -889,6 +935,19 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
     };
     match served.shared().save_artifact_edit(edit).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
+/// list, an ask no longer open, or a page archived or not held.
+pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().press_page_action(press).await {
+        Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

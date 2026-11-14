@@ -2,7 +2,7 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive, a restore and his Edit publish.
+// which an archive, a restore, his Edit and a press publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
@@ -81,14 +81,62 @@ export type JobArtifact = {
   /** His note on a send back, his words with an approval, or his reason with a draft's dismissal. */
   words?: string;
   /**
-   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`. Absent while an
-   * archive keeps it off his list.
+   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or `plan:<version>`
+   * for a sketch the pending plan names. Absent while an archive keeps it off his list.
    */
   item?: string;
+  /** The plan version a sketch goes with: the pending one naming it, or the one whose Approve settled it. */
+  in_plan?: number;
   /** Set while archived. `state` still reads as it stood. */
   archived?: ArtifactArchived;
   /** What the newest revision is for, and what it links to. */
   for_line?: ArtifactFor;
+  /** Every press of an action a page declares, oldest first. Absent where none, and for every form but a page. */
+  presses?: PagePress[];
+};
+
+/** The acts a page may run. Fleet keeps the list and refuses anything off it. */
+export type PageAct = "message" | "start" | "answer";
+
+/**
+ * `POST /sessions/artifacts/press`: his press of an `<armada-action>` on a page, read off the kept revision he
+ * pressed. Answered with the `PagePress`. 422 `fleet.page_action_unknown`, `fleet.page_act_refused`,
+ * `fleet.page_ask_not_open`, `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type PressPageAction = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  /** The kept revision he pressed it on. */
+  revision: number;
+  /** The action's `id` attribute. */
+  action: string;
+  words?: string;
+};
+
+/** What a press did: the Job sent it, a Job started, or the Job's ask was answered. */
+export type PressDid =
+  | {
+      kind: "sent";
+    }
+  | {
+      kind: "started";
+      job: string;
+    }
+  | {
+      kind: "answered";
+      item: string;
+    };
+
+/** One press of a page's action, as Fleet kept it. */
+export type PagePress = {
+  revision: number;
+  action: string;
+  /** The row or part it sits on. Absent where the page gave none. */
+  item?: string;
+  act: PageAct;
+  at: string;
+  did: PressDid;
 };
 
 /** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
@@ -115,4 +163,62 @@ export type ArtifactFor = {
 export type ForLink = {
   label: string;
   url: string;
+};
+
+/** His verdict on one item with an Approve. */
+export type ItemHow = "approve" | "send_back";
+
+/**
+ * `POST /sessions/items/answer`: his verdict on several items with an Approve, across Jobs, answered 200 with
+ * `ItemsSettled` even where some are refused. Each settles as its own answer would, in order. `notes` go with that
+ * item's verdict, numbered by Fleet; a `send_back` needs one. 422 only for a body that does not decode.
+ */
+export type AnswerItems = {
+  items: ItemAnswer[];
+};
+
+export type ItemAnswer = {
+  session_id: string;
+  /** The `WaitingItem` id. */
+  item: string;
+  how: ItemHow;
+  notes?: string[];
+};
+
+/**
+ * `POST /sessions/items/dismiss`: several items with an Approve off his list with no verdict, answered as
+ * `AnswerItems` is. Each Job is sent one message, a line per item.
+ */
+export type DismissItems = {
+  items: ItemRef[];
+};
+
+export type ItemRef = {
+  session_id: string;
+  item: string;
+};
+
+/**
+ * How one item ended. Refusal codes: `fleet.items_not_waiting`, `fleet.items_not_approvable`,
+ * `fleet.items_send_back_empty`, `fleet.items_on_another_mac`, or the item's own answer's code.
+ */
+export type ItemSettled =
+  | {
+      kind: "settled";
+    }
+  | {
+      kind: "refused";
+      code: string;
+      message: string;
+    };
+
+export type ItemOutcome = {
+  session_id: string;
+  item: string;
+  outcome: ItemSettled;
+};
+
+/** One outcome per item asked, in the order asked. */
+export type ItemsSettled = {
+  outcomes: ItemOutcome[];
 };

@@ -22,16 +22,95 @@ pub struct JobArtifact {
     /// His note on a send back, his words with an approval, or his reason with a draft's dismissal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<String>,
-    /// The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`.
-    /// Absent where nothing waits on him.
+    /// The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or
+    /// `plan:<version>` for a sketch the pending plan names. Absent where nothing waits on him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
+    /// The plan version it goes with: the pending one that names it, so the plan's Approve settles it, or
+    /// the one whose Approve did. Absent for a sketch no plan carries, and for every other form.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_plan: Option<u32>,
     /// Who folded it away, and when. Only `restore_artifact` lifts it; a new revision does not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub archived: Option<ArtifactArchived>,
     /// What the newest revision is for, and what it links to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_line: Option<ArtifactFor>,
+    /// Every press of a page's action, oldest first. Empty for a sketch, a draft, and a page never pressed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub presses: Vec<PagePress>,
+}
+
+/// `press_page_action`: his press of an action a page declares with `<armada-action>`.
+/// `crates/ipc/operations/press_page_action.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PressPageAction {
+    pub session_id: SessionId,
+    /// The page's artifact id: its path.
+    pub artifact: String,
+    /// The kept revision whose action he pressed. The action is read off it, never off the page as it is now.
+    pub revision: u32,
+    /// The action's `id` attribute.
+    pub action: String,
+    /// What he typed with the press.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<String>,
+}
+
+/// One press of a page's action, as Fleet kept it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PagePress {
+    pub revision: u32,
+    /// The action's `id`.
+    pub action: String,
+    /// The row or part it sits on, its `item` attribute. Absent where the page gave none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
+    pub act: PageAct,
+    pub at: Instant,
+    pub did: PressDid,
+}
+
+/// The acts a page may run. **Fleet keeps this list and refuses anything off it**: anything that lands,
+/// merges, deletes or stops goes to the Job as a `message`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageAct {
+    Message,
+    Start,
+    Answer,
+}
+
+impl PageAct {
+    /// The act a page's `act` attribute names, where it is one on the list.
+    pub fn named(word: &str) -> Option<PageAct> {
+        match word.trim().to_ascii_lowercase().as_str() {
+            "message" => Some(PageAct::Message),
+            "start" => Some(PageAct::Start),
+            "answer" => Some(PageAct::Answer),
+            _ => None,
+        }
+    }
+
+    pub fn word(self) -> &'static str {
+        match self {
+            PageAct::Message => "message",
+            PageAct::Start => "start",
+            PageAct::Answer => "answer",
+        }
+    }
+}
+
+/// What a press did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PressDid {
+    /// The Job was sent his press as his message.
+    Sent,
+    /// A Job started, at once, with the action's brief.
+    Started { job: SessionId },
+    /// The Job's ask, by its waiting id, was answered with the action's option.
+    Answered { item: String },
 }
 
 /// An artifact the agent or he archived as stale. `archive_artifact`.

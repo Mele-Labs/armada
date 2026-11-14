@@ -310,7 +310,7 @@ fn a_job_holding_two_sketches_left_open_lists_both_newest_first() {
         .unwrap()
     };
     let held = [open("Older", "2026-10-30T10:00:00Z"), open("Newer", "2026-11-02T10:00:00Z")];
-    let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job").map(|one| one.id).collect();
+    let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job", &[]).map(|one| one.id).collect();
     assert_eq!(listed, ["sketch:Newer", "sketch:Older"]);
 }
 
@@ -328,7 +328,7 @@ fn asked(title: &str, drawn: &str, changed_at: &str, settled: Option<&str>) -> A
 }
 
 fn listed(held: &[Attachment]) -> Vec<String> {
-    crate::session_host::sketching::sketch_items(held, "job").map(|one| one.id).collect()
+    crate::session_host::sketching::sketch_items(held, "job", &[]).map(|one| one.id).collect()
 }
 
 #[test]

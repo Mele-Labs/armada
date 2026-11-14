@@ -12,7 +12,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{ActAnswered, ActBegun, ActTurn, OtherMacs, Refusal, Sessions};
 use ipc::{
-    BugReport, BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects,
+    BugReport, BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacPageOpened, OtherMacEvent, OtherMacProjects,
     OtherMacSessions, ProjectActFromMac, QueuedList, SessionId, SessionList, SessionRecord, SessionRemoved, SessionState, TakeBack, WireError,
 };
 use serde::Serialize;
@@ -290,6 +290,22 @@ where
     async fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> Result<JobThread, Refusal> {
         self.act_from_other_mac(&read.session_id).await?;
         self.job_thread_served(read).await
+    }
+
+    async fn share_job_page(&self, job: SessionId, port: u16) -> Result<(), Refusal> {
+        self.job_page_shared(job, port).await
+    }
+
+    async fn open_other_mac_page(&self, open: OpenOtherMacPage) -> Result<OtherMacPageOpened, Refusal> {
+        self.other_mac_page_opened(open).await
+    }
+
+    async fn share_job_terminal(self: Arc<Self>, asked: ipc::TerminalFromMac) -> Result<api::TerminalShared, Refusal> {
+        self.job_terminal_shared(asked).await
+    }
+
+    async fn share_job_terminal_output(&self, which: ipc::TerminalOfJob) -> Result<api::ObservedSessionRun, Refusal> {
+        self.job_terminal_output_shared(which).await
     }
 
     async fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> Result<MacNamed, Refusal> {

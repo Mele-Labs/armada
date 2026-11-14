@@ -157,6 +157,8 @@ where
         let mut subagent_row: Option<SubagentRow> = None;
         // A turn ended: a subagent row still running whose transcript ended is settled once the store is let go.
         let mut turn_over = false;
+        // The words the mod sent a turn back with, kept as a notice once the store is let go.
+        let mut sent_back: Option<String> = None;
         // A pull request the session opened, by its Manifest and address, read once the store is let go.
         let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
@@ -363,6 +365,7 @@ where
                 // before left. A hosted session's own process says so, so only a terminal's is read here.
                 if terminal {
                     self.hosts().terminals().turn_began(&id);
+                    self.hosts().of(&id).state().carded = false;
                     store.clear_done(&id).map_err(fault)?;
                     store.clear_session_gate_hold(&id).map_err(fault)?;
                     store.clear_turn_end(&id).map_err(fault)?;
@@ -374,8 +377,9 @@ where
                 if terminal {
                     self.hosts().terminals().turn_over(&id);
                     self.timeline().close_bursts_of(&Doer::of_session(&session));
+                    let carded = std::mem::take(&mut self.hosts().of(&id).state().carded);
                     if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
-                        store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
+                        store.keep_turn_end(&id, &now, &tail, carded).map_err(fault)?;
                     }
                     answered = true;
                 }
@@ -478,6 +482,11 @@ where
             }
             // Fleet keeps no count of calls: nothing reads one.
             SessionFact::Calls { .. } => {}
+            // The mod's stop hook gave the agent these words already, so the row is written and nothing
+            // is sent. A terminal Job's thread is not Fleet's to write.
+            SessionFact::SentBack { text } => {
+                sent_back = Some(text.trim().to_string()).filter(|text| !terminal && !text.is_empty());
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -542,6 +551,9 @@ where
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
             self.row_put(&session.id, row).await;
+        }
+        if let Some(text) = sent_back {
+            self.fleet_note_as(&session.id, text, Some(ipc::Notice::ReplyClaim)).await;
         }
         if let Some((manifest, address)) = opened_pull {
             self.opened_pull_read(&manifest, &address).await;
@@ -882,6 +894,14 @@ where
         self.draft_proposed(caller, draft).await
     }
 
+    async fn handoff_brief(
+        &self,
+        caller: Option<api::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> Result<SessionRecord, Refusal> {
+        self.handoff_brief_sent(caller, brief).await
+    }
+
     async fn withdraw_draft(
         &self,
         caller: Option<api::Caller>,
@@ -1108,6 +1128,10 @@ where
         &self,
         stop: ipc::StopSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let run_id = stop.run_id.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Stop { session_id, run_id: stop.run_id.clone() }).await {
+            return sent;
+        }
         self.end_session_run(stop)
     }
 
@@ -1115,6 +1139,10 @@ where
         &self,
         write: ipc::WriteSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let (run_id, data) = (write.run_id.clone(), write.data.clone());
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Write { session_id, run_id: run_id.clone(), data }).await {
+            return sent;
+        }
         self.type_into_session_run(write).await
     }
 
@@ -1122,10 +1150,17 @@ where
         &self,
         resize: ipc::ResizeSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let ipc::ResizeSessionRun { run_id, cols, rows } = resize.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Resize { session_id, run_id: run_id.clone(), cols, rows }).await {
+            return sent;
+        }
         self.resize_session_run_terminal(resize)
     }
 
     async fn observe_session_run(&self, run_id: String) -> Result<api::ObservedSessionRun, Refusal> {
+        if let Some(followed) = self.terminal_followed_on_other_mac(&run_id).await {
+            return followed;
+        }
         self.watch_session_run(&run_id)
     }
 
@@ -1133,6 +1168,10 @@ where
         self: Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        // A Job held from another Mac: its shell runs there, in its slot.
+        if let Some(mac) = self.mac_holding(open.session_id.as_str()).await {
+            return self.terminal_opened_on_other_mac(&mac, open).await;
+        }
         let (terminal, run_id) = self
             .open_job_terminal(open.session_id.as_str(), open.terminal.as_deref(), open.new, open.cols, open.rows)
             .await?;
@@ -1174,6 +1213,12 @@ where
         caller: Option<api::Caller>,
         asked: ipc::ListTerminals,
     ) -> Result<ipc::JobTerminals, Refusal> {
+        // Bridge's list of a Job held from another Mac: a Job's own agent never lists another Mac's.
+        if let (None, Some(job)) = (&caller, &asked.session_id) {
+            if let Some(mac) = self.mac_holding(job.as_str()).await {
+                return self.terminals_listed_on_other_mac(&mac, job.clone()).await;
+            }
+        }
         self.job_terminals_listed(caller, asked).await
     }
 

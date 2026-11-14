@@ -238,6 +238,7 @@ const PLANNED: &str = "done: Made the tables\nnow: Writing the rest\nnext: Check
 
 fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
     PlanGroupInput {
+        sketches: Vec::new(),
         id: None,
         title: title.to_string(),
         agent: "rust-engineer".to_string(),
@@ -254,7 +255,7 @@ fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
 /// A plan of two groups, g1 Store (t1, t2) and g2 Fleet (t3), recorded and, where `approved`, approved.
 async fn planned(rig: &Rig, id: &SessionId, approved: bool) {
     let groups = vec![group("Store", &["Add the tables", "Add the migration"]), group("Fleet", &["Record it"])];
-    let plan = RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(id.clone()) };
+    let plan = RecordPlan { sketches: Vec::new(), summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(id.clone()) };
     rig.fleet.record_plan(None, plan, false).await.expect("recorded");
     if approved {
         Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.expect("approved");

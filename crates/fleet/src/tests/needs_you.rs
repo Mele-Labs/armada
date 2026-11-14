@@ -61,6 +61,7 @@ fn cases() -> Vec<Case> {
         case(item("perm:1", Source::Permission, Some((Act::Answer, "perm:1")), &["Allow", "Deny"], &[]), Section::Questions, Dismiss::None, false),
         case(item("window_ask:r1", Source::WindowAsk, Some((Act::Walk, "http://localhost:5173/")), &["This", "That"], &[]), Section::Questions, Dismiss::None, false),
         case(item("draft:r1", Source::Draft, Some((Act::Answer, "draft:r1")), &["Approve"], &[]), Section::ToReview, Dismiss::Reason, false),
+        case(item("handoff:r2", Source::Handoff, Some((Act::Answer, "handoff:r2")), &["Carry on in a new Job", "Stay here"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("sketch:Flow", Source::Sketch, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("document:/w/a.html", Source::Document, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("first", Source::FirstMessage, Some(own), &[], &[]), Section::Questions, Dismiss::None, false),
@@ -79,6 +80,7 @@ fn cases() -> Vec<Case> {
         case(item("suggestion:1", Source::OperatorSuggestion, Some((Act::Answer, "suggestion:1")), &["Do it", "Skip"], &[]), Section::Questions, Dismiss::Skip, false),
         case(item("browser_ask:t", Source::BrowserAsk, Some((Act::Answer, "browser_ask:t")), &["Allow", "Block"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("gate:g", Source::Gate, Some((Act::Answer, JOB)), &["Approve", "Skip this group"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
     ]
 }
 
@@ -109,6 +111,8 @@ fn counted(source: Source) -> usize {
         Source::OperatorSuggestion => 21,
         Source::BrowserAsk => 22,
         Source::Gate => 23,
+        Source::Handoff => 24,
+        Source::OperatorUndone => 25,
     }
 }
 
@@ -155,7 +159,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..24).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..26).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);

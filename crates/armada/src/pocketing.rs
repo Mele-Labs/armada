@@ -219,10 +219,37 @@ impl PhoneSwitch for Phone {
         }
     }
 
+    fn follow_other_mac(&self, mac: &str, path: &str) -> fleet::phone::OtherMacFollowing {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let following = pocket::follow_other_mac(&running.gateway, mac, path);
+                Box::pin(async move {
+                    following.await.map(|followed| match followed {
+                        pocket::Followed::Open(lines) => fleet::phone::OtherMacFollowed::Open(lines),
+                        pocket::Followed::Refused { status, body } => fleet::phone::OtherMacFollowed::Refused { status, body },
+                    })
+                })
+            }
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
     fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> fleet::phone::OtherMacRead {
         let running = self.running.lock().unwrap();
         match running.as_ref() {
             Some(running) => Box::pin(pocket::send_other_mac(&running.gateway, mac, path, body)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> fleet::phone::OtherMacPageOpening {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let opening = pocket::open_other_mac_page(&running.gateway, mac, job, port, rest);
+                Box::pin(async move { opening.await.map(page_said) })
+            }
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
         }
     }
@@ -323,5 +350,14 @@ mod tests {
         assert!(phone.state().listening && answers(port).await);
         phone.set(false);
         std::fs::remove_dir_all(&dir).ok();
+    }
+}
+
+/// The Gateway's word on another Mac's page, as Fleet reads it.
+fn page_said(open: pocket::PageOpen) -> fleet::phone::OtherMacPage {
+    match open {
+        pocket::PageOpen::Open(url) => fleet::phone::OtherMacPage::Open(url),
+        pocket::PageOpen::Asleep { name, since } => fleet::phone::OtherMacPage::Asleep { name, since },
+        pocket::PageOpen::Refused { status, body } => fleet::phone::OtherMacPage::Refused { status, body },
     }
 }

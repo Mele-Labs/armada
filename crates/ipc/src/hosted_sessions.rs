@@ -581,6 +581,20 @@ pub struct DraftSettled {
     pub at: Instant,
 }
 
+/// What the person pressed on a Job's handoff card, a `handoff` row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HandoffPick {
+    /// Carry on in a new Job: Fleet starts the successor with the row's brief.
+    CarryOn,
+    /// Stay here, and his Dismiss. Nothing is kept.
+    Stay,
+    /// Don't ask again: the Context rule never tells this Job again.
+    Quiet,
+    /// Ask again once the Job's context passes `tokens`.
+    RemindAt { tokens: u64 },
+}
+
 /// What a Session that is followed did, for the parent's thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -846,6 +860,20 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         for_line: Option<crate::ArtifactFor>,
     },
+    /// Fleet's card asking the person whether a Job past its context limit carries on in a new one,
+    /// raised by the brief the Job sent with `handoff_brief`. `tokens` is the Job's context then and
+    /// `limit` the Context rule's; `remind_at` holds the three figures the card offers. **Replaced by
+    /// id once answered**, with `answer` set to what he pressed.
+    Handoff {
+        id: String,
+        at: Instant,
+        tokens: u64,
+        limit: u64,
+        brief: String,
+        remind_at: Vec<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        answer: Option<HandoffPick>,
+    },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
     /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
     Check {
@@ -1039,6 +1067,7 @@ impl SessionRow {
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Draft { id, .. }
+            | SessionRow::Handoff { id, .. }
             | SessionRow::Sent { id, .. }
             | SessionRow::Plan { id, .. }
             | SessionRow::PlanChanges { id, .. }

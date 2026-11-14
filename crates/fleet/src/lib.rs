@@ -169,6 +169,7 @@ pub mod models_read;
 pub mod phone;
 /// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
 mod other_macs;
+mod mac_terminals;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;
 /// What a Judge is shown, and how its answer is read and pinned. Pure.
@@ -271,6 +272,8 @@ mod project_copies;
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
 mod mac_update;
+/// A walk or dev server of a Job on one of his Macs, opened on another through the signed link.
+mod mac_pages;
 /// A task act another Mac made on a shared project of this Mac, run here.
 mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.

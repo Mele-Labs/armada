@@ -371,6 +371,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/draft", post(crate::sessions::propose_draft::<D>))
         .route("/sessions/withdraw_draft", post(crate::sessions::withdraw_draft::<D>))
+        .route("/sessions/handoff_brief", post(crate::sessions::handoff_brief::<D>))
         .route(
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),
@@ -447,6 +448,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::operator_answer::<D>),
         )
         .route(
+            "/operator/page/undo",
+            post(crate::hosted_sessions::operator_undo_ruling::<D>),
+        )
+        .route(
             "/operator/page/order",
             post(crate::hosted_sessions::operator_turn_order::<D>),
         )
@@ -482,6 +487,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
+        .route("/sessions/items/answer", post(crate::hosted_sessions::answer_items::<D>))
+        .route("/sessions/items/dismiss", post(crate::hosted_sessions::dismiss_items::<D>))
         .route(
             "/sessions/draft/document",
             post(crate::hosted_sessions::convert_draft_to_document::<D>),
@@ -686,6 +693,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/artifacts/edit",
             post(crate::hosted_sessions::save_artifact_edit::<D>),
+        )
+        .route(
+            "/sessions/artifacts/press",
+            post(crate::hosted_sessions::press_page_action::<D>),
         )
         .route(
             "/sessions/mcp/act",

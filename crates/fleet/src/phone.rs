@@ -49,7 +49,49 @@ pub trait PhoneSwitch: Send + Sync + 'static {
         let why = format!("this Mac has no link to Mac {mac}");
         Box::pin(async move { Err(why) })
     }
+
+    /// Open the page Job `job` of paired Mac `mac` serves on its loopback port `port`, at `rest` (its path and
+    /// query, `/` first), as an address on this Mac. A Gateway with no link to it says why.
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> OtherMacPageOpening {
+        let _ = (job, port, rest);
+        let why = format!("this Mac has no link to Mac {mac}");
+        Box::pin(async move { Err(why) })
+    }
+
+    /// Follow `path`, `/other_mac/terminal/observe` with its query and nothing else, on paired Mac `mac` through the
+    /// link: its messages a line at a time until the stream drops, or what that Mac refused. A Gateway with no link
+    /// to it says why.
+    fn follow_other_mac(&self, mac: &str, path: &str) -> OtherMacFollowing {
+        let _ = path;
+        let why = format!("this Mac has no link to Mac {mac}");
+        Box::pin(async move { Err(why) })
+    }
 }
+
+/// What opening another Mac's page came to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OtherMacPage {
+    /// The page's address on this Mac.
+    Open(String),
+    /// The Mac is asleep, by its name and since when (Unix seconds).
+    Asleep { name: String, since: i64 },
+    /// The other Mac refused, with its status and bytes as it said them.
+    Refused { status: u16, body: Vec<u8> },
+}
+
+/// What [`PhoneSwitch::open_other_mac_page`] answers.
+pub type OtherMacPageOpening = std::pin::Pin<Box<dyn std::future::Future<Output = Result<OtherMacPage, String>> + Send>>;
+
+/// What following a stream on another Mac came to.
+pub enum OtherMacFollowed {
+    /// Its messages, one a line. Closed when the stream drops or goes quiet.
+    Open(tokio::sync::mpsc::Receiver<String>),
+    /// That Mac refused, with its status and bytes as it said them.
+    Refused { status: u16, body: Vec<u8> },
+}
+
+/// What [`PhoneSwitch::follow_other_mac`] answers.
+pub type OtherMacFollowing = std::pin::Pin<Box<dyn std::future::Future<Output = Result<OtherMacFollowed, String>> + Send>>;
 
 /// What [`PhoneSwitch::read_other_mac`] answers, once the other Mac has.
 pub type OtherMacRead = std::pin::Pin<Box<dyn std::future::Future<Output = Result<(u16, Vec<u8>), String>> + Send>>;
@@ -62,6 +104,8 @@ pub(crate) struct PhoneHeld {
     pub(crate) flushing: std::sync::Mutex<std::collections::BTreeSet<String>>,
     /// One act from another Mac runs at a time, so an id is run once. `crate::mac_acts`.
     pub(crate) acts: Arc<tokio::sync::Mutex<()>>,
+    /// The terminals of Jobs held from another Mac that this Mac has opened. `crate::mac_terminals`.
+    pub(crate) terminals: Arc<crate::mac_terminals::Followed>,
 }
 
 impl<H, V, W> Fleet<H, V, W>

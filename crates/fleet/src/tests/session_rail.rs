@@ -175,8 +175,10 @@ pub(super) async fn on_the_rail(rig: &Rig) -> SessionId {
 
 pub(super) fn plan(id: &SessionId) -> RecordPlan {
     RecordPlan {
+        sketches: Vec::new(),
         summary: "You get a plan.".into(),
         groups: vec![PlanGroupInput {
+            sketches: Vec::new(),
             id: None,
             title: "Reader".into(),
             agent: "rust-engineer".into(),
