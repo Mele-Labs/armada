@@ -28,6 +28,7 @@ mod open;
 mod deferred;
 mod watching;
 mod edit;
+mod find;
 mod fork;
 pub(crate) mod format;
 pub(crate) mod head;
@@ -384,6 +385,8 @@ pub struct JobView {
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// The find bar over the thread, while it is open.
+    find: Option<find::Find>,
     /// Hide Open group pressed here, with Fleet's setting then: it stands until Fleet's says otherwise.
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
@@ -609,6 +612,7 @@ impl JobView {
             listen,
             heard: crate::listen::Seen::default(),
             mock_records: None,
+            find: None,
             _subscriptions: subscriptions,
         }
     }
@@ -947,6 +951,7 @@ impl JobView {
         }
         self.arrive(id, cx);
         self.open_made(id, cx);
+        self.find_thread_changed(id, cx);
     }
 
     /// A message from the person puts the thread at its end again (A1.5).
@@ -1197,6 +1202,7 @@ impl Render for JobView {
         let head = self.render_head(&id, cx);
         let origin = if open { self.render_origin(&id, window, cx) } else { None };
         let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+        let find = if open { self.render_find(&id, cx) } else { None };
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
         div()
@@ -1206,10 +1212,13 @@ impl Render for JobView {
             .relative()
             .key_context("thread")
             .on_action(cx.listener(Self::on_act))
+            // ⌘F in a text box is the box's own Search, which a box with no search of its own passes up: the thread's find takes it.
+            .on_action(cx.listener(|this, _: &gpui_component::input::Search, window, cx| this.open_find(window, cx)))
             // Selected words need the window's selection layer; the Job's view is where words are selected.
             .child(gpui_base::TextSelectionLayer)
             .child(head)
             .children(origin)
+            .children(find)
             .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)))
             .children(self.render_bands(&id, cx).filter(|_| open))
             .children(dock)

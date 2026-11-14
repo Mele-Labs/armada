@@ -2865,6 +2865,27 @@ pub static WALKS: &[Walk] = &[
             step("Space shuts it", Verb::Key("space"), "button", "Fleet turn"),
         ],
     },
+    Walk {
+        name: "native-thread-find",
+        title: "Find in a Job's thread",
+        screen: Screen::Jobs,
+        scenario: "thread-find",
+        steps: &[
+            press_on("A Job's thread, longer than the screen", "row", "Native Bridge foundation", "region", "Thread"),
+            step("⌘F opens a find bar at the top of the thread, with the keys in it", Verb::Key("cmd-f"), "searchbox", "Find in thread"),
+            step("Typed words are found in the whole thread, every match marked; the current one is the nearest on screen", Verb::Typed("webhook"), "status", "5 of 5"),
+            step("⇧Enter steps back to a match in folded reasoning", Verb::Key("shift-enter"), "status", "4 of 5"),
+            step("The reasoning opens to show it", Verb::Look, "button", "Thought for 6s"),
+            step("⇧⌘G steps back again, to the agent's message", Verb::Key("cmd-shift-g"), "status", "3 of 5"),
+            step("Once more, to a match in a folded tool run", Verb::Key("cmd-shift-g"), "status", "2 of 5"),
+            step("The run opens to show the call", Verb::Look, "row", "Find where webhook deliveries retry"),
+            step("⌘G steps forward", Verb::Key("cmd-g"), "status", "3 of 5"),
+            step("Enter steps forward too, and past the last match it goes round to the first", Verb::Keys(&["enter", "enter", "enter"]), "status", "1 of 5"),
+            step("Words the thread does not hold", Verb::Typed("s"), "status", "No matches"),
+            step("Esc shuts the bar and puts the keys back in the message box", Verb::Key("escape"), "textbox", "Message"),
+            step("The bar is gone", Verb::Absent("searchbox", "Find in thread"), "region", "Thread"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
