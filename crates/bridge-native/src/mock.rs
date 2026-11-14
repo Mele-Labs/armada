@@ -60,7 +60,7 @@ pub fn scenario_is(name: &str) -> bool {
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if let Ok(mut held) = SCENARIO.lock() {
         // The switching walk is the tour's Jobs, so what reads the name (the message box's catalogue) reads the tour's.
-        *held = if scenario == "jobs-switching" { "jobs-screens" } else { scenario }.to_string();
+        *held = if matches!(scenario, "jobs-switching" | "jobs-move") { "jobs-screens" } else { scenario }.to_string();
     }
     // The preferences a scenario is read with: Fleet answers none on mock data, and the rest read as defaults.
     crate::ways::set(if scenario == "ways-buttons" { ipc::AnswerWith::Buttons } else { ipc::AnswerWith::Type }, true);
@@ -128,7 +128,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
-        "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
+        "jobs-screens" | "jobs-pairing" | "jobs-move" => include_bytes!("../fixtures/jobs-screens.json"),
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
@@ -176,6 +176,14 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "jobs-pairing" {
         for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
             one.mac = Some("air".into());
+        }
+    }
+    // The tour's Jobs with Native Bridge foundation, a hosted Job, in the middle of a turn: a move waits for it to end.
+    if scenario == "jobs-move" {
+        for one in sessions.iter_mut().filter(|one| one.id.as_str() == "mock-02") {
+            if let Some(hosted) = one.hosted.as_mut() {
+                hosted.turn = ipc::SessionTurn::Working { woken_by: None };
+            }
         }
     }
     // The box's Jobs with Native Bridge foundation at work, so its working line says what it is doing.
@@ -447,7 +455,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
-        "jobs-screens" | "jobs-pairing" => return screens_threads(),
+        "jobs-screens" | "jobs-pairing" | "jobs-move" => return screens_threads(),
         "job-view" | "review-palette" | "side-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),

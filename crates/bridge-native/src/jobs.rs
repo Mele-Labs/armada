@@ -122,6 +122,8 @@ struct Row {
     place: bool,
     /// The Mac the Job runs on, by id; none is this one (`crate::pairing`).
     mac: Option<SharedString>,
+    /// The Mac the Job is moving to, by id, while its turn ends and its branch is pushed (`crate::mac_move`).
+    moving: Option<SharedString>,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -548,6 +550,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
                 queued: Some((*idea).clone()),
                 place: false,
                 mac: None,
+                moving: None,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -580,6 +583,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
             queued: None,
             place: places.contains(job.id.as_str()),
             mac: job.mac.clone().map(Into::into),
+            moving: crate::mac_move::target_of(job).map(|mac| mac.to_string().into()),
         };
         fn under<'a>(
             parent: &str,
@@ -1000,8 +1004,7 @@ impl JobsList {
     pub fn gone(&mut self, ids: &[String], cx: &mut Context<Self>) {
         let named = |id: &str| ids.iter().any(|gone| gone == id);
         self.jobs.retain(|job| !named(job.id.as_str()));
-        self.order.retain(|id| !named(id));
-        self.keep();
+        // Its place in the order stays: a Job moved to this Mac from another comes back under the same id, in the place it had.
         if self.opened.as_ref().is_some_and(|id| named(id)) {
             self.opened = None;
         }
@@ -1546,6 +1549,17 @@ impl JobsList {
         true
     }
 
+    /// ⌥⌘M while the rows have the keys moves the Job under them to the other Mac. Whether the list took the key: it did not
+    /// where the keys are elsewhere, in the open Job.
+    pub(crate) fn move_key(&mut self, window: &Window, cx: &mut Context<Self>) -> bool {
+        if !self.focus.is_focused(window) {
+            return false;
+        }
+        let Some(id) = self.focused.clone().filter(|id| self.rows().any(|row| &row.id == id && row.queued.is_none())) else { return false };
+        self.move_job(&id, cx);
+        true
+    }
+
     /// `z` while the rows have the keys opens the presets for the row under them, or wakes it where it is
     /// snoozed, as `p` pauses or resumes.
     pub(crate) fn snooze_key(&mut self, event: &gpui::KeyDownEvent, window: &Window, cx: &mut Context<Self>) -> bool {
@@ -1576,6 +1590,48 @@ impl JobsList {
             return;
         }
         crate::snooze::post(self.port(cx), crate::snooze::body(id, until), cx);
+    }
+
+    /// Move a Job to the other Mac, or here where another Mac holds it: one press, with no sheet. A live Fleet is asked, and
+    /// the row follows the record it publishes; a refusal is said in a toast with Fleet's own sentence. On mock data there is
+    /// no Fleet, so the record the list holds takes `moving_to_mac`, as a walk's stand-in for Fleet's answer.
+    pub fn move_job(&mut self, id: &str, cx: &mut Context<Self>) {
+        let paused = self.rows().find(|row| row.id.as_ref() == id).is_some_and(|row| row.paused);
+        let Some(offer) = self.record(id).and_then(|job| crate::mac_move::offer(job, paused, crate::pairing::macs(cx))).filter(|offer| offer.off.is_none()) else { return };
+        if self.fleet.is_none() {
+            self.mock_moving(id, offer.to, cx);
+            return;
+        }
+        crate::mac_move::post(self.port(cx), crate::mac_move::body(id, offer.to), cx);
+    }
+
+    /// A walk's stand-in for Fleet's yes to a move: the record says the Job is on its way to the Mac, or here.
+    fn mock_moving(&mut self, id: &str, to: Option<String>, cx: &mut Context<Self>) {
+        let target = to.or_else(|| crate::pairing::macs(cx).iter().find(|one| one.this_mac).map(|one| one.id.clone()));
+        if let Some(hosted) = self.jobs.iter_mut().find(|job| job.id.as_str() == id).and_then(|job| job.hosted.as_mut()) {
+            hosted.moving_to_mac = target;
+        }
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// A walk's stand-in for the turn ending: the Jobs on their way stop working, so their move reads the next step.
+    pub fn mock_turn_ended(cx: &mut App) -> Result<(), String> {
+        let list = cx.try_global::<MockList>().and_then(|held| held.0.upgrade()).ok_or("no Jobs list is drawn yet")?;
+        list.update(cx, |list, cx| {
+            for job in list.jobs.iter_mut().filter(|job| crate::mac_move::target_of(job).is_some()) {
+                if let Some(hosted) = job.hosted.as_mut() {
+                    hosted.turn = ipc::SessionTurn::Idle;
+                }
+                if let Some(mark) = job.mark.as_mut() {
+                    mark.state = ipc::JobState::Idle;
+                    mark.lamp = JobLamp::Idle;
+                }
+            }
+            list.relist(cx);
+            cx.notify();
+        });
+        Ok(())
     }
 
     fn on_row_menu(&mut self, _: &RowMenu, window: &mut Window, cx: &mut Context<Self>) {
@@ -1629,6 +1685,11 @@ impl JobsList {
             act("close", "Close", Some("x"), true),
             Entry::Rule,
         ];
+        // Move to the other Mac stands after Snooze, off while the Job is paused or already on its way. Fleet carries it to
+        // a Job held on the other Mac, so it is on there too.
+        if let Some(offer) = self.record(&id).and_then(|job| crate::mac_move::offer(job, row.paused, crate::pairing::macs(cx))) {
+            entries.insert(2, Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some(crate::mac_move::KEY.into()), off: offer.off.map(Into::into) });
+        }
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
         let row_folded = row.kids.as_ref().map(|kids| kids.folded);
@@ -1650,6 +1711,7 @@ impl JobsList {
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
                 "snooze" => crate::dispatch::screen::snooze_ask(job.clone(), title.clone(), Some(at), cx),
                 "wake" => this.snooze(&job, None, cx),
+                "move" => this.move_job(&job, cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => {
@@ -2107,6 +2169,39 @@ impl JobsList {
         // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
         let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
         let mut mac_dot = dotted.then(|| crate::pairing::chip(row.mac.as_deref(), cx)).flatten().map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+        // A Job on its way keeps its place and wears an amber edge: its Mac's dot, a muted arrow and the other Mac's dot stand
+        // before the title, and what it is doing at the row's end (`crate::mac_move`).
+        let on_its_way = row.moving.as_ref().map(|target| {
+            let macs = crate::pairing::macs(cx);
+            let away = row.mac.is_some();
+            // A Job held from the other Mac that is moving here names this Mac by an id the list may not hold.
+            let to = crate::pairing::chip_of(macs, Some(target)).or_else(|| away.then(|| crate::pairing::chip_of(macs, None)).flatten());
+            let words: SharedString = crate::mac_move::moving_said(&crate::mac_move::name_of(macs, target, away)).into();
+            let lead = div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .children(mac_dot.take())
+                .child(div().flex_none().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child("\u{2192}"))
+                .children(to.map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-to-{}", row.id)), &chip)));
+            let said = labelled(
+                meta(look)
+                    .id(SharedString::from(format!("moving-{}", row.id)))
+                    .flex_none()
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::STATUS_AWAITING_REVIEW))
+                    .child(words.clone()),
+                Role::Status,
+                words,
+            );
+            (lead, said)
+        });
+        let lamp_ink = if on_its_way.is_some() { look.color(token::STATUS_AWAITING_REVIEW) } else { lamp_ink };
+        let (move_lead, move_said) = match on_its_way {
+            Some((lead, said)) => (Some(lead), Some(said)),
+            None => (None, None),
+        };
         // A row with a time keeps the slot's fixed width so marks line up down the list; one without lets the slot shrink to its glyphs.
         let timed = time.is_some();
         let marks = div()
@@ -2193,6 +2288,7 @@ impl JobsList {
                             .child(svg().path(icon_path("link")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE)))
                             .tooltip(tip(said))
                     }))
+                    .children(move_lead)
                     .child(
                         div()
                             .flex_1()
@@ -2204,6 +2300,7 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
+                    .children(move_said)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
@@ -2756,6 +2853,11 @@ impl JobsScreen {
         } else if act.is("message_job") {
             // ⌥M from anywhere on the deck puts the caret in the open Job's box.
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
+        } else if act.is("move_to_mac") {
+            // ⌥⌘M moves the row under the list's keys, else the open Job.
+            if !self.list.update(cx, |list, cx| list.move_key(window, cx)) {
+                self.view.update(cx, |view, cx| view.move_key(window, cx));
+            }
         } else if self.palette.read(cx).is_open() {
             cx.propagate();
         } else if self.view.update(cx, |view, cx| view.pane_act(act, window, cx)) {

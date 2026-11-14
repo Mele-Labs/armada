@@ -42,6 +42,7 @@ mod lanes_editor;
 mod link;
 mod listen;
 mod log;
+mod mac_move;
 // A screen reads only some of what `look` offers so far.
 #[allow(dead_code)]
 mod look;

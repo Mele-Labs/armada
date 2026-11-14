@@ -586,6 +586,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::Pairing(name) => {
             window.focus(&focus.keys, cx);
             match name {
+                // The turn of the Jobs on their way ends: the move is at its next step.
+                "turn-ends" => JobsList::mock_turn_ended(cx).map_err(Missed),
                 "removed" => JobsList::mock_gone(&[crate::mock::AIR_REMOVED.to_string()], cx).map_err(Missed),
                 // Forgetting Air takes its Jobs from the list as well.
                 "one-mac" => {

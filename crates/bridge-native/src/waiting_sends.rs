@@ -26,8 +26,10 @@ fn first_line(text: &str) -> String {
 }
 
 /// What a send is, in bare words: "Message" and its first line, "Answer" and what was picked, "Plan approved",
-/// "Plan changes", "Stop", "Merge #N". `waiting` is the Job's Needs you, which names a picked option.
-pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
+/// "Plan changes", "Stop", "Merge #N", "Move to <Mac>". `waiting` is the Job's Needs you, which names a picked option.
+/// `here` is this Mac's name, which a Move to it names, and `there` the name of the Mac the send waits for, which an
+/// arriving Job is moving to.
+pub fn said_of(act: &JobAct, waiting: &[WaitingItem], here: &str, there: &str) -> Said {
     let option = |item_id: &str, choice: u32| waiting.iter().find(|item| item.id == item_id).and_then(|item| item.options.get(choice as usize)).map(|option| option.label.clone());
     match act {
         JobAct::Message(body) => said("Message", Some(first_line(&body.message.text))),
@@ -63,8 +65,13 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Merge { number, .. } => said(&format!("Merge #{number}"), None),
         JobAct::Start(_) => said("Start", None),
         JobAct::Dispatch(_) => said("Start", None),
-        // Arrive and MoveSettled are the two Fleets' halves of the move he pressed.
-        JobAct::Move { .. } | JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
+        // Move asks the Mac that holds the Job to send it here; Arrive and MoveSettled are the two Fleets' halves of a move he pressed.
+        JobAct::Move { .. } => said(&format!("Move to {here}"), None),
+        JobAct::Arrive(_) => said(&format!("Move to {there}"), None),
+        JobAct::MoveSettled(settled) => match &settled.refused {
+            Some(why) => said("Move refused", Some(first_line(why))),
+            None => said("Move taken", None),
+        },
     }
 }
 
@@ -92,6 +99,8 @@ pub fn act_of(path: &str, body: &str) -> Option<JobAct> {
         "/sessions/sketch/answer" => JobAct::SketchAnswer(ipc::decode("AnswerSketch", bytes).ok()?),
         "/sessions/document/answer" => JobAct::DocumentAnswer(ipc::decode("AnswerDocument", bytes).ok()?),
         "/sessions/stop" => JobAct::Stop(ipc::decode("StopSession", bytes).ok()?),
+        // Fleet keeps a move of a Job held from a Mac asleep as the ask to send it here.
+        "/sessions/move_to_mac" => JobAct::Move { session_id: ipc::decode::<ipc::MoveJobToMac>("MoveJobToMac", bytes).ok()?.session_id },
         _ => return None,
     })
 }
@@ -112,7 +121,7 @@ mod tests {
     #[test]
     fn each_send_says_what_it_is_in_bare_words() {
         let words = |json: &str| {
-            let said = said_of(&act(json), &[question()]);
+            let said = said_of(&act(json), &[question()], "Air", "Studio");
             match said.detail {
                 Some(detail) => format!("{}: {detail}", said.kind),
                 None => said.kind,
@@ -127,6 +136,23 @@ mod tests {
         assert_eq!(words(r#"{"kind":"merge","body":{"session_id":"j","repository":"armada","number":3548}}"#), "Merge #3548");
         assert_eq!(words(r#"{"kind":"sketch_answer","body":{"session_id":"j","sketch":"sketch:Tail layout","drawn":"d","how":"approved"}}"#), "Answer: Tail layout, approved");
         assert_eq!(words(r#"{"kind":"message","body":{"session_id":"j","text":"  "}}"#), "Message", "a message of pictures alone says its kind");
+    }
+
+    #[test]
+    fn a_move_names_the_mac_it_goes_to() {
+        let said = |act: JobAct| said_of(&act, &[], "Air", "Studio");
+        assert_eq!(said(act(r#"{"kind":"move","body":{"session_id":"j"}}"#)).kind, "Move to Air", "the Job comes to this Mac");
+        let record = crate::mock::jobs("jobs-screens").expect("the fixture decodes").remove(0);
+        let arriving = JobAct::Arrive(ipc::ArrivingJob { record, branch: None, conversation: ipc::CarriedConversation { bytes: 1, sha256: "0".into() } });
+        assert_eq!(said(arriving).kind, "Move to Studio", "an arriving Job goes to the Mac the send waits for");
+        assert_eq!(said(act(r#"{"kind":"move_settled","body":{"session_id":"j"}}"#)), Said { kind: "Move taken".into(), detail: None });
+        let refused = act(r#"{"kind":"move_settled","body":{"session_id":"j","refused":"No slot is free.\nTry later"}}"#);
+        assert_eq!(said(refused), Said { kind: "Move refused".into(), detail: Some("No slot is free.".into()) });
+    }
+
+    #[test]
+    fn a_move_asked_of_a_held_job_is_kept_as_the_ask_to_send_it_here() {
+        assert_eq!(act_of("/sessions/move_to_mac", r#"{"session_id":"j"}"#), Some(act(r#"{"kind":"move","body":{"session_id":"j"}}"#)));
     }
 
     #[test]

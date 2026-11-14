@@ -40,6 +40,7 @@ impl JobView {
         let hue = look.color(if refused { token::STATUS_AWAITING_REVIEW } else { token::STATUS_NOT_STARTED });
         let state_said = if refused { "Refused" } else { "Waiting" };
         let waiting = self.record(id, cx).map(|job| job.waiting_for.as_slice()).unwrap_or_default();
+        let here = crate::pairing::macs(cx).iter().find(|one| one.this_mac).map_or_else(|| "this Mac".to_string(), |one| one.name.clone());
         // Wide, each row is one line with the kinds in a column; narrow, as the message box narrows (under 400px), the
         // time goes under the words so Take back keeps its place at the end.
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(self.column(look)) < gpui::px(400.));
@@ -47,7 +48,7 @@ impl JobView {
         let rows: Vec<AnyElement> = sends
             .iter()
             .map(|one| {
-                let said = said_of(&one.act, waiting);
+                let said = said_of(&one.act, waiting, &here, &name);
                 let at = Local.timestamp_millis_opt(one.since).single().map(crate::settings::time::stamp).unwrap_or_default();
                 let (chip_hue, chip_ground) = match one.refused {
                     Some(_) => (look.color(token::STATUS_AWAITING_REVIEW), look.color(token::STATUS_AWAITING_REVIEW_BG)),

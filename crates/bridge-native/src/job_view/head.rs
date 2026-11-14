@@ -457,6 +457,11 @@ impl JobView {
         if live {
             acts.push(crate::snooze::menu_item(self.snoozed(id, cx)));
         }
+        if live {
+            if let Some(offer) = crate::mac_move::offer(job, self.paused(id, cx), crate::pairing::macs(cx)) {
+                acts.push(Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some(crate::mac_move::KEY.into()), off: offer.off.map(Into::into) });
+            }
+        }
         if live && hosted {
             acts.push(Entry::Toggle { id: "land", label: "Auto land".into(), on: self.auto_land(id, cx) });
             let holds = self.holds(id, cx).is_empty();
@@ -591,6 +596,7 @@ impl JobView {
                 self.overlay_mut(&id).paused = Some(false);
                 self.ask_act(id, "/sessions/resume".into(), encoded(ipc::encode(&ipc::ResumeSession { session_id })), |overlay| overlay.paused = None, window, cx);
             }
+            "move" => self.ask_move(&id, window, cx),
             "snooze" => self.ask_snooze(&id, window, cx),
             "wake" => self.list.update(cx, |list, cx| list.snooze(&id, None, cx)),
             "land" => {
@@ -625,6 +631,25 @@ impl JobView {
             _ => {}
         }
         cx.notify();
+    }
+
+    /// Move the Job to the other Mac, or here where the other Mac holds it. One press sends it, with no sheet. A refusal is
+    /// Fleet's own sentence under the thread's strip; on mock data the list's record takes the move, as Fleet's answer would.
+    fn ask_move(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(offer) = self.record(id, cx).and_then(|job| crate::mac_move::offer(job, self.paused(id, cx), crate::pairing::macs(cx))).filter(|offer| offer.off.is_none()) else { return };
+        if self.fleet.is_none() {
+            self.list.update(cx, |list, cx| list.move_job(id, cx));
+        }
+        self.ask_act(id.clone(), crate::mac_move::ROUTE.into(), crate::mac_move::body(id, offer.to), |_| {}, window, cx);
+    }
+
+    /// ⌥⌘M with the keys in the open Job. Whether there was a Job to act on.
+    pub(crate) fn move_key(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.shown.is_none() {
+            return false;
+        }
+        self.head_act("move", window, cx);
+        true
     }
 
     /// The presets' menu, under the Job's tab where it is drawn. A refusal is said in a toast.
@@ -1551,6 +1576,7 @@ fn route_of(act: &str) -> Option<&'static str> {
         "stop" => "/sessions/stop",
         "pause" => "/sessions/pause",
         "resume" => "/sessions/resume",
+        "move" => crate::mac_move::ROUTE,
         "name" => "/sessions/name",
         "land" => "/sessions/auto_land",
         "release" => "/sessions/release_holds",

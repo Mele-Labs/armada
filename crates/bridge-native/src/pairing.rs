@@ -5,7 +5,7 @@
 //! the list once ([`hold`]) and every row, head and menu reads it, as the write-clash marks do.
 //!
 //! **Nothing is drawn until a second Mac is linked or asleep** ([`shows_chips`]). A Job on another Mac is read
-//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge) go from
+//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge, Move to a Mac) go from
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
@@ -53,7 +53,22 @@ pub fn follow(cx: &mut App) {
 
 /// A walk's Macs: the pairing scenario's two, and none for any other, so one walk never leaves chips for the next.
 pub fn begin_mock(scenario: &str, cx: &mut App) {
-    hold(if scenario == "jobs-pairing" { mock_macs(true) } else { Vec::new() }, cx);
+    hold(
+        match scenario {
+            "jobs-pairing" => mock_macs(true),
+            "jobs-move" => move_macs(),
+            _ => Vec::new(),
+        },
+        cx,
+    );
+}
+
+/// Air, this Mac, and Studio, linked and awake: the Macs a move to the other Mac is walked between.
+fn move_macs() -> Vec<Mac> {
+    vec![
+        Mac { id: "air".into(), name: "Air".into(), colour: MacColour::Orange, this_mac: true, ..Default::default() },
+        Mac { id: "studio".into(), name: "Studio".into(), colour: MacColour::Teal, link: Some(MacLink::Linked), ..Default::default() },
+    ]
 }
 
 /// Studio, this Mac, and Air, which fell asleep at 09:12 that morning; or Studio alone.
@@ -155,7 +170,7 @@ pub fn reads(path: &str) -> bool {
 /// (`docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*). A start and a dispatch cross
 /// too, but name their Mac in the body, so they are not acts on a Job held there.
 pub fn crosses(path: &str) -> bool {
-    const ROUTES: [&str; 9] = [
+    const ROUTES: [&str; 10] = [
         "/sessions/message",
         "/sessions/ask/answer",
         "/sessions/waiting/answer",
@@ -165,6 +180,7 @@ pub fn crosses(path: &str) -> bool {
         "/sessions/sketch/answer",
         "/sessions/document/answer",
         "/sessions/stop",
+        crate::mac_move::ROUTE,
     ];
     ROUTES.contains(&path) || (path.starts_with("/pull_requests/") && path.ends_with("/merge"))
 }
@@ -306,6 +322,7 @@ mod tests {
             "/sessions/sketch/answer",
             "/sessions/document/answer",
             "/sessions/stop",
+            "/sessions/move_to_mac",
             "/pull_requests/armada/3548/merge",
         ] {
             assert!(crosses(path), "{path} crosses");

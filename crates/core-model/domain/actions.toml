@@ -195,6 +195,18 @@ destructive = false
 confirms = false
 notes = "Puts the caret in the open Job's message box from anywhere in its view, a field or a layer included. A modifier means this tier, so it works while another field has focus; with no Job open it does nothing. ⌥M is the Job view's own family (⌥W, ⌥1–⌥3, ⌥F, ⌥N, ⌥L) and free in the map: ⌘J is the Operator's panel, ⌘M is the platform's Minimize, and a bare letter would be suppressed in the field the person is leaving. Read by the key's place on the keyboard, since Option changes the character M types. No glyph: `message-square` is a thread's. Added 27 Oct 2026 on the owner's *\"a key to jump to the Job's composer\"*. On the native Operator page it puts the caret in the message box pinned at the page's foot (12 Nov 2026)."
 
+[actions.move_to_mac]
+kind = "Action"
+tier = "Global"
+verb = "Move to Mac"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥⌘M"
+scope = "deck"
+destructive = false
+confirms = false
+notes = "Moves the open Job, or the Job under the list's keys, to his other Mac, with no sheet: one press sends it, and Fleet's move cannot be cancelled. A Job held from the other Mac comes here. It does nothing for a Job that is ended, paused, not hosted or already moving, and where no other Mac is paired; the Job's menu draws the act off with why. Pause has no row of its own (`P` is the flight control's key, which the registry does not carry), so this is the deck's one key that moves a Job between Macs. ⌘M is the platform's Minimize, ⌥M is Message the Job, and ⌥⌘M is free in the registry and in Electron's menus. No glyph: `laptop` is this machine and `monitor` is another one, and both are reserved to naming a machine, not to moving a Job to it. Added 14 Nov 2026 with the native Bridge's Move to a Mac."
+
 [actions.pane_split_right]
 kind = "Action"
 tier = "Global"

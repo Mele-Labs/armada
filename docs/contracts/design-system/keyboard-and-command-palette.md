@@ -53,6 +53,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥1–⌥9    choose a repository to dispatch to
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌥M       message the Job: put the caret in the open Job's message box
+⌥⌘M      move to Mac: send the open Job, or the Job under the list's keys, to his other Mac, with no sheet; a Job held on the other Mac comes here, in the native Bridge only
 ⌥↵       yes to a card waiting in the Job's thread: Approve, Allow once, Answer  (confirms)
 ⌥E       change the thread's target card: Edit, Suggest, Other
 ⌥R       send back the thread's target card with a note
