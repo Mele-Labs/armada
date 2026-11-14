@@ -93,13 +93,19 @@ pub(super) struct Drafts {
     remember: bool,
 }
 
+/// The drafts a file holds, none where it is missing or not understood.
+fn read_drafts(path: &std::path::Path) -> HashMap<String, Kept> {
+    std::fs::read(path).ok().and_then(|bytes| ipc::decode::<HashMap<String, Kept>>("drafts", &bytes).ok()).unwrap_or_default()
+}
+
+/// What the live app's file holds now.
+pub(crate) fn read_drafts_file() -> HashMap<String, Kept> {
+    drafts_file().map(|path| read_drafts(&path)).unwrap_or_default()
+}
+
 impl Drafts {
     pub fn read(remember: bool) -> Self {
-        let by_job = remember
-            .then(|| drafts_file().and_then(|path| std::fs::read(path).ok()))
-            .flatten()
-            .and_then(|bytes| ipc::decode::<HashMap<String, Kept>>("drafts", &bytes).ok())
-            .unwrap_or_default();
+        let by_job = if remember { read_drafts_file() } else { HashMap::new() };
         Drafts { by_job, remember }
     }
 
@@ -628,13 +634,15 @@ impl JobView {
     /// Write the drafts 400 ms after the last change, off the main thread.
     fn keep_soon(&mut self, cx: &mut Context<Self>) {
         let Some((path, text)) = self.composer.drafts.encoded() else { return };
+        // Held for a panic's hook and the quit to write, until the file holds it.
+        crate::crash::hold(&path, text.clone());
         self.composer.keeping = Some(cx.spawn(async move |_, cx| {
             cx.background_executor().timer(Duration::from_millis(400)).await;
             cx.background_executor()
                 .spawn(async move {
-                    let kept = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&path, text));
-                    if let Err(why) = kept {
-                        Note::warn("the drafts were not kept").field("why", why.to_string()).emit();
+                    match crate::crash::write_atomic(&path, &text) {
+                        Ok(()) => crate::crash::settle(&path, &text),
+                        Err(why) => Note::warn("the drafts were not kept").field("why", why.to_string()).emit(),
                     }
                 })
                 .await;
@@ -1546,6 +1554,40 @@ mod tests {
 
     fn kept(text: &str) -> Kept {
         Kept { text: text.into(), tags: Vec::new() }
+    }
+
+    #[test]
+    fn the_composer_teach_and_fork_drafts_are_found_again_from_the_file_they_were_written_to() {
+        let path = std::env::temp_dir().join(format!("armada-job-drafts-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut drafts = Drafts { by_job: HashMap::new(), remember: true };
+        drafts.set("job-1", kept("a reply\nover two lines"));
+        drafts.set("teach:job-1", kept("remember this"));
+        drafts.set("card:job-1:plan:note", kept("a note on a card"));
+        // The write the store makes: whole or not at all, with no temp file left beside it.
+        crate::crash::write_atomic(&path, &ipc::encode(&drafts.by_job).unwrap()).unwrap();
+        assert_eq!(std::fs::read_dir(path.parent().unwrap()).unwrap().filter_map(Result::ok).filter(|one| one.file_name().to_string_lossy().starts_with(path.file_name().unwrap().to_str().unwrap()) && one.path() != path).count(), 0);
+
+        let fresh = Drafts { by_job: read_drafts(&path), remember: true };
+        assert_eq!(fresh.get("job-1").text, "a reply\nover two lines");
+        assert_eq!(fresh.get("teach:job-1").text, "remember this");
+        assert_eq!(fresh.get("card:job-1:plan:note").text, "a note on a card");
+        assert_eq!(read_drafts(&path.with_extension("missing")), HashMap::new(), "no file is no drafts");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn the_composer_drafts_a_panic_would_lose_are_written_from_what_is_held() {
+        let path = std::env::temp_dir().join(format!("armada-job-drafts-held-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut drafts = Drafts { by_job: HashMap::new(), remember: true };
+        drafts.set("job-1", kept("typed a moment ago"));
+        let text = ipc::encode(&drafts.by_job).unwrap();
+        crate::crash::hold(&path, text.clone());
+        crate::crash::flush(false);
+        assert_eq!(read_drafts(&path).get("job-1").map(|one| one.text.as_str()), Some("typed a moment ago"));
+        crate::crash::settle(&path, &text);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
