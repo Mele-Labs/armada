@@ -124,6 +124,18 @@ pub static MACS_MODELS_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-long`: names and an address far wider than their cards.
+pub const MACS_LONG: &str = "native-settings-macs-long";
+
+pub static MACS_LONG_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: a name stops in an ellipsis at the edge of its card, and a tooltip holds the whole name", "button", "Macs", "list", "Devices"),
+    step("The tunnel's address stops in an ellipsis on its own line, and Copy address copies all of it", Verb::Look, "button", "Copy address"),
+    press_on("Pair a phone: its link stops on one line, and Copy link copies all of it", "button", "Pair a phone", "button", "Copy link"),
+    press_on("Pair a Mac: its link stops on one line too", "button", "Pair a Mac", "textbox", "Paste the link from your other Mac"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 

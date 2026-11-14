@@ -151,6 +151,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_LONG {
+                    over.update(cx, |over, cx| over.long_names(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }

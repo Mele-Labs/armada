@@ -1144,7 +1144,7 @@ impl SettingsOverlay {
 
         // The tunnel.
         let (mark, name, lines, press) = match state {
-            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "Your other Macs reach this Mac at", address).into_any_element()], None),
+            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "macs-tunnel-address", "Your other Macs reach this Mac at", address).into_any_element()], None),
             Some(CloudflareState::NoTunnel { why: Some(why) }) => (failed(look, "macs-step-tunnel"), "Make the tunnel", vec![alert(look, "macs-tunnel-why", why)], Some(again())),
             Some(CloudflareState::NoTunnel { why: None }) if page.tunnel_asked => (working(look, "macs-step-tunnel"), "Making the tunnel", Vec::new(), None),
             _ => (not_done(look, "macs-step-tunnel"), "Make the tunnel", Vec::new(), None),
@@ -1181,7 +1181,17 @@ impl SettingsOverlay {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(chip(look, mac))
-                    .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(mac.name.clone())))
+                    .child(
+                        div()
+                            .id("macs-this-name")
+                            .min_w_0()
+                            .truncate()
+                            .text_size(look.length(token::TEXT_SM))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .tooltip(tip(mac.name.clone()))
+                            .child(SharedString::from(mac.name.clone())),
+                    )
                     .children(mac.build.as_ref().map(|build| build_mark(look, "macs-this-build", build)))
                     .into_any_element(),
             },
@@ -1218,7 +1228,7 @@ impl SettingsOverlay {
         let funnel = page.funnel_row();
         let mut rows: Vec<AnyElement> = funnel
             .map(|address| {
-                let line = labelled(div().id("macs-funnel").child(reach_line(look, "Phones reach this Mac at", address)), Role::Status, format!("Phones reach this Mac at {address}"));
+                let line = labelled(div().id("macs-funnel").child(reach_line(look, "macs-funnel-address", "Phones reach this Mac at", address)), Role::Status, format!("Phones reach this Mac at {address}"));
                 step_row(look, glyph(look, "macs-funnel-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), Vec::new(), Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             })
             .into_iter()
@@ -1228,12 +1238,12 @@ impl SettingsOverlay {
             CloudflareState::Running { address } => {
                 let served = setup.served == Served::Funnel;
                 let (lead, said) = if served { ("New phones pair at", format!("New phones pair at {address}")) } else { ("Phones and your other Macs reach this Mac at", format!("Reached at {address}")) };
-                let line = labelled(div().id("macs-running").child(reach_line(look, lead, address)), Role::Status, said);
+                let line = labelled(div().id("macs-running").child(reach_line(look, "macs-running-address", lead, address)), Role::Status, said);
                 let lines: Vec<AnyElement> = served.then(|| caption(look, "Phones already paired keep using Tailscale Funnel while it is on.").into_any_element()).into_iter().collect();
                 step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), lines, Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             }
             CloudflareState::Down { address, since, why } => {
-                let name = div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
+                let name = div().id("macs-down-address").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.clone())).child(SharedString::from(address.clone()));
                 let since = format!("Not connected since {}", clock_of(*since));
                 let mut lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
                 lines.extend(refused);
@@ -1353,7 +1363,7 @@ impl SettingsOverlay {
         }
         let live = page.phone.as_ref().map(|phone| {
             let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
-            let link = div().id("macs-phone-link").min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
+            let link = div().id("macs-phone-link").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(phone.link.clone())).child(SharedString::from(phone.link.clone()));
             let figure = div().id("macs-phone-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             let facts = div()
                 .flex_1()
@@ -1418,8 +1428,8 @@ impl SettingsOverlay {
         let refused = |act: &str| page.refused.get(act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
         let made = page.link.as_ref().map(|made| {
             let left = time_left(made.expires_at - chrono::Utc::now().timestamp());
-            // The code is at the link's end, so a narrow page wraps it rather than cutting it off.
-            let link = div().id("macs-pair-link").flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
+            // One line, stopped in an ellipsis; Copy link takes the whole of it, and so does the tooltip.
+            let link = div().id("macs-pair-link").flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(made.link.clone())).child(SharedString::from(made.link.clone()));
             let figure = div().id("macs-pair-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             div()
                 .flex()
@@ -1606,16 +1616,17 @@ fn glyph(look: &Look, id: impl Into<SharedString>, name: &'static str, ink: Hsla
     labelled(div().id(id.into()).flex_none().tooltip(tip(said.to_string())).child(svg().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(ink)), Role::Image, said.to_string()).into_any_element()
 }
 
-/// A sentence ending on an address.
-fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
+/// A sentence, and the address it ends on under it on one line: the lead stays whole, the address takes the width
+/// there is and stops in an ellipsis, with the whole of it in a tooltip.
+fn reach_line(look: &Look, id: &'static str, lead: &str, address: &str) -> gpui::Div {
     div()
         .flex()
-        .flex_wrap()
-        .items_baseline()
+        .flex_col()
+        .min_w_0()
         .text_size(look.length(token::TEXT_SM))
         .text_color(look.color(token::FG_MUTED))
-        .child(SharedString::from(format!("{lead}\u{a0}")))
-        .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.to_string())))
+        .child(SharedString::from(lead.to_string()))
+        .child(div().id(id).min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.to_string())).child(SharedString::from(address.to_string())))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
@@ -1662,9 +1673,10 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
                 .child(
                     div()
                         .flex()
+                        .min_w_0()
                         .items_baseline()
                         .gap(look.length(token::SPACE_2))
-                        .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).child(SharedString::from(name.to_string())))
+                        .child(div().id(SharedString::from(format!("macs-name-{name}"))).min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).tooltip(tip(name.to_string())).child(SharedString::from(name.to_string())))
                         .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside))),
                 )
                 .children(why.map(|why| caption(look, why))),
@@ -1716,6 +1728,30 @@ mod tests {
         (overlay, cx)
     }
 
+    /// The page drawn, on a Gateway whose names and tunnel address are far wider than any card.
+    fn opened_long(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| {
+            let mut fleet = MockFleet::new();
+            fleet.gateway = super::super::gateway::MockGateway::long_names();
+            SettingsOverlay::new(Wire::Mock(Box::new(fleet)), window, cx)
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.read_macs(window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| {
+            this.macs_keys(cx);
+            this.open = true;
+            this.picked = "bridge:macs";
+            cx.notify();
+        }));
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
     fn updates(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<UpdateMac> {
         overlay.read_with(cx, |this, _| match &this.wire {
             Wire::Mock(mock) => mock.gateway.updates.clone(),
@@ -1746,6 +1782,30 @@ mod tests {
             let presses: Vec<_> = this.macs.macs.iter().flatten().flatten().map(|mac| press_of_mac(mac).map(|(act, _)| act)).collect();
             assert_eq!(presses, [None, Some("forget"), Some("forget"), Some("forget"), Some("confirm")], "this Mac has no press; one waiting on Confirm there can be forgotten");
         });
+    }
+
+    #[gpui::test]
+    fn a_long_name_or_address_stops_in_an_ellipsis_and_leaves_the_press_column_where_it_was(cx: &mut TestAppContext) {
+        use super::super::gateway::{LONG_ADDRESS, LONG_MAC, LONG_THIS_MAC};
+        assert_eq!((LONG_THIS_MAC.chars().count(), LONG_MAC.chars().count(), LONG_ADDRESS.chars().count()), (50, 60, 90));
+        for width in [gpui::px(1400.), gpui::px(820.)] {
+            let (overlay, cx) = opened_long(cx);
+            cx.simulate_resize(gpui::size(width, gpui::px(900.)));
+            cx.update(|_, cx| overlay.update(cx, |_, cx| cx.notify()));
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                let edge = |role, name: &str| bounds_of(window, cx, role, name).map(|bounds| (bounds.origin.x, bounds.right(), bounds.size.width));
+                let long = edge(Role::Button, &format!("Forget {LONG_MAC}")).expect("the long-named Mac's press is drawn");
+                let short = edge(Role::Button, "Forget Mac mini").expect("a short-named Mac's press is drawn");
+                assert_eq!(long.1, short.1, "at {width:?} the long name does not push its press out of the column");
+                assert_eq!(long.2, short.2, "and the press keeps its width");
+                assert!(long.1 <= window.viewport_size().width, "at {width:?} the press is inside the window");
+                let copy = edge(Role::Button, "Copy address").expect("Copy address is drawn");
+                assert!(copy.1 <= window.viewport_size().width, "at {width:?} a 90 character address does not push Copy address out of the window");
+                let tunnel = bounds_of(window, cx, Role::Status, &format!("Reached at {LONG_ADDRESS}")).expect("the tunnel's row is drawn");
+                assert!(tunnel.right() <= copy.0, "at {width:?} the address stops before Copy address");
+            });
+        }
     }
 
     #[test]
