@@ -40,6 +40,7 @@ pub(crate) fn recorded(
     before: Option<&KeptPlan>,
     groups: &[PlanGroupInput],
     sketch: Option<(String, String)>,
+    sketches: Vec<String>,
     walk: Option<String>,
     seen: bool,
     summary: String,
@@ -185,6 +186,7 @@ pub(crate) fn recorded(
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
             tasks,
+            sketches: group.sketches.clone(),
         });
     }
     // What went. A task of a group that went with it is covered by the group's line.
@@ -212,6 +214,7 @@ pub(crate) fn recorded(
         asked_version: version,
         set_aside_at: None,
         sketch,
+        sketches,
         walk,
         seen,
         changes: before.map(|_| changes),
@@ -581,6 +584,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                     })
                     .collect(),
                 worked_at: group.worked_at.as_deref().map(Instant::carried),
+                sketches: plan_sketches(&group.sketches),
             })
             .collect(),
         changes: plan.changes.as_ref().map(|_| PlanChanges {
@@ -590,6 +594,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
             removed: renamed("removed").map(|one| PlanRemoved { group: one.id.clone(), text: one.other.clone() }).collect(),
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
+        sketches: plan_sketches(&plan.sketches),
         held_by: Vec::new(),
         held: plan.held.as_ref().and_then(|held| {
             let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
@@ -597,4 +602,29 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         }),
         other_macs: Vec::new(),
     }
+}
+
+/// Sketches a plan names by title, as the record carries them: each by its ledger id `sketch:<title>`.
+fn plan_sketches(titles: &[String]) -> Vec<PlanSketch> {
+    titles.iter().map(|title| PlanSketch { id: format!("{}{title}", crate::session_host::sketching::TARGET_PREFIX), title: title.clone() }).collect()
+}
+
+/// Every sketch title a version names while it is pending, the whole plan's first, each once. **None for a
+/// version he approved or set aside**: its sketches wait on him alone again, if they still ask.
+pub(crate) fn pending_sketches(plan: &KeptPlan) -> Vec<String> {
+    if plan.approved_at.is_some() || plan.set_aside_at.is_some() {
+        return Vec::new();
+    }
+    named_sketches(plan)
+}
+
+/// Every sketch title a version names, the whole plan's first, each once.
+pub(crate) fn named_sketches(plan: &KeptPlan) -> Vec<String> {
+    let mut titles: Vec<String> = Vec::new();
+    for title in plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())) {
+        if !titles.contains(title) {
+            titles.push(title.clone());
+        }
+    }
+    titles
 }

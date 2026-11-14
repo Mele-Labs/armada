@@ -91,7 +91,7 @@ where
                 eprintln!("autopilot: job {id} starts without workflow `{named}`: {why:?}");
             }
         }
-        let voice = SessionVoice::Session { id: AUTOPILOT.to_lowercase(), title: AUTOPILOT.to_string() };
+        let voice = SessionVoice::Session { id: AUTOPILOT.to_lowercase(), title: AUTOPILOT.to_string(), mac: None };
         if let Err(why) = self.first_message_from(&id, voice, &brief).await {
             let _ = self.closed_and_parked(CloseSession { session_id: SessionId::carried(&id) }).await;
             return Err(why);

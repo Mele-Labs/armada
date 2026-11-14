@@ -19,11 +19,16 @@ use tokio::task::JoinHandle;
 use tower::ServiceExt;
 
 mod acting;
+mod messages;
+mod moving;
+mod pages;
+mod pairing_calls;
+mod updating;
 
 use super::session_host::{rig_fitted, Rig};
 use super::share::{job_in, project, shared};
 use crate::mint::Mint;
-use crate::phone::{OtherMacRead, PhoneSwitch};
+use crate::phone::{OtherMacPage, OtherMacPageOpening, OtherMacRead, PhoneSwitch};
 use crate::tests::planted::Ticking;
 use crate::tests::tmp::TempDir;
 
@@ -73,6 +78,20 @@ impl PhoneSwitch for Switch {
             Some(gateway) => Box::pin(pocket::send_other_mac(gateway, mac, path, body)),
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
         }
+    }
+
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> OtherMacPageOpening {
+        let Some(gateway) = self.0.lock().expect("not poisoned").clone() else {
+            return Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac."))));
+        };
+        let opening = pocket::open_other_mac_page(&gateway, mac, job, port, rest);
+        Box::pin(async move {
+            opening.await.map(|open| match open {
+                pocket::PageOpen::Open(url) => OtherMacPage::Open(url),
+                pocket::PageOpen::Asleep { name, since } => OtherMacPage::Asleep { name, since },
+                pocket::PageOpen::Refused { status, body } => OtherMacPage::Refused { status, body },
+            })
+        })
     }
 }
 

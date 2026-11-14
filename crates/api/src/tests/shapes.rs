@@ -431,6 +431,7 @@ pub fn health() -> FleetHealth {
         }],
         action_authority: ActionAuthority::Acting,
         workflows_left_out: true,
+        disk: None,
     }
 }
 

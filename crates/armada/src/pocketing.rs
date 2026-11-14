@@ -132,7 +132,8 @@ impl Phone {
             .map_err(|why| format!("Armada could not open its store for the phone: {why}"))?;
         let push = pocket::Push::open(&self.machine, pocket::PLACEHOLDER_SUBJECT)?;
         let fleet_port = self.fleet_port;
-        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT).map(|kept| kept.commit);
+        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT)
+            .map(|kept| pocket::ThisBuild { commit: kept.commit, built_at: kept.built_at, source: kept.source });
         let way_in = pocket::mac_way_in(self.machine.clone(), port, build);
         let tunnel = way_in.tunnel.clone();
         let gateway = Gateway {
@@ -222,6 +223,17 @@ impl PhoneSwitch for Phone {
         let running = self.running.lock().unwrap();
         match running.as_ref() {
             Some(running) => Box::pin(pocket::send_other_mac(&running.gateway, mac, path, body)),
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn open_other_mac_page(&self, mac: &str, job: &str, port: u16, rest: &str) -> fleet::phone::OtherMacPageOpening {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let opening = pocket::open_other_mac_page(&running.gateway, mac, job, port, rest);
+                Box::pin(async move { opening.await.map(page_said) })
+            }
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
         }
     }
@@ -322,5 +334,14 @@ mod tests {
         assert!(phone.state().listening && answers(port).await);
         phone.set(false);
         std::fs::remove_dir_all(&dir).ok();
+    }
+}
+
+/// The Gateway's word on another Mac's page, as Fleet reads it.
+fn page_said(open: pocket::PageOpen) -> fleet::phone::OtherMacPage {
+    match open {
+        pocket::PageOpen::Open(url) => fleet::phone::OtherMacPage::Open(url),
+        pocket::PageOpen::Asleep { name, since } => fleet::phone::OtherMacPage::Asleep { name, since },
+        pocket::PageOpen::Refused { status, body } => fleet::phone::OtherMacPage::Refused { status, body },
     }
 }

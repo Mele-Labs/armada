@@ -9,18 +9,30 @@ pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
 /// The build switcher on Fleet's report: each scene is Fleet's JSON read as the live bar reads it.
-pub static BUILD_LIVE: [Step; 11] = [
+pub static BUILD_LIVE: [Step; 10] = [
     scene("Fleet's report on Main, level with main: the restart is off and says so", "build-live-main", "button", "Fleet — Running"),
     step("The panel opens under the dot", Verb::Press, "button", "Fleet — Running"),
     scene("On Preview, as Fleet counts it: five ahead, two behind, and the branches left out say why", "build-live-preview", "list", "Left out of the preview"),
     press_on("Refresh preview is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh preview", "button", "Refreshing preview"),
     scene("A restart Fleet refused says Fleet's words where a failed restart is said", "build-live-refused", "alert", "no served repository holds scripts/restart-build"),
     scene("Update to main: Fleet carries two working Jobs across the restart", "build-live-carried", "button", "Update to main"),
-    press_on("Restart asks first, naming them", "button", "Update to main", "dialog", "Drones are working"),
-    press_on("Yes: the restart is under way in the same frame", "button", "Restart", "button", "Updating to main"),
+    press_on("Nothing asks first, since those Jobs keep running: the restart is under way in the same frame", "button", "Update to main", "button", "Updating to main"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
     scene("Jobs on the running build that are not kept yet are held in a bar above the screen", "build-live-trying", "region", "Trying"),
     press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
+];
+
+/// The On origin row of the build switcher: branches no Job here holds, picked into the next build (#3547).
+pub static ORIGIN: [Step; 9] = [
+    scene("Origin holds nine branches main lacks that no Job on this Mac holds", "build-origin", "button", "Fleet — Running"),
+    press_on("The panel lists them under On origin, newest first, each with how long ago it was last committed to", "button", "Fleet — Running", "list", "On origin"),
+    step("The list runs long, so a search sits over it", Verb::Press, "searchbox", "Search branches on origin"),
+    step("Typing narrows it to the branches whose name holds every word", Verb::Keys(&["n", "a", "t", "i", "v", "e"]), "list", "On origin"),
+    step("A name no branch holds says so", Verb::Keys(&["space", "z"]), "list", "On origin"),
+    step("Clearing the search brings the list back", Verb::Keys(&["backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace"]), "button", "Add native/refresh-set to the next build"),
+    press_on("The plus adds a branch to the next build: it joins the picked chips in the same frame and leaves the list", "button", "Add native/refresh-set to the next build", "button", "Leave native/refresh-set out of the build"),
+    scene("Fleet builds a snapshot of main and the branch beside the running build, and offers Swap when it is ready", "build-origin-ready", "button", "Swap"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
 ];
 
 /// The Refresh row of the build switcher on the branches Jobs offered for the preview.
@@ -52,7 +64,7 @@ pub static SWITCHER: [Step; 9] = [
     step("Wider, the repositories join the name once they fit whole", Verb::Width(1440), "button", "Project"),
 ];
 
-pub static STEPS: [Step; 61] = [
+pub static STEPS: [Step; 60] = [
     step("The wide bar: a window narrower than 900 widens to show it", Verb::Widen(1400), "button", "Project"),
     step("The bar at rest: the project with its repositories, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Project"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
@@ -87,9 +99,8 @@ pub static STEPS: [Step; 61] = [
     press_on("Revert says what it takes out and brings back", "button", "Revert", "list", "Jobs taken out"),
     step("Esc cancels and the panel has the keys", Verb::Key("escape"), "button", "Revert"),
     scene("A revert under way turns the button to its pending word", "build-reverting", "button", "Reverting"),
-    scene("Working Drones are named before a restart adopts them", "build-drones", "button", "Update to main"),
-    press_on("Restart asks first", "button", "Update to main", "dialog", "Drones are working"),
-    press_on("Yes: the restart is under way in the same frame", "button", "Restart", "button", "Updating to main"),
+    scene("Main is three behind: Update to main is offered", "build-main-behind", "button", "Update to main"),
+    press_on("Update to main restarts with no dialog: the restart is under way in the same frame", "button", "Update to main", "button", "Updating to main"),
     step("Esc shuts the panel and the keys go back to where they were", Verb::Key("escape"), "button", "Fleet — Running"),
     scene("A build the person has not kept yet is held in a bar above the screen", "build-trying", "region", "Trying"),
     press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),

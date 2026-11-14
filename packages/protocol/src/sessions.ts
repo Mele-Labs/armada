@@ -5,6 +5,7 @@
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
 import type { BuildSource } from "./building";
+import type { ForLink } from "./job-artifacts";
 import type { CallInFlight } from "./calls";
 import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
@@ -136,8 +137,8 @@ export type SessionRecord = {
   from_tab?: string;
   /** A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session. */
   mod_of_bay?: true;
-  /** A quick terminal, started by `start_terminal_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
-  quick_terminal?: true;
+  /** A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
+  side_job?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -423,7 +424,10 @@ export type WaitingAct = {
  * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
  * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
  * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `draft` (id `draft:<row>`) is a draft the
- * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`. `watch_not_ours` (id `watch_not_ours:<watch id>`,
+ * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`. `handoff` (id `handoff:<row>`, text
+ * `Carry on in a new Job?`, act `answer`) is Fleet's card for a Job past its context limit, raised by its `handoff_brief`: six options,
+ * `Carry on in a new Job`, `Stay here`, `Don't ask again`, then `Remind at <figure>` for each of the row's `remind_at`. Answered with a
+ * `choice` by him alone; dismissing it is Stay. No message goes to the agent. `watch_not_ours` (id `watch_not_ours:<watch id>`,
  * text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id) is Fleet asking about a watch that ended `not_ours`:
  * `Ignore` (choice 0) settles it and tells the agent nothing, `Fix it` (choice 1) sends the agent the part, its sentence and its link.
  * Words alone go to the agent as a message. Each settles it, as dismissing does. It is listed while the Job is live.
@@ -462,6 +466,7 @@ export type WaitingSource =
   | "permission"
   | "window_ask"
   | "draft"
+  | "handoff"
   | "first_message"
   | "replied"
   | "done"
@@ -618,6 +623,18 @@ export type ProposeDraft = {
   before?: string;
   /** The number of the pull request whose description this is. Refused where the Job holds no such pull request. */
   pull_request?: number;
+  session_id?: string;
+  /** What it is for and what his answer changes: one sentence, at most 200 characters. */
+  for?: string;
+  links?: ForLink[];
+};
+
+/**
+ * `POST /sessions/handoff_brief`, the agent's: the brief of a Job the Context rule told it is past its limit. Fleet raises the
+ * `handoff` card from it and answers at once with the `SessionRecord`. Refused unless Fleet asked the Job for one.
+ */
+export type HandoffBrief = {
+  brief: string;
   session_id?: string;
 };
 
@@ -1130,6 +1147,9 @@ export type ShowSketch = {
   title: string;
   scene: unknown;
   session_id?: string;
+  /** What it is for and what his answer changes: one sentence, at most 200 characters. */
+  for?: string;
+  links?: ForLink[];
 };
 
 /**
@@ -1440,8 +1460,8 @@ export type OpenTerminal = {
   rows?: number;
 };
 
-/** `start_terminal_job`: a quick terminal, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/terminal/start`. Answered 200 with `TerminalJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `title` absent or blank is `Terminal in <folder>`; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
-export type StartTerminalJob = {
+/** `start_side_job`: a Side Job, a Job that opens onto its terminal `t1` and whose agent runs nothing until the person writes. `POST /sessions/side_job/start`. Answered 200 with `SideJobStarted`. Exactly one of `manifest_id` and `dir`: a `dir` inside a served repository is that repository's Job with `t1` in the folder, anywhere else a loose folder run in place with no Manifest and never a slot. `dir` is an absolute path to an existing directory; `project` is not read for a loose folder; `title` absent or blank is `Terminal in <folder>`; `cols` and `rows` are `t1`'s size, absent is 80 by 24. Both or neither, a `dir` that is not an absolute directory and a size with no cells are refused 422, and nothing is made. */
+export type StartSideJob = {
   manifest_id?: string;
   dir?: string;
   title?: string;
@@ -1453,8 +1473,8 @@ export type StartTerminalJob = {
   rows?: number;
 };
 
-/** `start_terminal_job`'s answer: the Job, and the run of its terminal `t1`, whose output is `observe_session_run`'s. */
-export type TerminalJobStarted = {
+/** `start_side_job`'s answer: the Job, and the run of its terminal `t1`, whose output is `observe_session_run`'s. */
+export type SideJobStarted = {
   session_id: string;
   terminal: string;
   run_id: string;

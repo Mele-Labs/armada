@@ -10,9 +10,9 @@ use super::pull_requesting::{a_fleet, code, manifest, Fixture};
 use crate::tests::tmp::TempDir;
 
 /// The slug the fixture's repository is known by on the forge.
-const SLUG: &str = "mele-labs/armada";
+pub(super) const SLUG: &str = "mele-labs/armada";
 
-fn pull(number: u64, repository: &str) -> ListedPull {
+pub(super) fn pull(number: u64, repository: &str) -> ListedPull {
     ListedPull {
         repository: repository.into(),
         number,
@@ -26,10 +26,11 @@ fn pull(number: u64, repository: &str) -> ListedPull {
         checks: ListedChecks::Running,
         review: ReviewStanding::None,
         team: None,
+        my_latest: None,
     }
 }
 
-fn signed_in_as(fleet: &Fixture, login: &str) {
+pub(super) fn signed_in_as(fleet: &Fixture, login: &str) {
     fleet.vcs().main_ci.login_is(Some(login));
 }
 

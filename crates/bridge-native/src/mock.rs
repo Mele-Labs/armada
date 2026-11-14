@@ -27,6 +27,23 @@ pub fn preview_offers(skipped: bool) -> ipc::PreviewOffers {
     offers
 }
 
+/// The sends Fleet keeps for Air while it sleeps, as `GET /queued` answers on the pairing walks: a message to the Job
+/// that needs him at 09:14, and an answer Air refused at 09:20. Every other scenario keeps none.
+pub fn queued() -> ipc::QueuedList {
+    if !scenario_is("jobs-pairing") {
+        return ipc::QueuedList::default();
+    }
+    let mut list = ipc::decode::<ipc::QueuedList>("QueuedList", include_bytes!("../fixtures/queued-pairing.json"))
+        .unwrap_or_else(|why| panic!("the queued fixture does not decode: {why}"));
+    let today = |hour: u32, minute: u32| {
+        chrono::Local::now().date_naive().and_hms_opt(hour, minute, 0).and_then(|at| at.and_local_timezone(chrono::Local).single()).map_or(0, |at| at.timestamp_millis())
+    };
+    for (one, at) in list.queued.iter_mut().zip([today(9, 14), today(9, 20)]) {
+        one.since = at;
+    }
+    list
+}
+
 /// The Jobs the pairing walk runs on Air: Fix the merge line freshness chip, which needs him, Audit the docs
 /// index, and Quiet the write-clash notices, which `session.removed` takes away.
 pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
@@ -57,6 +74,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "option-pictures" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
         "jobs-handoff" => include_bytes!("../fixtures/jobs-handoff.json"),
+        // The same Jobs, with a question of four long options waiting on the first.
+        "needs-long" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with Try amber forked from the first at its message naming the tone rule.
         "history" => include_bytes!("../fixtures/jobs-history.json"),
         // The same Jobs, with Checkout page loads twice moved from sample-web to sample-api.
@@ -117,7 +136,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
+        "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
@@ -178,6 +199,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06") {
             one.title = None;
+        }
+    }
+    if scenario == "needs-long" {
+        let asked = ipc::decode::<WaitingItem>("long item", NEEDS_LONG_ASK.as_bytes()).map_err(|why| why.to_string())?;
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            one.waiting_for.insert(0, asked);
         }
     }
     if scenario == "option-pictures" {
@@ -353,6 +380,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
+        "needs-long" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
         "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
@@ -387,10 +415,14 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
         "sketch-card" | "sketch-approve" | "sketches-several" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
+        // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
+        "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
         // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
         "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
+        // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
+        "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         "jobs-switching" => return switching_threads(),
@@ -700,13 +732,20 @@ pub fn lifecycles(manifest: &str) -> Option<ipc::RepositoryLifecycles> {
 const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do the row's actions take?","since":"2026-11-09T14:03:00Z","source":"agent","options":[
 {"label":"Actions in the row","description":"Every act sits on the row; the sent state reads under it.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-a.png","width":760,"height":380,"parts":[{"name":"actions","label":"Actions","x":473,"y":134,"w":258,"h":24},{"name":"sent-state","label":"Sent state","x":29,"y":278,"w":702,"h":18}]}},
 {"label":"One act and a menu","description":"The main act stays; the rest go in a menu with a note under the row.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-b.png","width":760,"height":540,"parts":[{"name":"act-primary","label":"Main act","x":623,"y":134,"w":80,"h":24},{"name":"more-menu","label":"More menu","x":707,"y":134,"w":24,"h":24},{"name":"row-note","label":"Row note","x":29,"y":229,"w":702,"h":100},{"name":"menu","label":"Menu","x":599,"y":461,"w":132,"h":66}]}},
+{"label":"Every act on a long list","description":"Each row keeps its lead act down a long list, the rest behind its menu.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-c.png","width":760,"height":2000,"parts":[{"name":"lead-acts","label":"Lead acts","x":589,"y":124,"w":110,"h":1728},{"name":"menus","label":"Menus","x":704,"y":124,"w":32,"h":1728}]}},
 {"label":"Keep today's row","description":"Nothing changes."}]}"#;
+
+/// A text file a mock Job showed, as `GET /sessions/shown` serves it.
+pub fn shown_text(path: &str) -> Option<String> {
+    path.ends_with("/mac-mark.md").then(|| "# Mac mark\n\nEach Jobs row carries a dot in its Mac's colour. The Mac's name is in the dot's tooltip.\n".to_string())
+}
 
 /// A still the option-pictures walk's question shows, as `GET /sessions/shown` serves it.
 pub fn shown_still(image: &str) -> Option<&'static [u8]> {
     match image.rsplit('=').next()? {
         "pick-actions-a.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-a.png")),
         "pick-actions-b.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-b.png")),
+        "pick-actions-c.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-c.png")),
         _ => None,
     }
 }
@@ -1369,3 +1408,10 @@ fn lanes_marks(lanes: &mut ipc::JobLanesView) {
         lanes.rules.push(proposed);
     }
 }
+
+/// The needs-long walk's question: four options whose words run long, so the panel scrolls between its head and its acts.
+const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused push be retried?","since":"2026-11-13T09:12:00Z","source":"agent","options":[
+{"label":"Retry at once, then back off","description":"The first retry goes straight away. Each one after waits twice as long as the last, up to five minutes, and the sixth refusal stops the Job and raises it in Needs you with the forge's own words."},
+{"label":"Wait for main to move","description":"Nothing retries until main has a new commit. The branch is merged with it first, the Checks run again on the merge, and only a green run pushes. A refusal that names the branch protection stops at once."},
+{"label":"Ask each time","description":"Every refusal comes here as its own question with the forge's words, the branch and how far behind main it is. Nothing is pushed until you answer, and an answer applies to that one push only."},
+{"label":"Hand it to the merge queue","description":"The pull request is queued as it stands and the queue's own retries take over. The Job ends its part once the queue has it, and a queue failure opens a new Job for the fix with the failing Check named."}]}"#;

@@ -88,6 +88,19 @@ fn format_of(media_type: &str) -> Option<ImageFormat> {
     })
 }
 
+/// Where a picture is read from: a file he sent, the Job's own tree, or a file the Job showed.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum From {
+    Sent,
+    Tree,
+    Shown,
+}
+
+/// Where Fleet serves a file the Job showed, by the path its ledger keeps: a picture's bytes under its type.
+pub(super) fn shown_path(job: &str, path: &str) -> String {
+    format!("/sessions/shown?session_id={}&path={}", encoded(job), encoded(path))
+}
+
 /// Whether a file is a picture the thread draws.
 pub(super) fn is_picture(file: &SentFile) -> bool {
     format_of(&file.media_type).is_some()
@@ -202,16 +215,21 @@ fn mock_picture(name: &str) -> Option<Vec<u8>> {
 impl JobView {
     /// Read the pictures among `files` that have not been asked for yet. The row draws a placeholder until one comes.
     pub(super) fn want_pictures(&mut self, job: &SharedString, files: &[SentFile], window: &mut Window, cx: &mut Context<Self>) {
-        self.want(job, files, false, window, cx);
+        self.want(job, files, From::Sent, window, cx);
+    }
+
+    /// Read a picture the Job showed (`show_file`), as Fleet keeps it (`GET /sessions/shown`).
+    pub(super) fn want_shown_pictures(&mut self, job: &SharedString, files: &[SentFile], window: &mut Window, cx: &mut Context<Self>) {
+        self.want(job, files, From::Shown, window, cx);
     }
 
     /// Read the pictures `Read` calls looked at, from the Job's own tree (`GET /sessions/repository_file`).
     /// A refusal, or a file that came back as text, leaves the row without one.
     pub(super) fn want_read_pictures(&mut self, job: &SharedString, files: &[SentFile], window: &mut Window, cx: &mut Context<Self>) {
-        self.want(job, files, true, window, cx);
+        self.want(job, files, From::Tree, window, cx);
     }
 
-    fn want(&mut self, job: &SharedString, files: &[SentFile], from_tree: bool, window: &mut Window, cx: &mut Context<Self>) {
+    fn want(&mut self, job: &SharedString, files: &[SentFile], from: From, window: &mut Window, cx: &mut Context<Self>) {
         for file in files.iter().filter(|file| is_picture(file)) {
             let held = key(job, &file.id);
             if self.pictures.held.contains_key(&held) {
@@ -227,7 +245,7 @@ impl JobView {
                 .detach();
                 continue;
             }
-            if from_tree {
+            if from == From::Tree {
                 let path = format!("/sessions/repository_file?session_id={}&path={}", encoded(job), encoded(&file.id));
                 let done: Done = Box::new(move |this, answer, _, cx| {
                     use base64::Engine as _;
@@ -243,7 +261,10 @@ impl JobView {
                 self.get(path, window, cx, done);
                 continue;
             }
-            let path = format!("/sessions/file?session_id={}&file={}", encoded(job), encoded(&file.id));
+            let path = match from {
+                From::Shown => shown_path(job, &file.id),
+                _ => format!("/sessions/file?session_id={}&file={}", encoded(job), encoded(&file.id)),
+            };
             let media_type = file.media_type.clone();
             let done: Done = Box::new(move |this, answer, _, cx| {
                 this.keep_picture(held, &media_type, answer.ok().filter(|bytes| !bytes.is_empty()), cx);
@@ -577,6 +598,17 @@ mod tests {
         assert_eq!(panned(-500., 800., 2., 1000.), -300.);
         assert_eq!(limited(20.), MOST);
         assert_eq!(limited(0.5), 1.);
+    }
+
+    #[test]
+    fn a_picture_the_job_showed_is_asked_of_fleet_at_its_ledger_path() {
+        let shown = "/Users/me/Library/Application Support/Armada/attachments/pictures/j/c70e.png";
+        assert_eq!(
+            shown_path("j-1", shown),
+            "/sessions/shown?session_id=j-1&path=%2FUsers%2Fme%2FLibrary%2FApplication%20Support%2FArmada%2Fattachments%2Fpictures%2Fj%2Fc70e.png"
+        );
+        assert_eq!(read_picture(shown).map(|file| file.media_type), Some("image/png".to_string()));
+        assert!(read_picture("/Users/me/notes.md").is_none());
     }
 
     #[test]

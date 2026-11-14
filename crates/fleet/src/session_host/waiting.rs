@@ -41,7 +41,8 @@
 //!
 //! **A reply is a wait only where it asks.** The turn ending on a message that only reports makes the
 //! Session read as `replied` (an unread mark under Idle) and raises no item. One whose close asks him
-//! something raises `replied:<turn ended at>`, unless the agent already asked through a tool; dismissing
+//! something raises `replied:<turn ended at>`, unless the agent already asked through a tool, a question
+//! card put to him in the same turn included; dismissing
 //! it tells the agent nothing. A done raises an item too, and stays.
 
 use std::sync::Arc;
@@ -58,7 +59,7 @@ use store::{KeptApproval, KeptClosed, KeptSession, KeptWaiting, Store};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
-use crate::session_host::handoff_answers::lapsed_question;
+use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
@@ -131,10 +132,13 @@ pub(crate) struct WaitingReads {
     pub(crate) so_far: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
+    /// That turn put a question card to him, which was its ask.
+    carded: bool,
     /// The last Fleet tell it was sent whose refusal is read.
     tell: Option<store::KeptTell>,
-    /// The version, recording time and walk of the plan the person has not approved.
-    plan: Option<(u32, String, Option<String>)>,
+    /// The version, recording time and walk of the plan the person has not approved, and the sketch titles
+    /// it names.
+    plan: Option<(u32, String, Option<String>, Vec<String>)>,
     /// Every sentence read from a reply that he marked Not a question, in any Session.
     misreads: Vec<String>,
     /// Every sentence read from a reply that he confirmed with thumbs up, in any Session.
@@ -207,11 +211,15 @@ pub(crate) fn waiting_reads(
         done_summary: store.done_summary(&session.id)?,
         so_far: store.so_far(&session.id)?,
         turn_end: store.turn_end(&session.id)?,
+        carded: store.turn_end_carded(&session.id)?,
         tell: store.tell_of(&session.id)?,
         plan: store
             .session_plan(&session.id)?
             .filter(|plan| plan.approved_at.is_none() && plan.set_aside_at.is_none())
-            .map(|plan| (plan.version, plan.recorded_at, plan.walk)),
+            .map(|plan| {
+                let sketches = crate::plan_record::pending_sketches(&plan);
+                (plan.version, plan.recorded_at, plan.walk, sketches)
+            }),
         misreads: store.misreads()?,
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
@@ -515,7 +523,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -565,7 +573,7 @@ where
             })
             .collect();
         let ended = session.state == store::SessionState::Ended;
-        let holds = plan.as_ref().map(|(_, recorded, walk)| {
+        let holds = plan.as_ref().map(|(_, recorded, walk, _)| {
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
@@ -625,6 +633,10 @@ where
         };
         // Each sentence of the close, the same way: nothing until the model has read the reply.
         let extracted = |said: &str| {
+            // A turn that put a question card to him asked through it: what it said around the card asks nothing more.
+            if carded {
+                return None;
+            }
             let model = self.language_model().model()?;
             let read = self.extract_reads().read_of(super::extracting::read, model, &session.id, said)?;
             Some(if windows.is_empty() { read } else { read.beside_a_walk() })
@@ -641,6 +653,9 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| {
+                if carded {
+                    return None;
+                }
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
                 // A walk already waiting on him asked for his approval; a line that only says what follows it asks nothing more.
                 line.filter(|line| windows.is_empty() || !super::asks::only_approving(line))
@@ -710,8 +725,10 @@ where
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             // What a role at Suggest would do, until he takes it or skips it.
             items.extend(crate::operator::suggestion_items(&suggestions));
-            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
-            items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
+            // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
+            // pending plan names waits with the plan instead, and its Approve settles it.
+            let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
+            items.extend(super::sketching::sketch_items(attachments, &session.id, in_plan).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -779,6 +796,29 @@ where
                         operator_read: None,
                     })
                 }
+                // Fleet's handoff card, while the Job is live to hand on.
+                SessionRow::Handoff { id, at, remind_at, answer: None, .. } => {
+                    let id = format!("{HANDOFF_PREFIX}{id}");
+                    (!ended && !dismissed.contains(&id)).then(|| WaitingItem {
+                        approves: false,
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Answer,
+                            target: id.clone(),
+                        }),
+                        id,
+                        text: handoff_answers::CARD_ASKS.to_string(),
+                        since: at,
+                        source: WaitingSource::Handoff,
+                        options: handoff_answers::card_options(&remind_at),
+                        steps: Vec::new(),
+                        place: None,
+                        confirmed: false,
+                        holders: Vec::new(),
+                        creating_since: None,
+                        create_refused: None,
+                        operator_read: None,
+                    })
+                }
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
@@ -794,6 +834,7 @@ where
                         | WaitingSource::Permission
                         | WaitingSource::WindowAsk
                         | WaitingSource::Draft
+                        | WaitingSource::Handoff
                         | WaitingSource::Sketch
                         | WaitingSource::Document
                 )
@@ -1027,10 +1068,10 @@ where
     /// A turn ended at `at`, on `said` where the agent said something to the person: its end is kept, so
     /// the Session reads as having replied, and as asking where the close asks. A turn that ended on tools alone leaves what stood as it was: the turn that
     /// began it already forgot the reply before.
-    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
+    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>, carded: bool) {
         let tail = said.map(super::standing::tail).filter(|tail| !tail.is_empty());
         if let Some(tail) = tail {
-            let _ = self.store().lock().await.keep_turn_end(id, at, &tail);
+            let _ = self.store().lock().await.keep_turn_end(id, at, &tail, carded);
         }
     }
 
@@ -1052,7 +1093,7 @@ where
         by: Answerer,
     ) -> Result<SessionRecord, Refusal> {
         // Boxed: the settling's future is near a megabyte in a debug build, and inline it overflows a test thread's stack.
-        Box::pin(self.settle_answer_picking(said, by, &[])).await
+        Box::pin(self.settle_answer_picking(said, by, &[], false)).await
     }
 
     /// `answer_waiting_parts`: the answer is parts picked across the item's pictures, and nothing else. The
@@ -1063,16 +1104,24 @@ where
         }
         self.visit_kept(said.session_id.as_str()).await;
         let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None };
-        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked)).await
+        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked, false)).await
+    }
+
+    /// His Approve or Ask for changes on an item `answer_items` routes through `answer_waiting`: a draft, a walk, or an
+    /// agent item that asks for his approval. `approving` lets a walk carry words with its approval, which a walk
+    /// item's own answer cannot say, since it has no options to pick.
+    pub(crate) async fn settle_verdict(self: Arc<Self>, said: AnswerWaiting, approving: bool) -> Result<SessionRecord, Refusal> {
+        Box::pin(self.settle_answer_picking(said, Answerer::Him, &[], approving)).await
     }
 
     /// The one settling of an answer: `parts` is what he picked across the pictures, empty for every answer but
-    /// `answer_waiting_parts`.
+    /// `answer_waiting_parts`. `walk_approved` is a walk approved with words, from [`Self::settle_verdict`].
     async fn settle_answer_picking(
         self: Arc<Self>,
         said: AnswerWaiting,
         by: Answerer,
         parts: &[ipc::PartPicked],
+        walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();
@@ -1160,6 +1209,7 @@ where
             (WaitingSource::Draft, Some(_), ..) => "Approved with fixes".to_string(),
             (WaitingSource::Draft, None, Some(_), _) => "Approved".to_string(),
             (WaitingSource::Draft, None, None, Some(note)) => format!("Sent back: {note}"),
+            (WaitingSource::Walk, ..) if walk_approved => "Approved".to_string(),
             _ => match (picked.as_deref().or(words).or(mix.as_deref().map(|_| "a mix of parts")), said.mode) {
             (Some(chosen), _) => format!("Answered: {chosen}"),
             (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
@@ -1212,8 +1262,9 @@ where
             }
             WaitingSource::Walk => {
                 let target = item.act.map(|act| act.target).unwrap_or_default();
-                let body = if words.is_none() && line.is_none() {
-                    format!("Approved: {target}")
+                let body = if walk_approved || (words.is_none() && line.is_none()) {
+                    // The address stays the first line alone, which is what reads the walk approved.
+                    [Some(format!("Approved: {target}")), words.map(str::to_string)].into_iter().flatten().collect::<Vec<_>>().join("\n")
                 } else {
                     reply(&item.text, both.as_deref(), line)
                 };
@@ -1316,6 +1367,17 @@ where
             }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
+            // Fleet's card: his press is the whole answer, and the Job is told nothing.
+            WaitingSource::Handoff => {
+                if by == Answerer::InHisPlace {
+                    return Err(self.hosted_refusal(SESSION_WAITING_UNHELD, "whether a Job carries on in a new one is his to answer"));
+                }
+                let row = item.id.strip_prefix(HANDOFF_PREFIX).unwrap_or_default();
+                let figures = self.handoff_figures(&id, row).await;
+                let pick = said.choice.and_then(|choice| handoff_answers::pick_of(choice, &figures));
+                let pick = pick.ok_or_else(|| self.hosted_refusal(SESSION_WAITING_EMPTY, "a handoff card is answered with one of its options"))?;
+                self.handoff_answered(&id, row, pick).await
+            }
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
@@ -1333,9 +1395,14 @@ where
                 if let Some((change, body, how, note)) = proposal {
                     return self.proposal_answered(&id, row, change, how, note, (terminal.then_some(session), message(body))).await;
                 }
+                // A draft whose newest revision is his Edit is approved as his words, so the Job applies them.
+                let his = Box::pin(self.draft_his(&id, row)).await;
                 let (body, how, kept) = match (fixed, said.choice, words) {
                     (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
-                    (None, Some(_), words) => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                    (None, Some(_), words) => match his {
+                        Some(his) => (drafting::approved_his(&item.text, &his, words), DraftHow::Approved, words),
+                        None => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                    },
                     (None, None, Some(note)) => (drafting::sent_back(&item.text, note), DraftHow::SentBack, Some(note)),
                     (None, None, None) => {
                         return Err(self.hosted_refusal(
@@ -1375,20 +1442,12 @@ where
         if terminal.is_some() {
             self.terminal_ask_standing(&id).await;
         }
-        let item = {
-            let store = self.store().lock().await;
-            let session = store
-                .session(&id)
-                .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| {
-                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows")
-                })?;
-            self.ledger_row(&store, &session)?
-                .waiting_for
-                .into_iter()
-                .find(|one| one.id == dismiss.item_id)
-                .ok_or_else(|| self.settled_already())?
-        };
+        let item = self
+            .waiting_now(&id)
+            .await?
+            .into_iter()
+            .find(|one| one.id == dismiss.item_id)
+            .ok_or_else(|| self.settled_already())?;
         if let Some(why) = super::needs_you::refused_dismissal(item.source) {
             return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, why));
         }
@@ -1427,10 +1486,33 @@ where
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }
+        self.dismissal_closed(&id, &item, dismiss.reason.as_deref(), dismiss.misread).await
+    }
+
+    /// What the Job waits on him for now, as `dismiss_waiting` and `dismiss_items` read it.
+    pub(crate) async fn waiting_now(&self, id: &str) -> Result<Vec<WaitingItem>, Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+        Ok(self.ledger_row(&store, &session)?.waiting_for)
+    }
+
+    /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by
+    /// `dismiss_waiting` and `dismiss_items`, which tell the Job differently.
+    pub(crate) async fn dismissal_closed(
+        self: &Arc<Self>,
+        id: &str,
+        item: &WaitingItem,
+        reason: Option<&str>,
+        misread: bool,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = id.to_string();
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
         }
-        let closed = self.closed_as_it_stood(&item);
+        let closed = self.closed_as_it_stood(item);
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
@@ -1446,18 +1528,24 @@ where
                 // Already settled elsewhere is the same end, so that refusal is not the person's.
                 let _ = self.proposal_dismissed(ipc::WorkflowChangeRef { change }).await;
             }
-            let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
+            let reason = reason.map(str::trim).filter(|why| !why.is_empty());
             self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
             return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
         }
+        // Dismissing the handoff card is Stay, and the Job is told nothing.
+        if item.source == WaitingSource::Handoff {
+            let row = item.id.strip_prefix(HANDOFF_PREFIX).unwrap_or_default();
+            self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
+            return self.handoff_answered(&id, row, ipc::HandoffPick::Stay).await;
+        }
         // Not a question: the sentence is kept for good, so a near one is not raised again and the
         // trainer reads it as asking nothing.
-        if dismiss.misread {
+        if misread {
             let now = self.clock().now().as_str().to_string();
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
         if item.source == WaitingSource::Sketch {
-            self.sketch_withdrawn_mark(&id, &item.id).await;
+            self.sketch_withdrawn_mark(&id, &item.id, false).await;
         }
         self.drop_answered(&id, &item.id, Some(&closed)).await
     }

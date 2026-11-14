@@ -481,6 +481,39 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// His verdict on several items that ask for his approval. 200 with one outcome per item, even where some are refused;
+/// 422 for a body that does not decode. **An item whose Job another Mac holds is refused here**, not sent on.
+pub(crate) async fn answer_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerItems = match ipc::decode_body("verdicts on waiting items", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().answer_items(said, elsewhere).await, served.run_id())
+}
+
+/// Several items that ask for his approval, off his list with no verdict. 200 and 422 as for [`answer_items`].
+pub(crate) async fn dismiss_items<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::DismissItems = match ipc::decode_body("waiting items to pass on", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let elsewhere = held_elsewhere(&served, said.items.iter().map(|one| one.session_id.as_str())).await;
+    answer(StatusCode::OK, &served.shared().dismiss_items(said, elsewhere).await, served.run_id())
+}
+
+/// Per item, the refusal for a Job another of his Macs holds: a batch is not sent on in pieces.
+async fn held_elsewhere<'a, D: OtherMacs>(served: &Served<D>, jobs: impl Iterator<Item = &'a str>) -> Vec<Option<ipc::ItemSettled>> {
+    let mut refused = Vec::new();
+    for job in jobs {
+        refused.push(served.daemon().mac_holding_job(job).await.map(|mac| ipc::ItemSettled::Refused {
+            code: String::from("fleet.items_on_another_mac"),
+            message: format!("the Job is held on {mac}: answer it there"),
+        }));
+    }
+    refused
+}
+
 /// The person did what an agent's item asked of him. 200 with the row; 409 where nothing holds the item, 422 for an item the
 /// agent did not state.
 pub(crate) async fn done_waiting<D: HostedSessions>(
@@ -790,6 +823,22 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     }
 }
 
+/// Jobs moved into a project, or out of any. 200 with the Jobs; 404 for a Job Fleet does not host or a
+/// project he has none of, 422 for no Job, a Job with no repository or a project whose file did not read.
+pub(crate) async fn set_session_project<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SetSessionProject = match ipc::decode_body("a project for jobs", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_session_project(asked).await {
+        Ok(moved) => answer(StatusCode::OK, &moved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     Query(which): Query<Which>,
@@ -814,6 +863,65 @@ pub(crate) async fn get_session_quick<D: HostedSessions>(
         .await
     {
         Ok(quick) => answer(StatusCode::OK, &quick, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_job_artifacts<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_job_artifacts(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(artifacts) => answer(StatusCode::OK, &artifacts, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent or the person archives a stale artifact. 200 with the artifact; 422 for an id the Job does not hold, one
+/// archived already, or a call that places no Job. **Who pressed it is read off the door it came through**: a person's
+/// own press is his, and every other caller is the agent.
+pub(crate) async fn archive_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let archive: ipc::ArtifactRef = match ipc::decode_body("an artifact to archive", &body) {
+        Ok(archive) => archive,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let pressed = [crate::acting::BRIDGE, crate::acting::PHONE, crate::acting::MAC];
+    let by = match crate::acting::via().is_some_and(|via| pressed.contains(&via.as_wire())) {
+        true => ipc::ArtifactBy::Owner,
+        false => ipc::ArtifactBy::Agent,
+    };
+    match served.shared().archive_artifact(crate::acting::asking(), by, archive).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// An archived artifact is brought back. 200 with the artifact; 422 for an id the Job does not hold, one not archived, or a
+/// call that places no Job.
+pub(crate) async fn restore_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let restore: ipc::ArtifactRef = match ipc::decode_body("an artifact to restore", &body) {
+        Ok(restore) => restore,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().restore_artifact(crate::acting::asking(), restore).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His Edit of a page's or a draft's words. 200 with the artifact; 409 for a revision not the newest; 422 for a sketch,
+/// an edit that is not words alone, or an artifact archived, settled or not held.
+pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let edit: ipc::SaveArtifactEdit = match ipc::decode_body("an edit to save", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().save_artifact_edit(edit).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

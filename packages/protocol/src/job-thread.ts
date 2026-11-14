@@ -7,6 +7,7 @@
 
 import type { AskedQuestion, CallInFlight } from "./calls";
 import type { SessionRow, ToolSubagent } from "./hosted-sessions";
+import type { ArtifactFor } from "./job-artifacts";
 import type { JudgeArtifact } from "./judge";
 
 /** What `get_job_thread` answers when it is asked for no `limit`. */
@@ -239,6 +240,8 @@ export type ThreadSketch = {
   settled?: CardSettled;
   /** Each drawing Fleet kept under the title, oldest first, on the latest card only. **Absent until every one reads.** */
   revisions?: unknown[];
+  /** What the sketch as it stands is for, on the latest card only. */
+  for_line?: ArtifactFor;
 };
 
 /** A document card: one per page, its newest revision. */
@@ -251,6 +254,8 @@ export type ThreadDocument = {
   revision: number;
   asked?: boolean;
   settled?: CardSettled;
+  /** What this revision is for, read off the page's head. */
+  for_line?: ArtifactFor;
 };
 
 /** Where a plan's card stands. `id` is `plan:v<version>`; `state` is `waiting`, `set_aside` or `approved`. */

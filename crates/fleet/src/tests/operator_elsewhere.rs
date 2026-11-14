@@ -48,6 +48,9 @@ async fn paired(rig: &Rig, asleep_since: Option<i64>) {
         last_heard_at: None,
         asleep_since,
         why: asleep_since.map(|_| "Work stopped answering".into()),
+        wire: None,
+        built_at: None,
+        source: None,
     };
     rig.fleet.store().lock().await.keep_mac(&mac).expect("paired");
 }
@@ -58,6 +61,7 @@ fn theirs(template: &SessionRecord) -> SessionRecord {
     record.id = SessionId::carried(THEIR_JOB);
     record.title = Some(THEIRS.into());
     record.plan = Some(SessionPlan {
+        sketches: Vec::new(),
         version: 1,
         summary: "The store keeps the Mac rows.".into(),
         recorded_at: template.started_at.clone(),
@@ -66,6 +70,7 @@ fn theirs(template: &SessionRecord) -> SessionRecord {
         set_aside_at: None,
         scope: vec![PLACE.into()],
         groups: vec![SessionPlanGroup {
+            sketches: Vec::new(),
             id: "g1".into(),
             agent: "rust-engineer".into(),
             title: "Store".into(),

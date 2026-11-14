@@ -680,6 +680,12 @@ pub struct ProposeDraft {
     /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// What the draft is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the
@@ -689,6 +695,17 @@ pub struct WithdrawDraft {
     /// The id `propose_draft`'s receipt gave, `draft:<row id>`. The bare row id reads the same.
     pub draft: String,
     /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// `handoff_brief`: a Job the Context rule told it is past its limit sends its brief, and Fleet raises
+/// the handoff card for the person. **Refused unless Fleet asked this Job for one.**
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandoffBrief {
+    /// Where the work is, what is open, what the Job holds. The new Job starts from it.
+    pub brief: String,
+    /// Which Job sends it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
 }
@@ -745,6 +762,9 @@ pub enum WaitingSource {
     /// Fleet: a draft the session proposed with `propose_draft` waits on the person. Read off its
     /// row as `draft:<row>`; settled by `answer_waiting`.
     Draft,
+    /// Fleet: the handoff card a Job's `handoff_brief` raised is not answered. Read off its `handoff`
+    /// row as `handoff:<row>`; settled by `answer_waiting` with a `choice`, and Dismiss is Stay.
+    Handoff,
     /// Fleet: a sketch the session showed with `show_sketch` is not answered. Derived on every read off
     /// the sketch, never kept: id the sketch's target `sketch:<title>`, text its title, a `message` act
     /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it
@@ -1476,10 +1496,10 @@ pub struct SessionRecord {
     /// A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_of_bay: bool,
-    /// A quick terminal, started by `start_terminal_job`: it opens onto its terminal `t1`, and its agent
+    /// A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub quick_terminal: bool,
+    pub side_job: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

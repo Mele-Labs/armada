@@ -98,7 +98,7 @@ shortcut = "⌘T"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Starts a Job with no sheet and opens it on its thread with the keys in its message box: in the project or repository the window is on, else the open Job's, else the place one last started in, and the dispatch sheet where there is none. Fleet's quick Job (`start_terminal_job`): its agent waits until he writes, and no shell opens until he asks for one from the Job's +. Native only. Taken 12 Nov 2026; nothing held it, the walk window's takes are ⌥⌘T, and a shell never hears a ⌘ chord. Renamed from New terminal the same day, when he wanted to start a Job and jump into it, on its thread. The id stays `new_terminal_job`."
+notes = "Starts a Job with no sheet and opens it on its thread with the keys in its message box: in the project or repository the window is on, else the open Job's, else the place one last started in, and the dispatch sheet where there is none. Fleet's Side Job (`start_side_job`): its agent waits until he writes, and no shell opens until he asks for one from the Job's +. Native only. Taken 12 Nov 2026; nothing held it, the walk window's takes are ⌥⌘T, and a shell never hears a ⌘ chord. Renamed from New terminal the same day, when he wanted to start a Job and jump into it, on its thread. The id stays `new_terminal_job`."
 
 [actions.toast_focus]
 kind = "Action"

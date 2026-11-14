@@ -201,6 +201,22 @@ pub(super) fn ask_label(ask: &ThreadAsk) -> String {
     if header.is_empty() { "Question".into() } else { header.to_string() }
 }
 
+/// A Needs you item in three parts: the head and the foot stay put while the body scrolls between them.
+pub(super) struct Pinned {
+    /// Drawn beside the back key at the top.
+    pub stepper: Option<AnyElement>,
+    pub head: Option<AnyElement>,
+    pub body: AnyElement,
+    /// The item's acts, on the composer's top edge.
+    pub foot: Option<AnyElement>,
+}
+
+impl Pinned {
+    pub fn body(body: AnyElement) -> Self {
+        Self { stepper: None, head: None, body, foot: None }
+    }
+}
+
 impl JobView {
     pub(super) fn dock_of(&self, id: &str) -> Option<&DockState> {
         self.pages.get(id).map(|page| &page.dock)
@@ -711,9 +727,9 @@ impl JobView {
         let detail = self.dock_of(id).and_then(|dock| dock.detail.clone());
         let only = things.len() == 1 && review.is_empty() && matches!(things[0], Thing::Ask(_) | Thing::Lapsed(_));
         let detail = detail.or_else(|| only.then(|| Self::thing_key(&things[0])));
-        let content: AnyElement = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
+        let content = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
-            None => self.render_list(id, look, cx),
+            None => Pinned::body(self.render_list(id, look, cx)),
         };
         // Up to 95% of the thread, band included, so the Job's head always shows (`NeedsYouPanel.css`, `__body`). Before the
         // thread has a height it is half the window, a little under Classic's 55vh stand-in, which would cover the tab strip here.
@@ -732,24 +748,69 @@ impl JobView {
                 }
             }
         }
+        // A hairline under the head and over the foot once the body scrolls; a layout that changes it draws again.
+        let over = scroll.max_offset().y > gpui::px(0.);
+        let watched = scroll.clone();
+        let watch = gpui::canvas(
+            move |_, window, _| {
+                if (watched.max_offset().y > gpui::px(0.)) != over {
+                    window.refresh();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_0();
+        let rule = look.color(token::BORDER_DEFAULT);
+        let (has_head, has_foot) = (content.head.is_some(), content.foot.is_some());
         div()
             .id("needs-panel")
-            .track_scroll(&scroll)
             .track_focus(&self.dock_focus)
             .occlude()
             .on_key_down(cx.listener(Self::on_panel_key))
+            .relative()
             .max_h(most)
-            .overflow_y_scroll()
             .flex()
             .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_4))
             .border_x(look.length(token::BORDER_WIDTH))
             .border_color(hue)
             .bg(look.color(token::BG_RAISED))
-            .child(content)
+            .children(content.head.map(|head| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_4))
+                    .pt(look.length(token::SPACE_3))
+                    .pb(look.length(token::SPACE_3))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(if over { rule } else { gpui::transparent_black() })
+                    .child(head)
+            }))
+            .child(
+                div()
+                    .id("needs-body")
+                    .track_scroll(&scroll)
+                    .min_h_0()
+                    .flex_shrink(1.)
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    .px(look.length(token::SPACE_4))
+                    .pt(if has_head { look.length(token::SPACE_1) } else { look.length(token::SPACE_3) })
+                    .pb(if has_foot { look.length(token::SPACE_3) } else { look.length(token::SPACE_4) })
+                    .child(content.body),
+            )
+            .children(content.foot.map(|foot| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_4))
+                    .pt(look.length(token::SPACE_3))
+                    .pb(look.length(token::SPACE_4))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(if over { rule } else { gpui::transparent_black() })
+                    .child(foot)
+            }))
+            .child(watch)
             .into_any_element()
     }
 
@@ -1302,6 +1363,11 @@ impl JobView {
                 }));
             labelled(button, Role::Button, word).into_any_element()
         });
+        // Options the asker drew as stills show them above the buttons; a press on a still opens it large, its words answer as its button does.
+        let stills = crate::option_pictures::stills(&row.id, options, None, self.port(cx), look.color(token::STEP_WAITING), look, &|at| {
+            let item = row.id.clone();
+            Box::new(cx.listener(move |this, _, window, cx| this.answer_row(&item, at, window, cx)))
+        }, cx);
         let words = ways::words_under_buttons().then(|| {
             let item = row.id.clone();
             labelled(
@@ -1317,6 +1383,7 @@ impl JobView {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
+                .children(stills)
                 .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(buttons))
                 .children(words)
                 .children(group.map(|group| {
@@ -1456,20 +1523,20 @@ impl JobView {
         self.dismiss_row(item, None, true, window, cx);
     }
 
-    fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> Pinned {
         // In Look an item has the Needs you head, and a sketch, a walk, a command or a picture question its own page.
         if crate::ways::looks() {
             if let Thing::Row(row) = thing {
                 if let Some(page) = self.look_body(id, row, look, cx) {
                     let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());
-                    return div()
+                    return Pinned::body(div()
                         .w_full()
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_3))
                         .child(page)
                         .children(said.map(|why| super::acts::refusal(look, "dock", why)))
-                        .into_any_element();
+                        .into_any_element());
                 }
             }
         }
@@ -1496,14 +1563,9 @@ impl JobView {
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
             Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
                 let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_3))
-                    .child(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone())))
-                    .child(self.answer_buttons(row, keyed, look, cx))
-                    .children(self.row_box_under(id, &row.id, look, cx))
-                    .into_any_element()
+                let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));
+                let buttons = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(self.answer_buttons(row, keyed, look, cx)).children(self.row_box_under(id, &row.id, look, cx));
+                Pinned { stepper: None, head: Some(ask.into_any_element()), body: buttons.into_any_element(), foot: None }
             }
             Thing::Row(row) => {
                 let questions = vec![ipc::AskedQuestion {
@@ -1527,15 +1589,17 @@ impl JobView {
             }
             _ => None,
         };
-        div()
+        // The back key and the stepper, then the item's own head, stay at the top; its acts stay at the foot.
+        let head = div()
             .flex()
             .flex_col()
             .items_start()
             .gap(look.length(token::SPACE_2))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs))
-            .child(div().w_full().min_w_0().child(body))
-            .children(said.map(|why| super::acts::refusal(look, "dock", why)))
-            .into_any_element()
+            .child(div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs).children(body.stepper))
+            .children(body.head)
+            .into_any_element();
+        let inside = div().w_full().min_w_0().flex().flex_col().gap(look.length(token::SPACE_2)).child(body.body).children(said.map(|why| super::acts::refusal(look, "dock", why))).into_any_element();
+        Pinned { stepper: None, head: Some(head), body: inside, foot: body.foot }
     }
 }
 

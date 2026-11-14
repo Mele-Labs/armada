@@ -13,6 +13,7 @@ fn a_run() -> ReviewRun {
         kind: ReviewRunKind::Tool,
         name: "risks".into(),
         head: "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into(),
+        since: None,
         state: ReviewRunState::Queued,
         started_at: "2026-10-16T09:00:00Z".into(),
         finished_at: None,
@@ -33,7 +34,7 @@ fn the_event_nests_the_run_so_neither_kind_overwrites_the_other() {
 #[test]
 fn a_run_with_nothing_to_add_leaves_no_null_keys() {
     let text = encode(&a_run()).expect("encodes");
-    for absent in ["finished_at", "failed", "result", "cost_micros", "null"] {
+    for absent in ["finished_at", "failed", "result", "cost_micros", "since", "null"] {
         assert!(!text.contains(absent), "{absent} in {text}");
     }
 }
@@ -49,6 +50,7 @@ fn a_result_is_tagged_by_its_shape_and_reads_back_whole() {
             body: "`x` can wrap.".into(),
             severity: ReviewSeverity::High,
             at: ReviewPlace { path: "a.rs".into(), side: DiffSide::Right, start: 1, end: 2 },
+            comment: "This sum can wrap past the limit. Use a saturating add.".into(),
         }],
     });
     let text = encode(&run).expect("encodes");
@@ -135,7 +137,14 @@ fn a_fix_is_tagged_fix_and_its_start_carries_the_finding() {
         name: "src/total.rs:4-5 Overflow".into(),
         again: false,
         place: None,
-        finding: Some(ReviewFinding { title: "Overflow".into(), body: "It wraps.".into(), severity: ReviewSeverity::High, at }),
+        finding: Some(ReviewFinding {
+            title: "Overflow".into(),
+            body: "It wraps.".into(),
+            severity: ReviewSeverity::High,
+            at,
+            comment: String::new(),
+        }),
+        since: None,
     };
     let text = encode(&start).expect("encodes");
     assert!(text.contains(r#""kind":"fix""#) && text.contains(r#""finding":{"title":"Overflow""#), "{text}");
@@ -161,4 +170,58 @@ fn the_walk_event_nests_the_walk() {
     let text = encode(&Event::ReviewWalkChanged { walk }).expect("encodes");
     assert!(text.contains(r#""kind":"review_walk.changed""#) && text.contains(r#""state":"checking_out""#), "{text}");
     assert!(!text.contains("failed") && !text.contains(r#""api""#), "{text}");
+}
+
+#[test]
+fn change_sets_overview_and_practices_read_back_whole_under_their_own_kinds() {
+    use crate::{
+        ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeSource,
+        PracticeVerdict,
+    };
+    let at = ReviewPlace { path: "db/0007_orders.sql".into(), side: DiffSide::Right, start: 3, end: 3 };
+    let results = [
+        (ReviewRunKind::ChangeSets, "change_sets", ReviewResult::ChangeSets {
+            sets: vec![ChangeSet {
+                id: "set-1".into(),
+                title: "Add the orders table".into(),
+                kind: ChangeSetKind::Migration,
+                purpose: "Orders are kept.".into(),
+                area: "db".into(),
+                hunks: vec![HunkRef { path: at.path.clone(), old_start: 0, old_lines: 0, new_start: 1, new_lines: 9 }],
+            }],
+        }),
+        (ReviewRunKind::Overview, "overview", ReviewResult::Overview {
+            findings: vec![OverviewFinding {
+                severity: OverviewSeverity::Blocker,
+                set: "set-1".into(),
+                title: "Not reversible".into(),
+                reason: "The migration drops a column with no way back, so add a down step.".into(),
+                at: at.clone(),
+            }],
+        }),
+        (ReviewRunKind::Practices, "practices", ReviewResult::Practices {
+            set: "set-1".into(),
+            kind: ChangeSetKind::Migration,
+            area: "db".into(),
+            read_at: "2026-11-10T09:00:00Z".into(),
+            reused: true,
+            sources: vec![PracticeSource { path: "docs/migrations.md".into(), blob: None }],
+            checks: vec![PracticeCheck {
+                item: "Every migration has a down step".into(),
+                source: "docs/migrations.md".into(),
+                verdict: PracticeVerdict::NotApplicable,
+                note: "Only adds a table.".into(),
+            }],
+        }),
+    ];
+    for (kind, word, result) in results {
+        let mut run = a_run();
+        run.kind = kind;
+        run.state = ReviewRunState::Done;
+        run.result = Some(result);
+        let text = encode(&run).expect("encodes");
+        assert!(text.contains(&format!(r#""kind":"{word}""#)), "{text}");
+        assert!(!text.contains("null") && !text.contains(r#""blob""#), "{text}");
+        assert_eq!(decode::<ReviewRun>("a run", text.as_bytes()).expect("decodes"), run);
+    }
 }

@@ -108,6 +108,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("override_autopilot_decision", "runs the Autopilot"),
     ("review_autopilot_decision", "runs the Autopilot"),
     ("change_fleet_build", "chooses the build Fleet runs"),
+    ("update_mac", "chooses the build Fleet runs"),
     ("swap_fleet_build", "chooses the build Fleet runs"),
     ("keep_fleet_build", "chooses the build Fleet runs"),
     ("revert_fleet_build", "chooses the build Fleet runs"),
@@ -125,6 +126,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("take_back_queued", "takes back what waits for his other Macs"),
     ("hold_other_mac_event", "pairs his other Macs"),
     ("forget_other_mac", "pairs his other Macs"),
+    ("hold_mac_claims", "pairs his other Macs"),
 ];
 
 /// The operation a matched route serves and what its refusal says, where it is the person's.

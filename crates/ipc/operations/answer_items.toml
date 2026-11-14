@@ -1,0 +1,18 @@
+[operations.answer_items]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Approve, or send back with notes, several items that ask for his approval, across Jobs, in one press"
+notes = """
+`POST /sessions/items/answer`, body `AnswerItems`: `items`, each `{ session_id, item, how, notes? }`, `how` `approve` or `send_back`. Answered 200 with `ItemsSettled` `{ outcomes }`, one `{ session_id, item, outcome }` per item in the order asked, `outcome` `{ kind: "settled" }` or `{ kind: "refused", code, message }`. A body that does not decode is a 422 and nothing is settled.
+
+**Only an item with an Approve is answered here**: a sketch, a page that asks, a plan, a draft, a walk, and an agent item raised with `approves: true`. Anything else, a question or a permission prompt among them, is refused `fleet.items_not_approvable`, and keeps its own answer.
+
+**Each item is settled on its own and in order, and one refusal never stops the rest.** Each goes the way its own answer goes, with the same message to its Job: a sketch as `answer_sketch` at the drawing it holds now, a page as `answer_document` at its newest revision, a plan as `approve_plan`, or as `send_plan_changes` where it carries notes, a draft, a walk and an agent item as `answer_waiting` with their Approve or Ask for changes.
+
+**Notes go with that item's verdict only**, numbered `1.`, `2.` a line each: the words of an approval, or the note of a send back. A plan's notes are each a note on the plan as a whole. A walk's approval keeps `Approved: <address>` as its first line, with the notes under it.
+
+Refused per item: `fleet.items_not_waiting` for an item the Job no longer waits on, or a Job Fleet does not know; `fleet.items_not_approvable`; `fleet.items_send_back_empty` for `send_back` with no note; `fleet.items_on_another_mac` for a Job another of his Macs holds; and any refusal the item's own answer gives, under its own code. A refused item is left as it stood.
+
+`agent_access` is `No`: it is the person's answer.
+"""

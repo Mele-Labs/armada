@@ -222,6 +222,7 @@ where
             kind: ReviewRunKind::Search,
             name: name.clone(),
             head: String::new(),
+            since: None,
             state: ReviewRunState::Queued,
             started_at: self.clock().now().as_str().to_string(),
             finished_at: None,

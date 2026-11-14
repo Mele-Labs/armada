@@ -108,15 +108,15 @@ pub trait Sessions: Send + Sync + 'static {
         open: ipc::OpenTerminal,
     ) -> impl Future<Output = Result<ipc::SessionRunUnderway, Refusal>> + Send;
 
-    /// `start_terminal_job` — a quick terminal: a hosted Job started with no workflow, no hold and no
+    /// `start_side_job` — a Side Job: a hosted Job started with no workflow, no hold and no
     /// proposer, in a served repository or any folder, with its terminal `t1` opened. No agent runs
     /// until the person's first message. [`Refusal::Unacceptable`] for both or neither of
     /// `manifest_id` and `dir`, a `dir` that is not an absolute directory, a size with no cells, and
     /// as `start_session`'s. **Takes the `Arc`** as `open_terminal` does.
-    fn start_terminal_job(
+    fn start_side_job(
         self: std::sync::Arc<Self>,
-        start: ipc::StartTerminalJob,
-    ) -> impl Future<Output = Result<ipc::TerminalJobStarted, Refusal>> + Send;
+        start: ipc::StartSideJob,
+    ) -> impl Future<Output = Result<ipc::SideJobStarted, Refusal>> + Send;
 
     /// `start_terminal_run` — a command run in a directory with no Session behind it. Nobody is
     /// told how it ended. [`Refusal::Unacceptable`] for a blank command, a directory that does not
@@ -414,6 +414,16 @@ pub trait Sessions: Send + Sync + 'static {
         &self,
         caller: Option<crate::Caller>,
         draft: ipc::ProposeDraft,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `handoff_brief` — a Job past its context limit sends its brief, and Fleet raises the handoff
+    /// card. `caller` places a hosted session as `show_window`'s does. Answers with the row at once,
+    /// its `handoff:<row id>` item waiting. [`Refusal::Unacceptable`] for a blank brief, a Job Fleet did
+    /// not ask for one, or a call that places no session.
+    fn handoff_brief(
+        &self,
+        caller: Option<crate::Caller>,
+        brief: ipc::HandoffBrief,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
     /// `withdraw_draft` — a session takes back a draft it proposed, settling its row `withdrawn` so it

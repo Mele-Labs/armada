@@ -463,7 +463,7 @@ impl JobView {
         let now = chrono::Local::now();
         let card = match tab.kind {
             RowKind::Draft => self.thread(id, cx).and_then(|held| super::review::draft_row(&held.items, &tab.key)).and_then(|row| match row {
-                SessionRow::Draft { id: row, at, title, text, before, settled, change } => {
+                SessionRow::Draft { id: row, at, title, text, before, settled, change, .. } => {
                     Some(self.draft(SHEET, row, at, title, text, before.as_deref(), settled.as_ref(), *change, false, page, look, now, cx))
                 }
                 _ => None,

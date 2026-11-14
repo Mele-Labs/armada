@@ -158,17 +158,15 @@ where
             Some(manifest) => manifest,
             None => ManifestId::carried(&self.session_and_hosting(&me).await?.1.manifest_id),
         };
+        // The Job is for its starter's project, which takes the repository in as a whole member where it is not one.
+        let starters = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
+        let project = self.started_project(&me, starters, manifest.as_str()).await;
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
-        let held_by_word = match after {
-            Some(_) => false,
-            None => {
-                let project = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
-                self.agent_start_held(project.as_deref(), manifest.as_str()).await
-            }
-        };
+        // A Job that waits follows it too, once its wait is met, so the word is read whether or not there is a wait.
+        let held_by_word = self.agent_start_held(project.as_deref(), manifest.as_str()).await;
         let made = self
             .start_session(StartSession {
-                project: None,
+                project,
                 manifest_id: manifest,
                 title: Some(words.title.clone()),
                 model: None,
@@ -178,8 +176,8 @@ where
                 fork: None,
                 request: None,
                 after: None,
-                // A Session that waits is held once its wait is met.
-                held: held_by_word,
+                // A Session that waits is not held while it does: its wait carries the word.
+                held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
             })
@@ -193,7 +191,7 @@ where
             self.reading_begun(&session, &hosting, &brief);
         }
         let new = made.id.as_str().to_string();
-        if held_by_word {
+        if held_by_word && after.is_none() {
             self.held_with(&new, &brief).await?;
         }
         let mut held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
@@ -204,7 +202,7 @@ where
         // A Session that waits holds its first message until the condition is met, and then for the person.
         if let Some(after) = after {
             let told = after.session.as_str() != me;
-            if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, true, ipc::WaitBy::Agent, told).await {
+            if let Err(refusal) = self.wait_begun(held.session_id.as_str(), after, brief, held_by_word, ipc::WaitBy::Agent, told).await {
                 let _ = self.closed_and_parked(ipc::CloseSession { session_id: held.session_id.clone() }).await;
                 return Err(refusal);
             }
@@ -216,12 +214,30 @@ where
         Ok(held)
     }
 
+    /// The project a Job `me` starts in `repository` is for: `me`'s own, `None` where it has none. **A project that
+    /// does not read, or whose file cannot be written, gives none**, said on the log, since a start is never refused
+    /// for a fault of the project, as `agent_start_held` falls back.
+    pub(super) async fn started_project(&self, me: &str, project: Option<String>, repository: &str) -> Option<String> {
+        let project = project?;
+        let joined = match self.members_followed_published(&project, vec![repository.to_string()]).await {
+            Ok(_) => self.project_started_for(&project, repository).await,
+            Err(why) => Err(why),
+        };
+        match joined {
+            Ok(project) => Some(project),
+            Err(why) => {
+                self.session_warned(me, "a job it started was started in no project, since its own did not take it", format!("{why:?}"));
+                None
+            }
+        }
+    }
+
     /// The brief of a Job an agent made, sent to it as the caller's word, which is how it begins at once. `false`
     /// where it could not be, and the Job is then held on its start card with the brief for the person.
     async fn agent_start_begun(self: &Arc<Self>, caller: &str, id: &str, brief: &str) -> bool {
         let named = self.store().lock().await.session(caller).ok().flatten().and_then(|one| one.title);
         let title = named.unwrap_or_else(|| caller.to_string());
-        let voice = ipc::SessionVoice::Session { id: caller.to_string(), title };
+        let voice = ipc::SessionVoice::Session { id: caller.to_string(), title, mac: None };
         match self.first_message_from(id, voice, brief).await {
             Ok(()) => true,
             Err(why) => {

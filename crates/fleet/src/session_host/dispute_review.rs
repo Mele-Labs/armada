@@ -130,7 +130,7 @@ where
     async fn disputing_voice(&self, job: &str) -> (String, SessionVoice) {
         let kept = self.store().lock().await.session(job).ok().flatten();
         let title = kept.and_then(|one| one.title).unwrap_or_else(|| String::from("a job"));
-        (title.clone(), SessionVoice::Session { id: job.to_string(), title })
+        (title.clone(), SessionVoice::Session { id: job.to_string(), title, mac: None })
     }
 
     /// The newest review of a notice matched by `key` that has not ended.

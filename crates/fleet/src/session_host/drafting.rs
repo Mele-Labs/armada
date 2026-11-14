@@ -3,21 +3,33 @@
 //!
 //! **It does not wait**, as `ask_in_window` does not: the row is kept and the call answers, and the
 //! open draft is read back off the thread (`waiting.rs`).
+//!
+//! **A draft is also an artifact keyed by its title**, `draft:<title>`, whose `revisions` name its texts
+//! kept in Fleet's attachments folder, and whose `row` is the newest row. A draft proposed under the title
+//! of one still open is its next revision: the earlier row settles `withdrawn` and the Job is sent nothing.
+//! A proposal Fleet raises for a workflow change is not one. `docs/concepts/artifact.md`.
 
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
-use ipc::{DraftHow, DraftSettled, ProposeDraft, SendSessionMessage, SessionRecord, SessionRow, WithdrawDraft, WorkflowChangeRef};
+use api::{Refusal, Sessions};
+use ipc::{
+    AttachmentReport, DraftHow, DraftSettled, ProposeDraft, SendSessionMessage, SessionFact, SessionId, SessionRecord, SessionReport, SessionRow,
+    WithdrawDraft, WorkflowChangeRef,
+};
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession};
 
+use super::artifact_for::with_for;
+use super::sketching::{revisions_kept, titled_folder};
 use crate::daemon::Fleet;
 use crate::pull_requesting::PR;
 
 const DRAFT_UNNAMED: &str = "fleet.draft_unnamed";
 const DRAFT_EMPTY: &str = "fleet.draft_empty";
+const DRAFT_REFUSED: &str = "fleet.draft_refused";
 const DRAFT_PULL_REQUEST_NOT_HELD: &str = "fleet.draft_pull_request_not_held";
 
 /// The ledger row linking an open draft to the pull request it describes. Its target is the draft's
@@ -97,8 +109,10 @@ const DRAFT_WITHDRAW_UNNAMED: &str = "fleet.draft_withdraw_unnamed";
 const DRAFT_WITHDRAW_NOT_OPEN: &str = "fleet.draft_withdraw_not_open";
 pub(crate) const FIXED_NOT_A_DRAFT: &str = "fleet.fixed_not_a_draft";
 
-/// The id a draft's waiting item goes by, from its row's.
+/// The id a draft's waiting item goes by, from its row's. A draft's artifact is keyed by it before its title.
 pub(crate) const DRAFT_PREFIX: &str = "draft:";
+/// On a draft's artifact: the newest row's id.
+pub(crate) const DRAFT_ROW: &str = "row";
 
 /// The person's message for each way a draft is settled. `title` is the item's text.
 pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
@@ -112,6 +126,16 @@ pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
 
 pub(crate) fn fixed(title: &str, text: &str) -> String {
     format!("Approved with my fixes: {title}\nUse exactly this text, as written:\n\n{text}")
+}
+
+/// His Approve of a draft whose newest revision is his Edit: his words, with any he gave after them.
+pub(crate) fn approved_his(title: &str, text: &str, words: Option<&str>) -> String {
+    let mut body = format!("Approved with his edit: {title}\nApply his text, exactly as written:\n\n{text}");
+    if let Some(words) = words {
+        body.push_str("\n\n");
+        body.push_str(words);
+    }
+    body
 }
 
 pub(crate) fn sent_back(title: &str, note: &str) -> String {
@@ -156,6 +180,7 @@ where
         if text.is_empty() {
             return Err(self.hosted_refusal(DRAFT_EMPTY, "a draft needs its text"));
         }
+        let said = ipc::ArtifactFor::checked(draft.for_line.as_deref(), &draft.links).map_err(|why| self.hosted_refusal(DRAFT_REFUSED, &why))?;
         let before = draft
             .before
             .map(|said| said.trim().to_string())
@@ -165,12 +190,12 @@ where
             .or_else(|| draft.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.hosted_refusal(DRAFT_UNNAMED, "a job to propose it for"))?;
-        let held = {
+        let (harness, held) = {
             let store = self.store().lock().await;
-            if store.session(&id).map_err(|why| self.ledger_fault(why))?.is_none() {
+            let Some(session) = store.session(&id).map_err(|why| self.ledger_fault(why))? else {
                 return Err(self.hosted_refusal(DRAFT_UNNAMED, "a job Fleet knows"));
-            }
-            store.attachments_of(&Holder::session(&id)).map_err(|why| self.ledger_fault(why))?
+            };
+            (session.harness, store.attachments_of(&Holder::session(&id)).map_err(|why| self.ledger_fault(why))?)
         };
         let pull = described(&held, draft.pull_request, before.as_deref()).map_err(|number| {
             self.hosted_refusal(
@@ -180,6 +205,35 @@ where
         })?;
         let row = self.row_id(&id);
         let link = pull.map(|pull| link_of(&id, &row, &pull, &held, (&text, before.as_deref()), self.instant().as_str()));
+        // His ruling of 13 Nov: a draft under the title of one still open is its next revision, so his list
+        // holds one item. The Job replaced it itself, so it is sent nothing. One he is answering stands.
+        let earlier: Vec<String> = self
+            .rows_of(&id)
+            .await?
+            .into_iter()
+            .filter_map(|one| match one {
+                SessionRow::Draft { id, title: said, settled: None, change: None, .. } if said == title => Some(id),
+                _ => None,
+            })
+            .collect();
+        for earlier in earlier {
+            if let Some(_settling) = self.hosts().settling(&id, &format!("{DRAFT_PREFIX}{earlier}")) {
+                self.row_settled(&id, &earlier, DraftHow::Withdrawn, None).await?;
+            }
+        }
+        let folder = Path::new(&self.host().attachments_dir).join("drafts").join(&id).join(titled_folder(&title));
+        let revisions = revisions_kept(folder, text.clone().into_bytes(), "md").await;
+        let mut detail: std::collections::BTreeMap<String, String> = [
+            ("form".to_string(), "draft".to_string()),
+            ("by".to_string(), "agent".to_string()),
+            ("title".to_string(), title.clone()),
+            (DRAFT_ROW.to_string(), row.clone()),
+        ]
+        .into();
+        detail.extend(revisions.map(|revisions| ("revisions".to_string(), revisions)));
+        let for_line = self.for_line(&id, said).await;
+        with_for(&mut detail, for_line.as_ref());
+        let artifact = AttachmentReport { kind: String::from("artifact"), target: format!("{DRAFT_PREFIX}{title}"), detail };
         self.row_put(
             &id,
             SessionRow::Draft {
@@ -190,13 +244,14 @@ where
                 before,
                 settled: None,
                 change: None,
+                for_line,
             },
         )
         .await;
         if let Some(link) = link {
             let _ = self.store().lock().await.attach(&link, false);
         }
-        self.draft_record(&id).await
+        self.report_session(SessionReport { harness, session_id: SessionId::carried(&id), fact: SessionFact::Attached { attachment: artifact } }).await
     }
 
     /// `withdraw_draft`: the session takes back an open draft of its own. The row settles `withdrawn`
@@ -245,14 +300,21 @@ where
         how: DraftHow,
         words: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
+        self.row_settled(session, row_id, how, words).await?;
+        self.draft_record(session).await
+    }
+
+    /// [`Self::draft_settled`] without publishing the Job, for a caller that publishes it once after.
+    async fn row_settled(&self, session: &str, row_id: &str, how: DraftHow, words: Option<String>) -> Result<(), Refusal> {
         let found = self.rows_of(session).await?.into_iter().find_map(|row| match row {
-            SessionRow::Draft { id, at, title, text, before, change, .. } if id == row_id => Some(SessionRow::Draft {
+            SessionRow::Draft { id, at, title, text, before, change, for_line, .. } if id == row_id => Some(SessionRow::Draft {
                 id,
                 at,
                 title,
                 text,
                 before,
                 change,
+                for_line,
                 settled: Some(DraftSettled { how, words: words.clone(), at: self.instant() }),
             }),
             _ => None,
@@ -272,7 +334,7 @@ where
                 let _ = store.attach(&KeptAttachment { state: AttachmentState::GivenBack, changed_at: now, ..link }, false);
             }
         }
-        self.draft_record(session).await
+        Ok(())
     }
 
     /// A workflow a Job proposed waits on the owner as a draft that names its change. The item
@@ -294,6 +356,7 @@ where
                 before,
                 settled: None,
                 change: Some(change),
+                for_line: None,
             },
         )
         .await;

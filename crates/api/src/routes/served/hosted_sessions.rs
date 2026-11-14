@@ -131,6 +131,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/auto_land",
     },
     Route {
+        operation: "set_session_project",
+        method: "POST",
+        path: "/sessions/project",
+    },
+    Route {
         operation: "get_session_mcp",
         method: "GET",
         path: "/sessions/mcp",
@@ -139,6 +144,26 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "get_session_quick",
         method: "GET",
         path: "/sessions/quick",
+    },
+    Route {
+        operation: "get_job_artifacts",
+        method: "GET",
+        path: "/sessions/artifacts",
+    },
+    Route {
+        operation: "archive_artifact",
+        method: "POST",
+        path: "/sessions/artifacts/archive",
+    },
+    Route {
+        operation: "restore_artifact",
+        method: "POST",
+        path: "/sessions/artifacts/restore",
+    },
+    Route {
+        operation: "save_artifact_edit",
+        method: "POST",
+        path: "/sessions/artifacts/edit",
     },
     Route {
         operation: "act_on_session_mcp",

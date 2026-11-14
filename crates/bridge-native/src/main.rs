@@ -29,6 +29,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod first_run;
 mod fleet;
 mod frames;
 mod job_view;
@@ -37,6 +38,7 @@ mod jobs;
 mod keymap;
 mod labels;
 mod lanes_canvas;
+mod lanes_editor;
 mod link;
 mod listen;
 mod log;
@@ -57,6 +59,7 @@ mod queued;
 mod restart_fleet;
 mod room;
 mod revert;
+mod reviews;
 mod runtime_file;
 mod scene;
 mod settings;
@@ -68,6 +71,7 @@ mod titlebar;
 mod toasts;
 mod transport;
 mod voice;
+mod waiting_sends;
 mod walk;
 mod ways;
 mod whisper;
@@ -194,10 +198,10 @@ struct Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // What a library widget inherits; gpui's own text colour is black.
         let text = cx.look().color(look::token::FG_DEFAULT);
-        label_root(div().size_full().text_color(text).child(self.screen.clone()))
+        label_root(div().size_full().text_color(text).child(self.screen.clone()).children(option_pictures::over(window, cx)))
     }
 }
 
@@ -291,6 +295,9 @@ fn main() -> ExitCode {
                     screen.update(cx, |screen, cx| screen.live_notes(window, cx));
                     // Settings over all of it: the title bar's Settings, the macOS menu's and ⌘, open it.
                     let screen = cx.new(|cx| settings::SettingsScreen::live(screen.into(), &fleet, window, cx));
+                    // While he has not said how he works with Jobs, the first-run screen is over all of it.
+                    let settings = screen.read(cx).overlay.clone();
+                    let screen = cx.new(|cx| first_run::FirstRunScreen::new(screen.into(), settings, Some(&fleet), cx));
                     cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),

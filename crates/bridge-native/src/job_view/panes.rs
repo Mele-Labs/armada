@@ -745,6 +745,35 @@ impl JobView {
         self.get(ask, window, cx, done);
     }
 
+    /// A file the Job showed, read-only in the side panel, as Fleet keeps it (`GET /sessions/shown`): the path the
+    /// Job's ledger holds, which may lie outside its tree.
+    pub(super) fn open_shown_file(&mut self, path: String, window: &mut Window, cx: &mut Context<Self>) {
+        if self.fleet.is_none() {
+            let read = crate::mock::shown_text(&path).map_or(FileRead::Refused(Refusal::Unreadable), FileRead::Text);
+            self.open_panel(Of::File { path, read: Some(read) }, window, cx);
+            return;
+        }
+        let Some(job) = self.shown.clone() else { return };
+        self.open_panel(Of::File { path: path.clone(), read: None }, window, cx);
+        let ask = super::pictures::shown_path(&job, &path);
+        let done: super::wire::Done = Box::new(move |this, answer, _, cx| {
+            let read = match answer {
+                Ok(body) => match ipc::decode::<ipc::ShownText>("ShownText", &body) {
+                    Ok(shown) => FileRead::Text(shown.text),
+                    Err(_) => FileRead::Refused(Refusal::Unreadable),
+                },
+                Err(_) => FileRead::Refused(Refusal::Unreadable),
+            };
+            if let Some(Panel { of: Of::File { path: open, read: shown }, .. }) = this.panes.panel.as_mut() {
+                if *open == path {
+                    *shown = Some(read);
+                    cx.notify();
+                }
+            }
+        });
+        self.get(ask, window, cx, done);
+    }
+
     /// A Check the agent ran: its runs in this Job, and the pressed run's log, read again while it runs.
     pub(super) fn open_check(&mut self, name: String, run: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };

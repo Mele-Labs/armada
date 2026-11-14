@@ -64,6 +64,9 @@ pub(crate) fn hello(gateway: &Gateway) -> Result<MacHello, String> {
         name: mac.name,
         address: gateway.pairing.address().ok(),
         build: gateway.way_in.build.clone(),
+        wire: Some(gateway.way_in.wire.clone()),
+        built_at: gateway.way_in.built_at.clone(),
+        source: gateway.way_in.source.clone(),
     })
 }
 
@@ -74,7 +77,7 @@ pub(crate) async fn hello_now(gateway: &Gateway) -> Result<MacHello, String> {
 }
 
 /// This Mac's id and its key toward `mac`, read from the Keychain once a run.
-async fn signer(gateway: &Gateway, mac: &str) -> Result<(String, SigningKey), String> {
+pub(crate) async fn signer(gateway: &Gateway, mac: &str) -> Result<(String, SigningKey), String> {
     let (gateway, mac) = (gateway.clone(), mac.to_string());
     tokio::task::spawn_blocking(move || {
         let me = crate::machine::this_mac(&gateway)?.id;

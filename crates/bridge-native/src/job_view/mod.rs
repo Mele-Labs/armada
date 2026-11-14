@@ -69,11 +69,11 @@ mod subagent_read;
 mod zoom;
 mod panes;
 mod pane_store;
-mod pane_tree;
+pub(crate) mod pane_tree;
 mod panes_place;
 mod place_draw;
 mod place_menu;
-mod pulls;
+pub(crate) mod pulls;
 mod issues;
 mod system;
 mod bays;
@@ -98,6 +98,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 pub(crate) mod wire;
+mod waits_for;
 mod workflow_card;
 
 use std::cell::RefCell;
@@ -150,6 +151,8 @@ pub(crate) enum Extra {
     Refreshing,
     /// What the Job waits on that is not the person, last of all.
     Waiting,
+    /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
+    WaitsFor,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -333,6 +336,8 @@ pub struct JobView {
     mock: HashMap<String, HeldThread>,
     /// What the mock's Needs you says for each Job, as Fleet's view would: grouped from the record.
     mock_needs: HashMap<String, ipc::NeedsYou>,
+    /// The sends the mock keeps for a Mac asleep, as Fleet's `GET /queued` would answer.
+    mock_queued: ipc::QueuedList,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -544,6 +549,7 @@ impl JobView {
             }),
             None => Default::default(),
         };
+        let mock_on = mock.is_some();
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -554,6 +560,7 @@ impl JobView {
             fleet,
             mock,
             mock_needs: HashMap::new(),
+            mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
@@ -738,6 +745,16 @@ impl JobView {
         self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal(job, cx)).map(Into::into)
     }
 
+    /// Why the act posted to `path` is off for the Job, where it runs on another Mac and Fleet does not carry it there.
+    pub(super) fn off_to(&self, id: &str, path: &str, cx: &App) -> Option<SharedString> {
+        self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal_to(job, path, cx)).map(Into::into)
+    }
+
+    /// [`Self::off_to`] for the Job on screen.
+    pub(super) fn off_shown_to(&self, path: &str, cx: &App) -> Option<SharedString> {
+        self.shown.as_ref().and_then(|id| self.off_to(id, path, cx))
+    }
+
     /// Put another Job on screen: its place was kept, so this swaps what is drawn and the box's
     /// words, tells Fleet who is looking, and reads the thread if it is not held.
     fn switch(&mut self, to: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
@@ -867,6 +884,10 @@ impl JobView {
         }
         if bands.end {
             extras.push(Extra::End);
+        }
+        // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
+        if !self.sends_waiting(id, cx).is_empty() {
+            extras.push(Extra::WaitsFor);
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));

@@ -70,6 +70,24 @@ fn a_reply_that_only_tells_asks_nothing() {
     }
 }
 
+/// A reply that quotes what was asked before, to say what went wrong with it, asks nothing: the 13 Nov
+/// 2026 close that was sent back to be asked again with buttons.
+#[test]
+fn a_question_only_quoted_asks_nothing() {
+    for reply in [
+        "Three things went wrong.\n\n1. It answered in tables.\n2. It closed with \"want me to verify against the code?\". That pulled you further in.\n3. Armada moved it mid-answer.",
+        "It ended on “Should I open the pull request?” and waited, which was the mistake.",
+        "The phrase `do you want` is in the list, and it matched.",
+    ] {
+        assert_eq!(asking_line(reply), None, "{reply:?}");
+    }
+    assert_eq!(
+        asking_line("It said \"want me to\" before. Want me to land it?").as_deref(),
+        Some("Want me to land it?"),
+        "a quote beside an ask still asks"
+    );
+}
+
 /// A question the agent answers itself still reads as an ask: a wrong call costs one dismiss, a
 /// missed one costs the person a Session left waiting.
 #[test]
@@ -108,4 +126,33 @@ fn the_same_sentence_still_asks_with_no_walk_and_a_question_is_never_only_approv
     assert!(!only_approving("Should I land it once you approve?"));
     assert!(!only_approving("Which one do you want fixed first?"));
     assert!(!only_approving("The retry cap is in."));
+}
+
+/// A reply that withdraws something it put to him names his approval only to say it is no longer asked,
+/// as a Job wrote on 13 Nov. A question beside it still asks.
+#[test]
+fn a_reply_that_says_an_ask_was_withdrawn_asks_nothing() {
+    let withdrawn = "I've withdrawn the \"What the away log teaches the Operator\" sketch, so it no longer asks you to approve it and it's gone from your Needs you.";
+    assert_eq!(asking_line(withdrawn), None);
+    assert_eq!(asking_line(&format!("{withdrawn} Should I draw a new one?")).as_deref(), Some("Should I draw a new one?"));
+}
+
+/// A reply that says another Job will ask him later asks nothing now: that Job puts the question itself,
+/// as a Job wrote on 13 Nov. A question beside it still asks.
+#[test]
+fn a_reply_that_says_another_job_will_ask_later_asks_nothing() {
+    let later = "I've started a new Job for \"Rule from precedent\".\n\nThe Job plans first. Where \"covered by a past answer\" draws its line is your call, so it will ask you about that before it builds. Once Fleet has its side, the native list of rulings goes to Jobs screens.";
+    assert_eq!(asking_line(later), None);
+    assert_eq!(asking_line(&format!("{later} Which one should it build first?")).as_deref(), Some("Which one should it build first?"));
+}
+
+const BUILDING: &str = "The Fleet side of the one-artifact work is now being built, following its plan, which you approved. Over a series of small PRs it adds:\n\n- the Artifacts list\n- archiving and restoring an artifact\n- saving your own edits as a new revision\n- plans that carry their sketches and settle with one Approve\n- Approve all and Dismiss all\n- page actions and votes\n- sealed pages\n\nI've passed the full design to Jobs screens. It builds the native screens after its sketch fixes, and draws whole pages through the same Chrome view it's building for sketch mocks. Nothing needs you.";
+
+/// A reply that ends saying nothing needs him asks nothing by naming a button in a list of what is
+/// built ("Approve all and Dismiss all"), as a Job wrote on 13 Nov. A question in it still asks.
+#[test]
+fn a_reply_that_ends_saying_nothing_needs_him_asks_nothing_by_a_named_button() {
+    assert_eq!(asking_line(BUILDING), None);
+    let asking = BUILDING.replace("Nothing needs you.", "Should Undo come first? Nothing needs you after that.");
+    assert_eq!(asking_line(&asking).as_deref(), Some("Should Undo come first?"));
 }

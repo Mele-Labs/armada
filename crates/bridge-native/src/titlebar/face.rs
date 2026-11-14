@@ -1,8 +1,8 @@
 //! What the title bar draws, as small faces a view reads and never works out.
 //!
 //! Electron derives every one of these in TypeScript (`docs/spikes/native-titlebar-inventory`,
-//! section 6). A change in Fleet is adding the ring band, the build switcher's state and the Jobs a
-//! restart adopts to its own views; until it lands the walk's scenario fills these directly, and the
+//! section 6). A change in Fleet is adding the ring band and the build switcher's state to its own
+//! views; until it lands the walk's scenario fills these directly, and the
 //! wiring later maps Fleet's fields into them. **No view holds a threshold or a sentence of its own**:
 //! the words and the bands live here, so moving to Fleet's view deletes this file's builders and
 //! leaves every view as it is.
@@ -203,21 +203,19 @@ pub fn toast_of(state: &ModelDownshift) -> Option<Toast> {
 // ---------------------------------------------------------------------------------------------
 // The build switcher
 
-/// The build report with the two facts Fleet does not send it: whether the build is level with
-/// main, and the Jobs a restart would adopt.
+/// The build report with the fact Fleet does not send it: whether the build is level with main.
+/// A restart adopts no Job: hosted Jobs carry across it, and Fleet runs no Drone of its own.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Build {
     pub report: FleetBuildReport,
     pub aligned: bool,
-    /// The Jobs a restart adopts. Any asks first; none restarts at once.
-    pub adopts: Vec<String>,
 }
 
 /// The switcher's reading of Fleet's report: level with main as Fleet's `switcher` says, else as its position
-/// counts (a position that cannot be counted is not level), and the Jobs a restart carries across.
+/// counts (a position that cannot be counted is not level).
 pub fn build_of(report: &FleetBuildReport) -> Build {
     let aligned = report.switcher.map_or_else(|| report.position.is_some_and(|at| at.ahead == 0 && at.behind == 0), |switcher| switcher.aligned);
-    Build { report: report.clone(), aligned, adopts: report.carried.clone() }
+    Build { report: report.clone(), aligned }
 }
 
 /// When a kept build was built, stamped as he set stamps to read. Text that is no instant comes back as it came.

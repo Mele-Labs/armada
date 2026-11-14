@@ -73,6 +73,9 @@ pub enum Verb {
     BuildSettle { was: Option<u32> },
     /// Start the Fleet launchd holds: load it, or start it, or find it running.
     FleetStart,
+    /// One pass dropping build output now, needing no Fleet. `help` prints what it does and exits 0, which is how a
+    /// script asks whether this build has it.
+    DiskReclaim { help: bool },
     /// What the verbs are.
     Help,
 }
@@ -137,6 +140,10 @@ const VERBS: &[(&str, &str)] = &[
         "start the Fleet launchd holds when it is not running, which Bridge offers while Fleet is down",
     ),
     (
+        DISK,
+        "drop build output now, as Fleet's pass does under limits.diskReclaimFloorGib, with no Fleet",
+    ),
+    (
         WATCH_LINE,
         "print one reading of a watch recipe Armada ships, as the line Fleet reads; Fleet runs it",
     ),
@@ -169,6 +176,8 @@ pub const JOB: &str = "job";
 pub const BUILD: &str = "build";
 /// The Fleet launchd holds.
 pub const FLEET: &str = "fleet";
+/// The disk's build output.
+pub const DISK: &str = "disk";
 /// The readers behind the watch recipes Armada ships, which name this verb.
 pub const WATCH_LINE: &str = "watch-line";
 
@@ -281,6 +290,14 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             [form] if form == "start" => Some(Verb::FleetStart),
             _ => {
                 faults.push(Fault::FleetFormUnknown { given: rest.join(" ") });
+                None
+            }
+        },
+        DISK => match rest {
+            [form] if form == "reclaim" => Some(Verb::DiskReclaim { help: false }),
+            [form, flag] if form == "reclaim" && flag == "--help" => Some(Verb::DiskReclaim { help: true }),
+            _ => {
+                faults.push(Fault::DiskFormUnknown { given: rest.join(" ") });
                 None
             }
         },
@@ -402,6 +419,8 @@ pub enum Fault {
     BuildFormUnknown { given: String },
     /// `fleet` with no form, or one it does not have.
     FleetFormUnknown { given: String },
+    /// `disk` with no form, or one it does not have.
+    DiskFormUnknown { given: String },
     /// `worktree remove`, `close` or `open` without a slot's number.
     NoSlot {
         form: String,
@@ -513,6 +532,10 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {FLEET} {given}` is not a form this verb takes: it takes `{FLEET} start`"
             ),
+            Fault::DiskFormUnknown { given } => write!(
+                out,
+                "`armada {DISK} {given}` is not a form this verb takes: it takes `{DISK} reclaim`"
+            ),
             Fault::NoSlot { form } => write!(
                 out,
                 "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
@@ -546,6 +569,7 @@ impl fmt::Display for Usage {
                 JOB => format!("{JOB} [<act> ...]"),
                 BUILD => format!("{BUILD} revert|swap|rehearse|settle"),
                 FLEET => format!("{FLEET} start"),
+                DISK => format!("{DISK} reclaim"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;

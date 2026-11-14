@@ -500,11 +500,12 @@ impl JobView {
             }
             entries.extend(group);
         }
-        // A Job on another Mac keeps its acts in the menu, off, with why. Zoom is the tab's own and stays.
+        // A Job on another Mac keeps its acts in the menu, off, with why, but for those Fleet carries there. Zoom is the
+        // tab's own and stays.
         if let Some(why) = self.off_here(id, cx) {
             for entry in &mut entries {
                 match entry {
-                    Entry::Item { id, .. } if *id == "zoom" => {}
+                    Entry::Item { id, .. } if *id == "zoom" || route_of(id).is_some_and(crate::pairing::crosses) => {}
                     Entry::Item { off, .. } => *off = Some(why.clone()),
                     Entry::Toggle { id, label, .. } => {
                         *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
@@ -553,7 +554,7 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if act != "zoom" && self.off_here(&id, cx).is_some() {
+        if act != "zoom" && self.off_to(&id, route_of(act).unwrap_or_default(), cx).is_some() {
             return;
         }
         let session_id = Self::session_id(&id);
@@ -1029,8 +1030,8 @@ impl JobView {
                 .iter()
                 .enumerate()
                 .filter_map(|(at, item)| {
-                    let next = items.get(at + 1).and_then(super::rows::began);
-                    self.item(FORK_ITEMS + at, item, false, next, page, look, now, window, cx)
+                    let after = items.get(at + 1);
+                    self.item(FORK_ITEMS + at, item, false, after, page, look, now, window, cx)
                 })
                 .collect();
             div()
@@ -1531,4 +1532,19 @@ impl JobView {
     pub(super) fn head_tab_focused(&self, window: &Window, cx: &App) -> bool {
         self.head.tab.contains_focused(window, cx)
     }
+}
+
+/// The route a head act posts to, where it has one of its own, for `crate::pairing` to say whether it crosses.
+fn route_of(act: &str) -> Option<&'static str> {
+    Some(match act {
+        "stop" => "/sessions/stop",
+        "pause" => "/sessions/pause",
+        "resume" => "/sessions/resume",
+        "name" => "/sessions/name",
+        "land" => "/sessions/auto_land",
+        "release" => "/sessions/release_holds",
+        "end" => "/sessions/close",
+        "rename" => "/sessions/rename",
+        _ => return None,
+    })
 }

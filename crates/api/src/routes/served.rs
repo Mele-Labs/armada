@@ -116,6 +116,11 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/change",
     },
     Route {
+        operation: "update_mac",
+        method: "POST",
+        path: "/macs/update",
+    },
+    Route {
         operation: "revert_fleet_build",
         method: "POST",
         path: "/fleet/build/revert",
@@ -321,9 +326,9 @@ const ROUTES: &[Route] = &[
         path: "/sessions/terminal/run",
     },
     Route {
-        operation: "start_terminal_job",
+        operation: "start_side_job",
         method: "POST",
-        path: "/sessions/terminal/start",
+        path: "/sessions/side_job/start",
     },
     Route {
         operation: "type_in_terminal",
@@ -520,6 +525,11 @@ const ROUTES: &[Route] = &[
         operation: "withdraw_draft",
         method: "POST",
         path: "/sessions/withdraw_draft",
+    },
+    Route {
+        operation: "handoff_brief",
+        method: "POST",
+        path: "/sessions/handoff_brief",
     },
     Route {
         operation: "answer_sketch",
@@ -730,6 +740,16 @@ const ROUTES: &[Route] = &[
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",
+    },
+    Route {
+        operation: "answer_items",
+        method: "POST",
+        path: "/sessions/items/answer",
+    },
+    Route {
+        operation: "dismiss_items",
+        method: "POST",
+        path: "/sessions/items/dismiss",
     },
     Route {
         operation: "convert_draft_to_document",

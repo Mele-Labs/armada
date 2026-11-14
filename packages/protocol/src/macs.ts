@@ -93,6 +93,22 @@ export type OtherMacProjects = {
   projects: Project[];
 };
 
+/** `PUT /other_macs/claims` on Fleet: every other Mac waiting for his Confirm here, as this Mac's Phone Gateway holds them, replacing all Fleet held. Each is a `mac_pairing` call. */
+export type MacClaimsWaiting = {
+  claims: MacClaimWaiting[];
+};
+
+/** One Mac waiting for his Confirm here: it pasted this Mac's link, or asked from its Settings. */
+export type MacClaimWaiting = {
+  /** The asking Mac's id: what Confirm and Decline name. */
+  mac: string;
+  name: string;
+  /** What `GET /admin/macs` says of it, with the four digits where it asked. */
+  why: string;
+  /** Unix seconds: when the claim arrived. */
+  at: number;
+};
+
 /** `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish. */
 export type OtherMacEvent = {
   mac: string;

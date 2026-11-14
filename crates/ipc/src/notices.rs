@@ -21,6 +21,8 @@ pub enum Notice {
     PrMerged,
     /// "Auto-merge is on for #N."
     PrAutoMerge,
+    /// "#N is approved and its checks passed: it is ready to merge."
+    PrReadyToMerge,
     /// "#N is in the merge queue."
     PrQueued,
     /// A pull request Fleet opened is this Job's to see merged.
@@ -107,6 +109,7 @@ impl Notice {
                 | Notice::PrUnmergeable
                 | Notice::PrMerged
                 | Notice::PrAutoMerge
+                | Notice::PrReadyToMerge
                 | Notice::PrQueued
                 | Notice::PrHanded
                 | Notice::PrComments
@@ -130,6 +133,7 @@ impl Notice {
             Notice::PrUnmergeable => "pr_unmergeable",
             Notice::PrMerged => "pr_merged",
             Notice::PrAutoMerge => "pr_auto_merge",
+            Notice::PrReadyToMerge => "pr_ready_to_merge",
             Notice::PrQueued => "pr_queued",
             Notice::PrHanded => "pr_handed",
             Notice::PrComments => "pr_comments",

@@ -91,6 +91,9 @@ pub struct Held {
     /// The person's saved key changes, as the JSON Settings wrote them; empty while he has made none.
     /// `None` until Fleet has been read for them.
     pub key_bindings: Option<String>,
+    /// Whether he has answered how he works with Jobs. `None` until Fleet has been read for it, so the first-run
+    /// screen is not drawn for a preference nobody has read.
+    pub first_run_answered: Option<bool>,
     /// The mods on this machine, as Fleet last listed them. `None` until the first list.
     pub mods: Option<Vec<ModSummary>>,
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
@@ -99,6 +102,9 @@ pub struct Held {
     /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
     /// drop** as the build is. `None` until Fleet has answered.
     pub offers: Option<ipc::PreviewOffers>,
+    /// Every send waiting for another of his Macs, as Fleet last listed them, oldest first (`crate::waiting_sends`).
+    /// `None` until Fleet has answered.
+    pub queued: Option<ipc::QueuedList>,
     /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
     /// first reading cannot be mistaken for a count that stands.
     pub calls: Option<StandingCalls>,
@@ -171,9 +177,11 @@ impl Held {
             cursor: None,
             theme: None,
             key_bindings: None,
+            first_run_answered: None,
             mods: None,
             build: None,
             offers: None,
+            queued: None,
             calls: None,
             repositories: None,
             projects: None,
@@ -397,6 +405,7 @@ impl Held {
                     }
                     self.theme = Some(preferences.theme);
                     self.key_bindings = Some(preferences.key_bindings);
+                    self.first_run_answered = Some(preferences.first_run_answered);
                     crate::settings::time::hold(&preferences.time_format);
                     crate::settings::layout::hold(&preferences.layout_choices);
                 }
@@ -439,6 +448,8 @@ impl Held {
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
                 Signal::Offers(offers) => self.offers = Some(offers),
                 Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
+                Signal::Queued(list) => self.queued = Some(list),
+                Signal::QueuedFailed(why) => lines.push(Note::warn("the sends waiting for another Mac could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -500,6 +511,8 @@ impl Held {
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
                         // The offers arrive whole and replace the ones held.
                         Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
+                        // The sends waiting arrive whole, every Mac's, and replace the ones held.
+                        Event::QueuedChanged(list) => self.queued = Some(list),
                         // A Job's watches arrive whole and replace the ones held.
                         Event::WatchesChanged(list) => {
                             let id = list.session_id.as_str().to_string();
@@ -808,6 +821,12 @@ impl FleetConnection {
             });
         })
         .detach();
+    }
+
+    /// Fleet's answer to a take-back: every send still waiting, which replaces the list held.
+    pub fn hold_queued(&mut self, list: ipc::QueuedList, cx: &mut Context<Self>) {
+        self.held.queued = Some(list);
+        cx.notify();
     }
 
     /// Skip the Refresh row (`POST /fleet/build/offers/skip`) off the main thread. Fleet's answer takes the row out
@@ -1301,6 +1320,22 @@ mod tests {
         let event = crate::frames::decode(wire).expect("an event");
         held.fold(vec![Signal::Stream(event)]);
         assert_eq!(held.offers.as_ref().and_then(|held| held.refresh.as_ref()), None);
+    }
+
+    #[test]
+    fn the_sends_waiting_are_held_whole_from_the_read_and_from_the_event() {
+        let list = |id: &str| {
+            let raw = format!(r#"{{"queued":[{{"id":"{id}","mac":"air","act":{{"kind":"stop","body":{{"session_id":"mock-01"}}}},"since":1}}]}}"#);
+            ipc::decode::<ipc::QueuedList>("QueuedList", raw.as_bytes()).expect("the list")
+        };
+        let mut held = Held::new();
+        assert_eq!(held.queued, None, "nothing is held before Fleet answers");
+        held.fold(vec![Signal::Queued(list("a"))]);
+        assert_eq!(held.queued, Some(list("a")));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"queued.changed","queued":[]}}"#;
+        let event = crate::frames::decode(wire).expect("an event");
+        held.fold(vec![Signal::Stream(event)]);
+        assert_eq!(held.queued, Some(ipc::QueuedList::default()), "the event replaces the list whole");
     }
 
     #[test]

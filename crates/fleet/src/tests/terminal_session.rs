@@ -1240,10 +1240,10 @@ async fn a_received_message_is_from_its_job() {
     assert_eq!(
         voices,
         [
-            (SessionVoice::Session { id: READER.into(), title: "Reader".into() }, "Known by name.".to_string()),
-            (SessionVoice::Session { id: "s-ffffffff".into(), title: "s-ffffffff".into() }, "Not a Job.".to_string()),
+            (SessionVoice::Session { id: READER.into(), title: "Reader".into(), mac: None }, "Known by name.".to_string()),
+            (SessionVoice::Session { id: "s-ffffffff".into(), title: "s-ffffffff".into(), mac: None }, "Not a Job.".to_string()),
             (
-                SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into() },
+                SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into(), mac: None },
                 "A socket, and no Fleet pid for a terminal Job.".to_string()
             ),
         ]

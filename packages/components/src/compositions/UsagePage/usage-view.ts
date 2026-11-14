@@ -372,7 +372,7 @@ const WORDS: Record<UsageRuleName, Words> = {
     tip: (value) => `Last turn above ${value}k tokens`,
     figure: (figure) => `${Math.round(figure / 1000)}k`,
     figure_tip: "Context of the last turn",
-    tell: 'Context is {figure} tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don\'t ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.',
+    tell: "Context is {figure} tokens, past the {limit} limit. Write only a brief of where the work is, what is open and what you hold, and send it with handoff_brief. The owner answers on a card. Ask him nothing and start nothing yourself. Once it is sent, end your turn.",
     tell_figure: "312k",
   },
 };
@@ -391,7 +391,7 @@ export function ruleViews(answer: UsageRules): RuleView[] {
         limit_tip: words.tip(value),
         figure_tip: words.figure_tip,
         on: one.on,
-        tell: words.tell,
+        tell: words.tell.replace("{limit}", words.limit(value)),
         tell_figure: words.tell_figure,
         trips: one.trips.map((trip) => ({
           id: trip.session_id,

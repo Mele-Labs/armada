@@ -90,7 +90,7 @@ fn context_over_300k_is_told_with_the_figure_and_one_action() {
     assert_eq!(found.figure.round() as u64, 312_000);
     assert_eq!(
         found.text,
-        "Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."
+        "Context is 312k tokens, past the 300k limit. Write only a brief of where the work is, what is open and what you hold, and send it with handoff_brief. The owner answers on a card. Ask him nothing and start nothing yourself. Once it is sent, end your turn."
     );
 }
 

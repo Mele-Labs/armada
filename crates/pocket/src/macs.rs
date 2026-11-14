@@ -45,6 +45,14 @@ pub struct MacHello {
     pub address: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+    /// The protocol ID its build speaks. A build from before Macs compared them sends none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_at: Option<String>,
+    /// `main` or `preview`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// `POST /pair/mac`: the Mac that pasted the link claims it.
@@ -163,9 +171,13 @@ pub struct Macs {
     pub(crate) found: Arc<Mutex<FoundKept>>,
     /// Pairing or forgetting a Mac wakes the link, which starts or stops its task.
     pub(crate) changed: Arc<Notify>,
+    /// Held while the claims are read and handed to Fleet, so the last list Fleet takes is the last one read.
+    pub(crate) telling: Arc<tokio::sync::Mutex<()>>,
     closing: Arc<watch::Sender<bool>>,
     pub(crate) timing: Timing,
     pub(crate) http: reqwest::Client,
+    /// The loopback ports opened for other Macs' pages. `crate::mac_pages`.
+    pub(crate) pages: crate::mac_pages::Opened,
 }
 
 impl Macs {
@@ -185,9 +197,11 @@ impl Macs {
             asking: Arc::default(),
             found: Arc::default(),
             changed: Arc::new(Notify::new()),
+            telling: Arc::default(),
             closing: Arc::new(watch::channel(false).0),
             timing,
             http,
+            pages: Default::default(),
         })
     }
 
@@ -298,12 +312,39 @@ pub(crate) fn sane(hello: &MacHello) -> bool {
     id && name && hello.address.as_deref().is_some_and(reachable)
 }
 
-/// A paired Mac on the Devices list.
-pub(crate) fn listed(row: store::PairedMac) -> Mac {
-    let (link, why) = match (row.state, row.asleep_since) {
-        (store::MacState::ConfirmWaiting, _) => (MacLink::ConfirmWaiting, Some(format!("Confirm on {}", row.name))),
-        (store::MacState::Linked, Some(since)) => (MacLink::Asleep { since }, row.why),
-        (store::MacState::Linked, None) => (MacLink::Linked, None),
+/// Whether linked Mac `row` runs a build whose wire this one's cannot read, and which of the two is older.
+/// **A Mac whose hello named no wire runs a build from before Macs compared them**, so it is the older.
+/// Builds that speak the same wire stay linked, whatever their commits.
+pub(crate) fn frozen(me: &crate::WayIn, row: &store::PairedMac) -> Option<MacLink> {
+    if row.state != store::MacState::Linked || row.wire.as_deref() == Some(me.wire.as_str()) {
+        return None;
+    }
+    let older = match (row.wire.as_ref(), row.built_at.as_deref(), me.built_at.as_deref()) {
+        (None, _, _) | (_, None, _) => true,
+        (_, Some(_), None) => false,
+        (_, Some(theirs), Some(mine)) => theirs <= mine,
+    };
+    Some(if older { MacLink::OlderBuild } else { MacLink::NewerBuild })
+}
+
+/// The sentence a frozen link carries as `why`.
+pub(crate) fn frozen_why(link: &MacLink, name: &str) -> String {
+    match link {
+        MacLink::NewerBuild => format!("{name} runs a newer build. Nothing crosses until this Mac updates."),
+        _ => format!("{name} runs an older build. Nothing crosses until it updates."),
+    }
+}
+
+/// A paired Mac on the Devices list. **A frozen link says so over asleep**: it is why nothing crosses.
+pub(crate) fn listed(row: store::PairedMac, me: &crate::WayIn) -> Mac {
+    let (link, why) = match (row.state, row.asleep_since, frozen(me, &row)) {
+        (store::MacState::ConfirmWaiting, _, _) => (MacLink::ConfirmWaiting, Some(format!("Confirm on {}", row.name))),
+        (store::MacState::Linked, _, Some(link)) => {
+            let why = frozen_why(&link, &row.name);
+            (link, Some(why))
+        }
+        (store::MacState::Linked, Some(since), None) => (MacLink::Asleep { since }, row.why),
+        (store::MacState::Linked, None, None) => (MacLink::Linked, None),
     };
     Mac {
         id: row.id,
@@ -320,9 +361,9 @@ pub(crate) fn listed(row: store::PairedMac) -> Mac {
 }
 
 /// A Mac this one asked to pair, waiting for Confirm on it, with the digits both show.
-pub(crate) fn asked(row: store::PairedMac, digits: String) -> Mac {
+pub(crate) fn asked(row: store::PairedMac, digits: String, me: &crate::WayIn) -> Mac {
     let why = format!("Confirm on {} if it shows {digits}.", row.name);
-    Mac { why: Some(why), code: Some(digits), ..listed(row) }
+    Mac { why: Some(why), code: Some(digits), ..listed(row, me) }
 }
 
 /// A Mac whose claim waits for Confirm here.
@@ -351,6 +392,9 @@ pub(crate) fn said(hello: &MacHello, address: &str) -> store::MacSaid {
         colour: hello.colour.name().to_string(),
         address: hello.address.clone().unwrap_or_else(|| address.to_string()),
         build: hello.build.clone(),
+        wire: hello.wire.clone(),
+        built_at: hello.built_at.clone(),
+        source: hello.source.clone(),
     }
 }
 

@@ -123,7 +123,7 @@ fn long_lived() -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
-        quick_terminal: false,
+        side_job: false,
         auto_land: false,
         activity: None,
         build: None,
@@ -219,6 +219,7 @@ const DRAFT: &str = r#"{"title":" Pull request description for the label ","text
 const WITHDRAW_SKETCH: &str = r#"{"title":" Request flow "}"#;
 const WITHDRAW_DOCUMENT: &str = r#"{"path":" .armada/documents/lease.html "}"#;
 const WITHDRAW_DRAFT: &str = r#"{"draft":" draft:9 "}"#;
+const BRIEF: &str = r#"{"brief":"The fix is on branch fix/reader."}"#;
 const WAIT: &str = r#"{"items":[{"id":"merge","text":"Approve the pull request"}]}"#;
 
 #[tokio::test]
@@ -291,6 +292,7 @@ const PLAN: &str = r#"{"groups":[{"title":"Rotate","agent":"rust-engineer","path
 
 fn pending_plan() -> ipc::SessionPlan {
     ipc::SessionPlan {
+        sketches: Vec::new(),
         version: 2,
         summary: String::new(),
         recorded_at: at(),
@@ -299,6 +301,7 @@ fn pending_plan() -> ipc::SessionPlan {
         set_aside_at: None,
         scope: vec!["crates/store".to_string()],
         groups: vec![ipc::SessionPlanGroup {
+            sketches: Vec::new(),
             id: "g1".to_string(),
             agent: "rust-engineer".to_string(),
             title: "Rotate".to_string(),
@@ -445,6 +448,18 @@ async fn propose_draft_answers_the_id_of_the_draft() {
 }
 
 #[tokio::test]
+async fn handoff_brief_answers_the_id_of_the_card_it_raised() {
+    let mut row = long_lived();
+    row.waiting_for.push(waiting("handoff:11", "Carry on in a new Job?", WaitingSource::Handoff, None));
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") = Some(row);
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "handoff_brief", BRIEF).await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(said, r#"{"session_id":"session-1","handoff":"handoff:11"}"#);
+}
+
+#[tokio::test]
 async fn withdraw_draft_answers_the_draft_it_took_back() {
     let (app, _) = a_fleet();
     let said = through_the_door(&app, "withdraw_draft", WITHDRAW_DRAFT).await;
@@ -492,6 +507,7 @@ async fn off_the_door_each_act_answers_the_whole_row_as_it_did() {
         ("/sessions/window/ask", ASK),
         ("/sessions/draft", DRAFT),
         ("/sessions/withdraw_draft", WITHDRAW_DRAFT),
+        ("/sessions/handoff_brief", BRIEF),
         ("/sessions/waiting", WAIT),
         ("/sessions/done", "{}"),
     ] {

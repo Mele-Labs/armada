@@ -54,6 +54,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `walk` | walks | plain |
 /// | `replied` | by act | not a question |
 /// | `draft` | to review | reason |
+/// | `handoff` | questions | plain: Stay |
 /// | `sketch`, `document`, `plan` | to review | plain |
 /// | `done` | done | plain |
 /// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
@@ -69,6 +70,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::Permission => rule(Questions, Dismiss::None),
         WaitingSource::WindowAsk => rule(Questions, Dismiss::None),
         WaitingSource::Draft => rule(Review, Dismiss::Reason),
+        WaitingSource::Handoff => rule(Questions, Dismiss::Plain),
         WaitingSource::Sketch => rule(Review, Dismiss::Plain),
         WaitingSource::Document => rule(Review, Dismiss::Plain),
         WaitingSource::FirstMessage => rule(Questions, Dismiss::None),
@@ -131,7 +133,7 @@ fn restart_of(command: &str) -> Option<(&'static str, BuildSource, bool)> {
 /// Whether words go as an answer besides the choices. Fleet refuses them on a slot call and a page's ask has
 /// no use for them, nor does what the Operator would do.
 fn takes_words(source: WaitingSource) -> bool {
-    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion)
+    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff)
 }
 
 /// What pressing the item does. **An agent's item that asks nothing and runs nothing is something he does**, so
@@ -331,13 +333,23 @@ where
         named: Option<ipc::SessionId>,
     ) -> Result<NeedsYou, Refusal> {
         let id = self.waiting_session(caller, named.as_ref())?;
-        let waiting = {
+        let own = {
             let store = self.store().lock().await;
-            let session = store
-                .session(&id)
-                .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(super::waiting::SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-            self.ledger_row(&store, &session)?.waiting_for
+            match store.session(&id).map_err(|why| self.ledger_fault(why))? {
+                Some(session) => Some(self.ledger_row(&store, &session)?.waiting_for),
+                None => None,
+            }
+        };
+        // A Job his other Mac shares is read off the row held from it, as it last said it.
+        let waiting = match own {
+            Some(waiting) => waiting,
+            None => self
+                .sessions_from_macs()
+                .await?
+                .into_iter()
+                .find(|one| one.id.as_str() == id)
+                .map(|one| one.waiting_for)
+                .ok_or_else(|| self.hosted_refusal(super::waiting::SESSION_WAITING_UNNAMED, "a job Fleet knows"))?,
         };
         Ok(needs_you_of(&id, &waiting))
     }

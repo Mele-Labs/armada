@@ -1,6 +1,6 @@
 //! What Fleet reads out of a Job's document, a page of HTML the Job designed: its title, and the
 //! sketches it embeds. **A scan and not a parse**: the page is the Job's own and may be any HTML, and
-//! Fleet needs three things from it. Bridge reads the same page with a real parser
+//! Fleet needs four things from it. Bridge reads the same page with a real parser
 //! (`session-view/document-page.ts`), and `sketches_in` follows the rules it reads a sketch by.
 
 /// One `<armada-sketch>` of a page, in the order the page holds them.
@@ -39,6 +39,30 @@ pub(crate) fn asks_approval(html: &str) -> bool {
         from = end;
     }
     false
+}
+
+/// What the page says it is for: `<meta name="armada-for" content="...">`, and each
+/// `<link rel="armada-for" href="..." title="...">` in the order the page holds them. Nothing is checked here.
+pub(crate) fn for_of(html: &str) -> (Option<String>, Vec<ipc::ForLink>) {
+    let lower = html.to_ascii_lowercase();
+    let mut text = None;
+    let mut from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "meta", from) {
+        if text.is_none() && attribute(&html[tag..end], "name").is_some_and(|name| name.trim().eq_ignore_ascii_case("armada-for")) {
+            text = attribute(&html[tag..end], "content").map(|said| squeezed(&said));
+        }
+        from = end;
+    }
+    let mut links = Vec::new();
+    from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "link", from) {
+        let said = |name: &str| attribute(&html[tag..end], name);
+        if said("rel").is_some_and(|rel| rel.split_whitespace().any(|one| one.eq_ignore_ascii_case("armada-for"))) {
+            links.push(ipc::ForLink { label: said("title").map(|title| squeezed(&title)).unwrap_or_default(), url: said("href").unwrap_or_default() });
+        }
+        from = end;
+    }
+    (text, links)
 }
 
 fn stem_of(path: &str) -> String {
@@ -82,7 +106,7 @@ fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
 }
 
 /// The offset after the '>' that closes a tag opened before `from`, skipping any '>' inside a quoted value.
-fn tag_end(lower: &str, from: usize) -> usize {
+pub(super) fn tag_end(lower: &str, from: usize) -> usize {
     let mut quote = None;
     for (at, byte) in lower.bytes().enumerate().skip(from) {
         match (quote, byte) {
@@ -146,7 +170,7 @@ fn without_tags(html: &str) -> String {
     text
 }
 
-fn unescaped(text: &str) -> String {
+pub(super) fn unescaped(text: &str) -> String {
     text.replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
@@ -154,6 +178,6 @@ fn unescaped(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
-fn squeezed(text: &str) -> String {
+pub(super) fn squeezed(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }

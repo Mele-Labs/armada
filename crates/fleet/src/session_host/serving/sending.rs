@@ -70,6 +70,7 @@ where
             None => Written::Message(SessionVoice::Session {
                 id: FLEET_NAME.to_lowercase(),
                 title: FLEET_NAME.to_string(),
+                mac: None,
             }),
         };
         // Built here rather than in the send, so a notice that asks something is kept by its row.
@@ -108,7 +109,7 @@ where
         if held.state == store::SessionState::Ended || hosting.paused_at.is_none() {
             return self.fleet_word(session, text, false, None).await;
         }
-        let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string() };
+        let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string(), mac: None };
         let row = self.written_row(session, &Written::Message(from), text.trim(), &[], &[], &[]);
         self.row_put(session, row).await;
         let turn = job_turn(text, text.to_string());
@@ -149,6 +150,7 @@ where
                 from: SessionVoice::Session {
                     id: FLEET_NAME.to_lowercase(),
                     title: FLEET_NAME.to_string(),
+                    mac: None,
                 },
                 text: text.to_string(),
                 files: files.to_vec(),
@@ -218,12 +220,9 @@ where
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.reading_begun(&session, &hosting, &text);
         }
-        // Read against the thread before the answer's own row is put in it.
-        let handing_on = matches!(written, Written::Message(SessionVoice::You))
-            && self.handoff_answered_later(&id, &text).await;
         // A held Job's turns are kept off the thread, whole: the first for him to edit, and Start writes and sends them all.
         let first = match &written {
-            Written::Message(from) if !handing_on => Some(FirstTurn {
+            Written::Message(from) => Some(FirstTurn {
                 from: from.clone(),
                 text: text.clone(),
                 files: kept.files.clone(),
@@ -253,7 +252,7 @@ where
             let mut state = runtime.state();
             state.activity.writing.person_said(row.id(), &text);
             // The CLI holds what is written while a foreground subagent call has the turn.
-            if !handing_on && state.call_rows.holds_the_turn() {
+            if state.call_rows.holds_the_turn() {
                 if let SessionRow::Message { queued, .. } = &mut row {
                     *queued = true;
                 }
@@ -261,16 +260,13 @@ where
             }
         }
         self.row_put(&id, row).await;
-        // Before the early returns below: a handoff's answer is still the person's latest message. A waiting
-        // Session's brief is the person's too, though it is written in the voice of the Job it waited on.
+        // Before the early returns below. A waiting Session's brief is the person's too, though it is
+        // written in the voice of the Job it waited on.
         if followed || matches!(written, Written::Message(SessionVoice::You)) {
             // The artifacts drawn from here on follow this message, until the next one.
             if let Err(why) = self.store().lock().await.keep_session_message(&id, &row_id) {
                 self.session_warned(&id, "a job's latest message was not kept", format!("{why:?}"));
             }
-        }
-        if handing_on {
-            return self.published_hosted(&id).await;
         }
         if matches!(written, Written::Message(SessionVoice::You)) {
             self.noted_on_the_ledger(&session, &text).await?;
@@ -433,9 +429,9 @@ where
             turn.push_str(&line);
             turn.push_str("\n\n");
         }
-        // **A quick terminal's agent reads the terminals first**: what they show rides ahead of each
+        // **A Side Job's agent reads the terminals first**: what they show rides ahead of each
         // message of the person's, so nothing waits on the agent choosing to call read_terminal.
-        if hosting.quick_terminal && row.is_some() {
+        if hosting.side_job && row.is_some() {
             if let Some(shown) = self.terminals_shown(id).await {
                 turn.push_str(&shown);
                 turn.push_str("\n\n");

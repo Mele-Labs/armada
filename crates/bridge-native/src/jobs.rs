@@ -49,15 +49,18 @@ pub enum Scope {
     Needs,
     Active,
     Paused,
+    /// The Jobs he snoozed, and only those: Needs you and Active leave them out until the snooze clears.
+    Snoozed,
     Quiet,
     Ended,
     All,
 }
 
-const SCOPES: [(Scope, &str, &str); 6] = [
+const SCOPES: [(Scope, &str, &str); 7] = [
     (Scope::Needs, "needs", "Needs you"),
     (Scope::Active, "active", "Active"),
     (Scope::Paused, "paused", "Paused"),
+    (Scope::Snoozed, "snoozed", "Snoozed"),
     (Scope::Quiet, "quiet", "Quiet"),
     (Scope::Ended, "ended", "Ended"),
     (Scope::All, "all", "All"),
@@ -447,6 +450,8 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
+    // Fleet clears `snoozed_until` when the snooze runs out, so one that is set is still ahead (`Held::snoozed`).
+    let snoozed = |job: &SessionRecord| job.snoozed_until.is_some();
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
     let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
     let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).collect();
@@ -455,17 +460,18 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
     ended.sort_by(|a, b| b.ended_at.as_ref().map(|at| at.as_str()).cmp(&a.ended_at.as_ref().map(|at| at.as_str())));
     let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let picked: Vec<&SessionRecord> = match scope {
-        Scope::Needs => lives.iter().copied().filter(|job| needs(job)).collect(),
-        Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job)).collect(),
+        Scope::Needs => lives.iter().copied().filter(|job| needs(job) && !snoozed(job)).collect(),
+        Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job) && !snoozed(job)).collect(),
         Scope::Paused => lives.iter().copied().filter(|job| paused(job)).collect(),
+        Scope::Snoozed => lives.iter().copied().filter(|job| snoozed(job)).collect(),
         Scope::Quiet => lives.iter().copied().filter(|job| quiet(job)).collect(),
         Scope::Ended => ended,
         Scope::All => lives.iter().copied().chain(ended).collect(),
     };
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
-    // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused
-    // starter in Active or a calm one in Needs you, comes in for its place alone.
+    // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
+    // snoozed starter in Active or a calm one in Needs you, comes in for its place alone.
     let mut places: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for job in &picked {
         let mut up = starter_of(job);
@@ -1932,14 +1938,6 @@ impl JobsList {
         let focused = self.focused.as_ref() == Some(&row.id);
         // The row stands for the earlier Job too: it is open when that one is.
         let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
-        let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
-        let ground = if opened {
-            look.color(token::ACCENT_MUTED)
-        } else if focused {
-            look.color(token::BG_HOVER)
-        } else {
-            look.color(token::BG_SUNKEN)
-        };
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let ink = if row.paused || row.ended || row.place { token::FG_MUTED } else { token::FG_DEFAULT };
         let lamp = match row.mark {
@@ -2104,6 +2102,11 @@ impl JobsList {
             )
         });
         let status_on = view.on("view:status");
+        // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
+        let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
+        let mut mac_dot = dotted.then(|| crate::pairing::chip(row.mac.as_deref(), cx)).flatten().map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+        // A row with a time keeps the slot's fixed width so marks line up down the list; one without lets the slot shrink to its glyphs.
+        let timed = time.is_some();
         let marks = div()
             .flex_none()
             .flex()
@@ -2114,12 +2117,14 @@ impl JobsList {
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
-            .when(!status_on, |marks| marks.children(earlier_mark.take()))
+            .when(!status_on, |marks| marks.children(earlier_mark.take()).children(mac_dot.take()))
             .when(status_on, |marks| {
                 // The paused mark in place of the state's glyph, and a hand off's ring before it.
                 // Electron's wide mark (`ListCard.css`): two glyphs and the gap between, the state at its end.
                 let wide = look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1);
-                marks.child(div().flex_none().w(wide).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
+                // The dot and its gap are the slot's to hold once a second Mac is listed.
+                let wide = if dotted { wide + look.length(token::SPACE_2) + look.length(token::SPACE_1) } else { wide };
+                marks.child(div().flex_none().when(timed || !dotted, |slot| slot.w(wide)).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
                     slot.child(labelled(
                         div()
                             .id(SharedString::from(format!("handoff-{}", row.id)))
@@ -2128,7 +2133,7 @@ impl JobsList {
                         Role::Image,
                         "Handing off",
                     ))
-                }).children(quiet).children(earlier_mark.take()).children(state.map(|((glyph, said), hue)| {
+                }).children(quiet).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
@@ -2148,11 +2153,6 @@ impl JobsList {
                     ))
                 }))
             });
-        // Once a second Mac is listed, every row keeps a column for the Mac it runs on, so the chips line up.
-        let mac_column = crate::pairing::shows_chips(crate::pairing::macs(cx)).then(|| {
-            let chip = crate::pairing::chip(row.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, SharedString::from(format!("mac-{}", row.id)), &chip));
-            div().flex_none().w(look.length(token::SPACE_12) * 1.25).flex().items_center().children(chip)
-        });
         // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
         let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
         let movable = row.depth == 0 && !row.ended;
@@ -2160,24 +2160,9 @@ impl JobsList {
         let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
         let drop_here = self.drop.as_ref().filter(|(at, _)| dragging && *at == row.id).map(|(_, after)| *after);
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
-        let strip = div()
-            .id(SharedString::from(format!("job-{}", row.id)))
+        let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place, pad)
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
-            .relative()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .py(pad)
-            .pl(look.length(token::SPACE_3))
-            .pr(look.length(token::SPACE_3))
-            .rounded(radius)
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(edge))
-            .bg(ground)
-            .when(!opened && !row.place, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
             .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
@@ -2190,27 +2175,8 @@ impl JobsList {
                 ))
             })
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
-            .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
-            // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
-            // Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
-            // corners as a CSS `border-left` does instead of a straight bar poking past them.
-            .child({
-                let wide = look.length(token::SPACE_1);
-                canvas(
-                    |_, _, _| {},
-                    move |bounds, _, window, _| {
-                        let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
-                        let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
-                        window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
-                            window.paint_quad(gpui::fill(card, lamp_ink).corner_radii(radius));
-                        });
-                    },
-                )
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-            })
+            .when(!opened && !needs, |strip| strip.child(row_wash(look, lamp_ink)))
+            .child(row_edge(look, lamp_ink))
             .child(
                 div()
                     .flex()
@@ -2236,7 +2202,6 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
-                    .children(mac_column)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
@@ -2349,24 +2314,7 @@ impl JobsList {
             Line::Project(name) => {
                 let look = cx.look();
                 labelled(
-                    div()
-                        .id(("project", at))
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .h(look.length(token::SPACE_6))
-                        .when(at > 0, |head| head.mt(look.length(token::SPACE_4)))
-                        .mb(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_2))
-                        .border_b(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
-                        // `--cb-code`: four fifths of the smallest text.
-                        .text_size(look.length(token::TEXT_2XS) * 0.8)
-                        .line_height(look.length(token::LEADING_XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                        .text_color(look.color(token::FG_MUTED))
-                        .child(name.clone()),
+                    group_line(look, at == 0).id(("project", at)).child(name.clone()),
                     Role::Heading,
                     name.clone(),
                 )
@@ -2387,24 +2335,12 @@ impl JobsList {
         let ink = if self.scope == Scope::Active { token::FG_MUTED } else { token::ACCENT };
         let field = self.search.as_ref().map(|(search, _)| {
             labelled(
-                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(
-                    Input::new(search)
-                        .h(look.length(token::H_CONTROL_LG))
-                        .rounded(look.length(token::RADIUS_LG))
-                        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
-                ),
+                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(list_search(search, look)),
                 Role::SearchInput,
                 "Search Jobs",
             )
         });
-        div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_3))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_2))
+        list_bar(look)
             // ↓, Enter or Esc give the keys to the rows; Tab opens the scope.
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
                 "down" | "escape" => {
@@ -2419,22 +2355,8 @@ impl JobsList {
             }))
             .children(field)
             .child(labelled(
-                div()
+                list_control(look)
                     .id("scope")
-                    .relative()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .h(look.length(token::H_CONTROL_LG))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .bg(look.color(token::BG_SUNKEN))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(ink))
                     .child(canvas(move |bounds, _, _| { store.borrow_mut().insert("scope".into(), bounds); }, |_, _, _, _| {}).absolute().size_full())
                     .child(label)
@@ -2462,6 +2384,7 @@ impl JobsList {
         .into_iter()
         .flatten()
         .collect();
+        let mac = crate::pairing::chip(row.mac.as_deref(), cx);
         let small = |look: &Look| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS));
         let key = |look: &Look, keys: &'static str, said: &'static str| {
             small(look)
@@ -2539,6 +2462,7 @@ impl JobsList {
                         )
                 })))
             })
+            .children(mac.map(|chip| small(look).text_color(look.color(token::FG_DEFAULT)).child(crate::pairing::card_line(look, &chip))))
             .child(
                 div()
                     .flex()
@@ -2682,11 +2606,12 @@ impl JobsScreen {
             }
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
-                crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
+                crate::titlebar::Asked::ChangeBuild { build } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false })),
                 crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
                 crate::titlebar::Asked::Unpick(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: false })),
+                crate::titlebar::Asked::PickOrigin(branch) => Some(BuildAct::Pick(ipc::PickFleetBuildJob { branch: Some(branch.clone()), session_id: None, picked: true })),
                 _ => None,
             };
             if let Some(act) = act {
@@ -2882,6 +2807,125 @@ impl JobsScreen {
             "Resize the Jobs list",
         )
     }
+}
+
+/// A row's card in a list (`ListCard.css`), as the Jobs list draws it and every list of rows on a panel
+/// shares: its spacing, edge, ground, hover and the open row's accent. `pad` is its height above and below.
+pub(crate) fn row_card(look: &Look, id: SharedString, opened: bool, focused: bool, hover: bool, pad: Pixels) -> gpui::Stateful<gpui::Div> {
+    let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
+    let ground = if opened {
+        token::ACCENT_MUTED
+    } else if focused {
+        token::BG_HOVER
+    } else {
+        token::BG_SUNKEN
+    };
+    let hovered = look.color(token::BG_HOVER);
+    let radius = look.length(token::RADIUS_LG);
+    div()
+        .id(id)
+        .relative()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .py(pad)
+        .pl(look.length(token::SPACE_3))
+        .pr(look.length(token::SPACE_3))
+        .rounded(radius)
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(edge))
+        .bg(look.color(ground))
+        .when(hover && !opened, |card| card.hover(move |style| style.bg(hovered)))
+}
+
+/// A row's lamp as a faint wash over its card's ground.
+pub(crate) fn row_wash(look: &Look, lamp: gpui::Hsla) -> gpui::Div {
+    div().absolute().inset_0().rounded(look.length(token::RADIUS_LG)).bg(lamp.opacity(HULL))
+}
+
+/// The lamp's edge down a row's left side (`ListCard.css` `border-left`).
+/// Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
+/// corners as a CSS `border-left` does instead of a straight bar poking past them.
+pub(crate) fn row_edge(look: &Look, lamp: gpui::Hsla) -> impl IntoElement {
+    let wide = look.length(token::SPACE_1);
+    let radius = look.length(token::RADIUS_LG);
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
+            let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
+            window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
+                window.paint_quad(gpui::fill(card, lamp).corner_radii(radius));
+            });
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+}
+
+/// A group's heading in a list, as the Jobs list heads a project: small mono words over a rule.
+/// The first group sits at the list's top; each after it keeps a gap above.
+pub(crate) fn group_line(look: &Look, first: bool) -> gpui::Div {
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::SPACE_6))
+        .when(!first, |head| head.mt(look.length(token::SPACE_4)))
+        .mb(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_2))
+        .border_b(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+        // `--cb-code`: four fifths of the smallest text.
+        .text_size(look.length(token::TEXT_2XS) * 0.8)
+        .line_height(look.length(token::LEADING_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+        .text_color(look.color(token::FG_MUTED))
+}
+
+/// The bar over a list: its search field, then the controls beside it.
+pub(crate) fn list_bar(look: &Look) -> gpui::Div {
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .pt(look.length(token::SPACE_3))
+        .pb(look.length(token::SPACE_2))
+}
+
+/// The search field of a list's bar.
+pub(crate) fn list_search(state: &Entity<InputState>, look: &Look) -> Input {
+    Input::new(state)
+        .h(look.length(token::H_CONTROL_LG))
+        .rounded(look.length(token::RADIUS_LG))
+        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+}
+
+/// A control beside a list's search field, at the field's height: the Jobs list's scope.
+pub(crate) fn list_control(look: &Look) -> gpui::Div {
+    let hovered = look.color(token::BG_HOVER);
+    div()
+        .relative()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .h(look.length(token::H_CONTROL_LG))
+        .px(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_LG))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_SUNKEN))
+        .cursor_pointer()
+        .hover(move |style| style.bg(hovered))
+        .text_size(look.length(token::TEXT_SM))
 }
 
 /// A deck panel's frame (`.deck-panel`): the raised ground, a heavier top edge.
@@ -3109,6 +3153,88 @@ mod tests {
         let dark = jobs().into_iter().find(|job| job.title.as_deref() == Some("Dark mode for the settings page")).expect("listed");
         let placed = titles(&lines_of(&jobs(), &[], Scope::Active, "", &[dark.id.as_str().to_string()], &Names::default()));
         assert_eq!(placed.iter().find(|title| web.contains(title)).map(String::as_str), Some("Dark mode for the settings page"));
+    }
+
+    /// The fixture with a Job that needs him and a working one snoozed, and those two ids.
+    fn with_two_snoozed() -> (Vec<SessionRecord>, [String; 2]) {
+        let all = jobs();
+        let live = |job: &&SessionRecord| job.state == ipc::SessionState::Live && job.hosted.as_ref().is_none_or(|hosted| hosted.paused.is_none());
+        let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
+        let asking = all.iter().filter(live).find(|job| needs(job)).expect("a Job that needs him").id.as_str().to_string();
+        let working = all
+            .iter()
+            .filter(live)
+            .find(|job| !needs(job) && job.mark.is_some_and(|mark| mark.state != JobState::Quiet))
+            .expect("a working Job")
+            .id
+            .as_str()
+            .to_string();
+        let ids = [asking, working];
+        let all = all
+            .into_iter()
+            .map(|mut job| {
+                if ids.iter().any(|id| id == job.id.as_str()) {
+                    job.snoozed_until = Some(ipc::Instant::carried("2026-11-13T16:30:00.000Z"));
+                }
+                job
+            })
+            .collect();
+        (all, ids)
+    }
+
+    /// The ids `scope` lists as Jobs of its own, leaving out a starter drawn only for its place.
+    fn listed(jobs: &[SessionRecord], scope: Scope) -> Vec<String> {
+        lines_of(jobs, &[], scope, "", &[], &Names::default())
+            .iter()
+            .filter_map(|line| match line { Line::Job(row) if !row.place => Some(row.id.to_string()), _ => None })
+            .collect()
+    }
+
+    #[test]
+    fn a_snoozed_job_is_not_in_needs_you() {
+        let (all, [asking, _]) = with_two_snoozed();
+        assert!(!listed(&all, Scope::Needs).contains(&asking));
+    }
+
+    #[test]
+    fn a_snoozed_job_is_not_in_active() {
+        let (all, [asking, working]) = with_two_snoozed();
+        let active = listed(&all, Scope::Active);
+        assert!(!active.contains(&asking) && !active.contains(&working), "{active:?}");
+    }
+
+    #[test]
+    fn the_snoozed_scope_lists_exactly_the_snoozed_jobs() {
+        let (all, mut ids) = with_two_snoozed();
+        let mut snoozed = listed(&all, Scope::Snoozed);
+        snoozed.sort();
+        ids.sort();
+        assert_eq!(snoozed, ids);
+    }
+
+    #[test]
+    fn all_keeps_the_snoozed_jobs() {
+        let (all, [asking, working]) = with_two_snoozed();
+        let every = listed(&all, Scope::All);
+        assert!(every.contains(&asking) && every.contains(&working), "{every:?}");
+    }
+
+    #[test]
+    fn a_snoozed_starter_comes_into_active_for_its_place_alone() {
+        let tree: Vec<SessionRecord> = crate::mock::jobs("jobs-tree")
+            .expect("the fixture decodes")
+            .into_iter()
+            .map(|mut job| {
+                if job.id.as_str() == "t-land" {
+                    job.snoozed_until = Some(ipc::Instant::carried("2026-11-13T16:30:00.000Z"));
+                }
+                job
+            })
+            .collect();
+        let land = lines_of(&tree, &[], Scope::Active, "", &[], &Names::default())
+            .iter()
+            .find_map(|line| match line { Line::Job(row) if row.id.as_ref() == "t-land" => Some(row.place), _ => None });
+        assert_eq!(land, Some(true));
     }
 
     #[test]

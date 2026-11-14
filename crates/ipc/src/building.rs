@@ -254,6 +254,35 @@ pub struct FleetBuildChanging {
     pub build: BuildSource,
 }
 
+/// `update_mac`'s body: move this Mac, another of his Macs, or both onto one build, keeping running Jobs.
+/// `POST /macs/update`. `docs/concepts/pocket.md`, *Builds that differ*.
+///
+/// | Body | Who moves, onto what |
+/// |---|---|
+/// | `{ mac }` | Mac `mac`, onto the build this Mac runs: Update on an `older_build` row |
+/// | `{ like }` | This Mac, onto the build Mac `like` runs: Update on a `newer_build` row |
+/// | `{ mac, this_mac_too, build }` | Both: Refresh preview or main, "this Mac and the other" |
+/// | `{ build, commit?, ref? }` | This Mac, onto `build`, at `commit` fetched from `ref` where given |
+///
+/// **A call from another Mac may only take the last form**, so an update is never sent on to a third.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateMac {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub like: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub this_mac_too: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<BuildSource>,
+    /// The preview commit to build, pushed by the Mac that merged it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// The branch on `origin` that holds `commit`: `preview/<mac id>`.
+    #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
+}
+
 /// `revert_fleet_build`'s answer: the undo has begun, onto the build with this commit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetBuildReverting {

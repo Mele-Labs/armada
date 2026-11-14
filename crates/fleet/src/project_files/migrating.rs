@@ -137,11 +137,15 @@ where
         }
 
         self.projects_reload().await;
+        // After every project is held, so a project that already holds the repository is seen.
+        if let Err(why) = self.built_in_projects_made().await {
+            done.left.push(why);
+        }
         done
     }
 
     /// `project` as the file on this Mac, and a row at the end of his order where it has none.
-    async fn project_made_here(&self, project: &Project) -> Result<(), String> {
+    pub(super) async fn project_made_here(&self, project: &Project) -> Result<(), String> {
         let id = project.id().as_str();
         if !file_safe(id) {
             return Err(format!("the project {id} has an id that cannot name a file"));

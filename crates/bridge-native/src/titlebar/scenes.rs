@@ -40,36 +40,35 @@ fn running_file() -> RuntimeFile {
 const RUNNING: &str = r#""running":{"built_at":"2026-11-05T17:05:00Z","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}"#;
 const PREVIOUS: &str = r#""previous":{"built_at":"2026-11-04T09:30:00Z","commit":"4be1c07a52d9e8f6a3b2c1d0e9f8a7b6c5d4e3f2","bridge_reopens":true,"takes_out":["Quiet the write-clash notices"],"brings_back":["Checkout page loads twice"]}"#;
 
-fn build(json: String, aligned: bool, adopts: &[&str]) -> Build {
-    Build { report: report(&json), aligned, adopts: adopts.iter().map(|one| one.to_string()).collect() }
+fn build(json: String, aligned: bool) -> Build {
+    Build { report: report(&json), aligned }
 }
 
 fn main_aligned() -> Build {
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"carried":["Native Bridge foundation"]}}"#), true)
 }
 
 /// Main as built a few minutes ago, so its name is a build from today; the build before is from an earlier day.
 fn built_today() -> Build {
     let built = (chrono::Utc::now() - chrono::Duration::minutes(2)).to_rfc3339();
     let running = format!(r#""running":{{"built_at":"{built}","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b"}}"#);
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{running},{PREVIOUS}}}"#), true)
 }
 
 fn main_behind() -> Build {
-    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#), false, &[])
+    build(format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#), false)
 }
 
 const LEFT_OUT: &str = r#""left_out":[{"branch":"armada/session-2c7f91d0","why":"merge conflict in crates/fleet/src/building.rs","moved":true},{"branch":"armada/fix-slot-pool","why":"does not merge with armada/session-4f03266c"}]"#;
 
 fn preview() -> Build {
-    build(format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},{LEFT_OUT}}}"#), false, &[])
+    build(format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},{LEFT_OUT}}}"#), false)
 }
 
 fn restarting(stage: &str) -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},"restarting":"preview","stage":"{stage}",{RUNNING},{PREVIOUS}}}"#),
         false,
-        &[],
     )
 }
 
@@ -79,7 +78,6 @@ fn picked_and_ready() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"picked":[{{"branch":"armada/session-4f03266c","title":"Native title bar"}},{{"branch":"armada/fix-merge-line","title":"Fix the merge line freshness chip"}}],"snapshot":{{"state":"ready","built_at":"2026-11-09T08:40:00Z","commit":"1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d","jobs":["Native title bar","Fix the merge line freshness chip"],"bridge_reopens":true}}}}"#
         ),
         false,
-        &[],
     )
 }
 
@@ -89,17 +87,9 @@ fn trying() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"trying":["Quiet the write-clash notices","Fix the merge line freshness chip"]}}"#
         ),
         false,
-        &[],
     )
 }
 
-fn drones() -> Build {
-    build(
-        format!(r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{RUNNING},{PREVIOUS}}}"#),
-        false,
-        &["Native Bridge foundation", "Audit the docs index"],
-    )
-}
 
 fn failed() -> Build {
     build(
@@ -107,7 +97,6 @@ fn failed() -> Build {
             r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},"failed":"scripts/preview stopped: cargo build failed in crates/fleet",{RUNNING},{PREVIOUS}}}"#
         ),
         false,
-        &[],
     )
 }
 
@@ -115,7 +104,6 @@ fn reverting() -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"reverting":true}}"#),
         false,
-        &[],
     )
 }
 
@@ -123,7 +111,6 @@ fn swapping() -> Build {
     build(
         format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"swapping":true}}"#),
         false,
-        &[],
     )
 }
 
@@ -133,7 +120,6 @@ fn swapped_back() -> Build {
             r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"failed":"Swapped back, since the new Fleet did not answer: No new Fleet answered in 90 s"}}"#
         ),
         true,
-        &[],
     )
 }
 
@@ -146,6 +132,9 @@ fn live_build(rest: &str) -> Build {
 const LIVE_MAIN: &str = r#""on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b""#;
 const LIVE_PREVIEW: &str = r#""on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{"ahead":5,"behind":2},"switcher":{"aligned":false,"idle_on_main":false,"restart":"refresh_preview"}"#;
 
+/// Branches on origin that main lacks and no Job here holds, newest first (#3547).
+const ORIGIN: &str = r#""origin":[{"branch":"native/refresh-set","committed_at":"2026-11-13T15:40:00Z"},{"branch":"fleet/dispute-reviews","committed_at":"2026-11-13T14:10:00Z"},{"branch":"fleet/artifacts-route","committed_at":"2026-11-13T11:05:00Z"},{"branch":"native/macs-setup","committed_at":"2026-11-13T09:30:00Z"},{"branch":"fleet/acting-queue","committed_at":"2026-11-12T18:20:00Z"},{"branch":"native/voice-session-rest","committed_at":"2026-11-12T10:00:00Z"},{"branch":"docs/key-map-panes","committed_at":"2026-11-11T16:45:00Z"},{"branch":"fleet/origin-fetch","committed_at":"2026-11-10T08:15:00Z"},{"branch":"native/sketch-jumps","committed_at":"2026-11-08T12:00:00Z"}]"#;
+
 fn build_live(name: &str) -> Option<Build> {
     Some(match name {
         "build-live-main" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}}"#)),
@@ -153,6 +142,11 @@ fn build_live(name: &str) -> Option<Build> {
         "build-live-refused" => live_build(&format!(r#"{LIVE_PREVIEW},"failed":"no served repository holds scripts/restart-build""#)),
         "build-live-carried" => live_build(&format!(
             r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":3}},"switcher":{{"aligned":false,"idle_on_main":false,"restart":"update_to_main"}},"carried":["Native Bridge foundation","Audit the docs index"]"#
+        )),
+        "build-origin" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}},{ORIGIN}"#)),
+        "build-origin-ready" => live_build(&format!(
+            r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}},"picked":[{{"branch":"native/refresh-set"}}],"snapshot":{{"state":"ready","built_at":"2026-11-13T16:02:00Z","commit":"7c1e5a9b3d2f4e6a8b0c1d2e3f4a5b6c7d8e9f0a","jobs":["native/refresh-set"],"bridge_reopens":true}},{}"#,
+            ORIGIN.replace(r#"{"branch":"native/refresh-set","committed_at":"2026-11-13T15:40:00Z"},"#, "")
         )),
         "build-live-trying" => live_build(&format!(r#"{LIVE_PREVIEW},"trying":["Quiet the write-clash notices","Fix the merge line freshness chip"]"#)),
         _ => return None,
@@ -428,7 +422,6 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-picked" => |face| face.build = Some(picked_and_ready()),
         "build-trying" => |face| face.build = Some(trying()),
         "build-stamps" => |face| face.build = Some(built_today()),
-        "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
         "build-swapping" => |face| face.build = Some(swapping()),
@@ -460,6 +453,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-live-refused" => |face| face.build = build_live("build-live-refused"),
         "build-live-carried" => |face| face.build = build_live("build-live-carried"),
         "build-live-trying" => |face| face.build = build_live("build-live-trying"),
+        "build-origin" => |face| face.build = build_live("build-origin"),
+        "build-origin-ready" => |face| face.build = build_live("build-origin-ready"),
         // Fleet's offers for the preview on a main level with its own: the Refresh row, then Fleet's answer to a skip.
         "preview-offers" => |face| {
             face.build = build_live("build-live-main");

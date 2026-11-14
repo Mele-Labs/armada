@@ -16,8 +16,8 @@ An item kept already, or written again as it was, is never taken off for it.
 The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
 **Where he answers by buttons it refuses a question with no options, or more than four** (`fleet.session_waiting_options`), naming the item and telling the agent to ask it with two to four options, its pick first and a cost on each.
 A question is an item with no `approves`, no `steps` and no act but `answer`; a run, a pull request, a message and a procedure need no options (`ways_checking.rs`).
-A reply whose close asks in words, where he answers by buttons, makes Fleet tell the Job once to ask it again with options, as a `reply_claim` notice, and not again until he has written.
-Both his answer to a kept question and to a timed-out one start with "Answering your earlier question", which `handoff_answered_later` reads for a handoff card in either case.
+A reply that asks in words is not sent back to be asked with options: on 13 Nov 40 of the 51 sent were disputed, read off replies that asked nothing, quoted a question, handed takes to another Job or pointed at an item already in Needs you.
+Both his answer to a kept question and to a timed-out one start with "Answering your earlier question".
 **Two items are never folded to one row**: whether two wordings are one ask is a guess, so each stands (*Items that are one ask*).
 An ended job holds nothing.
 **Bridge shows the list on the composer**, as a **Needs you** band folded to one glyph an item, named on hover; a press rides it up as the header of a panel and dims the thread.
@@ -42,6 +42,7 @@ We dont need it in the ledger." Bridge puts a Job with items under Needs you wit
 **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the job, and once that is delivered the item is dismissed as `dismiss_waiting` does, so it leaves the list without the agent restating it.
 A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note.
 `best` tells the agent to decide for itself and think it through, `quick` to just get it done: finish the work and land it, skipping the formalities.
+**`answer_items` and `dismiss_items`** answer or dismiss several items with an Approve at once, across Jobs, each as its own answer would: [Artifact](../artifact.md), *Several at once*.
 **`dismiss_waiting`** (`session_id`, `item_id`, and an optional `reason`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, save a walk the job shows again, and an agent item with it is removed and left off if the agent states it again.
 **An item the agent stated tells it so**: the Job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave a reason that is not blank, so the agent does not take the silence for an answer.
 The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be able to delete it, which lets the agent know that I removed it.
@@ -117,6 +118,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `permission` | questions | none: its card answers it |
 | `window_ask` | questions | none: its card answers it |
 | `draft` | to_review | reason |
+| `handoff` | questions | plain: Stay, and the Job is told nothing |
 | `sketch` | to_review | plain |
 | `document` | to_review | plain |
 | `first_message` | questions | none: Start answers it |

@@ -19,7 +19,7 @@ Each ask is its own item ([A reply that asks](waiting-on-the-person.md)).
 
 **The reply is read off the turn.** For a hosted Job the turn is on its stream: the last thing the agent said before the turn ended.
 For a terminal Job the mod reports `turn_started` when a prompt goes in and `turn_completed` with `said`, the close of the last assistant message (its last 1,500 characters, from a line start), when the turn ends; the agent is never asked to.
-Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), so a reply survives a restart.
+Fleet keeps the turn's end and the end of what was said (the last 1,500 characters, from a line start) in `session_turn_end` (one row a Job), with whether the turn put a question card to him, so a reply survives a restart.
 A terminal Job's mod sends that same close, so an ask is read from a terminal reply as from a hosted one; a mod older than 0.3.39 sent only the first line, and its asks are not read.
 The item's text is the sentence that asks.
 It stops standing when the person writes to the Job, when another turn begins by any route and when the Job ends.
@@ -37,7 +37,7 @@ Fleet keeps the same visits (`view_session`, read onto `viewed_at`), and the row
 The owner chose that on 20 Oct 2026: on 300 fresh replies it found 54 of 81 asks where the rules alone found 21, for 20 wrong calls where they made 8 (`docs/spikes/reply-asks-classifier.md`).
 Until the model is loaded, the rules read alone.
 The reading leans toward yes: a wrong call costs a dismiss, and a missed ask leaves a Job waiting unseen.
-The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where a `done` stands, or while a subagent works.
+The item is not raised where the agent already asked through a tool (a turn held on a card or permission, or an agent `waiting_for` item, question card, permission or window question open), where the turn put a question card to him (the agent's prose before the card and its reply after his answer both close as an ask would), where a `done` stands, or while a subagent works.
 A dismissed id never returns, and dismissing it sends the agent nothing; answering it with text is a message to the Job.
 A `done` is an item too: it asks whether to end the Job.
 
@@ -53,6 +53,7 @@ A stop is named by when its turn ended (`last_turn_at`), so a turn that ended on
 A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request (except one Fleet told it failed or conflicts, with nothing pushed since), a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a question that lapsed (it is no item but still waits on him), a shown walk, a plan, draft, sketch or page awaiting him, a `done`, a pause, its start card, a limit, a wait on another Job, or a terminal that is not listening.
 **Never while anything waits on him** (the owner, 5 Nov 2026: "if there is a needs me item, thats not silence. Thats waiting on me to act").
 A minute after a stop nothing excuses (`STOP_AFTER`, unmeasured), Fleet sends one word, `stop_nudge`: to carry on, to name what it waits on with `waiting_for`, or to finish.
+The minute counts from the turn's end or his last word, or from the latest end of a background task, subagent or pull request if that is later: the Job is woken by that end a moment after its row says so.
 A Job stopped on a step only it can end hears that step's own words instead ([The rail](the-rail.md)).
 **One nudge per stop.** The stop after it reads `stopped`, so a Job can never loop with Fleet.
 A word the person writes, or another Fleet word that wakes it, gives the next stop a nudge of its own; a word that arrives mid-turn does not.

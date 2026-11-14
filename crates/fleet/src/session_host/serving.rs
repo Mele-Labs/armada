@@ -33,7 +33,7 @@ mod starting;
 mod telling;
 
 pub(crate) use batching::NoticeBatches;
-pub(crate) use starting::QuickStart;
+pub(crate) use starting::SideStart;
 
 /// A session id that names nothing. A 422.
 pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
@@ -369,6 +369,14 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_answered(answer, refused).await
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_dismissed(dismiss, refused).await
+    }
+
     async fn convert_draft_to_document(
         self: Arc<Self>,
         convert: ipc::ConvertDraftToDocument,
@@ -559,6 +567,10 @@ where
         self.session_auto_land_set(asked).await
     }
 
+    async fn set_session_project(&self, asked: ipc::SetSessionProject) -> Result<ipc::SessionList, Refusal> {
+        self.sessions_project_set(asked).await
+    }
+
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         let servers = self.session_mcp(id.as_str()).await?;
         Ok(ipc::SessionMcp { servers: super::mcp_servers::on_wire(servers) })
@@ -566,6 +578,27 @@ where
 
     async fn get_session_quick(&self, id: SessionId) -> Result<ipc::SessionQuick, Refusal> {
         self.session_quick(id.as_str()).await
+    }
+
+    async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        self.job_artifacts(id.as_str()).await
+    }
+
+    async fn archive_artifact(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_archived(caller, by, archive).await
+    }
+
+    async fn restore_artifact(&self, caller: Option<api::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_restored(caller, restore).await
+    }
+
+    async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_edited(edit).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

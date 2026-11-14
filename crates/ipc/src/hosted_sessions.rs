@@ -92,7 +92,7 @@ pub struct StartSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_your_words: Option<bool>,
     /// The project of his the Job is for, by id: `list_projects` names them. **The Job keeps it** and
-    /// serves it as `hosted.project`. Refused 404 `fleet.no_such_project` where he has none by that id, and
+    /// serves it as `hosted.project`, until `set_session_project` moves it. Refused 404 `fleet.no_such_project` where he has none by that id, and
     /// 422 `fleet.project_not_member` where the Job's repository is not one of its members. Not read
     /// with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -325,6 +325,18 @@ pub struct SetSessionAutoLand {
     pub on: bool,
 }
 
+/// `set_session_project`: move each Job into a project of his, or out to none, whether it is live or ended.
+/// `docs/practices/protocol/projects.md`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetSessionProject {
+    /// The Jobs to move, each a Job this Fleet hosts that has a repository. Refused 422 where there are none.
+    pub session_ids: Vec<SessionId>,
+    /// The project of his they go into, by id: `list_projects` names them. `null` or absent takes them out of any
+    /// project. A repository of theirs that the project does not hold becomes a whole member of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+}
+
 /// `start_again`: send again the turns a Job's process would not start for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StartAgain {
@@ -455,7 +467,8 @@ pub struct HostedFacts {
     /// since: `start_again`, or a message, tries again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_failed: Option<StartFailed>,
-    /// The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none.
+    /// The project the Job is in, by id: the one it was started for (`StartSession.project`), until `set_session_project`
+    /// moves it. Absent for a Job in none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
     /// The values the Job froze when it started: its project's and its repository's, each key with the layer
@@ -494,6 +507,9 @@ pub enum SessionVoice {
     Session {
         id: String,
         title: String,
+        /// The id of the paired Mac that holds that session. **Absent means this Mac.**
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mac: Option<String>,
     },
 }
 
@@ -563,6 +579,20 @@ pub struct DraftSettled {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<String>,
     pub at: Instant,
+}
+
+/// What the person pressed on a Job's handoff card, a `handoff` row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HandoffPick {
+    /// Carry on in a new Job: Fleet starts the successor with the row's brief.
+    CarryOn,
+    /// Stay here, and his Dismiss. Nothing is kept.
+    Stay,
+    /// Don't ask again: the Context rule never tells this Job again.
+    Quiet,
+    /// Ask again once the Job's context passes `tokens`.
+    RemindAt { tokens: u64 },
 }
 
 /// What a Session that is followed did, for the parent's thread.
@@ -826,6 +856,23 @@ pub enum SessionRow {
         /// `Lifecycle <id>` for a piece a Job proposed for Kit. Absent on any other draft.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         change: Option<i64>,
+        /// What the draft is for, and what it links to. Absent where it has neither.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        for_line: Option<crate::ArtifactFor>,
+    },
+    /// Fleet's card asking the person whether a Job past its context limit carries on in a new one,
+    /// raised by the brief the Job sent with `handoff_brief`. `tokens` is the Job's context then and
+    /// `limit` the Context rule's; `remind_at` holds the three figures the card offers. **Replaced by
+    /// id once answered**, with `answer` set to what he pressed.
+    Handoff {
+        id: String,
+        at: Instant,
+        tokens: u64,
+        limit: u64,
+        brief: String,
+        remind_at: Vec<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        answer: Option<HandoffPick>,
     },
     /// An `armada check` the agent ran in its slot. **The row is replaced by id** as the run ends,
     /// so a client holds one row per run. `run` is the id the Checks page opens it by. Since 23.75.
@@ -1020,6 +1067,7 @@ impl SessionRow {
             | SessionRow::Retro { id, .. }
             | SessionRow::WindowAsk { id, .. }
             | SessionRow::Draft { id, .. }
+            | SessionRow::Handoff { id, .. }
             | SessionRow::Sent { id, .. }
             | SessionRow::Plan { id, .. }
             | SessionRow::PlanChanges { id, .. }

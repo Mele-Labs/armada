@@ -1,0 +1,12 @@
+[operations.restore_artifact]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Bring back a sketch, draft or page that was archived with archive_artifact, so it shows unfolded in the owner's Artifacts tab again. Body: artifact, the id get_job_artifacts names, and session_id. One the archive took off his Needs you list waits on him again unless it was answered meanwhile. An id your Job does not hold, or one not archived, is refused"
+notes = """
+`POST /sessions/artifacts/restore`, body `ArtifactRef`: `artifact` and an optional `session_id`, placed as `archive_artifact`'s. Answered with the `JobArtifact` as it now reads, `archived` absent.
+
+**It lifts only what the archive wrote**: the archive's mark, and the dismissal of the Needs you item where the archive put it there. An item answered meanwhile stays answered, so nothing settled is asked again. Nothing is sent to the Job, whoever restores it.
+
+Refused, with 422 and nothing written: `fleet.artifact_unnamed`, `fleet.session_unnamed` and `fleet.artifact_not_held` as `archive_artifact` refuses them, and `fleet.artifact_not_archived` for one not archived.
+"""

@@ -104,12 +104,12 @@ pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use backlog::{Backlog, BeadState, CopyMark};
 pub use pull_request::{PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
-    CheckRow, CheckStanding, CommitLine, FileChange, FilePatch, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, ComparedPatches, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PatchedFile, PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Reviewer,
     ReviewerKind, Said,
 };
 pub use pull_review::{
-    DiffSide, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
+    DiffSide, LatestReview, LatestReviewSaid, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
     ThreadSaid,
 };
 pub use request::{
@@ -539,6 +539,19 @@ pub trait Vcs {
     fn release_review_bay(&self, pool: &SlotPool, slot: u32, holder: &str) -> Result<(), alloc::string::String> {
         let _ = (pool, slot, holder);
         Ok(())
+    }
+
+    /// The blob each of `paths` is at the base of the pull request leased bay `slot` holds: the
+    /// commit its head forked from the pool's base. `None` for a path the base does not have.
+    /// **Read only.** `Err` is the sentence git gave, or a build that cannot read one.
+    fn review_bay_base_blobs(
+        &self,
+        pool: &SlotPool,
+        slot: u32,
+        paths: &[alloc::string::String],
+    ) -> Result<alloc::vec::Vec<Option<alloc::string::String>>, alloc::string::String> {
+        let _ = (pool, slot, paths);
+        Err(alloc::string::String::from("this build cannot read a blob at the base"))
     }
 
     /// The paths the person's commits changed on the repository's default branch, newest first and

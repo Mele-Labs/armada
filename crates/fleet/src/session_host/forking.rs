@@ -275,18 +275,16 @@ where
         let manifest = served.manifest().id().as_str().to_string();
         let id = new_id();
         let now = self.now().as_str().to_string();
-        {
-            let mut store = self.store().lock().await;
+        let (title, from_project) = {
+            let store = self.store().lock().await;
             let old = store
                 .session(&old_id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| {
                     self.hosted_refusal(NO_SUCH_SESSION, &format!("no job is named {old_id}"))
                 })?;
-            let hosted = store
-                .hosting(&old_id)
-                .map_err(|why| self.ledger_fault(why))?
-                .is_some();
+            let hosting = store.hosting(&old_id).map_err(|why| self.ledger_fault(why))?;
+            let hosted = hosting.is_some();
             // Ended, or a terminal session whose mod stopped asking. A hosted
             // session that is not closed is live whatever its process does.
             let dead = old.state == store::SessionState::Ended
@@ -305,6 +303,13 @@ where
                 .map(|title| title.trim().to_string())
                 .filter(|title| !title.is_empty())
                 .or(old.title.clone());
+            (title, hosting.and_then(|hosting| hosting.project))
+        };
+        // The fork is for the project of the Job it was forked from, whatever `start.project` says, so it is not
+        // lost from a list grouped by project. A move adds the repository it goes to as a whole member.
+        let project = self.started_project(&old_id, from_project, &manifest).await;
+        {
+            let mut store = self.store().lock().await;
             store
                 .keep_session(&KeptSession {
                     id: id.clone(),
@@ -325,7 +330,7 @@ where
                 .map_err(|why| self.ledger_fault(why))?;
             store
                 .keep_hosting(&KeptHosting {
-                    project: None,
+                    project,
                     session_id: id.clone(),
                     manifest_id: manifest.clone(),
                     model: start.model.filter(|model| !model.trim().is_empty()),
@@ -351,7 +356,7 @@ where
                     from_job: None,
                     from_tab: None,
                     mod_of_bay: false,
-                    quick_terminal: false,
+                    side_job: false,
                     terminal_dir: None,
                 })
                 .map_err(|why| self.ledger_fault(why))?;

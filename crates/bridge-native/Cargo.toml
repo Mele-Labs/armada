@@ -65,6 +65,8 @@ lyon = "=1.0.19"
 # A Job's terminal screen: the grid, the escape parser and the scrollback a shell's bytes are read into. Fleet
 # holds the shell; only the emulator is linked, and its own pty and event loop go unused.
 alacritty_terminal = "=0.26.0"
+# The phone pairing link as a QR code, in modules only: no image encoder, so a camera reads what gpui paints.
+qrcode = { version = "0.14", default-features = false }
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 

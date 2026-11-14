@@ -171,12 +171,15 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "withdraw_window",
     "withdraw_sketch",
     "withdraw_document",
+    "archive_artifact",
+    "restore_artifact",
     "show_sketch",
     "show_file",
     "record_plan",
     "ask_in_window",
     "propose_draft",
     "withdraw_draft",
+    "handoff_brief",
     "save_kit_manifest",
     // What the rules tell every Job to call, which a Job in a repository with no
     // `armada.yml` must be able to: its follow-ups, its preview offer, the end of its work, a wrong

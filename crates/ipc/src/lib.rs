@@ -191,6 +191,8 @@ mod protocol_id;
 mod pull_requests;
 /// The pull requests waiting on a person as four lists, and the acts of a review on one.
 mod pull_reviews;
+/// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
+mod pull_review_memory;
 /// Fleet's last read of `armada.yml`, held rather than announced. **The one shape here about the
 /// fleet and not about a Job**, beside `capacity`. What a scout answers a read-in with. `#1293`.
 mod read_in;
@@ -214,6 +216,8 @@ mod request_runs;
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// A pull request's change sets, its overview, and its sets held to the repository's practices.
+mod review_change_sets;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
 /// The owner's notes on a pull request's lines, and a Job resolving one.
@@ -271,6 +275,8 @@ mod macs;
 mod mac_acts;
 mod show_file;
 mod package_manifest;
+/// A Job's sketches, drafts and pages as one record. `get_job_artifacts`.
+mod artifact;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -281,6 +287,8 @@ mod style_sources;
 mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// His verdict, or none, on several waiting items at once. `answer_items`, `dismiss_items`.
+mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
@@ -367,7 +375,7 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
@@ -419,7 +427,7 @@ pub use event::{
 pub use files::FilesFound;
 pub use debug_report::DebugReport;
 pub use health::{
-    FleetHealth, ActionAuthority, Probe, Unprobed,
+    FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
     WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
@@ -437,8 +445,8 @@ pub use timeline::{
 };
 pub use call::{
     AskedChoice, AskedQuestion, AskingToRun, CallKind, CallAnswer, CallInFlight, QuestionAnswer,
-    ReachesTo, RunOrNot, handoff_figure, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT,
-    HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES,
+    ReachesTo, RunOrNot, handoff_figure, handoff_remind_ladder, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND,
+    HANDOFF_STAY, HANDOFF_YES,
 };
 pub use holding::{
     ReclaimedSaved, ChangeSlotPool, CommitHome, RescueAct, RescueSlot, SlotAct, SlotCommit,
@@ -447,12 +455,12 @@ pub use holding::{
 };
 pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
-    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
+    SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession, MessageReach, MessageTo,
 };
 pub use session_mcp::{
@@ -507,7 +515,7 @@ pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
-pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ReviewsSet, SaveKitValues, ValueLayer, ValuesSet};
+pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
     NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
@@ -577,6 +585,11 @@ pub use pull_reviews::{
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
     ResolvePullThread, MOST_PER_LIST,
 };
+pub use pull_review_memory::{
+    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
+    SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
+};
 pub use read_in::{
     what_a_scout_read_in, ReadIn, ReadInCluster, ReadInContradiction, ReadInNote,
     ReadInRelation, MOST_CHARACTERS, MOST_CLUSTERS, MOST_CONTRADICTIONS, MOST_NOTES,
@@ -638,6 +651,11 @@ pub use review_runs::{
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
     ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewTourStop,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
+    COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
+};
+pub use review_change_sets::{
+    ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeItem, PracticeSource,
+    PracticeVerdict,
 };
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
@@ -693,17 +711,25 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, MacAct, Queued, QueuedList, StartOn, TakeBack};
-pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
+pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use macs::{
+    ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
+    OtherMacProjects, OtherMacSessions,
+};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
+pub use artifact::{
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
+};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
-    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
+    SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
 pub use sketch_screen::{
@@ -740,14 +766,14 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource, OptionPicture, PartPicked, PicturePart, AnswerWaitingParts,
-    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, WithdrawSketch, WithdrawWindow,
+    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, HandoffBrief, WithdrawSketch, WithdrawWindow,
 };
 pub use needs_you::{
     NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection, NeedsYouSectionKind,
 };
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
-pub use terminals::{StartTerminalJob, TerminalJobStarted};
+pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
     JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
     TerminalTyped, TypeInTerminal,

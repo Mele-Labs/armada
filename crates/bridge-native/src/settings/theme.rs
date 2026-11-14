@@ -13,7 +13,7 @@ use gpui::{
 };
 
 use super::overlay::SettingsOverlay;
-use super::view::{bounds_of, card, ringed, small};
+use super::view::{bounds_of, card, ringed};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{catalogue, token, Choice, Look, Token, Tone};
@@ -352,6 +352,7 @@ impl SettingsOverlay {
             look,
             div()
                 .id("theme-field")
+                .key_context(crate::keymap::TEXT_BOX)
                 .track_focus(&self.theme.focus)
                 .flex()
                 .items_center()
@@ -395,7 +396,7 @@ impl SettingsOverlay {
             .child(label)
             .child(labelled(field, Role::ComboBox, NAME))
             .children(list)
-            .children(self.theme.refused.clone().map(|said| labelled(small(look, said.clone(), look.color(token::STATUS_COMPLETED_FAILED)).id("theme-refused"), Role::Alert, said)));
+            .children(self.theme.refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("theme-refused"), Role::Alert, said)));
         labelled(card(look, "card-theme", NAME, None, vec![body.into_any_element()]), Role::Region, NAME).into_any_element()
     }
 

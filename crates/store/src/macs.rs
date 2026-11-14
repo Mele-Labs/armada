@@ -47,6 +47,12 @@ pub struct PairedMac {
     pub last_heard_at: Option<i64>,
     pub asleep_since: Option<i64>,
     pub why: Option<String>,
+    /// The protocol ID its build speaks. Two Macs whose IDs differ are frozen until one updates.
+    pub wire: Option<String>,
+    /// When its build was built, to say which of two builds is the older.
+    pub built_at: Option<String>,
+    /// `main` or `preview`: what its build was made from.
+    pub source: Option<String>,
 }
 
 /// What the other Mac says of itself each time it is heard from.
@@ -56,10 +62,13 @@ pub struct MacSaid {
     pub colour: String,
     pub address: String,
     pub build: Option<String>,
+    pub wire: Option<String>,
+    pub built_at: Option<String>,
+    pub source: Option<String>,
 }
 
 const COLUMNS: &str =
-    "mac_id, name, colour, address, public_key, build, paired_at, state, back_code, last_heard_at, asleep_since, why";
+    "mac_id, name, colour, address, public_key, build, paired_at, state, back_code, last_heard_at, asleep_since, why, wire, built_at, source";
 
 fn paired_mac(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<PairedMac>> {
     let state: String = row.get(7)?;
@@ -78,6 +87,9 @@ fn paired_mac(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<PairedMac>> {
         last_heard_at: row.get(9)?,
         asleep_since: row.get(10)?,
         why: row.get(11)?,
+        wire: row.get(12)?,
+        built_at: row.get(13)?,
+        source: row.get(14)?,
     }))
 }
 
@@ -86,7 +98,7 @@ impl Store {
     pub fn keep_mac(&mut self, mac: &PairedMac) -> Result<(), DatabaseFault> {
         self.conn
             .execute(
-                &format!("INSERT OR REPLACE INTO pocket_macs ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"),
+                &format!("INSERT OR REPLACE INTO pocket_macs ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
                 rusqlite::params![
                     mac.id,
                     mac.name,
@@ -100,6 +112,9 @@ impl Store {
                     mac.last_heard_at,
                     mac.asleep_since,
                     mac.why,
+                    mac.wire,
+                    mac.built_at,
+                    mac.source,
                 ],
             )
             .map_err(fault("pairing another Mac"))?;
@@ -133,8 +148,8 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE pocket_macs SET public_key = ?2, state = 'linked', back_code = NULL, \
-                 name = ?3, colour = ?4, address = ?5, build = ?6 WHERE mac_id = ?1",
-                (id, public_key, &said.name, &said.colour, &said.address, &said.build),
+                 name = ?3, colour = ?4, address = ?5, build = ?6, wire = ?7, built_at = ?8, source = ?9 WHERE mac_id = ?1",
+                rusqlite::params![id, public_key, said.name, said.colour, said.address, said.build, said.wire, said.built_at, said.source],
             )
             .map_err(fault("linking another Mac"))?;
         Ok(())
@@ -145,8 +160,8 @@ impl Store {
         self.conn
             .execute(
                 "UPDATE pocket_macs SET last_heard_at = ?2, asleep_since = NULL, why = NULL, \
-                 name = ?3, colour = ?4, address = ?5, build = ?6 WHERE mac_id = ?1",
-                (id, at, &said.name, &said.colour, &said.address, &said.build),
+                 name = ?3, colour = ?4, address = ?5, build = ?6, wire = ?7, built_at = ?8, source = ?9 WHERE mac_id = ?1",
+                rusqlite::params![id, at, said.name, said.colour, said.address, said.build, said.wire, said.built_at, said.source],
             )
             .map_err(fault("noting another Mac answered"))?;
         Ok(())

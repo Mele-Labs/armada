@@ -54,7 +54,7 @@ impl Sessions for FakeDaemon {
             from_job: None,
             from_tab: None,
             mod_of_bay: false,
-            quick_terminal: false,
+            side_job: false,
             auto_land: false,
             activity: None,
             build: None,
@@ -164,12 +164,12 @@ impl Sessions for FakeDaemon {
     }
 
     /// Starts nothing: answers a Job named for the folder or the Manifest, and its `t1`.
-    async fn start_terminal_job(
+    async fn start_side_job(
         self: std::sync::Arc<Self>,
-        start: ipc::StartTerminalJob,
-    ) -> Result<ipc::TerminalJobStarted, Refusal> {
+        start: ipc::StartSideJob,
+    ) -> Result<ipc::SideJobStarted, Refusal> {
         let named = start.dir.or(start.manifest_id.map(|id| id.as_str().to_string())).unwrap_or_default();
-        Ok(ipc::TerminalJobStarted {
+        Ok(ipc::SideJobStarted {
             session_id: ipc::SessionId::carried(&format!("quick-{named}")),
             terminal: String::from("t1"),
             run_id: format!("shell-of-quick-{named}"),
@@ -638,6 +638,19 @@ impl Sessions for FakeDaemon {
         self.report_session(SessionReport {
             harness: String::new(),
             session_id: draft.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
+    async fn handoff_brief(
+        &self,
+        _caller: Option<crate::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: brief.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
             fact: ipc::SessionFact::TurnCompleted { said: None },
         })
         .await

@@ -26,6 +26,7 @@ use store::{AttachmentState, HolderKind, KeptAttachment};
 use crate::daemon::Fleet;
 use crate::pull_requesting::{SESSION_UNKNOWN, UNREADABLE};
 use crate::session_host::drafting::{pull_request_draft, PR_DRAFT, PR_DRAFT_NUMBER};
+use crate::your_review::{written_said, ReviewedOn};
 
 /// A comment, a request for changes, or a line, file or reply comment with nothing in it. A 422.
 const WRITE_BLANK: &str = "fleet.pull_request_write_blank";
@@ -129,6 +130,12 @@ fn verdict_of(said: ReviewSaid) -> PullRequestVerdict {
         ReviewSaid::ChangesRequested => PullRequestVerdict::ChangesRequested,
         ReviewSaid::Commented => PullRequestVerdict::Commented,
     }
+}
+
+/// One file the forge listed, as the wire carries it.
+pub(crate) fn file_patch_of(manifest_id: &ManifestId, number: u64, file: PatchedFile) -> PullRequestFilePatch {
+    let (patch, said) = patch_or_said(file.patch);
+    PullRequestFilePatch { manifest_id: manifest_id.clone(), number, path: file.path, patch, said, blob: file.blob }
 }
 
 /// The forge's page as the wire carries it.
@@ -271,6 +278,10 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
             .collect(),
         owner: None,
         draft: None,
+        seen: None,
+        viewed: Vec::new(),
+        my_review: None,
+        since_my_review: None,
     }
 }
 
@@ -291,7 +302,7 @@ where
         manifest_id: &ManifestId,
         root: &str,
         number: u64,
-    ) -> Result<PullRequestPage, Refusal> {
+    ) -> Result<(PullRequestPage, ReviewedOn), Refusal> {
         let facts = self
             .vcs()
             .pull_request_page_said(root, &number.to_string())
@@ -299,7 +310,8 @@ where
                 let said = said.unwrap_or_else(|| format!("the forge would not say what is on pull request {number}"));
                 Refusal::Fault(self.pr_refusal(UNREADABLE, said))
             })?;
-        Ok(page_of(manifest_id.clone(), number, facts))
+        let on = ReviewedOn::of(&facts);
+        Ok((page_of(manifest_id.clone(), number, facts), on))
     }
 }
 
@@ -321,8 +333,9 @@ where
         root: &str,
         number: u64,
     ) -> Result<PullRequestPage, Refusal> {
-        let mut page = self.page_read(manifest_id, root, number)?;
+        let (mut page, on) = self.page_read(manifest_id, root, number)?;
         page.owner = self.owner_known(root, number).await;
+        self.your_review_onto(&mut page, &on, root).await;
         Ok(page)
     }
 
@@ -331,6 +344,7 @@ where
     async fn page_served(&self, manifest_id: &ManifestId, root: &str, number: u64) -> Result<PullRequestPage, Refusal> {
         let mut page = self.page_with_owner(manifest_id, root, number).await?;
         page.draft = self.draft_waiting_on(manifest_id, number).await;
+        self.remembered_onto(&mut page, root).await;
         Ok(page)
     }
 
@@ -400,6 +414,7 @@ where
             path,
             patch,
             said,
+            blob: None,
         })
     }
 
@@ -418,19 +433,7 @@ where
                     format!("the forge would not say what changed on pull request {number}"),
                 ))
             })?;
-        let files = found
-            .into_iter()
-            .map(|PatchedFile { path, patch }| {
-                let (patch, said) = patch_or_said(patch);
-                PullRequestFilePatch {
-                    manifest_id: manifest_id.clone(),
-                    number,
-                    path,
-                    patch,
-                    said,
-                }
-            })
-            .collect();
+        let files = found.into_iter().map(|file| file_patch_of(&manifest_id, number, file)).collect();
         Ok(PullRequestFilePatches { files })
     }
 
@@ -461,13 +464,31 @@ where
         self.vcs()
             .write_pull_request(root, &number.to_string(), &to_write)
             .map_err(|said| Refusal::IllegalMove(self.pr_refusal(WRITE_REFUSED, said)))?;
+        // The review is kept before the page is read, so a read that lags the write cannot hide it.
+        let read_at = write.commit.clone().filter(|commit| !commit.trim().is_empty());
+        let reviewed = written_said(&to_write);
+        if let Some(said) = reviewed {
+            self.review_written(&manifest_id, root, number, said, read_at.clone()).await;
+        }
         // **The write is taken whatever follows**: the ledger is kept current on
         // a best effort, and a standing the forge would not read leaves the rows
         // as they were.
         if let Ok(state) = self.pull_request_read(&manifest_id, root, number) {
             self.ledger_follows(&state).await;
         }
-        self.page_served(&manifest_id, root, number).await
+        let mut page = self.page_served(&manifest_id, root, number).await?;
+        // Written on the branch as it stands: the head the page shows, which nothing came after.
+        if let (Some(said), None, Some(head)) = (reviewed, read_at, page.head.clone()) {
+            let wrote = page.my_review.as_ref().is_some_and(|it| it.commit.is_none());
+            let kept = self.review_written(&manifest_id, root, number, said, Some(head)).await;
+            if wrote && kept.is_some() {
+                page.my_review = kept;
+                if let Some(since) = page.since_my_review.as_mut() {
+                    since.commits = Some(0);
+                }
+            }
+        }
+        Ok(page)
     }
 
     async fn get_review_lists(&self, project: Option<String>) -> Result<PullReviewLists, Refusal> {
@@ -578,6 +599,47 @@ where
 
     async fn close_review_walk(&self, manifest_id: ManifestId, id: String) -> Result<ipc::ReviewWalk, Refusal> {
         self.review_walk_closed(manifest_id, id).await
+    }
+
+    async fn mark_pull_request_seen(&self, manifest_id: ManifestId, mark: ipc::MarkPullSeen) -> Result<ipc::PullSeen, Refusal> {
+        self.pull_seen_marked(manifest_id, mark).await
+    }
+
+    async fn mark_file_viewed(&self, manifest_id: ManifestId, mark: ipc::MarkFileViewed) -> Result<ipc::PullViewedFile, Refusal> {
+        self.file_viewed_marked(manifest_id, mark).await
+    }
+
+    async fn unmark_file_viewed(
+        &self,
+        manifest_id: ManifestId,
+        unmark: ipc::UnmarkFileViewed,
+    ) -> Result<ipc::UnmarkFileViewed, Refusal> {
+        self.file_viewed_unmarked(manifest_id, unmark).await
+    }
+
+    async fn get_pull_request_compare(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        of: ipc::PullRequestCompareOf,
+    ) -> Result<ipc::PullRequestCompare, Refusal> {
+        self.pull_request_compared(manifest_id, number, of).await
+    }
+
+    async fn list_review_layouts(&self) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.review_layouts_listed().await
+    }
+
+    async fn save_review_layout(&self, save: ipc::SaveReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.review_layout_saved(save).await
+    }
+
+    async fn delete_review_layout(&self, named: ipc::NamedReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.review_layout_deleted(named).await
+    }
+
+    async fn pick_review_layout(&self, named: ipc::NamedReviewLayout) -> Result<ipc::ReviewLayouts, Refusal> {
+        self.review_layout_picked(named).await
     }
 
     async fn resolve_review_thread(

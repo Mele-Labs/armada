@@ -83,6 +83,11 @@ impl Commands for FakeDaemon {
         Ok(ipc::FleetBuildChanging { build })
     }
 
+    /// Answered; nothing restarts.
+    async fn update_mac(&self, asked: ipc::UpdateMac) -> Result<ipc::FleetBuildChanging, Refusal> {
+        Ok(ipc::FleetBuildChanging { build: asked.build.unwrap_or(ipc::BuildSource::Main) })
+    }
+
     /// Counted and answered; nothing reverts.
     async fn revert_fleet_build(&self) -> Result<ipc::FleetBuildReverting, Refusal> {
         *self.reverts.lock().expect("not poisoned") += 1;

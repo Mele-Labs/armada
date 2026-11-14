@@ -119,7 +119,7 @@ where
                             let who = match from {
                                 SessionVoice::You => "The person".to_string(),
                                 SessionVoice::Agent => "Its agent".to_string(),
-                                SessionVoice::Session { id, title } => format!("Job {id} \"{title}\""),
+                                SessionVoice::Session { id, title, .. } => format!("Job {id} \"{title}\""),
                             };
                             Some(format!("{who}: {}", clipped(text.trim())))
                         }

@@ -21,6 +21,13 @@ fn nothing_hosted() -> Refusal {
     ))
 }
 
+fn not_waiting(items: impl Iterator<Item = (SessionId, String)>) -> ipc::ItemsSettled {
+    let refused = || ipc::ItemSettled::Refused { code: "fleet.items_not_waiting".into(), message: "the fake hosts no sessions".into() };
+    ipc::ItemsSettled {
+        outcomes: items.map(|(session_id, item)| ipc::ItemOutcome { session_id, item, outcome: refused() }).collect(),
+    }
+}
+
 impl HostedSessions for FakeDaemon {
     async fn start_session(&self, start: StartSession) -> Result<SessionRecord, Refusal> {
         self.started.lock().expect("not poisoned").push(start);
@@ -169,6 +176,15 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    /// Holds nothing waiting: every item reads as no longer waiting. Fleet's tests read the settling.
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(answer.items.into_iter().map(|one| (one.session_id, one.item)))
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, _refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        not_waiting(dismiss.items.into_iter().map(|one| (one.session_id, one.item)))
+    }
+
     async fn convert_draft_to_document(
         self: Arc<Self>,
         _convert: ipc::ConvertDraftToDocument,
@@ -253,6 +269,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn set_session_project(&self, _asked: ipc::SetSessionProject) -> Result<ipc::SessionList, Refusal> {
+        Err(nothing_hosted())
+    }
+
     /// Two servers, one waiting on a sign-in; the job named `closed` is refused as Fleet refuses one.
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         if id.as_str() == "closed" {
@@ -267,6 +287,29 @@ impl HostedSessions for FakeDaemon {
             return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.no_such_session", "no job Fleet hosts is named closed", run_id())));
         }
         Ok(ipc::SessionQuick { asked: vec!["Yes, go on".to_string(), "Not yet".to_string()], learnt: vec!["Just get it done".to_string()] })
+    }
+
+    /// Nothing made: the routes are what the api tests read, and Fleet's tests read the list.
+    async fn get_job_artifacts(&self, _id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        Ok(Vec::new())
+    }
+
+    /// Held nothing to archive: Fleet's tests read what archiving does.
+    async fn archive_artifact(
+        self: Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", archive.artifact), run_id())))
+    }
+
+    async fn restore_artifact(&self, _caller: Option<crate::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", restore.artifact), run_id())))
+    }
+
+    async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", edit.artifact), run_id())))
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

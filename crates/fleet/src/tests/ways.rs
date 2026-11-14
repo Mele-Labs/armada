@@ -221,28 +221,6 @@ async fn an_item_that_is_not_a_question_needs_no_options_where_he_answers_by_but
     rig.fleet.set_waiting(None, listing(&id, vec![run, approval, procedure])).await.expect("a run, an approval and a procedure are not questions");
 }
 
-#[tokio::test]
-async fn a_reply_that_asks_in_words_is_told_once_to_ask_again_with_options() {
-    let rig = rig_placing(None);
-    let id = running(&rig).await;
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Which one should I build first?").await;
-    assert!(asked(&rig, &id).await.is_empty(), "he types by default, so a reply is read as it was");
-
-    save(&rig, "answer_with", "buttons").await;
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Report only.").await;
-    assert!(asked(&rig, &id).await.is_empty(), "a reply that asks nothing is left alone");
-
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "I read both. Which one should I build first?").await;
-    assert_eq!(asked(&rig, &id).await, [ways::ASK_AGAIN.to_string()]);
-
-    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), "Which one should I build first?").await;
-    assert_eq!(asked(&rig, &id).await.len(), 1, "the reply to the notice is not told again until he has written");
-}
-
-async fn asked(rig: &Rig, id: &SessionId) -> Vec<String> {
-    notices_in(rig, id).await.into_iter().filter(|(word, _)| word.as_deref() == Some("reply_claim")).map(|(_, text)| text).collect()
-}
-
 // ------------------------------------------------------------------ 4: the look check
 
 #[tokio::test]
@@ -261,6 +239,29 @@ async fn all_done_is_refused_by_name_until_a_picture_is_shown_where_he_looks() {
 
     shown(&rig, &id, "/tmp/after.png", &[("form", "file"), ("by", "agent"), ("shown", "t2")]).await;
     assert!(rig.fleet.all_done(None, done(&id)).await.expect("an image shown is a picture").done_since.is_some());
+}
+
+/// Marks the Job a Side Job, as `start_side_job` keeps it.
+pub(super) async fn made_side_job(rig: &Rig, id: &SessionId) {
+    let mut store = rig.fleet.store().lock().await;
+    let mut hosting = store.hosting(id.as_str()).unwrap().expect("hosted");
+    hosting.side_job = true;
+    store.keep_hosting(&hosting).unwrap();
+}
+
+#[tokio::test]
+async fn a_side_job_that_answered_owes_no_picture_until_it_records_a_plan() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    save(&rig, "take_in", "look").await;
+    made_side_job(&rig, &id).await;
+    assert!(rig.fleet.all_done(None, done(&id)).await.expect("an answer needs no picture").done_since.is_some());
+
+    let id = rig.start().await;
+    made_side_job(&rig, &id).await;
+    super::session_rail::approved_plan(&rig, &id).await;
+    let refused = rig.fleet.all_done(None, done(&id)).await.unwrap_err();
+    assert_eq!(refused.error().code.as_str(), "fleet.picture_owed", "a Side Job that built something shows it");
 }
 
 #[tokio::test]

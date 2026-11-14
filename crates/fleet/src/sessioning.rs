@@ -363,6 +363,7 @@ where
                 // before left. A hosted session's own process says so, so only a terminal's is read here.
                 if terminal {
                     self.hosts().terminals().turn_began(&id);
+                    self.hosts().of(&id).state().carded = false;
                     store.clear_done(&id).map_err(fault)?;
                     store.clear_session_gate_hold(&id).map_err(fault)?;
                     store.clear_turn_end(&id).map_err(fault)?;
@@ -374,8 +375,9 @@ where
                 if terminal {
                     self.hosts().terminals().turn_over(&id);
                     self.timeline().close_bursts_of(&Doer::of_session(&session));
+                    let carded = std::mem::take(&mut self.hosts().of(&id).state().carded);
                     if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
-                        store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
+                        store.keep_turn_end(&id, &now, &tail, carded).map_err(fault)?;
                     }
                     answered = true;
                 }
@@ -882,6 +884,14 @@ where
         self.draft_proposed(caller, draft).await
     }
 
+    async fn handoff_brief(
+        &self,
+        caller: Option<api::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> Result<SessionRecord, Refusal> {
+        self.handoff_brief_sent(caller, brief).await
+    }
+
     async fn withdraw_draft(
         &self,
         caller: Option<api::Caller>,
@@ -1139,11 +1149,11 @@ where
         Ok(ipc::SessionRunUnderway { run_id, terminal: Some(terminal) })
     }
 
-    async fn start_terminal_job(
+    async fn start_side_job(
         self: Arc<Self>,
-        start: ipc::StartTerminalJob,
-    ) -> Result<ipc::TerminalJobStarted, Refusal> {
-        self.started_quick_terminal(start).await
+        start: ipc::StartSideJob,
+    ) -> Result<ipc::SideJobStarted, Refusal> {
+        self.started_side_job(start).await
     }
 
     async fn start_terminal_run(

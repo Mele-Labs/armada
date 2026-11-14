@@ -764,11 +764,18 @@ impl Palette {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
                 let mut acts = job_acts(is_paused(job), is_snoozed(job), pinned, held_pull(job).is_some(), &without_of(job));
-                // A Job on another Mac is read here: the acts that go to Fleet are listed, off, with why.
-                if let Some(why) = crate::pairing::refusal(job, cx) {
-                    for one in acts.iter_mut().filter(|one| matches!(one.id, "pause" | "snooze" | "wake" | "fork" | "merge-pull" | "stop")) {
-                        one.off = Some(why.clone());
-                    }
+                // A Job on another Mac is read here: the acts that go to Fleet are listed, off, with why, but for Stop and
+                // Merge, which Fleet carries to that Mac.
+                for one in acts.iter_mut() {
+                    let route = match one.id {
+                        "pause" => "/sessions/pause",
+                        "snooze" | "wake" => "/sessions/snooze",
+                        "fork" => "/sessions/start",
+                        "merge-pull" => "/pull_requests/:repository/:number/merge",
+                        "stop" => "/sessions/stop",
+                        _ => continue,
+                    };
+                    one.off = crate::pairing::refusal_to(job, route, cx).or(one.off.take());
                 }
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts

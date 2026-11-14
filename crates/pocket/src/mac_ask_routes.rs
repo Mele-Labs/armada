@@ -21,7 +21,7 @@ use ipc::{AskMacPair, FoundMac, FoundMacs, MacColour};
 
 use crate::mac_client::{encoded, hello_now, post_unsigned, Came};
 use crate::mac_keys::{fresh_key, spki_hex};
-use crate::mac_pair_routes::{fault, keep_waiting, said_why};
+use crate::mac_pair_routes::{claims_told, fault, keep_waiting, said_why};
 use crate::machine::short_name;
 use crate::macs::{asked, digits, reachable, sane, Asking, HeldClaim, MacAsk, MacAsked, MacGreeting, MacHello};
 use crate::pairing::{from_hex, random_hex, CODE_TTL};
@@ -195,7 +195,7 @@ pub async fn ask(State(gateway): State<Gateway>, Json(body): Json<AskMacPair>) -
     };
     let expires = gateway.pairing.now() + CODE_TTL;
     gateway.macs.asking.lock().unwrap().insert(row.id.clone(), Asking { digits: code.clone(), expires });
-    json(&asked(row, code))
+    json(&asked(row, code, &gateway.way_in))
 }
 
 /// Who answered the ask and its half of the code, where it is the Mac on the tunnel that was asked.
@@ -249,5 +249,16 @@ pub async fn asked_here(State(gateway): State<Gateway>, Json(body): Json<MacAsk>
             format!("Other Macs are already waiting to pair with {}. Wait a few minutes, then press Pair again.", me.name),
         );
     }
+    claims_told(&gateway).await;
+    tokio::spawn(told_when_past(gateway.clone()));
     (StatusCode::ACCEPTED, json(&MacAsked { mac: me, nonce })).into_response()
+}
+
+/// An ask's time passed: Fleet is handed the claims again, without it. Nothing where the Gateway stopped first.
+async fn told_when_past(gateway: Gateway) {
+    let past = tokio::time::sleep(Duration::from_secs(CODE_TTL.unsigned_abs() + 1));
+    tokio::select! {
+        _ = past => claims_told(&gateway).await,
+        _ = gateway.macs.closed() => {}
+    }
 }

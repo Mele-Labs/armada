@@ -63,6 +63,7 @@ where
                 from: ipc::SessionVoice::Session {
                     id: super::serving::FLEET_NAME.to_lowercase(),
                     title: super::serving::FLEET_NAME.to_string(),
+                    mac: None,
                 },
                 text,
                 files: Vec::new(),

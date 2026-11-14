@@ -11,7 +11,7 @@
 //! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
 //! sends it back, and a redraw of the title asks again.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
@@ -24,6 +24,7 @@ use ipc::{
     SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 
+use super::artifact_for::with_for;
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
@@ -60,6 +61,8 @@ where
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let against = show
             .against_title()
+            .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
+        let said = ipc::ArtifactFor::checked(show.for_line.as_deref(), &show.links)
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
@@ -121,6 +124,7 @@ where
         if let Some(revisions) = revisions {
             attachment.detail.insert("revisions".into(), revisions);
         }
+        with_for(&mut attachment.detail, self.for_line(&id, said).await.as_ref());
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
@@ -153,16 +157,20 @@ where
         }
         // The dismissal the person's own Withdraw writes, so both end the same way.
         self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
-        self.sketch_withdrawn_mark(&id, &target).await;
+        self.sketch_withdrawn_mark(&id, &target, true).await;
         self.published_hosted(&id).await
     }
 
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
-    /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
-    /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
-    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+    /// `withdraw_sketch` and the person's Withdraw both come here, and `agent` is the job's, which also
+    /// writes `withdrawn_by`, so the artifact reads `withdrawn` and his reads `dismissed`. A new drawing of
+    /// the title replaces the attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
+    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str, agent: bool) {
         let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
         sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
+        if agent {
+            sketch.detail.insert(ipc::ARTIFACT_WITHDRAWN_BY.into(), "agent".into());
+        }
         let _ = self
             .report_session(SessionReport {
                 harness,
@@ -178,19 +186,28 @@ where
     /// answer every revision as the encoded list of paths, oldest first. `None` where keeping failed:
     /// the sketch is still drawn, only without its history.
     async fn scene_kept(&self, id: &str, sketch: &Sketch) -> Option<String> {
-        // The digest of the exact title keeps "a b" and "a_b" apart, and a title of `..` out of the parent.
-        let digest: String = Sha256::digest(sketch.title.as_bytes()).iter().take(6).map(|byte| format!("{byte:02x}")).collect();
-        let name = format!("{}-{digest}", one_name(&sketch.title));
-        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(name);
-        let scene = sketch.scene.clone();
-        let kept = tokio::task::spawn_blocking(move || {
-            Ok::<_, std::io::Error>(keep(&folder, scene.as_bytes(), "json")?.unwrap_or_else(|| revisions_in(&folder, "json")))
-        })
-        .await;
-        let Ok(Ok(revisions)) = kept else { return None };
-        let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
-        ipc::encode(&names).ok()
+        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(titled_folder(&sketch.title));
+        revisions_kept(folder, sketch.scene.clone().into_bytes(), "json").await
     }
+}
+
+/// `title` as one folder name. The digest of the exact title keeps "a b" and "a_b" apart, and a title of
+/// `..` out of the parent.
+pub(crate) fn titled_folder(title: &str) -> String {
+    let digest: String = Sha256::digest(title.as_bytes()).iter().take(6).map(|byte| format!("{byte:02x}")).collect();
+    format!("{}-{digest}", one_name(title))
+}
+
+/// Keep `bytes` as the next revision in `folder` unless the newest holds them, and answer every revision as
+/// the encoded list of paths, oldest first. `None` where keeping failed.
+pub(crate) async fn revisions_kept(folder: PathBuf, bytes: Vec<u8>, ext: &'static str) -> Option<String> {
+    let kept = tokio::task::spawn_blocking(move || {
+        Ok::<_, std::io::Error>(keep(&folder, &bytes, ext)?.unwrap_or_else(|| revisions_in(&folder, ext)))
+    })
+    .await;
+    let Ok(Ok(revisions)) = kept else { return None };
+    let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
+    ipc::encode(&names).ok()
 }
 
 /// The first words of the person's approval, which [`sketch_approved`] reads it back by.
@@ -293,7 +310,7 @@ where
     }
 
     /// The job's harness, and the sketch it holds as `target`.
-    async fn sketch_held(&self, id: &str, target: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
+    pub(crate) async fn sketch_held(&self, id: &str, target: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
         let store = self.store().lock().await;
         let session = store
             .session(id)
@@ -364,6 +381,11 @@ fn is_open(sketch: &ipc::Attachment) -> bool {
     !sketch.detail.contains_key(SKETCH_SETTLED) && !sketch.detail.contains_key(SKETCH_WITHDRAWN)
 }
 
+/// Whether a sketch was put to him and is neither answered nor taken back.
+pub(crate) fn still_asks(sketch: &ipc::Attachment) -> bool {
+    sketch.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && is_open(sketch)
+}
+
 /// Every sketch put to the person and neither answered nor taken back.
 fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     asked_sketches(attachments).filter(|one| is_open(one))
@@ -371,10 +393,16 @@ fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::
 
 /// Every sketch put to the person and not answered or taken back, newest drawn first, as the items that
 /// wait on him: id the sketch's target, text its title, opening the Session. A plan's sketch is approved
-/// with the plan, so it is never one of these. The first is the thread head's pin, so an answered
+/// with the plan, so it is never one of these, and neither is one titled in `in_plan`, the titles the
+/// pending plan names: its Approve settles them. The first is the thread head's pin, so an answered
 /// sketch never stays it.
-pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
-    let mut open = open_sketches(attachments).collect::<Vec<_>>();
+pub(crate) fn sketch_items<'a>(
+    attachments: &'a [ipc::Attachment],
+    session: &'a str,
+    in_plan: &'a [String],
+) -> impl Iterator<Item = WaitingItem> + 'a {
+    let titled = |one: &ipc::Attachment| one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string());
+    let mut open = open_sketches(attachments).filter(|one| !in_plan.contains(&titled(one))).collect::<Vec<_>>();
     open.sort_by_key(|one| std::cmp::Reverse(drawn_at(one)));
     open.into_iter().map(move |one| WaitingItem {
             approves: false,

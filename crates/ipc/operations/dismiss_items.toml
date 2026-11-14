@@ -1,0 +1,16 @@
+[operations.dismiss_items]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Take several items that ask for his approval off his list, across Jobs, with no verdict"
+notes = """
+`POST /sessions/items/dismiss`, body `DismissItems`: `items`, each `{ session_id, item }`. Answered 200 with `ItemsSettled`, as `answer_items` is. A body that does not decode is a 422 and nothing is dismissed.
+
+**The same items as `answer_items`**, and the same refusals: `fleet.items_not_waiting`, `fleet.items_not_approvable` and `fleet.items_on_another_mac`.
+
+**Each Job is sent one message**, before anything is settled: a line `He passed on "<title>" with no verdict.` for each of its items, in the order asked, in place of each kind's own dismiss text. A send that fails leaves every item of that Job standing, each refused with the send's own refusal.
+
+Then each is closed as his own Dismiss closes it: a plan is set aside, a draft is settled `withdrawn` with no reason, a sketch gets its dismissed mark, and the rest are dropped. A plan's title is `plan v<version>`; every other item's is its text.
+
+`agent_access` is `No`: it is the person's.
+"""

@@ -11,6 +11,7 @@
 mod absent;
 mod bug_reports;
 mod debug_report;
+mod handoffs;
 mod lifecycles;
 mod piece_saving;
 mod accounts;
@@ -18,6 +19,8 @@ mod notice_mutes;
 mod started_jobs;
 mod annotations;
 mod building;
+/// Fleet's health answer: the disk is an addition an older Fleet does not send.
+mod health;
 mod title_bar_views;
 /// The allowlist rows and the Kit changes.
 mod commanding;
@@ -44,6 +47,7 @@ mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod limits;
 mod judge;
+mod pull_review_memory;
 mod review_runs;
 mod layout;
 mod key_bindings;

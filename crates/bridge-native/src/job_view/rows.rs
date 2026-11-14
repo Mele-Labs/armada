@@ -126,9 +126,34 @@ fn act_of(text: &str) -> Option<Act<'_>> {
     Some(Act::Answered { target, said })
 }
 
-/// The address a walk approval shows: the query that names the walk, else the whole address.
-fn shown_target(address: &str) -> &str {
-    address.find("?walk=").or_else(|| address.find("&walk=")).map_or(address, |at| &address[at..])
+/// What an approval quotes: the title the Job gave the window it approved, and the take's name where it
+/// approved one take of several, never the address. A window the thread no longer holds reads "a walk".
+fn approved_name(address: &str, rows: &[SessionRow]) -> String {
+    let walk = walk_of(address);
+    let take = query(address, "take");
+    for row in rows.iter().rev() {
+        let SessionRow::Window { url, title, variations, .. } = row else { continue };
+        if let Some(one) = variations.iter().find(|one| one.url == address) {
+            return format!("{title} \u{00B7} {}", one.name);
+        }
+        if url == address || (walk.is_some() && walk_of(url) == walk) {
+            return match take {
+                Some(take) => format!("{title} \u{00B7} take {take}"),
+                None => title.clone(),
+            };
+        }
+    }
+    "a walk".to_string()
+}
+
+/// The walk an address opens: `?walk=` in a page's address, or the name after `armada://walk/`.
+fn walk_of(address: &str) -> Option<&str> {
+    query(address, "walk").or_else(|| address.strip_prefix("armada://walk/").map(|rest| rest.split(['?', '#']).next().unwrap_or(rest)))
+}
+
+fn query<'a>(address: &'a str, key: &str) -> Option<&'a str> {
+    let (_, query) = address.split_once('?')?;
+    query.split(['&', '#']).find_map(|pair| pair.strip_prefix(key)?.strip_prefix('=')).filter(|value| !value.is_empty())
 }
 
 pub(crate) fn mono(look: &Look) -> SharedString {
@@ -208,7 +233,7 @@ impl JobView {
                 Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
                     if files.iter().any(super::pictures::is_picture) =>
                 {
-                    Some((files.clone(), false))
+                    Some((files.clone(), Some(false)))
                 }
                 // And a picture a `Read` call looked at, the first time its run is drawn.
                 Some(ThreadItem::Calls { rows, .. }) => {
@@ -219,15 +244,18 @@ impl JobView {
                             _ => None,
                         })
                         .collect();
-                    (!read.is_empty()).then_some((read, true))
+                    (!read.is_empty()).then_some((read, Some(true)))
                 }
+                // And a picture the Job showed, as Fleet keeps it.
+                Some(ThreadItem::File { path, .. }) => super::pictures::read_picture(path).map(|picture| (vec![picture], None)),
                 _ => None,
             },
             _ => None,
         };
         match wanted {
-            Some((files, false)) => self.want_pictures(&id, &files, window, cx),
-            Some((files, true)) => self.want_read_pictures(&id, &files, window, cx),
+            Some((files, None)) => self.want_shown_pictures(&id, &files, window, cx),
+            Some((files, Some(false))) => self.want_pictures(&id, &files, window, cx),
+            Some((files, Some(true))) => self.want_read_pictures(&id, &files, window, cx),
             None => {}
         }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
@@ -259,13 +287,13 @@ impl JobView {
             let last = ix + 1 == page.items;
             let asking = held.head.asked.is_some();
             // A finished run's last call ended when the item after it began.
-            let next = held.items.get(ix + 1).and_then(began);
+            let after = held.items.get(ix + 1);
             match item {
                 ThreadItem::Row { row: SessionRow::Reasoning { id, text, .. } } => {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
-                _ => self.item(ix, item, last && working && !asking, next, page, look, now, window, cx),
+                _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
             }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
@@ -332,8 +360,8 @@ impl JobView {
         };
         // Its own index runs below the shown Job's, so a fold it opens measures this element again.
         let ix = at.wrapping_sub(page.before);
-        let next = held.items.get(at + 1).and_then(began);
-        let Some(drawn) = self.item(ix, item, false, next, page, look, now, window, cx) else { return nothing() };
+        let after = held.items.get(at + 1);
+        let Some(drawn) = self.item(ix, item, false, after, page, look, now, window, cx) else { return nothing() };
         column(drawn).pb(self.row_gap(look)).into_any_element()
     }
 
@@ -582,21 +610,32 @@ impl JobView {
         ix: usize,
         item: &ThreadItem,
         live: bool,
-        next: Option<&ipc::Instant>,
+        after: Option<&ThreadItem>,
         page: &Page,
         look: &Look,
         now: DateTime<Local>,
         window: &mut Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
+        let next = after.and_then(began);
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
-            ThreadItem::Calls { id, rows, .. } => self.calls(ix, id, rows, live, next, page, look, cx),
+            ThreadItem::Calls { id, rows, .. } => {
+                // A dispute the agent called is one item, the record's, so its call is not drawn twice.
+                let rows = match (after, rows.split_last()) {
+                    (Some(ThreadItem::Row { row: SessionRow::Disputed { spotted: ipc::DisputeSpotted::Called, .. } }), Some((SessionRow::Tool { text, .. }, rest))) if super::calls::is_dispute(text) => rest,
+                    _ => rows.as_slice(),
+                };
+                if rows.is_empty() {
+                    return None;
+                }
+                self.calls(ix, id, rows, live, next, page, look, cx)
+            }
             ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look, cx),
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),
             ThreadItem::Sketch(card) => self.sketch(ix, card, page, look, now, cx),
-            ThreadItem::File { id, name, .. } => self.file_row(id, name, look),
+            ThreadItem::File { id, path, name, .. } => self.file_row(id, path, name, look, cx),
             ThreadItem::Document(card) => self.document(ix, card, page, look, now, cx),
             ThreadItem::Plan(plan) => self.plan_card(ix, plan, page, look, now, cx),
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
@@ -638,6 +677,7 @@ impl JobView {
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
+            Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),
             Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
@@ -977,61 +1017,85 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The person's act: an approval or an answer, a filled bar (A2.4).
+    /// The person's act: an approval or an answer, drawn as his own bubble on the right (his pick, 13 Nov): a
+    /// gold band with the act's glyph and time, what it answers quoted in quiet sans, then his answer.
     fn did(&self, id: &str, act: Act<'_>, at: &ipc::Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let (word, label, icon, target, said) = match act {
-            Act::Approved(address) => ("Approved", "You approved", "check", shown_target(address).to_string(), ""),
-            Act::Answered { target, said } => ("Answered", "You answered", "reply", target.to_string(), said),
+        let (label, icon, target, said) = match act {
+            Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
+            Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
         };
-        let ink = look.color(token::FG_INVERSE);
-        let chip = div()
-            .id(SharedString::from(format!("did-chip:{id}")))
+        let you = look.color(token::YOU);
+        let edge = look.color(token::YOU_EDGE);
+        // A narrow bubble puts the time on a line of its own rather than cutting it.
+        let band = div()
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(look.length(token::SPACE_1))
-            .min_w_0()
-            .px(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_SM))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(ink)
-            .font_family(mono(look))
-            .text_size(look.length(token::TEXT_2XS))
+            .gap_x(look.length(token::SPACE_2))
+            .gap_y(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_1) * 1.5)
+            .bg(you.opacity(0.1))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(edge)
+            .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
-            .child(glyph(look, icon, Size::Small, ink))
-            .child(div().min_w_0().truncate().child(target.clone()))
-            .when(target.len() > 40, |chip| chip.tooltip(tip(target.clone())));
-        labelled(
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(you)
+            .child(glyph(look, icon, Size::Small, you))
+            .child(div().flex_none().whitespace_nowrap().child(label))
+            .child(div().flex_1())
+            .child(div().flex_none().whitespace_nowrap().child(self.stamp(at, look, now, true, cx)));
+        let quote = (!target.is_empty()).then(|| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("did-quote:{id}")))
+                    .mx(look.length(token::SPACE_3))
+                    .mt(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+                    .pl(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+                    .border_l(look.length(token::BORDER_WIDTH) * 2.)
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(target),
+                Role::Group,
+                "Question",
+            )
+        });
+        let answer = (!said.is_empty()).then(|| {
             div()
-                .id(SharedString::from(format!("did:{id}")))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
                 .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::FG_DEFAULT))
-                .text_color(ink)
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_3))
-                        .child(eyebrow(look, word))
-                        .child(div().flex_1().min_w_0().flex().child(chip))
-                        .child(div().text_color(ink).child(self.stamp(at, look, now, true, cx))),
-                )
-                .when(!said.is_empty(), |bar| {
-                    bar.child(
-                        div()
-                            .text_size(look.length(token::TEXT_SM))
-                            .line_height(look.length(token::LEADING_SM))
-                            .child(said.to_string()),
-                    )
-                }),
-            Role::Region,
-            label,
-        )
-        .into_any_element()
+                .pt(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_BASE))
+                .line_height(look.length(token::LEADING_BASE))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .text_color(look.color(token::FG_DEFAULT))
+                .child(said.to_string())
+        });
+        div()
+            .flex()
+            .justify_end()
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("did:{id}")))
+                    .flex()
+                    .flex_col()
+                    .flex_none()
+                    .max_w(relative(0.8))
+                    .pb(look.length(token::SPACE_3))
+                    .overflow_hidden()
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(edge)
+                    .bg(look.color(token::BG_RAISED))
+                    .child(band)
+                    .children(quote)
+                    .children(answer),
+                Role::Region,
+                label,
+            ))
+            .into_any_element()
     }
 
     /// The messages, from the person, the agent and another Job (A2).
@@ -1497,8 +1561,19 @@ mod tests {
         );
         assert_eq!(act_of("Re: Which branch?"), Some(Act::Answered { target: "Which branch?", said: "" }));
         assert_eq!(act_of("Please go on"), None);
-        assert_eq!(shown_target("http://localhost:5173/page?walk=abc"), "?walk=abc");
-        assert_eq!(shown_target("http://example.com/x"), "http://example.com/x");
+    }
+
+    #[test]
+    fn an_approval_quotes_the_window_by_its_title_and_take_never_its_address() {
+        let window = |url: &str, takes: serde_json::Value| -> SessionRow {
+            serde_json::from_value(serde_json::json!({"kind": "window", "id": "w", "at": "2026-11-09T13:25:55Z", "title": "Merge line chip", "url": url, "variations": takes})).expect("a window row")
+        };
+        let rows = vec![window("armada://walk/mergeLine", serde_json::json!([]))];
+        assert_eq!(approved_name("http://localhost:5173/?walk=mergeLine&take=amber", &rows), "Merge line chip \u{00B7} take amber");
+        assert_eq!(approved_name("armada://walk/mergeLine", &rows), "Merge line chip");
+        let takes = vec![window("http://localhost:5173/a", serde_json::json!([{"name": "Amber", "url": "http://localhost:5173/a"}, {"name": "Grey", "url": "http://localhost:5173/b"}]))];
+        assert_eq!(approved_name("http://localhost:5173/b", &takes), "Merge line chip \u{00B7} Grey");
+        assert_eq!(approved_name("http://example.com/x?walk=other", &rows), "a walk");
     }
 }
 

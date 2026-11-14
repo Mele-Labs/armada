@@ -88,9 +88,43 @@ pub struct OtherMacProjects {
     pub projects: Vec<Project>,
 }
 
+/// `open_other_mac_page`: a page a Job on another Mac showed or serves, a walk or a dev server, to open on this Mac.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenOtherMacPage {
+    pub session_id: crate::SessionId,
+    /// The page's address as the Job named it, on the loopback of the Mac that holds it.
+    pub url: String,
+}
+
+/// What `open_other_mac_page` answers: where the page opens on this Mac.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OtherMacPageOpened {
+    pub url: String,
+}
+
 /// `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OtherMacEvent {
     pub mac: String,
     pub event: Event,
+}
+
+/// `PUT /other_macs/claims` on Fleet: every other Mac waiting for his Confirm here, as this Mac's Phone Gateway
+/// holds them, replacing all Fleet held. Fleet calls him with one `mac_pairing` call for each.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimsWaiting {
+    pub claims: Vec<MacClaimWaiting>,
+}
+
+/// One Mac waiting for his Confirm here: it pasted this Mac's link, or asked from its Settings.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimWaiting {
+    /// The asking Mac's id: what Confirm and Decline name.
+    pub mac: String,
+    pub name: String,
+    /// What `GET /admin/macs` says of it, with the four digits where it asked.
+    pub why: String,
+    /// Unix seconds: when the claim arrived.
+    pub at: i64,
 }

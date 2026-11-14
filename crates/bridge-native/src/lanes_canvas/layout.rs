@@ -45,14 +45,14 @@ pub(super) fn place_at(lanes: &[LaneView], height: f32, head: f32) -> Placement 
 
 /// The lanes of a canvas with no heads and no rail, placed and zoomed so the whole of them shows in `frame`:
 /// as far out as that takes, past `MIN_ZOOM` where it must, and never in past 1. The lanes fill the frame's
-/// height at that zoom. Not yet measured, the canvas is at `HOME`.
-pub(super) fn place_fitted(lanes: &[LaneView], frame: (f32, f32)) -> (Placement, View) {
+/// height at that zoom. Not yet measured, the canvas is at `HOME`. `least_w` fits it as though it were that wide.
+pub(super) fn place_fitted(lanes: &[LaneView], frame: (f32, f32), least_w: f32) -> (Placement, View) {
     let bare = place_at(lanes, frame.1, 0.);
     if frame.0 <= 0. || frame.1 <= 0. {
         return (bare, HOME);
     }
     let least = lanes.len().max(1) as f32 * LANE_MIN;
-    let zoom = (frame.0 / bare.width).min(frame.1 / least).min(1.);
+    let zoom = (frame.0 / bare.width.max(least_w)).min(frame.1 / least).min(1.);
     (place_at(lanes, frame.1 / zoom, 0.), View { x: 0., y: 0., zoom })
 }
 
@@ -299,7 +299,7 @@ mod tests {
         let lanes = fixture();
         let bare = place_at(&lanes.lanes, 1000., 0.);
         for width in [340., 1400.] {
-            let (placement, view) = place_fitted(&lanes.lanes, (width, 1000.));
+            let (placement, view) = place_fitted(&lanes.lanes, (width, 1000.), 0.);
             assert_eq!(placement.head, 0.);
             // The Start dot stands inside PAD + LEAD of the frame's left, where the heads' 144 would have been.
             let first = placement.items.values().map(|rect| rect.x).fold(f32::INFINITY, f32::min);
@@ -309,13 +309,13 @@ mod tests {
             assert_eq!(placement.width, bare.width);
         }
         // Wide enough, it stays at its own size; narrow, it goes out past what the rail allows.
-        assert_eq!(place_fitted(&lanes.lanes, (1400., 1000.)).1.zoom, 1.);
-        let narrow = place_fitted(&lanes.lanes, (340., 1000.)).1.zoom;
+        assert_eq!(place_fitted(&lanes.lanes, (1400., 1000.), 0.).1.zoom, 1.);
+        let narrow = place_fitted(&lanes.lanes, (340., 1000.), 0.).1.zoom;
         assert!(narrow < MIN_ZOOM && (narrow - 340. / bare.width).abs() < 1e-4, "{narrow}");
         // The lanes fill the frame's height at that zoom, and a frame not yet measured is at home.
-        let (placement, view) = place_fitted(&lanes.lanes, (340., 1000.));
+        let (placement, view) = place_fitted(&lanes.lanes, (340., 1000.), 0.);
         assert!((placement.height * view.zoom - 1000.).abs() < lanes.lanes.len() as f32 * view.zoom + 0.01);
-        assert_eq!(place_fitted(&lanes.lanes, (0., 0.)).1, HOME);
+        assert_eq!(place_fitted(&lanes.lanes, (0., 0.), 0.).1, HOME);
     }
 
     struct Bare;

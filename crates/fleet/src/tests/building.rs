@@ -215,7 +215,7 @@ async fn a_change_starts_the_wrapper_with_the_build_and_adopt_and_marks_it_runni
     let building = Building::default();
     let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: true };
     let changing = building
-        .change(Some(checkout.path()), support.path(), &asked, SystemTime::now())
+        .change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now())
         .expect("started");
     assert_eq!(changing.build, BuildSource::Preview);
     assert_eq!(
@@ -230,7 +230,7 @@ async fn a_change_without_adopt_passes_none() {
     let (checkout, support) = rig();
     let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
     Building::default()
-        .change(Some(checkout.path()), support.path(), &asked, SystemTime::now())
+        .change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now())
         .expect("started");
     assert_eq!(wait_for(&checkout.path().join("ran")).await.trim(), "main");
 }
@@ -241,7 +241,7 @@ async fn a_second_change_while_one_is_under_way_is_refused() {
     let building = Building::default();
     fs::write(support.path().join("restart-build.status"), "running\nmain\n").unwrap();
     let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: false };
-    let refused = building.change(Some(checkout.path()), support.path(), &asked, SystemTime::now());
+    let refused = building.change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now());
     assert_eq!(refused, Err(NotChanged::Restarting(BuildSource::Main)));
     assert!(!checkout.path().join("ran").exists(), "nothing was started");
 }
@@ -250,7 +250,7 @@ async fn a_second_change_while_one_is_under_way_is_refused() {
 async fn a_change_with_no_wrapper_to_run_is_refused() {
     let support = TempDir::new();
     let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
-    let refused = Building::default().change(None, support.path(), &asked, SystemTime::now());
+    let refused = Building::default().change(None, support.path(), &asked, &[], SystemTime::now());
     assert_eq!(refused, Err(NotChanged::NotOffered(NotOffered::NoWrapper)));
 }
 
@@ -260,7 +260,7 @@ async fn a_wrapper_that_will_not_start_leaves_no_status_behind() {
     let wrapper = checkout.path().join("scripts/restart-build");
     Command::new("chmod").arg("-x").arg(&wrapper).status().expect("chmod");
     let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
-    let refused = Building::default().change(Some(checkout.path()), support.path(), &asked, SystemTime::now());
+    let refused = Building::default().change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now());
     assert!(matches!(refused, Err(NotChanged::NotStarted(_))), "{refused:?}");
     assert!(!support.path().join("restart-build.status").exists());
 }

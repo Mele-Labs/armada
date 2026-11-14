@@ -128,7 +128,7 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
     let home = Side::new("Home", &[]).await;
     let stranger = |n: u8| {
         let key = p256::ecdsa::SigningKey::from_slice(&[n; 32]).unwrap();
-        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None };
+        let mac = MacHello { id: format!("{n:02x}{n:02x}"), name: format!("Mac {n}"), colour: MacColour::Blue, address: Some("https://x.example.com".into()), build: None, wire: None, built_at: None, source: None };
         ipc::encode(&MacAsk { mac, spki_hex: crate::mac_keys::spki_hex(&key).unwrap(), back_code: "ab".into() }).unwrap()
     };
     let post = |body: String| {
@@ -205,7 +205,7 @@ fn both_macs_draw_the_same_four_digits_from_the_key_and_the_random_half() {
     // A claim held for an ask lives five minutes; one on a link waits for Confirm.
     let macs = crate::macs::quiet_macs();
     let claim = |digits: Option<String>| HeldClaim {
-        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None },
+        mac: MacHello { id: "ab".into(), name: "Work".into(), colour: MacColour::Blue, address: None, build: None, wire: None, built_at: None, source: None },
         public_key: vec![],
         back_code: "cd".into(),
         at: 100,
@@ -213,4 +213,28 @@ fn both_macs_draw_the_same_four_digits_from_the_key_and_the_random_half() {
     };
     assert!(macs.hold_ask("n1".into(), claim(Some("1234".into()))));
     assert!(macs.claims(100 + crate::pairing::CODE_TTL).is_empty());
+}
+
+#[tokio::test]
+async fn an_ask_waiting_here_is_handed_to_fleet_with_its_digits_until_he_confirms_or_declines_it() {
+    for (press, route) in [("Confirm", "/admin/macs/pair/confirm"), ("Decline", "/admin/macs/forget")] {
+        let (home, _) = on_account("Home").await;
+        let (work, fake) = on_account("Work").await;
+        account(&fake, vec![tunnel_of(&home, true)]);
+        assert_eq!(ask(&work, &home).await.0, StatusCode::OK);
+
+        let there = home.mac(&work.id()).await.expect("the ask is listed");
+        let handed = home.claims_handed().expect("Fleet was handed the ask");
+        assert_eq!(handed.claims.len(), 1, "{handed:?}");
+        let claim = &handed.claims[0];
+        assert_eq!((claim.mac.as_str(), claim.name.as_str()), (work.id().as_str(), "Work"));
+        let code = there.code.expect("the four digits");
+        assert_eq!(Some(claim.why.as_str()), there.why.as_deref(), "what Settings says");
+        assert_eq!(claim.why, format!("Work wants to pair. Confirm if it shows {code}."));
+
+        let named = ipc::encode(&ipc::MacNamed { mac: work.id() }).unwrap();
+        let (status, body) = home.admin(Method::POST, route, &named).await;
+        assert!(status.is_success(), "{press}: {status} {body}");
+        assert_eq!(home.claims_handed().map(|handed| handed.claims), Some(Vec::new()), "{press} hands Fleet none");
+    }
 }
