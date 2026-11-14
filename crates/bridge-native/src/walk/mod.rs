@@ -3196,6 +3196,31 @@ pub static WALKS: &[Walk] = &[
             step("Esc closes the tab and the thread is back", Verb::Key("escape"), "button", "Opened mac-mark.md"),
         ],
     },
+    Walk {
+        name: "native-move-job-to-mac",
+        title: "Move a Job to the other Mac, and bring one back",
+        screen: Screen::JobsInApp,
+        scenario: "jobs-pairing",
+        steps: &[
+            pairing("Air is awake and linked: a Job this Mac holds can go there", "air-awake", "row", "Native Bridge foundation"),
+            step("A right press on it offers Move to Air under Snooze, with M at its right", Verb::RightPress("Native Bridge foundation"), "menuitem", "Move to Air"),
+            step("Move to Air asks Fleet. The Job finishes its turn first: the row turns a ring before its state, with Air's dot in place of this Mac's", Verb::Open("menuitem", "Move to Air"), "img", "Moving to Air"),
+            step("The ring's tooltip says where it goes", Verb::Hover, "img", "Moving to Air"),
+            press_on("The Job's head carries the same: the ring, then Air's chip beside this Mac's", "row", "Native Bridge foundation", "status", "Moving to Air"),
+            pairing("The turn ends, the branch is pushed and Air takes the Job: its row here ends, reading Moved to Air", "move-ended", "img", "Moved to Air"),
+            step("Its thread ends on the same words, which open the Job where it is now", Verb::Look, "button", "Moved to Air"),
+            pairing("Air's row of the same Job stands in its place, with Air's dot", "move-landed", "row", "Native Bridge foundation"),
+            step("A Job Air holds offers Bring here instead", Verb::RightPress("Audit the docs index"), "menuitem", "Bring here"),
+            step("Bring here asks Air to send it: the row turns the ring, with this Mac's dot", Verb::Open("menuitem", "Bring here"), "img", "Moving to Studio"),
+            pairing("Air has let go of it: the row stands under this Mac again", "move-landed", "row", "Audit the docs index"),
+            pairing("Another window asked for a move of it first: Fleet refuses the next one", "move-refused", "row", "Audit the docs index"),
+            step("A right press on it again", Verb::RightPress("Audit the docs index"), "menuitem", "Move to Air"),
+            step("Fleet's sentence is said in a toast where it was pressed", Verb::Open("menuitem", "Move to Air"), "alert", "Toast: job mock-04 is moving already"),
+            step("⌘K opens the palette", Verb::Key("cmd-k"), "dialog", "Command palette"),
+            step("A Job found by its words", Verb::Type("Audit"), "searchbox", "Search actions, jobs and settings"),
+            step("⌘K again: its acts offer Move to Air, with ⌥⌘M", Verb::Key("cmd-k"), "menuitem", "Move to Air"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {

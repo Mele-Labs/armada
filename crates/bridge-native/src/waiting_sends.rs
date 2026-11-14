@@ -63,6 +63,8 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Merge { number, .. } => said(&format!("Merge #{number}"), None),
         JobAct::Start(_) => said("Start", None),
         JobAct::Dispatch(_) => said("Start", None),
+        JobAct::Move { .. } => said("Bring here", None),
+        JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
     }
 }
 
