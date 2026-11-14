@@ -67,7 +67,7 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
-/// `native-settings-pages`: each Settings page still drawn as rows, one step a page, as it is today.
+/// `native-settings-pages`: each Settings page drawn as split rows, one step a page, then a project's own values beside every project's.
 pub const PAGES: &str = "native-settings-pages";
 
 pub static PAGES_STEPS: &[Step] = &[
@@ -89,6 +89,9 @@ pub static PAGES_STEPS: &[Step] = &[
     press_on("Editor: where code opens", "button", "Editor", "button", "Editor"),
     press_on("Terminal: which terminal opens", "button", "Terminal", "button", "Terminal"),
     press_on("Links: where pull requests open", "button", "Links", "button", "Links"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    press_on("Pull requests under a project: its own value beside every project's", "button", "Pull requests", "radiogroup", "Merging for Storefront"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
