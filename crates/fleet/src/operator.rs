@@ -44,6 +44,7 @@ mod looking;
 mod orders;
 mod paging;
 mod placing;
+mod precedent;
 mod raising;
 mod reading;
 mod ruling;
@@ -56,6 +57,7 @@ mod suggesting;
 mod talking;
 mod thening;
 mod turning;
+mod undoing;
 mod vetting;
 
 use std::collections::BTreeMap;
@@ -94,6 +96,7 @@ pub(crate) use sourcing::Sources;
 pub use talking::{Board, EndedJob, HeldJob, HoldRead, JobRead, LogRead, MergedPull, NeedsYou, Repository, RuleRead, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};
 pub(crate) use answering::is_question;
 pub(crate) use suggesting::{suggestion_items, SKIP};
+pub(crate) use undoing::undone_items;
 
 /// How long a Needs you item waits for its ruling before it pulses.
 pub const NEEDS_YOU_WAIT: Duration = Duration::from_secs(60);

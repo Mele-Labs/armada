@@ -166,6 +166,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts/edit",
     },
     Route {
+        operation: "press_page_action",
+        method: "POST",
+        path: "/sessions/artifacts/press",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",

@@ -153,6 +153,26 @@ fn build_live(name: &str) -> Option<Build> {
     })
 }
 
+/// The first folder a pass would drop, as a walk names it to hover.
+pub const FIRST_TO_DROP: &str = "/Users/me/dev/app/.armada/slots/slot-4/target";
+
+/// The disk Fleet reports, as GiB free against the two floors (`GET /health`'s `disk`): the first of the
+/// folders and the pass only where the disk is short.
+fn disk(free: u64, reclaim: u64, hold: u64, short: bool) -> ipc::DiskHealth {
+    const GIB: u64 = 1024 * 1024 * 1024;
+    let pass = (chrono::Utc::now() - chrono::Duration::minutes(7)).to_rfc3339();
+    let rest = if short {
+        format!(
+            r#","last_pass":{{"at":"{pass}","freed_bytes":{}}},"next_to_drop":["{FIRST_TO_DROP}","/Users/me/dev/app/.armada/slots/slot-2/target","/Users/me/dev/storefront/.armada/slots/slot-1/target","/Users/me/dev/storefront/.armada/slots/slot-3/target"]"#,
+            12 * GIB
+        )
+    } else {
+        String::new()
+    };
+    let json = format!(r#"{{"free_bytes":{},"reclaim_floor_bytes":{},"hold_floor_bytes":{}{rest}}}"#, free * GIB, reclaim * GIB, hold * GIB);
+    ipc::decode::<ipc::DiskHealth>("DiskHealth", json.as_bytes()).unwrap_or_else(|why| panic!("the scenario's disk does not decode: {why}"))
+}
+
 fn limits(five: (u32, Band, &str), week: (u32, Band, &str)) -> Usage {
     Usage::Limits(vec![Limit::five_hour(five.0, five.1, five.2), Limit::weekly(week.0, week.1, week.2)])
 }
@@ -165,7 +185,7 @@ fn fleet(connection: Connection, power: Power) -> FleetFace {
         Connection::Starting { .. } | Connection::Connecting { .. } | Connection::Reading => (Outcome::Reading, "reading"),
         _ => (Outcome::Fail, "0 of 14 modules read"),
     };
-    FleetFace { connection, power, restarting: Restarting::Idle, doctor: Some(Doctor { outcome, modules: SharedString::from(modules) }) }
+    FleetFace { connection, power, restarting: Restarting::Idle, doctor: Some(Doctor { outcome, modules: SharedString::from(modules) }), disk: None }
 }
 
 fn connected() -> Connection {
@@ -428,6 +448,11 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-swapped-back" => |face| face.build = Some(swapped_back()),
         "events-dropped" => |face| face.dropped = Dropped { missed: 3, noted: 0 },
         "events-noted" => |face| face.dropped = Dropped { missed: 3, noted: 3 },
+        // Fleet's disk, as `GET /health` carries it: well over the floor, under the reclaim floor, under the hold floor, reclaim off.
+        "disk-over" => |face| face.fleet.disk = Some(disk(142, 100, 30, false)),
+        "disk-reclaim" => |face| face.fleet.disk = Some(disk(64, 100, 30, true)),
+        "disk-hold" => |face| face.fleet.disk = Some(disk(22, 100, 30, true)),
+        "disk-off" => |face| face.fleet.disk = Some(disk(64, 0, 30, false)),
         "signed-out" => |face| face.signed_in = false,
         "signed-in" => |face| face.signed_in = true,
         "fleet-running" => |face| face.fleet = fleet(connected(), Power::Live),

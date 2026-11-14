@@ -1,0 +1,23 @@
+[operations.press_page_action]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "His press of a button a Job's page declares with <armada-action>: the Job is sent it as a message, a Job starts at once, or one of the Job's asks is answered"
+notes = """
+`POST /sessions/artifacts/press`, body `PressPageAction`: `session_id`, `artifact` (the page's path, its `JobArtifact` id), `revision` (the kept revision he pressed it on), `action` (the action's `id`) and `words?`. Answered with `PagePress` `{ revision, action, item?, act, at, did }`, and `SessionChanged` is published on the page's Job.
+
+**The markup.** `<armada-action id="..." act="message|start|answer" label="Investigate" item="row-7">`, anywhere on the page, a `<tr>` too. `start` also takes `brief` and `repository` (a Manifest id, the Job's own where absent). `answer` takes `ask` (the ask's waiting id) and `option` (one of its options' labels). **Read off the kept revision `revision`, never off a call** or the file as it is now. The first action with the id is the one pressed. Each action carries the text of the `<tr>`, else the `<li>`, it sits in, cut to 300 characters.
+
+**The list of acts is Fleet's**: `message`, `start` and `answer`. Anything that lands, merges, deletes or stops is a `message` button whose label says what the Job will do. When a page is kept, each action with no id, an id an earlier action holds, or an act off the list is named to the Job in the `document_sketch` notice, `In the page <path>, action "<label>" will not run: <why>.`, and the page is never refused.
+
+**What a press does**, `did` tagged by `kind`:
+- `message`: the Job is sent, as his message, `He pressed "<label>" on <item> in "<title>".`, the row's text on the next line, and his words after. `{ kind: "sent" }`.
+- `start`: a Job starts at once, as his own start from the dispatch sheet: unheld, past the Operator, its request and first message the action's `brief`, then `From "<title>", <item>: <row text>`, then his words, each a paragraph. In the Job's repository it takes the Job's project. The page's Job is then sent `He started Job <first 8 of its id> from "<label>" on <item>.` `{ kind: "started", job }`.
+- `answer`: the ask is answered with the option, and his words as the answer's words, exactly as `answer_waiting` answers his pick. `{ kind: "answered", item }`, the ask's id.
+
+**Each press is kept** in Fleet's store, `page_presses`, and `get_job_artifacts` serves them on the page as `presses`, oldest first. A press that is refused keeps nothing.
+
+Refused with 422: `fleet.page_action_unknown` for a revision not kept, an artifact that is not a page, or an action id the revision does not hold, naming at most 20 it does; `fleet.page_act_refused` for an act off the list, "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message"; `fleet.page_ask_not_open` for an ask the Job no longer waits on, or an option not one of its options, naming them; `fleet.page_archived` for a page archived; `fleet.artifact_not_held` and `fleet.session_unnamed` as `archive_artifact` refuses them. A start or an answer refused by its own route answers that refusal.
+
+`agent_access` is `No`: it is his press.
+"""

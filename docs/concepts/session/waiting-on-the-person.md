@@ -42,6 +42,7 @@ We dont need it in the ledger." Bridge puts a Job with items under Needs you wit
 **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the job, and once that is delivered the item is dismissed as `dismiss_waiting` does, so it leaves the list without the agent restating it.
 A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note.
 `best` tells the agent to decide for itself and think it through, `quick` to just get it done: finish the work and land it, skipping the formalities.
+**`answer_items` and `dismiss_items`** answer or dismiss several items with an Approve at once, across Jobs, each as its own answer would: [Artifact](../artifact.md), *Several at once*.
 **`dismiss_waiting`** (`session_id`, `item_id`, and an optional `reason`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, save a walk the job shows again, and an agent item with it is removed and left off if the agent states it again.
 **An item the agent stated tells it so**: the Job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave a reason that is not blank, so the agent does not take the silence for an answer.
 The owner, 14 Oct 2026: "when there is a 'needs me' item on a job, I should be able to delete it, which lets the agent know that I removed it.
@@ -136,6 +137,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `operator_suggestion` | questions | skip |
 | `browser_ask` | questions | plain |
 | `gate` | questions | none: Fleet refuses it |
+| `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.

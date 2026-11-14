@@ -318,6 +318,10 @@ where
         self.operator_answered(press).await
     }
 
+    async fn operator_undo_ruling(self: Arc<Self>, undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_ruling_undone(undo).await
+    }
+
     async fn operator_turn_order(self: Arc<Self>, order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         self.operator_turn_ordered(order).await
     }
@@ -367,6 +371,14 @@ where
         dismiss: ipc::DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
         self.dismiss_waited(dismiss).await
+    }
+
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_answered(answer, refused).await
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_dismissed(dismiss, refused).await
     }
 
     async fn convert_draft_to_document(
@@ -591,6 +603,10 @@ where
 
     async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
         self.artifact_edited(edit).await
+    }
+
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        self.page_action_pressed(press).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

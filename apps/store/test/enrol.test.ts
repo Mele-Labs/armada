@@ -3,12 +3,12 @@ import {
   STORE,
   call,
   toStore,
-  claim,
+  claimRed,
+  claimant,
   enrolDevice,
   everythingStoredFor,
   forgeAnswers,
   hash,
-  holder,
   newKeyPair,
 } from "./support";
 
@@ -73,9 +73,9 @@ describe("enrolling a device", () => {
     expect(a.id.startsWith("7001.")).toBe(true);
     expect(other.id.startsWith("7002.")).toBe(true);
 
-    await claim(a, hash("a"), hash("b"), holder("j-1"));
-    expect((await call(b, "GET", `/v1/claims/${hash("a")}/${hash("b")}`)).status).toBe(200);
-    expect((await call(other, "GET", `/v1/claims/${hash("a")}/${hash("b")}`)).status).toBe(404);
+    await claimRed(a, hash("a"), hash("b"), claimant("j-1"));
+    expect((await call(b, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`)).status).toBe(200);
+    expect((await call(other, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`)).status).toBe(404);
   });
 
   it("registers nothing when the forge refuses the token", async () => {

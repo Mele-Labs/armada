@@ -21,6 +21,8 @@ The owner approved the design on 13 Nov 2026.
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
 | His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
 | A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
+| Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
+| A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
 
 ## What an artifact is
 
@@ -162,3 +164,69 @@ The artifact shows the newest revision's.
 A sketch drawn again with no `for` has only Fleet's links.
 
 **Rule.** The For line rides on the artifact, the latest sketch card, the document card and the draft row, so native draws it without a second read.
+
+## Several at once
+
+The owner decided this on 13 Nov 2026.
+His review panel answers several items in one press: Approve all, Ask for changes on each, and Dismiss all.
+Fleet's half is `answer_items` and `dismiss_items` (`crates/fleet/src/session_host/answering_items.rs`).
+
+**Rule.** Both reach every item with an Approve, across Jobs: a sketch, a page that asks, a plan, a draft, a walk, and an item a Job raised with `approves: true`.
+A question, a permission prompt and every other item keep their own answers, and either call refuses them, `fleet.items_not_approvable`.
+
+**Rule.** Each item settles on its own and in order, and one refusal never stops the rest.
+The answer names each item with `settled`, or `refused` with a code and a message, and a refused item stands as it was.
+
+**Rule.** Each item settles the way its own answer settles it, with the same message to its Job.
+A sketch is answered at the drawing it holds now, and a page at its newest revision.
+A plan is approved as `approve_plan` approves it, and goes as `send_plan_changes` sends its marks where it carries notes.
+A draft, a walk and an agent's item take their Approve or Ask for changes.
+
+**Rule.** His notes stay on their item and go with that item's verdict, numbered `1.`, `2.`, one a line.
+They are the words of an approval, or the note of a send back, and a send back with no note is refused for that item, `fleet.items_send_back_empty`.
+A plan's notes are each a note on the plan as a whole.
+A walk approved with notes keeps `Approved: <address>` as its first line, with the notes under it.
+
+**Rule.** Dismiss all takes each item off his list with no verdict.
+Each Job is sent one message, a line `He passed on "<title>" with no verdict.` for each of its items, in place of each kind's own dismiss text.
+A plan's title is `plan v<version>`.
+
+**Rule.** The message goes first, so a send that fails leaves every item of that Job standing.
+Then each closes as his own Dismiss closes it: a plan is set aside, a draft settles `withdrawn` with no reason, and a sketch reads `dismissed`.
+
+## Page actions
+
+The owner decided this on 13 Nov 2026.
+An action is a button the agent puts on any part of a page, such as each row of a table of things to review, with words like Investigate, Discuss or Approve.
+His press calls back to Fleet, which does it in the Job.
+Fleet's half is `press_page_action` (`crates/ipc/operations/press_page_action.toml`), in `crates/fleet/src/session_host/page_actions.rs`.
+
+**Rule.** The agent declares one with `<armada-action id="..." act="..." label="..." item="...">`, anywhere on the page, inside a `<tr>` too.
+`item` names the row or part it sits on.
+`start` also takes `brief`, and `repository` where the Job is not in the page's Job's repository.
+`answer` takes `ask`, the ask's waiting id, and `option`, one of its labels.
+
+**Rule.** Fleet reads an action off the kept revision he pressed, never off a call or the file as it is now.
+The first action with an id is the one pressed.
+Each carries the text of the `<tr>`, else the `<li>`, it sits in, cut to 300 characters.
+
+**Rule.** Fleet keeps the list of acts a page may run, and refuses anything off it: `message`, `start` and `answer`.
+Anything that lands, merges, deletes or stops goes to the Job as a `message`, whose label says what the Job will do.
+
+**Rule.** The page is never refused.
+When it is kept, each action with no id, an id an earlier action holds, or an act off the list is named to the Job in the notice that names a sketch that will not draw:
+`In the page <path>, action "<label>" will not run: <why>.`
+
+**Rule.** A `message` press sends the Job, as his message, `He pressed "<label>" on <item> in "<title>".`, the row's text on the next line, and his words after.
+
+**Rule.** A `start` press starts a Job at once, as his own start from the dispatch sheet does.
+It is held on no start card, and the Operator does not rule on it, since the button is his press.
+Its brief is the action's `brief`, then `From "<title>", <item>: <row text>`, then his words.
+In the page's Job's repository it takes that Job's project.
+The page's Job is then sent `He started Job <short id> from "<label>" on <item>.`
+
+**Rule.** An `answer` press answers the Job's ask with the option, his words as the answer's words, exactly as his own pick would.
+An ask the Job no longer waits on, or an option not one of its options, is refused, `fleet.page_ask_not_open`.
+
+**Rule.** Every press is kept in Fleet's store, apart from the page's attachment, and served on the page as `presses`, so native turns a pressed row green with the act under its title.
+A press that is refused keeps nothing, and an archived page takes no press.

@@ -287,6 +287,8 @@ mod style_sources;
 mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// His verdict, or none, on several waiting items at once. `answer_items`, `dismiss_items`.
+mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
@@ -387,7 +389,7 @@ pub use checks::{
     CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
 };
 pub use codec::{
-    decode, decode_body, encode, Undecodable, Unencodable,
+    decode, decode_body, encode, same_json, Undecodable, Unencodable,
 };
 pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
@@ -716,12 +718,13 @@ pub use macs::{
 };
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use artifact::{
-    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, PageAct, PagePress, PressDid, PressPageAction, SaveArtifactEdit,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
 pub use sketch::{
@@ -772,7 +775,8 @@ pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
-    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
+    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalFromMac,
+    TerminalOfJob, TerminalScreen,
     TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{
