@@ -3030,6 +3030,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_BUILD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_NEARBY,
+        title: "Settings › Macs: Macs nearby and on your account",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_NEARBY_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::WAYS,
         title: "Ways of working",
         screen: Screen::Settings,
