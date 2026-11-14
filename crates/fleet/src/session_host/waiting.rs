@@ -149,6 +149,8 @@ pub(crate) struct WaitingReads {
     calls: Vec<store::KeptCall>,
     /// What the Operator would do on this Session, waiting on one press.
     suggestions: Vec<store::KeptSuggestion>,
+    /// The rulings of the Operator's that the person took back on this Session.
+    undone: Vec<store::KeptTurn>,
     /// The Job waits on its start card.
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
@@ -225,6 +227,7 @@ pub(crate) fn waiting_reads(
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
         suggestions: store.operator_suggestions_of(&session.id)?,
+        undone: store.operator_turn_undone_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         checks_running: !store.running_session_checks(&session.id)?.is_empty(),
@@ -523,7 +526,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, undone, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -725,6 +728,8 @@ where
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
             // What a role at Suggest would do, until he takes it or skips it.
             items.extend(crate::operator::suggestion_items(&suggestions));
+            // A ruling he took back is a question of his again, until he answers it or drops it.
+            items.extend(crate::operator::undone_items(&undone).filter(|one| !dismissed.contains(&one.id)));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
             // pending plan names waits with the plan instead, and its Approve settles it.
             let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
@@ -1184,6 +1189,8 @@ where
         };
         let mix = parts_line(&item, parts).map_err(|why| self.hosted_refusal(SESSION_WAITING_EMPTY, why))?;
         let line = said.mode.map(mode_line);
+        let answer_text = item.text.clone();
+        let answer_options = item.options.clone();
         // A pick with words says both: the words go with the pick, never in place of it. Parts picked come after.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
@@ -1288,6 +1295,12 @@ where
                     let approval = KeptApproval { item_id: item.id.clone(), text: item.text.clone(), at: self.clock().now().as_str().to_string() };
                     return self.drop_approved(&id, &approval).await;
                 }
+                self.drop_answered(&id, &item.id, None).await
+            }
+            // Fleet put his question back to him: his answer is the agent's to hear, and the item goes once it is sent.
+            WaitingSource::OperatorUndone => {
+                let body = reply(&item.text, both.as_deref(), line);
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                 self.drop_answered(&id, &item.id, None).await
             }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
@@ -1422,6 +1435,10 @@ where
             matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
         ) {
             fleet.session_answered(record, says);
+        }
+        // His own answer is kept for the Operator to follow, and never one given in his place or to a draft.
+        if settled.is_ok() && by == Answerer::Him && source != WaitingSource::Draft {
+            fleet.operator_answer_kept(&id, &answer_text, &answer_options, &said.item_id, picked.as_deref(), words, "job").await;
         }
         settled
     }

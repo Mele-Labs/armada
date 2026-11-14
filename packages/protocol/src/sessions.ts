@@ -458,6 +458,9 @@ export type WaitingAct = {
  * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of
  * its own, since the close tells it. Fleet derives it while a hold stands and nothing in the Job runs, and drops it when the gate
  * closes. It cannot be dismissed.
+ * `operator_undone` (id `undone:<n>`, `<n>` the row of a ruling he took back with `operator_undo_ruling`, text the question, the options the question had, act `answer` whose `target` is the id)
+ * is a question the Operator answered by following something he said and he took back. Answering it sends the agent `Re: <question>` and his choice, as for an
+ * `agent` item, and the item goes. Dismissing it drops it. The Operator's own review never answers it. Since 13 Nov 2026.
  */
 export type WaitingSource =
   | "agent"
@@ -484,7 +487,8 @@ export type WaitingSource =
   | "operator_suggestion"
   | "sketch"
   | "document"
-  | "gate";
+  | "gate"
+  | "operator_undone";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

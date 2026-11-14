@@ -340,6 +340,19 @@ pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Serv
     }
 }
 
+/// A precedent ruling taken back. 200 with the page; 404 where no precedent ruling has the id, 422 where it is
+/// taken back already or its Job has ended.
+pub(crate) async fn operator_undo_ruling<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let undo: ipc::operator_page::OperatorUndoRuling = match ipc::decode_body("a ruling taken back", &body) {
+        Ok(undo) => undo,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_undo_ruling(undo).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Your turn as he dragged it. 200 with the page.
 pub(crate) async fn operator_turn_order<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let order: ipc::operator_page::OperatorTurnOrder = match ipc::decode_body("an order of Your turn", &body) {
@@ -922,6 +935,19 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
     };
     match served.shared().save_artifact_edit(edit).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
+/// list, an ask no longer open, or a page archived or not held.
+pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().press_page_action(press).await {
+        Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

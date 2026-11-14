@@ -137,6 +137,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `operator_suggestion` | questions | skip |
 | `browser_ask` | questions | plain |
 | `gate` | questions | none: Fleet refuses it |
+| `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
