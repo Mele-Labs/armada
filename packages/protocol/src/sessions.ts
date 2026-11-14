@@ -424,7 +424,10 @@ export type WaitingAct = {
  * finished Job was started with are done: `Mark done` (choice 0) or `Keep open` (choice 1), answered with `answer_waiting` and a
  * `choice`. No message goes to the agent and it cannot be dismissed. It is listed while the Job is live; the ask stands on the
  * tasks (`asked`) when the Job ends, and the Projects tab's tick settles it. `draft` (id `draft:<row>`) is a draft the
- * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`. `watch_not_ours` (id `watch_not_ours:<watch id>`,
+ * session proposed with `propose_draft`, read off its row and settled by `answer_waiting`. `handoff` (id `handoff:<row>`, text
+ * `Carry on in a new Job?`, act `answer`) is Fleet's card for a Job past its context limit, raised by its `handoff_brief`: six options,
+ * `Carry on in a new Job`, `Stay here`, `Don't ask again`, then `Remind at <figure>` for each of the row's `remind_at`. Answered with a
+ * `choice` by him alone; dismissing it is Stay. No message goes to the agent. `watch_not_ours` (id `watch_not_ours:<watch id>`,
  * text `<watch>: <parts> failed`, act `answer` whose `target` is the watch id) is Fleet asking about a watch that ended `not_ours`:
  * `Ignore` (choice 0) settles it and tells the agent nothing, `Fix it` (choice 1) sends the agent the part, its sentence and its link.
  * Words alone go to the agent as a message. Each settles it, as dismissing does. It is listed while the Job is live.
@@ -463,6 +466,7 @@ export type WaitingSource =
   | "permission"
   | "window_ask"
   | "draft"
+  | "handoff"
   | "first_message"
   | "replied"
   | "done"
@@ -623,6 +627,15 @@ export type ProposeDraft = {
   /** What it is for and what his answer changes: one sentence, at most 200 characters. */
   for?: string;
   links?: ForLink[];
+};
+
+/**
+ * `POST /sessions/handoff_brief`, the agent's: the brief of a Job the Context rule told it is past its limit. Fleet raises the
+ * `handoff` card from it and answers at once with the `SessionRecord`. Refused unless Fleet asked the Job for one.
+ */
+export type HandoffBrief = {
+  brief: string;
+  session_id?: string;
 };
 
 /**

@@ -66,41 +66,25 @@ impl AskingToRun {
 /// run. Since 23.71.
 pub const ASKS_A_QUESTION: &str = "AskUserQuestion";
 
-/// The four answers a Job's handoff question offers, in order. Fleet starts a successor only when the
-/// person chooses [`HANDOFF_YES`]; [`HANDOFF_QUIET`] and [`HANDOFF_REMIND`] are kept on the Job's
-/// ledger and change when the Context rule tells it again.
+/// The answers on a Job's handoff card, in order, ahead of the "Remind at" figures. Fleet starts a
+/// successor only when the person presses [`HANDOFF_YES`]; [`HANDOFF_QUIET`] and a figure are kept on
+/// the Job's ledger and change when the Context rule tells it again.
 pub const HANDOFF_YES: &str = "Carry on in a new Job";
 pub const HANDOFF_STAY: &str = "Stay here";
-pub const HANDOFF_QUIET: &str = "Stay, don't ask again this Job";
-pub const HANDOFF_REMIND: &str = "Remind me at a higher limit";
-/// The question Fleet puts on the card after [`HANDOFF_REMIND`], and the figures it offers, in tokens.
-pub const HANDOFF_REMIND_QUESTION: &str = "Ask again at";
-pub const HANDOFF_REMIND_AT: [u64; 3] = [450_000, 500_000, 600_000];
+pub const HANDOFF_QUIET: &str = "Don't ask again";
+/// What a figure's answer opens with: `Remind at 400k`.
+pub const HANDOFF_REMIND: &str = "Remind at";
 
-/// A figure as the follow-on question labels it: `450k`.
+/// A figure as the card labels it: `450k`.
 pub fn handoff_figure(tokens: u64) -> String {
     format!("{}k", tokens / 1_000)
 }
 
-impl AskingToRun {
-    /// Fleet's own follow-on to [`HANDOFF_REMIND`]: one question, [`HANDOFF_REMIND_QUESTION`], with
-    /// a figure an option.
-    pub fn handoff_remind() -> AskingToRun {
-        let options: Vec<serde_json::Value> = HANDOFF_REMIND_AT
-            .iter()
-            .map(|tokens| serde_json::json!({ "label": handoff_figure(*tokens), "description": "" }))
-            .collect();
-        AskingToRun {
-            tool_name: ASKS_A_QUESTION.to_string(),
-            input: serde_json::json!({ "questions": [{
-                "question": HANDOFF_REMIND_QUESTION,
-                "header": "Context",
-                "multiSelect": false,
-                "options": options,
-            }] }),
-            tool_use_id: None,
-        }
-    }
+/// The figures a handoff card offers to be reminded at, for a Job at `tokens`: the next 100k step
+/// above it, then 50k and 100k past that. 312k offers 400k, 450k and 500k.
+pub fn handoff_remind_ladder(tokens: u64) -> [u64; 3] {
+    let next = (tokens / 100_000 + 1) * 100_000;
+    [next, next + 50_000, next + 100_000]
 }
 
 /// One question the agent put to the person, as its tool sent it.

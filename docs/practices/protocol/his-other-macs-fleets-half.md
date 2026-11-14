@@ -42,6 +42,8 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `share_job_thread` | the Gateway calls | `GET /other_mac/thread?session_id=&before=&limit=&upto=`, answered as `get_job_thread`. Any Job not shared is 404 `fleet.no_such_session`, worded as for a Job that does not exist |
 | `share_job_page` | the Gateway calls | `GET /other_mac/page?session_id=&port=`, answered 204, before each page request another Mac sends: the Job shared, and `port` one a window it showed or a server it started that is serving stands on, on loopback. Any Job not shared is 404 `fleet.no_such_session`; a port it does not show is 404 `fleet.other_mac_page_not_shown` |
 | `open_other_mac_page` | Bridge calls | `POST /sessions/other_mac_page`, body `OpenOtherMacPage { session_id, url }`, answered `OtherMacPageOpened { url }`: for a Job held from another Mac, an address on this Mac's loopback the Gateway signs through to it, path and query kept. That Mac asleep is 409 `fleet.other_mac_asleep` with `fields.since` and `fields.mac`. See *Pages across Macs* |
+| `share_job_terminal` | the other Mac's Gateway calls | `POST /other_mac/terminal`, body `TerminalFromMac` tagged by `kind`: `open`, `list`, `write`, `resize` or `stop`, answered as `open_terminal`, `list_terminals`, `write_session_run`, `resize_session_run` and `stop_session_run` answer at home. Any Job not shared, and any run that is not one of that Job's open terminals, is 404 `fleet.no_such_session`, worded as for a Job that does not exist |
+| `share_job_terminal_output` | the other Mac's Gateway calls | `GET /other_mac/terminal/observe?session_id=&run_id=`, a WebSocket answered as `observe_session_run`, refused as `share_job_terminal` |
 | `hold_other_mac_sessions` | the Gateway calls | `PUT /other_macs/sessions`, body `OtherMacSessions { mac, sessions }`: every row that Mac shares, replacing all held from it, each stamped with `mac`. `session.changed` for each row new or changed, `session.removed` for each row left out. Answers `MacNamed` |
 | `hold_other_mac_projects` | the Gateway calls | `PUT /other_macs/projects`, body `OtherMacProjects { mac, projects }`, replacing every copy held from it, then `projects.changed` where a copy changed. Edits queued for that Mac are then sent. Answers `MacNamed` |
 | `project_act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/project_act`, body `ProjectActFromMac { act, at? }`, `act` one of a copy's task acts tagged by `kind`. Run only in a shared project; any other is refused as a row or project that does not exist. Answers `Projects` as `share_projects` |
@@ -84,6 +86,13 @@ A Mac with acts waiting is never sent a newer act ahead of them.
 They are sent oldest first when the Mac next speaks, by the same task as the edits, each under its own `id`.
 An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no longer sent, and the acts after it go on.
 `take_back_queued` drops one under the Mac's send guard, and is 409 while that Mac's queue is being sent.
+
+**A terminal of a Job held from another Mac is that Mac's.**
+`open_terminal` of such a Job, and `list_terminals` Bridge makes of one, go to it as `share_job_terminal`, and this Fleet keeps in memory which Mac and Job each run it was answered belongs to.
+`write_session_run`, `resize_session_run`, `stop_session_run` and `observe_session_run` on one of those runs go there too: typing one keystroke at a time, in the order it came, and never into the queue.
+A keystroke the link cannot carry is 500 `fleet.other_mac_unreachable`.
+The output stream ending without `exited`, as when that Mac sleeps or the link drops, is answered `exited` with `code: null` and `stopped: false`, and the run is forgotten here, so a keystroke after it is refused as on a run that has ended.
+`share_job_terminal` is in `api::callers::THE_PERSONS_OWN`, so a Job typing around the door cannot type as another Mac.
 
 ## Messages and alerts
 

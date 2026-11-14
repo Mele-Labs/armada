@@ -95,7 +95,7 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
 
     heard(&fleet, &session, &[turn(2, 312_000)]).await;
     let said = thread_of(&fleet, &session).await;
-    assert_eq!(said, ["Context is 312k tokens. To carry on in a new job, ask the owner with the options \"Carry on in a new Job\", \"Stay here\", \"Stay, don't ask again this Job\" and \"Remind me at a higher limit\", and write your brief (where the work is, what is open, what you hold) in the description of \"Carry on in a new Job\". Start nothing yourself."]);
+    assert_eq!(said, ["Context is 312k tokens, past the 300k limit. Write only a brief of where the work is, what is open and what you hold, and send it with handoff_brief. The owner answers on a card. Ask him nothing and start nothing yourself. Once it is sent, end your turn."]);
     let tell = fleet.store().lock().await.tell_of(&session).unwrap().expect("the tell is kept for the refusal reader");
     assert_eq!(tell.kind, "context");
     let trips = fleet.store().lock().await.usage_rule_trips(&session).unwrap();

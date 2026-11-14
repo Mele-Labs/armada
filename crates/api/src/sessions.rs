@@ -461,6 +461,24 @@ pub(crate) async fn propose_draft<D: Sessions>(
     }
 }
 
+/// A Job past its context limit sends its brief. 200 with the row, or a [`Receipt`] through the door; 422
+/// for a blank brief, a Job Fleet did not ask for one, or a call that places no session.
+pub(crate) async fn handoff_brief<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let brief: ipc::HandoffBrief = match ipc::decode_body("a handoff brief", &body) {
+        Ok(brief) => brief,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().handoff_brief(crate::acting::asking(), brief).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::handed(&record), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session takes back a draft it proposed. 200 with the row, or a [`Receipt`] through the door; 422 for a draft
 /// that is not this session's or not open, or a call that places no session. **The session is placed by the connection**.
 pub(crate) async fn withdraw_draft<D: Sessions>(

@@ -643,6 +643,19 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn handoff_brief(
+        &self,
+        _caller: Option<crate::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: brief.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
     async fn withdraw_draft(
         &self,
         _caller: Option<crate::Caller>,
