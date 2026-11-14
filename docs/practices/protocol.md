@@ -230,6 +230,7 @@ WebSocket event stream, read this first.
 | [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
 | [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
+| [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

@@ -37,6 +37,7 @@ mod page_actions;
 mod page_votes;
 mod page_sealed;
 mod notes_and_seen;
+mod for_you;
 mod drafts;
 mod pull_request_drafts;
 mod phone;

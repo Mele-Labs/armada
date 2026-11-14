@@ -455,6 +455,27 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::ForYou, Refusal> {
+        let job = session_id.unwrap_or_else(|| SessionId::carried("s-1"));
+        Ok(ipc::ForYou { job, waiting: Vec::new(), building: Vec::new(), landing: Vec::new() })
+    }
+
+    async fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> Result<ipc::ForYou, Refusal> {
+        self.get_for_you(withdraw.session_id).await
+    }
+
+    async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
+        self.get_for_you(order.session_id).await
+    }
+
+    async fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> Result<ipc::ForYou, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(ipc::FOR_YOU_UNKNOWN, format!("no row `{}`", line.id), run_id())))
+    }
+
+    async fn add_for_you(self: Arc<Self>, _add: ipc::AddForYou) -> Result<ipc::ForYouAdded, Refusal> {
+        Ok(ipc::ForYouAdded { id: String::from("added:1") })
+    }
+
     async fn get_job_copy(self: Arc<Self>, _session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {
         Err(nothing_hosted())
     }

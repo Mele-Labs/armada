@@ -40,7 +40,7 @@ where
     }
 
     /// The ids of the Jobs `parent` started, oldest first.
-    async fn started_ids(&self, parent: &str) -> Result<Vec<String>, Refusal> {
+    pub(super) async fn started_ids(&self, parent: &str) -> Result<Vec<String>, Refusal> {
         let store = self.store().lock().await;
         let session = store
             .session(parent)
@@ -90,7 +90,7 @@ where
     }
 
     /// One child as the read gives it, with the step it is on named and, once it ended, what it said.
-    async fn started_job(&self, id: &str, started_by: &str) -> Result<StartedJob, Refusal> {
+    pub(super) async fn started_job(&self, id: &str, started_by: &str) -> Result<StartedJob, Refusal> {
         let (record, said) = {
             let store = self.store().lock().await;
             let session = store

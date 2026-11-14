@@ -247,6 +247,31 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/copy",
     },
     Route {
+        operation: "get_for_you",
+        method: "GET",
+        path: "/sessions/for_you",
+    },
+    Route {
+        operation: "withdraw_for_you",
+        method: "POST",
+        path: "/sessions/for_you/withdraw",
+    },
+    Route {
+        operation: "order_for_you",
+        method: "POST",
+        path: "/sessions/for_you/order",
+    },
+    Route {
+        operation: "line_for_you",
+        method: "POST",
+        path: "/sessions/for_you/line",
+    },
+    Route {
+        operation: "add_for_you",
+        method: "POST",
+        path: "/sessions/for_you/add",
+    },
+    Route {
         operation: "keep_job_workflow",
         method: "POST",
         path: "/sessions/copy/keep",

@@ -43,6 +43,7 @@ mod page_actions;
 mod page_votes;
 mod page_sealed;
 mod artifact_seen;
+mod for_you;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

@@ -92,6 +92,8 @@ mod page_presses;
 mod page_votes;
 /// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
 mod artifact_seen;
+/// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
+mod for_you;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -269,6 +271,7 @@ pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use page_presses::KeptPress;
 pub use page_votes::KeptVote;
 pub use artifact_seen::KeptArtifactSeen;
+pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

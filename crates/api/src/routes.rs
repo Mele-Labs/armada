@@ -762,6 +762,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/copy",
             get(crate::hosted_sessions::get_job_copy::<D>).post(crate::hosted_sessions::change_job_copy::<D>),
         )
+        .route("/sessions/for_you", get(crate::hosted_sessions::get_for_you::<D>))
+        .route("/sessions/for_you/withdraw", post(crate::hosted_sessions::withdraw_for_you::<D>))
+        .route("/sessions/for_you/order", post(crate::hosted_sessions::order_for_you::<D>))
+        .route("/sessions/for_you/line", post(crate::hosted_sessions::line_for_you::<D>))
+        .route("/sessions/for_you/add", post(crate::hosted_sessions::add_for_you::<D>))
         .route(
             "/sessions/copy/keep",
             post(crate::hosted_sessions::keep_job_workflow::<D>),
