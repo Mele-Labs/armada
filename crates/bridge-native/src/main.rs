@@ -286,7 +286,7 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help => Ok(()),
+            Mode::Help | Mode::Walks => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
