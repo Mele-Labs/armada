@@ -17,7 +17,7 @@ use super::page_actions::presses_of;
 use super::page_votes::votes_of;
 use crate::daemon::Fleet;
 
-const ARTIFACT_REVISION_UNKNOWN: &str = "fleet.artifact_revision_unknown";
+pub(super) const ARTIFACT_REVISION_UNKNOWN: &str = "fleet.artifact_revision_unknown";
 
 /// The kit's script: plain JS, run with the nonce and nothing else.
 const KIT_SCRIPT: &str = include_str!("page_kit.js");
