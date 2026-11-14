@@ -22,7 +22,6 @@ use ipc::{GateAnswer, ManifestId, SessionGate, SessionMode, SessionRow};
 use store::{AttachmentState, Holder, KeptAttachment, KeptHosting};
 
 use super::following::Standing;
-use super::queueing::Choice;
 use super::places::{normalised, place_of, run_from, worked_in, written_by, Place};
 use super::serving::mode_of;
 use super::Move;
@@ -348,7 +347,7 @@ where
             Taken::Resumed => GateAnswer::deny(String::from("the job is paused, and only the person resumes it")),
             Taken::Full => {
                 let ahead = self.line_joined(manifest, id).await;
-                GateAnswer::deny(queued(ahead, queue.chosen(id)))
+                GateAnswer::deny(queued(ahead))
             }
             Taken::Moving(moving) => {
                 self.line_left(id).await;
@@ -625,21 +624,17 @@ fn not_held(path: &str, slot: u32) -> String {
     )
 }
 
-fn queued(ahead: usize, chosen: Option<Choice>) -> String {
+fn queued(ahead: usize) -> String {
     let place = match ahead {
         0 => String::from("first in the queue"),
         n => format!("{n} ahead of it in the queue"),
     };
-    let owner = match chosen {
-        Some(Choice::Waiting) => "The owner chose to wait for a slot to free.",
-        Some(Choice::Adding) => "The owner chose to add a slot.",
-        _ => "The owner is being asked whether this job waits for a slot to free or Fleet adds one.",
-    };
     format!(
-        "Every worktree slot is in use, so this job cannot write yet. It is {place} for \
-         one. {owner} Stop here: make no more writes this turn. Reads and Fleet's own tools, \
-         such as all_done, still work. Fleet leases a slot for it, moves the job there and \
-         tells it, and then it repeats this write."
+        "Every worktree slot is in use, so this job waits for one. It is {place}. End your \
+         turn now and say nothing to the owner about it: no waiting_for item and no question, \
+         since waiting is the default and Fleet sends this job nothing while it waits. Reads \
+         and Fleet's own tools still work. When a slot frees, Fleet moves the job there and \
+         tells it once, and then it repeats this write."
     )
 }
 

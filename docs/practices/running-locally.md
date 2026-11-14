@@ -241,6 +241,11 @@ A build that fails stops the restart before Fleet is stopped.
 It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.
 The app writes `Armada/bridge-native-quit` when it quits after its window opened (`crates/bridge-native/src/main.rs`), and `bridge-launch` reads that as a quit the person meant.
+**One live app runs at a time**, however it was opened (`crates/bridge-native/src/instance.rs`).
+It holds a lock on `Armada/bridge-native.lock` and writes its pid, its executable and whether launchd started it there.
+A second start brings the holder forward and exits; a start from launchd that finds a holder launchd did not start asks it to quit and takes its place.
+A notification press otherwise makes Launch Services open the bundle it registered, which has been an old build beside the running one (14 Nov 2026).
+So the live app also runs `lsregister -f` on its own bundle and `-u` on every other `builds/*/Armada.app` (`launch_services.rs`), and `scripts/keep-build` unregisters a bundle before it deletes it.
 A restart opens it where its job is not loaded or runs from anywhere but `builds/current`, the kept app differs from the build before's (`native` in `build.toml`), or the running app was built for another protocol than the new Fleet's; otherwise it is left as it is.
 **The protocol is read off the running process**, not the build before: `scripts/running-bridge` finds the build the app's binary is in and reads that build's `protocol_id`.
 A restart that died after it moved `builds/current` left the next one seeing no difference, and native on the old protocol (13 Nov 2026).
