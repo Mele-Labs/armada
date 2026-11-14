@@ -246,6 +246,21 @@ impl MockFleet {
     }
 }
 
+impl MockFleet {
+    /// Three asks of Jobs join Your turn first, as Fleet raises them: a conflict, a conflict another Job raised too,
+    /// and a held? on a pull request whose checks passed.
+    pub fn job_asks(&mut self) {
+        let asks: [&[u8]; 3] = [
+            br#"{"id":"turn:30","kind":"decision","urgency":"decision","session_id":"mock-09","job":"Upgrade the router","manifest_id":"armada","repository":"armada","item":{"id":"conflict:s-9c3e41a0:s-c41d7e88","text":"Both rewrite the retry path, so a 503 retries twice","since":"2026-11-11T13:02:00-05:00","source":"job_conflict","act":{"kind":"answer","target":"conflict:s-9c3e41a0:s-c41d7e88"},"options":[{"label":"Tell Upgrade the router to change"},{"label":"Tell Retry webhooks on a 503"},{"label":"Hold both"}]},"read":{"read":"Retry webhooks lands first and its change is the smaller, so the router adjusts to it.","pick":"Tell Upgrade the router to change"},"raised_at":"2026-11-11T13:02:00-05:00","conflict":{"raised_by":{"session_id":"mock-09","address":"s-9c3e41a0","title":"Upgrade the router"},"with":{"session_id":"mock-12","address":"s-c41d7e88","title":"Retry webhooks on a 503"},"files":["crates/fleet/src/retry.rs","crates/fleet/src/router.rs"],"wire":["RetryPolicy"],"mine":"Moves the retry loop into the router's middleware","theirs":"Adds a second retry loop around the webhook send","breaks":"Both rewrite the retry path, so a 503 retries twice"}}"#,
+            br#"{"id":"turn:31","kind":"decision","urgency":"decision","session_id":"mock-13","job":"Paginate the audit log","manifest_id":"armada","repository":"armada","item":{"id":"conflict:s-1d77a05b:s-e82c19f3","text":"The audit log pages by cursor while v1 still serves it by offset","since":"2026-11-11T13:04:00-05:00","source":"job_conflict","act":{"kind":"answer","target":"conflict:s-1d77a05b:s-e82c19f3"},"options":[{"label":"Tell Paginate the audit log to change"},{"label":"Tell Remove the v1 endpoints"},{"label":"Hold both"}]},"read":{"read":"Removing v1 is the older decision, so the pagination moves to cursors only.","pick":"Tell Paginate the audit log to change"},"raised_at":"2026-11-11T13:04:00-05:00","also_raised_by":["Remove the v1 endpoints"],"conflict":{"raised_by":{"session_id":"mock-13","address":"s-1d77a05b","title":"Paginate the audit log"},"with":{"session_id":"mock-14","address":"s-e82c19f3","title":"Remove the v1 endpoints"},"files":["apps/api/src/audit.ts"],"wire":[],"mine":"Pages the audit log by cursor","theirs":"Deletes the offset route the log is served from","breaks":"The audit log pages by cursor while v1 still serves it by offset"}}"#,
+            br#"{"id":"turn:32","kind":"decision","urgency":"decision","session_id":"mock-07","job":"Checkout page loads twice","manifest_id":"armada","repository":"armada","item":{"id":"held:armada:3671","text":"Should #3671 land?","since":"2026-11-11T13:03:00-05:00","source":"job_held","act":{"kind":"answer","target":"held:armada:3671"},"options":[{"label":"Land it"},{"label":"Hold it"}]},"read":{"read":"Its checks passed and no other Job writes those files, so it lands.","pick":"Land it"},"raised_at":"2026-11-11T13:03:00-05:00","held":{"pull":3671,"title":"Load the checkout page once","checks":"passed","asked_by":{"session_id":"mock-07","address":"s-3b09d6c1","title":"Checkout page loads twice"}}}"#,
+        ];
+        let asks: Vec<OperatorTurnItem> = asks.into_iter().filter_map(|wire| ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()).collect();
+        self.page.turn.splice(0..0, asks);
+        self.regroup();
+    }
+}
+
 /// When he presses Undo in the walk: the walk's clock.
 const UNDONE_AT: &str = "2026-11-11T13:05:00-05:00";
 

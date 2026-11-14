@@ -72,6 +72,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
         "side-job" => include_bytes!("../fixtures/side-jobs.json"),
+        // The same Jobs, with the second asking the Operator: a conflict and a held? in its Needs you, and the Operator's answers and Fleet's wire-change notices in its thread.
+        "operator-job-asks" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
         "option-pictures" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
@@ -175,6 +177,14 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         other => return Err(format!("no mock scenario named {other}")),
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
+    // The second Job holds what it sent the Operator, which waits on him where the Operator is off.
+    if scenario == "operator-job-asks" {
+        let items = br#"[{"id":"conflict:s-5b2e90c4:s-c41d7e88","text":"Both rewrite the retry path, so a 503 retries twice","since":"2026-11-11T12:50:00Z","source":"job_conflict","act":{"kind":"answer","target":"conflict:s-5b2e90c4:s-c41d7e88"},"options":[{"label":"Tell Native Bridge foundation to change"},{"label":"Tell Retry webhooks on a 503"},{"label":"Hold both"}]},{"id":"held:armada:3671","text":"Should #3671 land?","since":"2026-11-11T12:51:00Z","source":"job_held","act":{"kind":"answer","target":"held:armada:3671"},"options":[{"label":"Land it"},{"label":"Hold it"}]}]"#;
+        let items = ipc::decode::<Vec<ipc::WaitingItem>>("WaitingItem", items).map_err(|why| why.to_string())?;
+        for one in sessions.iter_mut().filter(|one| one.id.as_str() == "mock-02") {
+            one.waiting_for.extend(items.clone());
+        }
+    }
     // The tour's Jobs with three on another Mac: the one that needs him, a quiet one and one a walk has removed.
     if scenario == "jobs-pairing" {
         for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
@@ -535,6 +545,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        // The second Job's thread: what the Operator answered it, and the wire changes Fleet told it.
+        "operator-job-asks" => include_bytes!("../fixtures/operator-asks-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),

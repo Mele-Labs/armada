@@ -5,7 +5,7 @@
 use chrono::{DateTime, Local};
 use gpui::SharedString;
 use ipc::operator_page::{OperatorAnswer, OperatorMain, OperatorThen, OperatorTurnItem, OperatorTurnKind};
-use ipc::{Instant, MainCiState, WaitingActKind, WaitingSource};
+use ipc::{HeldChecks, Instant, MainCiState, OperatorConflict, OperatorHeld, WaitingActKind, WaitingSource};
 
 use crate::look::{token, Token};
 
@@ -23,6 +23,7 @@ const REVIEW: (Token, Token) = (token::STATUS_AWAITING_REVIEW, token::STATUS_AWA
 const WALK: (Token, Token) = (token::ACCENT_HOVER, token::ACCENT_MUTED);
 const PULL: (Token, Token) = (token::STATUS_REJECTED, token::STATUS_REJECTED_BG);
 const FAILED: (Token, Token) = (token::STATUS_COMPLETED_FAILED, token::STATUS_COMPLETED_FAILED_BG);
+const REPAIR: (Token, Token) = (token::STATUS_AWAITING_REPAIR, token::STATUS_AWAITING_REPAIR_BG);
 
 const fn kind(word: &'static str, glyph: &'static str, (hue, ground): (Token, Token)) -> Kind {
     Kind { word, glyph, hue, ground }
@@ -54,9 +55,79 @@ pub fn is_red_main(turn: &OperatorTurnItem) -> bool {
     turn.item.id.starts_with("red:")
 }
 
+/// The chip of a Job's own ask, which a `job_conflict` or `job_held` item of a Job's Needs you takes as the page does.
+pub fn ask_kind(source: WaitingSource) -> Option<Kind> {
+    match source {
+        WaitingSource::JobConflict => Some(CONFLICT),
+        WaitingSource::JobHeld => Some(HELD),
+        _ => None,
+    }
+}
+
+const CONFLICT: Kind = kind("Conflict", "triangle-alert", REPAIR);
+const HELD: Kind = kind("Held?", "git-pull-request", PULL);
+
+/// What a Job sent the Operator, where this item is one: the card draws it in place of the item's own words.
+#[derive(Clone, Copy)]
+pub enum JobAsk<'a> {
+    Conflict(&'a OperatorConflict),
+    Held(&'a OperatorHeld),
+}
+
+pub fn job_ask(turn: &OperatorTurnItem) -> Option<JobAsk<'_>> {
+    match (&turn.conflict, &turn.held) {
+        (Some(conflict), _) => Some(JobAsk::Conflict(conflict)),
+        (None, Some(held)) => Some(JobAsk::Held(held)),
+        _ => None,
+    }
+}
+
+/// A Job on a card as its chip says it: its title, else its address where it had none.
+pub fn job_named(job: &ipc::OperatorAskJob) -> SharedString {
+    if job.title.trim().is_empty() { job.address.clone().into() } else { job.title.clone().into() }
+}
+
+/// A held? card's title: the pull request, else the branch, which is what it asks to land.
+pub fn held_title(held: &OperatorHeld) -> String {
+    match (held.pull, &held.branch) {
+        (Some(pull), _) => format!("Land #{pull}, or is it held?"),
+        (None, Some(branch)) => format!("Land {branch}, or is it held?"),
+        (None, None) => "Land it, or is it held?".to_string(),
+    }
+}
+
+/// How a pull request's checks stand, as a registry glyph, its hue and its tooltip.
+pub fn checks_said(checks: HeldChecks) -> (&'static str, Token, &'static str) {
+    match checks {
+        HeldChecks::Passed => ("shield-check", token::STATUS_COMPLETED_SUCCESS, "Checks passed"),
+        HeldChecks::Pending => ("circle-dot", token::STATUS_RUNNING, "Checks running"),
+        HeldChecks::Failed => ("shield-x", token::STATUS_COMPLETED_FAILED, "Checks failed"),
+    }
+}
+
+/// What each outcome of a Job's ask does, for its tooltip, in the order Fleet lists them.
+pub fn ask_does(ask: JobAsk<'_>, at: usize) -> Option<String> {
+    match (ask, at) {
+        (JobAsk::Conflict(conflict), 0) => Some(format!("{} is told to change its side", job_named(&conflict.raised_by))),
+        (JobAsk::Conflict(conflict), 1) => Some(format!("{} is told to change its side", job_named(&conflict.with))),
+        (JobAsk::Conflict(_), 2) => Some("Both Jobs are told to hold landing until you rule".to_string()),
+        (JobAsk::Held(held), 0) => Some(format!("{} is told to land it", job_named(&held.asked_by))),
+        (JobAsk::Held(held), 1) => Some(format!("{} is told to hold it", job_named(&held.asked_by))),
+        _ => None,
+    }
+}
+
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
     if is_red_main(turn) {
         return kind("Red main", "circle-x", FAILED);
+    }
+    match job_ask(turn) {
+        Some(JobAsk::Conflict(_)) => return CONFLICT,
+        Some(JobAsk::Held(_)) => return HELD,
+        None => {}
+    }
+    if let Some(ask) = ask_kind(turn.item.source) {
+        return ask;
     }
     if turn.kind == OperatorTurnKind::GoAhead {
         return kind("Go-ahead", "bot", OPERATOR);
@@ -85,6 +156,11 @@ fn files(turn: &OperatorTurnItem) -> bool {
 
 /// An item's name in the list: the Job's, or the item's own words where no Job holds it.
 pub fn title_of(turn: &OperatorTurnItem) -> SharedString {
+    match job_ask(turn) {
+        Some(JobAsk::Conflict(conflict)) => return conflict.breaks.clone().into(),
+        Some(JobAsk::Held(held)) => return held_title(held).into(),
+        None => {}
+    }
     match &turn.job {
         Some(job) => job.clone().into(),
         None if files(turn) => format!("File your note: {}", turn.item.text).into(),
@@ -99,6 +175,9 @@ pub fn card_title(turn: &OperatorTurnItem) -> SharedString {
 
 /// What the card says it asks, under the title, where the title is the Job's: the item's words.
 pub fn asks_of(turn: &OperatorTurnItem) -> Option<SharedString> {
+    if job_ask(turn).is_some() {
+        return None;
+    }
     turn.job.as_ref().map(|_| turn.item.text.clone().into())
 }
 
@@ -328,5 +407,33 @@ mod tests {
         none.read.as_mut().expect("a read").pick = " ".into();
         assert_eq!(pick_of(&none), None);
         assert_eq!(pick_of(&turn(PLAN)).as_deref(), Some("Approve"));
+    }
+    #[test]
+    fn a_job_ask_is_drawn_only_where_its_field_is_set_and_leads_with_what_it_says() {
+        let conflict = r#"{"raised_by":{"session_id":"s-1","address":"s-9c3e41a0","title":"Upgrade the router"},"with":{"session_id":"s-2","address":"s-c41d7e88","title":""},"files":["a.rs"],"wire":[],"mine":"Moves the loop","theirs":"Adds a loop","breaks":"A 503 retries twice"}"#;
+        let held = r#"{"branch":"armada/router","asked_by":{"session_id":"s-1","address":"s-9c3e41a0","title":"Upgrade the router"}}"#;
+        let with = |field: &str, wire: &str| turn(&format!(r#"{{"id":"turn:40","kind":"decision","session_id":"s-1","job":"Upgrade the router","item":{{"id":"x","text":"Should it land?","since":"2026-11-11T12:00:00Z","source":"agent"}},"raised_at":"2026-11-11T12:00:00Z","{field}":{wire}}}"#));
+        let (plain, asked_conflict, asked_held) = (turn(PLAN), with("conflict", conflict), with("held", held));
+        assert!(job_ask(&plain).is_none() && job_ask(&asked_conflict).is_some() && job_ask(&asked_held).is_some());
+        assert_eq!((kind_of(&asked_conflict).word, kind_of(&asked_conflict).glyph), ("Conflict", "triangle-alert"));
+        assert_eq!((kind_of(&asked_held).word, kind_of(&asked_held).glyph), ("Held?", "git-pull-request"));
+        assert_eq!(kind_of(&plain).word, "Plan");
+        assert_eq!(title_of(&asked_conflict), "A 503 retries twice");
+        assert_eq!(title_of(&asked_held), "Land armada/router, or is it held?", "the branch where there is no pull request");
+        assert_eq!(asks_of(&asked_conflict), None);
+        assert_eq!(asks_of(&plain).as_deref(), Some("Approve plan version 2"));
+        let Some(JobAsk::Conflict(conflict)) = job_ask(&asked_conflict) else { panic!("a conflict") };
+        assert_eq!(job_named(&conflict.with), "s-c41d7e88", "a Job with no title is named by its address");
+    }
+
+    #[test]
+    fn a_pull_requests_title_names_its_number_and_checks_are_a_glyph_with_words() {
+        let held: OperatorHeld = ipc::decode("a held", br#"{"pull":3671,"checks":"failed","asked_by":{"session_id":"s-1","address":"s-9c3e41a0","title":"Upgrade the router"}}"#).expect("a held");
+        assert_eq!(held_title(&held), "Land #3671, or is it held?");
+        assert_eq!(checks_said(HeldChecks::Passed).2, "Checks passed");
+        assert_eq!(checks_said(HeldChecks::Pending).2, "Checks running");
+        assert_eq!(checks_said(HeldChecks::Failed), ("shield-x", token::STATUS_COMPLETED_FAILED, "Checks failed"));
+        assert_eq!(ask_does(JobAsk::Held(&held), 1).as_deref(), Some("Upgrade the router is told to hold it"));
+        assert_eq!(ask_does(JobAsk::Held(&held), 2), None);
     }
 }

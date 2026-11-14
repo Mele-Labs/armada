@@ -1,0 +1,140 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-02",
+   "head": {
+    "trail": {
+     "started": "2026-11-11T12:30:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-001",
+      "at": "2026-11-11T12:40:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Keep the router change small, and ask the Operator before you land the thread rows."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-002",
+      "at": "2026-11-11T12:41:30Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I raised a conflict with Retry webhooks on a 503 and asked whether #3671 lands."
+     }
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-003",
+     "notice": {
+      "kind": "message",
+      "id": "n-003",
+      "at": "2026-11-11T12:52:10Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "held? #3671: The Operator says land it. Its checks passed and no other Job writes those files.",
+      "notice": "operator"
+     },
+     "rows": [],
+     "handled": false
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-004",
+     "notice": {
+      "kind": "message",
+      "id": "n-004",
+      "at": "2026-11-11T12:55:40Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "Conflict with Retry webhooks on a 503 (s-c41d7e88): Both rewrite the retry path, so a 503 retries twice\nYours: Moves the retry loop into the router's middleware\nTheirs: Adds a second retry loop around the webhook send\nThe Operator says your side changes. Retry webhooks lands first and its change is the smaller.",
+      "notice": "operator"
+     },
+     "rows": [],
+     "handled": false
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-005",
+      "at": "2026-11-11T12:57:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Moving the retry loop out of the router's middleware."
+     }
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-006",
+     "notice": {
+      "kind": "message",
+      "id": "n-006",
+      "at": "2026-11-11T13:01:20Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "Wire change in the merge queue: #3662. It changes 2 types your branch reads.\nSessionRow: adds notice. Read at crates/bridge-native/src/view.rs:2, crates/bridge-native/src/jobs.rs:118\nOperatorTurnItem: adds conflict; adds held. Read at crates/bridge-native/src/operator/face.rs:41",
+      "notice": "wire_changed"
+     },
+     "rows": [],
+     "handled": false
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-007",
+     "notice": {
+      "kind": "message",
+      "id": "n-007",
+      "at": "2026-11-11T13:04:50Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "#3662 merged: its wire change is on main.",
+      "notice": "wire_changed"
+     },
+     "rows": [],
+     "handled": false
+    },
+    {
+     "kind": "fleet_turn",
+     "id": "n-008",
+     "notice": {
+      "kind": "message",
+      "id": "n-008",
+      "at": "2026-11-11T13:06:05Z",
+      "from": {
+       "kind": "session",
+       "id": "fleet",
+       "title": "Fleet"
+      },
+      "text": "Wire change in the merge queue: #3680. It changes 1 type your branch reads.\nHeldChecks: adds pending. Read at crates/bridge-native/src/operator/face.rs:88\nFleet added this line later and the table has no place for it",
+      "notice": "wire_changed"
+     },
+     "rows": [],
+     "handled": false
+    }
+   ]
+  }
+ ]
+}

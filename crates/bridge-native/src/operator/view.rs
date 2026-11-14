@@ -13,7 +13,7 @@ use super::face::{self, Kind};
 use super::page::{Done, Opened, OperatorPageView};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
-use crate::titlebar::parts::{glyph, kbd, sans, spinner, tip};
+use crate::titlebar::parts::{glyph, kbd, mono, sans, spinner, tip};
 
 /// An item of Your turn held by the pointer.
 #[derive(Clone)]
@@ -67,6 +67,19 @@ pub(crate) fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look:
 
 pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
     chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
+}
+
+/// The chip of a Job's own ask: its word beside its glyph, in the hue of its kind.
+pub(crate) fn ask_chip(kind: Kind, look: &Look) -> AnyElement {
+    labelled(
+        chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
+            .id(SharedString::from(format!("ask-chip-{}", kind.word)))
+            .child(glyph(kind.glyph, look.length(token::SPACE_3), look.color(kind.hue)))
+            .flex_row_reverse(),
+        Role::Label,
+        kind.word,
+    )
+    .into_any_element()
 }
 
 /// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare. `JobPick` is a
@@ -386,7 +399,8 @@ impl OperatorPageView {
 
     /// The marks beside an ask's kind: where other Jobs raised it too, and Later's chip.
     fn marks(&self, turn: &OperatorTurnItem, look: &Look) -> Vec<AnyElement> {
-        let mut marks: Vec<AnyElement> = self.also_raised(turn, look).into_iter().collect();
+        // A conflict says who else raised it in words in its body, so its head carries no mark for it.
+        let mut marks: Vec<AnyElement> = self.also_raised(turn, look).into_iter().filter(|_| turn.conflict.is_none()).collect();
         if turn.item.source == ipc::WaitingSource::OperatorUndone {
             let when = minute(turn.item.since.as_str(), self.clock_now.unwrap_or_else(chrono::Local::now)).unwrap_or_default();
             let said = format!("You took back the Operator's answer at {when}. It does not answer this again");
@@ -422,6 +436,8 @@ impl OperatorPageView {
         let first = &run[0];
         let grouped = run.len() > 1;
         let title = face::card_title(first);
+        // A Job's own ask wears its kind's hue on its edge and head, as a state does.
+        let asked = (!grouped && face::job_ask(first).is_some()).then(|| face::kind_of(first));
         let head = div()
             .flex()
             .items_center()
@@ -430,8 +446,9 @@ impl OperatorPageView {
             .py(look.length(token::SPACE_3))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .when(!grouped, |head| head.child(kind_chip(face::kind_of(first), look)))
-            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
+            .when_some(asked, |head, kind| head.bg(look.color(kind.ground)))
+            .when(!grouped, |head| head.child(if asked.is_some() { ask_chip(face::kind_of(first), look) } else { kind_chip(face::kind_of(first), look).into_any_element() }))
+            .child(div().flex_1().min_w_0().when(asked.is_none(), |title| title.truncate()).text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
             .when(!grouped, |head| head.children(self.marks(first, look)))
             .children(first.repository.clone().map(|repository| chip(repository, look.color(token::FG_MUTED), look.color(token::BG_HOVER), look)));
         let card = div()
@@ -439,7 +456,10 @@ impl OperatorPageView {
             .flex_none()
             .rounded(round(look))
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(if !grouped && first.kind == OperatorTurnKind::GoAhead { token::OPERATOR } else { token::OPERATOR_EDGE }))
+            .border_color(match asked {
+                Some(kind) => look.color(kind.hue),
+                None => look.color(if !grouped && first.kind == OperatorTurnKind::GoAhead { token::OPERATOR } else { token::OPERATOR_EDGE }),
+            })
             .bg(look.color(token::BG_RAISED))
             .overflow_hidden()
             .on_drag(TurnDrag { id: first.id.clone(), title: title.clone() }, |drag, _, _, cx| cx.new(|_| drag.clone()))
@@ -471,7 +491,8 @@ impl OperatorPageView {
         let open = self.open.as_deref() == Some(turn.id.as_str());
         let id = turn.id.clone();
         let name = face::asks_of(turn).unwrap_or_else(|| face::title_of(turn));
-        let line = div().flex().items_center().gap(look.length(token::SPACE_2)).child(kind_chip(face::kind_of(turn), look)).children(self.marks(turn, look));
+        let kind = face::kind_of(turn);
+        let line = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if face::job_ask(turn).is_some() { ask_chip(kind, look) } else { kind_chip(kind, look).into_any_element() }).children(self.marks(turn, look));
         let edge = open.then(|| {
             div()
                 .absolute()
@@ -525,7 +546,12 @@ impl OperatorPageView {
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
                 .children(turn.follows.as_ref().map(|follows| self.follows_line(follows, look, cx)))
         });
-        let options = face::chooses(turn).then(|| self.options(turn, look, cx));
+        let options = (face::chooses(turn) && face::job_ask(turn).is_none()).then(|| self.options(turn, look, cx));
+        let asked = face::job_ask(turn).map(|ask| self.ask_top(turn, ask, look, cx));
+        let foot = match face::job_ask(turn) {
+            Some(face::JobAsk::Held(held)) => Some(self.held_foot(held, look)),
+            _ => None,
+        };
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -568,8 +594,10 @@ impl OperatorPageView {
                     )
                     .child(div().w_full().min_w_0().child(note))
             }))
+            .children(asked)
             .children(read)
             .children(options)
+            .children(foot)
             .children(refused)
     }
 
@@ -594,7 +622,7 @@ impl OperatorPageView {
     /// `last` rounds the row into the card's corner.
     fn acts(&self, turn: &OperatorTurnItem, open: bool, last: bool, look: &Look, cx: &Context<Self>) -> Div {
         let chosen = self.option_of(turn);
-        let answers: Vec<AnyElement> = if !turn.then.is_empty() { self.outcomes(turn, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
+        let answers: Vec<AnyElement> = if !turn.then.is_empty() { self.outcomes(turn, look, cx) } else if let Some(ask) = face::job_ask(turn) { self.ask_outcomes(turn, ask, look, cx) } else { face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
             let yes = answer == OperatorAnswer::Yes;
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
@@ -658,6 +686,187 @@ impl OperatorPageView {
                 Role::Button,
                 "Ask",
             )))
+    }
+
+    /// A Job's ask in the card: a conflict's two Jobs, why each side stands and the files behind a press; a held?'s
+    /// pull request or branch with its checks.
+    fn ask_top(&self, turn: &OperatorTurnItem, ask: face::JobAsk<'_>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        match ask {
+            face::JobAsk::Conflict(conflict) => self.conflict_top(turn, conflict, look, cx).into_any_element(),
+            face::JobAsk::Held(held) => self.held_top(held, look),
+        }
+    }
+
+    fn job_chip(&self, key: &str, job: &ipc::OperatorAskJob, look: &Look) -> AnyElement {
+        let name = face::job_named(job);
+        labelled(
+            div()
+                .id(SharedString::from(format!("job-chip-{key}")))
+                .flex_none()
+                .max_w_full()
+                .min_w_0()
+                .tooltip(tip(job.address.clone()))
+                .child(chip(name.clone(), look.color(token::FG_DEFAULT), look.color(token::BG_HOVER), look).max_w_full().min_w_0().truncate()),
+            Role::Label,
+            name,
+        )
+        .into_any_element()
+    }
+
+    fn conflict_top(&self, turn: &OperatorTurnItem, conflict: &ipc::OperatorConflict, look: &Look, cx: &Context<Self>) -> Div {
+        let why = |key: &str, who: &ipc::OperatorAskJob, said: &str| {
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1) / 2.)
+                .child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child(face::job_named(who)))
+                .child(labelled(div().id(SharedString::from(format!("conflict-{key}"))).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(said.to_string())), Role::Label, said.to_string()))
+        };
+        let open = self.unfolded.contains(&turn.id);
+        let word = match (conflict.files.is_empty(), conflict.wire.is_empty()) {
+            (false, true) => "Files",
+            (true, false) => "Wire types",
+            _ => "Files and wire",
+        };
+        let fold = (!conflict.files.is_empty() || !conflict.wire.is_empty()).then(|| {
+            let item = turn.id.clone();
+            let toggle = press("conflict-files", word.into(), Some(if open { "chevron-down" } else { "chevron-right" }), None, Weight::Bare, look)
+                .tooltip(tip(if open { "Fold the files and wire types away" } else { "Show the files and wire types the clash is in" }));
+            labelled(pressed(toggle, cx, on_ask(&turn.id, move |this, _, cx| this.toggle_files(&item, cx))), Role::Button, word)
+        });
+        let lines = |label: &'static str, rows: &[String]| {
+            (!rows.is_empty()).then(|| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1) / 2.)
+                    .child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child(label))
+                    .children(rows.iter().map(|row| div().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(row.clone()))))
+            })
+        };
+        let files = open.then(|| {
+            labelled(
+                div()
+                    .id("conflict-files-open")
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .children(lines("Files", &conflict.files))
+                    .children(lines("Wire types", &conflict.wire)),
+                Role::Group,
+                word,
+            )
+        });
+        let also = (!turn.also_raised_by.is_empty()).then(|| {
+            let said = format!("Also raised by {}", turn.also_raised_by.join(", "));
+            labelled(
+                div()
+                    .id("conflict-also")
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(glyph("layers", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                    .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
+                Role::Label,
+                said,
+            )
+        });
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(self.job_chip("raised-by", &conflict.raised_by, look))
+                    .child(glyph("arrow-left-right", look.length(token::SPACE_4), look.color(token::STATUS_AWAITING_REPAIR)))
+                    .child(self.job_chip("with", &conflict.with, look)),
+            )
+            .child(why("mine", &conflict.raised_by, &conflict.mine))
+            .child(why("theirs", &conflict.with, &conflict.theirs))
+            .children(also)
+            .children(fold)
+            .children(files)
+    }
+
+    fn held_top(&self, held: &ipc::OperatorHeld, look: &Look) -> AnyElement {
+        let (mark, name) = match (held.pull, &held.branch) {
+            (Some(pull), _) => ("git-pull-request", format!("#{pull}")),
+            (None, branch) => ("git-branch", branch.clone().unwrap_or_default()),
+        };
+        let said = match &held.title {
+            Some(title) if !title.is_empty() => format!("{name} {title}"),
+            _ => name.clone(),
+        };
+        let checks = held.checks.map(|checks| {
+            let (mark, hue, said) = face::checks_said(checks);
+            labelled(div().id("held-checks").flex_none().tooltip(tip(said)).child(glyph(mark, look.length(token::SPACE_4), look.color(hue))), Role::Image, said)
+        });
+        labelled(
+            div()
+                .id("held-pull")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .min_h(look.length(token::H_CONTROL_LG))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_LG) * 1.25)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_OVERLAY))
+                .text_size(look.length(token::TEXT_SM))
+                .child(glyph(mark, look.length(token::SPACE_4), look.color(token::STATUS_REJECTED)))
+                .child(div().flex_none().font_family(mono(look)).child(SharedString::from(name)))
+                .child(div().flex_1().min_w_0().truncate().children(held.title.clone().filter(|title| !title.is_empty()).map(SharedString::from)))
+                .children(checks),
+            Role::Row,
+            said,
+        )
+        .into_any_element()
+    }
+
+    /// Under a held?'s read: whose thread the answer goes to.
+    fn held_foot(&self, held: &ipc::OperatorHeld, look: &Look) -> AnyElement {
+        let said = format!("The answer goes to {}'s thread.", face::job_named(&held.asked_by));
+        labelled(div().id("held-foot").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(said.clone())), Role::Label, said).into_any_element()
+    }
+
+    /// A Job's ask: one press for each outcome Fleet lists, the Operator's pick filled with its glyph and why in
+    /// its tooltip. 1..n press an outcome, as a go-ahead to file's do.
+    fn ask_outcomes(&self, turn: &OperatorTurnItem, ask: face::JobAsk<'_>, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let keyed = self.open.as_deref() == Some(turn.id.as_str());
+        let pick = face::pick_of(turn);
+        let why = turn.read.as_ref().map(|read| read.read.clone()).filter(|read| !read.is_empty());
+        let row: Vec<AnyElement> = turn
+            .item
+            .options
+            .iter()
+            .enumerate()
+            .map(|(at, option)| {
+                let label: SharedString = option.label.clone().into();
+                let is_pick = pick.as_ref() == Some(&label);
+                let does = option.description.clone().filter(|said| !said.is_empty()).or_else(|| face::ask_does(ask, at)).unwrap_or_else(|| option.label.clone());
+                let said = match why.as_ref().filter(|_| is_pick) {
+                    Some(why) => format!("My pick: {why}\n{does}"),
+                    None => does,
+                };
+                let (icon, weight) = if is_pick { (Some("check"), Weight::Pick) } else { (None, Weight::Plain) };
+                let button = press(format!("outcome-{at}"), label.clone(), icon, keyed.then(|| (at + 1).to_string().into()), weight, look).tooltip(tip(said));
+                let button = pressed(button, cx, on_ask(&turn.id, move |this, _, cx| this.digit(at + 1, cx)));
+                labelled(button, Role::Button, label).into_any_element()
+            })
+            .collect();
+        row
     }
 
     /// A go-ahead to file: one press for each outcome, named for what happens, the Operator's pick filled

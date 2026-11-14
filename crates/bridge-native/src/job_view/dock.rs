@@ -1043,8 +1043,14 @@ impl JobView {
             let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
             self.answer_buttons(row, keyed, look, cx)
         });
+        // A Job's conflict or held? is marked as the Operator's page marks it: its word and glyph, in its hue.
+        let ask = row.and_then(|row| crate::operator::face::ask_kind(row.source));
+        let mark = match ask {
+            Some(kind) => div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().tooltip(tip(kind.word)).child(crate::operator::view::ask_chip(kind, look)),
+            None => div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)),
+        };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
-            .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
+            .child(mark)
             .child(div().flex_1().min_w_0().when(buttons.is_none(), |text| text.truncate()).child(SharedString::from(text)))
             .children(thumbs)
             .children(done)
@@ -1640,6 +1646,10 @@ impl JobView {
             .items_start()
             .gap(look.length(token::SPACE_2))
             .child(div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs).children(body.stepper))
+            .children(match thing {
+                Thing::Row(row) => crate::operator::face::ask_kind(row.source).map(|kind| crate::operator::view::ask_chip(kind, look)),
+                _ => None,
+            })
             .children(body.head)
             .into_any_element();
         let inside = div().w_full().min_w_0().flex().flex_col().gap(look.length(token::SPACE_2)).child(body.body).children(said.map(|why| super::acts::refusal(look, "dock", why))).into_any_element();

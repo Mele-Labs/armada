@@ -82,6 +82,8 @@ pub struct OperatorPageView {
     parked_reading: bool,
     /// The digest's tiles he has folded or opened, by name, against how they open.
     pub(super) folded: HashMap<&'static str, bool>,
+    /// The conflicts whose files and wire types he opened, by item id.
+    pub(super) unfolded: BTreeSet<String>,
     pub focus: FocusHandle,
     /// The pane from a Job: the chat and a short list.
     pub(super) pane: bool,
@@ -169,6 +171,7 @@ impl OperatorPageView {
             parked,
             parked_reading: false,
             folded: HashMap::new(),
+            unfolded: BTreeSet::new(),
             focus: cx.focus_handle(),
             pane,
             aged: false,
@@ -655,6 +658,14 @@ impl OperatorPageView {
     /// place. Each answer has a letter of its own.
     pub fn digit(&mut self, digit: usize, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
+        // On a Job's ask the digit is that outcome's press, which answers with it.
+        if face::job_ask(&turn).is_some() {
+            if let Some(option) = digit.checked_sub(1).and_then(|at| turn.item.options.get(at)) {
+                self.option.insert(turn.id.clone(), option.label.clone());
+                self.answer_now(OperatorAnswer::Yes, cx);
+            }
+            return;
+        }
         if face::chooses(&turn) {
             if let Some(option) = digit.checked_sub(1).and_then(|at| turn.item.options.get(at)) {
                 self.option.insert(turn.id.clone(), option.label.clone());
@@ -672,6 +683,14 @@ impl OperatorPageView {
         let Some(turn) = self.open_item().cloned() else { return };
         self.then.insert(turn.id.clone(), then);
         self.answer_now(OperatorAnswer::Yes, cx);
+    }
+
+    /// The open conflict's files and wire types, shown or folded away.
+    pub fn toggle_files(&mut self, id: &str, cx: &mut Context<Self>) {
+        if !self.unfolded.remove(id) {
+            self.unfolded.insert(id.to_string());
+        }
+        cx.notify();
     }
 
     pub fn pick_option(&mut self, id: &str, label: &str, cx: &mut Context<Self>) {
@@ -693,6 +712,10 @@ impl OperatorPageView {
         // A pick of Later is done by Yes: the item goes Later, nothing is answered.
         if answer == OperatorAnswer::Yes && face::picks_later(&turn) && self.option.get(&turn.id).is_none() {
             return self.later(None, cx);
+        }
+        // A Job's ask with no pick of the Operator's is answered by an outcome pressed, never by Yes.
+        if answer == OperatorAnswer::Yes && face::job_ask(&turn).is_some() && face::pick_of(&turn).is_none() && !self.option.contains_key(&turn.id) {
+            return;
         }
         let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
         // The option goes out only where it is not the Operator's pick: a press that names none takes the pick.
@@ -1122,6 +1145,12 @@ impl OperatorPageView {
                 cx.notify();
                 return Ok(());
             }
+            // A tall card's foot, where a short window holds its outcomes below the fold.
+            "foot" => {
+                self.main_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(-340.)));
+                cx.notify();
+                return Ok(());
+            }
             "top" => {
                 self.main_scroll.set_offset(gpui::Point::default());
                 cx.notify();
@@ -1160,6 +1189,17 @@ impl OperatorPageView {
                 mock.precedent();
                 let page = mock.page.clone();
                 // They were waiting when he came back, so they raise no toast.
+                if let Some(seen) = self.seen.as_mut() {
+                    seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
+                }
+                self.set_page(page, cx);
+                self.open = self.page.as_ref().and_then(|page| page.turn.first()).map(|turn| turn.id.clone());
+                self.main_scroll.set_offset(gpui::Point::default());
+            }
+            // A conflict, a conflict raised twice and a held? first in Your turn, as Jobs sent them.
+            "job-asks" => {
+                mock.job_asks();
+                let page = mock.page.clone();
                 if let Some(seen) = self.seen.as_mut() {
                     seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
                 }
@@ -1277,6 +1317,110 @@ mod tests {
 
     fn open_id(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Option<String> {
         page.read_with(cx, |page, _| page.open.clone())
+    }
+
+    fn with_asks(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) {
+        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("job-asks", cx))).expect("the scene plays");
+        cx.run_until_parked();
+    }
+
+    fn labelled_in(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> bool {
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).is_some())
+    }
+
+    #[gpui::test]
+    fn a_conflict_lists_its_three_outcomes_in_fleets_order_and_a_digit_answers_with_that_one(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        with_asks(&page, cx);
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:30"));
+        let labels: Vec<String> = page.read_with(cx, |page, _| page.open_item().map(|turn| turn.item.options.iter().map(|option| option.label.clone()).collect()).unwrap_or_default());
+        assert_eq!(labels, ["Tell Upgrade the router to change", "Tell Retry webhooks on a 503", "Hold both"]);
+        for (at, label) in labels.iter().enumerate() {
+            assert!(labelled_in(cx, gpui::Role::Button, label), "outcome {at} is pressable by its name");
+        }
+        cx.simulate_keystrokes("2");
+        let sent = pressed(&page, cx);
+        assert_eq!(sent.len(), 1);
+        assert_eq!((sent[0].id.as_str(), sent[0].answer), ("turn:30", OperatorAnswer::Yes));
+        assert_eq!(labels.iter().position(|label| Some(label) == sent[0].option.as_ref()), Some(1), "Tell the other Job is choice 1");
+    }
+
+    #[gpui::test]
+    fn yes_on_a_conflict_takes_the_operators_pick_and_names_no_option_and_hold_both_is_choice_two(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        with_asks(&page, cx);
+        cx.simulate_keystrokes("a");
+        assert_eq!(pressed(&page, cx)[0].option, None, "Tell the Job that raised it is choice 0, which is the pick");
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:31"));
+        cx.simulate_keystrokes("3");
+        let sent = pressed(&page, cx);
+        assert_eq!((sent[1].id.as_str(), sent[1].option.as_deref()), ("turn:31", Some("Hold both")));
+    }
+
+    #[gpui::test]
+    fn a_held_offers_land_it_then_hold_it_and_a_digit_beyond_them_answers_nothing(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        with_asks(&page, cx);
+        cx.simulate_keystrokes("down down");
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:32"));
+        let labels: Vec<String> = page.read_with(cx, |page, _| page.open_item().map(|turn| turn.item.options.iter().map(|option| option.label.clone()).collect()).unwrap_or_default());
+        assert_eq!(labels, ["Land it", "Hold it"]);
+        cx.simulate_keystrokes("3");
+        assert!(pressed(&page, cx).is_empty(), "there is no third outcome");
+        cx.simulate_keystrokes("2");
+        let sent = pressed(&page, cx);
+        assert_eq!((sent[0].id.as_str(), sent[0].option.as_deref()), ("turn:32", Some("Hold it")));
+        assert_eq!(labels.iter().position(|label| Some(label) == sent[0].option.as_ref()), Some(1), "Hold it is choice 1");
+    }
+
+    #[gpui::test]
+    fn a_job_ask_the_operator_read_nothing_of_is_answered_only_by_an_outcome_pressed(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        with_asks(&page, cx);
+        page.update(cx, |page, _| {
+            if let Some(turn) = page.page.as_mut().and_then(|page| page.turn.iter_mut().find(|turn| turn.id == "turn:30")) {
+                turn.read = None;
+            }
+        });
+        cx.simulate_keystrokes("a");
+        assert!(pressed(&page, cx).is_empty(), "Yes has no pick to take");
+        cx.simulate_keystrokes("1");
+        assert_eq!(pressed(&page, cx)[0].option.as_deref(), Some("Tell Upgrade the router to change"));
+    }
+
+    #[gpui::test]
+    fn a_conflicts_files_open_on_a_press_and_fold_on_another(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        with_asks(&page, cx);
+        assert!(!labelled_in(cx, gpui::Role::Group, "Files and wire"), "folded until pressed");
+        page.update(cx, |page, cx| page.toggle_files("turn:30", cx));
+        cx.run_until_parked();
+        assert!(labelled_in(cx, gpui::Role::Group, "Files and wire"));
+        page.update(cx, |page, cx| page.toggle_files("turn:30", cx));
+        cx.run_until_parked();
+        assert!(!labelled_in(cx, gpui::Role::Group, "Files and wire"));
+    }
+
+    #[gpui::test]
+    fn the_cards_draw_only_where_the_field_is_set(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        assert!(!labelled_in(cx, gpui::Role::Label, "Conflict") && !labelled_in(cx, gpui::Role::Label, "Held?"), "no ask on the page, no chip");
+        with_asks(&page, cx);
+        assert!(labelled_in(cx, gpui::Role::Label, "Conflict"));
+        assert!(!labelled_in(cx, gpui::Role::Label, "Held?"), "the held? card is not the open one");
+        page.update(cx, |page, cx| page.open_id("turn:32", cx));
+        cx.run_until_parked();
+        assert!(labelled_in(cx, gpui::Role::Article, "Land #3671, or is it held?"));
+        // The same item with the fields taken off is an ordinary question.
+        page.update(cx, |page, cx| {
+            if let Some(turn) = page.page.as_mut().and_then(|page| page.turn.iter_mut().find(|turn| turn.id == "turn:32")) {
+                turn.held = None;
+                turn.item.source = ipc::WaitingSource::Agent;
+            }
+            cx.notify();
+        });
+        cx.run_until_parked();
+        assert!(!labelled_in(cx, gpui::Role::Article, "Land #3671, or is it held?"));
     }
 
     #[gpui::test]

@@ -15,6 +15,7 @@ use super::calls;
 use super::tool_icons::{self, Kind};
 use super::menus::{notice_entries, teach_entries};
 use super::rows::{check_look, chevron, elapsed_words, glyph, mono, tip, Size};
+use super::wire_notice::{parse as parse_wire, WireLine, WireNotice};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -556,13 +557,21 @@ impl JobView {
     ) -> AnyElement {
         let SessionRow::Message { text, at, notice: word, .. } = notice else { return div().into_any_element() };
         let fold_key = format!("fleet-turn-fold:{id}");
+        // What a notice's word says it is: the Operator's answer or word to this Job, or a wire change read for its table.
+        let operator = word.as_deref() == Some("operator");
+        let wire = (word.as_deref() == Some("wire_changed")).then(|| parse_wire(text)).flatten();
+        let landed = matches!(wire, Some(WireNotice::Landed { .. }));
+        // What a Job is told by name, and a table, is read at once; any other notice is one dim line until pressed.
+        let first_open = operator || matches!(wire, Some(WireNotice::Types { .. }));
+        let (mark, hue, mark_said) = match (&wire, operator) {
+            (Some(WireNotice::Landed { .. }), _) => ("git-merge", token::STATUS_REJECTED, "Wire change merged"),
+            (Some(_), _) => ("git-pull-request", token::STATUS_REJECTED, "Wire change"),
+            (None, true) => ("bot", token::OPERATOR, "Operator"),
+            (None, false) => ("bell-ring", token::FG_SUBTLE, "Fleet notice"),
+        };
         let mut head = vec![
-            chevron(look, page.opened.contains(&fold_key)),
-            div()
-                .id(SharedString::from(format!("fleet-mark:{id}")))
-                .child(glyph(look, "bell-ring", Size::Large, look.color(token::FG_SUBTLE)))
-                .tooltip(tip("Fleet notice"))
-                .into_any_element(),
+            if landed { div().flex_none().w(look.length(token::SPACE_3)).into_any_element() } else { chevron(look, first_open != page.opened.contains(&fold_key)) },
+            div().id(SharedString::from(format!("fleet-mark:{id}"))).child(glyph(look, mark, Size::Large, look.color(hue))).tooltip(tip(mark_said)).into_any_element(),
             // The whole notice is the label's tooltip, as Electron's.
             labelled(
                 div().id(SharedString::from(format!("fleet-label:{id}"))).min_w_0().truncate().child(summary_of(text)).tooltip(tip(text.clone())),
@@ -571,6 +580,19 @@ impl JobView {
             )
             .into_any_element(),
         ];
+        // The Operator's by-line: Fleet's row names the notice, and no more of who is speaking.
+        if operator {
+            head.insert(
+                2,
+                div()
+                    .flex_none()
+                    .text_size(look.length(token::TEXT_2XS))
+                    .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::OPERATOR))
+                    .child("Operator")
+                    .into_any_element(),
+            );
+        }
         if handled {
             head.push(
                 div()
@@ -595,8 +617,11 @@ impl JobView {
             .ml(look.length(token::SPACE_1))
             .pl(look.length(token::SPACE_4))
             .border_l(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(part(format!("fleet-notice:{id}"), text.clone()))
+            .border_color(look.color(if operator { token::OPERATOR_EDGE } else { token::BORDER_SUBTLE }))
+            .child(match &wire {
+                Some(WireNotice::Types { pull, lines, .. }) => self.wire_table(id, *pull, lines, look),
+                _ => part(format!("fleet-notice:{id}"), text.clone()).into_any_element(),
+            })
             .children(rows.iter().enumerate().map(|(at, row)| match row {
                 SessionRow::Tool { text, .. } => part(format!("fleet-call:{id}:{at}"), text.clone()).into_any_element(),
                 SessionRow::Message { id, text, .. } => self.prose(format!("fleet:{id}"), text, look, cx),
@@ -611,7 +636,16 @@ impl JobView {
         let region = div()
             .id(SharedString::from(format!("fleet-turn:{id}")))
             .text_color(look.color(token::FG_SUBTLE))
-            .child(self.fold(ix, fold_key, "Fleet turn".into(), head, Some(body), page, look, cx))
+            .when(operator, |region| {
+                region
+                    .px(look.length(token::SPACE_2))
+                    .py(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .bg(look.color(token::OPERATOR_FAINT))
+                    .border_l(look.length(token::BORDER_WIDTH) * 3.)
+                    .border_color(look.color(token::OPERATOR))
+            })
+            .child(self.fold_from(ix, fold_key, "Fleet turn".into(), head, (!landed).then_some(body), first_open, page, look, cx))
             .children(said.map(|why| refusal(look, &format!("notice:{id}"), why)));
         let region = self.menu_on(
             region,
@@ -623,6 +657,59 @@ impl JobView {
             cx,
         );
         labelled(region, Role::Region, "Fleet turn").into_any_element()
+    }
+
+    /// A wire change as a small table: a row for each type the branch reads, with what changed and where it reads
+    /// it. A row stacks, so a narrow thread wraps a path and never squeezes a column. A line that is not a type's
+    /// row stands under it as the words Fleet wrote.
+    fn wire_table(&self, id: &str, pull: u64, lines: &[WireLine], look: &Look) -> AnyElement {
+        let rows = lines.iter().enumerate().map(|(at, line)| match line {
+            WireLine::Row(row) => {
+                let said = format!("{}: {}. Read at {}", row.name, row.change, row.places.join(", "));
+                let one = div()
+                    .id(SharedString::from(format!("wire-row:{id}:{at}")))
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .pt(look.length(token::SPACE_1))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_wrap()
+                            .items_baseline()
+                            .gap_x(look.length(token::SPACE_3))
+                            .child(div().font_family(mono(look)).font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
+                            .child(div().text_color(look.color(token::FG_MUTED)).child(row.change.clone())),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .font_family(mono(look))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .children(row.places.iter().map(|place| div().min_w_0().child(place.clone()))),
+                    );
+                labelled(one, Role::Row, said).into_any_element()
+            }
+            WireLine::Plain(words) => div().pt(look.length(token::SPACE_1)).text_color(look.color(token::FG_MUTED)).child(words.clone()).into_any_element(),
+        });
+        labelled(
+            div()
+                .id(SharedString::from(format!("wire-table:{id}")))
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1))
+                .min_w_0()
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_SM))
+                .children(rows),
+            Role::Table,
+            format!("Wire change in #{pull}"),
+        )
+        .into_any_element()
     }
 }
 

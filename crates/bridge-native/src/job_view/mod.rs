@@ -108,6 +108,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 pub(crate) mod wire;
+mod wire_notice;
 mod waits_for;
 mod workflow_card;
 
