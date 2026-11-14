@@ -121,6 +121,7 @@ export async function enrol(request: Request, env: Env): Promise<Response> {
   // Past this point every request costs a call to the forge, so this is where an address is counted.
   const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
   if (
+    env.ENROL_LIMIT &&
     !(
       await env.ENROL_LIMIT.limit({
         key: address,

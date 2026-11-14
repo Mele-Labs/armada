@@ -8,7 +8,7 @@ import type { ClaimHolder, ClaimKind, Fact, Holder } from "../src/rows";
 export const STORE = "https://store.test";
 
 /** The Worker vars a test sets on top of the bindings: `TEAM` makes the store a team store. */
-export type Vars = Partial<Pick<Env, "TEAM">>;
+export type Vars = Partial<Pick<Env, "TEAM" | "ENROL_LIMIT">>;
 
 /** A request to the Worker, as the platform would hand it over. The vars go on a copy of the bindings, because writing them to `env` would stay set for every later test. */
 export const toStore = (url: string, init?: RequestInit, vars: Vars = {}): Promise<Response> =>
