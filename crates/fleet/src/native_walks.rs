@@ -1,13 +1,14 @@
 //! A native walk: a screen of the native Bridge a Job shows with `show_window` on
-//! `armada://walk/<name>`, opened by the person's press and run from the Job's own slot.
+//! `armada://walk/<name>`, opened by the person's press and run from the build he runs.
 //!
 //! **Only `open_native_walk` starts the app**, and only Bridge calls it, on a press. The binary is
-//! the slot's own build, never an installed app. **Fleet owns the process**: it is stopped when the
-//! walk ends, when the Job ends, when the slot is given back and when Fleet stops. Never written
+//! the native Bridge of the build his preview restart kept, never a Job's slot build: `show_window`
+//! refuses a walk that build does not play, so the one press opens it. **Fleet owns the process**:
+//! it is stopped when the walk ends, when the Job ends and when Fleet stops. Never written
 //! down, for `crate::servers`' reason, but unlike a server it does not outlive Fleet: it is a
 //! window on this Fleet's port.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Mutex;
 
@@ -20,30 +21,58 @@ use crate::daemon::Fleet;
 /// What a native walk's address begins with.
 pub(crate) const PREFIX: &str = "armada://walk/";
 
-/// Where the slot's build is, from the slot.
-const BINARY: &str = "crates/bridge-native/target/debug/bridge-native";
+/// The native Bridge of the build he runs, under `Armada/builds/current`: the one his preview
+/// restart kept, so a merged preview carries every offered branch's walks. Never a Job's slot.
+const APP: &str = "Armada.app/Contents/MacOS/Armada";
 
-/// What cargo wrote beside the build: every source it read, as `<build>: <source> <source> ...`.
-const SOURCES: &str = "crates/bridge-native/target/debug/bridge-native.d";
+/// The walk's own bundle, under the support folder: the same binary, hard-linked, under another
+/// bundle id, so macOS keeps a walk's menu bar and Dock apart from his running native Bridge's.
+const BUNDLE: &str = "walk/Armada.app";
 
-/// Whether a source the build made at `made` read has changed or gone since, by cargo's own list.
-/// **Not HEAD's commit time**: a commit moves no source, so `cargo build` leaves an up-to-date
-/// build as old as it was and a refusal on it could not be cleared. No list says nothing.
-fn outdated(slot: &Path, made: std::time::SystemTime) -> bool {
-    let Ok(listed) = std::fs::read_to_string(slot.join(SOURCES)) else { return false };
-    let Some((_, sources)) = listed.lines().next().and_then(|line| line.split_once(": ")) else { return false };
-    // A space inside a path is written `\ `.
-    sources.replace("\\ ", "\0").split(' ').filter(|source| !source.is_empty()).any(|source| {
-        std::fs::metadata(source.replace('\0', " ")).and_then(|meta| meta.modified()).map_or(true, |changed| changed > made)
-    })
+/// The brand icon, in the kept app.
+const ICON: &str = "Armada.app/Contents/Resources/AppIcon.icns";
+
+/// What every refusal of a walk his build cannot play ends with: the way to one it can.
+const OFFER: &str = "offer_preview the branch that adds it, and show the walk once he has refreshed his preview";
+
+/// The kept build he runs: `Armada/builds/current`.
+pub(crate) fn running_build(home: &str) -> PathBuf {
+    crate::runtime::support_dir(home).join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)
 }
 
-/// The app the walk runs as, beside the build: macOS names the menu bar and the Dock from the
-/// bundle a process runs from, so a bare binary said "bridge-native" there.
-const BUNDLE: &str = "crates/bridge-native/target/debug/walk/Armada.app";
+/// The walks the native Bridge at `app` plays (`--list-walks`), or why it cannot say.
+async fn walks_of(app: &Path) -> Result<Vec<String>, String> {
+    if !app.is_file() {
+        return Err(format!("the build he runs has no native Bridge at {}", app.display()));
+    }
+    let listed = tokio::process::Command::new(app)
+        .arg("--list-walks")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    match tokio::time::timeout(std::time::Duration::from_secs(10), listed).await {
+        Ok(Ok(out)) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout).lines().map(str::trim).filter(|name| !name.is_empty()).map(str::to_string).collect()),
+        Ok(Ok(_)) => Err("the native Bridge in the build he runs is older than walks from his preview, so it cannot name its walks".to_string()),
+        Ok(Err(why)) => Err(format!("the native Bridge in the build he runs could not be asked for its walks: {why}")),
+        Err(_) => Err("the native Bridge in the build he runs did not name its walks within 10 seconds".to_string()),
+    }
+}
 
-/// The brand icon, from the slot.
-const ICON: &str = "packages/brand/macos/AppIcon.icns";
+/// Why the build he runs cannot play `show`'s walk and its takes, or `None` where it can: the
+/// Job is told, so he is never handed a walk that does not open. `home` is Fleet's.
+pub(crate) async fn unplayable(home: &str, show: &ipc::ShowWindow) -> Option<String> {
+    let app = running_build(home).join(APP);
+    let known = match walks_of(&app).await {
+        Ok(known) => known,
+        Err(why) => return Some(format!("{why}: {OFFER}")),
+    };
+    std::iter::once(show.url.trim())
+        .chain(show.variations.iter().map(|take| take.url.trim()))
+        .filter_map(walk_name)
+        .find(|name| !known.iter().any(|one| one == name))
+        .map(|name| format!("the build he runs has no walk named {name}: {OFFER}"))
+}
 
 const INFO: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -60,16 +89,16 @@ const INFO: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 "#;
 
-/// The slot's build wrapped as `Armada.app`, its binary a hard link so nothing is copied, or the
-/// bare build where the wrapping fails: a walk named wrong in the menu bar still walks.
-fn wrapped(slot: &Path, binary: &Path) -> std::path::PathBuf {
-    let bundle = slot.join(BUNDLE);
+/// His build's binary wrapped as the walk's own `Armada.app`, a hard link so nothing is copied, or
+/// the bare binary where the wrapping fails: a walk named wrong in the menu bar still walks.
+fn wrapped(support: &Path, build: &Path, binary: &Path) -> PathBuf {
+    let bundle = support.join(BUNDLE);
     let executable = bundle.join("Contents/MacOS/Armada");
     let made = (|| -> std::io::Result<()> {
         std::fs::create_dir_all(executable.parent().expect("inside the bundle"))?;
         std::fs::create_dir_all(bundle.join("Contents/Resources"))?;
         std::fs::write(bundle.join("Contents/Info.plist"), INFO)?;
-        let icon = slot.join(ICON);
+        let icon = build.join(ICON);
         if icon.is_file() {
             std::fs::copy(&icon, bundle.join("Contents/Resources/AppIcon.icns"))?;
         }
@@ -121,7 +150,6 @@ fn stop(mut one: Held) {
 struct Held {
     session: String,
     url: String,
-    slot: String,
     /// When the build it was started from was made.
     built: std::time::SystemTime,
     child: tokio::process::Child,
@@ -142,7 +170,6 @@ impl NativeWalks {
         &self,
         session: &str,
         url: &str,
-        slot: &str,
         built: std::time::SystemTime,
         spawn: impl FnOnce() -> std::io::Result<tokio::process::Child>,
     ) -> std::io::Result<bool> {
@@ -156,7 +183,7 @@ impl NativeWalks {
             stop(held.remove(at));
         }
         let child = spawn()?;
-        held.push(Held { session: session.to_string(), url: url.to_string(), slot: slot.to_string(), built, child });
+        held.push(Held { session: session.to_string(), url: url.to_string(), built, child });
         Ok(true)
     }
 
@@ -178,11 +205,6 @@ impl NativeWalks {
     /// Every walk of the Job: it ended, or showed another window.
     pub(crate) fn stopped_for_job(&self, session: &str) {
         self.stopped_where(|one| one.session == session);
-    }
-
-    /// Every walk run from the slot at `path`: the slot is being given back.
-    pub(crate) fn stopped_in(&self, path: &str) {
-        self.stopped_where(|one| one.slot == path);
     }
 
     /// Every walk: Fleet is stopping.
@@ -213,8 +235,8 @@ where
         self.native_walks().stopped_all();
     }
 
-    /// `open_native_walk`: start the Job's own build of the native app for the walk it has open on
-    /// `open.url`, **or answer that it is already running** from that build.
+    /// `open_native_walk`: start the native Bridge of the build he runs on the walk the Job has open
+    /// on `open.url`, **or answer that it is already running** from that build.
     pub(crate) async fn native_walk_opened(&self, open: OpenNativeWalk) -> Result<NativeWalkOpened, Refusal> {
         let (id, url) = (open.session_id.as_str().trim().to_string(), open.url.trim().to_string());
         let Some(name) = walk_name(&url) else {
@@ -234,31 +256,21 @@ where
             .filter_map(|take| walk_name(&take.url).map(|walk| format!("{}={walk}", take.name)))
             .flat_map(|take| ["--take".to_string(), take])
             .collect();
-        let (_, hosting) = self.session_and_hosting(&id).await?;
-        if hosting.lease_slot.is_none() {
-            return Err(self.hosted_refusal(NOT_BUILT, "this job holds no slot, so it has no build to walk"));
-        }
-        let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id)))?;
-        let slot = Self::directory_of(&served, &hosting);
-        let binary = Path::new(&slot).join(BINARY);
-        let build_first = || self.hosted_refusal(NOT_BUILT, &format!("Build the walk first: cargo build in crates/bridge-native in {slot}"));
-        let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| build_first())?;
-        let outdated = {
-            let slot = std::path::PathBuf::from(&slot);
-            tokio::task::spawn_blocking(move || outdated(&slot, made)).await.unwrap_or(false)
-        };
-        if outdated {
-            return Err(build_first());
-        }
+        let home = self.host().home.clone();
+        let build = running_build(&home);
+        let binary = build.join(APP);
+        let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| {
+            self.hosted_refusal(NOT_BUILT, &format!("the build he runs has no native Bridge at {}", binary.display()))
+        })?;
         let port = self.host().port.to_string();
-        let program = wrapped(Path::new(&slot), &binary);
+        let program = wrapped(&crate::runtime::support_dir(&home), &build, &binary);
         let started = self
             .native_walks()
-            .started_once(&id, &url, &slot, made, || {
+            .started_once(&id, &url, made, || {
                 tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
                     .args(&takes)
-                    .current_dir(&slot)
+                    .current_dir(&build)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())

@@ -960,7 +960,7 @@ impl JobView {
 
     /// What a press on a row does, as Fleet's `act` says.
     fn press_row(&mut self, key: &str, item: &str, act: &NeedsYouAct, window: &mut Window, cx: &mut Context<Self>) {
-        // In Look a sketch, a walk and a command open whole before anything is done to them.
+        // In Look a sketch and a command open whole before anything is done to them; a walk starts at once.
         if crate::ways::looks() && super::look_dock::opens_whole(act) {
             self.set_needs(true, Some(key.to_string()), window, cx);
             return;
