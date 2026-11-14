@@ -8,7 +8,7 @@
 //! **A Job in an unshared project and a Job in none are one case**: nothing of either leaves, and an act on
 //! either is answered as an act on a Job that does not exist.
 //!
-//! **The phone is ruled here too** (`.claude/decisions/2026-11-12-two-macs-as-one-armada.md`): it sees a Job in
+//! **The phone is ruled here too** (his ruling of 12 Nov, *Two Macs as one Armada*): it sees a Job in
 //! a shared project, and a Job held from another Mac, which only a shared one is. `api::phone_share` puts every
 //! route the Phone Gateway calls through these.
 
