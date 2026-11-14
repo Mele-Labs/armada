@@ -1055,6 +1055,22 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-claim-waits",
+        title: "A Job waiting on an item another Job or a person holds",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that takes an item a Job on another Mac holds. The wait stands at the thread's end, with what ends it under it", "row", "Audit the docs index", "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            step("The holder's Mac in a chip, in the accent: Home is not one of these Macs", Verb::Look, "img", "Home"),
+            step("How long the Job has waited, and since when in its tooltip", Verb::Hover, "timer", "12 min"),
+            step("The line stays inside the card", Verb::Fits("region", "Claims"), "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A Job that takes an item a person is assigned in beads names the person and the item, and carries on once they are unassigned", "row", "Native Bridge foundation", "row", "Waiting on alice: armada-zasx.5"),
+            step("It has waited two hours", Verb::Look, "timer", "2 h"),
+            press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
+            step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
+        ],
+    },
+    Walk {
         name: "native-panes",
         title: "Splitting, sizing and closing a Job's panes",
         screen: Screen::Jobs,
