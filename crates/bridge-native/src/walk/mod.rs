@@ -3215,7 +3215,7 @@ pub static WALKS: &[Walk] = &[
             pairing("Air has let go of it: the row stands under this Mac again", "move-landed", "row", "Audit the docs index"),
             pairing("Another window asked for a move of it first: Fleet refuses the next one", "move-refused", "row", "Audit the docs index"),
             step("A right press on it again", Verb::RightPress("Audit the docs index"), "menuitem", "Move to Air"),
-            step("Fleet's sentence is said in a toast where it was pressed", Verb::Open("menuitem", "Move to Air"), "alert", "Toast: job mock-04 is moving already"),
+            step("Fleet's sentence is said in a toast where it was pressed", Verb::Open("menuitem", "Move to Air"), "alert", "Toast: This Job is already moving to Air."),
             step("⌘K opens the palette", Verb::Key("cmd-k"), "dialog", "Command palette"),
             step("A Job found by its words", Verb::Type("Audit"), "searchbox", "Search actions, jobs and settings"),
             step("⌘K again: its acts offer Move to Air, with ⌥⌘M", Verb::Key("cmd-k"), "menuitem", "Move to Air"),

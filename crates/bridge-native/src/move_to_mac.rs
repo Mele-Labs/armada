@@ -126,7 +126,7 @@ pub fn refuse_next(on: bool) {
 }
 
 /// Whether the mock Fleet refuses this move, and in what words: Fleet's `fleet.session_not_movable` for a Job that
-/// is moving already. Taken once.
-pub fn mock_refusal(job: &str) -> Option<String> {
-    REFUSE_NEXT.swap(false, std::sync::atomic::Ordering::SeqCst).then(|| format!("job {job} is moving already"))
+/// is moving already, naming the Mac it goes to. Taken once.
+pub fn mock_refusal(_job: &str) -> Option<String> {
+    REFUSE_NEXT.swap(false, std::sync::atomic::Ordering::SeqCst).then(|| "This Job is already moving to Air.".to_string())
 }
