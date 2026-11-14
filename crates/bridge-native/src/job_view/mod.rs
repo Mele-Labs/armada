@@ -62,6 +62,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_pages;
 mod page_tab;
 mod web_walk;
 pub(crate) mod rows;
@@ -419,6 +420,8 @@ pub struct JobView {
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
     refused_code: Option<String>,
+    /// What each web page's last Open that did not draw it came to: a walk's tab, and the live page in Now.
+    pages_open: web_pages::PagesOpen,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -622,6 +625,7 @@ impl JobView {
             choose_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
+            pages_open: Default::default(),
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),

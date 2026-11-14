@@ -23,6 +23,16 @@ pub struct FleetNotice {
     pub code: &'static str,
     /// A fault draws the red edge; a degraded state the degraded one.
     pub fault: bool,
+    /// What the toast offers, where it is a state he can end himself.
+    pub act: Option<NoticeAct>,
+}
+
+/// A press a held state's toast offers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoticeAct {
+    /// The agents' account is signed out for every Job: Sign in, or the ring while `running`. `account`
+    /// is its name as Fleet sends it, empty where Fleet does not say.
+    SignIn { running: bool, account: gpui::SharedString },
 }
 
 /// How hard a toast asks, as Fleet serves it: its edge, whether it sounds, and whether it holds its
