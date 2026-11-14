@@ -18,8 +18,9 @@ workspace = true
 axum = "0.7"
 futures-util = "0.3"
 http-body-util = "0.1"
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
+hyper = { version = "1", features = ["client", "server", "http1"] }
+# `service` hands the router to hyper on the Wi-Fi door, where `axum::serve` cannot take a TLS stream.
+hyper-util = { version = "0.1", features = ["tokio", "service"] }
 # `Secret`, for a VAPID key another Mac's subscription carries. No dependencies of its own.
 adapter-traits = { path = "../adapter-traits" }
 ipc = { path = "../ipc" }
@@ -40,6 +41,19 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-uti
 # hundreds of kilobytes of JSON. `tower-http` is already in the lock; `compression-gzip` adds
 # `async-compression` and `flate2`. Approved 12 Nov 2026.
 tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
+# The Wi-Fi door: another Mac on the same network reaches this one with no tunnel (`door`).
+# `rustls` and `tokio-rustls` are already in the lock under `reqwest`, with the same `ring`
+# provider; they are named here to serve TLS and to pin the other Mac's certificate.
+# `rcgen` is new: it makes the Mac's one self-signed certificate, which no CA could sign for an
+# address on a home network. It adds `yasna` and `pem`; `ring` is already in the lock.
+# `mdns-sd` is new: Bonjour, to advertise and browse `_armada._tcp`. The workspace forbids
+# `unsafe`, so the system's own `dns_sd` cannot be called, and the `dns-sd` command's output is
+# documented as not for scripts. Pure Rust, no async runtime; it adds `flume` and `if-addrs`.
+# Asked for on 13 Nov 2026 (armada-hu76.25).
+mdns-sd = "0.21"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 
 [dev-dependencies]
 axum = { version = "0.7", features = ["ws"] }
