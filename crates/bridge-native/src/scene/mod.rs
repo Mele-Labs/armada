@@ -11,6 +11,9 @@ mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
+// Read by the web-view page task that follows.
+#[allow(dead_code)]
+pub(crate) mod mock_page;
 mod route;
 mod screen;
 mod settle;
