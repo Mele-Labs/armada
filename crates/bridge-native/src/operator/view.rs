@@ -232,6 +232,28 @@ impl OperatorPageView {
                 said,
             )
         });
+        // Where the page reads on, the one press that reads it off. The last place in the head, so Tab reaches the pills first.
+        let on = self.page.as_ref().is_some_and(|page| page.on);
+        let switch_off = on.then(|| {
+            let refused = self.switch_off_refused.clone().map(|why| {
+                labelled(
+                    div().id("switch-off-refused").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(format!("Not switched off: {why}")),
+                    Role::Alert,
+                    format!("Not switched off: {why}"),
+                )
+            });
+            let control = labelled(
+                pressed(
+                    press("operator-switch-off", "Switch off".into(), Some("power"), None, Weight::Bare, look)
+                        .tooltip(tip("Nothing is handed to the Operator and it makes no calls")),
+                    cx,
+                    |this, _, cx| this.switch_off(cx),
+                ),
+                Role::Button,
+                "Switch the Operator off",
+            );
+            div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(refused).child(control)
+        });
         div()
             .flex_none()
             .flex()
@@ -257,6 +279,7 @@ impl OperatorPageView {
             )
             .children(mains)
             .children(slots)
+            .children(switch_off)
     }
 
     /// The Operator's one line on what changed: grey words under the day, as nothing on it is to be pressed.
@@ -1733,7 +1756,7 @@ impl OperatorPageView {
                 .gap(look.length(token::SPACE_2))
                 .text_color(look.color(token::FG_MUTED))
                 .child(spinner("switch-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
-                .child("Switching on")
+                .child(if self.switching_off { "Switching off" } else { "Switching on" })
                 .into_any_element()
         } else {
             labelled(
