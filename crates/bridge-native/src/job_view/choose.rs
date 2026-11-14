@@ -335,37 +335,48 @@ impl JobView {
         let (across, down) = (f32::from(area.width), f32::from(area.height));
         // Narrower than this the Job's name goes under the question, and the foot keeps only ← → and Answer in words.
         let narrow = across < f32::from(look.length(token::SPACE_12)) * 9.;
-        let words_of = |at: usize, option: &WaitingOption, measured: Option<Rc<RefCell<HashMap<usize, f32>>>>| {
+        let choose_of = |at: usize, option: &WaitingOption| {
             let label = crate::ways::name_of(&option.label).to_string();
             let mut choose = press(format!("choose:{}:{at}", row.id), "Choose".into(), None, None, Weight::Plain, look);
             if at == pick {
                 choose = primary(choose, look);
             }
+            labelled(pressed(choose, cx, move |this, window, cx| this.choose_option(at, window, cx)), Role::Button, format!("Choose {label}"))
+        };
+        let number = |at: usize| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(format!("{}", at + 1));
+        let name = |option: &WaitingOption| {
+            div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(crate::ways::name_of(&option.label).to_string()))
+        };
+        let said_of = |option: &WaitingOption, lines: usize| {
+            option.description.as_ref().filter(|said| !said.is_empty()).map(|said| {
+                div().line_clamp(lines).text_ellipsis().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
+            })
+        };
+        // An option in words under the stills: its number, its words, and Choose at the right.
+        let words_in_row = |at: usize, option: &WaitingOption| {
             div()
-                .relative()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
-                .child(div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(format!("{}", at + 1)))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .flex()
-                        .flex_col()
-                        .child(div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(label.clone())))
-                        .children(option.description.as_ref().filter(|said| !said.is_empty()).map(|said| {
-                            div().line_clamp(2).text_ellipsis().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
-                        })),
-                )
-                .child(labelled(pressed(choose, cx, move |this, window, cx| this.choose_option(at, window, cx)), Role::Button, format!("Choose {label}")))
-                .children(measured.map(|words| {
-                    measure(move |size, window| {
-                        let high = f32::from(size.height);
-                        if words.borrow_mut().insert(at, high) != Some(high) {
-                            window.refresh();
-                        }
-                    })
+                .child(number(at))
+                .child(div().flex_1().min_w_0().flex().flex_col().child(name(option)).children(said_of(option, 2)))
+                .child(choose_of(at, option))
+        };
+        // An option in a column: its number and label on one line, its words under them, measured so the still knows
+        // the height they take.
+        let words_in_column = |at: usize, option: &WaitingOption| {
+            let words = open.words.clone();
+            div()
+                .relative()
+                .flex()
+                .flex_col()
+                .child(div().flex().items_baseline().gap(look.length(token::SPACE_2)).child(number(at)).child(name(option).flex_1().min_w_0()))
+                .children(said_of(option, 3))
+                .child(measure(move |size, window| {
+                    let high = f32::from(size.height);
+                    if words.borrow_mut().insert(at, high) != Some(high) {
+                        window.refresh();
+                    }
                 }))
         };
         let pad = look.length(token::SPACE_2);
@@ -405,14 +416,16 @@ impl JobView {
         let least = f32::from(look.length(token::SPACE_12)) * 1.5;
         let columns = pool[run].iter().map(|&(at, option)| {
             let words_high = open.words.borrow().get(&at).copied().unwrap_or(0.);
-            let left = (down - under - f32::from(pad + edge) * 2. - f32::from(pad) - words_high).max(least);
+            let left = (down - under - f32::from(pad + edge) * 2. - f32::from(pad) * 2. - words_high - f32::from(look.length(token::H_CONTROL_LG))).max(least);
             let still = option
                 .picture
                 .as_ref()
                 .and_then(|picture| fit(picture.width, picture.height, inner, left))
                 .and_then(|size| crate::option_pictures::large(&row.id, options, at, size, open.lit == at, port, hue, look))
                 .map(|still| div().flex().justify_center().child(still));
-            frame(at, option, div().flex().flex_col().gap(pad).children(still).child(words_of(at, option, Some(open.words.clone()))), true).into_any_element()
+            // Choose takes the foot of its column, so the columns, as tall as the tallest, hold it on one line.
+            let body = div().flex_1().flex().flex_col().gap(pad).children(still).child(words_in_column(at, option)).child(div().mt_auto().flex().child(choose_of(at, option)));
+            frame(at, option, body, true).into_any_element()
         });
         let (measured_area, measured_worded) = (open.area.clone(), open.worded.clone());
         let close = labelled(
@@ -445,7 +458,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_2))
             .overflow_hidden()
-            .child(div().flex().items_start().gap(gap).children(columns))
+            .child(div().flex().gap(gap).children(columns))
             .when(!worded.is_empty(), |body| {
                 body.child(
                     div()
@@ -453,7 +466,7 @@ impl JobView {
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_2))
-                        .children(worded.into_iter().map(|(at, option)| frame(at, option, words_of(at, option, None), false).into_any_element()))
+                        .children(worded.into_iter().map(|(at, option)| frame(at, option, words_in_row(at, option), false).into_any_element()))
                         .child(measure(move |size, window| {
                             let high = f32::from(size.height);
                             if measured_worded.replace(high) != high {
