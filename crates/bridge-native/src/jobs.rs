@@ -448,15 +448,23 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 }
 
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
+    lines_within(jobs, ideas, scope, query, order, names, None)
+}
+
+/// [`lines_of`] narrowed to the Jobs started for `project`, by Fleet's id, when one is given: the scope and the
+/// search still apply within it. A starter in another project is not drawn for its place, and an idea stands only
+/// where a Job of the project stands in its root.
+fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>) -> Vec<Line> {
+    let of_project = |job: &&SessionRecord| project.is_none_or(|id| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     // Fleet clears `snoozed_until` when the snooze runs out, so one that is set is still ahead (`Held::snoozed`).
     let snoozed = |job: &SessionRecord| job.snoozed_until.is_some();
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
     let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
-    let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).collect();
+    let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).filter(of_project).collect();
     lives.sort_by_key(placed);
-    let mut ended: Vec<&SessionRecord> = jobs.iter().filter(|job| job.state == SessionState::Ended).collect();
+    let mut ended: Vec<&SessionRecord> = jobs.iter().filter(|job| job.state == SessionState::Ended).filter(of_project).collect();
     ended.sort_by(|a, b| b.ended_at.as_ref().map(|at| at.as_str()).cmp(&a.ended_at.as_ref().map(|at| at.as_str())));
     let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let picked: Vec<&SessionRecord> = match scope {
@@ -510,6 +518,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
     let idea_group = |idea: &crate::queued::QueuedIdea| {
         jobs.iter().find(|job| job.cwd == idea.root).map_or_else(|| (idea.repository.clone(), idea.repository.clone()), |job| group_of(job, names))
     };
+    let waiting: Vec<&crate::queued::QueuedIdea> = waiting.into_iter().filter(|idea| project.is_none_or(|id| idea_group(idea).0 == format!("project:{id}"))).collect();
     for idea in &waiting {
         let (key, name) = idea_group(idea);
         if !projects.iter().any(|(held, ..)| *held == key) {
@@ -825,6 +834,9 @@ pub struct JobsList {
     ideas: Vec<crate::queued::QueuedIdea>,
     /// What each group is called: his projects and the repositories Fleet serves, by name.
     names: Names,
+    /// The project the title bar is scoped to, by Fleet's id, as it said at its last pick: the list draws only
+    /// that project's Jobs. The bar's face holds the scope; this is read from it by [`Self::follow_scope`] and set nowhere else.
+    project: Option<String>,
     /// Jobs `session.removed` took away that the open Job's screen has not let go of yet.
     gone: Vec<SharedString>,
     _removed: Option<Subscription>,
@@ -903,6 +915,8 @@ impl JobsList {
                     }
                 });
             }
+            // A project Fleet no longer lists takes the bar back to All, which the list follows.
+            this.follow_scope(cx);
             let held = fleet.read(cx).held();
             let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
             let mut jobs = held.jobs.clone();
@@ -975,6 +989,7 @@ impl JobsList {
             lifted: None,
             ideas: crate::queued::ideas(cx),
             names,
+            project: None,
             gone: Vec::new(),
             _removed: None,
         };
@@ -1014,6 +1029,20 @@ impl JobsList {
             self.focused = self.first_row();
         }
         cx.notify();
+    }
+
+    /// A walk's Job Fleet has just started: it joins the list the walk plays on, as the event stream would bring it,
+    /// where the list does not hold it yet.
+    pub fn mock_started(record: SessionRecord, cx: &mut App) {
+        let Some(list) = cx.try_global::<MockList>().and_then(|held| held.0.upgrade()) else { return };
+        list.update(cx, |list, cx| {
+            if list.jobs.iter().any(|one| one.id == record.id) {
+                return;
+            }
+            list.jobs.push(record);
+            list.place_new();
+            list.relist(cx);
+        });
     }
 
     /// A walk's `session.removed` for these Jobs, sent to the list it plays on.
@@ -1260,7 +1289,17 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_of(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names)
+        lines_within(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref())
+    }
+
+    /// The title bar was scoped to a project, or back to All or a repository: the list takes the project the
+    /// bar's face names and draws only its Jobs. The scope of the list (Active, Needs you and the rest) holds within it.
+    pub fn follow_scope(&mut self, cx: &mut Context<Self>) {
+        let project = crate::titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string));
+        if project != self.project {
+            self.project = project;
+            self.relist(cx);
+        }
     }
 
     /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
@@ -2598,6 +2637,14 @@ impl JobsScreen {
         let opens = palette.downgrade();
         let fleet_of = list.downgrade();
         cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            // A project or a repository picked: the list follows the scope the bar now holds. The bar is being updated
+            // while it hands this on, so the list reads it once that is done.
+            if matches!(asked, crate::titlebar::Asked::Project(_) | crate::titlebar::Asked::Repository(_)) {
+                if let Some(list) = fleet_of.upgrade() {
+                    cx.defer(move |cx| list.update(cx, |list, cx| list.follow_scope(cx)));
+                }
+                return;
+            }
             // Skip on the Refresh row goes to Fleet, which keeps the row skipped.
             if let crate::titlebar::Asked::SkipOffers(id) = asked {
                 match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
@@ -3120,6 +3167,89 @@ mod tests {
         let lines = lines_of(&armada, &[], Scope::Active, "", &[], &Names::default());
         assert!(!lines.is_empty());
         assert!(lines.iter().all(|line| matches!(line, Line::Job(_))));
+    }
+
+    /// The Jobs a list draws, by id and in order of id: a list stands its Jobs by what they need, which these do not test.
+    fn ids(lines: &[Line]) -> Vec<String> {
+        let mut ids: Vec<String> = lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.id.to_string()), Line::Project(_) => None }).collect();
+        ids.sort();
+        ids
+    }
+
+    fn in_projects() -> (Vec<SessionRecord>, Names) {
+        (crate::mock::jobs("jobs-projects").expect("the fixture decodes"), Names::of(&crate::mock::repositories(), Some(&crate::mock::projects())))
+    }
+
+    #[test]
+    fn a_project_picked_keeps_its_jobs_and_all_brings_every_job_back() {
+        let (all, names) = in_projects();
+        let every = ids(&lines_within(&all, &[], Scope::Active, "", &[], &names, None));
+        assert_eq!(every, ids(&lines_of(&all, &[], Scope::Active, "", &[], &names)), "no project is the list as it was");
+        assert!(every.contains(&"mock-01".to_string()) && every.contains(&"mock-07".to_string()) && every.contains(&"mock-11".to_string()));
+        let storefront = lines_within(&all, &[], Scope::Active, "", &[], &names, Some("storefront"));
+        assert_eq!(ids(&storefront), ["mock-07", "mock-08", "mock-09", "mock-10"]);
+        assert!(headings(&storefront).is_empty(), "one project draws no head: the bar's trigger names it");
+        let armada = ids(&lines_within(&all, &[], Scope::Active, "", &[], &names, Some("armada")));
+        assert!(armada.iter().all(|id| ["mock-01", "mock-02", "mock-03", "mock-04", "mock-06"].contains(&id.as_str())), "{armada:?}");
+        assert!(!armada.is_empty());
+        // sample-api's Jobs were started for no project: a project keeps none of them, and one Fleet does not list keeps nothing.
+        assert!(ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("ledger"))).is_empty());
+        assert!(!ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("storefront"))).iter().any(|id| id == "mock-11"));
+    }
+
+    #[test]
+    fn the_scope_and_the_search_hold_within_the_project() {
+        let (all, names) = in_projects();
+        let within = |scope, query: &str, project| ids(&lines_within(&all, &[], scope, query, &[], &names, project));
+        assert!(within(Scope::Needs, "", None).contains(&"mock-01".to_string()));
+        assert_eq!(within(Scope::Needs, "", Some("storefront")), ["mock-10"], "mock-07 fails, which is not a question for him");
+        assert!(within(Scope::Paused, "", Some("storefront")).is_empty(), "the Job paused is Armada's");
+        assert_eq!(within(Scope::Paused, "", Some("armada")), ["mock-05"]);
+        assert_eq!(within(Scope::Ended, "", Some("armada")), ["mock-15"]);
+        assert!(within(Scope::Ended, "", Some("storefront")).is_empty());
+        let searched = within(Scope::Active, "dark mode", Some("storefront"));
+        assert_eq!(searched, ["mock-08"]);
+        assert!(within(Scope::Active, "dark mode", Some("armada")).is_empty());
+    }
+
+    #[test]
+    fn a_job_started_by_one_in_another_project_does_not_bring_its_starter_in_for_its_place() {
+        let (mut all, names) = in_projects();
+        // A Storefront Job started by an Armada one.
+        let raw = r#"{"kind":"started_by","target":"mock-01","state":"spent","since":"2026-11-12T09:30:00Z","changed_at":"2026-11-12T09:30:00Z"}"#;
+        let link = ipc::decode::<ipc::Attachment>("Attachment", raw.as_bytes()).expect("an attachment");
+        all.iter_mut().find(|job| job.id.as_str() == "mock-08").expect("a Storefront Job").attachments.push(link);
+        let ids_of = |project| ids(&lines_within(&all, &[], Scope::Active, "", &[], &names, project));
+        let whole = ids_of(None);
+        assert!(whole.iter().position(|id| id == "mock-08") > whole.iter().position(|id| id == "mock-01"), "under its starter on All");
+        assert_eq!(ids_of(Some("storefront")), ["mock-07", "mock-08", "mock-09", "mock-10"], "alone in its project");
+    }
+
+    #[gpui::test]
+    fn the_list_follows_the_scope_the_title_bar_holds(cx: &mut gpui::TestAppContext) {
+        let (all, _) = in_projects();
+        cx.update(crate::init_app);
+        let (bar, cx) = cx.add_window_view(|window, cx| crate::titlebar::TitleBar::new(window, cx));
+        let list = cx.update(|_, cx| cx.new(|cx| JobsList::mock(&all, cx)));
+        let shown = |list: &Entity<JobsList>, cx: &mut gpui::VisualTestContext| list.read_with(cx, |list, _| ids(&list.lines));
+        let on_all = shown(&list, cx);
+        assert!(on_all.contains(&"mock-01".to_string()) && on_all.contains(&"mock-07".to_string()), "a bar at rest scoped to a project filters nothing until a pick");
+        // Picking Storefront: the bar's face says so and the list follows when asked.
+        let mut face = crate::titlebar::scenes::rest();
+        face.scoped = Some(1);
+        bar.update(cx, |bar, _| bar.reset(face.clone()));
+        list.update(cx, |list, cx| list.follow_scope(cx));
+        assert_eq!(shown(&list, cx), ["mock-07", "mock-08", "mock-09", "mock-10"]);
+        // Back to All.
+        face.scoped = None;
+        bar.update(cx, |bar, _| bar.reset(face.clone()));
+        list.update(cx, |list, cx| list.follow_scope(cx));
+        assert_eq!(shown(&list, cx), on_all);
+        // One repository is no project.
+        face.chosen = Some(1);
+        bar.update(cx, |bar, _| bar.reset(face));
+        list.update(cx, |list, cx| list.follow_scope(cx));
+        assert_eq!(shown(&list, cx), on_all);
     }
 
     #[gpui::test]

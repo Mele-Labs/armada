@@ -97,6 +97,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
+| The project switcher (his report, 12 to 14 Nov) | Picking a project narrows the Jobs list to the Jobs started for it, with Active, Needs you and the other scopes still holding within them; All draws every Job again. The bar's own project name is the sign a filter is on, with no banner, and a window opens on All. ⌘T starts its Job for the picked project, in its first repository or the one the sheet's picker named |
 | Ended Jobs | Leave the list. The palette finds them |
 | Thread | A run of tool calls folds into one line that opens on a press |
 | Start | The app opens where he left off |

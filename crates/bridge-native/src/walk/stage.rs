@@ -106,7 +106,11 @@ impl Stage {
             }
             Screen::App => {
                 super::strip_marks::leave(cx);
-                crate::titlebar::scenes::begin(cx);
+                if walk.scenario == "project-filter" {
+                    crate::titlebar::scenes::begin_on_all(cx);
+                } else {
+                    crate::titlebar::scenes::begin(cx);
+                }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let keys = list.read(cx).focus_handle().clone();
