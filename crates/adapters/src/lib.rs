@@ -136,6 +136,8 @@ pub mod session_runs;
 /// The shared home on GitHub, and a folder on this machine read and written.
 mod shared_home;
 mod sign_in;
+/// Registering the app the device flow signs in with.
+mod sign_in_app;
 /// The tracked files of a checkout that hold some words, for a pinned note.
 pub mod source_search;
 /// A worktree before a person's run, and putting back what the run changed.
