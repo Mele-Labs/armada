@@ -167,16 +167,14 @@ The phone asks once more for an address when one lapses, and the video keeps its
 
 | Screen | Holds | Route |
 |---|---|---|
-| Drafts | The Jobs held on their start cards, and Jobs never spoken in (`blank`), newest first | `GET /api/sessions` |
-| Needs you | The live Jobs asking the owner something, oldest wait first, with those `stuck`, on a pull request's failed Checks (`failing_pull`), failed to start (`start_failed`), or `stopped` with Fleet out of things to try. Only these rows pulse | `GET /api/sessions` |
-| Done | The live Jobs that said, through `all_done`, that nothing is left, with the summary they gave and an End button on each row | `GET /api/sessions`, the ones with `done_since` |
-| Waiting | The live Jobs waiting on something that is not the owner: `held_open_by`, `limited_until`, `starts_when`, or `stopped` while Fleet is still bringing it back. A phone has no hover, so a row's second line says what holds it | `GET /api/sessions` |
-| Running | The live Jobs at work (`working`, or `reading` the request), `paused` or idle, each with its own mark. A reply reads as idle here, since the phone keeps no record of what the owner read, and a subagent or a command at work reads as working, since what runs stays on the Mac | `GET /api/sessions` |
+| Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
+| A row's second line | A waiting Job says what holds it, since a phone has no hover. A done Job says its summary and has an End button. Any other says its pull request, issue, workflow step and what it is doing now. Only Needs you rows pulse | `GET /api/sessions` |
+| A row's state | Fleet's `mark` where the Gateway sends one, else what the phone reads off the row's fields. Without a mark a reply reads as idle, since the phone keeps no record of what the owner read | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture, drawn in the thread | `GET /api/sessions/shown?session_id=&path=` |
 | A video | A video the Job showed, played in the thread, with its place kept | `GET /api/sessions/shown/address?session_id=&path=`, signed, then `GET /shown/<ticket>`, unsigned |
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
-| This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
+| This Mac | The name its dot's tooltip and the menu give it: the first label of its address, or its host name | `GET /api/machine` |
 
 > **Rule (12 Nov).** The phone sees only Jobs in a project he shares, and Jobs held from another Mac, which only a shared project sends.
 > A Job in an unshared project, or in none, is answered on every route as a Job that does not exist, and is in no list, stream or push.
@@ -284,7 +282,7 @@ Every other file, `index.html` and `sw.js` included, is `no-cache`.
 ## Several Macs
 
 **The phone talks to each Mac directly.** There is no relay.
-It is paired once per Mac, with a key of its own for each, and shows every Mac's Jobs together, each row labelled with its Mac where there is more than one.
+It is paired once per Mac, with a key of its own for each, and shows every Mac's Jobs together, each row with its Mac's dot where there is more than one.
 The app is served by whichever Mac the owner opened it from, and calls the others across origins.
 
 A 401 from one Mac marks that Mac as not paired, and the others carry on.

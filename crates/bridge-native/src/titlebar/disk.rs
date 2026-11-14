@@ -108,6 +108,16 @@ fn tone(state: State, look: &Look) -> Hsla {
     })
 }
 
+/// The hue the disk's state is drawn in, on the panel's Disk row as in the section.
+pub fn ink(disk: &DiskHealth, look: &Look) -> Hsla {
+    tone(state_of(disk), look)
+}
+
+/// How far along the meter the free space is, 0 to 1, for the Disk row's bar. None where no floor is set.
+pub fn filled(disk: &DiskHealth) -> Option<f32> {
+    scale(disk).map(|whole| along(disk.free_bytes, whole))
+}
+
 /// The section: the head, the meter, the fact, the last pass and the folders next to go.
 pub fn section(disk: &DiskHealth, look: &Look) -> AnyElement {
     let state = state_of(disk);

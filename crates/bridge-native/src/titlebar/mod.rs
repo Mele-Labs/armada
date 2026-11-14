@@ -23,6 +23,7 @@ mod origin;
 pub mod parts;
 mod projects;
 pub mod scenes;
+mod story;
 mod swap_hold;
 mod switcher;
 mod usage;
@@ -38,7 +39,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ModelDownshift};
 
-pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
+pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;
@@ -235,6 +236,15 @@ pub struct TitleBar {
     link: link_layer::LinkPanel,
     /// The search over the switcher's On origin row.
     origin: origin::OriginSearch,
+    /// Which rows at the Fleet panel's foot are open.
+    folds: Folds,
+}
+
+/// The rows at the Fleet panel's foot that open in place: Add a branch and Disk. Both start shut.
+#[derive(Clone, Copy, Default)]
+struct Folds {
+    branches: bool,
+    disk: bool,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -327,6 +337,7 @@ impl TitleBar {
             _swap_keys: None,
             build_read: None,
             origin: Default::default(),
+            folds: Folds::default(),
             offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
@@ -752,12 +763,6 @@ impl TitleBar {
         self.restart_onto(build, cx);
     }
 
-    /// The restart button: merge the preview again, or move to the latest main.
-    fn restart_pressed(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        self.restart_onto(on, cx);
-    }
-
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
     fn restart_onto(&mut self, build: BuildSource, cx: &mut Context<Self>) {
         self.answer(
@@ -825,6 +830,22 @@ impl TitleBar {
             cx,
         );
         cx.emit(Asked::Swap);
+    }
+
+    /// Add a branch opens or shuts, from its row or B. Opened, the keys go to its search; shut, back to the panel.
+    fn branches_toggled(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.folds.branches = !self.folds.branches;
+        let keys = match (self.folds.branches, self.origin.focus(cx)) {
+            (true, Some(search)) => search,
+            _ => self.popup_focus.clone(),
+        };
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        cx.notify();
+    }
+
+    /// The keys are in Add a branch's search, so B is a letter typed there.
+    fn typing_branch(&self, window: &Window, cx: &App) -> bool {
+        self.origin.focus(cx).is_some_and(|search| search.is_focused(window))
     }
 
     fn unpick_pressed(&mut self, branch: String, cx: &mut Context<Self>) {

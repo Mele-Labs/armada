@@ -25,8 +25,9 @@ use api::Refusal;
 use ipc::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
     FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant as WireInstant, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, RestartAct, SnapshotState, WireError,
+    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, RestartAct, SnapshotState, WireError,
 };
+use store::HolderKind;
 
 use crate::daemon::Fleet;
 use crate::kept_builds::{self, RevertStatus};
@@ -89,6 +90,14 @@ const FETCH_ORIGIN_LOAD: f64 = 24.0;
 const ORIGIN_FIRST: &str = "native/refresh-set";
 /// An origin branch with no commit in this long is not offered to a snapshot.
 const ORIGIN_RECENT: Duration = Duration::from_secs(14 * 24 * 60 * 60);
+/// Refs on origin that hold no one's work: the merge queue's, beads' sync ref, and the preview
+/// each Mac pushes for another to build.
+const PLUMBING: [&str; 3] = ["gh-readonly-queue/", "__dolt_remote_info__", "preview/"];
+
+/// Whether `branch` on origin is plumbing, which a snapshot is never offered.
+pub(crate) fn plumbing(branch: &str) -> bool {
+    PLUMBING.iter().any(|prefix| branch.starts_with(prefix))
+}
 /// A `running` status older than this is a wrapper that died, not one working.
 const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
@@ -500,10 +509,25 @@ impl Building {
             kept_builds::picked_in(support).into_iter().map(|branch| PickedJob { branch, title: None }).collect();
         let mut origin: Vec<OriginBranch> = origin
             .into_iter()
-            .filter(|(branch, _)| picked.iter().all(|one| one.branch != *branch))
-            .map(|(branch, at)| OriginBranch { branch, committed_at: WireInstant::carried(at) })
+            .filter(|(branch, _)| !plumbing(branch) && picked.iter().all(|one| one.branch != *branch))
+            .map(|(branch, at)| OriginBranch { branch, committed_at: WireInstant::carried(at), title: None })
             .collect();
         origin.sort_by_key(|one| one.branch != ORIGIN_FIRST);
+        // Off the recorded tip, so a branch deleted once it landed still reads landed.
+        let holds = {
+            let held = kept_builds::held_in(support);
+            let root = checkout.to_string_lossy().into_owned();
+            tokio::task::spawn_blocking(move || {
+                held.into_iter()
+                    .map(|(branch, tip)| {
+                        let landed = tip.or_else(|| adapters::branch_tip(&root, &branch)).is_some_and(|tip| adapters::on_main(&root, &tip));
+                        HeldBranch { branch, title: None, landed }
+                    })
+                    .collect()
+            })
+            .await
+            .unwrap_or_default()
+        };
         let running = kept_builds::kept_at(&support.join(kept_builds::BUILDS), kept_builds::CURRENT).map(|kept| KeptBuildRunning {
             built_at: WireInstant::carried(kept.built_at),
             commit: kept.commit,
@@ -538,6 +562,7 @@ impl Building {
             swapping: matches!(swap, Some(RevertStatus::Running)),
             switcher,
             origin,
+            holds,
         })
     }
 
@@ -721,8 +746,41 @@ where
             named(&mut previous.takes_out);
             named(&mut previous.brings_back);
         }
+        let asked: Vec<&str> = report.holds.iter().map(|one| one.branch.as_str()).chain(report.origin.iter().map(|one| one.branch.as_str())).collect();
+        let last = self.titles_of_last(checkout.as_deref(), &asked).await;
+        let title_of = |branch: &str| titles.get(branch).or_else(|| last.get(branch)).cloned();
+        for one in report.holds.iter_mut() {
+            one.title = title_of(&one.branch);
+        }
+        for one in report.origin.iter_mut() {
+            one.title = title_of(&one.branch);
+        }
         report.carried = self.carried_titles().await;
         Ok(report)
+    }
+
+    /// The title of the Job that held each of `branches` last, ended Jobs included, off the ledger's
+    /// `branch` rows, which outlive the Job: one standing first, else the latest settled. A branch no
+    /// Job here ever held is not here.
+    async fn titles_of_last(&self, checkout: Option<&Path>, branches: &[&str]) -> BTreeMap<String, String> {
+        let Some(root) = checkout.map(|one| one.to_string_lossy().into_owned()) else {
+            return BTreeMap::new();
+        };
+        let Some(served) = self.repositories().served().into_iter().find(|one| one.root() == root) else {
+            return BTreeMap::new();
+        };
+        let manifest = served.manifest().id().as_str();
+        let store = self.store().lock().await;
+        let mut titles = BTreeMap::new();
+        for branch in branches {
+            let rows = store.attachments_at("branch", branch, Some(manifest)).unwrap_or_default();
+            let Some(row) = rows.into_iter().find(|row| row.holder.kind == HolderKind::Session) else {
+                continue;
+            };
+            let title = store.session(&row.holder.id).ok().flatten().and_then(|one| one.title).unwrap_or(row.holder.id);
+            titles.insert(branch.to_string(), title);
+        }
+        titles
     }
 
     /// The title of the live Job that holds each branch of the repository `checkout` is in. **A Job

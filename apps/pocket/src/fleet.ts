@@ -10,7 +10,7 @@ import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, OperatorDispatched, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { homeWhenBack } from "./router";
-import { rowStateOf } from "./rowState";
+import { rowStateOf, standingOf } from "./rowState";
 import { events } from "./sse";
 
 export type Mac = {
@@ -304,7 +304,7 @@ export type Line = {
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
   several: boolean;
-  /** Each repository's Jobs in Fleet's order, a Job another started right under its starter. One repository draws no head. */
+  /** Each project's Jobs, Needs you first and otherwise in Fleet's order, a Job another started right under its starter. */
   repositories: {
     name: string;
     lines: Line[];
@@ -317,22 +317,39 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
   const all: Item[] = macs
     .filter((mac) => mac.paired)
     .flatMap((mac) =>
-      mac.live.map((session) => ({
-        mac,
-        session,
-        ...rowStateOf(session),
-      })),
+      mac.live.map((session) => {
+        const read = rowStateOf(session);
+        return {
+          mac,
+          session,
+          ...read,
+          ...(session.mark === undefined || session.mark.state === read.state
+            ? {}
+            : {
+                state: session.mark.state,
+              }),
+        };
+      }),
     );
   const repositories: Home["repositories"] = [];
-  const kin = (a: Item, b: Item) =>
-    a.mac === b.mac && a.session.repository === b.session.repository;
+  /** Native groups by project, else the repository's folder. */
+  const groupOf = (item: Item) => item.session.project ?? item.session.repository ?? "";
+  const kin = (a: Item, b: Item) => a.mac === b.mac && groupOf(a) === groupOf(b);
   const seen = new Set<string>();
   for (const item of all) {
-    const name = item.session.repository ?? "";
+    const name = groupOf(item);
     const key = `${item.mac.machine.origin} ${name}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const held = all.filter((one) => kin(one, item));
+    const held = all
+      .filter((one) => kin(one, item))
+      .map((one, at) => ({
+        one,
+        at,
+        standing: standingOf(one),
+      }))
+      .sort((a, b) => a.standing[0] - b.standing[0] || a.standing[1] - b.standing[1] || a.at - b.at)
+      .map(({ one }) => one);
     const lines: Line[] = [];
     const placed = new Set<string>();
     const under = (starter: Item, depth: number, through: readonly boolean[]) => {
