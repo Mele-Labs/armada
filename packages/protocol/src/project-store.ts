@@ -51,5 +51,13 @@ export type DeployProjectStore = {
 
 /** What a deploy did. `needs_token`: Cloudflare refused every sign-in this Mac has, and nothing was changed. */
 export type StoreDeployed =
-  | { outcome: "deployed"; state: ProjectStoreState; join_said?: string }
-  | { outcome: "needs_token"; page: string; said: string };
+  | {
+      outcome: "deployed";
+      state: ProjectStoreState;
+      join_said?: string;
+    }
+  | {
+      outcome: "needs_token";
+      page: string;
+      said: string;
+    };

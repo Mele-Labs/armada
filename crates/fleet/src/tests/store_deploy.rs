@@ -139,7 +139,7 @@ async fn a_deploy_names_the_store_in_its_project_and_a_refusal_names_none() {
     else {
         panic!("the pasted token deploys");
     };
-    let store = state.store.expect("the project names its store");
+    let store = state.store.clone().expect("the project names its store");
     assert_eq!(store.address, "https://armada-store.person.workers.dev");
     assert_eq!(store.worker.as_deref(), Some("armada-store"));
     assert!(store.deployed.is_some());

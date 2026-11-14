@@ -751,7 +751,7 @@ fn assemble(
         // A store's deploy tries the tunnel's Cloudflare sign-in first, and keeps a token he pasted in
         // his own keychain.
         deploying: {
-            let tunnel_machine = machine.clone();
+            let tunnel_machine = machine.to_path_buf();
             fleet::store_deploy::Deploying {
                 cloudflare: Arc::new(adapters::HttpCloudflare::new(fleet::store_deploy::CLOUDFLARE_TIMEOUT)?),
                 tokens: Arc::new(adapters::KeychainCloudflareTokens::new()),
