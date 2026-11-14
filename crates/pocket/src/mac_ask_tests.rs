@@ -166,7 +166,9 @@ async fn the_unsigned_hello_says_only_name_colour_and_build() {
     let home = Side::new("Home", &[]).await;
     let answer = reqwest::get(format!("{}/pair/mac/hello", home.address)).await.unwrap();
     assert_eq!(answer.status().as_u16(), 200);
-    assert_eq!(answer.text().await.unwrap(), r#"{"name":"Home","colour":"teal"}"#);
+    // Its tunnel's name, which is public on his account already, so a Mac his store lists is known for one found there.
+    let tunnel = crate::tunnel::tunnel_name(&home.id());
+    assert_eq!(answer.text().await.unwrap(), format!(r#"{{"name":"Home","colour":"teal","tunnel":"{tunnel}"}}"#));
 }
 
 #[tokio::test]

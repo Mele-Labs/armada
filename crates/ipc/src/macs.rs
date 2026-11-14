@@ -65,6 +65,41 @@ pub struct FoundMac {
     pub nearby: bool,
 }
 
+/// `GET /admin/macs/found` as the Gateway answers it now: each [`FoundMac`] with what his store says of it. A
+/// reader of [`FoundMacs`] reads the same answer without these.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VouchedMacs {
+    pub macs: Vec<VouchedMac>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
+}
+
+/// A [`FoundMac`], and whether a store this Mac joined lists it as his.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VouchedMac {
+    #[serde(flatten)]
+    pub mac: FoundMac,
+    /// A store this Mac joined lists it among his own devices, so Pair pairs it at once, with no Confirm.
+    #[serde(default)]
+    pub vouched: bool,
+    /// The store that listed it, which Pair names. `tunnel` is empty on a Mac only the store found whose Gateway
+    /// did not answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store: Option<String>,
+    /// Its device id on that store, which Pair names.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
+}
+
+/// `POST /admin/macs/pair/vouched` on the Gateway: pair now with the Mac `device` that his store `store` lists.
+/// Answers the [`crate::Mac`], linked.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PairVouchedMac {
+    pub store: String,
+    pub device: String,
+}
+
 /// `POST /admin/macs/pair/ask` on the Gateway: ask the Mac with this tunnel to pair, with no link.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
