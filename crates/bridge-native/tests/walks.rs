@@ -48,3 +48,27 @@ fn a_learned_value_and_the_thread_line_about_it_link_to_the_setting() {
 fn settings_plays_every_page_to_its_end() {
     plays("native-settings");
 }
+
+/// The Fleet panel on Fleet's build report: Running, Waiting, Refresh and its sentence, Update to main, Keep.
+#[test]
+fn the_fleet_panel_says_what_runs_and_what_refresh_builds() {
+    plays("build-switcher-live");
+}
+
+/// Offers for the preview stand under Waiting by their Job's title, and Refresh and Skip act on them.
+#[test]
+fn the_fleet_panel_names_each_offer_by_its_job() {
+    plays("native-preview-offers");
+}
+
+/// Add a branch opens the branches on origin; a plus puts one above the search, and Swap follows.
+#[test]
+fn add_a_branch_opens_the_branches_on_origin() {
+    plays("native-build-origin");
+}
+
+/// The Disk row at the panel's foot opens the section with its meter and floors.
+#[test]
+fn the_disk_row_opens_its_section() {
+    plays("native-fleet-disk");
+}
