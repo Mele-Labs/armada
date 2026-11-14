@@ -466,6 +466,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::PressPageAction,
     ) -> impl Future<Output = Result<ipc::PagePress, Refusal>> + Send;
 
+    /// `cast_page_vote`: his vote on a vote a page's kept revision declares, sent to the Job with every note and
+    /// kept. Answers with the cast. [`Refusal::Unacceptable`] for a vote the revision does not hold, a result of
+    /// another form, a take or part the vote does not hold, or a page archived or not held.
+    fn cast_page_vote(
+        self: Arc<Self>,
+        cast: ipc::CastPageVote,
+    ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(

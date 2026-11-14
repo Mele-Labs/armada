@@ -952,6 +952,19 @@ pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Se
     }
 }
 
+/// His vote on a page's vote. 200 with the cast; 422 for a vote the revision does not hold, a result of another
+/// form, a take or part the vote does not hold, or a page archived or not held.
+pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let cast: ipc::CastPageVote = match ipc::decode_body("a vote on a page", &body) {
+        Ok(cast) => cast,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().cast_page_vote(cast).await {
+        Ok(cast) => answer(StatusCode::OK, &cast, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
