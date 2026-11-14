@@ -38,7 +38,14 @@ pub fn told_of(batch: &[CallArrival]) -> Option<Told> {
     let title = if first.title.is_empty() { "Job".to_string() } else { first.title.clone() };
     let body = if others == 0 { first.text.clone() } else { format!("{}\nand {others} more", first.text) };
     let tone = if batch.iter().any(|one| one.tone == CallTone::Blocked) { CallTone::Blocked } else { CallTone::Waiting };
-    Some(Told { session_id: first.session_id.as_str().to_string(), title, body, tone })
+    // A Mac waiting to pair names its call by its key; `session_id` carries the same for readers without it.
+    let tag = first.key.clone().filter(|_| first.kind == ipc::CallArrivalKind::MacPairing).unwrap_or_else(|| first.session_id.as_str().to_string());
+    Some(Told { session_id: tag, title, body, tone })
+}
+
+/// A banner's tag that is a call's key, `mac:<id>`, rather than a Job's id: `CallArrivalKind::MacPairing`.
+pub fn is_call_key(tag: &str) -> bool {
+    tag.starts_with("mac:")
 }
 
 /// The sound file a tone carries, in the bundle's Resources: `apps/desktop/sounds`, copied in by
@@ -156,10 +163,16 @@ impl Notifier {
         banner::post(&told.session_id, &told.title, &told.body, sound_of(told.tone));
     }
 
-    /// A press on a banner: the app comes forward and the Job opens.
+    /// A press on a banner: the app comes forward and the Job opens. A Mac waiting to pair names no Job: its
+    /// banner opens the Operator's page with that Mac's card in front.
     fn pressed(&mut self, session_id: &str, cx: &mut Context<Self>) {
         cx.activate(true);
         let _ = self.window.update(cx, |_view, window, _cx| window.activate_window());
+        if is_call_key(session_id) {
+            crate::operator::screen::open_call(session_id.to_string(), cx);
+            Note::info("a banner was pressed").field("call", session_id).emit();
+            return;
+        }
         let opened = self.jobs.update(cx, |jobs, cx| jobs.open_job(session_id, cx)).unwrap_or(false);
         Note::info("a banner was pressed").field("opened", opened).emit();
     }
@@ -171,7 +184,7 @@ mod tests {
     use ipc::{CallArrivalKind, SessionId};
 
     fn arrival(job: &str, title: &str, text: &str, tone: CallTone) -> CallArrival {
-        CallArrival { session_id: SessionId::carried(job), title: title.into(), text: text.into(), tone, kind: CallArrivalKind::Needs }
+        CallArrival { session_id: SessionId::carried(job), title: title.into(), text: text.into(), tone, kind: CallArrivalKind::Needs, key: None }
     }
 
     #[test]
@@ -219,6 +232,18 @@ mod tests {
         collector.add(vec![arrival("b", "B", "y", CallTone::Blocked)]);
         collector.without(|job| job == "b");
         assert_eq!(collector.close(), None);
+    }
+
+    #[test]
+    fn a_mac_waiting_to_pair_is_told_under_its_calls_key_and_opens_no_job() {
+        let mut asked = arrival("mac:0a0b", "Confirm Work pairing", "Work wants to pair. Confirm if it shows 4821.", CallTone::Blocked);
+        asked.kind = CallArrivalKind::MacPairing;
+        asked.key = Some("mac:0a0b".into());
+        let told = told_of(&[asked]).expect("a banner");
+        assert_eq!(told.session_id, "mac:0a0b");
+        assert_eq!(told.title, "Confirm Work pairing");
+        assert!(is_call_key(&told.session_id));
+        assert!(!is_call_key("s-20b4e00a"), "a Job's id opens the Job");
     }
 
     #[test]

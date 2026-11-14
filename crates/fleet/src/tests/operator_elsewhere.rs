@@ -51,6 +51,7 @@ async fn paired(rig: &Rig, asleep_since: Option<i64>) {
         wire: None,
         built_at: None,
         source: None,
+        pin: None,
     };
     rig.fleet.store().lock().await.keep_mac(&mac).expect("paired");
 }

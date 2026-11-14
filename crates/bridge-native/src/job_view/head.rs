@@ -1183,6 +1183,7 @@ impl JobView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .items_center()
                         .gap(look.length(token::SPACE_3))
                         .px(look.length(token::SPACE_3))
@@ -1190,7 +1191,8 @@ impl JobView {
                         .border_x(look.length(token::BORDER_WIDTH))
                         .border_color(hue)
                         .bg(look.color(token::BG_RAISED))
-                        .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
+                        // The reason keeps a readable width; in a narrow thread the buttons wrap under it.
+                        .child(div().flex_1().min_w(gpui::px(180.0)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
                         .child(retry)
                         .child(fix),
                 )

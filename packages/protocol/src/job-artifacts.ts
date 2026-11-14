@@ -2,7 +2,7 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive, a restore, his Edit and a press publish.
+// which an archive, a restore, his Edit, a press and a vote publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
@@ -93,6 +93,63 @@ export type JobArtifact = {
   for_line?: ArtifactFor;
   /** Every press of an action a page declares, oldest first. Absent where none, and for every form but a page. */
   presses?: PagePress[];
+  /** The newest cast of each vote a page declares, in the order first cast. Absent where none, and for every form but a page. */
+  votes?: VoteCast[];
+};
+
+/** The forms a vote takes. */
+export type VoteForm = "pick" | "rank" | "score";
+
+/**
+ * `POST /sessions/artifacts/vote`: his vote on an `<armada-vote>` on a page, read off the kept revision he voted
+ * on. Answered with the `VoteCast`. 422 `fleet.page_vote_unknown`, `fleet.page_vote_form`, `fleet.page_vote_takes`,
+ * `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type CastPageVote = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  /** The kept revision he voted on. */
+  revision: number;
+  /** The vote's `id` attribute. */
+  vote: string;
+  result: VoteResult;
+};
+
+/** What he voted, tagged by `form`. `notes` are his words on a take, by the take's id. */
+export type VoteResult =
+  | {
+      form: "pick";
+      take: string;
+      notes?: Record<string, string>;
+    }
+  | {
+      form: "rank";
+      /** Every take once, first place first. */
+      order: string[];
+      notes?: Record<string, string>;
+    }
+  | {
+      form: "score";
+      /** A part left out is no vote. */
+      marks: VoteMark[];
+      notes?: Record<string, string>;
+    };
+
+/** One keep or drop on one named part of one take. */
+export type VoteMark = {
+  take: string;
+  part: string;
+  keep: boolean;
+};
+
+/** One cast of a page's vote, as Fleet kept it. */
+export type VoteCast = {
+  revision: number;
+  vote: string;
+  form: VoteForm;
+  result: VoteResult;
+  at: string;
 };
 
 /** The acts a page may run. Fleet keeps the list and refuses anything off it. */

@@ -1,0 +1,27 @@
+[operations.cast_page_vote]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "His vote on takes a Job's page declares with <armada-vote>: one picked, all ranked, or each named part kept or dropped, sent to the Job with every note"
+notes = """
+`POST /sessions/artifacts/vote`, body `CastPageVote`: `session_id`, `artifact` (the page's path, its `JobArtifact` id), `revision` (the kept revision he voted on), `vote` (the vote's `id`) and `result`. Answered with `VoteCast` `{ revision, vote, form, result, at }`, and `SessionChanged` is published on the page's Job.
+
+**The markup.** `<armada-vote id="..." form="pick|rank|score" question="..." parts="header,list,footer">` holding two or more `<armada-take id="..." title="...">`, each holding ordinary page content such as a sketch or a mock. `parts` is for `score` only, and required there: the named parts of a take, comma separated. **Read off the kept revision `revision`, never off a call** or the file as it is now. The first vote with the id is the one cast, and a take is the first with its id in that vote. When a page is kept, each vote with no id, an id an earlier vote holds, a form off the three, fewer than two takes, a take with no id or an id an earlier take of the vote holds, or a `score` with no parts is named to the Job in the `document_sketch` notice, `In the page <path>, vote "<question or id>" will not count: <why>.`, and the page is never refused.
+
+**`result`**, tagged by `form`, each with `notes?`, his words on a take by its id:
+- `pick`: `{ form: "pick", take, notes? }`.
+- `rank`: `{ form: "rank", order, notes? }`. `order` names every take once, first place first.
+- `score`: `{ form: "score", marks, notes? }`, each mark `{ take, part, keep }`. A part left out is no vote, and the last mark on a take's part counts.
+
+**What the Job is sent**, as his message: `He voted on "<question or vote id>" in "<title>".`, then
+- `pick`: `Picked: <take title>.`, then a line `<take title>: <words>` per note.
+- `rank`: a line per place, `<n>. <take title>`, with `: <words>` where there is a note.
+- `score`: a line per take, `<take title>: keeps <parts>; drops <parts>`, leaving out a half with no parts and a take with neither, then a line per note.
+Empty notes are left out. The message is sent first, so a send that fails keeps nothing.
+
+**Each cast is kept** in Fleet's store, `page_votes`, and `get_job_artifacts` serves the newest per vote on the page as `votes`. A recast replaces the earlier result there and is sent again.
+
+Refused with 422: `fleet.page_vote_unknown` for a revision not kept, an artifact that is not a page, or a vote id the revision does not hold, naming at most 20 it does; `fleet.page_vote_form` for a `result` whose form is not the one the vote declares, which a vote with a form off the three never matches; `fleet.page_vote_takes` for a take the vote does not hold, a part it does not name, a note on an unknown take, or an `order` that skips or repeats a take; `fleet.page_archived` for a page archived; `fleet.artifact_not_held` and `fleet.session_unnamed` as `archive_artifact` refuses them.
+
+`agent_access` is `No`: it is his vote.
+"""
