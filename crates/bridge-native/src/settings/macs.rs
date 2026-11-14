@@ -1799,9 +1799,11 @@ mod tests {
                 let short = edge(Role::Button, "Forget Mac mini").expect("a short-named Mac's press is drawn");
                 assert_eq!(long.1, short.1, "at {width:?} the long name does not push its press out of the column");
                 assert_eq!(long.2, short.2, "and the press keeps its width");
-                assert!(long.1 <= window.viewport_size().width, "at {width:?} the press is inside the window");
+                let devices = bounds_of(window, cx, Role::Region, "Devices").expect("the Devices card is drawn");
+                assert!(long.1 <= devices.right(), "at {width:?} the press is inside the Devices card");
                 let copy = edge(Role::Button, "Copy address").expect("Copy address is drawn");
-                assert!(copy.1 <= window.viewport_size().width, "at {width:?} a 90 character address does not push Copy address out of the window");
+                let tunnel_card = bounds_of(window, cx, Role::Region, "Tunnel").expect("the Tunnel card is drawn");
+                assert!(copy.1 <= tunnel_card.right(), "at {width:?} a 90 character address does not push Copy address out of its card");
                 let tunnel = bounds_of(window, cx, Role::Status, &format!("Reached at {LONG_ADDRESS}")).expect("the tunnel's row is drawn");
                 assert!(tunnel.right() <= copy.0, "at {width:?} the address stops before Copy address");
             });
