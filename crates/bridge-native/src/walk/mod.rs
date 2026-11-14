@@ -3179,8 +3179,9 @@ pub static WALKS: &[Walk] = &[
         scenario: "jobs-move",
         steps: &[
             step("Studio is paired with this Mac, Air. A right press on a Job that is working: Move to Studio stands in its menu with its key", Verb::RightPress("Native Bridge foundation"), "menuitem", "Move to Studio"),
-            press_on("One press sends it, with no sheet. The row keeps its place and says where the Job is going, in amber", "menuitem", "Move to Studio", "status", "Moving to Studio"),
-            step("Its Mac's dot, a muted arrow and Studio's dot stand before the title, and the row's edge is amber", Verb::Look, "img", "Studio"),
+            press_on("One press sends it, with no sheet. The row keeps its place and says it is moving, in amber", "menuitem", "Move to Studio", "status", "Moving to Studio"),
+            step("At the row's end: its Mac's dot, a muted arrow, Studio's dot and Moving in amber, and the row's edge is amber. The title keeps the rest", Verb::Look, "img", "Studio"),
+            step("The pointer on the mark says where it is going", Verb::Hover, "status", "Moving to Studio"),
             press_on("Its thread ends on a card: Moving to Studio, with the move's three steps", "row", "Native Bridge foundation", "region", "Moving"),
             step("The move waits for the turn to end, so that step is the one filled in", Verb::Look, "status", "Turn ends, current"),
             pairing("The turn ends: the branch is pushed next, and the filled step moves on", "turn-ends", "status", "Branch pushed, current"),

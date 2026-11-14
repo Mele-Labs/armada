@@ -2169,39 +2169,32 @@ impl JobsList {
         // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
         let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
         let mut mac_dot = dotted.then(|| crate::pairing::chip(row.mac.as_deref(), cx)).flatten().map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
-        // A Job on its way keeps its place and wears an amber edge: its Mac's dot, a muted arrow and the other Mac's dot stand
-        // before the title, and what it is doing at the row's end (`crate::mac_move`).
+        // A Job on its way keeps its place and wears an amber edge. At the row's end, before the marks, stand its Mac's dot, a muted
+        // arrow, the other Mac's dot and the amber word Moving, so the title keeps the width; where it is going is the mark's tooltip
+        // and its name (`crate::mac_move`).
         let on_its_way = row.moving.as_ref().map(|target| {
             let macs = crate::pairing::macs(cx);
             let away = row.mac.is_some();
             // A Job held from the other Mac that is moving here names this Mac by an id the list may not hold.
             let to = crate::pairing::chip_of(macs, Some(target)).or_else(|| away.then(|| crate::pairing::chip_of(macs, None)).flatten());
             let words: SharedString = crate::mac_move::moving_said(&crate::mac_move::name_of(macs, target, away)).into();
-            let lead = div()
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_1))
-                .children(mac_dot.take())
-                .child(div().flex_none().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child("\u{2192}"))
-                .children(to.map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-to-{}", row.id)), &chip)));
-            let said = labelled(
+            labelled(
                 meta(look)
                     .id(SharedString::from(format!("moving-{}", row.id)))
                     .flex_none()
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::STATUS_AWAITING_REVIEW))
-                    .child(words.clone()),
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .children(mac_dot.take())
+                    .child(div().flex_none().text_color(look.color(token::FG_SUBTLE)).child("\u{2192}"))
+                    .children(to.map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-to-{}", row.id)), &chip)))
+                    .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::STATUS_AWAITING_REVIEW)).child("Moving"))
+                    .tooltip(tip(words.clone())),
                 Role::Status,
                 words,
-            );
-            (lead, said)
+            )
         });
         let lamp_ink = if on_its_way.is_some() { look.color(token::STATUS_AWAITING_REVIEW) } else { lamp_ink };
-        let (move_lead, move_said) = match on_its_way {
-            Some((lead, said)) => (Some(lead), Some(said)),
-            None => (None, None),
-        };
         // A row with a time keeps the slot's fixed width so marks line up down the list; one without lets the slot shrink to its glyphs.
         let timed = time.is_some();
         let marks = div()
@@ -2288,7 +2281,6 @@ impl JobsList {
                             .child(svg().path(icon_path("link")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE)))
                             .tooltip(tip(said))
                     }))
-                    .children(move_lead)
                     .child(
                         div()
                             .flex_1()
@@ -2300,7 +2292,7 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
-                    .children(move_said)
+                    .children(on_its_way)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
@@ -3123,6 +3115,40 @@ mod tests {
 
     fn titles(lines: &[Line]) -> Vec<String> {
         lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.title.to_string()), Line::Project(_) => None }).collect()
+    }
+
+    fn row_ids(list: &JobsList) -> Vec<String> {
+        list.rows().map(|row| row.id.to_string()).collect()
+    }
+
+    #[gpui::test]
+    fn a_job_on_its_way_keeps_its_place_and_names_where_it_goes(cx: &mut gpui::TestAppContext) {
+        let all = crate::mock::jobs("jobs-screens").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        let hosted = list.read_with(cx, |list, _| list.jobs.iter().find(|job| job.hosted.is_some() && job.state == ipc::SessionState::Live).expect("a hosted Job").id.as_str().to_string());
+        let before = list.read_with(cx, |list, _| row_ids(list));
+        list.update(cx, |list, cx| list.mock_moving(&hosted, Some("studio".into()), cx));
+        list.read_with(cx, |list, _| {
+            assert_eq!(row_ids(list), before, "no row moved");
+            assert_eq!(list.rows().find(|row| row.id.as_ref() == hosted).and_then(|row| row.moving.clone()).as_deref(), Some("studio"));
+        });
+    }
+
+    #[gpui::test]
+    fn a_job_removed_here_and_back_under_its_id_stands_where_it_stood(cx: &mut gpui::TestAppContext) {
+        let all = crate::mock::jobs("jobs-screens").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        let before = list.read_with(cx, |list, _| row_ids(list));
+        let gone = before[1].clone();
+        let record = all.iter().find(|job| job.id.as_str() == gone).expect("its record").clone();
+        list.update(cx, |list, cx| list.gone(&[gone.clone()], cx));
+        list.read_with(cx, |list, _| assert!(!row_ids(list).contains(&gone)));
+        list.update(cx, |list, cx| {
+            list.jobs.push(record);
+            list.place_new();
+            list.relist(cx);
+        });
+        list.read_with(cx, |list, _| assert_eq!(row_ids(list), before));
     }
 
     #[gpui::test]
