@@ -136,7 +136,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -413,7 +413,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
-        "sketch-card" | "sketch-approve" | "sketches-several" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
         "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
@@ -460,12 +460,71 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
             }
         }
     }
+    // One card of each state, in the thread and none pinned: asking with a For line, approved, sent back with its words, only read, withdrawn.
+    if scenario == "sketch-band" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            band_sketches(thread);
+        }
+    }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
     if scenario == "job-system" {
         let empty = ipc::decode::<JobThread>("empty thread", br#"{"session_id":"mock-03","head":{"trail":{"started":"2026-11-11T11:40:00Z"}},"items":[]}"#).map_err(|why| why.to_string())?;
         all.insert("mock-03".to_string(), empty);
     }
     Ok(all)
+}
+
+/// The `sketch-band` thread: the Freshness chip and Merge line flow drawings dealt into five cards, one per state the band words.
+fn band_sketches(thread: &mut JobThread) {
+    let Some(chip) = thread.head.sketch.take() else { return };
+    let flow = thread.items.iter().find_map(|item| match item {
+        ipc::ThreadItem::Sketch(card) if card.sketch == "sketch:Merge line flow" => Some(card.clone()),
+        _ => None,
+    });
+    let Some(flow) = flow else { return };
+    thread.items.retain(|item| !matches!(item, ipc::ThreadItem::Sketch(_)));
+    let card = |from: &ipc::ThreadSketch, id: &str, title: &str, at: &str| {
+        let mut card = from.clone();
+        card.id = id.to_string();
+        card.sketch = format!("sketch:{title}");
+        card.title = title.to_string();
+        card.at = ipc::Instant::carried(at.to_string());
+        card.asked = false;
+        card.withdrawn = false;
+        card.settled = None;
+        card.revisions = Vec::new();
+        card.for_line = None;
+        card.against = None;
+        card.against_drawing = None;
+        card
+    };
+    let mut asking = card(&chip, "sk-band-asking", "Freshness chip", "2026-11-10T22:00:41Z");
+    asking.asked = true;
+    asking.revisions = vec![flow.drawing.clone(), chip.drawing.clone(), chip.drawing.clone()];
+    asking.for_line = Some(ipc::ArtifactFor {
+        text: Some("Which colour the chip takes once main is stale".to_string()),
+        links: vec![
+            ipc::ArtifactLink { kind: ipc::ArtifactLinkKind::PullRequest, label: "#3611".to_string(), target: "#3611".to_string() },
+            ipc::ArtifactLink { kind: ipc::ArtifactLinkKind::PlanStep, label: "Band sketch card".to_string(), target: "g1".to_string() },
+        ],
+    });
+    let mut approved = card(&flow, "sk-band-approved", "Merge line flow", "2026-11-10T22:01:10Z");
+    approved.asked = true;
+    approved.settled = Some(ipc::CardSettled { how: ipc::SketchHow::Approved, at: ipc::Instant::carried("2026-11-10T22:02:00Z".to_string()), words: None });
+    let mut sent = card(&flow, "sk-band-sent", "Store clock reads", "2026-11-10T22:01:20Z");
+    sent.asked = true;
+    sent.settled = Some(ipc::CardSettled {
+        how: ipc::SketchHow::SentBack,
+        at: ipc::Instant::carried("2026-11-10T22:02:10Z".to_string()),
+        words: Some("Show the clock under the chip, not beside it.".to_string()),
+    });
+    let reading = card(&flow, "sk-band-reading", "Pinned clock", "2026-11-10T22:01:30Z");
+    let mut withdrawn = card(&flow, "sk-band-withdrawn", "Crossing arrows", "2026-11-10T22:01:40Z");
+    withdrawn.asked = true;
+    withdrawn.withdrawn = true;
+    for one in [asking, approved, sent, reading, withdrawn] {
+        thread.items.push(ipc::ThreadItem::Sketch(one));
+    }
 }
 
 /// The workflow changes Fleet would list for the scenario last named by [`jobs`], by change id, as
