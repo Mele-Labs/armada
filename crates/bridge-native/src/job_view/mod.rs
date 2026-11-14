@@ -378,6 +378,8 @@ pub struct JobView {
     pane: Option<gpui::Pixels>,
     /// The height of the shown thread's list when it was last drawn: a pinned sketch is cut to it.
     pane_height: Option<gpui::Pixels>,
+    /// How wide each sketch drawn inside a plan was last drawn, by its key: its drawing is sized to it.
+    plan_columns: HashMap<String, gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
     /// Each Job's panes as an arrangement, the pane zoomed over the Job, and the steps back.
@@ -595,6 +597,7 @@ impl JobView {
             switched: None,
             pane: None,
             pane_height: None,
+            plan_columns: HashMap::new(),
             picked: 0,
             arranged: panes_place::Arranged::default(),
             tabs_menu: None,
