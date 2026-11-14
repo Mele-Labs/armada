@@ -195,7 +195,8 @@ const ACTS: &[(&str, &str)] = &[
     ("start_waiting", r#"{"session_id":"{id}"}"#),
 ];
 
-/// A Job in `project` waiting for `on` to end. Fleet keeps a wait only with the request it is to start on.
+/// A Job in `project` waiting for `on` to end. Fleet keeps a wait only with the request it is to start on,
+/// which only `start_session_reading` reads.
 async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
     let after = ipc::StartAfter { session: on.clone(), condition: ipc::StartCondition::Ends, base: ipc::StartBase::default(), needs: String::new() };
     let start = ipc::StartSession {
@@ -213,7 +214,7 @@ async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
         project_rows: Vec::new(),
         on_your_words: None,
     };
-    api::HostedSessions::start_session(&*rig.fleet, start).await.expect("started, waiting").id
+    api::HostedSessions::start_session_reading(Arc::clone(&rig.fleet), start).await.expect("started, waiting").id
 }
 
 #[tokio::test]
