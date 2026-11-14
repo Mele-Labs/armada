@@ -22,7 +22,8 @@ use crate::daemon::Fleet;
 const PAGE_ACTION_UNKNOWN: &str = "fleet.page_action_unknown";
 const PAGE_ACT_REFUSED: &str = "fleet.page_act_refused";
 const PAGE_ASK_NOT_OPEN: &str = "fleet.page_ask_not_open";
-const PAGE_ARCHIVED: &str = "fleet.page_archived";
+/// An archived page takes no press and no vote.
+pub(super) const PAGE_ARCHIVED: &str = "fleet.page_archived";
 /// Why an act off the list is refused, at the press.
 const OFF_THE_LIST: &str = "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message";
 /// The most action ids a refusal names.
@@ -230,7 +231,7 @@ where
     }
 
     /// Send the Job `text` as his message.
-    async fn told_as_him(self: &Arc<Self>, id: &str, text: String) -> Result<(), Refusal> {
+    pub(super) async fn told_as_him(self: &Arc<Self>, id: &str, text: String) -> Result<(), Refusal> {
         let terminal = self.terminal_session(id).await?;
         let told = SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() };
         Arc::clone(self).send_known(terminal, told).await.map(drop)

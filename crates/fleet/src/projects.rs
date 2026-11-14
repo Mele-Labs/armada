@@ -501,6 +501,7 @@ where
                     unread,
                     values: read.and_then(|one| crate::values::values_set(one.values())),
                     shared_with_macs: read.is_some_and(|one| one.shared_with_macs()),
+                    store: read.and_then(|one| one.store()).map(crate::project_store::store_on_the_wire),
                     mac: None,
                     id: project.id,
                     rows,
@@ -521,7 +522,7 @@ where
 
     /// [`Fleet::projects_written`], reading every project's file again before the answer where `reading`:
     /// a write of a project itself, and not of a row in it.
-    async fn projects_written_reading<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
+    pub(crate) async fn projects_written_reading<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
     where
         F: FnOnce(&mut Store, &KeptProjects) -> Result<(), Refusal> + Send,
     {
@@ -723,7 +724,7 @@ where
         let Ok(grown) = core_model::Project::declared(held.id().clone(), held.name().clone(), members) else {
             return Ok(false);
         };
-        let grown = grown.with_values(held.values().clone()).with_shared_with_macs(held.shared_with_macs());
+        let grown = grown.with_values(held.values().clone()).with_shared_with_macs(held.shared_with_macs()).with_store(held.store().cloned());
         self.project_stored(&grown).await?;
         Ok(true)
     }
@@ -739,6 +740,18 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
+        self.project_store_state(&project).await
+    }
+
+    async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
+        self.project_store_set(&project, set).await
+    }
+
+    async fn deploy_project_store(&self, project: String, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refusal> {
+        self.project_store_deployed(&project, deploy).await
+    }
+
     async fn list_projects(&self) -> Result<ipc::Projects, Refusal> {
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         Ok(self.projects_on_the_wire(kept).await)
@@ -762,6 +775,7 @@ where
                 unread: None,
                 values: crate::values::values_set(one.values()),
                 shared_with_macs: one.shared_with_macs(),
+                store: one.store().map(crate::project_store::store_on_the_wire),
                 mac: None,
             })
             .collect();
@@ -822,7 +836,8 @@ where
                 Some(set) => self.values_read(set)?,
                 None => held.values().clone(),
             })
-            .with_shared_with_macs(edit.shared_with_macs.unwrap_or(held.shared_with_macs()));
+            .with_shared_with_macs(edit.shared_with_macs.unwrap_or(held.shared_with_macs()))
+            .with_store(held.store().cloned());
         let chosen = match edit.place {
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,

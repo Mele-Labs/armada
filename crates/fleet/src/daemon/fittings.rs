@@ -266,6 +266,9 @@ pub struct Fittings<H, V, W> {
     /// for a claim on a red main. **A seam so a test can plant both** — see
     /// [`crate::red_claim`].
     pub reaching: Arc<dyn crate::red_claim::Reaching>,
+    /// What a project's store deploy reaches: Cloudflare, the tokens he pasted, the tunnel's sign-in and
+    /// the Worker. **A seam so a test plants all four** — see [`crate::store_deploy`].
+    pub deploying: crate::store_deploy::Deploying,
     /// How long a hosted session's process may sit with no turn before Fleet
     /// ends it. `timeouts.sessionQuietSeconds`, read at start.
     pub session_quiet: std::time::Duration,
@@ -357,6 +360,7 @@ where
             settings: fittings.settings,
             signing_in: fittings.signing_in,
             reaching: fittings.reaching,
+            deploying: fittings.deploying,
             judge: fittings.judge,
             trackers: fittings.trackers,
             tracking: crate::tracking::Tracking::new(),
@@ -390,6 +394,7 @@ where
             kept: crate::worktrees_kept::Kept::default(),
             sweeping: Mutex::new(crate::noticing::Sweep::default()),
             writes: Arc::default(),
+            job_claims: Default::default(),
             feed: Arc::default(),
             base_moves: Default::default(),
             gate_runs: Default::default(),

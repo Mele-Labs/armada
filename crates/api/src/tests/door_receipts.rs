@@ -153,6 +153,8 @@ fn long_lived() -> SessionRecord {
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 

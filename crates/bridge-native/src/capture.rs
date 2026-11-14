@@ -602,31 +602,122 @@ impl gpui::Render for Capture {
                                 this.write(said, window, cx);
                             }))),
                     );
-                layer = layer.child(placed(bounds, whole, window, gap, look.length(token::SPACE_8) * 11., labelled(card, Role::Dialog, self.words.card)));
+                layer = layer.child(placed(bounds, whole, under_title(window, cx), gap, look.length(token::SPACE_8) * 11., labelled(card, Role::Dialog, self.words.card)));
             }
         }
         layer
     }
 }
 
-/// A card put where all of it is on screen: under what it is about, or over it when that is low on
-/// the screen, and at the top of the window for a note on the whole of it.
-pub fn placed(bounds: Bounds<Pixels>, whole: bool, window: &Window, gap: Pixels, width: Pixels, card: impl IntoElement) -> impl IntoElement {
-    let view = window.viewport_size();
-    let (corner, at) = if whole {
-        (Anchor::TopLeft, point(bounds.origin.x + (bounds.size.width - width) / 2., bounds.origin.y + gap * 2.))
-    } else if bounds.origin.y + bounds.size.height > view.height * 0.6 {
-        (Anchor::BottomLeft, point(bounds.origin.x, bounds.origin.y - gap))
+/// The window's room for a card: the walk's room, or the window, under the app's title bar.
+pub fn under_title(window: &Window, cx: &gpui::App) -> Bounds<Pixels> {
+    let room = crate::room::of(window, cx);
+    let title = cx.look().length(token::H_TITLE_BAR);
+    Bounds { origin: point(room.origin.x, room.origin.y + title), size: gpui::size(room.size.width, (room.size.height - title).max(gpui::px(0.))) }
+}
+
+thread_local! {
+    /// The note card's size as last drawn, so the next frame places all of it. One card shows at a time.
+    static CARD_SIZE: std::cell::Cell<Option<gpui::Size<Pixels>>> = const { std::cell::Cell::new(None) };
+}
+
+/// A card put where all of it is on screen, inside `room` (the window under its title bar): under
+/// what it is about, else over it, else on the side with more room; at the top of the window for a
+/// note on the whole of it. It reads its own size as drawn, so a tall card never runs off an edge.
+pub fn placed(bounds: Bounds<Pixels>, whole: bool, room: Bounds<Pixels>, gap: Pixels, width: Pixels, card: impl IntoElement) -> impl IntoElement {
+    let size = CARD_SIZE.with(|cell| cell.get()).filter(|size| size.width == width).unwrap_or(gpui::size(width, width * 0.6));
+    let at = spot(bounds, whole, room, size, gap);
+    let measured = div().relative().child(card).child(
+        gpui::canvas(
+            move |drawn, window, _| {
+                if CARD_SIZE.with(|cell| cell.replace(Some(drawn.size))) != Some(drawn.size) {
+                    window.refresh();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .inset_0(),
+    );
+    deferred(anchored().anchor(Anchor::TopLeft).position(at).snap_to_window_with_margin(gap).child(measured)).with_priority(crate::annotate::OVER)
+}
+
+/// Where a card of `card` size goes for a target at `bounds`, its top-left corner, kept inside `room`
+/// with `gap` to spare. Below the target if it fits there, else above, else on the side with more room;
+/// its left edge on the target's, or its right edge on the target's when that runs past the room.
+fn spot(bounds: Bounds<Pixels>, whole: bool, room: Bounds<Pixels>, card: gpui::Size<Pixels>, gap: Pixels) -> Point<Pixels> {
+    let (top, bottom) = (room.origin.y + gap, room.origin.y + room.size.height - gap);
+    let (left, right) = (room.origin.x + gap, room.origin.x + room.size.width - gap);
+    let (x, y) = if whole {
+        (bounds.origin.x + (bounds.size.width - card.width) / 2., bounds.origin.y.max(room.origin.y) + gap * 2.)
     } else {
-        (Anchor::TopLeft, point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
+        let under = bounds.origin.y + bounds.size.height + gap;
+        let over = bounds.origin.y - gap - card.height;
+        let y = if under + card.height <= bottom {
+            under
+        } else if over >= top {
+            over
+        } else if bottom - under >= bounds.origin.y - gap - top {
+            bottom - card.height
+        } else {
+            top
+        };
+        let x = if bounds.origin.x + card.width <= right { bounds.origin.x } else { bounds.origin.x + bounds.size.width - card.width };
+        (x, y)
     };
-    deferred(anchored().anchor(corner).position(at).snap_to_window_with_margin(gap).child(card)).with_priority(crate::annotate::OVER)
+    // Clamped last, the top and left winning when the card is larger than the room.
+    point(x.min(right - card.width).max(left), y.min(bottom - card.height).max(top))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use gpui::{point, px, size};
+
+    fn inside(at: Point<Pixels>, card: gpui::Size<Pixels>, room: Bounds<Pixels>, gap: Pixels) {
+        assert!(at.x >= room.origin.x + gap && at.y >= room.origin.y + gap, "{at:?} past the room's top or left");
+        assert!(at.x + card.width <= room.origin.x + room.size.width - gap, "{at:?} past the room's right");
+        assert!(at.y + card.height <= room.origin.y + room.size.height - gap, "{at:?} past the room's bottom");
+    }
+
+    #[test]
+    fn a_note_card_stays_whole_inside_the_window_for_a_target_at_any_edge_or_corner() {
+        let card = size(px(352.), px(260.));
+        let gap = px(8.);
+        for (w, h) in [(820., 820.), (1400., 820.)] {
+            let room = Bounds { origin: point(px(0.), px(44.)), size: size(px(w), px(h - 44.)) };
+            let (right, bottom) = (w - 120., h - 60.);
+            let targets = [
+                (0., 44., 120., 60.),
+                (right, 44., 120., 60.),
+                (0., bottom, 120., 60.),
+                (right, bottom, 120., 60.),
+                (w / 2., 44., 120., 60.),
+                (w / 2., bottom, 120., 60.),
+                (0., h / 2., 120., 60.),
+                (right, h / 2., 120., 60.),
+                // A whole pane at the top right, as in his shot: no room above or below it.
+                (w / 2., 44., w / 2., h - 44.),
+            ];
+            for (x, y, tw, th) in targets {
+                let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(tw), px(th)) };
+                inside(spot(bounds, false, room, card, gap), card, room, gap);
+            }
+            inside(spot(Bounds { origin: point(px(0.), px(0.)), size: size(px(w), px(h)) }, true, room, card, gap), card, room, gap);
+        }
+    }
+
+    #[test]
+    fn a_note_card_goes_under_its_target_where_it_fits_else_over_it() {
+        let card = size(px(300.), px(200.));
+        let room = Bounds { origin: point(px(0.), px(44.)), size: size(px(1400.), px(776.)) };
+        let high = Bounds { origin: point(px(100.), px(100.)), size: size(px(80.), px(30.)) };
+        assert_eq!(spot(high, false, room, card, px(8.)), point(px(100.), px(138.)));
+        let low = Bounds { origin: point(px(100.), px(700.)), size: size(px(80.), px(30.)) };
+        assert_eq!(spot(low, false, room, card, px(8.)), point(px(100.), px(492.)));
+        let right = Bounds { origin: point(px(1300.), px(100.)), size: size(px(80.), px(30.)) };
+        assert_eq!(spot(right, false, room, card, px(8.)).x, px(1080.));
+    }
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
         let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };

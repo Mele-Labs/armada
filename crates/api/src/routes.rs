@@ -699,6 +699,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::press_page_action::<D>),
         )
         .route(
+            "/sessions/artifacts/vote",
+            post(crate::hosted_sessions::cast_page_vote::<D>),
+        )
+        .route(
+            "/sessions/artifacts/seen",
+            post(crate::hosted_sessions::mark_artifact_seen::<D>),
+        )
+        .route(
+            "/sessions/artifacts/page",
+            get(crate::hosted_sessions::get_artifact_page::<D>),
+        )
+        .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )
@@ -873,6 +885,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
         .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
+        .route(
+            "/projects/project/:project/store",
+            get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),
+        )
+        .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

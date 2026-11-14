@@ -42,8 +42,8 @@ Every feature goes through the same five steps, in order.
 1. An inventory of the Electron screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
 3. A parity check against running Electron, by the Job and then by a checker that did not build it.
-4. One native walk of the whole feature on mock data, in its own window with a walk bar, shown alone.
-   The owner annotates spacing and font changes there, or approves, and changes go into the native screens only.
+4. The branch offered with `offer_preview`, which he tries in his preview after Refresh preview.
+   He takes notes on it there with ⌥⌘A, or approves, and changes go into the native screens only.
 5. Land.
 
 **The parity check passes before any walk is shown.**
@@ -58,24 +58,30 @@ At least these match Electron:
 | Right-click | Every element's menu, with the same items in the same order |
 | Layout | Tabs, panels, resizing and focus behave the same |
 
-The walk's brief carries the result as a short table, with any known gpui gap.
+The offer's `about` carries the result as a short table, with any known gpui gap.
 
-**One walk per feature, never one per piece.**
+**One offer per feature, never one per piece.**
 Decided 9 Nov 2026: partial walks made the owner do the comparing, and the rebuild slowed.
 
-**Nothing he sees lands before his walk.**
+**Nothing he sees lands before he has tried it in his preview.**
+Decided 13 Nov 2026: a walk from a Job's slot build took him four presses and a refusal to open.
 
 ## Native walks
 
 A native walk is a screen on mock data in its own window with a walk bar.
 Its steps and scenario live in `crates/bridge-native/src/walk/`, and each step aims at a `{role, name}` that `labels::labelled` put on.
 
+**A walk is shown to him only for a state a live Fleet cannot reach**, such as Fleet down or a refused send.
+Everything else he sees in his preview.
+A Job still plays its walks itself, as its own check of a screen.
+
 | Step | What to do |
 |---|---|
-| Build | `cargo build` in `crates/bridge-native`, in the Job's own slot |
+| Build | `cargo build` in `crates/bridge-native`, in the Job's own slot, for the Job's own check only |
 | Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
-| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself |
-| He opens it | He presses the walk's row or Open on the Job's tab. Fleet starts the slot's own build with `--take <name>=<walk>` for each variation, and refuses a build older than the slot's HEAD |
+| Reach his build | `offer_preview` the branch; the walk can be shown once he has refreshed onto a preview holding it |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. Fleet refuses a walk the build he runs does not play (`--list-walks`), so the Job sees it and he never does |
+| He opens it | One press on the walk's row. Fleet starts the native Bridge of the build he runs, `Armada/builds/current/Armada.app`, with `--take <name>=<walk>` for each variation |
 | He picks a take | The bar's takes menu, or ⌥⌘T, swaps to that take's walk from its first step. Approve and each note name the take on screen |
 
 **The check never opens a window, and Fleet never starts a walk he did not open.**
@@ -91,15 +97,15 @@ VoiceOver reads them, walks and notes aim at them, and tests find elements by th
 
 ## Web content
 
-**Web content goes through the one Chrome host and the Armada profile.**
+**Web content goes through the one web view host and Armada's own sign-in store.**
 That covers documents, sketch mocks, walks of web pages and the Browser tool.
+The host is Apple's WKWebView, laid over its pane's frame, with the page's picture drawn in its place while a sheet covers it or a walk plays with no window.
 
 ## Load
 
 | Rule | Detail |
 |---|---|
 | A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
-| A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
 | Tests | Only through `armada check crates/bridge-native:test <name>` or `armada check crates/bridge-native:test --changed`: the crate is a workspace of its own, so the root's `armada check test` does not reach it. `bridge-native --walk <name> --check` stays the walk's own test. CI runs the whole suite in the `native` job on any pull request whose change touches the crate, and `ci` waits on it |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 

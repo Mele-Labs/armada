@@ -1,0 +1,15 @@
+[
+  {
+    "session_id": "mock-04",
+    "claim_waits": [
+      { "item": "armada-zasx.3", "holder": "nick", "machine": "Home", "title": "Fix the flaky queue test", "since": "2026-11-09T14:33:00Z", "ends": "claim_ends" }
+    ]
+  },
+  {
+    "session_id": "mock-02",
+    "claim_waits": [
+      { "item": "armada-zasx.5", "holder": "alice", "since": "2026-11-09T12:40:00Z", "ends": "unassigned" }
+    ]
+  },
+  { "session_id": "mock-01", "claims_unsent": true }
+]

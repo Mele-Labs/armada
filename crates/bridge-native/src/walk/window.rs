@@ -217,6 +217,23 @@ impl WalkWindow {
                 if let Verb::Later(ms) = step.verb {
                     cx.background_executor().timer(std::time::Duration::from_millis(ms)).await;
                 }
+                if let Verb::InPage(aim) = step.verb {
+                    // The page answers on its own time, so the step waits here for the element to be found and pressed.
+                    let asked = cx.update(|_, cx| crate::job_view::page_in_front(cx).map(|page| page.update(cx, |page, cx| page.aim(aim.target(), aim.press, cx))));
+                    let found = match asked {
+                        Ok(Some(answer)) => answer.recv().await.unwrap_or(false),
+                        _ => false,
+                    };
+                    if !found {
+                        let within = aim.within.map(|(role, name)| format!(" in the {role} named \"{name}\"")).unwrap_or_default();
+                        let _ = this.update(cx, |this, cx| {
+                            this.said = Some(Said { text: format!("Step {}: no {} named \"{}\"{within} in the page", at + 1, aim.role, aim.name).into(), fault: true });
+                            this.playing = false;
+                            cx.notify();
+                        });
+                        return;
+                    }
+                }
                 let person = step.verb == Verb::NoteKey;
                 if person {
                     let _ = this.update(cx, |this, _| this.playing = false);

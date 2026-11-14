@@ -72,6 +72,30 @@ or stops is a `message` button whose label says what you will do, such as
 `Merge it`, and you do it when the message arrives. Fleet names each action
 that will not run when it keeps the page.
 
+## Votes
+
+A vote asks him to choose between two or more takes of one thing, such as
+two sketches of a screen. Put any page content in a take. His vote comes back
+to you as a message with every note he wrote.
+
+```html
+<armada-vote id="layout" form="score" question="Which layout?" parts="header,list,footer">
+  <armada-take id="dense" title="Dense"><armada-sketch>...</armada-sketch></armada-take>
+  <armada-take id="roomy" title="Roomy"><armada-sketch>...</armada-sketch></armada-take>
+</armada-vote>
+```
+
+| Form | He gives | Use it for |
+|---|---|---|
+| `pick` | One take, and a note on any of the rest | One winner |
+| `rank` | Every take in an order, a note on any | An order, such as what to build first |
+| `score` | A keep or a drop on each part named in `parts`, per take | Parts of different takes that may be combined |
+
+Give the vote an `id` unique on the page and a `question`, and each take an
+`id` unique in the vote and a `title`. `parts` is for `score` only, and
+required there. A part he leaves bare is no vote. Fleet names each vote that
+will not count when it keeps the page.
+
 ## The skeleton
 
 ```html

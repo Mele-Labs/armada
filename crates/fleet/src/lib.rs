@@ -89,6 +89,7 @@ mod time_reading;
 mod base_moves;
 mod gate_checks;
 mod gate_holding;
+mod gate_merges;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
@@ -266,6 +267,8 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+mod project_store;
+pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
@@ -382,6 +385,8 @@ mod slot_holders;
 mod slot_reclaiming;
 /// A red main claimed in the central store, and the claim read back for the hub.
 pub mod red_claim;
+/// What each live Job holds, claimed in its project's store, and the waits and words that follow.
+mod job_claims;
 /// A red main whose pull request a Session merged is claimed for that Session, or for a fork of it.
 mod session_red;
 mod taking_red;

@@ -441,8 +441,6 @@ impl JobView {
     /// in the line as one object, so the words around it stay selectable and a selection copies `@title`.
     pub(super) fn prose_tagged(&self, key: String, text: &str, colour: crate::look::Token, tags: &[SessionTag], look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
-        // A Job the words name is a link to it, as Electron's `SessionRefs` draws a thread's words.
-        let text = super::refs::Refs::of(self.list.read(cx).records()).linked(text);
         let view = cx.weak_entity();
         let size = match self.composer.quick.thread().text_size {
             TextSize::Xs => token::TEXT_XS,
@@ -450,10 +448,15 @@ impl JobView {
             TextSize::Base => token::TEXT_BASE,
             TextSize::Lg => token::TEXT_LG,
         };
-        let source = with_breaks(&text);
+        let source = self.prose_source(text, cx);
+        // While the find bar has a match in these words they are drawn through its view, which paints the marks.
+        let found = if tags.is_empty() { self.found_prose(&key, &source) } else { None };
         // A block that runs takes Run beside Copy, and its words stop short of both.
         let acts = if source.lines().any(|line| ["```bash", "```sh", "```zsh", "```shell", "```console"].contains(&line.trim())) { 2. } else { 1. };
-        let words = |id: String, source: String, base: usize| TextView::markdown(ElementId::Name(id.into()), source)
+        let words = |id: String, source: String, base: usize, found: Option<gpui::Entity<gpui_component::text::TextViewState>>| match found {
+            Some(state) => TextView::new(&state),
+            None => TextView::markdown(ElementId::Name(id.into()), source),
+        }
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
@@ -491,7 +494,7 @@ impl JobView {
         let ran = crate::terminal::run::in_thread(&job, cx)
             .filter(|(block, end, _)| block.rsplit_once(crate::terminal::run::AT).is_some_and(|(of, _)| of == key) && *end <= source.len() && source.is_char_boundary(*end));
         let Some((_, end, run)) = ran else {
-            return div().w_full().group(PROSE_GROUP).child(words(format!("md:{job}:{key}"), source, 0)).into_any_element();
+            return div().w_full().group(PROSE_GROUP).child(words(format!("md:{job}:{key}"), source, 0, found)).into_any_element();
         };
         let after = source[end..].trim_start_matches('\n').to_string();
         let gap = source.len() - end - after.len();
@@ -500,10 +503,16 @@ impl JobView {
             .group(PROSE_GROUP)
             .flex()
             .flex_col()
-            .child(words(format!("md:{job}:{key}"), source[..end].to_string(), 0))
+            .child(words(format!("md:{job}:{key}"), source[..end].to_string(), 0, None))
             .child(div().mt(look.length(token::SPACE_3)).child(run))
-            .when(!after.trim().is_empty(), |line| line.child(div().mt(look.length(token::SPACE_3)).child(words(format!("md:{job}:{key}:after"), after, end + gap))))
+            .when(!after.trim().is_empty(), |line| line.child(div().mt(look.length(token::SPACE_3)).child(words(format!("md:{job}:{key}:after"), after, end + gap, None))))
             .into_any_element()
+    }
+
+    /// The markdown a prose's words are drawn from: a Job they name as a link to it, as Electron's
+    /// `SessionRefs` draws a thread's words, and each lone line break kept.
+    pub(super) fn prose_source(&self, text: &str, cx: &App) -> String {
+        with_breaks(&super::refs::Refs::of(self.list.read(cx).records()).linked(text))
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The
@@ -656,6 +665,8 @@ impl JobView {
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
+                let doing = self.shown.as_deref().and_then(|id| self.record(id, cx)).and_then(|job| job.activity.as_ref()).and_then(|activity| activity.now.as_deref());
+                let words = working_words(doing);
                 let line = labelled(
                     div()
                         .id("working")
@@ -667,7 +678,7 @@ impl JobView {
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_MUTED))
                         .child(div().id("working-mark").child(self.working_mark(look, ink)).tooltip(tip("Working")))
-                        .child("Thinking")
+                        .child(div().min_w_0().truncate().child(words))
                         .child(self.stop_button(look, cx)),
                     Role::Status,
                     "Working",
@@ -678,6 +689,7 @@ impl JobView {
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
             Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),
+            Extra::ClaimWaits => return self.claim_waits_card(&self.shown.clone()?, look, cx),
             Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
@@ -1236,7 +1248,7 @@ impl JobView {
 }
 
 /// The words before a line that reads `## Debug info`, and the facts after it.
-fn split_debug(text: &str) -> (&str, Option<&str>) {
+pub(super) fn split_debug(text: &str) -> (&str, Option<&str>) {
     let mut at = 0;
     for line in text.split_inclusive('\n') {
         if line.trim_end_matches(['\r', '\n']) == "## Debug info" {
@@ -1493,9 +1505,22 @@ fn tag_glyph(kind: TagKind) -> &'static str {
     }
 }
 
+/// The working line's words: what Fleet says the Job is doing now, as its Jobs list row says it, or
+/// Thinking where Fleet names nothing.
+fn working_words(doing: Option<&str>) -> SharedString {
+    doing.map(str::trim).filter(|doing| !doing.is_empty()).map_or_else(|| SharedString::from("Thinking"), |doing| SharedString::from(doing.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_working_line_says_what_the_job_is_doing_and_thinking_only_when_fleet_names_nothing() {
+        assert_eq!(working_words(Some("Running python3")), "Running python3");
+        assert_eq!(working_words(None), "Thinking");
+        assert_eq!(working_words(Some("  ")), "Thinking");
+    }
 
     #[test]
     fn a_lone_line_break_is_kept_and_code_is_left_as_written() {

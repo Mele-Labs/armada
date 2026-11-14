@@ -276,13 +276,17 @@ pub fn send_other_mac(
     }
 }
 
-/// [`crate::Gateway`]'s answer to Fleet's `read_other_mac`: a `/other_mac/thread?…` path, read from
-/// Mac `mac` as `/api/mac/thread?…`. Fleet asks nothing else of another Mac this way.
+/// [`crate::Gateway`]'s answer to Fleet's `read_other_mac`: a `/other_mac/thread?…` or `/other_mac/conversation?…`
+/// path, read from Mac `mac` as `/api/mac/thread?…` or `/api/mac/conversation?…`. Fleet asks nothing else of
+/// another Mac this way.
 pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'static {
     let (gateway, mac, path) = (gateway.clone(), mac.to_string(), path.to_string());
     async move {
-        let rest = path.strip_prefix("/other_mac/thread").filter(|rest| rest.is_empty() || rest.starts_with('?'));
-        let Some(rest) = rest else {
+        let read = ["thread", "conversation"].into_iter().find_map(|what| {
+            let rest = path.strip_prefix(&format!("/other_mac/{what}"))?;
+            (rest.is_empty() || rest.starts_with('?')).then(|| format!("/api/mac/{what}{rest}"))
+        });
+        let Some(target) = read else {
             return Err(format!("{path} is not read from another Mac."));
         };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
@@ -293,7 +297,7 @@ pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<O
         if let Some(link) = frozen(&gateway.way_in, &row) {
             return Err(crate::macs::frozen_why(&link, &row.name));
         }
-        let came = signed_whole(&gateway, &row.id, &row.address, "GET", &format!("/api/mac/thread{rest}"), None)
+        let came = signed_whole(&gateway, &row.id, &row.address, "GET", &target, None)
             .await
             .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
         Ok((came.status, came.body))

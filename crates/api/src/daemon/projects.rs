@@ -48,6 +48,21 @@ pub trait Projects: Send + Sync + 'static {
     /// changed. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a blank workflow.
     fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
+    /// `get_project_store` — the claims store project `project` names, the Macs signed in to it, and whether a
+    /// deploy or a join can run now. [`Refusal::NotFound`] for a project he has none of.
+    fn get_project_store(&self, project: String) -> impl Future<Output = Result<ipc::ProjectStoreState, Refusal>> + Send;
+
+    /// `set_project_store` — join the project to a store by its address, or set it to none. Joining enrols every
+    /// profile its repositories are bound to before the file names the store. [`Refusal::NotFound`] for a project he
+    /// has none of, [`Refusal::Unacceptable`] for an address, a team or a profile that will not do, or a store that
+    /// refused, and [`Refusal::Fault`] where the store did not answer.
+    fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> impl Future<Output = Result<ipc::ProjectStoreState, Refusal>> + Send;
+
+    /// `deploy_project_store` — put the project's store on his own Cloudflare account and join this Mac to it, or answer
+    /// that a pasted token is needed. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a
+    /// team that will not do or an account Cloudflare refused, and [`Refusal::Fault`] where Cloudflare did not answer.
+    fn deploy_project_store(&self, project: String, deploy: ipc::DeployProjectStore) -> impl Future<Output = Result<ipc::StoreDeployed, Refusal>> + Send;
+
     /// `save_kit_values` — Kit's `values.yml`, whole. [`Refusal::Unacceptable`] for a word its key does not take.
     fn save_kit_values(&self, save: ipc::SaveKitValues) -> impl Future<Output = Result<ipc::KitValuesSaved, Refusal>> + Send;
 

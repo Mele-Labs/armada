@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemRef, ItemSettled, ProposeDraft, SessionId, SessionRecord, ShowSketch,
+    AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemRef, ItemSettled, ProposeDraft, SessionId, SessionRecord, ShowSketch,
     WaitingSource,
 };
 
@@ -36,7 +36,7 @@ async fn drafted(rig: &Rig, id: &SessionId) -> String {
 }
 
 fn answering(id: &SessionId, item: &str, how: ItemHow, notes: &[&str]) -> ItemAnswer {
-    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| one.to_string()).collect() }
+    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| ItemNote { text: one.to_string(), on: None }).collect() }
 }
 
 async fn answered(rig: &Rig, items: Vec<ItemAnswer>) -> Vec<ItemSettled> {
@@ -134,6 +134,9 @@ async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
     assert_eq!(refused_code(&outcomes[0]), "fleet.items_send_back_empty");
     assert_eq!(outcomes[1], ItemSettled::Settled);
     assert!(sent(&rig.rows(&id).await).contains(&sketching::sent_back("Two", "1. Bigger")));
+    // Drawn in the turn still running, the one left waits once that turn ends.
+    rig.stand_in.finishes(0, "Drawn.");
+    eventually(|| async { !ids(&record_of(&rig, &id).await).is_empty() }).await;
     assert_eq!(ids(&record_of(&rig, &id).await), ["sketch:One"]);
 }
 

@@ -63,3 +63,17 @@ Each stage depends on the one before it.
 - Whether Armada's GitHub sign-in token carries `read:org` for the team membership check.
 - The real claim and renewal rate under a day of Jobs.
 - How often the test map's answer is wrong for a failing test.
+
+## Stage 2's four answers, 14 Nov
+
+The checks before stage 2 found that the tunnel's Cloudflare token cannot touch Workers at all, that no GitHub OAuth app is registered on his Mac while `gh`'s token carries `read:org`, and that Cloudflare's pages do not say whether the Rate Limiting binding is on the Free plan.
+He answered four questions on 14 Nov, each the pick offered first.
+
+| Asked | He chose | The cost he took |
+|---|---|---|
+| What the second Cloudflare sign-in is | Bridge opens Cloudflare's token page filled in with Workers edit rights; he pastes the token, and it is kept in the Keychain for redeploys | One copy and paste, and a Cloudflare token kept on the Mac |
+| What becomes of `store.url` | Removed. Every project starts with no store and sends nothing until it picks one | None live: nothing was deployed there |
+| Which GitHub token joins a store | `gh`'s, read once at the join and never kept | `gh` must be signed in as the repository's login |
+| A Free plan without the Rate Limiting binding | Deploy with it; where Cloudflare refuses it, deploy without it and say joins are not rate limited | A stranger could make the Worker call GitHub repeatedly |
+
+The tunnel's sign-in is still tried first, as ruled on 13 Nov; today it is always refused.

@@ -74,6 +74,44 @@ pub fn bring_conversation_to(home: &str, id: &str, directory: &str) -> std::io::
     Ok(())
 }
 
+/// Up to `most` bytes of session `id`'s conversation from byte `from`: empty past its end, and `None`
+/// where it has none. For a Job moving to another Mac, whose process has ended, so the file is still.
+pub fn conversation_piece(home: &str, id: &str, from: u64, most: u64) -> std::io::Result<Option<Vec<u8>>> {
+    let Some(file) = find(home, id) else {
+        return Ok(None);
+    };
+    let mut open = File::open(file)?;
+    open.seek(SeekFrom::Start(from))?;
+    let mut bytes = Vec::new();
+    open.take(most).read_to_end(&mut bytes)?;
+    Ok(Some(bytes))
+}
+
+/// Keep session `id`'s conversation, arrived from another Mac, where the CLI looks for it from
+/// `directory`, so `--resume` finds it there and [`bring_conversation_to`] finds it for a slot. Written
+/// beside and then renamed, so a reader never sees half of it. **Every other copy under `home` goes**:
+/// a Job that left this Mac and came back has the older conversation in its old slots' folders, and
+/// [`find`] takes the first it meets.
+pub fn keep_conversation(home: &str, id: &str, directory: &str, bytes: &[u8]) -> std::io::Result<()> {
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "not a conversation id"));
+    }
+    let projects = Path::new(home).join(SESSIONS);
+    let folder = projects.join(crate::reading_in::keyed(directory));
+    std::fs::create_dir_all(&folder)?;
+    let beside = folder.join(format!(".{id}.jsonl.arriving"));
+    std::fs::write(&beside, bytes)?;
+    let kept = folder.join(format!("{id}.jsonl"));
+    std::fs::rename(&beside, &kept)?;
+    for entry in std::fs::read_dir(&projects)?.flatten() {
+        let older = entry.path().join(format!("{id}.jsonl"));
+        if older != kept && older.is_file() {
+            std::fs::remove_file(older)?;
+        }
+    }
+    Ok(())
+}
+
 /// The whole lines written from `offset` on, as text, with the offset they were read from (0 where
 /// the file is shorter than `offset`) and the offset of the first byte not read.
 fn whole_lines(file: &Path, offset: u64) -> std::io::Result<(String, u64, u64)> {

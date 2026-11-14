@@ -100,6 +100,12 @@ impl ClaimKind {
             ClaimKind::PullRequest => "pull_request",
         }
     }
+
+    pub fn from_wire(word: &str) -> Option<ClaimKind> {
+        [ClaimKind::Item, ClaimKind::File, ClaimKind::Test, ClaimKind::Red, ClaimKind::PullRequest]
+            .into_iter()
+            .find(|kind| kind.as_wire() == word)
+    }
 }
 
 /// What kind of thing holds a claim or owns a pull request. A Session; the store once also
@@ -187,6 +193,24 @@ pub enum Claimed {
     Held(Claimant),
 }
 
+/// Another holder asked for one of this holder's claims and was told it is held. The store keeps it
+/// until the holder's next renewal answers it, so a Job learns who else reached the same file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Contest {
+    pub repository: RepositoryKey,
+    pub kind: ClaimKind,
+    pub key: ClaimKey,
+    pub by: Claimant,
+}
+
+/// What a renewal answered: how many claims the holder still has, `0` for one whose claims
+/// lapsed, and the contests on them since its last renewal.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Renewed {
+    pub claims: u64,
+    pub contested: Vec<Contest>,
+}
+
 /// Why the store did not answer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StoreError {
@@ -243,6 +267,13 @@ pub struct RunRow {
 /// **Every call is a network round trip**, so a caller on a hot path reads
 /// what it already has and calls this only where an answer must be fresh: a
 /// take always meets the store itself.
+/// A device signed in to a store, and the Mac's name it enrolled as.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoreDevice {
+    pub id: String,
+    pub machine: String,
+}
+
 pub trait Store {
     /// Take the thing if nobody holds it. **One call, answered atomically by the
     /// store**: of two machines racing, the first wins and the other is told who.
@@ -267,8 +298,9 @@ pub trait Store {
 
     /// Renew every claim `holder` has, in one call, and answer how many it still
     /// has: `0` for a holder whose claims lapsed, which takes them again. The
-    /// holder's `since` is not sent.
-    fn renew(&self, holder: &Holder) -> Result<u64, StoreError>;
+    /// holder's `since` is not sent. The answer also names each other holder told
+    /// one of these claims was held since the last renewal, once.
+    fn renew(&self, holder: &Holder) -> Result<Renewed, StoreError>;
 
     /// Register the owner of a pull request.
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError>;
@@ -282,6 +314,10 @@ pub trait Store {
     /// store allows any device of an account to, so a lost machine can be
     /// removed. A device already gone is not an error.
     fn delete_device(&self, device: &str) -> Result<(), StoreError>;
+
+    /// Every device signed in to the store this one signs into, oldest first: the account's on a store
+    /// of one's own, every member's on a team store.
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError>;
 
     /// Replace every run the store holds for a repository. The caller has read and merged first, so
     /// a fact another machine added stays. An empty list leaves the store holding none.

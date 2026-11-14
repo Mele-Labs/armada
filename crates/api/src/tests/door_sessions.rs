@@ -133,6 +133,8 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 

@@ -26,12 +26,14 @@ fn naming(id: &SessionId, whole: &[&str], beside: &[&str]) -> RecordPlan {
     plan
 }
 
-/// A running Job that drew `titles` with show_sketch.
+/// A running Job that drew `titles` with show_sketch, and whose turn then ended, so each waits on him.
 async fn drew(rig: &Rig, titles: &[&str]) -> SessionId {
     let id = running(rig).await;
     for title in titles {
         rig.fleet.show_sketch(None, drawn(&id, title)).await.unwrap();
     }
+    rig.stand_in.finishes(0, "Drawn.");
+    eventually(|| async { waits(&read(rig, &id).await).len() == titles.len() }).await;
     id
 }
 

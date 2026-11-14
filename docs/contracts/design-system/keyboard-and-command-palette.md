@@ -44,7 +44,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
 ⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
 ⌥⌘N      the history of the Operator's toasts, in the native Bridge only
-⌘T       new terminal: a Side Job, opened on its shell with no sheet, in the native Bridge only
+⌘T       new Side Job: started with no sheet and opened on its thread, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
@@ -59,6 +59,9 @@ is the back-fill by hand that this section existed to prevent.
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
 ⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
 ⌥⌘Y      fold Needs you: shut or open the open Job's card, to read the thread
+⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
+⌘G       next match of the thread's find bar, in the native Bridge only
+⇧⌘G      previous match of the thread's find bar, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -183,6 +186,12 @@ Enter          Send to Job   (plan only)
 d / Backspace  Dismiss   (plan only)
 r              Retry the failed hand off   (thread only)
 d              Dispatch job to fix the failed hand off   (thread only)
+a              approve   (review sheet only)
+c              ask for changes   (review sheet only)
+d              dismiss   (review sheet only)
+j / k / ↓ / ↑  move between items   (review sheet only)
+⇧a             approve all   (review sheet only)
+⇧d             dismiss all   (review sheet only)
 Enter          New shell, in a terminal whose shell ended   (terminal only)
 ```
 
@@ -293,7 +302,8 @@ Three reversals against what stood before, each with a reason:
 - **`⌘F` is deleted.** It duplicated `/`, and two bindings for one act
   breaks the one-artifact rule above. `/` is deleted too, on 28 Sep 2026:
   the Job Board held the only field it focused, and the command palette is
-  what searches now.
+  what searches now. `⌘F` came back on 13 Nov 2026 as another act, at the
+  owner's ask: find in a Job's thread, with no other key for it.
 
 **`x` for kill and every safety rule below are unchanged.** Neither was
 in play, and the destructive-key rule is what kept `x` off `k`.
@@ -390,7 +400,9 @@ Their scope is `thread`, and the registry ids are `thread_yes`, `thread_change`,
 They are `⌥` chords because the caret usually sits in the Job's message box, where a single key is suppressed.
 They join the Job view's `⌥` family under Two tiers.
 `1`–`9` still pick a question's option, and `⌘↵` commits an open edit or note box.
-In the review sheet, which `⇧⌘Y` opens, `⌘↵` approves the selected item, `⌥R` sends it back with a note, `↑` and `↓` move and Esc returns focus to the key that opened it.
+In the review sheet, which `⇧⌘Y` opens, the items with an Approve across Jobs stand grouped by Job.
+`a` approves the chosen item, `c` sends it back with its notes, `d` dismisses it, `j` and `k` move, `⇧a` approves every item still asking and `⇧d` dismisses them.
+`c` with no notes puts the caret in the item's notes, where `⌘↵` sends, and Esc returns focus to the key that opened the sheet.
 
 **The target card is the waiting card that holds focus, and otherwise the newest card still waiting.**
 It wears a ring, and only it draws kbds, so a person sees which card a key hits.

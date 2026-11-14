@@ -56,6 +56,7 @@ A Job with more than one page opens the one pressed, and a sent note's heading o
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.
 The notice is `document_sketch`, once per revision: `In the page <path>, sketch <n> of <total> ("<title>") will not draw: <problems>.`
 The same notice names each `<armada-action>` that will not run, as [Artifact](artifact.md), *Page actions*, says.
+It names each `<armada-vote>` that will not count too, as *Page votes* there says.
 
 ## Asking for his approval
 

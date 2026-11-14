@@ -1,0 +1,342 @@
+{
+  "threads": [
+    {
+      "session_id": "orch-1",
+      "head": {
+        "trail": {
+          "started": "2026-11-13T20:00:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-13T20:05:00Z"
+            }
+          ]
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-1",
+            "at": "2026-11-14T00:20:00Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Build Needs you take A, then the context handoff card."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-1",
+          "names": [
+            "Read",
+            "Bash"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-1",
+              "at": "2026-11-14T00:25:10Z",
+              "text": "Read docs/practices/native-bridge.md"
+            },
+            {
+              "kind": "tool",
+              "id": "t-2",
+              "at": "2026-11-14T00:26:20Z",
+              "text": "Bash git worktree add -q -b native/needs-you-take-a /tmp/armada-red/take-a origin/main"
+            }
+          ]
+        },
+        {
+          "kind": "subagent",
+          "id": "t-3",
+          "at": "2026-11-14T00:26:49Z",
+          "subagent": {
+            "id": "agent-take-a",
+            "agent_type": "gpui-engineer",
+            "task": "Build Needs you take A",
+            "latest": "Bash armada check crates/bridge-native:test needs_you",
+            "state": "running",
+            "since": "2026-11-14T01:16:12Z"
+          }
+        },
+        {
+          "kind": "subagent",
+          "id": "t-4",
+          "at": "2026-11-14T01:08:53Z",
+          "subagent": {
+            "id": "agent-handoff",
+            "agent_type": "gpui-engineer",
+            "task": "Build the context handoff card",
+            "state": "finished",
+            "since": "2026-11-14T01:08:53Z",
+            "ended": "2026-11-14T01:40:31Z",
+            "report": "Built on native/handoff-card; the walk plays at 820 and 1400."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-2",
+            "at": "2026-11-14T01:15:40Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "Needs you take A came back with shots at 820 and 1400. Reading them now."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-5",
+          "names": [
+            "Read",
+            "SendMessage"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-5",
+              "at": "2026-11-14T01:15:50Z",
+              "text": "Read /tmp/armada-red/takea-shots/1400/native-needs-you-look-03.png"
+            },
+            {
+              "kind": "tool",
+              "id": "t-6",
+              "at": "2026-11-14T01:15:58Z",
+              "text": "Read /tmp/armada-red/takea-shots/820/native-needs-you-look-04.png"
+            },
+            {
+              "kind": "tool",
+              "id": "t-7",
+              "at": "2026-11-14T01:16:12Z",
+              "text": "SendMessage to agent-take-a: The shots aren't ready yet. Fix the three things below, then send new shots."
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-3",
+            "at": "2026-11-14T01:16:16Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "I sent Needs you take A back to its agent before the shots go out. Three things to fix: the card's edge, the empty state and the 820 wrap."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-4",
+            "at": "2026-11-14T01:26:36Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Bring your task list up to date."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-8",
+          "names": [
+            "Bash",
+            "Read",
+            "Grep"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-8",
+              "at": "2026-11-14T01:27:56Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-9",
+              "at": "2026-11-14T01:27:03Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t-10",
+              "at": "2026-11-14T01:27:10Z",
+              "text": "Grep Extra::Subagents"
+            },
+            {
+              "kind": "tool",
+              "id": "t-11",
+              "at": "2026-11-14T01:27:17Z",
+              "text": "Bash git fetch -q origin main"
+            },
+            {
+              "kind": "tool",
+              "id": "t-12",
+              "at": "2026-11-14T01:28:24Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-13",
+              "at": "2026-11-14T01:28:31Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t-14",
+              "at": "2026-11-14T01:28:38Z",
+              "text": "Grep Extra::Subagents"
+            },
+            {
+              "kind": "tool",
+              "id": "t-15",
+              "at": "2026-11-14T01:28:45Z",
+              "text": "Bash git fetch -q origin main"
+            },
+            {
+              "kind": "tool",
+              "id": "t-16",
+              "at": "2026-11-14T01:29:52Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-17",
+              "at": "2026-11-14T01:29:59Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t-18",
+              "at": "2026-11-14T01:29:06Z",
+              "text": "Grep Extra::Subagents"
+            },
+            {
+              "kind": "tool",
+              "id": "t-19",
+              "at": "2026-11-14T01:29:13Z",
+              "text": "Bash git fetch -q origin main"
+            },
+            {
+              "kind": "tool",
+              "id": "t-20",
+              "at": "2026-11-14T01:30:20Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-21",
+              "at": "2026-11-14T01:30:27Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t-22",
+              "at": "2026-11-14T01:30:34Z",
+              "text": "Grep Extra::Subagents"
+            },
+            {
+              "kind": "tool",
+              "id": "t-23",
+              "at": "2026-11-14T01:30:41Z",
+              "text": "Bash git fetch -q origin main"
+            },
+            {
+              "kind": "tool",
+              "id": "t-24",
+              "at": "2026-11-14T01:31:48Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-25",
+              "at": "2026-11-14T01:31:55Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t-26",
+              "at": "2026-11-14T01:31:02Z",
+              "text": "Grep Extra::Subagents"
+            },
+            {
+              "kind": "tool",
+              "id": "t-27",
+              "at": "2026-11-14T01:31:09Z",
+              "text": "Bash git fetch -q origin main"
+            },
+            {
+              "kind": "tool",
+              "id": "t-28",
+              "at": "2026-11-14T01:32:16Z",
+              "text": "Bash gh pr list --state open --search head:native/"
+            },
+            {
+              "kind": "tool",
+              "id": "t-29",
+              "at": "2026-11-14T01:32:23Z",
+              "text": "Read crates/bridge-native/src/job_view/mod.rs"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "reasoning",
+            "id": "r-1",
+            "at": "2026-11-14T01:37:40Z",
+            "text": "Three tasks are really in flight: the owner bugs, take A and the handoff card."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-30",
+          "names": [
+            "Bash"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-30",
+              "at": "2026-11-14T01:45:09Z",
+              "text": "Bash tail -4 /tmp/armada-red/take-a/build.log"
+            },
+            {
+              "kind": "tool",
+              "id": "t-31",
+              "at": "2026-11-14T01:45:12Z",
+              "text": "Bash cd /tmp/armada-red/panes-drawn && git push -q"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "reasoning",
+            "id": "r-2",
+            "at": "2026-11-14T01:45:25Z",
+            "text": "Take A's agent is still building. I'll clear the task list while it does."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-32",
+          "names": [
+            "Bash"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-32",
+              "at": "2026-11-14T01:45:30Z",
+              "text": "Bash git worktree list"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

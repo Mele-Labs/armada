@@ -11,6 +11,7 @@
 //! | The chat Ask opens | `chat.rs` |
 //! | The box at the page's foot, whose send is a dispatch | `composer.rs` |
 //! | The ideas the Operator kept for later | `parked.rs` |
+//! | Another Mac waiting for his Confirm to pair, as a card atop Your turn | `pairing.rs` |
 //! | The six routes, live or mock | `wire.rs` |
 //! | The walk's Fleet and its scenes | `scenes.rs` |
 //! | The screen that puts the page beside the Jobs screen | `screen.rs` |
@@ -26,6 +27,7 @@ mod chat;
 pub mod composer;
 pub mod face;
 pub mod page;
+mod pairing;
 mod parked;
 pub mod scenes;
 pub mod screen;

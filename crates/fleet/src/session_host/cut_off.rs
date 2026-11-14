@@ -81,6 +81,15 @@ where
         let fleet = Arc::clone(self);
         Box::pin(async move {
             for (id, runtime) in fleet.hosts().all() {
+                // A move to another Mac whose agents have ended since the turn did.
+                let to_mac = { let state = runtime.state(); state.to_mac.is_some() && !state.carrying_to_mac };
+                if to_mac && !fleet.work_beyond_the_turn(&id).await {
+                    let taken = runtime.state().mac_move_taken();
+                    if let Some(mac) = taken {
+                        fleet.carried_to_mac_apart(&id, mac);
+                    }
+                    continue;
+                }
                 let due = runtime.state().move_due();
                 if !due || fleet.work_beyond_the_turn(&id).await {
                     continue;

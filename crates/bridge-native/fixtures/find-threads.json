@@ -1,0 +1,261 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-02",
+   "head": {
+    "trail": {
+     "started": "2026-11-11T02:00:00Z",
+     "bays": [
+      {
+       "slot": 10,
+       "from": "2026-11-11T02:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "y1",
+      "at": "2026-11-11T03:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Find why webhook retries pile up in the delivery queue, and say what you change."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "t1",
+     "names": [
+      "Bash",
+      "Read",
+      "Grep"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "t1",
+       "at": "2026-11-11T03:00:04Z",
+       "text": "Bash git grep -n -i retry -- crates/fleet",
+       "description": "Find where webhook deliveries retry"
+      },
+      {
+       "kind": "tool",
+       "id": "t1b",
+       "at": "2026-11-11T03:00:06Z",
+       "text": "Read crates/fleet/src/deliver.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "t1c",
+       "at": "2026-11-11T03:00:08Z",
+       "text": "Grep retry_after crates/fleet/src"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "a1",
+      "at": "2026-11-11T03:00:12Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The retries come from `deliver` in the webhook sender. Each failure puts the delivery back at the head of the queue, so one dead endpoint holds every slot."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "reasoning",
+      "id": "r1",
+      "at": "2026-11-11T03:00:18Z",
+      "text": "The backoff never grows: a failed webhook waits a flat second and goes again. Doubling it from one second to a minute frees the slots."
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "t2",
+     "names": [
+      "Edit",
+      "Bash"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "t2",
+       "at": "2026-11-11T03:00:20Z",
+       "text": "Edit crates/fleet/src/deliver.rs"
+      },
+      {
+       "kind": "tool",
+       "id": "t2b",
+       "at": "2026-11-11T03:00:30Z",
+       "text": "Bash armada check test deliver"
+      }
+     ]
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f0",
+      "at": "2026-11-11T03:00:40Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The delivery loop now reads its next attempt from the backoff, and a failure moves the delivery to the back of the queue rather than the head."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f1",
+      "at": "2026-11-11T03:01:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "What happens to deliveries already waiting when Fleet restarts?"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f2",
+      "at": "2026-11-11T03:01:20Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "They are read back from the store with the attempt count they had. The first attempt after a restart waits the backoff that count gives, so a restart does not start a burst."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f3",
+      "at": "2026-11-11T03:01:40Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "And a delivery that keeps failing for a day?"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f4",
+      "at": "2026-11-11T03:02:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "It stops at the minute ceiling and keeps trying once a minute. Nothing is dropped. The Jobs list shows the endpoint as failing after ten attempts in a row."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f5",
+      "at": "2026-11-11T03:02:20Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Show me the test that holds the ceiling."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f6",
+      "at": "2026-11-11T03:02:40Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "`deliver::tests::backoff_stops_at_a_minute` runs twenty failures and reads each wait: 1s, 2s, 4s, 8s, 16s, 32s, then 60s for the rest."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f7",
+      "at": "2026-11-11T03:03:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Does the order of deliveries to one endpoint still hold?"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f8",
+      "at": "2026-11-11T03:03:20Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Yes. Deliveries to one endpoint wait behind the first one that failed, so they arrive in the order they were made. Other endpoints are not held up by it."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f9",
+      "at": "2026-11-11T03:03:40Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Good. Run the whole crate's tests once more."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f10",
+      "at": "2026-11-11T03:04:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "All 214 tests in the crate pass, the four new ones among them."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "f11",
+      "at": "2026-11-11T03:04:20Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Write up what changed for the pull request."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "a9",
+      "at": "2026-11-11T03:04:40Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Backoff now doubles from one second to a minute, and the webhook queue drains in order. A dead endpoint no longer holds the other deliveries."
+     }
+    }
+   ]
+  }
+ ]
+}

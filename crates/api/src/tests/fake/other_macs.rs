@@ -127,6 +127,26 @@ impl OtherMacs for FakeDaemon {
     async fn share_job_terminal_output(&self, which: ipc::TerminalOfJob) -> Result<crate::ObservedSessionRun, Refusal> {
         Err(no_job(&which.session_id))
     }
+
+    async fn move_job_to_mac(self: Arc<Self>, asked: ipc::MoveJobToMac) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&asked.session_id))
+    }
+
+    async fn move_from_mac(self: Arc<Self>, _mac: String, job: SessionId) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&job))
+    }
+
+    async fn arrive_from_mac(self: Arc<Self>, _mac: String, job: ipc::ArrivingJob) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&job.record.id))
+    }
+
+    async fn move_settled_from_mac(self: Arc<Self>, _mac: String, settled: ipc::MoveSettled) -> Result<(), Refusal> {
+        Err(no_job(&settled.session_id))
+    }
+
+    async fn share_job_conversation(&self, _mac: String, job: SessionId, _from: u64) -> Result<Vec<u8>, Refusal> {
+        Err(no_job(&job))
+    }
 }
 
 /// Nothing is shared here, so every Job is answered as one that does not exist.

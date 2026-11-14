@@ -473,6 +473,9 @@ impl JobView {
         // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Move to window is held.
         let zoomed = self.thread_pane().is_some_and(|pane| self.zoomed().as_deref() == Some(pane.as_str()));
         groups.push(super::place_menu::pane_entries(zoomed));
+        if let Some(tab) = self.thread_tab_id() {
+            groups.push(self.move_entries(&tab));
+        }
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -505,7 +508,7 @@ impl JobView {
         if let Some(why) = self.off_here(id, cx) {
             for entry in &mut entries {
                 match entry {
-                    Entry::Item { id, .. } if *id == "zoom" || route_of(id).is_some_and(crate::pairing::crosses) => {}
+                    Entry::Item { id, .. } if *id == "zoom" || super::place_menu::is_move(id) || route_of(id).is_some_and(crate::pairing::crosses) => {}
                     Entry::Item { off, .. } => *off = Some(why.clone()),
                     Entry::Toggle { id, label, .. } => {
                         *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
@@ -554,7 +557,13 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if act != "zoom" && self.off_to(&id, route_of(act).unwrap_or_default(), cx).is_some() {
+        if act != "zoom" && !super::place_menu::is_move(act) && self.off_to(&id, route_of(act).unwrap_or_default(), cx).is_some() {
+            return;
+        }
+        if super::place_menu::is_move(act) {
+            if let Some(tab) = self.thread_tab_id() {
+                self.move_tab_picked(act, &tab, window, cx);
+            }
             return;
         }
         let session_id = Self::session_id(&id);
@@ -1183,6 +1192,7 @@ impl JobView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .items_center()
                         .gap(look.length(token::SPACE_3))
                         .px(look.length(token::SPACE_3))
@@ -1190,7 +1200,8 @@ impl JobView {
                         .border_x(look.length(token::BORDER_WIDTH))
                         .border_color(hue)
                         .bg(look.color(token::BG_RAISED))
-                        .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
+                        // The reason keeps a readable width; in a narrow thread the buttons wrap under it.
+                        .child(div().flex_1().min_w(gpui::px(180.0)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
                         .child(retry)
                         .child(fix),
                 )

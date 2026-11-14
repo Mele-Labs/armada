@@ -8,7 +8,7 @@
 //! The view is kept on the machine beside the list's scope, as Classic keeps it in its `localStorage`.
 //!
 //! **Departures:** a document opens its card as a tab beside the thread, where Classic opens the page
-//! in the reading layer, which waits on Chrome; a finished group unfolds to its tasks on a press, as
+//! in the reading layer, which native lacks; a finished group unfolds to its tasks on a press, as
 //! Open's groups do, where Classic lists every group's tasks with Whole plan.
 //!
 //! Still owed: a workflow's finished steps (`StepBeat`), which arrive with the workflow group; the

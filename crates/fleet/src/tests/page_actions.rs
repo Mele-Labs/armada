@@ -14,7 +14,7 @@ use ipc::{PageAct, PagePress, PressDid, PressPageAction, SessionId, SessionRow, 
 use super::session_host::{eventually, rig_placing, Rig};
 
 /// A Job with its process up, and where the stand-in holds it.
-async fn a_job(rig: &Rig) -> (SessionId, usize) {
+pub(super) async fn a_job(rig: &Rig) -> (SessionId, usize) {
     let id = rig.start().await;
     rig.send(&id, "write it up").await;
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
@@ -32,7 +32,7 @@ fn review(actions: &str) -> String {
 }
 
 /// The Job writes `html` as its page, and Fleet keeps it as revision 1.
-async fn page_holding(rig: &Rig, id: &SessionId, at: usize, html: &str) -> String {
+pub(super) async fn page_holding(rig: &Rig, id: &SessionId, at: usize, html: &str) -> String {
     let file = std::path::Path::new(&rig.root).join(".armada/documents/flaky.html");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, html).unwrap();
@@ -56,7 +56,7 @@ async fn pressed(rig: &Rig, press: PressPageAction) -> Result<PagePress, Refusal
     Arc::clone(&rig.fleet).press_page_action(press).await
 }
 
-fn sent(rows: &[SessionRow]) -> Vec<String> {
+pub(super) fn sent(rows: &[SessionRow]) -> Vec<String> {
     rows.iter()
         .filter_map(|row| match row {
             SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.clone()),

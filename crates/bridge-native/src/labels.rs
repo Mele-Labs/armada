@@ -250,6 +250,10 @@ impl Element for Labelled {
     ) {
         let Some(at) = self.at else {
             self.child.paint(window, cx);
+            // The window's root: the frame is drawn, so the web pages it did not paint are parked.
+            if self.root {
+                crate::web::after_frame(window, cx);
+            }
             return;
         };
         let id = window.window_handle().window_id();

@@ -3,7 +3,8 @@
 //! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
 //! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
-//! holds one that will not draw is told, as is one whose page declares an action that will not run. The
+//! holds one that will not draw is told, as is one whose page declares an action that will not run or a vote that
+//! will not count. The
 //! write is never refused. **A revision is put to the person
 //! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
 //! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
@@ -25,6 +26,7 @@ use store::{Holder, KeptAttachment};
 use super::document_answers::is_document;
 use super::artifact_for::with_for;
 use super::page_actions::actions_that_will_not_run;
+use super::page_votes::votes_that_will_not_count;
 use super::document_page::{asks_approval, for_of, sketches_in, title_of};
 use crate::daemon::Fleet;
 use crate::rail_ends;
@@ -73,7 +75,7 @@ where
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let encoded = ipc::encode(&names).ok()?;
         let styles = self.page_styles(id, html).await;
-        let asks = asks_approval(html) || self.document_gate_waits(id).await;
+        let asks = asks_approval(html) || self.approval_gate_waits(id, PlanGate::DocumentApproved, rail_ends::End::DocumentApproved).await;
         let (text, links) = for_of(html);
         let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
@@ -102,10 +104,10 @@ where
                 },
             })
             .await;
-        let told = match (sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path)) {
-            (Some(sketches), Some(actions)) => Some(format!("{sketches} {actions}")),
-            (sketches, actions) => sketches.or(actions),
-        };
+        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path), votes_that_will_not_count(html, path)]
+            .into_iter()
+            .flatten()
+            .reduce(|told, more| format!("{told} {more}"));
         match (styles.told(told, path), links_dropped(&dropped)) {
             (Some(told), Some(links)) => Some(format!("{told} {links}")),
             (None, Some(links)) => Some(format!("In the page {path}, {}", links.replacen("The", "the", 1))),
@@ -113,14 +115,15 @@ where
         }
     }
 
-    /// Whether the Job waits on his approval of a page, so a page that does not mark itself asks too:
-    /// its plan holds an open `document_approved` gate, or the workflow step it is on ends on one.
-    /// The step is the one the rail kept when it last drew the Job, so the row is not built again here.
-    async fn document_gate_waits(&self, id: &str) -> bool {
+    /// Whether the Job waits on his approval of a page or a sketch, `gate` and `end` naming which: its plan
+    /// holds that gate open, or the workflow step it is on ends on it. So a page that does not mark itself asks
+    /// too, and `all_done` leaves the sketch it waits on. The step is the one the rail kept when it last drew
+    /// the Job, so the row is not built again here.
+    pub(super) async fn approval_gate_waits(&self, id: &str, gate: PlanGate, end: rail_ends::End) -> bool {
         let hosting = {
             let store = self.store().lock().await;
             let gated = store.session_plan(id).ok().flatten().is_some_and(|plan| {
-                plan.groups.iter().any(|group| group.gate.as_deref() == Some(PlanGate::DocumentApproved.word()) && group.closed.is_none())
+                plan.groups.iter().any(|group| group.gate.as_deref() == Some(gate.word()) && group.closed.is_none())
             });
             if gated {
                 return true;
@@ -135,7 +138,7 @@ where
         let Some(at) = self.store().lock().await.session_rail(id, &crate::rail::step_ids(&steps)).ok().and_then(|rail| rail.step) else {
             return false;
         };
-        rail_ends::ends_of(&steps, at as usize).contains(&rail_ends::End::DocumentApproved)
+        rail_ends::ends_of(&steps, at as usize).contains(&end)
     }
 
     /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a

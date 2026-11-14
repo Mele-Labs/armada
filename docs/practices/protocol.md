@@ -216,6 +216,7 @@ WebSocket event stream, read this first.
 | [A Job's lanes, worked out by Fleet: `SessionRecord.lanes`, and a workflow's for its editor: `get_workflow_lanes`](protocol/a-jobs-lanes-fleet-works-out.md) |
 | [The repair under way, on a Job's card: `SessionRecord.repairing`](protocol/a-jobs-repairing-line.md) |
 | [A draft names the pull request it describes: `SessionRecord.pull_request_drafts`, `PullRequestPage.draft`](protocol/a-draft-names-the-pull-request-it-describes.md) |
+| [A Job's wait on a held item: `SessionRecord.claim_waits`, `claims_unsent`](protocol/a-jobs-wait-on-a-held-item.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
@@ -226,6 +227,9 @@ WebSocket event stream, read this first.
 | [A plan carries its sketches: `sketches` on `record_plan` and `SessionPlan`, and `in_plan` on `JobArtifact`](protocol/a-plan-carries-its-sketches.md) |
 | [Approve all and Dismiss all: `answer_items` and `dismiss_items`](protocol/approve-all-and-dismiss-all.md) |
 | [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
+| [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
+| [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

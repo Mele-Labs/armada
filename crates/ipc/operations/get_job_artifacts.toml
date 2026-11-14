@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "One Job's sketches, drafts and pages as one list, each with its revisions and where its newest stands"
 notes = """
-`GET /sessions/artifacts?session_id=`. Answered with a list of `JobArtifact`, newest first by when its newest revision was kept: `id`, `title`, `form`, `revisions`, `state`, `words?`, `item?`, `in_plan?` and `presses?`.
+`GET /sessions/artifacts?session_id=`. Answered with a list of `JobArtifact`, newest first by when its newest revision was kept: `id`, `title`, `form`, `revisions`, `state`, `words?`, `item?`, `in_plan?`, `presses?` and `votes?`.
 
 **`id`** is the ledger target the artifact is kept under and stays the same across revisions: `sketch:<title>`, the page's path, or `draft:<title>`. **`form`** is `sketch`, `draft` or `page`. **`revisions`**, oldest first, are `ArtifactRevision`: `number` from 1, `at`, `by` (`owner` for one he saved with `save_artifact_edit`, read off `artifact_owner_revisions`, else `agent`) and `form`. A revision's `at` is when he saved it where it is his, else when the attachment's `revisions` list first held it, read off the attachment's history (`get_attachment_history`); one kept before that history began reads its row's `since` for the first revision and `changed_at` for any other.
 
@@ -17,6 +17,10 @@ notes = """
 **`in_plan`** is the plan version a sketch goes with: the pending one naming it while it asks, or the one whose Approve settled it, read off its `in_plan` detail. Absent for every other artifact, and for a sketch drawn again after that Approve, since a new drawing does not carry it.
 
 **`presses`** is every press of an action a page declares, oldest first, each a `PagePress` (`press_page_action`), read off `page_presses`. Absent where there is none, and for every form but a page.
+
+**`votes`** is the newest cast of each vote a page declares, in the order each vote was first cast, each a `VoteCast` (`cast_page_vote`), read off `page_votes`. A recast replaces the earlier one in place. Absent where there is none, and for every form but a page.
+
+**`seen`** is the newest revision he opened, as `mark_artifact_seen` kept it, read off `artifact_seen`. Absent while he has opened none, and it only moves forward.
 
 Only artifacts of form `sketch`, `document` and `draft` are listed; a file, an image, a window or a note shown to him is not. Read on demand and never carried on a `SessionRecord`; a `session.changed` is when to read it again.
 

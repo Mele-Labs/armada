@@ -10,15 +10,18 @@
 //! A subagent's tab goes the same way once the Job no longer holds the subagent. All follow "an
 //! empty slot stays empty".
 //!
-//! Only a walk of a native screen (`armada://walk/`) has a tab here: a web page's walk waits for the
-//! embedded browser.
+//! A walk of a native screen (`armada://walk/`) is a name, a brief and Open. **A walk of a web page draws the
+//! page in its tab with the walk's bar above it** (`web_walk.rs`), as Classic's live walk tab does, in a
+//! WKWebView placed over the frame the tab reports (`crate::web`). It has a tab as a native walk has, and a
+//! press on the walk he is owed brings it forward.
 
 use std::collections::{HashMap, HashSet};
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
 use ipc::{SessionRecord, SessionRow, WaitingActKind, WaitingSource};
 
 use super::acts::{button, Tone, SHEET};
+use super::web_walk::{WebWalkEvent, WebWalkTab};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -85,6 +88,14 @@ pub(super) struct RowTabs {
     /// Walks that had a tab once: one closed with its × does not come back (`arrivedBefore`).
     arrived: HashSet<String>,
     opened: HashMap<String, Opened>,
+    /// The web page of each walk of a web page that has a tab, by address: kept while the walk is owed, so its page, scroll and
+    /// step stay while its tab is behind another or closed (Classic parks the view hidden).
+    web: HashMap<String, (Entity<WebWalkTab>, Subscription)>,
+    /// The sealed page under each document tab, by its page: let go as its tab closes, so a page opened again is read
+    /// again from Fleet, with what he pressed and voted on it (`page_tab.rs`).
+    pub(super) pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
+    /// What the mock Fleet kept of the presses and votes on each page, for its record when the page is opened again.
+    pub(super) mock_kept: HashMap<String, super::page_tab::Kept>,
 }
 
 impl RowTabs {
@@ -162,6 +173,13 @@ impl RowTabs {
 struct ShownWalk {
     title: String,
     brief: Option<String>,
+    /// The scripted steps of a web page's walk (`show_window`'s `steps`), as the ledger keeps them.
+    steps: Vec<ipc::WalkStep>,
+}
+
+/// Whether a walk is of a native screen, which Fleet starts in a window of its own, and not of a web page.
+fn is_native(url: &str) -> bool {
+    url.starts_with(NATIVE_WALK)
 }
 
 /// A page with no name of its own is named by the end of its path, as `nameOfPage` names it.
@@ -173,10 +191,11 @@ fn shown_walk(record: &SessionRecord, url: &str) -> Option<ShownWalk> {
     let one = record.attachments.iter().find(|one| one.kind == "artifact" && one.target == url && one.detail.get("form").map(String::as_str) == Some("window"))?;
     let title = one.detail.get("title").filter(|title| title.as_str() != url && !title.is_empty()).cloned().unwrap_or_else(|| name_of_page(url));
     let brief = one.detail.get("brief").map(|brief| brief.trim().to_string()).filter(|brief| !brief.is_empty());
-    Some(ShownWalk { title, brief })
+    let steps = one.detail.get("steps").and_then(|steps| ipc::decode::<Vec<ipc::WalkStep>>("walk steps", steps.as_bytes()).ok()).unwrap_or_default();
+    Some(ShownWalk { title, brief, steps })
 }
 
-/// The native walks the Job owes him, each with its tab's name: a walk is owed while Fleet's waiting
+/// The walks the Job owes him, each with its tab's name: a walk is owed while Fleet's waiting
 /// item for it stands, and has a tab only where the Job showed it (`owedWalks`).
 fn owed_walks(record: &SessionRecord) -> Vec<(String, String)> {
     record
@@ -184,7 +203,6 @@ fn owed_walks(record: &SessionRecord) -> Vec<(String, String)> {
         .iter()
         .filter(|one| one.source == WaitingSource::Walk)
         .filter_map(|one| one.act.as_ref().filter(|act| act.kind == WaitingActKind::Walk).map(|act| act.target.clone()))
-        .filter(|url| url.starts_with(NATIVE_WALK))
         .filter_map(|url| shown_walk(record, &url).map(|walk| (url, walk.title)))
         .collect()
 }
@@ -268,11 +286,17 @@ impl JobView {
         self.row_tab_front(&id, RowKind::Document, page, window, cx);
     }
 
-    /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group.
-    /// A subagent the Job no longer holds opens no tab.
+    /// Subagent `subagent` of Job `id`, as its ledger holds it, else as the press on its row in the thread gave it.
+    pub(super) fn subagent_held(&self, id: &str, subagent: &str, cx: &gpui::App) -> Option<ipc::ToolSubagent> {
+        let ledger = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of);
+        ledger.or_else(|| self.subagents_opened.get(&Self::subagent_key(id, subagent)).cloned())
+    }
+
+    /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group or its row in the
+    /// thread. A subagent the Job no longer holds opens no tab.
     pub(super) fn open_subagent_tab(&mut self, subagent: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let Some(one) = self.record(&id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of) else { return };
+        let Some(one) = self.subagent_held(&id, subagent, cx) else { return };
         self.watch_subagent(&one, cx);
         self.row_tabs_of(&id).focus(RowKind::Subagent, subagent, one.task);
         self.row_tab_front(&id, RowKind::Subagent, subagent, window, cx);
@@ -281,11 +305,13 @@ impl JobView {
     /// A press on a walk he is owed (`openJobWalk`): a native walk starts its window at once, and its
     /// tab comes forward only where Fleet does not start it.
     pub(super) fn press_walk(&mut self, url: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if !url.starts_with(NATIVE_WALK) {
-            return;
-        }
         let url = url.to_string();
-        self.open_walk(&url, false, window, cx);
+        if is_native(&url) {
+            self.open_walk(&url, false, window, cx);
+        } else {
+            // A web page's walk is drawn in its own tab, so a press brings the tab forward (`focusWalk`).
+            self.bring_walk_forward(&url, window, cx);
+        }
     }
 
     fn bring_walk_forward(&mut self, url: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -346,7 +372,8 @@ impl JobView {
     /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
     /// settled walk does.
     pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
-        let subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
+        let mut subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
+        subagents.extend(self.subagents_opened.keys().filter_map(|key| key.strip_prefix(id.as_ref()).and_then(|rest| rest.strip_prefix('/')).map(str::to_string)));
         if let Some(held) = self.thread(id, cx) {
             let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
                 tabs.tabs
@@ -416,6 +443,48 @@ impl JobView {
         );
     }
 
+    /// Each walk of a web page the Job owes gets its page and bar once, where its tab first arrives; a settled one takes
+    /// its page with it (Classic disposes the view as the walk leaves).
+    pub(super) fn sync_web_walks(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let owed = self.record(id, cx).map(owed_walks).unwrap_or_default();
+        self.row_tabs_of(id).web.retain(|url, _| owed.iter().any(|(owed, _)| owed == url));
+        let manifest = self.record(id, cx).and_then(|record| record.manifest_id.as_ref().map(|manifest| manifest.as_str().to_string()));
+        for (url, title) in owed.iter().filter(|(url, _)| !is_native(url)) {
+            if self.row_tabs_of(id).web.contains_key(url) {
+                continue;
+            }
+            let Some(walk) = self.record(id, cx).and_then(|record| shown_walk(record, url)) else { continue };
+            let (job, address, title) = (id.clone(), url.clone(), title.clone());
+            let keys = self.row_focus.clone();
+            let tab = cx.new(|cx| WebWalkTab::new(job, address, title, walk.steps, manifest.as_deref(), keys, cx));
+            let approving = cx.subscribe_in(&tab, window, |this, tab, _: &WebWalkEvent, window, cx| {
+                let (job, url) = (tab.read(cx).job().clone(), tab.read(cx).url().to_string());
+                this.approve_web_walk(&job, &url, window, cx);
+            });
+            self.row_tabs_of(id).web.insert(url.clone(), (tab, approving));
+        }
+    }
+
+    /// Approve on a web page's walk, as the walk bar sends it: the line Fleet's `walk_approval` reads, to the Job. A Job
+    /// with no Fleet behind it (the mock) is sent nothing.
+    fn approve_web_walk(&mut self, job: &SharedString, url: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.fleet.is_none() {
+            return;
+        }
+        let body = ipc::SendSessionMessageBody {
+            message: ipc::SendSessionMessage {
+                session_id: ipc::SessionId::carried(job.to_string()),
+                text: crate::walk::fleet::approved(url, None),
+                attachments: Vec::new(),
+                mentions: Vec::new(),
+                sketches: Vec::new(),
+            },
+            aim: None,
+        };
+        let done: super::wire::Done = Box::new(|_, _, _, _| {});
+        self.post("/sessions/message".into(), ipc::encode(&body), window, cx, done);
+    }
+
     /// The tab that was in front of the thread's pane when he left, once the thread is held: it opens again
     /// where its draft, page or subagent is still the Job's, and is let go where it is not.
     fn restore_row_front(&mut self, id: &SharedString, cx: &mut Context<Self>) {
@@ -434,7 +503,7 @@ impl JobView {
                 None => return,
             },
             "subagent" => {
-                let Some(one) = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == key)).map(super::ledger::subagent_of) else { return };
+                let Some(one) = self.subagent_held(id, &key, cx) else { return };
                 self.watch_subagent(&one, cx);
                 (RowKind::Subagent, one.task)
             }
@@ -455,6 +524,15 @@ impl JobView {
 
     // ---- drawing -----------------------------------------------------------------------
 
+    /// Job `id`'s tab for `key` of `kind` goes, as its × takes it.
+    fn close_row_tab(&mut self, id: &SharedString, kind: RowKind, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let kind_name = super::panes_place::row_kind_name(kind);
+        let tab = self.arrangement_of(id).and_then(|arrangement| super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind_name && tab.row.as_deref() == Some(key)).map(|tab| tab.id.clone()));
+        if let Some(tab) = tab {
+            self.close_tab_id(&tab, window, cx);
+        }
+    }
+
     /// The body of the tab in front, where it is not the thread. **What has gone draws nothing**: a
     /// draft's row or a document's card no longer in the thread, a walk the Job never showed, or a
     /// subagent not yet read.
@@ -468,12 +546,49 @@ impl JobView {
                 }
                 _ => None,
             }),
-            RowKind::Document => self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)),
+            // Its card, then the page itself under it, sealed, filling the rest (Classic's `DocumentTabBody`).
+            RowKind::Document => {
+                let Some(card) = self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)) else {
+                    return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element();
+                };
+                let sealed = self.row_tabs.get(id).and_then(|tabs| tabs.pages.get(&tab.key)).map(|(sealed, _)| sealed.clone());
+                return div()
+                    .id("row-tab-body")
+                    .track_focus(&self.row_focus)
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .child(div().flex_none().p(look.length(token::SPACE_4)).child(card))
+                    .children(sealed.map(|sealed| div().flex_1().min_h(gpui::px(0.)).child(sealed)))
+                    .into_any_element();
+            }
+            // A web page's walk is its bar over its page, edge to edge; a native walk's is its name, brief and Open.
+            RowKind::Walk if !is_native(&tab.key) => {
+                let web = self.row_tabs.get(id).and_then(|tabs| tabs.web.get(&tab.key)).map(|(web, _)| web.clone());
+                return div().id("row-tab-body").size_full().children(web).into_any_element();
+            }
             RowKind::Walk => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key)).map(|walk| self.walk_body(id, &tab.key, walk, look, cx)),
-            // The subagent's thread draws its own padding, as the reading sheet's does.
+            // Its type, model and context figure first, then its thread, which draws its own padding. Esc shuts the tab.
             RowKind::Subagent => {
+                let head = self.subagent_held(id, &tab.key, cx).and_then(|one| self.subagent_head(id, &one, look));
                 let thread = self.subagent_thread(id, &tab.key, window, cx);
-                return div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().children(thread).into_any_element();
+                return div()
+                    .id("row-tab-body")
+                    .track_focus(&self.row_focus)
+                    .capture_key_down(cx.listener({
+                        let (id, key) = (id.clone(), tab.key.clone());
+                        move |this, event: &gpui::KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "escape" {
+                            this.close_row_tab(&id, RowKind::Subagent, &key, window, cx);
+                            cx.stop_propagation();
+                        }
+                    }}))
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .children(head)
+                    .child(div().id("subagent-thread").flex_1().min_h_0().overflow_y_scroll().children(thread))
+                    .into_any_element();
             }
         };
         match card {
@@ -585,6 +700,33 @@ mod tests {
         tabs.keep(|tab| tab.key != "gone");
         assert_eq!(tabs.tabs.iter().map(|tab| tab.key.as_str()).collect::<Vec<_>>(), ["a", "w"]);
         assert_eq!(tabs.front, Some(1));
+    }
+
+    #[test]
+    fn a_walk_of_a_web_page_is_owed_a_tab_as_a_walk_of_a_native_screen_is() {
+        let jobs = crate::mock::jobs("job-web-walk").expect("decodes");
+        let record = jobs.iter().find(|one| one.id.as_str() == "mock-01").expect("the first Job");
+        let owed = owed_walks(record);
+        assert_eq!(owed.len(), 1, "the native walks are gone from this Job, the web walk is owed");
+        let (url, title) = &owed[0];
+        assert!(url.starts_with("file://") && url.ends_with("/fixtures/web-walk-page.html"), "{url}");
+        assert!(!is_native(url));
+        assert_eq!(title, "Orders page");
+        let shown = shown_walk(record, url).expect("the Job showed it");
+        assert_eq!(shown.steps.len(), 6);
+        assert_eq!(shown.steps[4].press.as_ref().map(|target| target.name.as_deref()), Some(Some("Cancel")), "the form is shut before Export");
+        assert_eq!(shown.steps[2].press.as_ref().map(|target| target.role.as_str()), Some("button"));
+        let mut tabs = RowTabs::default();
+        assert!(tabs.sync_walks(&owed), "it arrives behind the thread");
+        assert_eq!(tabs.tabs.len(), 1);
+        assert_eq!(tabs.tabs[0].kind, RowKind::Walk);
+    }
+
+    #[test]
+    fn a_native_walk_is_told_from_a_web_walk_by_its_address() {
+        assert!(is_native("armada://walk/mergeLine"));
+        assert!(!is_native("https://example.com/orders"));
+        assert!(!is_native("file:///tmp/page.html"));
     }
 
     #[test]
