@@ -282,6 +282,7 @@ impl JobView {
             self.row_tabs.entry(id.clone()).or_default().pages.insert(page, (tab.clone(), carrying));
             self.fetch_page(tab, window, cx);
         }
+        self.sync_readers(id, window, cx);
     }
 
     /// The page, sealed, as Fleet serves it (`get_artifact_page`), or Fleet's refusal of it.

@@ -52,6 +52,10 @@ pub(super) struct Artifacts {
     cursor: HashMap<String, String>,
     /// What the mock Fleet folded away or restored here, by Job and artifact, since it keeps nothing.
     folded_here: HashMap<(String, String), bool>,
+    /// What the mock Fleet was told he opened and edited here, by Job and artifact, since it keeps nothing: the newest
+    /// revision he opened, and how many revisions of his own were kept.
+    seen_here: HashMap<(String, String), u32>,
+    edits_here: HashMap<(String, String), u32>,
 }
 
 struct Read {
@@ -115,7 +119,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     seen: None,
                 });
             }
-            ThreadItem::Row { row: SessionRow::Draft { id, at, title, settled, change: None, for_line, .. } } => {
+            ThreadItem::Row { row: SessionRow::Draft { id, at, title, settled, change: None, for_line, before, .. } } => {
                 let (state, words, mine) = match settled.as_ref().map(|settled| (settled.how, settled.words.clone())) {
                     Some((DraftHow::Approved, _)) => (ArtifactState::Approved, None, false),
                     Some((DraftHow::Fixed, words)) => (ArtifactState::Approved, words, true),
@@ -127,7 +131,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     id: format!("draft:{title}"),
                     title: title.clone(),
                     form: ArtifactForm::Draft,
-                    revisions: revisions(if mine { 2 } else { 1 }, at, ArtifactForm::Draft, if mine { ArtifactBy::Owner } else { ArtifactBy::Agent }),
+                    revisions: revisions(if mine || before.is_some() { 2 } else { 1 }, at, ArtifactForm::Draft, if mine { ArtifactBy::Owner } else { ArtifactBy::Agent }),
                     state,
                     words,
                     item: (state == ArtifactState::Asking).then(|| format!("draft:{id}")),
@@ -136,7 +140,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     for_line: for_line.clone(),
                     presses: Vec::new(),
                     votes: Vec::new(),
-                    seen: None,
+                    seen: before.is_some().then_some(1),
                 });
             }
             _ => {}
@@ -195,6 +199,13 @@ impl JobView {
                     Some(false) => one.archived = None,
                     None => {}
                 }
+                let key = (id.to_string(), one.id.clone());
+                for _ in 0..self.artifacts.edits_here.get(&key).copied().unwrap_or(0) {
+                    let number = one.revisions.last().map_or(1, |last| last.number) + 1;
+                    let at = Instant::carried(Local::now().to_rfc3339());
+                    one.revisions.push(ipc::ArtifactRevision { number, at, by: ArtifactBy::Owner, form: one.form });
+                }
+                one.seen = self.artifacts.seen_here.get(&key).copied().or(one.seen);
             }
             if let Some(read) = self.artifacts.read.get_mut(id.as_ref()) {
                 read.rows = Some(rows);
@@ -224,6 +235,19 @@ impl JobView {
         if let Some(one) = self.artifacts.read.get_mut(job).and_then(|read| read.rows.as_mut()).and_then(|rows| rows.iter_mut().find(|one| one.id == artifact)) {
             one.archived = on.then(|| ArtifactArchived { by: ArtifactBy::Owner, at: Instant::carried(Local::now().to_rfc3339()) });
         }
+    }
+
+    /// He opened this revision, on mock data: it is the newest he has opened from here on.
+    pub(super) fn seen_here(&mut self, job: &str, artifact: &str, revision: u32) {
+        self.artifacts.seen_here.insert((job.to_string(), artifact.to_string()), revision);
+        if let Some(one) = self.artifacts.read.get_mut(job).and_then(|read| read.rows.as_mut()).and_then(|rows| rows.iter_mut().find(|one| one.id == artifact)) {
+            one.seen = Some(revision);
+        }
+    }
+
+    /// He saved an edit, on mock data: one more revision, his.
+    pub(super) fn edited_here(&mut self, job: &str, artifact: &str) {
+        *self.artifacts.edits_here.entry((job.to_string(), artifact.to_string())).or_default() += 1;
     }
 
     // ---- a page's first screen ------------------------------------------------------------

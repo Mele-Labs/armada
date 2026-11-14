@@ -155,7 +155,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
         "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
-        "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
+        "drafts" | "reader" => include_bytes!("../fixtures/jobs-drafts.json"),
         // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
         // one that was answered with a figure to be asked again at.
         "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
@@ -531,6 +531,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
         "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
+        // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
+        "reader" => include_bytes!("../fixtures/reader-threads.json"),
         "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
