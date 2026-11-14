@@ -84,6 +84,8 @@ mod job_renames;
 mod artifact_archives;
 /// The revisions of a Job's artifacts the person wrote, kept apart from their attachments.
 mod artifact_owner_revisions;
+/// The presses of the actions a Job's pages declare, kept apart from their attachments.
+mod page_presses;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -125,6 +127,8 @@ mod operator_rulings;
 mod operator_orders;
 mod operator_switches;
 mod operator_turn;
+/// The person's own answers to a Job's questions, which the Operator may follow.
+mod operator_answer;
 mod operator_suggestions;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
@@ -255,6 +259,7 @@ pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
 pub use artifact_archives::KeptArchive;
 pub use artifact_owner_revisions::KeptOwnerRevision;
+pub use page_presses::KeptPress;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -289,6 +294,7 @@ pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;
 pub use operator_turn::{KeptPage, KeptTurn};
+pub use operator_answer::KeptAnswer;
 pub use operator_suggestions::KeptSuggestion;
 pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;

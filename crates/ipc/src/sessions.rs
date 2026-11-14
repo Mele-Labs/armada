@@ -281,6 +281,12 @@ pub enum SessionFact {
         #[serde(rename = "use")]
         used: crate::loadout::LoadoutUse,
     },
+    /// The mod blocked a turn's stop and sent the agent back with `text`, the words the agent was
+    /// given. Fleet keeps it in a hosted Job's thread as a `reply_claim` notice, which wakes nothing,
+    /// so a dispute can name it. Since mod 0.3.64.
+    SentBack {
+        text: String,
+    },
     Ended {
         reason: String,
     },
@@ -875,6 +881,13 @@ pub enum WaitingSource {
     /// as skipped. Neither sends the agent a word of its own, since the close tells it. Words alone go
     /// to the agent as a message. Gone when the gate closes or the hold clears. Dismissing it is refused.
     Gate,
+    /// Fleet: the person took back a ruling the Operator made by following something he said (`operator_undo_ruling`),
+    /// so the question is his. Derived on every read from the kept ruling, never kept in the Job's list: id
+    /// `undone:<n>`, `<n>` being the ruling's row, text the question, the options the question had, and an `answer`
+    /// act whose `target` is the id. Answering it is answering an agent's item: the agent is sent `Re: <question>`
+    /// and his choice, and the item goes. Dismissing it drops it. The Operator's own review never answers it.
+    /// Listed only while the Job is live. Since 13 Nov 2026.
+    OperatorUndone,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

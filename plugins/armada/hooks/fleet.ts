@@ -77,3 +77,5 @@ export type Fact =
   // The Loadout: the whole list, replacing the last, and one use in the turn it began in.
   | { kind: 'equipped'; loadout: { items: LoadoutItem[] } }
   | { kind: 'used'; use: LoadoutUse }
+  // A stop sent back, with the words the agent was given.
+  | { kind: 'sent_back'; text: string }

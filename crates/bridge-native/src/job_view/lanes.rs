@@ -130,7 +130,7 @@ impl JobView {
         if self.tab_closed("workflow") {
             self.add_tab("workflow", window, cx);
         } else {
-            self.zone = super::side::Zone::Workflow;
+            self.show_zone(super::side::Zone::Workflow, cx);
             cx.notify();
         }
         let frame = self.lanes.canvas.frame.clone();
