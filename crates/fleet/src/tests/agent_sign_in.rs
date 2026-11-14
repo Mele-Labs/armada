@@ -46,6 +46,11 @@ async fn state(rig: &Rig) -> AgentSignIn {
     rig.fleet.get_agent_sign_in().await.unwrap()
 }
 
+/// Signed in, with no sign-in running: the account named, and nothing else.
+fn signed_in() -> AgentSignIn {
+    AgentSignIn { account: adapters::HeadlessAgent::account_name().to_string(), ..AgentSignIn::default() }
+}
+
 /// The words Fleet sent a hosted Job under `word`.
 async fn noticed(rig: &Rig, id: &SessionId, word: &str) -> Vec<String> {
     rig.rows(id)
@@ -88,6 +93,7 @@ async fn a_job_signing_out_signs_the_fleet_out() {
     let published = next_state(&mut watching).await;
     assert!(published.signed_out_since.is_some(), "{published:?}");
     assert!(!published.signing_in);
+    assert_eq!(published.account, signed_in().account, "the account is named for Bridge to say");
     assert_eq!(state(&rig).await, published, "what is read is what was sent");
     assert!(marked(&rig, &id));
     assert!(!marked(&rig, &other), "a Job that never failed is not one the expiry stopped");
@@ -130,7 +136,7 @@ async fn an_answer_anywhere_signs_the_fleet_back_in_and_wakes_the_rest() {
     eventually(|| async { marked(&rig, &first) && marked(&rig, &second) }).await;
 
     rig.stand_in.says(three, vec![DroneEvent::Said { text: "On it.".into(), by: Speaker::Drone }]);
-    eventually(|| async { state(&rig).await == AgentSignIn::default() }).await;
+    eventually(|| async { state(&rig).await == signed_in() }).await;
     for id in [&first, &second] {
         eventually(|| async { noticed(&rig, id, "sign_in_wake").await == ["Continue"] }).await;
         assert!(!marked(&rig, id));
@@ -164,7 +170,7 @@ async fn a_clean_sign_in_wakes_every_stopped_job() {
 
     let pressed = Arc::clone(&rig.fleet).start_agent_sign_in().await.unwrap();
     assert!(pressed.signing_in, "{pressed:?}");
-    eventually(|| async { state(&rig).await == AgentSignIn::default() }).await;
+    eventually(|| async { state(&rig).await == signed_in() }).await;
     for id in [&first, &second] {
         eventually(|| async { noticed(&rig, id, "sign_in_wake").await == ["Continue"] }).await;
         assert!(!marked(&rig, id));
@@ -254,7 +260,7 @@ async fn a_terminal_job_finishing_a_turn_signs_the_fleet_back_in() {
     reported(&rig, "t2", SessionFact::SignedOut).await;
 
     reported(&rig, "t1", SessionFact::TurnCompleted { said: Some("Done.".into()) }).await;
-    assert_eq!(state(&rig).await, AgentSignIn::default());
+    assert_eq!(state(&rig).await, signed_in());
     rig.fleet.sign_in_wakes_owed().await;
     eventually(|| async { noticed(&rig, &hosted, "sign_in_wake").await == ["Continue"] }).await;
     assert!(handed_to_the_mod(&rig, "t2").await.iter().any(|said| said.ends_with("Continue")), "the other terminal Job is woken");
