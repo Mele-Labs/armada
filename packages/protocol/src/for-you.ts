@@ -3,17 +3,36 @@
 import type { SessionStanding } from "./sessions";
 
 /** What a For you row is, for the glyph and the press. */
-export type ForYouKind = "walk" | "document" | "plan" | "draft" | "sketch" | "question" | "run" | "approve";
+export type ForYouKind =
+  | "walk"
+  | "document"
+  | "plan"
+  | "draft"
+  | "sketch"
+  | "question"
+  | "run"
+  | "approve";
 
 /** Who put the row on the list. */
 export type ForYouBy = "fleet" | "agent";
 
 /** What a press on the row opens. */
 export type ForYouOpens =
-  | { kind: "artifact"; id: string }
-  | { kind: "walk"; url: string }
-  | { kind: "waiting"; id: string }
-  | { kind: "plan" };
+  | {
+      kind: "artifact";
+      id: string;
+    }
+  | {
+      kind: "walk";
+      url: string;
+    }
+  | {
+      kind: "waiting";
+      id: string;
+    }
+  | {
+      kind: "plan";
+    };
 
 /** One thing the Job waits on him for. */
 export type ForYouItem = {
@@ -60,19 +79,39 @@ export type ForYou = {
 };
 
 /** `POST /sessions/for_you/withdraw`. */
-export type WithdrawForYou = { session_id?: string; id: string };
+export type WithdrawForYou = {
+  session_id?: string;
+  id: string;
+};
 
 /** `POST /sessions/for_you/order`: replaces the order set before. */
-export type OrderForYou = { session_id?: string; ids: string[] };
+export type OrderForYou = {
+  session_id?: string;
+  ids: string[];
+};
 
 /** `POST /sessions/for_you/line`: a blank line clears it. */
-export type LineForYou = { session_id?: string; id: string; line: string };
+export type LineForYou = {
+  session_id?: string;
+  id: string;
+  line: string;
+};
 
 /** `POST /sessions/for_you/add`. */
-export type AddForYou = { session_id?: string; title: string; kind: ForYouKind; opens: ForYouOpens; line?: string };
+export type AddForYou = {
+  session_id?: string;
+  title: string;
+  kind: ForYouKind;
+  opens: ForYouOpens;
+  line?: string;
+};
 
 /** What `add_for_you` answers. */
-export type ForYouAdded = { id: string };
+export type ForYouAdded = {
+  id: string;
+};
 
 /** `session.for_you`: the Job's For you moved. Read `get_for_you` again. */
-export type ForYouChanged = { session_id: string };
+export type ForYouChanged = {
+  session_id: string;
+};
