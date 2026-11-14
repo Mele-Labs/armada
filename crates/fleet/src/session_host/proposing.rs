@@ -263,7 +263,7 @@ where
             self.issues_named(record.id.as_str(), &request, &[]).await;
             self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
             if overlap {
-                self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch(None)).await;
+                self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch { kind: None, away: crate::share::from_phone_or_other_mac() }).await;
             }
             return self.after_begun(record, after, request).await;
         }
@@ -277,7 +277,7 @@ where
         self.issues_named(record.id.as_str(), &request, &[]).await;
         self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
         if overlap {
-            self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch(None)).await;
+            self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch { kind: None, away: crate::share::from_phone_or_other_mac() }).await;
         }
         self.after_begun(record, after, request).await
     }

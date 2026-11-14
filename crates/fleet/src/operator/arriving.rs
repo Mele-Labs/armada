@@ -154,7 +154,8 @@ impl Arrived {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Source {
     /// The person's dispatch, through the proposer, and what he marked it as where he did: a hint to the call.
-    Dispatch(Option<ipc::DispatchKind>),
+    /// `away` where he made it on his phone or another Mac, **which reaches only a Job in a shared project**.
+    Dispatch { kind: Option<ipc::DispatchKind>, away: bool },
     /// Another Job's agent, named by its id.
     Job(String),
     /// A fork the person pressed.
@@ -178,7 +179,7 @@ pub enum Source {
 impl Source {
     pub fn word(&self) -> &'static str {
         match self {
-            Source::Dispatch(_) => "dispatch",
+            Source::Dispatch { .. } => "dispatch",
             Source::Job(_) => "job",
             Source::Fork => "fork",
             Source::Fleet => "fleet",
@@ -201,7 +202,7 @@ impl Source {
 
     fn said(&self) -> String {
         match self {
-            Source::Dispatch(_) => "from the person's dispatch".to_string(),
+            Source::Dispatch { .. } => "from the person's dispatch".to_string(),
             Source::Job(id) => format!("started by Job {id}"),
             Source::Fork => "a fork the person pressed".to_string(),
             Source::Fleet => "one of Fleet's own".to_string(),
@@ -255,6 +256,12 @@ impl Arrival {
         self.id.starts_with(super::sources::SENT_NOTE)
     }
 
+    /// Work he made on his phone or another Mac: **only a Job in a shared project is there for it**, as
+    /// `crate::share` rules for everything else they reach.
+    pub fn reaches_only_shared(&self) -> bool {
+        matches!(self.source, Source::Dispatch { away: true, .. })
+    }
+
     /// The item as the call reads it, numbered `at`.
     pub(super) fn shown(&self, at: usize) -> String {
         let mut out = match self.is_dispatch() {
@@ -269,7 +276,7 @@ impl Arrival {
         if !self.words.trim().is_empty() {
             out.push_str(&format!("     Its words: {}\n", one_line(&self.words)));
         }
-        if let Source::Dispatch(Some(kind)) = &self.source {
+        if let Source::Dispatch { kind: Some(kind), .. } = &self.source {
             let a = match kind {
                 ipc::DispatchKind::Idea => "an idea",
                 ipc::DispatchKind::Feature => "a feature",
@@ -333,6 +340,8 @@ pub struct LiveJob {
     /// Who started it, as `(id, title)`, nearest first up to the root. Empty for a Job the person
     /// started. An ended starter is named too.
     pub started_by: Vec<(String, String)>,
+    /// Whether his phone and other Macs see it: in a shared project, or held from another Mac.
+    pub shared: bool,
 }
 
 /// A Job's starters, nearest first: `Job <id> "<title>", which Job <id> "<title>" started`, each

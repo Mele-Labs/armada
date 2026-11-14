@@ -22,6 +22,12 @@ use crate::daemon::Fleet;
 use crate::projects::{NO_SUCH_PROJECT, NO_SUCH_ROW};
 use crate::session_host::NO_SUCH_SESSION;
 
+/// Whether the request being answered came from his phone or another of his Macs, which reach only a Job in a
+/// shared project.
+pub(crate) fn from_phone_or_other_mac() -> bool {
+    api::via().is_some_and(|via| [api::PHONE, api::MAC].contains(&via.as_wire()))
+}
+
 /// Something the share filter let through to another Mac. **Made only here**, so a link that sends only these
 /// cannot send what the filter did not see.
 #[derive(Debug)]

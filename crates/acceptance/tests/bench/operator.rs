@@ -35,6 +35,7 @@ pub fn live() -> Vec<LiveJob> {
             issues: Vec::new(),
             running: Vec::new(),
             started_by: Vec::new(),
+            shared: false,
         },
         LiveJob {
             session_id: TERMINAL.into(),
@@ -45,6 +46,7 @@ pub fn live() -> Vec<LiveJob> {
             issues: Vec::new(),
             running: Vec::new(),
             started_by: Vec::new(),
+            shared: false,
         },
         LiveJob {
             session_id: IN_TAB.into(),
@@ -55,6 +57,7 @@ pub fn live() -> Vec<LiveJob> {
             issues: Vec::new(),
             running: Vec::new(),
             started_by: Vec::new(),
+            shared: false,
         },
     ]
 }

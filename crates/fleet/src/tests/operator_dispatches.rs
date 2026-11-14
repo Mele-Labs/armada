@@ -412,3 +412,49 @@ async fn with_the_operator_off_a_kind_sets_no_workflow_and_the_job_starts_as_it_
     }
     assert_eq!(plain, None, "he named none, so the proposer reads it");
 }
+
+/// `dispatch` made through Fleet's own routes by `caller`, as his phone's Gateway or another Mac's link calls them.
+async fn dispatched_by(rig: &Rig, caller: &str, dispatch: &DispatchJob) -> axum::http::StatusCode {
+    use tower::ServiceExt;
+    let routes = api::router(api::Served::sharing(Arc::clone(&rig.fleet), ipc::RunId::carried("01RUN"), rig.fleet.events()));
+    let body = ipc::encode(dispatch).expect("encoded");
+    let request = axum::http::Request::post("/sessions/dispatch")
+        .header("content-type", "application/json")
+        .header(api::CALLER_HEADER, caller)
+        .body(axum::body::Body::from(body))
+        .expect("a request");
+    routes.oneshot(request).await.expect("answered").status()
+}
+
+/// armada-4ai4: **work he dispatches on his phone or another Mac reaches only a Job in a shared project.** A live
+/// Job in an unshared one is not shown to the call, a ruling that names it anyway starts a Job in its place, and
+/// the same Job takes the work once its project is shared.
+#[tokio::test]
+async fn a_dispatch_from_the_phone_or_another_mac_never_reaches_a_live_job_in_an_unshared_project() {
+    for caller in [api::PHONE, api::MAC] {
+        let rig = rig_placing(None);
+        let (shop, garden) = (super::share::project(&rig, "Shop").await, super::share::project(&rig, "Garden").await);
+        super::share::shared(&rig, &garden, true).await;
+        let private = super::share::job_in(&rig, Some(&shop)).await;
+        let touch = KeptTouch { by: None, path: FILE.into(), act: "edit".into(), at: "2026-11-10T08:00:00.000Z".into() };
+        rig.fleet.store().lock().await.keep_session_touch(private.as_str(), &touch, 50).expect("kept");
+        let call = seated(&rig, &[&ruling(2, Some(&private)), &ruling(2, Some(&private))]).await;
+        let mut watching = rig.fleet.events().subscribe();
+        let dispatch = DispatchJob { start: StartSession { project: Some(garden.clone()), ..the_dispatch(&rig).start }, ..the_dispatch(&rig) };
+
+        assert_eq!(dispatched_by(&rig, caller, &dispatch).await, axum::http::StatusCode::OK, "{caller}");
+
+        let event = told(&mut watching).await;
+        assert_eq!(event.way, DispatchWay::Started, "{caller}: a Job started in its place");
+        let started = event.session_id.expect("names the Job");
+        assert_ne!(started, private, "{caller}");
+        assert!(!call.asked()[0].contains(private.as_str()), "{caller}: the call is not shown it: {}", call.asked()[0]);
+        eventually(|| async { thread(&rig, started.as_str()).await.contains(ALSO) }).await;
+        assert!(!thread(&rig, private.as_str()).await.contains("Keep it across a resize"), "{caller}: none of its words reached it");
+
+        super::share::shared(&rig, &shop, true).await;
+        assert_eq!(dispatched_by(&rig, caller, &dispatch).await, axum::http::StatusCode::OK, "{caller}");
+        let event = told(&mut watching).await;
+        assert_eq!((event.way, event.session_id.as_ref()), (DispatchWay::Handed, Some(&private)), "{caller}: shared, it is there for the work");
+    }
+}
