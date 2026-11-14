@@ -230,6 +230,13 @@ const phone = (
   },
 ): PhoneSession => ({
   held: false,
+  // What the Gateway sends for native's row: the last turn's instant, and Armada's Jobs under its project.
+  last_turn_at: session.waiting_since ?? session.started_at,
+  ...(session.repository === "armada"
+    ? {
+        project: "Armada",
+      }
+    : {}),
   ...session,
 });
 
@@ -677,6 +684,9 @@ export function fixtureMacs(
   const showed = phone({
     id: "a2",
     title: "Redraw the Needs you band",
+    pull: 3412,
+    step: "review",
+    now: "Reading the band's tooltips",
     repository: "armada",
     kind: "hosted",
     waiting: false,
@@ -707,6 +717,10 @@ export function fixtureMacs(
   const reading = phone({
     id: "b2",
     title: "Read the push payload",
+    issue: {
+      number: "armada-lm02",
+      title: "Push payload names the Job",
+    },
     repository: "store",
     kind: "hosted",
     waiting: false,
@@ -729,6 +743,13 @@ export function fixtureMacs(
   const parent = phone({
     id: "p1",
     title: "Plan the phone screens",
+    mark: {
+      state: "running",
+      lamp: "running",
+      group: "working",
+    },
+    step: "build",
+    now: "Running pnpm exec vitest run",
     repository: "armada",
     kind: "hosted",
     waiting: false,
@@ -740,6 +761,11 @@ export function fixtureMacs(
   const child = phone({
     id: "c1",
     title: "Build the Draft screen",
+    mark: {
+      state: "subagent",
+      lamp: "running",
+      group: "working",
+    },
     repository: "armada",
     kind: "hosted",
     waiting: false,
