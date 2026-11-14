@@ -1621,6 +1621,20 @@ pub static WALKS: &[Walk] = &[
         steps: &operator::STEPS,
     },
     Walk {
+        name: "native-mac-pairing",
+        title: "Another Mac asks to pair: its card on the Operator's page",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &[
+            step("The Jobs screen in front, the Operator's page behind it", Verb::Press, "tab", "Jobs"),
+            answer("Work asks to pair with this Mac. A press on its banner brings the Operator's page forward with Work's card first in Your turn", "pairing", "article", "Confirm Work pairing"),
+            step("It is blocked, as a question is: it says the code Work shows, and when it asked. The keys are on Confirm", Verb::Look, "button", "Confirm"),
+            answer("Decline forgets the ask here and on Work", "pairing-refused", "button", "Decline"),
+            step("The Gateway refused it, and its sentence stands on the card. Confirm and Decline press again", Verb::Open("button", "Decline"), "alert", "Work's ask ran out. Ask again from Work's Settings."),
+            step("Confirm pairs the two Macs, and the card leaves Your turn", Verb::Gone, "button", "Confirm"),
+        ],
+    },
+    Walk {
         name: "native-toasts",
         title: "Toasts, the Operator's and Fleet's",
         screen: Screen::Operator,

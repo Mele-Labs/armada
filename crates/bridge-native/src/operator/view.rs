@@ -45,7 +45,7 @@ impl Render for TurnDrag {
 }
 
 /// The card's corners: rounder than a control's, as the native screens draw cards.
-fn round(look: &Look) -> Pixels {
+pub(super) fn round(look: &Look) -> Pixels {
     look.length(token::RADIUS_LG) * 1.5
 }
 
@@ -120,7 +120,7 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
 
 /// What a press does on a click, and on Enter or Space while it has the keys: the key goes no further,
 /// so the page's own Enter (Yes) is not said as well.
-fn pressed(
+pub(super) fn pressed(
     element: Stateful<Div>,
     cx: &Context<OperatorPageView>,
     act: impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static,
@@ -922,7 +922,7 @@ impl OperatorPageView {
         )
     }
 
-    fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
@@ -1416,7 +1416,8 @@ fn placed(place: &str, said: &str) -> String {
 }
 
 impl Render for OperatorPageView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.reveal_pairing(window, cx);
         if self.pane {
             return self.render_pane(cx);
         }
@@ -1449,6 +1450,8 @@ impl Render for OperatorPageView {
         };
         let off = (!page.on).then(|| self.off(look, cx));
         let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
+        // Another Mac waiting for his Confirm stands first: it lapses in five minutes and no Job holds it.
+        parts.extend(self.pairing_cards(look, cx));
         parts.extend(self.on_it(page, look, cx));
         parts.extend(off);
         let (queue, card_at) = self.queue(look, cx);
