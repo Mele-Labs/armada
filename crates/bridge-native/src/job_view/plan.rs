@@ -262,6 +262,7 @@ impl JobView {
                         .text_color(look.color(token::FG_DEFAULT))
                         .child(SharedString::from(plan.summary.clone())),
                 )
+                .children(self.plan_sketches(key, plan, None, page, look, cx))
                 .children(pinned.and_then(|at| self.notes_list(at, at.whole(), "Findings on the plan".to_string(), page, look, cx)))
                 .child(labelled(
                     div()
@@ -273,7 +274,13 @@ impl JobView {
                         .text_size(look.length(token::TEXT_SM))
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_MUTED))
-                        .children(plan.groups.iter().map(|group| self.gives_row(group.gives.clone().unwrap_or_else(|| group.title.clone()), group, pinned, page, look, cx))),
+                        .children(plan.groups.iter().map(|group| {
+                            let gives = self.gives_row(group.gives.clone().unwrap_or_else(|| group.title.clone()), group, pinned, page, look, cx);
+                            match self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx) {
+                                Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(gives).child(sketches).into_any_element(),
+                                None => gives,
+                            }
+                        })),
                     Role::List,
                     "What each group gives",
                 ))
@@ -289,10 +296,13 @@ impl JobView {
                 });
         }
         if technical {
+            if !plain {
+                body = body.children(self.plan_sketches(key, plan, None, page, look, cx));
+            }
             let inner = if revising {
-                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), page, look, cx)
+                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), (!plain).then_some(key), page, look, cx)
             } else {
-                self.plan_groups(plan, approved, plain, pinned, page, look, cx)
+                self.plan_groups(key, plan, approved, plain, pinned, page, look, cx)
             };
             // With no plain view the notes about the plan as a whole stand above the groups.
             body = match pinned.filter(|_| !plain).and_then(|at| self.notes_list(at, at.whole(), "Findings on the plan".to_string(), page, look, cx)) {
@@ -355,7 +365,7 @@ impl JobView {
 
     /// The groups of the plan with their tasks' marks and agents (B2.3, 3c).
     #[allow(clippy::too_many_arguments)]
-    fn plan_groups(&self, plan: &SessionPlan, approved: bool, plain: bool, pinned: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn plan_groups(&self, key: &str, plan: &SessionPlan, approved: bool, plain: bool, pinned: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mut runs: Vec<(String, Vec<&SessionPlanGroup>)> = Vec::new();
         for group in &plan.groups {
             let label = group.lands_in.label.clone();
@@ -366,7 +376,14 @@ impl JobView {
         }
         let bare = runs.len() == 1 && runs[0].1.iter().all(|group| !group.own_job) && runs[0].1.iter().all(|group| group.lands_in.pull_request.is_none());
         let list = |groups: &Vec<&SessionPlanGroup>| {
-            div().flex().flex_col().gap(look.length(token::SPACE_2)).children(groups.iter().map(|group| self.plan_group(group, approved, plain, pinned, page, look, cx)))
+            div().flex().flex_col().gap(look.length(token::SPACE_2)).children(groups.iter().map(|group| {
+                let row = self.plan_group(group, approved, plain, pinned, page, look, cx);
+                // The plain view above already draws each group's sketches under what it gives.
+                match self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx).filter(|_| !plain) {
+                    Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(row).child(sketches).into_any_element(),
+                    None => row,
+                }
+            }))
         };
         let inner: AnyElement = if bare {
             list(&runs[0].1).into_any_element()
@@ -452,9 +469,10 @@ impl JobView {
         }
     }
 
-    /// The plan read against the version before it (B2.5): what changed in the open, the rest folded.
+    /// The plan read against the version before it (B2.5): what changed in the open, the rest folded. With
+    /// `sketches`, the key they are kept under, each group's sketches stand under it.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn plan_revision(&self, ix: usize, key: &str, plan: &SessionPlan, changes: &PlanChanges, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn plan_revision(&self, ix: usize, key: &str, plan: &SessionPlan, changes: &PlanChanges, sketches: Option<&str>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = |icon: &'static str, ink: crate::look::Token, said: &'static str| {
             div().id(SharedString::from(format!("rev:{said}:{icon}"))).flex_none().child(glyph(look, icon, Size::Small, look.color(ink))).tooltip(tip(said))
         };
@@ -547,6 +565,11 @@ impl JobView {
                     .children(tasks)
                     .into_any_element()
             }
+        });
+        // `revised` keeps the plan's groups in their order, one for one.
+        let groups = groups.zip(&plan.groups).map(|(drawn, group)| match sketches.and_then(|at| self.plan_sketches(at, plan, Some((&group.id, &group.title)), page, look, cx)) {
+            Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(drawn).child(sketches).into_any_element(),
+            None => drawn,
         });
         labelled(
             div().id("plan-revision").flex().flex_col().gap(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).children(groups),

@@ -86,3 +86,10 @@ fn a_repositorys_own_skill_is_found_by_its_folder_and_file() {
     assert!(!crate::has_own_skill(&root, "pptx"));
     std::fs::remove_dir_all(&root).expect("cleaned up");
 }
+
+#[test]
+fn a_launch_asks_for_thinking_summaries_only_when_told_to() {
+    assert_eq!(value_after(rendered(&launching()).args(), "--thinking-display"), None, "untold leaves the CLI's own");
+    let told = rendered(&launching().summarising_thinking());
+    assert_eq!(value_after(told.args(), "--thinking-display").as_deref(), Some("summarized"));
+}

@@ -51,6 +51,7 @@ mod place;
 mod plan;
 mod plan_edit;
 mod plan_marks;
+mod plan_sketches;
 mod pop;
 mod quick;
 mod teach;
@@ -58,6 +59,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
 mod lanes;
@@ -144,6 +146,7 @@ pub fn bind(cx: &mut App) {
     review::bind(cx);
     head::bind(cx);
     lanes_copy::bind(cx);
+    web_walk::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -377,6 +380,8 @@ pub struct JobView {
     pane: Option<gpui::Pixels>,
     /// The height of the shown thread's list when it was last drawn: a pinned sketch is cut to it.
     pane_height: Option<gpui::Pixels>,
+    /// How wide each sketch drawn inside a plan was last drawn, by its key: its drawing is sized to it.
+    plan_columns: HashMap<String, gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
     /// Each Job's panes as an arrangement, the pane zoomed over the Job, and the steps back.
@@ -594,6 +599,7 @@ impl JobView {
             switched: None,
             pane: None,
             pane_height: None,
+            plan_columns: HashMap::new(),
             picked: 0,
             arranged: panes_place::Arranged::default(),
             tabs_menu: None,
@@ -1150,6 +1156,7 @@ impl Render for JobView {
         }
         self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
+        self.sync_web_walks(&id, window, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();

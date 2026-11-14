@@ -51,14 +51,15 @@ A walk steps through labelled elements.
 The same labels are what VoiceOver reads and what tests find.
 A native screen is walked in its own native window on mock data, with a walk bar.
 
-### 5. Chrome for all web content
+### 5. Apple's web view for all web content
 
-**Chrome (CEF) is embedded for all web content: documents, sketch mocks, walks of web pages and the Browser tool.**
-One Armada Chrome profile keeps sign-ins, and the owner's own Chrome is never touched.
-Chrome draws inside the gpui window: it renders windowless, and gpui shows each frame in a `surface`.
-Bridge carries a small patch to gpui so `surface` takes Chrome's frames as they are, in exact colour and with alpha.
-A page has no view of its own, so its accessibility tree is mapped into gpui's for VoiceOver.
-What was measured is in [the Chrome spike](../spikes/native-bridge-chrome.md).
+**Web content is drawn by Apple's web view, WKWebView: documents, sketch mocks, walks of web pages and the Browser tool.**
+The owner chose it over embedding Chrome on 13 Nov 2026: it ships with macOS, so nothing is downloaded, built or bundled, and VoiceOver, keys, scrolling and colour work as they are.
+A page is a real view laid over the frame its pane reports, as Armada Classic lays its web view over a walk's frame.
+gpui cannot draw over a live page, so while a sheet, menu or popover covers it, its last picture is drawn in its place, as Classic does.
+Sign-ins are kept in Armada's own store, apart from Safari's.
+Pages render with Safari's engine, not the Chromium Classic uses, and the Chrome DevTools Protocol does not reach them.
+What embedding Chrome would have cost was measured in [the Chrome spike](../spikes/native-bridge-chrome.md).
 
 ### 6. Order
 
@@ -67,7 +68,7 @@ Each step is its own Job, and at most two run at once.
 
 | Step | What it gives |
 |---|---|
-| Foundation | A native window on Fleet listing Jobs in his theme, the native walk window on mock data, the Chrome test and the speed check |
+| Foundation | A native window on Fleet listing Jobs in his theme, the native walk window on mock data, the web page test and the speed check |
 | Fleet views | Thread rows, lanes and the merge line worked out in Fleet, beside the foundation |
 | Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
@@ -191,6 +192,7 @@ The parity check takes each row here as chosen.
 | Look, the way of working `take_in` = look (new in native; Classic has nothing like it) | Needs you lists rows and a question shows its options as words; a done card shows the summary alone | A press on a Needs you row opens that one item in the panel over the message box: Needs you with where it stands, ← or Esc back, ↑ ↓ to the previous or next item. A walk's row is the exception: its press starts the walk, one press as at read, and ↑ ↓ still reach its stops. A sketch is drawn large with Approve, Send back and Open large; a walk is numbered frames with Start the walk; a command is its steps as chips joined by chevrons, the command in a mono well and Run. A question whose options carry pictures draws them in equal columns, the Job's pick ringed and marked My pick, keys 1 to 9 taking an option whole, and each picture's labelled parts pressed into Your mix, sent as `answer_parts` (`look_questions` = pictures_whole turns the parts and the mix off). A done card leads with the picture the Job last showed (`GET /sessions/lead_picture`), then two lines of summary and an Also line with a chip for each other form made: Page, Picture, and Listen, which is drawn off until Listen exists. With `take_in` at read nothing changes |
 | Listen: a Job read out loud (owner, 13 Nov) | Electron is frozen and has no Listen | With take in set to listen, an agent's question, a Job's done summary and, if switched on, each ended plan step are spoken through Armada Voice, one at a time. The thread shows each as a card at its foot: an amber left edge, a pause or play disc, bars that fill as it is said, the time, the words in quotes, Again and the voice's name. Pause stops the voice where it is and holds the line; Play and Again say the card from its start, next in the line. Without the helper, or with a voice the Mac lacks, the card keeps its words, its disc goes off and a short fact says why. Again is `rotate-ccw`, where the sketch draws `refresh-cw`, and the words are upright, since the font ships no italic. A queued card has its disc and Again off. Operator cards have their switch but no source yet |
 | A sketch's arrows, and how a sketch opens (owner, 13 Nov) | Classic keeps only the edge fields it knew before `line`, `head` and `path`, so every arrow is an elbow with a head at its end, dashed unless it says `flow: false`, and the panel plays its steps on open | Native draws `line` (solid, dashed or dotted), `head` (end, start, both or none) and `path` (elbow, straight or curve), in the canvas, the picture and page and the Mermaid copy, where Mermaid has the form. An arrow that says neither `line` nor `flow` is solid, as Fleet's docs have it. Each head has a straight run of two head lengths before it and its tip on the box's edge, and an arrow drawn later hops over one it crosses with a small half circle. The panel opens paused with every step lit, and Play starts from the first |
+| A plan's sketches (owner, 13 Nov: one approval for one decision) | Classic draws the plan without the sketches it names, and each keeps its own Approve on its card in the thread | Each sketch the plan names is drawn inside the plan at the column's width: the whole plan's under its summary, a group's under that group, in the thread's plan card and the review sheet. A press opens it, and the pointer on it plays its steps. The plan's one Approve answers them all. While the plan waits, a sketch's own card in the thread reads With the plan and has no Approve or Ask for changes, and Fleet leaves it out of Needs you |
 | The review sheet, several items at once (owner's look, 14 Nov) | One Job's items, answered one at a time with ⌘↵ and ⌥R, its plan edited in place | Every item with an Approve across Jobs, grouped under each Job's name and state. A, C and D answer the chosen item; ⇧A and ⇧D answer every item still asking in one `answer_items` or `dismiss_items` call, and a refusal stands on its own row in Fleet's words. Questions, Job starts, commands and walks stay on their cards, and the plan is read here and edited in Now |
 
 ## Notifying

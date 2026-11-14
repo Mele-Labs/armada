@@ -5,7 +5,8 @@
 //! afresh on every draw, so a fact that dropped out moved it backwards (spike 43). **Each gate is
 //! watched on its own**, whatever the gates before it say, so a merge is kept while an earlier gate is
 //! open. A fact closes one gate of its kind, the first open one in plan order, and no other; the
-//! plan's approval closes every `plan_approved` gate of the version that asked for it. **A walk shown
+//! plan's approval closes every `plan_approved` gate of the version that asked for it, and a merge
+//! closes only the group `gate_merges` ties it to. **A walk shown
 //! for a group is that group's alone**: his Approve of every walk shown for it closes its
 //! `walk_approved` gate, and a walk shown for it after the close opens it again until that one is
 //! approved, which writes a new row beside the old.
@@ -37,8 +38,8 @@ pub(crate) struct Seen {
     pub gate: PlanGate,
     /// What it is, such as `pr:3360`, so it closes one gate of its kind and no other.
     pub source: String,
-    /// The plan group a walk was shown for, when it was shown for one: the fact closes that group's
-    /// `walk_approved` gate and no other.
+    /// The plan group a walk was shown for, or a merge is tied to: the fact closes that group's gate
+    /// and no other.
     pub group: Option<String>,
     pub at: String,
     /// One line, as a person reads it.
@@ -122,13 +123,14 @@ fn walk_fact(rows: &[SessionRow], dismissed: &[String], shown: &[&str], group: O
 }
 
 /// Every fact on the Job a gate can close on: his approval of the plan, of every walk shown, of a
-/// sketch, of a page's newest revision and of an item the agent raised asking for it, a pull request's
-/// merge, and the end of the last of the Jobs it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
+/// sketch, of a page's newest revision and of an item the agent raised asking for it, the merge of a
+/// pull request tied to a group, own or `handed`, and the end of the last of the Jobs it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
 /// before there was a plan is not its gate's.
 pub(crate) fn facts_seen(
     plan: &KeptPlan,
     rows: &[SessionRow],
     held: &[KeptAttachment],
+    handed: &[crate::gate_merges::HandedPull],
     dismissed: &[String],
     started: &[Started],
     approvals: &[KeptApproval],
@@ -205,17 +207,8 @@ pub(crate) fn facts_seen(
                 });
             }
         }
-        if one.kind == "pr" && crate::build_record::merged(one) && one.changed_at >= since {
-            seen.push(Seen {
-                gate: PlanGate::Merged,
-                source: format!("pr:{}", one.target),
-                group: None,
-                at: one.changed_at.clone(),
-                fact: format!("Pull request #{} merged", one.target),
-                commit: None,
-            });
-        }
     }
+    seen.extend(crate::gate_merges::merges_seen(plan, &since, held, handed));
     // Kept only for his own Approve of an item asking for it, so nothing else here can close the gate.
     for one in approvals.iter().filter(|one| one.at >= since) {
         seen.push(Seen {
@@ -244,8 +237,9 @@ pub(crate) fn facts_seen(
 
 /// The gates `seen` closes now, that `kept` has not. The plan's approval closes each group gated on it
 /// for the version that asked; a walk shown for a group closes that group's walk gate, again when it
-/// was approved after the newest close; any other fact, oldest first, closes the first open gate of its
-/// kind in plan order, and a fact a row already names closes nothing more.
+/// was approved after the newest close; a merge closes the gate of the group it is tied to; any other
+/// fact, oldest first, closes the first open gate of its kind in plan order, and a fact a row already
+/// names closes nothing more.
 pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<KeptGate> {
     let mut closed: Vec<KeptGate> = Vec::new();
     let is_closed = |closed: &[KeptGate], group: &str, gate: &str| {
@@ -291,6 +285,15 @@ pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<
         if kept.iter().chain(&closed).any(|one| one.gate == word && one.source == fact.source) {
             continue;
         }
+        // A merge tied to a group closes that group's gate; one tied to none closes nothing.
+        if fact.gate == PlanGate::Merged {
+            if let Some(group) = fact.group.as_deref().filter(|group| plan.groups.iter().any(|one| one.id == *group && one.gate.as_deref() == Some(word))) {
+                if !is_closed(&closed, group, word) {
+                    closed.push(row(&closed, group));
+                }
+            }
+            continue;
+        }
         if let Some(group) = gated.into_iter().find(|group| !is_closed(&closed, &group.id, word)) {
             closed.push(row(&closed, &group.id));
         }
@@ -313,6 +316,9 @@ fn look_of(record: &SessionRecord) -> u64 {
         (plan.version, plan.approved).hash(&mut hash);
         // A gate that opened again is a change of look, though nothing else moved.
         plan.groups.iter().map(|group| group.gate_closed.is_some()).collect::<Vec<_>>().hash(&mut hash);
+        // A merge waits on its group's last task, so a task done is a change of look.
+        let done = |task: &ipc::SessionPlanTask| matches!(task.state, ipc::PlanTaskState::Done | ipc::PlanTaskState::HandedIn);
+        plan.groups.iter().flat_map(|group| &group.tasks).map(done).collect::<Vec<_>>().hash(&mut hash);
     }
     for one in &record.attachments {
         (&one.kind, &one.target, one.state == ipc::AttachmentState::Standing, &one.detail).hash(&mut hash);
@@ -347,7 +353,14 @@ where
         if let Some(parent) = crate::lifecycles::taking_on::started_by(&record.attachments) {
             let done = record.state == ipc::SessionState::Ended || crate::lifecycles::taking_on::landed(&record.attachments);
             let key = format!("child:{}", record.id.as_str());
-            let changed = last.lock().map(|mut held| held.insert(key, u64::from(done)) != Some(u64::from(done))).unwrap_or(true);
+            // Its pull requests too: a group handed to it closes on its last merge, not its first.
+            let mut hash = DefaultHasher::new();
+            done.hash(&mut hash);
+            for one in record.attachments.iter().filter(|one| one.kind == "pr") {
+                (&one.target, one.state == ipc::AttachmentState::Standing, one.detail.get("state")).hash(&mut hash);
+            }
+            let look = hash.finish();
+            let changed = last.lock().map(|mut held| held.insert(key, look) != Some(look)).unwrap_or(true);
             if done && changed {
                 let _ = tell.send(parent.to_string());
             }
@@ -424,8 +437,13 @@ where
             } else {
                 Vec::new()
             };
+            let handed = if plan.groups.iter().any(|group| group.own_job && group.gate.as_deref() == Some(PlanGate::Merged.word())) {
+                crate::gate_merges::handed_pulls(&store, &held)
+            } else {
+                Vec::new()
+            };
             let approvals = store.waiting_approvals(id).unwrap_or_default();
-            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &dismissed, &started, &approvals));
+            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &handed, &dismissed, &started, &approvals));
             closing.into_iter().filter(|gate| store.close_session_gate(id, gate).unwrap_or(false)).collect::<Vec<_>>()
         };
         if !closed.is_empty() {

@@ -265,7 +265,7 @@ where
                 };
                 let hosting = &resumed;
                 self.mod_filled_for_launch().await;
-                let (compaction_window, connectors, skills_off) = {
+                let (compaction_window, connectors, skills_off, thinking_summaries) = {
                     let now = self.machine_settings().now();
                     (
                         now.get(keys::COMPACTION_WINDOW),
@@ -283,6 +283,7 @@ where
                                     .is_some_and(|served| adapters::has_own_skill(Path::new(served.root()), name))
                             },
                         ),
+                        now.get(keys::HARNESS_THINKING_SUMMARIES),
                     )
                 };
                 let start = Start {
@@ -319,6 +320,7 @@ where
                     connectors,
                     compaction_window,
                     skills_off,
+                    thinking_summaries,
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {

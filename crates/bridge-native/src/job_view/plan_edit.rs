@@ -196,6 +196,9 @@ impl JobView {
         let marks = state.map(|state| state.marks.as_slice()).unwrap_or_default();
         let field = state.and_then(|state| state.field.as_ref());
         let editing = state.is_some_and(|state| state.editing);
+        // The sheet draws the plan's sketches where they stand; Now's compact plan leaves them to the thread.
+        let sketches = self.pages.get(id.as_str()).filter(|_| !compact);
+        let whole = sketches.and_then(|page| self.plan_sketches("sheet", plan, None, page, look, cx));
         let summary = (!plan.summary.trim().is_empty()).then(|| {
             div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(plan.summary.clone()))
         });
@@ -220,12 +223,18 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
-                    .children(groups.iter().map(|group| self.group_editor(group, field, compact, look, cx)))
+                    .children(groups.iter().map(|group| {
+                        let editor = self.group_editor(group, field, compact, look, cx);
+                        match sketches.and_then(|page| self.plan_sketches("sheet", plan, Some((&group.id, &group.title)), page, look, cx)) {
+                            Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(editor).child(sketches).into_any_element(),
+                            None => editor,
+                        }
+                    }))
                     .child(self.add_group(field, look, cx))
                     .into_any_element()
             }
         };
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).children(summary).children(switch).child(body).into_any_element()
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).children(summary).children(whole).children(switch).child(body).into_any_element()
     }
 
     /// The one field, if it is open on `what`.
