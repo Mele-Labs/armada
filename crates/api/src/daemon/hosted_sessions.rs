@@ -189,6 +189,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::operator_page::OperatorAnswerPress,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
 
+    /// `operator_undo_ruling`: take back a ruling the Operator made by following something he said.
+    /// [`Refusal::NotFound`] where no precedent ruling has the id, [`Refusal::Unacceptable`] where it is taken
+    /// back already or its Job has ended.
+    fn operator_undo_ruling(
+        self: Arc<Self>,
+        undo: ipc::operator_page::OperatorUndoRuling,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
     /// `operator_turn_order`: Your turn as he dragged it.
     fn operator_turn_order(
         self: Arc<Self>,
@@ -449,6 +457,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         edit: ipc::SaveArtifactEdit,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `press_page_action`: his press of an action a page's kept revision declares, run as a message, a start or an
+    /// answer, and kept. Answers with the press. [`Refusal::Unacceptable`] for an action the revision does not hold,
+    /// an act off the list, an ask no longer open, or a page archived or not held.
+    fn press_page_action(
+        self: Arc<Self>,
+        press: ipc::PressPageAction,
+    ) -> impl Future<Output = Result<ipc::PagePress, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.

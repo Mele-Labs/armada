@@ -228,3 +228,41 @@ pub struct JobTerminal {
     pub terminal: String,
     pub run_id: String,
 }
+
+/// `share_job_terminal`: what another Mac asks of a terminal of one of this Mac's Jobs, through the link.
+/// `POST /other_mac/terminal`. Each is the person's own act at home, on the Job `session_id` names, and **a run
+/// is reached only as one of that Job's open terminals**, so no other run of this Mac is typed into.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TerminalFromMac {
+    /// As `open_terminal`. Answered with `SessionRunUnderway`.
+    Open(OpenTerminal),
+    /// As `list_terminals`. Answered with `JobTerminals`.
+    List { session_id: SessionId },
+    /// As `write_session_run`. Answered with `SessionRunUnderway`.
+    Write { session_id: SessionId, run_id: String, data: String },
+    /// As `resize_session_run`. Answered with `SessionRunUnderway`.
+    Resize { session_id: SessionId, run_id: String, cols: u16, rows: u16 },
+    /// As `stop_session_run`. Answered with `SessionRunUnderway`.
+    Stop { session_id: SessionId, run_id: String },
+}
+
+impl TerminalFromMac {
+    pub fn session_id(&self) -> &SessionId {
+        match self {
+            TerminalFromMac::Open(open) => &open.session_id,
+            TerminalFromMac::List { session_id }
+            | TerminalFromMac::Write { session_id, .. }
+            | TerminalFromMac::Resize { session_id, .. }
+            | TerminalFromMac::Stop { session_id, .. } => session_id,
+        }
+    }
+}
+
+/// `share_job_terminal_output`'s query: one of Job `session_id`'s open terminals, by its run.
+/// `GET /other_mac/terminal/observe`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TerminalOfJob {
+    pub session_id: SessionId,
+    pub run_id: String,
+}

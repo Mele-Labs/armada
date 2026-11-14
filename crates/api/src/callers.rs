@@ -97,6 +97,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("move_on_operator_board", "moves the Operator's board"),
     ("answer_operator_suggestion", "answers the Operator"),
     ("operator_answer", "answers the Operator"),
+    ("operator_undo_ruling", "answers the Operator"),
     ("operator_turn_order", "orders the Operator's Your turn"),
     ("operator_later", "puts an item of the Operator's Your turn last"),
     ("talk_to_operator", "talks to the Operator"),
@@ -123,6 +124,8 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_other_mac_projects", "pairs his other Macs"),
     ("project_act_from_mac", "pairs his other Macs"),
     ("act_from_mac", "pairs his other Macs"),
+    // A Job typing into a shared Job's terminal around the door would type as his other Mac.
+    ("share_job_terminal", "pairs his other Macs"),
     ("take_back_queued", "takes back what waits for his other Macs"),
     ("hold_other_mac_event", "pairs his other Macs"),
     ("forget_other_mac", "pairs his other Macs"),
