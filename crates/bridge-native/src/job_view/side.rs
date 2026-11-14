@@ -1,21 +1,16 @@
-//! The Job's right column, as Electron's `StoryColumn` draws it in its two default panes: Open, Done
-//! and Deferred over Now. Each tab has its × and each strip its +; the top pane's + also opens Plan,
-//! Changes, Ledger, Files, Subagents, Checks (`panes.rs`), Spine (`spine.rs`) and Judge (`judge_tab.rs`) until the pane
-//! system can place them anywhere.
-//!
-//! Now is `now.rs`.
+//! What the right column's tabs are: Open, Done and Deferred, and the kinds + opens after them (Plan,
+//! Changes, Ledger, Files, Subagents, Checks in `panes.rs`, Spine in `spine.rs`, Judge in `judge_tab.rs`),
+//! with the column's state on a Job's page and the look of a strip's tab. Any pane may hold any of them
+//! (`place_draw.rs`); Now is `now.rs`.
 
 use std::collections::HashSet;
 
-use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
+use gpui::{div, prelude::*, FontWeight, SharedString};
 use ipc::{PlanTaskState, SessionPlanGroup};
 
 use super::rows::{glyph, Size};
-use super::spine::Area;
-use super::tabs::Pane;
 use super::JobView;
-use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 
 /// What Ask for an update sends (`ASK_FOR_UPDATE`, `cockpit/deck/acts.ts`).
 pub(super) const ASK_FOR_UPDATE: &str = "Bring your task list up to date with TaskUpdate, using the plan's task text word for word if you recorded a plan, then say what is done, what is running now, what is next, and anything blocked.";
@@ -87,12 +82,7 @@ impl Zone {
         }
     }
 
-    /// Shut until + opens it.
-    pub(super) fn opened_by_hand(self) -> bool {
-        !matches!(self, Zone::Open | Zone::Done | Zone::Deferred)
-    }
-
-    fn look(self) -> (&'static str, &'static str) {
+    pub(super) fn look(self) -> (&'static str, &'static str) {
         match self {
             Zone::Open => ("circle", "Open"),
             Zone::Done => ("circle-check", "Done"),
@@ -169,26 +159,7 @@ pub(super) fn stands(group: &SessionPlanGroup) -> Stands {
     }
 }
 
-/// The column, drawn by the Job view so its presses act on the Job: the deck puts it on the right.
-pub struct JobSide {
-    view: Entity<JobView>,
-    _watch: Subscription,
-}
-
-impl JobSide {
-    pub fn new(view: Entity<JobView>, cx: &mut Context<Self>) -> Self {
-        let _watch = cx.observe(&view, |_, _, cx| cx.notify());
-        Self { view, _watch }
-    }
-}
-
-impl Render for JobSide {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.view.update(cx, |view, cx| view.render_side(window, cx))
-    }
-}
-
-fn pane(look: &Look) -> gpui::Div {
+pub(super) fn pane(look: &Look) -> gpui::Div {
     div()
         .min_h_0()
         .flex()
@@ -201,7 +172,7 @@ fn pane(look: &Look) -> gpui::Div {
         .border_color(look.color(token::BORDER_DEFAULT))
 }
 
-fn strip(look: &Look) -> gpui::Div {
+pub(super) fn strip(look: &Look) -> gpui::Div {
     div()
         .flex_none()
         .flex()
@@ -230,158 +201,6 @@ pub(super) fn tab(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static st
 }
 
 impl JobView {
-    pub(super) fn render_side(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let look = cx.look();
-        let look = &look;
-        // A view tab in front stands before the pane's own tabs.
-        let view = self.view_front(super::ViewPane::Top).map(|one| one.view.clone());
-        let zone = if view.is_some() { None } else { self.zone_shown() };
-        if zone != Some(Zone::Spine) {
-            self.spine.left();
-        }
-        let tabs: Vec<_> = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).map(|one| {
-            let (icon, said) = one.look();
-            let id = match one {
-                Zone::Open => "side-open",
-                Zone::Done => "side-done",
-                Zone::Deferred => "side-deferred",
-                Zone::Plan => "side-plan",
-                Zone::Changes => "side-changes",
-                Zone::Pulls => "side-pulls",
-                Zone::Issues => "side-issues",
-                Zone::Jobs => "side-jobs",
-                Zone::Ledger => "side-ledger",
-                Zone::Files => "side-files",
-                Zone::Subagents => "side-subagents",
-                Zone::Checks => "side-checks",
-                Zone::Workflow => "side-workflow",
-                Zone::System => "side-system",
-                Zone::Bays => "side-bays",
-                Zone::Spine => "side-spine",
-                Zone::Judge => "side-judge",
-            };
-            let front = Some(one) == zone;
-            let group = SharedString::from(id);
-            labelled(
-                tab(look, id, icon, said, front)
-                    .group(group.clone())
-                    .child(self.close_button(one.id(), said, group, front, look, cx))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.view_tab_back(super::ViewPane::Top);
-                        this.zone = one;
-                        this.want_pane_reads(window, cx);
-                        cx.notify();
-                    })),
-                Role::Tab,
-                format!("Job column: {said}"),
-            )
-        }).collect();
-        // Changes and Files draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-        let own_frame = view.is_some() || matches!(zone, Some(Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow));
-        let tabs = tabs.into_iter().map(|one| one.into_any_element()).chain(self.view_tab_elements(super::ViewPane::Top, look, cx)).collect::<Vec<_>>();
-        let top_body = self.shown.clone().zip(zone).and_then(|(id, zone)| match zone {
-            Zone::Open => Some(self.zone_alone(Area::Open, self.flow_alone(&id, Area::Open, look, cx).unwrap_or_else(|| self.side_open(&id, look, cx)), cx)),
-            Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
-            Zone::Deferred => Some(self.zone_alone(Area::Deferred, self.side_deferred(&id, look, cx), cx)),
-            Zone::Plan => self.pane_plan(&id, look, cx),
-            Zone::Changes => self.pane_changes(&id, look, cx),
-            Zone::Pulls => self.pane_pulls(&id, look, cx),
-            Zone::Issues => self.pane_issues(&id, look, cx),
-            Zone::Jobs => self.pane_jobs(&id, look, cx),
-            Zone::Ledger => self.pane_ledger(&id, look, cx),
-            Zone::Files => Some(self.pane_files(&id, look, cx)),
-            Zone::Subagents => self.pane_subagents(&id, look, cx),
-            Zone::Checks => Some(self.pane_checks(&id, look, cx)),
-            Zone::Workflow => self.pane_lanes(&id, look, cx),
-            Zone::System => self.pane_system(&id, look, cx),
-            Zone::Bays => self.pane_bays(&id, look, cx),
-            Zone::Spine => Some(self.pane_spine(&id, look, cx)),
-            Zone::Judge => self.pane_judge(&id, look, cx),
-        }).or_else(|| view.map(|view| div().size_full().child(view).into_any_element()));
-        if self.spine.settle.take() {
-            window.request_animation_frame();
-        }
-        let now_open = !self.tab_closed("now");
-        // A view tab in front of the foot pane stands before Now.
-        let bottom = self.view_front(super::ViewPane::Bottom).map(|one| one.view.clone());
-        let now_front = now_open && bottom.is_none();
-        let now_body = match bottom {
-            Some(view) => Some(div().size_full().child(view).into_any_element()),
-            None => self.shown.clone().filter(|_| now_open).map(|id| self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx)),
-        };
-        let body = |id: &'static str, inner: Option<AnyElement>| {
-            div()
-                .id(id)
-                .flex_1()
-                .min_h_0()
-                .overflow_y_scroll()
-                .px(look.length(token::SPACE_3))
-                .pt(look.length(token::SPACE_2))
-                .pb(look.length(token::SPACE_4))
-                .children(inner)
-        };
-        div()
-            .size_full()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::GAP_PANEL))
-            .when(self.pane_drawn(Pane::Top), |column| column.child(
-                labelled(
-                    pane(look)
-                        .id("side-top")
-                        .flex_grow(2.)
-                        .flex_shrink(1.)
-                        .flex_basis(gpui::px(0.))
-                        // A press in the pane makes it the one ⌥⌘Enter zooms.
-                        .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(Pane::Top)))
-                        .child(
-                            zoom_strip(strip(look).id("side-top-strip"), Pane::Top, cx)
-                                .child(div().id("side-top-tabs").flex().items_stretch().min_w_0().overflow_x_scroll().track_scroll(&self.panes.top_tabs).children(tabs))
-                                .child(self.add_button(Pane::Top, look, cx))
-                                .children(self.strip_end(Pane::Top, look, cx)),
-                        )
-                        .child(if own_frame {
-                            div().id("side-top-body").flex_1().min_h_0().flex().flex_col().children(top_body).into_any_element()
-                        } else {
-                            body("side-top-body", top_body).into_any_element()
-                        }),
-                    Role::Region,
-                    "Open, Done and Deferred",
-                ),
-            ))
-            .when(self.pane_drawn(Pane::Now), |column| column.child(labelled(
-                pane(look)
-                    .id("side-now")
-                    .flex_grow(3.)
-                    .flex_shrink(1.)
-                    .flex_basis(gpui::px(0.))
-                    .on_any_mouse_down(cx.listener(|this, _, _, _| this.pane_pressed(Pane::Now)))
-                    .child(
-                        zoom_strip(strip(look).id("side-now-strip"), Pane::Now, cx)
-                            .when(now_open, |strip| {
-                                strip.child(labelled(
-                                    tab(look, "side-now-tab", "activity", "Now", now_front)
-                                        .group("side-now-tab")
-                                        .child(self.close_button("now", "Now", "side-now-tab".into(), now_front, look, cx))
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.view_tab_back(super::ViewPane::Bottom);
-                                            cx.notify();
-                                        })),
-                                    Role::Tab,
-                                    "Job column: Now",
-                                ))
-                            })
-                            .children(self.view_tab_elements(super::ViewPane::Bottom, look, cx))
-                            .child(self.add_button(Pane::Now, look, cx))
-                            .children(self.strip_end(Pane::Now, look, cx)),
-                    )
-                    .child(body("side-now-body", now_body)),
-                Role::Region,
-                "Job column: Now",
-            )))
-            .into_any_element()
-    }
-
     pub(super) fn side_unfolded(&self, key: &str) -> bool {
         self.shown.as_ref().and_then(|id| self.pages.get(id.as_str())).is_some_and(|page| page.side.unfolded.contains(key))
     }
@@ -394,14 +213,4 @@ impl JobView {
             }
         }
     }
-}
-
-/// A pane's strip, where a double press zooms the pane or puts it back, as Electron's strip
-/// `onDoubleClick` does; the ×, + and Restore keep their own presses.
-fn zoom_strip(strip: gpui::Stateful<gpui::Div>, which: Pane, cx: &Context<JobView>) -> gpui::Stateful<gpui::Div> {
-    strip.on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
-        if event.click_count() == 2 {
-            this.toggle_zoom(which, cx);
-        }
-    }))
 }
