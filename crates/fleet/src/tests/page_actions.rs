@@ -126,7 +126,9 @@ async fn an_answer_press_answers_the_jobs_open_ask_with_the_option() {
     assert_eq!(press.did, PressDid::Answered { item: ask.clone() });
     let waiting = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for;
     assert!(waiting.iter().all(|one| one.id != ask), "the ask is answered: {waiting:?}");
-    assert_eq!(sent(&rig.rows(&id).await).pop().as_deref(), Some("Keep it"));
+    // Said as his own pick of the option says it.
+    let told = sent(&rig.rows(&id).await).pop().unwrap_or_default();
+    assert!(told.starts_with("Re: Quarantine lease_clock?\nKeep it\n"), "{told}");
     // Answered, it is no longer open.
     let again = pressed(&rig, pressing(&id, &path, "keep-1", None)).await.expect_err("refused");
     assert_eq!(again.error().code, "fleet.page_ask_not_open");

@@ -116,9 +116,17 @@ export type PressPageAction = {
 
 /** What a press did: the Job sent it, a Job started, or the Job's ask was answered. */
 export type PressDid =
-  | { kind: "sent" }
-  | { kind: "started"; job: string }
-  | { kind: "answered"; item: string };
+  | {
+      kind: "sent";
+    }
+  | {
+      kind: "started";
+      job: string;
+    }
+  | {
+      kind: "answered";
+      item: string;
+    };
 
 /** One press of a page's action, as Fleet kept it. */
 export type PagePress = {
