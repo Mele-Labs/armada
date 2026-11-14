@@ -21,12 +21,12 @@ use objc2_app_kit::{
     NSEventType, NSImage, NSResponder, NSView, NSWindow,
 };
 use objc2_foundation::{
-    NSDate, NSDictionary, NSError, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
+    NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
     NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
     WKContentWorld, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
-    WKNavigationDelegate, WKNavigationType, WKSnapshotConfiguration, WKWebView, WKWebViewConfiguration,
+    WKNavigationDelegate, WKNavigationType, WKScriptMessage, WKScriptMessageHandler, WKSnapshotConfiguration, WKUserContentController, WKWebView, WKWebViewConfiguration,
     WKWebpagePreferences, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -48,7 +48,12 @@ thread_local! {
 struct Hosted {
     view: Retained<WKWebView>,
     parent: Retained<NSView>,
+    /// A sealed page the kit draws on: ⌘↵, its Send, stays with the page.
+    kit: bool,
 }
+
+/// The name the kit's script posts to: `window.webkit.messageHandlers.armada`.
+const KIT_HANDLER: &str = "armada";
 
 /// What a page tells whoever holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,6 +72,9 @@ pub struct Options {
     pub sealed: bool,
     /// The page's appearance, where it is not the system's: dark when `Some(true)`.
     pub dark: Option<bool>,
+    /// Where the kit's posts go, as JSON text: a sealed page's `window.webkit.messageHandlers.armada`. `None`: the page
+    /// has no such handler.
+    pub kit: Option<async_channel::Sender<String>>,
 }
 
 fn pending_up() {
@@ -152,6 +160,42 @@ impl Navigation {
 }
 
 define_class!(
+    // SAFETY: NSObject has no subclassing requirements, and `KitPosts` implements no `Drop`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = async_channel::Sender<String>]
+    struct KitPosts;
+
+    unsafe impl NSObjectProtocol for KitPosts {}
+
+    unsafe impl WKScriptMessageHandler for KitPosts {
+        #[unsafe(method(userContentController:didReceiveScriptMessage:))]
+        fn did_receive(&self, _: &WKUserContentController, message: &WKScriptMessage) {
+            // The kit posts a plain object; it crosses as JSON text, and anything that is not JSON is dropped here.
+            // SAFETY: `message` is the live message WebKit passed this call, and its body is a property-list object.
+            let text = unsafe {
+                let body = message.body();
+                NSJSONSerialization::isValidJSONObject(&body)
+                    .then(|| NSJSONSerialization::dataWithJSONObject_options_error(&body, NSJSONWritingOptions::empty()).ok())
+                    .flatten()
+                    .and_then(|data| String::from_utf8(data.to_vec()).ok())
+            };
+            if let Some(text) = text {
+                let _ = self.ivars().try_send(text);
+            }
+        }
+    }
+);
+
+impl KitPosts {
+    fn new(posts: async_channel::Sender<String>, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(posts);
+        // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+define_class!(
     // SAFETY: NSView's `hitTest:` and `drawRect:` may be overridden, and `RingView` implements no `Drop`.
     #[unsafe(super(NSView))]
     #[thread_kind = MainThreadOnly]
@@ -186,6 +230,8 @@ pub struct Native {
     view: Retained<WKWebView>,
     ring: Retained<RingView>,
     _navigation: Retained<Navigation>,
+    /// The kit's handler, which the page's content controller holds until `Drop` takes it off.
+    kit: Option<Retained<KitPosts>>,
     mtm: MainThreadMarker,
 }
 
@@ -219,8 +265,14 @@ impl Native {
         let mtm = MainThreadMarker::new()?;
         // SAFETY: every call below is on the main thread, on objects made here, with arguments of the types
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
-        let (view, navigation) = unsafe {
+        let (view, navigation, kit) = unsafe {
             let config = WKWebViewConfiguration::new(mtm);
+            // The kit's handler is in the page's own world, where the kit's script runs.
+            let kit = options.kit.clone().map(|posts| {
+                let kit = KitPosts::new(posts, mtm);
+                config.userContentController().addScriptMessageHandler_name(ProtocolObject::from_ref(&*kit), &NSString::from_str(KIT_HANDLER));
+                kit
+            });
             match options.store {
                 Some(id) => {
                     let uuid = NSUUID::from_bytes(id);
@@ -236,7 +288,7 @@ impl Native {
             let view = WKWebView::initWithFrame_configuration(mtm.alloc(), rect(size), &config);
             let navigation = Navigation::new(events, options.sealed, mtm);
             view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
-            (view, navigation)
+            (view, navigation, kit)
         };
         if let Some(dark) = options.dark {
             // SAFETY: `NSAppearanceNameDarkAqua` and the aqua name are AppKit's own constants.
@@ -248,7 +300,7 @@ impl Native {
         let ring: Retained<RingView> = unsafe { msg_send![super(ring), initWithFrame: rect(Frame::new(0., 0., 0., 0.))] };
         ring.setHidden(true);
         LIVE.with(|live| live.set(live.get() + 1));
-        Some(Native { view, ring, _navigation: navigation, mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -305,7 +357,7 @@ impl Native {
             self.ring.removeFromSuperview();
             parent.0.addSubview(&self.view);
             parent.0.addSubview(&self.ring);
-            register(&self.view, &parent.0);
+            register(&self.view, &parent.0, self.kit.is_some());
         }
         self.view.setFrame(rect(frame));
         self.view.setHidden(false);
@@ -394,22 +446,46 @@ impl Native {
             self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
         }
     }
+
+    /// Runs `script` in the page's own world, where the kit's `window.armadaHost` is, and says when it has run. A script
+    /// handed to WebKit is not the page's, so the page's policy does not refuse it.
+    pub fn tell(&self, script: &str, done: impl FnOnce() + 'static) {
+        pending_up();
+        let done = RefCell::new(Some(done));
+        let block = RcBlock::new(move |_: *mut AnyObject, _: *mut NSError| {
+            pending_down();
+            if let Some(done) = done.borrow_mut().take() {
+                done();
+            }
+        });
+        // SAFETY: a script string and the page's world, evaluated on the main thread; the block is copied.
+        unsafe {
+            let world = WKContentWorld::pageWorld(self.mtm);
+            self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
+        }
+    }
 }
 
 impl Drop for Native {
     fn drop(&mut self) {
         LIVE.with(|live| live.set(live.get().saturating_sub(1)));
+        if self.kit.take().is_some() {
+            // SAFETY: the page's own content controller, on the main thread; the handler it holds is let go.
+            unsafe {
+                self.view.configuration().userContentController().removeScriptMessageHandlerForName(&NSString::from_str(KIT_HANDLER));
+            }
+        }
         unregister(&self.view);
         self.ring.removeFromSuperview();
         self.view.removeFromSuperview();
     }
 }
 
-fn register(view: &Retained<WKWebView>, parent: &Retained<NSView>) {
+fn register(view: &Retained<WKWebView>, parent: &Retained<NSView>, kit: bool) {
     HOSTED.with(|hosted| {
         let mut hosted = hosted.borrow_mut();
         hosted.retain(|one| Retained::as_ptr(&one.view) != Retained::as_ptr(view));
-        hosted.push(Hosted { view: view.clone(), parent: parent.clone() });
+        hosted.push(Hosted { view: view.clone(), parent: parent.clone(), kit });
     });
     install_monitor();
 }
@@ -419,7 +495,7 @@ fn unregister(view: &Retained<WKWebView>) {
 }
 
 /// The page whose view holds the keys, if one does, with the gpui view it is a subview of.
-fn page_with_keys(window: &NSWindow) -> Option<(Retained<WKWebView>, Retained<NSView>)> {
+fn page_with_keys(window: &NSWindow) -> Option<(Retained<WKWebView>, Retained<NSView>, bool)> {
     let responder = window.firstResponder()?;
     let focused: &NSResponder = &responder;
     HOSTED.with(|hosted| {
@@ -430,7 +506,7 @@ fn page_with_keys(window: &NSWindow) -> Option<(Retained<WKWebView>, Retained<NS
                 let page: &NSResponder = &one.view;
                 std::ptr::eq(page, focused) || focused.downcast_ref::<NSView>().is_some_and(|view| view.isDescendantOf(&one.view))
             })
-            .map(|one| (one.view.clone(), one.parent.clone()))
+            .map(|one| (one.view.clone(), one.parent.clone(), one.kit))
     })
 }
 
@@ -448,7 +524,7 @@ fn install_monitor() {
             let event_ref = unsafe { event.as_ref() };
             let Some(mtm) = MainThreadMarker::new() else { return event.as_ptr() };
             let Some(window) = event_ref.window(mtm) else { return event.as_ptr() };
-            let Some((page, parent)) = page_with_keys(&window) else {
+            let Some((page, parent, kit)) = page_with_keys(&window) else {
                 return event.as_ptr();
             };
             match event_ref.r#type() {
@@ -461,7 +537,7 @@ fn install_monitor() {
                         control: flags.contains(objc2_app_kit::NSEventModifierFlags::Control),
                         shift: flags.contains(objc2_app_kit::NSEventModifierFlags::Shift),
                     };
-                    if keys::is_bridges(press) {
+                    if keys::is_bridges(press) && !(kit && keys::is_kits(press)) {
                         // Bridge's own key: the keys go back to gpui, which reads the press by its bindings.
                         window.makeFirstResponder(Some(&parent));
                         return event.as_ptr();

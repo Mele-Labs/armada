@@ -59,6 +59,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod page_tab;
 mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
@@ -1157,6 +1158,7 @@ impl Render for JobView {
         self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
+        self.sync_page_tabs(&id, window, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
@@ -1325,3 +1327,4 @@ mod tests {
 
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
+pub(crate) use page_tab::page_in_front;

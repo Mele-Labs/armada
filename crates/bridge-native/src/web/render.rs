@@ -44,7 +44,7 @@ const TALLEST: f32 = 8000.;
 /// and the answer comes on gpui's executor. Off the main thread, where WebKit cannot be used, it answers an error.
 pub fn render_html(html: String, width: f32, scale: f32, appearance: Appearance, cx: &mut App) -> Task<Result<Rendered, String>> {
     let (events, arrivals) = async_channel::unbounded();
-    let options = Options { store: None, scripts: false, sealed: true, dark: Some(appearance == Appearance::Dark) };
+    let options = Options { store: None, scripts: false, sealed: true, dark: Some(appearance == Appearance::Dark), kit: None };
     let width = width.max(1.);
     let Some(native) = Native::new(&options, Box_::new(0., 0., f64::from(width), 800.), events) else {
         return Task::ready(Err("a web view needs the main thread".into()));
