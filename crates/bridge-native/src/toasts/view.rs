@@ -837,6 +837,12 @@ impl Render for Toasts {
             self.lift = lift;
             window.request_animation_frame();
         }
+        // On the Operator's page no toast of the Operator's is drawn: the page holds each item. Fleet's
+        // states and the presses Fleet did not take still show.
+        let on_page = self.screen.upgrade().is_some_and(|screen| screen.read(cx).front == Front::Operator);
+        if on_page {
+            self.shelf.hush();
+        }
         let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
@@ -844,7 +850,7 @@ impl Render for Toasts {
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the Operator did with his dispatches, each until he presses it or closes it.
-        let ruled: Vec<Raised> = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+        let ruled: Vec<Raised> = if on_page { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let mut cards: Vec<AnyElement> = Vec::new();
         cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));

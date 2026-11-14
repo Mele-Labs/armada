@@ -599,6 +599,7 @@ impl OperatorPageView {
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
             let label: SharedString = match turn.kind {
+                _ if yes && face::goes_to_look(turn) => face::pick_word(turn, None),
                 OperatorTurnKind::Decision if yes => face::pick_word(turn, chosen.as_deref()),
                 _ if yes && face::picks_later(turn) => "Later".into(),
                 _ => face::answer_word(answer).into(),
@@ -610,7 +611,9 @@ impl OperatorPageView {
                 None => said,
             };
             let key: Option<SharedString> = open.then(|| face::answer_key(answer).into());
-            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
+            let looks = yes && face::goes_to_look(turn);
+            let said = if looks { "Open the walk in its Job. It leaves Your turn once you approve it there".to_string() } else { said };
+            let button = press(format!("answer-{at}"), label.clone(), yes.then_some(if looks { "eye" } else { "check" }), key, if yes { Weight::Pick } else { Weight::Plain }, look)
                 .tooltip(tip(said));
             let button = pressed(button, cx, on_ask(&turn.id, move |this, window, cx| this.answer(answer, window, cx)));
             labelled(button, Role::Button, label).into_any_element()

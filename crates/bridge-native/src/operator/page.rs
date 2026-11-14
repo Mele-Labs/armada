@@ -690,6 +690,14 @@ impl OperatorPageView {
         if !face::answers_of(&turn).contains(&answer) {
             return;
         }
+        // A walk is his to look at, not to say Yes to: the press opens its Job, where the walk is, and nothing
+        // is answered. The item leaves Your turn when he approves the walk there.
+        if answer == OperatorAnswer::Yes && face::goes_to_look(&turn) {
+            if let Some(job) = turn.session_id.clone() {
+                cx.emit(Opened::Job(job));
+            }
+            return;
+        }
         // A pick of Later is done by Yes: the item goes Later, nothing is answered.
         if answer == OperatorAnswer::Yes && face::picks_later(&turn) && self.option.get(&turn.id).is_none() {
             return self.later(None, cx);

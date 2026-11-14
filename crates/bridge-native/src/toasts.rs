@@ -66,6 +66,12 @@ impl Shelf {
         Shelf { from: toasts.len(), toasts }
     }
 
+    /// The Operator's page is in front and holds every item itself: nothing raised so far is drawn, now
+    /// or after he leaves the page. History keeps them as they are.
+    pub fn hush(&mut self) {
+        self.from = self.toasts.len();
+    }
+
     pub fn is_open(&self, id: &str) -> bool {
         self.toasts.iter().any(|toast| toast.item.id == id && toast.ended.is_none())
     }
@@ -179,5 +185,16 @@ mod tests {
         shelf.raise(&[item("turn:5", OperatorTurnKind::Decision)]);
         assert_eq!(ids(shelf.shown()), ["turn:5"]);
         assert_eq!(shelf.history().count(), 5);
+    }
+
+    #[test]
+    fn toasts_raised_while_the_operator_page_is_in_front_are_never_drawn() {
+        let mut shelf = Shelf::default();
+        shelf.raise(&[item("turn:1", OperatorTurnKind::Decision), item("turn:2", OperatorTurnKind::GoAhead)]);
+        shelf.hush();
+        assert!(shelf.shown().is_empty(), "the page holds them");
+        shelf.raise(&[item("turn:3", OperatorTurnKind::Decision)]);
+        assert_eq!(ids(shelf.shown()), ["turn:3"], "what arrives after he leaves the page is drawn");
+        assert_eq!(shelf.history().count(), 3);
     }
 }

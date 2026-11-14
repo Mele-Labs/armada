@@ -116,6 +116,9 @@ pub fn pick_of(turn: &OperatorTurnItem) -> Option<SharedString> {
 /// whose sentence goes in its tooltip, never in the button (his ruling, 12 Nov). `chosen` is his own
 /// pick among the options. With no pick, Yes.
 pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString {
+    if goes_to_look(turn) {
+        return "Go look".into();
+    }
     let pick = chosen.map(SharedString::from).or_else(|| pick_of(turn));
     match pick {
         None => "Yes".into(),
@@ -127,6 +130,11 @@ pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString 
 /// The pick's sentence, where its button cannot say it: a pick that is neither an option nor Later.
 pub fn pick_sentence(turn: &OperatorTurnItem) -> Option<SharedString> {
     pick_of(turn).filter(|pick| !is_later(pick) && !turn.item.options.iter().any(|option| option.label == pick.as_ref()))
+}
+
+/// A walk a Job holds, with no pick of Later: its press opens the Job to look at it, and says no Yes.
+pub fn goes_to_look(turn: &OperatorTurnItem) -> bool {
+    kind_of(turn).word == "Walk" && turn.session_id.is_some() && !picks_later(turn)
 }
 
 /// Whether the Operator's pick is Later, which a Yes does.
@@ -282,6 +290,15 @@ mod tests {
 
     const PLAN: &str = r#"{"id":"turn:1","kind":"decision","session_id":"s-1","job":"Quick dispatch","item":{"id":"plan","text":"Approve plan version 2","since":"2026-11-11T12:00:00Z","source":"plan"},"read":{"read":"It adds the chips.","pick":"Approve"},"raised_at":"2026-11-11T12:00:00Z"}"#;
     const RED: &str = r#"{"id":"turn:2","kind":"go_ahead","item":{"id":"red:storefront:abc","text":"storefront main is red","since":"2026-11-11T12:00:00Z","source":"agent"},"raised_at":"2026-11-11T12:00:00Z","keeps":true}"#;
+    const WALK: &str = r#"{"id":"turn:3","kind":"decision","session_id":"s-2","job":"Native Settings","item":{"id":"walk","text":"armada://walk/native-settings-pages","since":"2026-11-11T12:00:00Z","source":"walk"},"raised_at":"2026-11-11T12:00:00Z"}"#;
+
+    #[test]
+    fn a_walk_a_job_holds_says_go_look_not_yes() {
+        let walk = turn(WALK);
+        assert!(goes_to_look(&walk));
+        assert_eq!(pick_word(&walk, None).as_ref(), "Go look");
+        assert!(!goes_to_look(&turn(PLAN)), "a plan still takes its pick");
+    }
 
     #[test]
     fn a_decision_offers_its_pick_alone_and_a_kept_go_ahead_offers_always_and_no_too() {
