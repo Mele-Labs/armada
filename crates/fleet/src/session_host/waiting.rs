@@ -1030,6 +1030,8 @@ where
         // A job in a terminal holds no hosting, so there is nothing to give back and the call says so
         // by failing; what stays is named by `finish_up`.
         let _ = self.finished_up(None, ipc::FinishUp { session_id: Some(ipc::SessionId::carried(&id)) }).await;
+        // A step or a gate that waits on his approval of a sketch keeps it his to answer.
+        let sketch_gated = self.approval_gate_waits(&id, ipc::PlanGate::SketchApproved, crate::rail_ends::End::SketchApproved).await;
         let asked;
         let record = {
             let mut store = self.store().lock().await;
@@ -1042,7 +1044,11 @@ where
             }
             let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
             // The sketch the result leads with rides on the done card, so it stops asking on its own.
-            if let Some(result) = super::picture_shown::result_sketch(&store, &id).map_err(|why| self.ledger_fault(why))? {
+            let result = match sketch_gated {
+                true => None,
+                false => super::picture_shown::result_sketch(&store, &id).map_err(|why| self.ledger_fault(why))?,
+            };
+            if let Some(result) = result {
                 store.dismiss_waiting(&id, &result).map_err(|why| self.ledger_fault(why))?;
             }
             store
@@ -1529,7 +1535,7 @@ where
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-        Ok(self.ledger_row(&store, &session)?.waiting_for)
+        Ok(super::sketching::answerable(self.ledger_row(&store, &session)?))
     }
 
     /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by

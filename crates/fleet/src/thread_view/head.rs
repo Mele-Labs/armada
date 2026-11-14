@@ -32,17 +32,15 @@ pub(super) fn waiting_plan_of(record: &SessionRecord) -> Option<ThreadPlan> {
 /// after the plan while it waits. Fleet's own waiting item names which, so the two never disagree.
 pub(super) fn pinned_of(record: &SessionRecord, revisions: &Revisions) -> Option<ThreadSketch> {
     // A sketch the pending plan names waits with the plan, not on its own.
-    let in_plan: Vec<String> = record
-        .plan
-        .as_ref()
-        .filter(|plan| !plan.approved && plan.set_aside_at.is_none())
-        .map(|plan| plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())).map(|one| one.title.clone()).collect())
-        .unwrap_or_default();
-    // Not one drawn in the turn still running, nor, once the Job is done, the result sketch `all_done` settled.
+    let in_plan = crate::session_host::sketching::in_pending_plan(record);
+    // What Needs you raises, else, before the Job is done, one not drawn in the turn still running: never the
+    // result sketch `all_done` settled, nor one that waits for the turn to end.
     let began = record.turn_since.as_ref().map(|at| at.as_str());
-    let waits = |id: &str| record.done_since.is_none() || record.waiting_for.iter().any(|one| one.id == id);
-    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan)
-        .find(|item| waits(&item.id) && !crate::session_host::sketching::drawn_in_turn(&record.attachments, &item.id, began))?;
+    let raised = |id: &str| record.waiting_for.iter().any(|one| one.id == id);
+    let waits = |id: &str| {
+        raised(id) || (record.done_since.is_none() && !crate::session_host::sketching::drawn_in_turn(&record.attachments, id, began))
+    };
+    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan).find(|item| waits(&item.id))?;
     let held = record.attachments.iter().find(|one| form_of(one) == Some("sketch") && one.target == item.id)?;
     // Fleet refuses a sketch whose scene will not draw, so a kept one always reads.
     let drawing = held.detail.get("scene").and_then(|scene| ipc::scene_of_detail(scene))?;

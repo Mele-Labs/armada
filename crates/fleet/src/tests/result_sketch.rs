@@ -4,8 +4,10 @@
 //! shows and goes. A sketch a gate or the Job's own question waits on still waits.
 //! `docs/practices/protocol/how-he-works-with-jobs-and-a-question-offered-as-pictures.md`.
 
-use api::Sessions;
-use ipc::{AllDone, LeadPicture, PlanGate, PlanGroupInput, SessionId, SessionRecord, SessionTurn, SetWaitingFor, ShowSketch, WaitingInput, WaitingOption, WaitingSource};
+use std::sync::Arc;
+
+use api::{HostedSessions, Sessions};
+use ipc::{AllDone, AnswerItems, ItemAnswer, ItemHow, ItemSettled, LeadPicture, PlanGate, PlanGroupInput, SessionId, SessionRecord, SessionTurn, SetWaitingFor, ShowSketch, WaitingInput, WaitingOption, WaitingSource};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use super::session_plan::{group, plan, read, recorded, running};
@@ -73,6 +75,19 @@ async fn a_sketch_drawn_in_a_turn_that_ends_without_all_done_waits_once_the_turn
 }
 
 #[tokio::test]
+async fn a_sketch_drawn_in_the_turn_still_running_takes_his_answer_on_its_card() {
+    let rig = rig_placing(None);
+    let id = working(&rig).await;
+    rig.fleet.show_sketch(None, drawn(&id)).await.unwrap();
+
+    let answer = ItemAnswer { session_id: id.clone(), item: "sketch:What changed".into(), how: ItemHow::Approve, notes: Vec::new() };
+    let settled = Arc::clone(&rig.fleet).answer_items(AnswerItems { items: vec![answer] }, Vec::new()).await;
+    assert_eq!(settled.outcomes[0].outcome, ItemSettled::Settled, "not raised yet, and answered all the same");
+    turn_ended(&rig, &id).await;
+    assert_eq!(sketch_items(&read(&rig, &id).await), Vec::<&str>::new(), "answered, so it never waits");
+}
+
+#[tokio::test]
 async fn a_sketch_left_waiting_from_an_earlier_turn_leaves_his_list_at_all_done() {
     let rig = rig_placing(None);
     let id = rig.start().await;
@@ -93,7 +108,8 @@ async fn a_sketch_an_open_gate_waits_on_still_waits() {
     let id = working(&rig).await;
     let gated = PlanGroupInput { gate: PlanGate::SketchApproved, ..group(None, "Shape", "rust-engineer", &["crates/fleet"], &[(None, "Draw it")]) };
     recorded(&rig, plan(&id, vec![gated])).await;
-    rig.fleet.show_sketch(None, drawn(&id)).await.unwrap();
+    let shown = rig.fleet.show_sketch(None, drawn(&id)).await.unwrap();
+    assert_eq!(sketch_items(&shown), ["sketch:What changed"], "a gate on a sketch raises it while the turn still runs");
 
     let held = done(&rig, &id).await;
     assert!(held.done_since.is_none(), "the gate holds the call");

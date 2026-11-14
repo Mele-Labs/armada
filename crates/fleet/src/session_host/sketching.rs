@@ -377,6 +377,36 @@ pub(crate) fn drawn_in_turn(attachments: &[ipc::Attachment], target: &str, began
     attachments.iter().filter(|one| one.target == target).any(|one| digits(&drawn_at(one).0) >= began)
 }
 
+/// The titles of the sketches the record's pending plan names, which wait with the plan and not on their own.
+pub(crate) fn in_pending_plan(record: &SessionRecord) -> Vec<String> {
+    record
+        .plan
+        .as_ref()
+        .filter(|plan| !plan.approved && plan.set_aside_at.is_none())
+        .map(|plan| plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())).map(|one| one.title.clone()).collect())
+        .unwrap_or_default()
+}
+
+/// The items an answer or a dismissal may name: what waits on him, and each sketch drawn in the turn still
+/// running. **Such a sketch is not raised until the turn ends, and still takes his answer on its card.**
+pub(crate) fn answerable(record: SessionRecord) -> Vec<WaitingItem> {
+    let held = held_in_turn(&record);
+    let mut items = record.waiting_for;
+    items.extend(held);
+    items
+}
+
+/// Each sketch drawn in the turn still running that is not raised yet. **A gate or a step waiting on his
+/// approval of a sketch raises them at once**, as it always did.
+pub(crate) fn held_in_turn(record: &SessionRecord) -> Vec<WaitingItem> {
+    let began = record.turn_since.as_ref().map(|at| at.as_str());
+    let in_plan = in_pending_plan(record);
+    sketch_items(&record.attachments, record.id.as_str(), &in_plan)
+        .filter(|one| drawn_in_turn(&record.attachments, &one.id, began))
+        .filter(|one| !record.waiting_for.iter().any(|waits| waits.id == one.id))
+        .collect()
+}
+
 /// Every sketch put to the person, answered or not.
 fn asked_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     attachments

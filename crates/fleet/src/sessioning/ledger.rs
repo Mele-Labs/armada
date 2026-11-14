@@ -274,7 +274,7 @@ where
         session: &KeptSession,
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
-        self.ledger_built(session, reads).waiting_for
+        crate::session_host::sketching::answerable(self.ledger_built(session, reads))
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
@@ -466,6 +466,20 @@ where
                 record.turn_since = state.turn_began.as_deref().map(wire_instant);
                 let quiet = state.last_active.elapsed().as_millis() as i64;
                 record.last_heard_at = self.now().epoch_millis().map(|now| wire_instant(&crate::clock::rfc3339_utc(now - quiet)));
+            }
+        }
+        // A sketch drawn in the turn still running waits once it ends, unless a plan gate or the step the Job is on
+        // waits on his approval of a sketch: then it waits at once, as it always did.
+        if session.state == store::SessionState::Live {
+            let gated = reads.plan.as_ref().is_some_and(|plan| {
+                plan.groups.iter().any(|group| group.gate.as_deref() == Some(ipc::PlanGate::SketchApproved.word()) && group.closed.is_none())
+            });
+            let stepped = record
+                .workflow_step
+                .is_some_and(|at| crate::rail_ends::ends_of(&reads.rail.steps, at as usize).contains(&crate::rail_ends::End::SketchApproved));
+            if gated || stepped {
+                let held = crate::session_host::sketching::held_in_turn(&record);
+                record.waiting_for.extend(held);
             }
         }
         let thread = super::marking::Thread { lapsed, checks_running, spoken };
