@@ -278,7 +278,8 @@ The pages do not say whether the Rate Limiting binding `enrol` uses is on the Fr
 
 ## A store per project
 
-**Rule.** A store is named by a project, never by the machine. A project's file names it under `store:`, as `address`, and `team` where it is a team store, and `worker` and `deployed` where a Mac of his deployed it.
+**Rule.** A store is named by a project, never by the machine.
+A project's file names it under `store:`, as `address`, and `team` where it is a team store, and `worker` and `deployed` where a Mac of his deployed it.
 A project with none sends nothing.
 Why: a work project points at the team's store and Armada at his own, decided by the owner on 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
 
