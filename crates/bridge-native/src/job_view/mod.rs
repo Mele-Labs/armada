@@ -916,7 +916,7 @@ impl JobView {
         let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
