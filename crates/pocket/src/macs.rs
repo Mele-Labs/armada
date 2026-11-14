@@ -176,6 +176,8 @@ pub struct Macs {
     closing: Arc<watch::Sender<bool>>,
     pub(crate) timing: Timing,
     pub(crate) http: reqwest::Client,
+    /// The loopback ports opened for other Macs' pages. `crate::mac_pages`.
+    pub(crate) pages: crate::mac_pages::Opened,
 }
 
 impl Macs {
@@ -199,6 +201,7 @@ impl Macs {
             closing: Arc::new(watch::channel(false).0),
             timing,
             http,
+            pages: Default::default(),
         })
     }
 

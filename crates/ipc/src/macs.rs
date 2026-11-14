@@ -88,6 +88,21 @@ pub struct OtherMacProjects {
     pub projects: Vec<Project>,
 }
 
+/// `open_other_mac_page`: a page a Job on another Mac showed or serves, a walk or a dev server, to open on this Mac.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenOtherMacPage {
+    pub session_id: crate::SessionId,
+    /// The page's address as the Job named it, on the loopback of the Mac that holds it.
+    pub url: String,
+}
+
+/// What `open_other_mac_page` answers: where the page opens on this Mac.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OtherMacPageOpened {
+    pub url: String,
+}
+
 /// `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OtherMacEvent {

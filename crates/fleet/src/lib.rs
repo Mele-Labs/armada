@@ -271,6 +271,8 @@ mod project_copies;
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
 mod mac_update;
+/// A walk or dev server of a Job on one of his Macs, opened on another through the signed link.
+mod mac_pages;
 /// A task act another Mac made on a shared project of this Mac, run here.
 mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.
