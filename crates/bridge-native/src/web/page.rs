@@ -40,6 +40,8 @@ pub enum WebPageEvent {
     Pictured,
     /// What the page draws changed hands: live in the window, or a picture of it.
     Shown,
+    /// The kit's script on a sealed page posted this, as JSON text (`kit::read` reads it).
+    Posted(String),
 }
 
 /// How a page is drawn now.
@@ -57,6 +59,9 @@ pub enum Mode {
 pub enum Source {
     Url(String),
     File(String),
+    /// A page Fleet served sealed (`get_artifact_page`): loaded as text with no address, kept from going anywhere, and
+    /// heard by the kit's handler. Its own policy lets the kit's script alone run.
+    Sealed(String),
 }
 
 /// Takes the scroll bars out of a page laid out in a shell, so it fills its frame as the picture does. `display: none` on the
@@ -67,7 +72,7 @@ pub struct WebPage {
     native: Option<Native>,
     /// What the page loads and how it is made, until its element first reports a frame: **the page is made then**, as
     /// Classic makes a walk's view when its pane first reports one, so a walk nobody has opened loads nothing.
-    waiting: Option<(Option<String>, Source, async_channel::Sender<Nav>)>,
+    waiting: Option<(Option<String>, Source, async_channel::Sender<Nav>, Option<async_channel::Sender<String>>)>,
     status: Status,
     picture: Option<Arc<RenderImage>>,
     /// Where the element was painted last, in the window.
@@ -88,6 +93,8 @@ pub struct WebPage {
     /// The snapshot's wait and decode, which a newer ask replaces only once it has ended.
     deciding: Option<Task<()>>,
     _watching: Task<()>,
+    /// The kit's posts, handed on as `WebPageEvent::Posted`.
+    _hearing: Task<()>,
 }
 
 impl EventEmitter<WebPageEvent> for WebPage {}
@@ -97,6 +104,15 @@ impl WebPage {
     /// store of sign-ins, and two manifests share nothing (`frame::store_id`).
     pub fn new(manifest: Option<&str>, source: Source, cx: &mut Context<Self>) -> Self {
         let (events, arrivals) = async_channel::unbounded();
+        let (posts, posted) = async_channel::unbounded::<String>();
+        let kit = matches!(source, Source::Sealed(_)).then_some(posts);
+        let hearing = cx.spawn(async move |this, cx| {
+            while let Ok(text) = posted.recv().await {
+                if this.update(cx, |_, cx| cx.emit(WebPageEvent::Posted(text))).is_err() {
+                    break;
+                }
+            }
+        });
         let watching = cx.spawn(async move |this, cx| {
             while let Ok(arrival) = arrivals.recv().await {
                 let kept = this.update(cx, |page, cx| {
@@ -119,7 +135,7 @@ impl WebPage {
         });
         WebPage {
             native: None,
-            waiting: Some((manifest.map(str::to_string), source, events)),
+            waiting: Some((manifest.map(str::to_string), source, events, kit)),
             status: Status::Idle,
             picture: None,
             bounds: None,
@@ -134,17 +150,22 @@ impl WebPage {
             again: false,
             deciding: None,
             _watching: watching,
+            _hearing: hearing,
         }
     }
 
     /// The page, made and loading, where it was not yet.
     fn make(&mut self, size: Frame) {
-        let Some((manifest, source, events)) = self.waiting.take() else { return };
-        let options = Options { store: Some(super::frame::store_id(manifest.as_deref())), scripts: true, sealed: false, dark: None, clear: false };
+        let Some((manifest, source, events, kit)) = self.waiting.take() else { return };
+        // A sealed page keeps nothing and goes nowhere: no store of sign-ins, and every navigation after its text refused.
+        let sealed = matches!(source, Source::Sealed(_));
+        let store = (!sealed).then(|| super::frame::store_id(manifest.as_deref()));
+        let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
         self.native = Native::new(&options, size, events);
         match (&self.native, &source) {
             (Some(native), Source::Url(url)) => native.load_url(url),
             (Some(native), Source::File(path)) => native.load_file(path),
+            (Some(native), Source::Sealed(html)) => native.load_html(html),
             (None, _) => {}
         }
         self.status = if self.native.is_some() { Status::Loading } else { Status::Absent };
@@ -200,6 +221,18 @@ impl WebPage {
             None => {
                 let _ = tx.try_send(None);
             }
+        }
+        rx
+    }
+
+    /// Runs `script` in the page's own world, as the host answers the kit (`window.armadaHost`). The channel closes once it
+    /// has run, or at once where there is no page yet.
+    pub fn tell(&self, script: &str) -> async_channel::Receiver<()> {
+        let (tx, rx) = async_channel::bounded(1);
+        if let Some(native) = &self.native {
+            native.tell(script, move || {
+                let _ = tx.try_send(());
+            });
         }
         rx
     }

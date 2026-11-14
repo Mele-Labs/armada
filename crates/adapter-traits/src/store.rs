@@ -211,6 +211,35 @@ pub struct Renewed {
     pub contested: Vec<Contest>,
 }
 
+/// One claim in the store's list: what it is on, by hash, and since when (Unix seconds).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedClaim {
+    pub repository: RepositoryKey,
+    pub kind: ClaimKind,
+    pub key: ClaimKey,
+    pub since: i64,
+}
+
+/// A claim another holder has that this holder keeps asking for: what it waits on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedWait {
+    pub repository: RepositoryKey,
+    pub kind: ClaimKind,
+    pub key: ClaimKey,
+    pub held_by: Claimant,
+}
+
+/// One holder's claims and waits, as `GET /v1/claims` groups them. **The holder's `since` is
+/// `0`**: a group has no take of its own, and each claim carries its own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HolderClaims {
+    pub holder: Claimant,
+    /// Unix seconds it last renewed, or for a holder that only waits, last asked.
+    pub renewed: i64,
+    pub claims: Vec<ListedClaim>,
+    pub waits: Vec<ListedWait>,
+}
+
 /// Why the store did not answer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StoreError {
@@ -301,6 +330,10 @@ pub trait Store {
     /// holder's `since` is not sent. The answer also names each other holder told
     /// one of these claims was held since the last renewal, once.
     fn renew(&self, holder: &Holder) -> Result<Renewed, StoreError>;
+
+    /// Every live claim the store holds, grouped by holder, with what each holder waits on.
+    /// Hashes only: the caller names what it can match.
+    fn claims_listed(&self) -> Result<Vec<HolderClaims>, StoreError>;
 
     /// Register the owner of a pull request.
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError>;

@@ -305,7 +305,9 @@ export type SessionRecord = {
 
 /**
  * A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is its assignee in beads.
+ * Or a failing test another Job is fixing, which threw the Job's pull request out of the merge queue: `item` is the test.
  * `holder` is the holding Job's forge login or the assignee, `machine` and `title` the holding Job's, absent for a person in beads.
+ * `holder` is empty where main is red on the test.
  */
 export type ClaimWait = {
   item: string;
@@ -316,8 +318,11 @@ export type ClaimWait = {
   ends: ClaimWaitEnds;
 };
 
-/** What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads. */
-export type ClaimWaitEnds = "claim_ends" | "unassigned";
+/**
+ * What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads.
+ * `fix_merges`: a failing test's fix merges and main is green, or main's red is fixed, and the pull request is queued again.
+ */
+export type ClaimWaitEnds = "claim_ends" | "unassigned" | "fix_merges";
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
 export type SessionStarted = {
@@ -977,6 +982,25 @@ export type IssueClaimed = {
 export type TakeMainRed = {
   session_id?: string;
   take_over?: boolean;
+};
+
+/**
+ * `POST /sessions/call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of the
+ * merge queue says the test is flaky, with `log_line`, the line of the failing run's log that shows it. Fleet claims the
+ * test, starts the one Job that fixes it, and queues the pull request again when that fix merges. `session_id` names the
+ * Session where the connection places none. Fleet refuses 409 `fleet.test_not_asked` where it did not ask this Job about
+ * the test, and 422 `fleet.test_not_callable` for a call that places no Session or names no log line. Since 14 Nov 2026.
+ */
+export type CallTestFlaky = {
+  session_id?: string;
+  test: string;
+  log_line: string;
+};
+
+/** What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it tells the Job. */
+export type TestCalledFlaky = {
+  pull: number;
+  said: string;
 };
 
 /** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */

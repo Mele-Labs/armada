@@ -385,6 +385,18 @@ impl Store {
         )
     }
 
+    /// Every target a row of `kind` in one repository has named, in any state, each once.
+    pub fn attachment_targets(&self, kind: &str, manifest_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading the job ledger";
+        let mut statement = self
+            .conn
+            .prepare("SELECT DISTINCT target FROM ledger_attachments WHERE kind = ?1 AND manifest_id = ?2")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map(params![kind, manifest_id], |row| row.get::<_, String>(0)).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
     fn attachments_where(
         &self,
         clause: &str,

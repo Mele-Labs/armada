@@ -21,6 +21,8 @@ pub(super) fn wait_said(wait: &ClaimWait) -> String {
         ("", None) => match wait.ends {
             ClaimWaitEnds::ClaimEnds => "another Job".to_string(),
             ClaimWaitEnds::Unassigned => "its assignee in beads".to_string(),
+            ClaimWaitEnds::FixMerges if wait.title.as_deref().is_some_and(|title| !title.trim().is_empty()) => "the Job fixing it".to_string(),
+            ClaimWaitEnds::FixMerges => "main's own fix".to_string(),
         },
         (holder, None) => holder.to_string(),
     };
@@ -34,6 +36,7 @@ pub(super) fn ends_said(wait: &ClaimWait) -> String {
         (ClaimWaitEnds::ClaimEnds, _) => "Carries on when the other Job's claim ends".to_string(),
         (ClaimWaitEnds::Unassigned, "") => "Carries on when the item is unassigned".to_string(),
         (ClaimWaitEnds::Unassigned, person) => format!("Carries on when {person} is unassigned"),
+        (ClaimWaitEnds::FixMerges, _) => "Requeues when the fix merges".to_string(),
     }
 }
 
@@ -213,6 +216,17 @@ mod tests {
         let nobody = wait("", None, None, ClaimWaitEnds::Unassigned);
         assert_eq!(wait_said(&nobody), "Waiting on its assignee in beads: armada-zasx.3");
         assert_eq!(ends_said(&nobody), "Carries on when the item is unassigned");
+    }
+
+    #[test]
+    fn a_wait_on_a_failing_tests_fix_names_the_fixer_or_main_and_requeues() {
+        let elsewhere = ClaimWait { item: "queue::settles".into(), ..wait("nick", Some("Home"), Some("Fix the flaky test settles"), ClaimWaitEnds::FixMerges) };
+        assert_eq!(wait_said(&elsewhere), "Waiting on nick's Mac Home: Fix the flaky test settles");
+        assert_eq!(ends_said(&elsewhere), "Requeues when the fix merges");
+        let unnamed = ClaimWait { item: "queue::settles".into(), ..wait("", None, Some("Fix the flaky test settles"), ClaimWaitEnds::FixMerges) };
+        assert_eq!(wait_said(&unnamed), "Waiting on the Job fixing it: Fix the flaky test settles");
+        let main = ClaimWait { item: "queue::settles".into(), ..wait("", None, None, ClaimWaitEnds::FixMerges) };
+        assert_eq!(wait_said(&main), "Waiting on main's own fix: queue::settles");
     }
 
     #[test]
