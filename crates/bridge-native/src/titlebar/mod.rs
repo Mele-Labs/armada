@@ -763,12 +763,6 @@ impl TitleBar {
         self.restart_onto(build, cx);
     }
 
-    /// The restart button: merge the preview again, or move to the latest main.
-    fn restart_pressed(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        self.restart_onto(on, cx);
-    }
-
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
     fn restart_onto(&mut self, build: BuildSource, cx: &mut Context<Self>) {
         self.answer(
