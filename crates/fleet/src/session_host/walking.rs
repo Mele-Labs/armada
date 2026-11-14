@@ -18,9 +18,10 @@ const WINDOW_WITHDRAW_NOT_SHOWN: &str = "fleet.window_withdraw_not_shown";
 const APPROVED: &str = "Approved";
 
 /// The address an Approve message approves, or `None` where the text is anything else. Exactly the
-/// two shapes Bridge sends, so a person's own sentence that begins with the word is not one.
+/// two shapes Bridge sends, so a person's own sentence that begins with the word is not one. Read off the first
+/// line, so his notes under an approval leave it one.
 pub(crate) fn approved_address(text: &str) -> Option<&str> {
-    let rest = text.trim().strip_prefix(APPROVED)?;
+    let rest = text.trim().lines().next()?.strip_prefix(APPROVED)?;
     if let Some(address) = rest.strip_prefix(": ") {
         return Some(address.trim());
     }

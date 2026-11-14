@@ -482,6 +482,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/waiting/dismiss",
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
+        .route("/sessions/items/answer", post(crate::hosted_sessions::answer_items::<D>))
+        .route("/sessions/items/dismiss", post(crate::hosted_sessions::dismiss_items::<D>))
         .route(
             "/sessions/draft/document",
             post(crate::hosted_sessions::convert_draft_to_document::<D>),

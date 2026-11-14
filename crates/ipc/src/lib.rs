@@ -287,6 +287,8 @@ mod style_sources;
 mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// His verdict, or none, on several waiting items at once. `answer_items`, `dismiss_items`.
+mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
@@ -713,6 +715,7 @@ pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, S
 pub use macs::{ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,

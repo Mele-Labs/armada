@@ -1058,7 +1058,7 @@ where
         by: Answerer,
     ) -> Result<SessionRecord, Refusal> {
         // Boxed: the settling's future is near a megabyte in a debug build, and inline it overflows a test thread's stack.
-        Box::pin(self.settle_answer_picking(said, by, &[])).await
+        Box::pin(self.settle_answer_picking(said, by, &[], false)).await
     }
 
     /// `answer_waiting_parts`: the answer is parts picked across the item's pictures, and nothing else. The
@@ -1069,16 +1069,24 @@ where
         }
         self.visit_kept(said.session_id.as_str()).await;
         let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None };
-        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked)).await
+        Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked, false)).await
+    }
+
+    /// His Approve or Ask for changes on an item `answer_items` routes through `answer_waiting`: a draft, a walk, or an
+    /// agent item that asks for his approval. `approving` lets a walk carry words with its approval, which a walk
+    /// item's own answer cannot say, since it has no options to pick.
+    pub(crate) async fn settle_verdict(self: Arc<Self>, said: AnswerWaiting, approving: bool) -> Result<SessionRecord, Refusal> {
+        Box::pin(self.settle_answer_picking(said, Answerer::Him, &[], approving)).await
     }
 
     /// The one settling of an answer: `parts` is what he picked across the pictures, empty for every answer but
-    /// `answer_waiting_parts`.
+    /// `answer_waiting_parts`. `walk_approved` is a walk approved with words, from [`Self::settle_verdict`].
     async fn settle_answer_picking(
         self: Arc<Self>,
         said: AnswerWaiting,
         by: Answerer,
         parts: &[ipc::PartPicked],
+        walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();
@@ -1166,6 +1174,7 @@ where
             (WaitingSource::Draft, Some(_), ..) => "Approved with fixes".to_string(),
             (WaitingSource::Draft, None, Some(_), _) => "Approved".to_string(),
             (WaitingSource::Draft, None, None, Some(note)) => format!("Sent back: {note}"),
+            (WaitingSource::Walk, ..) if walk_approved => "Approved".to_string(),
             _ => match (picked.as_deref().or(words).or(mix.as_deref().map(|_| "a mix of parts")), said.mode) {
             (Some(chosen), _) => format!("Answered: {chosen}"),
             (None, Some(ipc::WaitingMode::Best)) => "Answered: think it through".to_string(),
@@ -1218,8 +1227,9 @@ where
             }
             WaitingSource::Walk => {
                 let target = item.act.map(|act| act.target).unwrap_or_default();
-                let body = if words.is_none() && line.is_none() {
-                    format!("Approved: {target}")
+                let body = if walk_approved || (words.is_none() && line.is_none()) {
+                    // The address stays the first line alone, which is what reads the walk approved.
+                    [Some(format!("Approved: {target}")), words.map(str::to_string)].into_iter().flatten().collect::<Vec<_>>().join("\n")
                 } else {
                     reply(&item.text, both.as_deref(), line)
                 };
@@ -1386,20 +1396,12 @@ where
         if terminal.is_some() {
             self.terminal_ask_standing(&id).await;
         }
-        let item = {
-            let store = self.store().lock().await;
-            let session = store
-                .session(&id)
-                .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| {
-                    self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows")
-                })?;
-            self.ledger_row(&store, &session)?
-                .waiting_for
-                .into_iter()
-                .find(|one| one.id == dismiss.item_id)
-                .ok_or_else(|| self.settled_already())?
-        };
+        let item = self
+            .waiting_now(&id)
+            .await?
+            .into_iter()
+            .find(|one| one.id == dismiss.item_id)
+            .ok_or_else(|| self.settled_already())?;
         if let Some(why) = super::needs_you::refused_dismissal(item.source) {
             return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, why));
         }
@@ -1438,10 +1440,33 @@ where
             };
             Arc::clone(&self).send_known(terminal, sent).await?;
         }
+        self.dismissal_closed(&id, &item, dismiss.reason.as_deref(), dismiss.misread).await
+    }
+
+    /// What the Job waits on him for now, as `dismiss_waiting` and `dismiss_items` read it.
+    pub(crate) async fn waiting_now(&self, id: &str) -> Result<Vec<WaitingItem>, Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+        Ok(self.ledger_row(&store, &session)?.waiting_for)
+    }
+
+    /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by
+    /// `dismiss_waiting` and `dismiss_items`, which tell the Job differently.
+    pub(crate) async fn dismissal_closed(
+        self: &Arc<Self>,
+        id: &str,
+        item: &WaitingItem,
+        reason: Option<&str>,
+        misread: bool,
+    ) -> Result<SessionRecord, Refusal> {
+        let id = id.to_string();
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
         }
-        let closed = self.closed_as_it_stood(&item);
+        let closed = self.closed_as_it_stood(item);
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
@@ -1457,13 +1482,13 @@ where
                 // Already settled elsewhere is the same end, so that refusal is not the person's.
                 let _ = self.proposal_dismissed(ipc::WorkflowChangeRef { change }).await;
             }
-            let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
+            let reason = reason.map(str::trim).filter(|why| !why.is_empty());
             self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
             return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
         }
         // Not a question: the sentence is kept for good, so a near one is not raised again and the
         // trainer reads it as asking nothing.
-        if dismiss.misread {
+        if misread {
             let now = self.clock().now().as_str().to_string();
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
