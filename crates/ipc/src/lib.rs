@@ -382,6 +382,7 @@ pub use building::{
     KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
+    BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
 };
