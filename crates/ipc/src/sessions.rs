@@ -281,6 +281,12 @@ pub enum SessionFact {
         #[serde(rename = "use")]
         used: crate::loadout::LoadoutUse,
     },
+    /// The mod blocked a turn's stop and sent the agent back with `text`, the words the agent was
+    /// given. Fleet keeps it in a hosted Job's thread as a `reply_claim` notice, which wakes nothing,
+    /// so a dispute can name it. Since mod 0.3.64.
+    SentBack {
+        text: String,
+    },
     Ended {
         reason: String,
     },

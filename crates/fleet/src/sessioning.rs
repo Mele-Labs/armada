@@ -157,6 +157,8 @@ where
         let mut subagent_row: Option<SubagentRow> = None;
         // A turn ended: a subagent row still running whose transcript ended is settled once the store is let go.
         let mut turn_over = false;
+        // The words the mod sent a turn back with, kept as a notice once the store is let go.
+        let mut sent_back: Option<String> = None;
         // A pull request the session opened, by its Manifest and address, read once the store is let go.
         let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
@@ -480,6 +482,11 @@ where
             }
             // Fleet keeps no count of calls: nothing reads one.
             SessionFact::Calls { .. } => {}
+            // The mod's stop hook gave the agent these words already, so the row is written and nothing
+            // is sent. A terminal Job's thread is not Fleet's to write.
+            SessionFact::SentBack { text } => {
+                sent_back = Some(text.trim().to_string()).filter(|text| !terminal && !text.is_empty());
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -544,6 +551,9 @@ where
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
             self.row_put(&session.id, row).await;
+        }
+        if let Some(text) = sent_back {
+            self.fleet_note_as(&session.id, text, Some(ipc::Notice::ReplyClaim)).await;
         }
         if let Some((manifest, address)) = opened_pull {
             self.opened_pull_read(&manifest, &address).await;

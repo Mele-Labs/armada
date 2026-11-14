@@ -731,7 +731,7 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, session_id? }`; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
+| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, notice_words?, session_id? }`, `notice_words` since 13 Nov 2026: the opening words of the disputed notice, which ties the dispute to the newest Fleet message holding them, else the latest; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
 | `SessionRow::Disputed` (`kind: "disputed"`) | Bridge reads | `{ id, at, notice, why, spotted, review? }`: `notice` is the Fleet message row's id, `spotted` is `called` or `read`, `review` the review job's session id, absent where none was started |
 
 **The review job's title is `Disputed: <a few words>`**, named by one `models.dispute` call, or `Disputed notice` where that call names nothing usable.
