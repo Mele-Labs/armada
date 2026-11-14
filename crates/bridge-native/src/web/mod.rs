@@ -20,12 +20,9 @@ pub mod frame;
 pub mod keys;
 pub mod kit;
 mod page;
-// `render_html` is what sketch mock nodes draw from in Job 677d0cb0, which builds against it: nothing here calls it yet.
-#[allow(dead_code)]
 mod render;
 mod wk;
 
 pub use page::{after_frame, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
-#[allow(unused_imports)]
-pub use render::{render_html, Appearance, Rendered};
+pub use render::{render_html, Appearance};
 pub use wk::{in_use, pending, pump};

@@ -160,7 +160,7 @@ impl WebPage {
         // A sealed page keeps nothing and goes nowhere: no store of sign-ins, and every navigation after its text refused.
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| super::frame::store_id(manifest.as_deref()));
-        let options = Options { store, scripts: true, sealed, dark: None, kit };
+        let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
         self.native = Native::new(&options, size, events);
         match (&self.native, &source) {
             (Some(native), Source::Url(url)) => native.load_url(url),
