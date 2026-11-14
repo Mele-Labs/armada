@@ -104,7 +104,7 @@ fn tone(state: State, look: &Look) -> Hsla {
     look.color(match state {
         State::Over | State::ReclaimOff => token::STATUS_COMPLETED_SUCCESS,
         State::Reclaiming => token::STATUS_AWAITING_REVIEW,
-        State::Held => token::STATUS_ESCALATED,
+        State::Held => token::STATUS_COMPLETED_FAILED,
     })
 }
 
