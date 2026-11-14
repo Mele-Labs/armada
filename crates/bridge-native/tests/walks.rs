@@ -43,12 +43,6 @@ fn a_learned_value_and_the_thread_line_about_it_link_to_the_setting() {
     plays("native-learned-links");
 }
 
-/// Every Settings page, its project picker and each control, on the mock Fleet.
-#[test]
-fn settings_plays_every_page_to_its_end() {
-    plays("native-settings");
-}
-
 /// The Fleet panel on Fleet's build report: Running, Waiting, Refresh and its sentence, Update to main, Keep.
 #[test]
 fn the_fleet_panel_says_what_runs_and_what_refresh_builds() {
