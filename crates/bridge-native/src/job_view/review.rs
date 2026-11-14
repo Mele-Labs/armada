@@ -765,9 +765,16 @@ impl JobView {
     // ---- keys ------------------------------------------------------------------------------
 
     /// What the sheet does with the thread's acts while it is up. True where it took the act.
-    pub(super) fn review_act(&mut self, act: &crate::keymap::Act, _window: &mut Window, _cx: &mut Context<Self>) -> bool {
+    pub(super) fn review_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if !self.review_open() {
             return false;
+        }
+        // ⌘↵ reaches the sheet as Send: in an item's notes it asks for changes with them.
+        if act.is("send_message") {
+            if self.review_noting(window, cx) {
+                self.review_changes(window, cx);
+            }
+            return true;
         }
         // The cards behind take none of the thread's keys while the sheet is up.
         act.is("send_message") || act.is("thread_send_back") || act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you") || act.is("needs_you_fold")
