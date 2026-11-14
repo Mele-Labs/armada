@@ -118,7 +118,7 @@ pub(crate) async fn signed(
     for (n, (address, client)) in ways.into_iter().enumerate() {
         let mut request = client.request(method.clone(), format!("{address}{target}"));
         for (name, value) in &headers {
-            request = request.header(name.clone(), value.clone());
+            request = request.header(*name, value.clone());
         }
         if !body.is_empty() {
             request = request.header("content-type", "application/json");

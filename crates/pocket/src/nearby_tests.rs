@@ -98,7 +98,8 @@ async fn a_paired_door_with_another_certificate_is_refused() {
     assert_eq!(ask(&work, &home).await.0, StatusCode::OK);
     let confirm = ipc::encode(&ipc::MacNamed { mac: work.id() }).unwrap();
     assert_eq!(home.admin(Method::POST, "/admin/macs/pair/confirm", &confirm).await.0, StatusCode::OK);
-    let hello = || crate::mac_client::signed_whole(&work.gateway, &home.id(), "", "GET", "/api/mac/hello", None);
+    let home_id = home.id();
+    let hello = || crate::mac_client::signed_whole(&work.gateway, &home_id, "", "GET", "/api/mac/hello", None);
     assert_eq!(hello().await.map(|came| came.status), Ok(200), "the door it paired with");
 
     // Another door on the same Gateway, as a Mac between them would show: its own certificate.

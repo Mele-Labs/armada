@@ -45,10 +45,11 @@ tower-http = { version = "0.6", default-features = false, features = ["compressi
 # `rustls` and `tokio-rustls` are already in the lock under `reqwest`, with the same `ring`
 # provider; they are named here to serve TLS and to pin the other Mac's certificate.
 # `rcgen` is new: it makes the Mac's one self-signed certificate, which no CA could sign for an
-# address on a home network. It adds `yasna` and `pem`; `ring` is already in the lock.
+# address on a home network. It adds `yasna` and `time`; `ring` is already in the lock.
 # `mdns-sd` is new: Bonjour, to advertise and browse `_armada._tcp`. The workspace forbids
 # `unsafe`, so the system's own `dns_sd` cannot be called, and the `dns-sd` command's output is
-# documented as not for scripts. Pure Rust, no async runtime; it adds `flume` and `if-addrs`.
+# documented as not for scripts. Pure Rust, no async runtime; it adds `flume`, `if-addrs` and
+# `socket-pktinfo`.
 # Asked for on 13 Nov 2026 (armada-hu76.25).
 mdns-sd = "0.21"
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }

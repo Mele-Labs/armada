@@ -216,7 +216,7 @@ async fn signed_page(
         let leg = if to == address { client().clone() } else { door };
         let mut request = leg.request(method.clone(), format!("{to}{target}")).timeout(PATIENCE);
         for (name, value) in &signature {
-            request = request.header(name.clone(), value.clone());
+            request = request.header(*name, value.clone());
         }
         for name in CARRIED.iter().filter(|name| headers.contains_key(*name)) {
             request = request.header(name, headers[name].clone());
