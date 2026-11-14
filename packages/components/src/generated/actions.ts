@@ -1749,6 +1749,32 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "build_note_step",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Go to step",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "1–9",
+    scope: "review sheet",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "build_note_looked",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Looked at",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌘L",
+    scope: "review sheet",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

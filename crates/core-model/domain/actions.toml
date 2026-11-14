@@ -1567,3 +1567,27 @@ scope = "review sheet"
 destructive = false
 confirms = false
 notes = "Takes every item of the review sheet still asking off his list in one `dismiss_items` call. Each Job is told he passed on its items with no verdict. Native only, 14 Nov 2026."
+
+[actions.build_note_step]
+kind = "Action"
+tier = "Contextual"
+verb = "Go to step"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1–9"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "The number on each step of a note in the In this build sheet, which opens on a preview build that holds branches Jobs offered. It runs that step's Go: the sheet closes and the step's act runs on the app. A step with no act has no Go and its number does nothing, and nothing happens on a number past the last step. The sheet shares the review sheet's scope because it is the same kind of sheet and holds its keys while it is up. Native only, 14 Nov 2026."
+
+[actions.build_note_looked]
+kind = "Action"
+tier = "Contextual"
+verb = "Looked at"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘L"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Marks the chosen note of the In this build sheet looked at, through `mark_build_note_looked_at`. Fleet keeps it for that branch at that tip, so a later build with the same tip finds it marked. The sheet shares the review sheet's scope, and holds ⌘L while it is up, where the same chord opens the Layout menu elsewhere. Native only, 14 Nov 2026."

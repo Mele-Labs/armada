@@ -106,6 +106,9 @@ pub struct Held {
     /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
     /// drop** as the build is. `None` until Fleet has answered.
     pub offers: Option<ipc::PreviewOffers>,
+    /// The note of each branch the running preview build holds, as Fleet last said, **held across a drop** as the
+    /// offers are. `None` until Fleet has answered.
+    pub build_notes: Option<ipc::BuildNotes>,
     /// Every send waiting for another of his Macs, as Fleet last listed them, oldest first (`crate::waiting_sends`).
     /// `None` until Fleet has answered.
     pub queued: Option<ipc::QueuedList>,
@@ -186,6 +189,7 @@ impl Held {
             build: None,
             disk: None,
             offers: None,
+            build_notes: None,
             queued: None,
             calls: None,
             repositories: None,
@@ -456,6 +460,8 @@ impl Held {
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
                 Signal::Offers(offers) => self.offers = Some(offers),
                 Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
+                Signal::BuildNotes(notes) => self.build_notes = Some(notes),
+                Signal::BuildNotesFailed(why) => lines.push(Note::warn("the build notes could not be read").field("why", why)),
                 Signal::Queued(list) => self.queued = Some(list),
                 Signal::QueuedFailed(why) => lines.push(Note::warn("the sends waiting for another Mac could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
@@ -519,6 +525,8 @@ impl Held {
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
                         // The offers arrive whole and replace the ones held.
                         Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
+                        // The notes arrive whole and replace the ones held.
+                        Event::BuildNotesChanged(notes) => self.build_notes = Some(notes),
                         // The sends waiting arrive whole, every Mac's, and replace the ones held.
                         Event::QueuedChanged(list) => self.queued = Some(list),
                         // A Job's watches arrive whole and replace the ones held.
@@ -1353,6 +1361,19 @@ mod tests {
         let event = crate::frames::decode(wire).expect("an event");
         held.fold(vec![Signal::Stream(event)]);
         assert_eq!(held.offers.as_ref().and_then(|held| held.refresh.as_ref()), None);
+    }
+
+    #[test]
+    fn the_build_notes_are_held_whole_from_the_read_and_from_the_event() {
+        let notes = |commit: &str| ipc::decode::<ipc::BuildNotes>("BuildNotes", format!(r#"{{"commit":"{commit}","notes":[]}}"#).as_bytes()).expect("notes");
+        let mut held = Held::new();
+        assert_eq!(held.build_notes, None, "nothing is held before Fleet answers");
+        held.fold(vec![Signal::BuildNotes(notes("a"))]);
+        assert_eq!(held.build_notes, Some(notes("a")));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"build_notes.changed","commit":"b","notes":[]}}"#;
+        let event = crate::frames::decode(wire).expect("an event");
+        held.fold(vec![Signal::Stream(event)]);
+        assert_eq!(held.build_notes, Some(notes("b")), "the event replaces the notes whole");
     }
 
     #[test]

@@ -259,6 +259,7 @@ impl TitleBar {
             .child(select)
             .children(restart_stays.then_some(restart_button))
             .children(offers)
+            .children(self.notes_row(look, cx))
             .children(revert_button)
             .children(picked)
             .children(snapshot)

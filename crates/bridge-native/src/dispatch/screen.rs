@@ -32,6 +32,8 @@ pub struct DispatchScreen {
     sheet: Entity<DispatchSheet>,
     /// The New project sheet, which the title bar's switcher opens over the window.
     new_project: Entity<crate::new_project::NewProjectSheet>,
+    /// The In this build sheet: it opens on its own for a preview build with notes, and from the switcher.
+    build_notes: Entity<crate::build_notes::BuildNotesSheet>,
     /// The presets' menu and the Custom sheet, which every door to Snooze asks for.
     snooze: Entity<crate::snooze::Snooze>,
     layer: Option<Entity<Layer>>,
@@ -215,6 +217,17 @@ pub fn open_new_project(cx: &mut App) {
     reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
 }
 
+/// The switcher's In this build: the sheet of the running build's notes opens again.
+pub fn open_build_notes(cx: &mut App) {
+    reach(cx, |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show(window, cx)));
+}
+
+/// The notes of the running build, as Fleet last said them: the sheet holds them, and opens on its own for a build
+/// it has not opened for.
+pub fn hold_build_notes(notes: ipc::BuildNotes, cx: &mut App) {
+    reach(cx, move |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.offer(notes, window, cx)));
+}
+
 /// Snooze on a Job's menu, a key or the palette: the presets' menu opens at `at`, or near the top of the window
 /// where the door has no place to give.
 pub fn snooze_ask(job: gpui::SharedString, title: gpui::SharedString, at: Option<gpui::Point<Pixels>>, cx: &mut App) {
@@ -275,6 +288,8 @@ impl DispatchScreen {
             None => crate::new_project::wire::Wire::Mock(Box::new(crate::new_project::wire::Mock::new())),
         };
         let new_project = cx.new(|cx| crate::new_project::NewProjectSheet::new(wire, window, cx));
+        let fleet = jobs.read(cx).list.read(cx).fleet();
+        let build_notes = cx.new(|cx| crate::build_notes::BuildNotesSheet::new(fleet, window, cx));
         let list = jobs.read(cx).list.clone();
         let snooze = cx.new(|_| crate::snooze::Snooze::new(list));
         let mut subs = vec![
@@ -302,7 +317,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, build_notes, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
@@ -1018,6 +1033,7 @@ impl Render for DispatchScreen {
             .children(sheet)
             // Drawn always: it draws nothing while shut, so its own opening and closing need no redraw here.
             .child(self.new_project.clone())
+            .child(self.build_notes.clone())
             .child(self.snooze.clone())
             // Over every overlay the screen draws, Settings among them, so a note can be made on it.
             .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))

@@ -891,8 +891,13 @@ impl JobsList {
                 let (usage, downshift) = (fleet.read(cx).held().plan_usage.clone(), fleet.read(cx).held().downshift.clone());
                 let build = fleet.read(cx).held().build.clone();
                 let offers = fleet.read(cx).held().offers.clone();
+                let notes = fleet.read(cx).held().build_notes.clone();
                 let disk = fleet.read(cx).held().disk.clone();
                 let link = fleet.read(cx).held().link();
+                let moved = bar.update(cx, |bar, cx| bar.set_build_notes(notes.as_ref(), cx));
+                if let (true, Some(notes)) = (moved, notes) {
+                    crate::dispatch::screen::hold_build_notes(notes, cx);
+                }
                 bar.update(cx, |bar, cx| {
                     bar.set_fleet(&link, cx);
                     bar.set_usage(usage.as_ref(), downshift.as_ref(), cx);
@@ -2769,6 +2774,11 @@ impl JobsScreen {
                     crate::titlebar::Remedy::Choose => "/model_downshift/settle",
                 };
                 send_bare(port, path, cx);
+                return;
+            }
+            // The switcher's In this build: the sheet of the running build's notes opens over the window.
+            if *asked == crate::titlebar::Asked::BuildNotes {
+                crate::dispatch::screen::open_build_notes(cx);
                 return;
             }
             // The switcher's New project: its sheet opens over the window.

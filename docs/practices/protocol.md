@@ -1201,10 +1201,14 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
+| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at}` and a step is `{say, act?}` |
+| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
+| `build_notes.changed` | Fleet writes, Bridge reads | `BuildNotes`, whole, published when the answer differs from the last one sent |
 | Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
 
 **A Bridge that matches `Event` exhaustively** meets a kind it did not know. Native matches with a fallback.
-**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+`OfferPreview` gained `look` and `steps`, each absent to keep what the last offer said.
+**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`. A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` and the `build_notes` table.
 
 ## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
 

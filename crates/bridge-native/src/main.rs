@@ -16,6 +16,7 @@
 mod annotate;
 mod assets;
 mod banner;
+mod build_notes;
 mod capture;
 mod chrome;
 mod clash_mark;
@@ -263,6 +264,7 @@ fn main() -> ExitCode {
         // Only the live app keeps what he typed across a restart: a walk, a mock and a test never read or write his file.
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
+            build_notes::persist(build_notes::opened_file(), cx);
             pairing::follow(cx);
             job_view::keep_arrangements(cx);
         }

@@ -85,6 +85,10 @@ pub trait Queries: Send + Sync + 'static {
     /// one Refresh row. Never refused: a Fleet with no offers answers none.
     fn get_preview_offers(&self) -> impl Future<Output = Result<ipc::PreviewOffers, Refusal>> + Send;
 
+    /// `get_build_notes` — the note of each branch the running preview build holds. Never refused: off the
+    /// preview it answers none.
+    fn get_build_notes(&self) -> impl Future<Output = Result<ipc::BuildNotes, Refusal>> + Send;
+
     /// `get_repository_allowed_commands` — every rule a person always-allowed
     /// for this Manifest's repository, oldest first. **Since `#836`.**
     ///
