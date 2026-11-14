@@ -114,6 +114,74 @@ async fn sending_a_sketch_back_tells_the_job_his_note_and_keeps_it() {
     assert_eq!(sketch_approved(&rows), None, "a send-back is not an approval");
 }
 
+/// A sketch of two takes drawn as screens, the first the job's pick.
+fn takes(id: &SessionId) -> ShowSketch {
+    let screen = |node: &str, x: u32, title: &str| {
+        format!(r#"{{"id":"{node}","kind":"screen","x":{x},"y":0,"title":"{title}","screen":{{"type":"column","children":[]}}}}"#)
+    };
+    let scene = format!(r#"{{"nodes":[{},{}],"edges":[]}}"#, screen("a", 0, "A (my pick): one rail"), screen("b", 400, "B: two panes"));
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
+}
+
+#[tokio::test]
+async fn a_note_that_only_picks_a_take_settles_the_sketch_and_tells_the_job_which_take() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let record = rig.fleet.show_sketch(None, takes(&id)).await.unwrap();
+    let drawn = the_sketch(&record).detail["drawn"].clone();
+    let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some("B"))).await.unwrap();
+
+    let rows = rig.rows(&id).await;
+    let told = sent(&rows).pop().unwrap();
+    assert_eq!(told, format!("Approved sketch: {TITLE}\nHe picked take B. Go on from take B as drawn, and drop the other takes."));
+    assert!(!told.contains("Draw it again"), "a pick is not drawn again");
+    let detail = &the_sketch(&record).detail;
+    assert_eq!(detail.get("settled").map(String::as_str), Some("approved"), "{detail:?}");
+    assert_eq!(detail.get("words").map(String::as_str), Some("B"));
+    assert!(record.waiting_for.is_empty(), "the pick leaves his list: {:?}", record.waiting_for);
+    assert!(sketch_approved(&rows).is_some(), "a pick is an approval to the rail");
+}
+
+#[tokio::test]
+async fn a_note_that_picks_a_take_and_asks_for_more_is_still_sent_back() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let record = rig.fleet.show_sketch(None, takes(&id)).await.unwrap();
+    let drawn = the_sketch(&record).detail["drawn"].clone();
+    let note = "B, with the rail wider";
+    let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some(note))).await.unwrap();
+
+    assert_eq!(
+        sent(&rig.rows(&id).await).pop().unwrap(),
+        format!("Sent back sketch: {TITLE}\n{note}\nDraw it again with show_sketch under the same title.")
+    );
+    assert_eq!(the_sketch(&record).detail.get("settled").map(String::as_str), Some("sent_back"));
+}
+
+#[test]
+fn a_take_is_named_by_the_lead_of_a_title_or_label_or_by_its_id() {
+    use crate::session_host::sketching::take_picked;
+    let node = |kind: &str, id: &str, title: &str| format!(r#"{{"id":"{id}","kind":"{kind}","x":0,"y":0,"title":"{title}"}}"#);
+    let scene = |nodes: &[String]| format!(r#"{{"nodes":[{}],"edges":[]}}"#, nodes.join(","));
+    let labelled = scene(&[
+        node("label", "l1", "Take 1, Cards: each group a card"),
+        node("mock", "t1", "Cards"),
+        node("label", "l2", "Take 2, Spine: groups on a numbered spine"),
+        node("mock", "t2", "Spine"),
+    ]);
+    for (note, take) in [("2", "2"), ("Take 2.", "2"), ("spine", "Spine"), ("t1", "T1"), ("\"Cards\"", "Cards")] {
+        assert_eq!(take_picked(&labelled, note).as_deref(), Some(take), "{note}");
+    }
+    for note in ["3", "Spine, but bigger", "Looks good", ""] {
+        assert_eq!(take_picked(&labelled, note), None, "{note}");
+    }
+    let lettered = scene(&[node("mock", "a", "A · My pick: held toast"), node("mock", "b", "B. Centred panel")]);
+    assert_eq!(take_picked(&lettered, "b").as_deref(), Some("B"));
+    assert_eq!(take_picked(&lettered, "go with A").as_deref(), Some("A"));
+    let flow = scene(&[node("box", "a", "A"), node("box", "b", "B")]);
+    assert_eq!(take_picked(&flow, "B"), None, "boxes and arrows draw no takes");
+}
+
 #[tokio::test]
 async fn a_send_back_with_no_note_is_refused_and_nothing_is_sent() {
     let rig = rig_placing(None);

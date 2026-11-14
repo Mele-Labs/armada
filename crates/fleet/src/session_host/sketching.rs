@@ -227,6 +227,57 @@ pub(crate) fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back sketch: {title}\n{note}\nDraw it again with show_sketch under the same title.")
 }
 
+/// His message when his note only picks one of the sketch's takes. It is an approval, so the rail and a
+/// `sketch_approved` gate read it as one.
+pub(crate) fn picked(title: &str, take: &str) -> String {
+    format!("{APPROVED}{title}\nHe picked take {take}. Go on from take {take} as drawn, and drop the other takes.")
+}
+
+/// The take `note` picks, where the note is nothing but the name of one take the scene draws, such as
+/// `B` or `Take 2`; `None` for any other note. A take is named by the leading words of a mock's, a
+/// screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id,
+/// and only a scene of two or more mocks or screens has takes.
+pub(crate) fn take_picked(scene: &str, note: &str) -> Option<String> {
+    let scene: ipc::Scene = ipc::decode("a sketch's scene", scene.as_bytes()).ok()?;
+    let pictures = |node: &&ipc::SceneNode| matches!(node.kind, ipc::SceneKind::Mock | ipc::SceneKind::Screen);
+    if scene.nodes.iter().filter(pictures).count() < 2 {
+        return None;
+    }
+    let wanted = take_name(note);
+    let mut names = Vec::new();
+    for node in &scene.nodes {
+        let titled = match node.kind {
+            ipc::SceneKind::Label => node.title.as_deref().or(node.body.as_deref()),
+            _ if pictures(&node) => node.title.as_deref(),
+            _ => None,
+        };
+        if let Some(title) = titled {
+            let lead = title.split([',', ':', '·', '(', '—', '–']).next().unwrap_or_default();
+            let lead = lead.split(". ").next().unwrap_or_default().trim().trim_end_matches('.');
+            let lead = take_name(lead);
+            if let Some(first) = lead.split_whitespace().next().filter(|first| first.chars().count() <= 2) {
+                names.push(first.to_string());
+            }
+            names.push(lead);
+        }
+        if pictures(&node) {
+            names.push(take_name(&node.id));
+        }
+    }
+    let found = names.iter().find(|name| !name.is_empty() && **name == wanted)?;
+    Some(found.to_uppercase().chars().take(1).chain(found.chars().skip(1)).collect())
+}
+
+/// `said` lowercased, with the words that only introduce a take's name taken off: `Take B.` reads `b`.
+fn take_name(said: &str) -> String {
+    let said = said.trim().trim_matches(['"', '\'', '`', '*']).trim_end_matches(['.', '!']).trim().to_lowercase();
+    let mut said = said.as_str();
+    for lead in ["i pick ", "pick ", "go with ", "take ", "option "] {
+        said = said.strip_prefix(lead).unwrap_or(said).trim_start();
+    }
+    said.to_string()
+}
+
 /// When the person last approved any sketch, or `None` while he has not. **Read off the thread**, as
 /// `walk_approval` reads a walk's: his message [`approved`] wrote, which stays when the sketch is redrawn.
 pub(crate) fn sketch_approved(rows: &[SessionRow]) -> Option<&str> {
@@ -277,9 +328,15 @@ where
         if let Some(how) = sketch.detail.get(SKETCH_SETTLED) {
             return Err(not_open(format!("the sketch `{title}` was {} already", how.replace('_', " "))));
         }
-        let body = match said.how {
-            SketchHow::Approved => approved(&title, words),
-            SketchHow::SentBack => sent_back(&title, words.unwrap_or_default()),
+        // A note that only names one take is a pick, so the job goes on from that take, not a redraw.
+        let take = (said.how == SketchHow::SentBack)
+            .then(|| sketch.detail.get("scene").zip(words).and_then(|(scene, note)| take_picked(scene, note)))
+            .flatten();
+        let how = if take.is_some() { SketchHow::Approved } else { said.how };
+        let body = match (said.how, &take) {
+            (_, Some(take)) => picked(&title, take),
+            (SketchHow::Approved, None) => approved(&title, words),
+            (SketchHow::SentBack, None) => sent_back(&title, words.unwrap_or_default()),
         };
         let message = SendSessionMessage {
             session_id: said.session_id.clone(),
@@ -294,7 +351,7 @@ where
         let Some(mut sketch) = now.filter(|one| one.detail.get(SKETCH_DRAWN) == Some(&said.drawn)) else {
             return self.published_hosted(&id).await;
         };
-        sketch.detail.insert(SKETCH_SETTLED.into(), said.how.word().into());
+        sketch.detail.insert(SKETCH_SETTLED.into(), how.word().into());
         sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
         if let Some(words) = words {
             sketch.detail.insert(SKETCH_WORDS.into(), words.to_string());
