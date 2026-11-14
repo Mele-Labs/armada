@@ -1163,7 +1163,7 @@ shortcut = "⌥1–⌥9"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "In the Dispatch panel, chooses the repository whose chip carries that number: the first nine of the row, the rail's repository first, then the one the words name, then the ones picked last. Where none is chosen yet it also sends, as a press on the chip does. One row over the digits because the rule is the chip's place in the row. A modifier means this tier, so it works from inside the request. Read by the key's place on the keyboard, since Option changes the character a digit types. Added 15 Oct 2026 with the one Dispatch panel."
+notes = "In the Dispatch panel, chooses the repository whose chip carries that number: the first nine of the row, the rail's repository first, then the one the words name, then the ones picked last. Where none is chosen yet it also sends, as a press on the chip does. One row over the digits because the rule is the chip's place in the row. A modifier means this tier, so it works from inside the request. Read by the key's place on the keyboard, since Option changes the character a digit types. Added 15 Oct 2026 with the one Dispatch panel. In the native Bridge the rows are his projects, each once for every repository it holds, then every repository in no project, and the digit picks the row in that order (14 Nov 2026)."
 
 [actions.call_reply]
 kind = "Action"

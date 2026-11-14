@@ -1,214 +1,218 @@
-// Home: every paired Mac's live Jobs in one list, in Fleet's order, each Job another started right under its starter.
-// Over it, the plan's two limits as the newest Mac's reading has them.
-// Where more than one Mac is paired, each row names its Mac. A Mac that forgot the phone, or is
-// not answering, is a row of its own at the top, and the rest of the list carries on without it.
+// Home: every paired Mac's live Jobs in one list, drawn as native's Jobs list: under the notch bar, a search and a scope,
+// then a heading per project and its Jobs, Needs you first, each Job another started folded under its starter.
+// A Mac that forgot the phone, or is not answering, is a row of its own at the top.
 
-import { useEffect, useState } from "react";
-import { Bot, Laptop, Plus } from "lucide-react";
-import { bucketOf, Button, SessionMark } from "@armada/components";
+import { useRef, useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
+import { bucketOf } from "@armada/components";
 
-import { getJson } from "./client";
 import { actsOn } from "./jobState";
-import { homeOf, useFleet, type Line, type Mac } from "./fleet";
-import type { PlanUsageBody } from "./gateway";
+import { homeOf, useFleet, type Item, type Line } from "./fleet";
+import { JobRow, MacRow } from "./JobList";
+import { Notch } from "./Notch";
 import { draftPath, go, jobPath, pairPath } from "./router";
-import { Band, Figure, IconButton, Row, Section } from "./ui";
 
-const LIMITS = [
-  [
-    "five_hour",
-    "5h",
-    "5-hour limit",
-  ],
-  [
-    "seven_day",
-    "wk",
-    "Weekly limit",
-  ],
-] as const;
+/** Which Jobs the list holds, as native's scope does; the phone has no ended Jobs to show. */
+const SCOPES = {
+  needs: "Needs you",
+  active: "Active",
+  paused: "Paused",
+  drafts: "Drafts",
+  all: "All",
+} as const;
+type Scope = keyof typeof SCOPES;
 
-/** The newest reading any paired Mac holds, read again whenever the Macs' lists change. */
-function usePlanUsage(macs: readonly Mac[], at: number): PlanUsageBody | undefined {
-  const [usage, setUsage] = useState<PlanUsageBody | undefined>(undefined);
-  const paired = macs.filter((mac) => mac.paired);
-  useEffect(() => {
-    let gone = false;
-    void Promise.all(
-      paired.map((mac) =>
-        getJson<PlanUsageBody>(mac.machine, "/api/plan_usage").catch(() => undefined),
-      ),
-    ).then((each) => {
-      if (gone) return;
-      const read = each.filter(
-        (one): one is PlanUsageBody => one !== undefined && one.read_at !== undefined,
-      );
-      setUsage(read.sort((a, b) => Date.parse(b.read_at!) - Date.parse(a.read_at!))[0]);
+const inScope = (scope: Scope, item: Item): boolean => {
+  const draft = item.session.held || item.session.blank === true;
+  switch (scope) {
+    case "needs":
+      return bucketOf(item.state) === "needs" && item.state !== "paused";
+    case "active":
+      return item.state !== "paused";
+    case "paused":
+      return item.state === "paused";
+    case "drafts":
+      return draft;
+    case "all":
+      return true;
+  }
+};
+
+const FOLDS = "pocket.folded";
+const keyOf = (item: Item) => `${item.mac.machine.origin} ${item.session.id}`;
+const keptFolds = (): Set<string> => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FOLDS) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+};
+
+/**
+ * The lines a group draws: a folded starter's sub-Jobs leave the list and ride on it as glyphs. Active leaves out a
+ * paused Job, as native's does, unless a sub-Job of it is not paused, which keeps its starter in view.
+ */
+function shownOf(lines: readonly Line[], folded: ReadonlySet<string>) {
+  const shown: {
+    line: Line;
+    kids: Item[];
+  }[] = [];
+  let under = Number.POSITIVE_INFINITY;
+  lines.forEach((line, at) => {
+    if (line.depth > under) return;
+    under = Number.POSITIVE_INFINITY;
+    const kids: Item[] = [];
+    for (const next of lines.slice(at + 1)) {
+      if (next.depth <= line.depth) break;
+      kids.push(next.item);
+    }
+    if (
+      [
+        line.item,
+        ...kids,
+      ].every((one) => one.state === "paused")
+    ) {
+      under = line.depth;
+      return;
+    }
+    if (kids.length > 0 && folded.has(keyOf(line.item))) under = line.depth;
+    shown.push({
+      line,
+      kids,
     });
-    return () => {
-      gone = true;
-    };
-  }, [
-    paired.map((mac) => mac.machine.origin).join(" "),
-    at,
-  ]);
-  return usage;
-}
-
-function Usage({ usage }: { usage: PlanUsageBody | undefined }) {
-  const drawn = LIMITS.flatMap(([kind, short, name]) => {
-    const one = usage?.windows.find((window) => window.kind === kind);
-    return one === undefined
-      ? []
-      : [
-          {
-            short,
-            name,
-            percent: Math.round(one.percent_used),
-          },
-        ];
   });
-  if (drawn.length === 0) return null;
-  return (
-    <div className="pk-usage" role="group" aria-label="Plan limits">
-      {drawn.map((one) => (
-        <span key={one.short} className="pk-usage__limit">
-          <span className="pk-usage__name" aria-hidden="true">
-            {one.short}
-          </span>
-          <Figure name={one.name}>{`${one.percent}%`}</Figure>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function MacRow({ mac }: { mac: Mac }) {
-  const name = mac.machine.name === "" ? new URL(mac.machine.origin).hostname : mac.machine.name;
-  return (
-    <li className="deck-list__item">
-      <div className="deck-row" data-tone="bad">
-        <span className="deck-row__title">{name}</span>
-        <span className="deck-row__marks">
-          <SessionMark state="quiet" said={mac.paired ? "Not answering" : "Not paired"} />
-        </span>
-        <span className="deck-row__says">{mac.paired ? mac.error : "Not paired"}</span>
-        <span className="deck-row__said">
-          {mac.paired ? null : (
-            <Button variant="secondary" size="sm" onClick={() => go(pairPath(mac.machine.origin))}>
-              Pair again
-            </Button>
-          )}
-        </span>
-      </div>
-    </li>
-  );
+  return shown;
 }
 
 export function Home() {
   const fleet = useFleet();
   const { several, repositories, troubled } = homeOf(fleet);
-  /** Under a repository's head a row does not name it again. */
-  const named = repositories.length > 1;
-  const usage = usePlanUsage(fleet.macs, fleet.at);
-  const row = ({ item, depth, through, last }: Line) => {
-    const { state, said } = item;
-    const at =
-      state === "done"
-        ? (item.session.done_since ?? item.session.started_at)
-        : bucketOf(state) === "needs"
-          ? (item.session.waiting_since ?? item.session.started_at)
-          : item.session.started_at;
-    const { session } = item;
-    const key = `${item.mac.machine.origin} ${session.id}`;
-    const open = () =>
-      go((session.held ? draftPath : jobPath)(item.mac.machine.origin, session.id));
-    const mac = several ? item.mac.machine.name : undefined;
-    return (
-      <Row
-        key={key}
-        state={state}
-        said={said}
-        title={session.title ?? ""}
-        says={
-          state === "done"
-            ? (session.done_summary ?? (named ? "" : (session.repository ?? "")))
-            : bucketOf(state) === "waiting"
-              ? said
-              : named
-                ? ""
-                : (session.repository ?? "")
-        }
-        {...(mac === undefined
-          ? {}
-          : {
-              mac,
-            })}
-        depth={depth}
-        through={through}
-        last={last}
-        {...(session.from === undefined || depth > 0
-          ? {}
-          : {
-              from: session.from.title,
-            })}
-        {...(session.context_tokens === undefined
-          ? {}
-          : {
-              context: session.context_tokens,
-            })}
-        at={at}
-        onOpen={open}
-        {...(state === "done"
-          ? {
-              onEnd: () =>
-                void actsOn(item.mac.machine, () => undefined)
-                  .close({
-                    session_id: session.id,
-                  })
-                  .catch(() => undefined),
-            }
-          : {})}
-      />
+  const [scope, setScope] = useState<Scope>("active");
+  const [words, setWords] = useState("");
+  const [project, setProject] = useState<string | undefined>(undefined);
+  const [folded, setFolded] = useState(keptFolds);
+  const search = useRef<HTMLInputElement>(null);
+  const fold = (item: Item) => {
+    const next = new Set(folded);
+    if (!next.delete(keyOf(item))) next.add(keyOf(item));
+    localStorage.setItem(
+      FOLDS,
+      JSON.stringify([
+        ...next,
+      ]),
     );
+    setFolded(next);
   };
+  /** A search or a narrower scope lists the Jobs it finds on their own, out of their starters' folds. */
+  const narrowed = scope !== "active" || words.trim() !== "";
+  const match = (item: Item) =>
+    inScope(scope, item) &&
+    (item.session.title ?? "").toLowerCase().includes(words.trim().toLowerCase());
+  const groups = repositories
+    .filter((one) => project === undefined || one.name === project)
+    .map((one) => ({
+      name: one.name,
+      shown: narrowed
+        ? one.lines
+            .filter((line) => match(line.item))
+            .map((line) => ({
+              line: {
+                ...line,
+                depth: 0,
+                through: [],
+                last: true,
+              },
+              kids: [],
+            }))
+        : shownOf(one.lines, folded),
+    }))
+    .filter((one) => one.shown.length > 0);
   return (
     <section className="pk-screen" aria-label="Home">
-      <Band
-        title="Armada"
-        end={
-          <>
-            <IconButton label="Pair a Mac" onClick={() => go(pairPath())}>
-              <Laptop size={16} aria-hidden="true" />
-            </IconButton>
-            <IconButton label="Operator" onClick={() => go("/operator")}>
-              <Bot size={16} aria-hidden="true" />
-            </IconButton>
-            <IconButton label="Dispatch" onClick={() => go("/dispatch")}>
-              <Plus size={16} aria-hidden="true" />
-            </IconButton>
-          </>
-        }
+      <Notch
+        macs={fleet.macs}
+        at={fleet.at}
+        place="jobs"
+        onSearch={() => search.current?.focus()}
+        projects={{
+          names: repositories.map((one) => one.name),
+          shown: project,
+          onShow: setProject,
+          onDrafts: () => setScope("drafts"),
+        }}
       />
-      <Usage usage={usage} />
+      <div className="pk-tools">
+        <label className="pk-search">
+          <Search size={14} aria-hidden="true" />
+          <input
+            ref={search}
+            type="search"
+            placeholder="Search Jobs"
+            aria-label="Search Jobs"
+            value={words}
+            onChange={(event) => setWords(event.target.value)}
+          />
+        </label>
+        <label className="pk-scope">
+          <select
+            aria-label="Which Jobs the list holds"
+            value={scope}
+            onChange={(event) => setScope(event.target.value as Scope)}
+          >
+            {Object.entries(SCOPES).map(([value, name]) => (
+              <option key={value} value={value}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} aria-hidden="true" />
+        </label>
+      </div>
       <div className="pk-body pk-home">
         {troubled.length === 0 ? null : (
-          <section className="pk-section" aria-label="Macs">
-            <ul className="deck-list__rows">
-              {troubled.map((mac) => (
-                <MacRow key={mac.machine.origin} mac={mac} />
-              ))}
+          <ul className="pk-jobs" aria-label="Macs">
+            {troubled.map((mac) => (
+              <MacRow
+                key={mac.machine.origin}
+                mac={mac}
+                onPair={() => go(pairPath(mac.machine.origin))}
+              />
+            ))}
+          </ul>
+        )}
+        {groups.map((group) => (
+          <section key={group.name} className="pk-group" aria-label={group.name}>
+            <h2 className="pk-group__head">{group.name}</h2>
+            <ul className="pk-jobs">
+              {group.shown.map(({ line, kids }) => {
+                const { session } = line.item;
+                const origin = line.item.mac.machine.origin;
+                return (
+                  <JobRow
+                    key={keyOf(line.item)}
+                    line={line}
+                    macs={fleet.macs}
+                    several={several}
+                    kids={kids}
+                    folded={folded.has(keyOf(line.item))}
+                    onFold={() => fold(line.item)}
+                    onOpen={() => go((session.held ? draftPath : jobPath)(origin, session.id))}
+                    {...(line.item.state === "done"
+                      ? {
+                          onEnd: () =>
+                            void actsOn(line.item.mac.machine, () => undefined)
+                              .close({
+                                session_id: session.id,
+                              })
+                              .catch(() => undefined),
+                        }
+                      : {})}
+                  />
+                );
+              })}
             </ul>
           </section>
-        )}
-        {repositories.length > 1 ? (
-          repositories.map((one) => (
-            <Section key={one.name} label={one.name}>
-              {one.lines.map(row)}
-            </Section>
-          ))
-        ) : (
-          <ul className="deck-list__rows">{repositories[0]?.lines.map(row)}</ul>
-        )}
+        ))}
       </div>
     </section>
   );

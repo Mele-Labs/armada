@@ -61,15 +61,6 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   width: var(--h-title-bar);
   height: var(--h-title-bar);
 }
-
-.deck-list__repository {
-  margin: 0;
-  padding: var(--space-1) var(--space-2) 0;
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-}
 .deck-list__rows {
   display: flex;
   flex-direction: column;
@@ -83,154 +74,6 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   align-items: center;
   gap: var(--space-2);
 }
-.deck-list__item > .deck-row {
-  flex: 1 1 0;
-  width: auto;
-  min-width: 0;
-}
-/* A Job another started steps in under it. Its starter's line runs down the gutter from the starter's row to the last Job it
-   started, and turns into each one at its title; a line of a starter further up runs on past rows that are not its own. */
-.deck-list__item[data-nested] {
-  --pk-indent: var(--space-6);
-  --pk-gap: var(--space-1);
-  --pk-guide: calc(var(--border-width) * 2) solid var(--border-strong);
-  position: relative;
-  padding-left: calc(var(--pk-indent) * var(--pk-depth));
-}
-.pk-guides {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.pk-guide {
-  position: absolute;
-  top: calc(var(--pk-gap) * -1);
-  bottom: 0;
-  left: calc(var(--pk-indent) * var(--pk-column) + var(--space-3));
-  border-left: var(--pk-guide);
-}
-.pk-guide--elbow {
-  bottom: auto;
-  width: calc(var(--pk-indent) - var(--space-3));
-  height: calc(var(--pk-gap) + var(--space-3) + var(--leading-xs) / 2);
-  border-bottom: var(--pk-guide);
-  border-bottom-left-radius: var(--radius-md);
-}
-.deck-row {
-  --deck-slot: var(--space-4);
-  --pk-age: var(--space-12);
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto var(--pk-age);
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: var(--space-3);
-  row-gap: calc(var(--space-1) / 2);
-  width: 100%;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--fg-default) 6%, transparent);
-  color: var(--fg-default);
-  font: inherit;
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  text-align: left;
-  cursor: pointer;
-}
-.deck-row:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: calc(var(--focus-ring-offset) * -1);
-}
-.deck-row__title {
-  grid-column: 1;
-  grid-row: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--weight-medium);
-}
-.deck-row[data-tone="calm"] .deck-row__title {
-  font-weight: var(--weight-body);
-}
-.deck-row__link {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-  display: grid;
-  place-items: center;
-  color: var(--fg-subtle);
-}
-.deck-row__context {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-  --readout-chars: 5;
-}
-.deck-row__marks {
-  grid-column: 3;
-  grid-row: 1;
-  display: grid;
-  place-items: center end;
-  color: var(--fg-subtle);
-}
-.deck-row[data-tone="ask"] .deck-row__marks {
-  color: var(--status-awaiting-review);
-}
-.deck-row[data-tone="bad"] .deck-row__marks {
-  color: var(--status-completed-failed);
-}
-.deck-row__says {
-  grid-column: 1;
-  grid-row: 2;
-  display: flex;
-  gap: var(--space-2);
-  min-height: var(--leading-xs);
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-xs);
-}
-/* What holds a Job: there is no hover on a phone, so the whole line is read, over as many lines as it takes. */
-.deck-row__says[data-holds] {
-  display: block;
-  white-space: normal;
-}
-.deck-row__says[data-holds] .pk-row__mac {
-  margin-left: var(--space-2);
-  white-space: nowrap;
-}
-.deck-row__said {
-  grid-column: 3;
-  grid-row: 2;
-  justify-self: end;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-/* A Job that needs him: the row is the ask hue, flat, and its tint pulses on opacity alone. */
-.deck-row[data-needs]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--status-awaiting-review);
-  opacity: 0.14;
-  animation: deck-needs-pulse 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes deck-needs-pulse {
-  50% {
-    opacity: 0.05;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .deck-row[data-needs]::after {
-    animation: none;
-  }
-}
 .pk-row__mac {
   color: var(--fg-subtle);
   font-family: var(--font-mono);
@@ -238,9 +81,6 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
 .pk-row__mac::before {
   content: "·";
   margin-right: var(--space-2);
-}
-.pk-row__mac[data-alone]::before {
-  content: none;
 }
 .pk-choice .pk-row__mac {
   margin-left: var(--space-2);
@@ -473,19 +313,6 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   justify-content: flex-end;
   gap: var(--space-4);
   padding: 0 var(--space-4) var(--space-2);
-}
-.pk-usage__limit {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.pk-usage {
-  --readout-chars: 4;
-}
-.pk-usage__name {
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
 }
 
 /* A draft Job: its title, the brief to edit, then what it will run on. */
@@ -901,4 +728,459 @@ button.pk-send__title {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   flex-wrap: wrap;
+}
+
+/* Native's title bar, narrow (`crates/bridge-native/src/titlebar/mod.rs`): the mark, the notch hanging from the top edge with
+   the place and search in it, then the plan's rings, the Fleet dot and the menu. */
+.pk-notch-bar {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--h-title-bar) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) var(--space-2) 0 var(--space-3);
+  background: var(--bg-base);
+}
+.pk-notch-bar__mark {
+  display: flex;
+  color: var(--fg-default);
+}
+.pk-notch {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--h-title-bar) - var(--space-1));
+  padding: 0 var(--space-1) var(--space-1);
+  background: var(--bg-glass);
+  border: var(--border-width) solid var(--border-glass);
+  border-top: 0;
+  border-radius: 0 0 calc(var(--radius-lg) * 2) calc(var(--radius-lg) * 2);
+  box-shadow: var(--shadow-card);
+}
+.pk-notch__place,
+.pk-notch__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-control-lg);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+}
+.pk-notch__place[data-here] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+.pk-notch__search {
+  width: var(--h-control-lg);
+  justify-content: center;
+  padding: 0;
+}
+.pk-notch-bar__end {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+.pk-rings {
+  display: flex;
+  padding: 0 var(--space-2);
+}
+.pk-rings svg {
+  transform: rotate(-90deg);
+}
+.pk-rings__track,
+.pk-rings__fill {
+  fill: none;
+  stroke-width: 2.5;
+}
+.pk-rings__track {
+  stroke: var(--border-strong);
+}
+.pk-rings__fill {
+  stroke: var(--fg-muted);
+  stroke-linecap: round;
+}
+.pk-rings [data-band="warning"] .pk-rings__fill {
+  stroke: var(--status-awaiting-review);
+}
+.pk-rings [data-band="danger"] .pk-rings__fill {
+  stroke: var(--status-completed-failed);
+}
+.pk-fleet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control-lg);
+  height: var(--h-control-lg);
+}
+.pk-fleet__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+.pk-fleet__dot[data-tone="running"] {
+  background: var(--status-completed-success);
+}
+.pk-fleet__dot[data-tone="some"] {
+  background: var(--status-awaiting-review);
+}
+.pk-fleet__dot[data-tone="down"] {
+  background: var(--status-escalated);
+}
+.pk-notch-bar__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-title-bar);
+  height: var(--h-title-bar);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.pk-menu__away {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  border: 0;
+  background: transparent;
+}
+.pk-menu {
+  position: absolute;
+  top: calc(var(--h-title-bar) + env(safe-area-inset-top));
+  right: var(--space-2);
+  z-index: 21;
+  width: 240px;
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+.pk-menu__head {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+}
+.pk-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: var(--h-control-lg);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+}
+.pk-menu__item[data-on] {
+  background: var(--accent-muted);
+}
+.pk-menu__glyph {
+  display: flex;
+  justify-content: center;
+  width: var(--space-4);
+  color: var(--fg-muted);
+}
+.pk-menu__words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-menu__end {
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+}
+.pk-menu__rule {
+  height: var(--border-width);
+  margin: var(--space-1) 0;
+  border: 0;
+  background: var(--border-subtle);
+}
+.pk-mac {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sketch-blue);
+}
+.pk-mac[data-hue="teal"] {
+  background: var(--sketch-teal);
+}
+.pk-mac[data-hue="green"] {
+  background: var(--sketch-green);
+}
+.pk-mac[data-hue="orange"] {
+  background: var(--sketch-orange);
+}
+
+/* Native's search and scope over the list (`jobs.rs`). */
+.pk-tools {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.pk-search,
+.pk-scope {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-control-lg);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--fg-subtle);
+}
+.pk-search {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--space-3);
+}
+.pk-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg-default);
+}
+.pk-search input::placeholder {
+  color: var(--fg-subtle);
+}
+.pk-scope {
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+}
+.pk-scope select {
+  appearance: none;
+  height: 100%;
+  padding: 0 calc(var(--space-3) + var(--space-4)) 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.pk-scope svg {
+  position: absolute;
+  right: var(--space-2);
+  pointer-events: none;
+}
+
+/* Native's Jobs list (`jobs.rs`, `render_job`, `group_line`): a mono heading per project, and per Job a card on the sunken
+   ground with its lamp on the leading edge and a wash of it; a Job that needs him pulses its wash. */
+.pk-group__head {
+  margin: var(--space-4) var(--space-3) var(--space-2);
+  padding: 0 var(--space-2) var(--space-1);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: calc(var(--text-2xs) * 0.8);
+  font-weight: var(--weight-heading);
+}
+.pk-group:first-child .pk-group__head {
+  margin-top: var(--space-2);
+}
+.pk-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-3);
+  list-style: none;
+}
+.pk-jobs[aria-label="Macs"] {
+  padding-top: var(--space-2);
+}
+.pk-job {
+  --pk-indent: var(--space-6);
+  --pk-guide: calc(var(--border-width) * 2) solid var(--border-strong);
+  position: relative;
+}
+.pk-job[data-depth] {
+  padding-left: calc(var(--pk-indent) * var(--pk-depth));
+}
+.pk-job__guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pk-job__guide {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  bottom: 0;
+  left: calc(var(--pk-indent) * var(--pk-column) + var(--space-3));
+  border-left: var(--pk-guide);
+}
+.pk-job__guide--elbow {
+  bottom: auto;
+  width: calc(var(--pk-indent) - var(--space-3));
+  height: calc(var(--space-2) + var(--space-4) + 1px);
+  border-bottom: var(--pk-guide);
+  border-bottom-left-radius: var(--radius-md);
+}
+.pk-job__card {
+  --pk-lamp: var(--border-strong);
+  --pk-wash: 0%;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-1);
+  border: var(--border-width) solid var(--border-subtle);
+  border-left: 4px solid var(--pk-lamp);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--pk-lamp) var(--pk-wash), var(--bg-sunken));
+}
+.pk-job__card[data-sub] {
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+.pk-job__card[data-lamp="needs"] {
+  --pk-lamp: var(--status-awaiting-review);
+  --pk-wash: 6%;
+  animation: pk-job-needs 1.6s ease-in-out infinite;
+}
+.pk-job__card[data-lamp="failed"] {
+  --pk-lamp: var(--status-completed-failed);
+  --pk-wash: 6%;
+}
+.pk-job__card[data-lamp="running"] {
+  --pk-lamp: var(--status-running);
+}
+.pk-job__card[data-lamp="done"] {
+  --pk-lamp: var(--status-completed-success);
+}
+@property --pk-wash {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+@keyframes pk-job-needs {
+  50% {
+    --pk-wash: 12%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pk-job__card[data-lamp="needs"] {
+    animation: none;
+  }
+}
+.pk-job__fold {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--h-control-sm);
+}
+.pk-job__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--h-control-sm);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.pk-job__open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+}
+.pk-job__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--h-control-sm);
+}
+.pk-job__link {
+  display: flex;
+  color: var(--fg-subtle);
+}
+.pk-job__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-job__card:has(.pk-glyph[data-bucket="idle"]) .pk-job__title,
+.pk-job__card:has(.pk-glyph[data-bucket="draft"]) .pk-job__title {
+  color: var(--fg-muted);
+}
+.pk-job__time {
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+.pk-job__second {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+.pk-job__says {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pk-job__chip {
+  flex: none;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+.pk-strip {
+  display: flex;
+  flex: none;
+  gap: 3px;
+}
+.pk-glyph {
+  display: flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+.pk-glyph[data-bucket="needs"] {
+  color: var(--status-awaiting-review);
+}
+.pk-glyph[data-bucket="working"] {
+  color: var(--status-running);
+}
+.pk-glyph[data-bucket="waiting"] {
+  color: var(--status-handed-in);
+}
+.pk-glyph[data-bucket="draft"] {
+  color: var(--status-not-started);
 }
