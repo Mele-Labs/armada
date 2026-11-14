@@ -1142,7 +1142,7 @@ mod sign_in_tests {
     use super::*;
 
     fn out(since: &str) -> AgentSignIn {
-        AgentSignIn { signed_out_since: Some(ipc::Instant::carried(since)), signing_in: false }
+        AgentSignIn { signed_out_since: Some(ipc::Instant::carried(since)), ..AgentSignIn::default() }
     }
 
     #[test]
