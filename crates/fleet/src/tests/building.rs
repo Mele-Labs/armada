@@ -781,3 +781,68 @@ async fn origin_lists_the_branches_on_origin_main_lacks_less_the_picked() {
     let listed: Vec<_> = read().await.unwrap().origin.into_iter().map(|one| one.branch).collect();
     assert_eq!(listed, ["feat/b"], "a picked branch is a chip, not a row");
 }
+
+#[tokio::test]
+async fn origin_never_offers_the_merge_queues_beads_or_a_macs_preview_refs() {
+    let (checkout, support) = rig();
+    let root = checkout.path();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "main"]);
+    git(root, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "ahead"]);
+    for branch in ["gh-readonly-queue/main/pr-3650-dc2e1b0", "__dolt_remote_info__", "preview/mac-1", "fleet/real"] {
+        git(root, &["update-ref", &format!("refs/remotes/origin/{branch}"), "HEAD"]);
+    }
+    let report = Building::default().report(Some(root), support.path(), SystemTime::now()).await.unwrap();
+    let listed: Vec<_> = report.origin.into_iter().map(|one| one.branch).collect();
+    assert_eq!(listed, ["fleet/real"]);
+    for each in ["gh-readonly-queue/main/pr-1-abc", "__dolt_remote_info__", "preview/mac-1"] {
+        assert!(crate::building::plumbing(each), "{each}");
+    }
+    assert!(!crate::building::plumbing("native/preview-offers"), "preview in a name is not the preview ref");
+}
+
+#[tokio::test]
+async fn holds_is_the_running_builds_branches_and_stays_after_keep() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), &fleet_label(), &["armada/a", "armada/b"], &[]);
+    let building = Building::default();
+    let read = || building.report(Some(checkout.path()), support.path(), SystemTime::now());
+    let held = |report: ipc::FleetBuildReport| report.holds.into_iter().map(|one| one.branch).collect::<Vec<_>>();
+    assert_eq!(held(read().await.unwrap()), ["armada/a", "armada/b"]);
+
+    crate::kept_builds::kept_tried(support.path()).unwrap();
+    fs::write(support.path().join(PICKED), "armada/c\n").unwrap();
+    let report = read().await.unwrap();
+    assert!(report.trying.is_empty(), "Keep empties trying");
+    assert_eq!(held(report), ["armada/a", "armada/b"], "but not what the build holds");
+}
+
+#[tokio::test]
+async fn a_held_branch_is_landed_where_the_tip_the_build_took_is_on_origin_main() {
+    let (checkout, support) = rig();
+    let root = checkout.path();
+    git(root, &["init", "-q", "-b", "main"]);
+    git(root, &["commit", "-q", "--allow-empty", "-m", "main"]);
+    let tip_of = |branch: &str| {
+        git(root, &["checkout", "-q", "-b", branch, "main"]);
+        git(root, &["commit", "-q", "--allow-empty", "-m", branch]);
+        git(root, &["rev-parse", "HEAD"])
+    };
+    let landed = tip_of("native/landed");
+    let open = tip_of("native/open");
+    git(root, &["checkout", "-q", "main"]);
+    git(root, &["merge", "-q", "--no-ff", "-m", "merge", "native/landed"]);
+    git(root, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(root, &["branch", "-q", "-D", "native/landed"]);
+    kept_in(support.path(), &fleet_label(), &[], &[]);
+    let record = support.path().join(BUILDS).join("new").join("build.toml");
+    let mut text = fs::read_to_string(&record).unwrap();
+    text.push_str(&format!("\n[[job]]\nbranch = \"native/landed\"\ntip = \"{landed}\"\n\n[[job]]\nbranch = \"native/open\"\ntip = \"{open}\"\n"));
+    fs::write(&record, text).unwrap();
+
+    let report = Building::default().report(Some(root), support.path(), SystemTime::now()).await.unwrap();
+    let holds: Vec<_> = report.holds.iter().map(|one| (one.branch.as_str(), one.landed)).collect();
+    assert_eq!(holds, [("native/landed", true), ("native/open", false)], "the landed branch is gone locally and still landed");
+    assert!(report.holds.iter().all(|one| one.title.is_none()), "Fleet::fleet_build names them");
+}

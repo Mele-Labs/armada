@@ -2031,6 +2031,28 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
 
+## What the running build holds: `FleetBuildReport.holds`
+
+Since 14 Nov 2026.
+**Additive only**: one field on an existing type, one optional field on `OriginBranch`, and the type `holds` carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `HeldBranch` and `OriginBranch.title` in `packages/protocol/src/building.ts`, written by hand, field for field.
+Electron reads none of it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `FleetBuildReport` (`get_fleet_build`) | Fleet writes, Bridge reads | Gains `holds`, absent when empty: the `[[job]]` rows of `builds/current`, whatever Keep or a pick said |
+| `HeldBranch` | Fleet writes | `{ branch, title?, landed? }`. `landed` is left out when false |
+| `OriginBranch` | Fleet writes | Gains `title?`, the Job here that held the branch last, ended Jobs included |
+
+**`trying` empties after Keep and `picked` follows the person's picks**, so neither says what the running build holds; `holds` does.
+`title` is the live Job holding the branch, else the Job whose ledger `branch` row was settled last, which outlives the Job.
+A branch no Job here ever held, such as one worked in a worktree cut by hand, has none.
+`landed` is the tip the build recorded for the row being on `origin/main` as last fetched, so a branch deleted once it merged still reads landed.
+`origin` no longer lists plumbing: the merge queue's `gh-readonly-queue/*`, beads' `__dolt_remote_info__`, and each Mac's `preview/*`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event.
 ## The signed-out account's name: `AgentSignIn.account`
 
 Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
