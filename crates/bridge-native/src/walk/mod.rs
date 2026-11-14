@@ -1554,7 +1554,7 @@ pub static WALKS: &[Walk] = &[
             press_on("The rail's Zoom in works the same", "button", "Zoom in", "dialog", "Sketch: Freshness chip"),
             press_on("Fit fits it again", "button", "Fit", "dialog", "Sketch: Freshness chip"),
             step("The sketch still asks, so its answers stand at the foot of the full screen", Verb::Look, "toolbar", "Answers"),
-            press_on("Send back opens its note box", "button", "Send back", "textbox", "Note"),
+            step("Send back opens its note box", Verb::PressWithin("dialog", "Sketch: Freshness chip", "Send back"), "textbox", "Note"),
             step("What to change", Verb::Type("Grey the chip once it is current."), "textbox", "Note"),
             step("⌘↵ sends it back from here", Verb::Key("cmd-enter"), "status", "Sent back"),
             step("Esc shuts it. Its card in the thread is one line: the sketch, its verdict and the start of his note", Verb::Key("escape"), "button", "Open sketch Freshness chip"),

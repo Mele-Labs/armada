@@ -335,7 +335,7 @@ impl JobView {
         .detach();
     }
 
-    fn look_sketch(&mut self, by: Looking, cx: &mut Context<Self>) {
+    fn move_sketch_view(&mut self, by: Looking, cx: &mut Context<Self>) {
         if let Some(reading) = self.sketch_reading.as_mut() {
             reading.lens = moved(reading.lens, by);
         }
@@ -343,7 +343,7 @@ impl JobView {
     }
 
     fn fit_sketch(&mut self, cx: &mut Context<Self>) {
-        self.look_sketch(Looking::Fit, cx);
+        self.move_sketch_view(Looking::Fit, cx);
     }
 
     fn close_reading(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -354,11 +354,11 @@ impl JobView {
     }
 
     fn zoom_sketch(&mut self, by: f32, cx: &mut Context<Self>) {
-        self.look_sketch(Looking::Zoom(by), cx);
+        self.move_sketch_view(Looking::Zoom(by), cx);
     }
 
     fn pan_sketch(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        self.look_sketch(Looking::Pan(x, y), cx);
+        self.move_sketch_view(Looking::Pan(x, y), cx);
     }
 
     fn sketch_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
@@ -375,12 +375,12 @@ impl JobView {
             return;
         }
         if let Some(by) = lens_key(key) {
-            self.look_sketch(by, cx);
+            self.move_sketch_view(by, cx);
             cx.stop_propagation();
             return;
         }
         if key.modifiers.platform && key.key == "enter" && !key.modifiers.control && !key.modifiers.alt {
-            self.send_notes(window, cx);
+            self.send_sketch_notes(window, cx);
             cx.stop_propagation();
             return;
         }

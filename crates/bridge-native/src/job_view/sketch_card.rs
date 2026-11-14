@@ -830,3 +830,61 @@ impl JobView {
         self.post_card(job, acts.ix, acts.key.clone(), "/sessions/artifacts/archive", body, window, cx);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(extra: &str) -> ThreadSketch {
+        let wire = format!(r#"{{"id":"sk-1","at":"2026-11-14T10:00:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{{"nodes":[],"edges":[]}}{extra}}}"#);
+        ipc::decode::<ThreadSketch>("a card", wire.as_bytes()).expect("a sketch card")
+    }
+
+    fn lines(card: &ThreadSketch, said: Option<Said>, with_plan: bool, put_away: bool) -> bool {
+        folds(Standing::of(card, said, with_plan, put_away), card.replaced)
+    }
+
+    #[test]
+    fn a_card_whose_newest_revision_has_a_verdict_is_one_line() {
+        let asked = card(r#","asked":true"#);
+        assert!(lines(&asked, Some(Said::Approved), false, false), "approved");
+        assert!(lines(&asked, Some(Said::SentBack), false, false), "sent back");
+        assert!(lines(&card(r#","asked":true,"withdrawn":true"#), None, false, false), "withdrawn by the Job");
+        assert!(lines(&asked, None, false, true), "dismissed by him");
+    }
+
+    #[test]
+    fn a_card_that_still_asks_or_asks_nothing_keeps_its_drawing() {
+        assert!(!lines(&card(r#","asked":true"#), None, false, false), "asking");
+        assert!(!lines(&card(r#","asked":true"#), None, true, false), "with the plan");
+        assert!(!lines(&card(""), None, false, false), "shown with no answer asked");
+    }
+
+    #[test]
+    fn a_card_a_later_one_replaced_keeps_its_drawing_as_history() {
+        assert!(!lines(&card(r#","asked":true,"replaced":true"#), Some(Said::SentBack), false, false));
+    }
+
+    #[test]
+    fn a_sent_back_sketch_drawn_again_asks_again_and_is_not_one_line() {
+        // Fleet writes the redraw's row without the verdict, so the newest card carries none.
+        let again = card(r#","asked":true"#);
+        assert!(!lines(&again, None, false, false));
+        assert!(Standing::of(&again, None, false, false) == Standing::Asking);
+    }
+
+    #[test]
+    fn the_start_of_his_note_ends_in_an_ellipsis_where_it_goes_on() {
+        assert_eq!(note_start("Grey the chip\n  once it is current"), "Grey the chip once it is current");
+        let long = "word ".repeat(40);
+        let cut = note_start(&long);
+        assert!(cut.ends_with('\u{2026}') && cut.chars().count() <= NOTE_START + 1, "{cut}");
+    }
+
+    #[test]
+    fn each_verdict_is_a_registry_glyph_with_its_word() {
+        assert_eq!((Standing::Approved.mark(), Standing::Approved.word()), ("badge-check", "Approved"));
+        assert_eq!((Standing::SentBack.mark(), Standing::SentBack.word()), ("reply", "Sent back"));
+        assert_eq!((Standing::Withdrawn.mark(), Standing::Withdrawn.word()), ("ban", "Withdrawn"));
+    }
+}

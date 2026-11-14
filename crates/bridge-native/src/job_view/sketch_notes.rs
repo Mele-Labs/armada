@@ -115,7 +115,7 @@ impl JobView {
             Some(back),
             |this, id, window, cx| match id {
                 "note" => this.begin_note(window, cx),
-                "send-notes" => this.send_notes(window, cx),
+                "send-notes" => this.send_sketch_notes(window, cx),
                 _ => {}
             },
             window,
@@ -160,7 +160,7 @@ impl JobView {
         self.note_menu(at, None, window, cx);
     }
 
-    fn box_key(reading: &Reading) -> String {
+    fn note_box_key(reading: &Reading) -> String {
         format!("note:{}", reading.answer)
     }
 
@@ -168,7 +168,7 @@ impl JobView {
     fn begin_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(reading) = self.sketch_reading.as_mut() else { return };
         let Some(part) = reading.target.clone() else { return };
-        let key = Self::box_key(reading);
+        let key = Self::note_box_key(reading);
         reading.writing = Some(Writing { key: key.clone(), parts: vec![part] });
         self.open_box(SHEET, &key, Mode::Note, "", window, cx);
     }
@@ -201,7 +201,7 @@ impl JobView {
         cx.notify();
     }
 
-    fn remove_note(&mut self, at: usize, cx: &mut Context<Self>) {
+    fn drop_sketch_note(&mut self, at: usize, cx: &mut Context<Self>) {
         if let Some(scope) = self.notes_scope() {
             if let Some(held) = self.sketch_notes.get_mut(&scope).filter(|held| at < held.len()) {
                 held.remove(at);
@@ -211,7 +211,7 @@ impl JobView {
     }
 
     /// ⌘↵: every held note, and the one being written if it has words, goes to the Job as one message.
-    pub(super) fn send_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn send_sketch_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(scope), Some(reading), Some(job)) = (self.notes_scope(), self.sketch_reading.as_ref(), self.shown.clone()) else { return };
         let title = reading.title.to_string();
         let writing = reading.writing.clone();
@@ -226,7 +226,7 @@ impl JobView {
             return;
         }
         let text = notes_message(&title, &all);
-        let row = Self::box_key(reading);
+        let row = Self::note_box_key(reading);
         self.send_to_job(job.to_string(), text, row, window, cx, move |this, window, cx| {
             this.sketch_notes.remove(&scope);
             if let Some(writing) = this.sketch_reading.as_mut().and_then(|reading| reading.writing.take()) {
@@ -249,12 +249,20 @@ impl JobView {
         let blank = self.typed_in(&key, Mode::Note, cx).trim().is_empty();
         let width = look.length(token::SPACE_12) * 6.;
         let gap = look.length(token::SPACE_2);
-        // Under what it is about, or over it where there is no room under; kept inside the sheet.
-        let (left, below) = match anchor {
-            Some(at) => ((at.left() - room.left()).max(gap).min((room.size.width - width - gap).max(gap)), at.bottom() + gap + look.length(token::SPACE_12) * 3. < room.bottom()),
-            None => (gap, true),
+        // Under what it is about, else over it, else at the sheet's foot: always inside the sheet.
+        let tall = look.length(token::SPACE_12) * 4.5 + look.length(token::SPACE_6) * held.len() as f32;
+        let left = anchor.map_or(gap, |at| (at.left() - room.left()).max(gap).min((room.size.width - width - gap).max(gap)));
+        let (below, above) = match anchor {
+            Some(at) => (at.bottom() + gap + tall < room.bottom(), at.top() - gap - tall > room.top()),
+            None => (true, false),
         };
-        let top = anchor.map_or(gap, |at| if below { at.bottom() - room.top() + gap } else { at.top() - room.top() - gap });
+        // `Some(top)` stands the box at that distance from the sheet's top, `None` at the foot.
+        let place = match anchor {
+            Some(at) if below => Some(at.bottom() - room.top() + gap),
+            Some(at) if above => Some(at.top() - room.top() - gap - tall),
+            Some(_) => None,
+            None => Some(gap),
+        };
         let number = held.len() + 1;
         let pin = |n: usize, writing: bool| {
             let (fill, ink) = if writing { (look.color(token::BG_OVERLAY), look.color(token::ACCENT)) } else { (look.color(token::ACCENT), look.color(token::FG_INVERSE)) };
@@ -307,7 +315,7 @@ impl JobView {
                                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
                                     .tooltip(tip("Remove"))
                                     .child(super::rows::glyph(look, "x", super::rows::Size::Small, look.color(token::FG_MUTED)))
-                                    .on_click(cx.listener(move |this, _, _, cx| this.remove_note(at, cx))),
+                                    .on_click(cx.listener(move |this, _, _, cx| this.drop_sketch_note(at, cx))),
                                 Role::Button,
                                 format!("Remove note {}", at + 1),
                             ))
@@ -323,21 +331,22 @@ impl JobView {
         );
         let send = labelled(
             button(look, "note-send", "Send", Tone::Primary, false, Some("\u{2318}\u{21b5}"), !blank || !held.is_empty())
-                .when(!blank || !held.is_empty(), |it| it.on_click(cx.listener(|this, _, window, cx| this.send_notes(window, cx)))),
+                .when(!blank || !held.is_empty(), |it| it.on_click(cx.listener(|this, _, window, cx| this.send_sketch_notes(window, cx)))),
             Role::Button,
             "Send",
         );
         // ⌘↵ in the box sends, taken before the text area puts a line break in.
         if let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) {
-            page.keys.commit(&key, Some(Rc::new(|this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.send_notes(window, cx))));
+            page.keys.commit(&key, Some(Rc::new(|this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.send_sketch_notes(window, cx))));
         }
         let refused = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.cards.said.get(&key).cloned()).map(|why| super::acts::refusal(look, &key, why));
         let card = div()
             .id("note-box")
+            .occlude()
             .absolute()
             .left(left)
-            .when(below, |it| it.top(top))
-            .when(!below, |it| it.bottom(room.size.height - top))
+            .when_some(place, |it, top| it.top(top))
+            .when(place.is_none(), |it| it.bottom(gap))
             .w(width)
             .flex()
             .flex_col()
