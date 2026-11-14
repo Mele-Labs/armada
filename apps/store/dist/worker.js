@@ -102,6 +102,21 @@ function holderOf(value) {
   };
 }
 __name(holderOf, "holderOf");
+var DEVICE_KINDS = [
+  "mac",
+  "phone"
+];
+var deviceKindOf = /* @__PURE__ */ __name((value) => DEVICE_KINDS.includes(value) ? value : null, "deviceKindOf");
+var ADDRESS = /^https:\/\/[A-Za-z0-9](?:[A-Za-z0-9.-]{0,198}[A-Za-z0-9])?(?::([0-9]{1,5}))?$/;
+function addressOf(value) {
+  if (value === "") return "";
+  if (typeof value !== "string" || value.length > 200) return null;
+  const port = ADDRESS.exec(value)?.[1];
+  if (!ADDRESS.test(value) || port !== void 0 && (Number(port) < 1 || Number(port) > 65535))
+    return null;
+  return value;
+}
+__name(addressOf, "addressOf");
 var CLAIM_KINDS = [
   "item",
   "file",
@@ -270,20 +285,21 @@ var Account = class extends DurableObject {
    * before them has them from its first verified request. */
   upgraded = false;
   /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has `limit` devices. */
-  register(device, publicKey, machine, limit) {
+  register(device, publicKey, machine, limit, kind) {
     this.makeTables();
     if (this.count("devices") >= limit) return "full";
     this.sql.exec(
-      "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)",
+      "INSERT INTO devices (id, public_key, machine, kind) VALUES (?, ?, ?, ?)",
       device,
       publicKey,
-      machine
+      machine,
+      kind
     );
     return "ok";
   }
   makeTables() {
     this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'mac', address TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
       CREATE INDEX IF NOT EXISTS nonces_seen ON nonces (seen);
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
@@ -298,9 +314,15 @@ var Account = class extends DurableObject {
    *
    * A renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written.
    * `contenders` holds the Jobs a held claim refused, for as long as each keeps asking and the claim stands. A table
-   * made before it had `told` gets the column here, its rows told none.
+   * made before it had `told` gets the column here, its rows told none. A `devices` table made before it had `kind` and
+   * `address` gets them here, its rows Macs with no address.
    */
   upgrade() {
+    const devices = this.sql.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'devices'").toArray()[0];
+    if (devices && !devices.sql.includes("kind"))
+      this.sql.exec("ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'mac'");
+    if (devices && !devices.sql.includes("address"))
+      this.sql.exec("ALTER TABLE devices ADD COLUMN address TEXT NOT NULL DEFAULT ''");
     const claims = this.sql.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'claims'").toArray()[0];
     if (claims && !claims.sql.includes("holder_kind")) this.sql.exec("DROP TABLE claims");
     const contenders = this.sql.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contenders'").toArray()[0];
@@ -330,7 +352,12 @@ var Account = class extends DurableObject {
     const refused = await this.authenticate(request, url.pathname + url.search, body);
     if (refused) return refused;
     if (!this.upgraded) this.upgrade();
-    const answer = this.route(request.method, url, new TextDecoder().decode(body));
+    const answer = this.route(
+      request.method,
+      url,
+      new TextDecoder().decode(body),
+      request.headers.get(DEVICE_HEADER) ?? ""
+    );
     if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals")
       await this.keepAlarm();
     return answer;
@@ -419,7 +446,7 @@ var Account = class extends DurableObject {
     );
     return taken.rowsWritten === 0 ? refuse(401, "replayed_nonce") : null;
   }
-  route(method, url, text) {
+  route(method, url, text, caller) {
     const parts = url.pathname.split("/").slice(1);
     const [v1, area, first, second, third] = parts;
     if (v1 !== "v1" || parts.length > 5) return refuse(404, "no_route");
@@ -428,6 +455,12 @@ var Account = class extends DurableObject {
     }
     if (area === "devices" && parts.length === 3) {
       return method === "DELETE" ? this.signOut(first) : refuse(405, "bad_method");
+    }
+    if (area === "presence" && parts.length === 2) {
+      return method === "PUT" ? this.putPresence(caller, text) : refuse(405, "bad_method");
+    }
+    if (area === "peers" && parts.length === 2) {
+      return method === "GET" ? this.listPeers(caller) : refuse(405, "bad_method");
     }
     if (area === "renewals" && parts.length === 2) {
       return method === "POST" ? this.renew(text) : refuse(405, "bad_method");
@@ -461,6 +494,35 @@ var Account = class extends DurableObject {
   /** Every device of this object and the machine it named, never its key. The table has no enrolment time, so its rowid, which a new row always takes past the last, is the order they enrolled in. */
   listDevices() {
     const devices = this.sql.exec("SELECT id AS device, machine FROM devices ORDER BY rowid").toArray();
+    return reply(200, {
+      devices
+    });
+  }
+  /** Sets the caller's own row: what it is and where it can be reached. No other device's row is written. */
+  putPresence(caller, text) {
+    const body = exactly(parseJson(text), [
+      "kind",
+      "address"
+    ]);
+    const kind = deviceKindOf(body?.kind);
+    const address = addressOf(body?.address);
+    if (!kind || address === null) return refuse(400, "invalid_body");
+    this.sql.exec("UPDATE devices SET kind = ?, address = ? WHERE id = ?", kind, address, caller);
+    return reply(204);
+  }
+  /**
+   * The caller's other devices: those whose id starts with the caller's account id and a dot. A team store holds every
+   * member's devices in one object, and a device is listed only to the forge account that enrolled it, so the account
+   * id is the filter and nothing else is.
+   */
+  listPeers(caller) {
+    const prefix = `${caller.split(".")[0]}.`;
+    const devices = this.sql.exec(
+      "SELECT id AS device, machine, kind, address, public_key FROM devices WHERE substr(id, 1, ?) = ? AND id != ? ORDER BY rowid",
+      prefix.length,
+      prefix,
+      caller
+    ).toArray();
     return reply(200, {
       devices
     });
@@ -815,6 +877,7 @@ var teamObjectName = /* @__PURE__ */ __name(({ org, slug }) => `team:${org}${slu
 
 // src/enrol.ts
 var FORGE_USER_URL = "https://api.github.com/user";
+var FORGE_LOGIN_URL = "https://github.com";
 var refuse2 = /* @__PURE__ */ __name((status, error) => Response.json(
   {
     error
@@ -865,6 +928,32 @@ async function refuseNonMember(token, login, team, env) {
   return membership?.state === "active" ? null : refuse2(403, "not_a_member");
 }
 __name(refuseNonMember, "refuseNonMember");
+async function refuseIfCounted(request, env) {
+  const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (env.ENROL_LIMIT && !(await env.ENROL_LIMIT.limit({
+    key: address
+  })).success)
+    return refuse2(429, "enrol_rate_limited");
+  return null;
+}
+__name(refuseIfCounted, "refuseIfCounted");
+async function registerToken(token, publicKey, machine, kind, team, env) {
+  const account = await accountOf(token, env);
+  if (account instanceof Response) return account;
+  if (team) {
+    const refused = await refuseNonMember(token, account.login, team, env);
+    if (refused) return refused;
+  }
+  const device = `${account.id}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
+  const placed = await env.ACCOUNT.get(
+    env.ACCOUNT.idFromName(team ? teamObjectName(team) : String(account.id))
+  ).register(device, publicKey, machine, team ? MAX_TEAM_DEVICES : MAX_DEVICES, kind);
+  if (placed === "full") return refuse2(413, "devices_full");
+  return Response.json({
+    device
+  });
+}
+__name(registerToken, "registerToken");
 async function enrol(request, env) {
   if (request.method !== "POST") return refuse2(405, "bad_method");
   const team = teamOf(env);
@@ -880,74 +969,215 @@ async function enrol(request, env) {
   if (typeof token !== "string" || token === "" || token.length > 512 || typeof publicKey !== "string" || typeof machine !== "string" || !MACHINE.test(machine)) {
     return refuse2(400, "invalid_body");
   }
-  const spki = fromBase64(publicKey);
-  try {
-    await importPublicKey(spki ?? new Uint8Array());
-  } catch {
-    return refuse2(400, "invalid_public_key");
-  }
-  const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  if (env.ENROL_LIMIT && !(await env.ENROL_LIMIT.limit({
-    key: address
-  })).success)
-    return refuse2(429, "enrol_rate_limited");
-  const account = await accountOf(token, env);
-  if (account instanceof Response) return account;
-  if (team) {
-    const refused = await refuseNonMember(token, account.login, team, env);
-    if (refused) return refused;
-  }
-  const device = `${account.id}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
-  const placed = await env.ACCOUNT.get(
-    env.ACCOUNT.idFromName(team ? teamObjectName(team) : String(account.id))
-  ).register(device, publicKey, machine, team ? MAX_TEAM_DEVICES : MAX_DEVICES);
-  if (placed === "full") return refuse2(413, "devices_full");
-  return Response.json({
-    device
-  });
+  if (!await isP256Key(publicKey)) return refuse2(400, "invalid_public_key");
+  const counted = await refuseIfCounted(request, env);
+  if (counted) return counted;
+  return registerToken(token, publicKey, machine, "mac", team, env);
 }
 __name(enrol, "enrol");
+async function isP256Key(publicKey) {
+  try {
+    await importPublicKey(fromBase64(publicKey) ?? new Uint8Array());
+    return true;
+  } catch {
+    return false;
+  }
+}
+__name(isP256Key, "isP256Key");
+
+// src/sign_in.ts
+var CLIENT_ID = /^[A-Za-z0-9._-]{1,64}$/;
+var DEVICE_CODE = /^[\x20-\x7e]{1,128}$/;
+var REASON = /^[a-z_]{1,64}$/;
+var SLOWER_INTERVAL = 10;
+var reasonOf = /* @__PURE__ */ __name((error) => typeof error === "string" && REASON.test(error) ? {
+  reason: error
+} : {}, "reasonOf");
+async function askLogin(env, path, form) {
+  let answer;
+  try {
+    answer = await fetch(`${env.FORGE_LOGIN_URL ?? FORGE_LOGIN_URL}${path}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "armada-store"
+      },
+      body: new URLSearchParams(form)
+    });
+  } catch {
+    return refuse2(502, "forge_unreachable");
+  }
+  const body = await answer.json().catch(() => null);
+  return {
+    status: answer.status,
+    body: typeof body === "object" && body !== null && !Array.isArray(body) ? body : {}
+  };
+}
+__name(askLogin, "askLogin");
+var refusedBy = /* @__PURE__ */ __name((status, error) => status >= 500 ? refuse2(502, "forge_unreachable") : error !== void 0 || status >= 400 ? Response.json(
+  {
+    error: "forge_refused",
+    ...reasonOf(error)
+  },
+  {
+    status: 400
+  }
+) : null, "refusedBy");
+async function bodyOf(request, keys) {
+  if (request.method !== "POST") return refuse2(405, "bad_method");
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return refuse2(413, "too_large");
+  const body = exactly(parseJson(text), keys);
+  const clientId = body?.client_id;
+  if (!body || typeof clientId !== "string" || !CLIENT_ID.test(clientId))
+    return refuse2(400, "invalid_body");
+  return body;
+}
+__name(bodyOf, "bodyOf");
+async function signIn(request, env) {
+  const body = await bodyOf(request, [
+    "client_id"
+  ]);
+  if (body instanceof Response) return body;
+  const counted = await refuseIfCounted(request, env);
+  if (counted) return counted;
+  const asked = await askLogin(env, "/login/device/code", {
+    client_id: String(body.client_id)
+  });
+  if (asked instanceof Response) return asked;
+  const { device_code, user_code, verification_uri, interval, expires_in, error } = asked.body;
+  const refused = refusedBy(asked.status, error);
+  if (refused) return refused;
+  if (typeof device_code !== "string" || typeof user_code !== "string" || typeof verification_uri !== "string" || typeof interval !== "number" || typeof expires_in !== "number")
+    return refuse2(502, "forge_unreadable");
+  return Response.json({
+    device_code,
+    user_code,
+    verification_uri,
+    interval,
+    expires_in
+  });
+}
+__name(signIn, "signIn");
+async function signInPoll(request, env) {
+  const team = teamOf(env);
+  if (team === "bad") return refuse2(500, "bad_team_config");
+  const body = await bodyOf(request, [
+    "client_id",
+    "device_code",
+    "public_key",
+    "machine"
+  ]);
+  if (body instanceof Response) return body;
+  const { client_id, device_code, public_key, machine } = body;
+  if (typeof device_code !== "string" || !DEVICE_CODE.test(device_code) || typeof public_key !== "string" || typeof machine !== "string" || !MACHINE.test(machine))
+    return refuse2(400, "invalid_body");
+  if (!await isP256Key(public_key)) return refuse2(400, "invalid_public_key");
+  const asked = await askLogin(env, "/login/oauth/access_token", {
+    client_id: String(client_id),
+    device_code,
+    grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+  });
+  if (asked instanceof Response) return asked;
+  const { access_token: token, error, interval } = asked.body;
+  if (asked.status >= 500) return refuse2(502, "forge_unreachable");
+  if (error === "authorization_pending")
+    return Response.json(
+      {
+        waiting: "pending"
+      },
+      {
+        status: 202
+      }
+    );
+  if (error === "slow_down")
+    return Response.json(
+      {
+        waiting: "slow_down",
+        interval: typeof interval === "number" ? interval : SLOWER_INTERVAL
+      },
+      {
+        status: 202
+      }
+    );
+  if (error === "expired_token") return refuse2(410, "expired");
+  if (error === "access_denied") return refuse2(403, "denied");
+  const refused = refusedBy(asked.status, error);
+  if (refused) return refused;
+  if (typeof token !== "string" || token === "") return refuse2(502, "forge_unreadable");
+  return registerToken(token, public_key, machine, "phone", team, env);
+}
+__name(signInPoll, "signInPoll");
 
 // src/index.ts
 var DEVICE = /^([0-9]{1,16})\.[0-9a-f]{32}$/;
+var CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Expose-Headers": "Retry-After"
+};
+var PREFLIGHT = {
+  ...CORS,
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
+  "Access-Control-Allow-Headers": "Content-Type, X-Armada-Device, X-Armada-Time, X-Armada-Nonce, X-Armada-Signature",
+  "Access-Control-Max-Age": "600"
+};
+function withCors(answer) {
+  const copy = new Response(answer.body, answer);
+  for (const [name, value] of Object.entries(CORS)) copy.headers.set(name, value);
+  return copy;
+}
+__name(withCors, "withCors");
 var index_default = {
   async fetch(request, env) {
-    const team = teamOf(env);
-    if (team === "bad")
-      return Response.json(
-        {
-          error: "bad_team_config"
-        },
-        {
-          status: 500
-        }
-      );
     const { pathname } = new URL(request.url);
-    if (pathname === "/v1/enrol") return enrol(request, env);
-    if (!pathname.startsWith("/v1/"))
-      return Response.json(
-        {
-          error: "no_route"
-        },
-        {
-          status: 404
-        }
-      );
-    const account = DEVICE.exec(request.headers.get(DEVICE_HEADER) ?? "")?.[1];
-    if (!account)
-      return Response.json(
-        {
-          error: "unsigned"
-        },
-        {
-          status: 401
-        }
-      );
-    return env.ACCOUNT.get(env.ACCOUNT.idFromName(team ? teamObjectName(team) : account)).fetch(
-      request
-    );
+    if (!pathname.startsWith("/v1/")) return route(request, env, pathname);
+    if (request.method === "OPTIONS")
+      return new Response(null, {
+        status: 204,
+        headers: PREFLIGHT
+      });
+    return withCors(await route(request, env, pathname));
   }
 };
+async function route(request, env, pathname) {
+  const team = teamOf(env);
+  if (team === "bad")
+    return Response.json(
+      {
+        error: "bad_team_config"
+      },
+      {
+        status: 500
+      }
+    );
+  if (pathname === "/v1/enrol") return enrol(request, env);
+  if (pathname === "/v1/sign_in") return signIn(request, env);
+  if (pathname === "/v1/sign_in/poll") return signInPoll(request, env);
+  if (!pathname.startsWith("/v1/"))
+    return Response.json(
+      {
+        error: "no_route"
+      },
+      {
+        status: 404
+      }
+    );
+  const account = DEVICE.exec(request.headers.get(DEVICE_HEADER) ?? "")?.[1];
+  if (!account)
+    return Response.json(
+      {
+        error: "unsigned"
+      },
+      {
+        status: 401
+      }
+    );
+  return env.ACCOUNT.get(env.ACCOUNT.idFromName(team ? teamObjectName(team) : account)).fetch(
+    request
+  );
+}
+__name(route, "route");
 export {
   Account,
   index_default as default
