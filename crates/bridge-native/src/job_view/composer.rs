@@ -929,6 +929,14 @@ impl JobView {
             self.toggle_needs(window, cx);
             return;
         }
+        if act.is("thread_find") {
+            self.open_find(window, cx);
+            return;
+        }
+        if (act.is("thread_find_next") || act.is("thread_find_previous")) && self.finding() {
+            self.find_step(if act.is("thread_find_next") { 1 } else { -1 }, cx);
+            return;
+        }
         let in_box = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {

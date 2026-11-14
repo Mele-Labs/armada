@@ -29,7 +29,9 @@ mod open;
 mod deferred;
 mod watching;
 mod edit;
+mod find;
 mod fork;
+mod handoff;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
@@ -65,13 +67,16 @@ mod mods_made;
 mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
+mod sketch_card;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
 mod panes;
+mod panel_tab;
 mod pane_store;
 pub(crate) mod pane_tree;
 mod panes_place;
+mod place_drag;
 mod place_draw;
 mod place_menu;
 pub(crate) mod pulls;
@@ -119,6 +124,13 @@ use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
 actions!(job_view, [PageUp, PageDown, ToStart, ToEnd]);
+
+/// Each Job's panes kept in a file on this Mac from now on, so a restart brings them back. The live app's alone.
+pub fn keep_arrangements(cx: &mut App) {
+    if let Some(store) = pane_store::FileStore::live() {
+        pane_store::install(store, cx);
+    }
+}
 
 /// The thread's own keys, which the registry does not carry: Electron lets the browser scroll a
 /// focused scroller on these (`SessionThread.tsx`, A1.5).
@@ -382,6 +394,8 @@ pub struct JobView {
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// The find bar over the thread, while it is open.
+    find: Option<find::Find>,
     /// Hide Open group pressed here, with Fleet's setting then: it stands until Fleet's says otherwise.
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
@@ -421,9 +435,10 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
-    /// A subagent's thread open on its sheet, and the last threads read, newest last.
-    subagent_reading: Option<subagent_read::Reading>,
+    /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
+    subagents_opened: HashMap<String, ipc::ToolSubagent>,
     /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
     forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
@@ -610,8 +625,8 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
-            subagent_reading: None,
             subagents_read: Vec::new(),
+            subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
@@ -620,6 +635,7 @@ impl JobView {
             listen,
             heard: crate::listen::Seen::default(),
             mock_records: None,
+            find: None,
             _subscriptions: subscriptions,
         }
     }
@@ -958,6 +974,7 @@ impl JobView {
         }
         self.arrive(id, cx);
         self.open_made(id, cx);
+        self.find_thread_changed(id, cx);
     }
 
     /// A message from the person puts the thread at its end again (A1.5).
@@ -1196,12 +1213,14 @@ impl Render for JobView {
         // The thread draws where its tab is in front; a closed Thread tab leaves its pane empty under the strip, as Electron's does.
         let thread_body = self.thread_open().then(|| {
             let origin = self.render_origin(&id, window, cx);
+            let find = self.render_find(&id, cx);
             let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
             div()
                 .size_full()
                 .flex()
                 .flex_col()
                 .children(origin)
+                .children(find)
                 .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
@@ -1219,8 +1238,6 @@ impl Render for JobView {
         popups.extend(self.render_sketch(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_subagent_reading(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_pane_panel(window, cx).map(IntoElement::into_any_element));
         let panes = self.render_panes(&id, thread_body, popups, window, cx);
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
