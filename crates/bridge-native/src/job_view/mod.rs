@@ -59,6 +59,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
 mod lanes;
@@ -145,6 +146,7 @@ pub fn bind(cx: &mut App) {
     review::bind(cx);
     head::bind(cx);
     lanes_copy::bind(cx);
+    web_walk::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -1154,6 +1156,7 @@ impl Render for JobView {
         }
         self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
+        self.sync_web_walks(&id, window, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
