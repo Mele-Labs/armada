@@ -834,7 +834,7 @@ pub use plan_usage::{
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
-    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,

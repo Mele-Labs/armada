@@ -28,13 +28,14 @@
 //! [`serving`] runs them on a blocking thread.
 
 mod enrolling;
+mod registering;
 mod serving;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{Polled, Secret, SignIn, SignInError, StoreError, HOME_REPOSITORY};
+use adapter_traits::{Polled, Secret, SignIn, SignInApp, SignInError, StoreError, HOME_REPOSITORY};
 use ipc::{
     AccountFlow, Accounts, BoundRepository, Profile, ProfileHome, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut,
     UnmatchedRepository,
@@ -72,6 +73,10 @@ pub enum Refused {
     NoSuchRepository(String),
     /// Something under the account failed: the profiles could not be read or kept.
     Fault(String),
+    /// A state for registering the sign-in app that Fleet did not issue, was used or lapsed.
+    AppStateUnknown,
+    /// The forge would not register the sign-in app, said plainly.
+    AppNotRegistered(String),
 }
 
 /// How long the thread waits between polls.
@@ -116,6 +121,8 @@ struct Inner {
     profiles: Profiles,
     choices: Choices,
     forge: Arc<dyn SignIn + Send + Sync>,
+    /// The same forge's app-manifest flow. [`registering`].
+    registering: registering::Registering,
     stores: Arc<dyn Enrolling>,
     clock: Arc<dyn Clock>,
     pacing: Pacing,
@@ -137,10 +144,10 @@ pub struct SigningIn {
 
 impl SigningIn {
     /// Sign-in for the machine whose directory is `machine`, through `forge` and
-    /// `stores`.
-    pub fn new(
+    /// `stores`. The polling thread holds `forge` as a [`SignIn`] alone.
+    pub fn new<F: SignIn + SignInApp + Send + Sync + 'static>(
         machine: &Path,
-        forge: Arc<dyn SignIn + Send + Sync>,
+        forge: Arc<F>,
         stores: Arc<dyn Enrolling>,
         clock: Arc<dyn Clock>,
     ) -> SigningIn {
@@ -148,6 +155,7 @@ impl SigningIn {
             inner: Arc::new(Inner {
                 profiles: Profiles::in_machine_directory(machine),
                 choices: Choices::in_machine_directory(machine),
+                registering: registering::Registering::through(forge.clone()),
                 forge,
                 stores,
                 clock,

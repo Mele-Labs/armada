@@ -168,6 +168,15 @@ pub struct SignedOut {
     pub said: Option<String>,
 }
 
+/// What `register_sign_in_app` answers: the page Bridge opens in the person's
+/// browser, which carries the app's manifest on to the forge.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignInAppRegistration {
+    /// A loopback address on Fleet's own port, carrying a state good for one use
+    /// within the hour.
+    pub url: String,
+}
+
 /// `set_repository_profile`: which profile a repository is bound to.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetRepositoryProfile {
