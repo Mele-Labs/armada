@@ -692,6 +692,36 @@ mod tests {
         assert!(printed.contains("Cargo.toml"), "{printed:?}");
     }
 
+    #[gpui::test]
+    async fn a_link_that_does_not_carry_refuses_keys_and_opens_on_another_macs_job(cx: &mut gpui::TestAppContext) {
+        let mock = Mock::with(&[("air", 1), ("here", 1)]).elsewhere(&["air"]);
+        let air = mock.opened("air", Which::First).run_id;
+        let here = mock.opened("here", Which::First).run_id;
+        mock.link(false);
+        assert_eq!(cx.update(|cx| mock.write(&air, "x".into(), cx)).await, Err(UNREACHED.to_string()));
+        assert_eq!(cx.update(|cx| mock.write(&here, "x".into(), cx)).await, Ok(()));
+        let size = Cells { cols: 80, rows: 24 };
+        assert_eq!(cx.update(|cx| mock.open("air", Which::First, size, cx)).await.map(|_| ()), Err(UNREACHED.to_string()));
+        mock.link(true);
+        assert_eq!(cx.update(|cx| mock.write(&air, "x".into(), cx)).await, Ok(()));
+        assert!(cx.update(|cx| mock.open("air", Which::First, size, cx)).await.is_ok());
+    }
+
+    #[gpui::test]
+    fn a_dropped_stream_ends_only_the_other_macs_shells_with_no_code(cx: &mut gpui::TestAppContext) {
+        let mock = Mock::with(&[("air", 1), ("here", 1)]).elsewhere(&["air"]);
+        let air = mock.opened("air", Which::First).run_id;
+        let here = mock.opened("here", Which::First).run_id;
+        let (air_rx, here_rx) = cx.update(|cx| (mock.observe(&air, cx), mock.observe(&here, cx)));
+        mock.streams_drop();
+        let ended = |rx: &Receiver<SessionRunMessage>| std::iter::from_fn(|| rx.try_recv().ok()).find_map(|message| match message {
+            SessionRunMessage::Exited { code, stopped } => Some((code, stopped)),
+            _ => None,
+        });
+        assert_eq!(ended(&air_rx), Some((None, false)));
+        assert_eq!(ended(&here_rx), None);
+    }
+
     fn start(place: Place) -> Start {
         Start { place, size: Cells { cols: 120, rows: 32 }, project: None }
     }
