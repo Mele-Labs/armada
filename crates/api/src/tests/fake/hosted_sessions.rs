@@ -253,6 +253,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn set_session_project(&self, _asked: ipc::SetSessionProject) -> Result<ipc::SessionList, Refusal> {
+        Err(nothing_hosted())
+    }
+
     /// Two servers, one waiting on a sign-in; the job named `closed` is refused as Fleet refuses one.
     async fn get_session_mcp(&self, id: SessionId) -> Result<ipc::SessionMcp, Refusal> {
         if id.as_str() == "closed" {
@@ -267,6 +271,25 @@ impl HostedSessions for FakeDaemon {
             return Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.no_such_session", "no job Fleet hosts is named closed", run_id())));
         }
         Ok(ipc::SessionQuick { asked: vec!["Yes, go on".to_string(), "Not yet".to_string()], learnt: vec!["Just get it done".to_string()] })
+    }
+
+    /// Nothing made: the routes are what the api tests read, and Fleet's tests read the list.
+    async fn get_job_artifacts(&self, _id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        Ok(Vec::new())
+    }
+
+    /// Held nothing to archive: Fleet's tests read what archiving does.
+    async fn archive_artifact(
+        self: Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", archive.artifact), run_id())))
+    }
+
+    async fn restore_artifact(&self, _caller: Option<crate::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", restore.artifact), run_id())))
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {

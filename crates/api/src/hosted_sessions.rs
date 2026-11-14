@@ -790,6 +790,22 @@ pub(crate) async fn set_session_auto_land<D: HostedSessions>(
     }
 }
 
+/// Jobs moved into a project, or out of any. 200 with the Jobs; 404 for a Job Fleet does not host or a
+/// project he has none of, 422 for no Job, a Job with no repository or a project whose file did not read.
+pub(crate) async fn set_session_project<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::SetSessionProject = match ipc::decode_body("a project for jobs", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().set_session_project(asked).await {
+        Ok(moved) => answer(StatusCode::OK, &moved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     Query(which): Query<Which>,
@@ -814,6 +830,52 @@ pub(crate) async fn get_session_quick<D: HostedSessions>(
         .await
     {
         Ok(quick) => answer(StatusCode::OK, &quick, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_job_artifacts<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<Which>,
+) -> Response {
+    match served
+        .daemon()
+        .get_job_artifacts(ipc::SessionId::carried(which.session_id))
+        .await
+    {
+        Ok(artifacts) => answer(StatusCode::OK, &artifacts, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent or the person archives a stale artifact. 200 with the artifact; 422 for an id the Job does not hold, one
+/// archived already, or a call that places no Job. **Who pressed it is read off the door it came through**: a person's
+/// own press is his, and every other caller is the agent.
+pub(crate) async fn archive_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let archive: ipc::ArtifactRef = match ipc::decode_body("an artifact to archive", &body) {
+        Ok(archive) => archive,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let pressed = [crate::acting::BRIDGE, crate::acting::PHONE, crate::acting::MAC];
+    let by = match crate::acting::via().is_some_and(|via| pressed.contains(&via.as_wire())) {
+        true => ipc::ArtifactBy::Owner,
+        false => ipc::ArtifactBy::Agent,
+    };
+    match served.shared().archive_artifact(crate::acting::asking(), by, archive).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// An archived artifact is brought back. 200 with the artifact; 422 for an id the Job does not hold, one not archived, or a
+/// call that places no Job.
+pub(crate) async fn restore_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let restore: ipc::ArtifactRef = match ipc::decode_body("an artifact to restore", &body) {
+        Ok(restore) => restore,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().restore_artifact(crate::acting::asking(), restore).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

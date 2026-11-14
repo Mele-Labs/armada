@@ -10,6 +10,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, DroneEvent, Speaker, Vcs, WorkProduct};
 use ipc::{SessionRow, SessionTurn, SessionVoice, SessionVoiceNamed};
 
+use super::message_reach::{refused_to, Unreachable};
 use super::process::Heard;
 use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
@@ -472,12 +473,6 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref(), carded).await;
-            // Off the turn's end, which is still being closed: a word sent here would start a turn inside it.
-            if let Some(said) = said.clone() {
-                let (fleet, id) = (Arc::clone(self), id.to_string());
-                // Boxed: the turn's end is deep already, and the telling's future is large in a debug build.
-                tokio::spawn(async move { Box::pin(fleet.reply_asked_again(&id, &said)).await });
-            }
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }
@@ -602,56 +597,130 @@ where
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
     /// thread draws it as that session's, the timeline enters it, and a receiver whose process was ended is started with it, unless it is paused
-    /// or the Job itself has ended (`message_reach`).
+    /// or the Job itself has ended (`message_reach`). **One his other Mac holds and shares is sent there** (`delivered_across`).
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
-        let (target, title, named, hosting) = {
+        let (found, named) = {
             let store = self.store().lock().await;
             let Ok(hostings) = store.hostings() else {
                 return;
             };
-            let Some(hosting) = hostings
-                .into_iter()
-                .find(|hosting| address_of(&hosting.session_id) == to)
-            else {
-                return;
-            };
+            let found = hostings.into_iter().find(|hosting| address_of(&hosting.session_id) == to);
             let sender = store.session(from).ok().flatten();
-            let named = sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default();
-            let title = named.0.clone().unwrap_or_else(|| address_of(from));
-            (hosting.session_id.clone(), title, named, hosting)
+            (found, sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default())
         };
+        let title = named.0.clone().unwrap_or_else(|| address_of(from));
+        let Some(hosting) = found else {
+            self.delivered_across(from, to, (title, named), message).await;
+            return;
+        };
+        let target = hosting.session_id.clone();
         if target == from {
             return;
         }
         // An ended Job is not started for it, for where the mod's hooks are skipped and nothing refused it before it was sent.
         if let Ok(Some(why)) = self.unreachable(to).await {
-            self.fleet_note(from, super::message_reach::refused_to(to, why)).await;
+            self.fleet_note(from, refused_to(to, why)).await;
             return;
         }
-        // Before the row is written, so a Job held across a restart does not read it back as an old one.
-        if self.start_hold_restored(&target, &hosting).await.is_err() {
+        let voice = SessionVoice::Session { id: from.to_string(), title, mac: None };
+        if self.message_written(&target, &hosting, voice, message).await {
+            self.session_messaged(from, named, &target, message);
+        }
+    }
+
+    /// Job `from`'s `SendMessage` to `to`, a Job his other Mac holds and shares, sent there through the door every
+    /// act on that Mac takes, or kept in its queue while it sleeps. **A private writer's words never leave**, and
+    /// it is told as for an address no Job has.
+    async fn delivered_across(self: &Arc<Self>, from: &str, to: &str, (title, named): (String, (Option<String>, Option<String>)), message: &str) {
+        let record = match self.unreachable_across(from, to).await {
+            Ok(record) => record,
+            // As for a name no Job of this Mac has: the hook refused it before it was sent.
+            Err(Unreachable::Unknown) => return,
+            Err(why) => {
+                self.fleet_note(from, refused_to(to, why)).await;
+                return;
+            }
+        };
+        let Some(mac) = record.mac.clone() else {
             return;
+        };
+        let sent = ipc::JobMessage { from: ipc::SessionId::carried(from), title, to: record.id.clone(), text: message.to_string() };
+        let Some(sent) = self.message_to_other_mac(&ipc::SessionId::carried(from), sent).await else {
+            return;
+        };
+        let answered = self.acted_on_other_mac(mac.clone(), ipc::JobAct::JobMessage(sent.sent())).await;
+        match answered {
+            Ok(answered) if (200..300).contains(&answered.status) => {
+                self.session_messaged(from, named, record.id.as_str(), message);
+            }
+            Ok(answered) if answered.status == 404 => {
+                self.fleet_note(from, refused_to(to, Unreachable::Unknown)).await;
+            }
+            Ok(answered) => {
+                let why = self.refusal_passed_on(&mac, answered.status, &answered.body).error().message.clone();
+                self.fleet_note(from, why).await;
+            }
+            Err(_) => {
+                self.fleet_note(from, refused_to(to, Unreachable::Unknown)).await;
+            }
+        }
+    }
+
+    /// `message_from_mac`: Job `from` on Mac `mac` wrote to Job `to` of this Mac, which the share filter let through.
+    pub(crate) async fn message_from_mac_delivered(self: &Arc<Self>, mac: String, message: ipc::JobMessage) -> Result<(), api::Refusal> {
+        let to = message.to.as_str();
+        let hosting = {
+            let store = self.store().lock().await;
+            let hostings = store.hostings().map_err(|why| self.ledger_fault(why))?;
+            hostings.into_iter().find(|hosting| hosting.session_id == to)
+        };
+        let not_found = || {
+            api::Refusal::NotFound(ipc::WireError::raised(super::NO_SUCH_SESSION, format!("No Job has the id {to}."), self.run_id()))
+        };
+        let Some(hosting) = hosting else {
+            return Err(not_found());
+        };
+        let address = address_of(to);
+        match self.unreachable(&address).await? {
+            Some(Unreachable::Ended) => {
+                let said = refused_to(&address, Unreachable::Ended);
+                return Err(api::Refusal::IllegalMove(ipc::WireError::raised(MESSAGE_JOB_ENDED, said, self.run_id())));
+            }
+            Some(Unreachable::Unknown) => return Err(not_found()),
+            None => {}
+        }
+        let voice = SessionVoice::Session { id: message.from.as_str().to_string(), title: message.title, mac: Some(mac) };
+        self.message_written(to, &hosting, voice, &message.text).await;
+        Ok(())
+    }
+
+    /// Another Job's message written into `target`'s thread in `voice`, and `target` woken by it: held on its start
+    /// card, kept while paused, or sent to its agent, started for it where it had ended. False where it could not be.
+    async fn message_written(self: &Arc<Self>, target: &str, hosting: &store::KeptHosting, voice: SessionVoice, message: &str) -> bool {
+        let SessionVoice::Session { id: from, title, mac } = &voice else {
+            return false;
+        };
+        let (from, title) = (from.clone(), title.clone());
+        let said = match mac {
+            None => from_job(&from, &title, message),
+            Some(_) => from_other_mac(&from, &title, message),
+        };
+        // Before the row is written, so a Job held across a restart does not read it back as an old one.
+        if self.start_hold_restored(target, hosting).await.is_err() {
+            return false;
         }
         // A held Job keeps every word to reach it off the thread, for Start to write and send in order.
-        let voice = SessionVoice::Session { id: from.to_string(), title: title.clone() };
-        let first = super::start_card::FirstTurn {
-            instead: Some(from_job(from, &title, message)),
-            ..super::start_card::FirstTurn::said(voice, message)
-        };
-        if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
-            self.session_messaged(from, named, &target, message);
-            let _ = self.published_hosted(&target).await;
-            return;
+        let first = super::start_card::FirstTurn { instead: Some(said.clone()), ..super::start_card::FirstTurn::said(voice.clone(), message) };
+        if self.turn_kept_while_held(target, &first).await.unwrap_or(false) {
+            let _ = self.published_hosted(target).await;
+            return true;
         }
         self.row_put(
-            &target,
+            target,
             SessionRow::Message {
-                id: self.row_id(&target),
+                id: self.row_id(target),
                 at: self.instant(),
-                from: SessionVoice::Session {
-                    id: from.to_string(),
-                    title: title.clone(),
-                },
+                from: voice,
                 text: message.to_string(),
                 files: Vec::new(),
                 tags: Vec::new(),
@@ -662,30 +731,25 @@ where
             },
         )
         .await;
-        self.session_messaged(from, named, &target, message);
-        let runtime = self.hosts().of(&target);
-        runtime.state().woken_by.push(SessionVoiceNamed {
-            id: from.to_string(),
-            title: title.clone(),
-        });
+        let runtime = self.hosts().of(target);
+        runtime.state().woken_by.push(SessionVoiceNamed { id: from.clone(), title: title.clone() });
         if runtime.state().process.is_some() {
-            return;
+            return true;
         }
-        let said = from_job(from, &title, message);
         // A Job on its start card keeps it with the turns that wait, and Begin sends it after them.
         {
             let mut state = runtime.state();
             if state.proposal.start_held {
                 state.proposal.held.push_back(super::start_card::job_turn(message, said));
-                return;
+                return true;
             }
         }
         // A paused Job is not woken by it: its row is on the thread, and Resume sends it.
-        if self.turn_kept_while_paused(&target, &super::start_card::job_turn(message, said.clone())).await.unwrap_or(false) {
-            return;
+        if self.turn_kept_while_paused(target, &super::start_card::job_turn(message, said.clone())).await.unwrap_or(false) {
+            return true;
         }
-        if self.ensure_process(&target, &hosting).await.is_err() {
-            return;
+        if self.ensure_process(target, hosting).await.is_err() {
+            return true;
         }
         let said = super::cut_off::told(&mut runtime.state(), said);
         if let Ok(line) = ipc::encode(&UserLine::of(said, Vec::new())) {
@@ -693,10 +757,19 @@ where
                 process.send(line);
             }
         }
+        true
     }
 }
+
+/// A Job message from another Mac whose holder refused it: that Job has ended. A 409.
+const MESSAGE_JOB_ENDED: &str = "fleet.message_job_ended";
 
 /// What the agent reads of another Job's message.
 pub(crate) fn from_job(from: &str, title: &str, message: &str) -> String {
     format!("A message from job \"{title}\" (address {}): {message}", address_of(from))
+}
+
+/// What the agent reads of a message from a Job on his other Mac. Its address answers it across.
+fn from_other_mac(from: &str, title: &str, message: &str) -> String {
+    format!("A message from job \"{title}\" on his other Mac (address {}): {message}", address_of(from))
 }

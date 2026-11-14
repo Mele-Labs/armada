@@ -644,9 +644,9 @@ fn a_received_message_is_from_its_job() {
         panic!("rows: {rows:?}");
     };
     assert_eq!((first.as_str(), second.as_str()), ("p1", "p2"));
-    assert_eq!(*one, SessionVoice::Session { id: "s-76da9937".into(), title: "s-76da9937".into() });
+    assert_eq!(*one, SessionVoice::Session { id: "s-76da9937".into(), title: "s-76da9937".into(), mac: None });
     assert_eq!(one_text, "Three fields are missing.\nBlank and reading.");
-    assert_eq!(*two, SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into() });
+    assert_eq!(*two, SessionVoice::Session { id: "uds:/tmp/cc-socks/5352.sock".into(), title: "uds:/tmp/cc-socks/5352.sock".into(), mac: None });
     assert_eq!(two_text, "No name on this one.");
 }
 

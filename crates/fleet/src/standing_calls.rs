@@ -11,6 +11,9 @@
 //! heard here, the Jobs kept slim in memory, and `calls.changed` published when the calls or the news moved.
 //! Nothing is kept on disk: what he has opened and what has been told are Fleet's memory, and a restart seeds
 //! from what stands.
+//!
+//! **A Mac waiting to pair is handed in, not heard**: the Phone Gateway holds the claims, and puts every one waiting
+//! on `hold_mac_claims` whenever they change.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -18,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MainView, MergeLineViews, OpenStandingCall, SessionRecord,
+    CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MacClaimWaiting, MainView, MergeLineViews, OpenStandingCall, SessionRecord,
     SessionTurn, StandingCall, StandingCallKind, StandingCalls, StopReason, WaitingItem, WaitingSource,
 };
 use tokio::sync::mpsc;
@@ -161,6 +164,8 @@ struct Job {
     pulls: Vec<(u64, String)>,
     /// When anything but the agent last said something to it: his words, a Poke, another Job's.
     told_at: Option<i64>,
+    /// The paired Mac that holds it. None for this Mac's own.
+    mac: Option<String>,
 }
 
 impl Job {
@@ -190,6 +195,7 @@ impl Job {
                 .filter_map(|one| Some((one.target.parse().ok()?, one.detail.get("branch").cloned().unwrap_or_default())))
                 .collect(),
             told_at: None,
+            mac: record.mac.clone(),
         }
     }
 
@@ -251,6 +257,8 @@ pub(crate) struct Keeper {
     news: Vec<CallArrival>,
     pub(crate) told: HashMap<String, i64>,
     published: Vec<StandingCall>,
+    /// The other Macs waiting for his Confirm here, as the Phone Gateway last handed them in.
+    claims: Vec<MacClaimWaiting>,
 }
 
 impl Keeper {
@@ -259,9 +267,25 @@ impl Keeper {
         for record in records {
             self.hear(record);
         }
-        self.news.clear();
+        // A Mac that asked to pair before the seed is news still: nothing of it stood before.
+        self.news.retain(|one| one.kind == CallArrivalKind::MacPairing);
         self.lines = lines;
         self.seeded = true;
+    }
+
+    /// A row first seen where it already stood: heard, and nothing in it is news.
+    pub(crate) fn hear_quietly(&mut self, record: &SessionRecord) {
+        let before = self.news.len();
+        self.hear(record);
+        self.news.truncate(before);
+    }
+
+    /// A Job no longer held here, as one his other Mac stopped sharing: it calls no more.
+    pub(crate) fn forget(&mut self, id: &str) {
+        self.jobs.remove(id);
+        self.waiting.remove(id);
+        self.stopped.remove(id);
+        self.news.retain(|one| one.session_id.as_str() != id);
     }
 
     /// A Job's row, published. **An item entering a live, unpaused Job's list, or the start card, or the Job
@@ -311,6 +335,42 @@ impl Keeper {
         self.jobs.insert(id, job);
     }
 
+    /// Every Mac waiting to pair, whole, in place of those held. **A Mac not waiting before is news once.**
+    pub(crate) fn hold_claims(&mut self, claims: Vec<MacClaimWaiting>) {
+        for claim in &claims {
+            if !self.claims.iter().any(|held| held.mac == claim.mac) {
+                let call = Self::claim_call(claim);
+                self.news.push(CallArrival {
+                    session_id: ipc::SessionId::carried(call.key),
+                    title: call.title,
+                    text: call.text,
+                    tone: call.tone,
+                    kind: CallArrivalKind::MacPairing,
+                });
+            }
+        }
+        // One that went before it was told is not news any more.
+        self.news.retain(|one| one.kind != CallArrivalKind::MacPairing || claims.iter().any(|claim| one.session_id.as_str() == format!("mac:{}", claim.mac)));
+        self.claims = claims;
+    }
+
+    /// A Mac waiting to pair: it asks him, so it is never opened. Its acts are the Gateway's.
+    fn claim_call(claim: &MacClaimWaiting) -> StandingCall {
+        let key = format!("mac:{}", claim.mac);
+        StandingCall {
+            owner: key.clone(),
+            key,
+            kind: StandingCallKind::MacPairing,
+            session_id: None,
+            title: format!("Confirm {} pairing", claim.name),
+            text: claim.why.clone(),
+            since: Instant::carried(crate::clock::rfc3339_utc(claim.at.saturating_mul(1000))),
+            tone: CallTone::Blocked,
+            opened: false,
+            mac: Some(claim.mac.clone()),
+        }
+    }
+
     /// What a live Job waits on as a banner tells it, in `waitsOf`'s order: the start card it is held on, then
     /// the list's own. Each as its id, whether it holds the turn, and its words.
     fn waits_of(record: &SessionRecord) -> Vec<(String, bool, String)> {
@@ -351,6 +411,7 @@ impl Keeper {
             self.job_calls(id, job, on_screen(id), now, &mut calls);
         }
         self.line_calls(&mut calls);
+        calls.extend(self.claims.iter().map(Self::claim_call));
         calls.sort_by(|a, b| a.since.cmp(&b.since).then_with(|| a.key.cmp(&b.key)));
         calls
     }
@@ -385,6 +446,7 @@ impl Keeper {
                 tone: tone_of(blocked(item.source)),
                 opened: opened(&item.since),
                 since: item.since,
+                mac: job.mac.clone(),
             });
         }
         // A Job that needs him is a call whether or not it raised an item that is still unseen: its row's mark, which
@@ -402,6 +464,7 @@ impl Keeper {
                 tone: CallTone::Waiting,
                 opened: opened(&since),
                 since,
+                mac: job.mac.clone(),
             });
         }
     }
@@ -482,6 +545,7 @@ impl Keeper {
             text,
             since,
             tone: CallTone::Waiting,
+            mac: owner.and_then(|owner| owner.job.mac.clone()),
         });
     }
 
@@ -496,10 +560,11 @@ impl Keeper {
         Some(CallsChanged { calls, arrived })
     }
 
-    /// He opened a main or pull request call. A key that names none standing opens nothing.
+    /// He opened a main, checkout or pull request call. A key that names none standing opens nothing.
     pub(crate) fn open(&mut self, key: &str, on_screen: &dyn Fn(&str) -> bool, now: i64) {
         let standing = self.standing(on_screen, now);
-        if standing.iter().any(|one| one.key == key && one.kind != StandingCallKind::Job) {
+        let opens = |kind| matches!(kind, StandingCallKind::Main | StandingCallKind::Checkout | StandingCallKind::Pull);
+        if standing.iter().any(|one| one.key == key && opens(one.kind)) {
             self.opened.insert(key.to_string());
         }
     }
@@ -558,9 +623,8 @@ where
         let _ = tell.send(one);
     });
     tokio::spawn(async move {
-        // What his other Macs' Jobs wait on is theirs to call, not this Mac's.
+        // The rows held from his other Macs are among them: their shared Jobs call here as this Mac's do.
         let records: Vec<_> = Arc::clone(&fleet).list_sessions(None, None, None).await.map(|list| list.sessions).unwrap_or_default();
-        let records: Vec<_> = records.into_iter().filter(|one| one.mac.is_none()).collect();
         let lines = crate::merge_lines::view(fleet.as_ref()).await;
         fleet.hosts().calls.0.lock().expect("held across no panic").seed(&records, lines);
         while let Some(one) = heard.recv().await {
@@ -586,6 +650,39 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// Rows held from another Mac, heard as this Mac's own are off the stream: **its relay reaches no tap**, so they
+    /// are handed in here. `quiet` where they are that Mac's first rows, which stood before he could hear them.
+    pub(crate) fn calls_heard_from_mac(&self, records: &[SessionRecord], quiet: bool) {
+        {
+            let mut keeper = self.hosts().calls.0.lock().expect("held across no panic");
+            // As the tap: a row no ledger read built carries no mark.
+            for record in records.iter().filter(|one| one.mark.is_some()) {
+                match quiet {
+                    true => keeper.hear_quietly(record),
+                    false => keeper.hear(record),
+                }
+            }
+        }
+        self.calls_told();
+    }
+
+    /// `hold_mac_claims`: the Macs waiting for his Confirm here, handed in whole by the Phone Gateway, then told.
+    pub(crate) fn calls_claimed(&self, claims: Vec<MacClaimWaiting>) {
+        self.hosts().calls.0.lock().expect("held across no panic").hold_claims(claims);
+        self.calls_told();
+    }
+
+    /// Jobs held from another Mac that left: they call no more.
+    pub(crate) fn calls_forgotten(&self, ids: &[String]) {
+        {
+            let mut keeper = self.hosts().calls.0.lock().expect("held across no panic");
+            for id in ids {
+                keeper.forget(id);
+            }
+        }
+        self.calls_told();
+    }
+
     /// `calls.changed`, when the calls or the news moved since it was last told.
     pub(crate) fn calls_told(&self) {
         let told = {

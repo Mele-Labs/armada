@@ -16,6 +16,7 @@ mod booting;
 mod clean;
 mod cli;
 mod declared;
+mod disk;
 mod fleet_features;
 mod fleet_start;
 mod job;

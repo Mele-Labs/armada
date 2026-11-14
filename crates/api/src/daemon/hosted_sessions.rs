@@ -383,6 +383,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::SetSessionAutoLand,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `set_session_project`: moves each Job into a project of his, or out to none, and answers the Jobs
+    /// as they are now. Every Job is checked first, and a refusal writes nothing.
+    fn set_session_project(
+        &self,
+        asked: ipc::SetSessionProject,
+    ) -> impl Future<Output = Result<ipc::SessionList, Refusal>> + Send;
+
     /// `get_session_mcp`: the MCP servers a hosted job's process has, asked of it now.
     fn get_session_mcp(
         &self,
@@ -394,6 +401,30 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         id: SessionId,
     ) -> impl Future<Output = Result<ipc::SessionQuick, Refusal>> + Send;
+
+    /// `get_job_artifacts`: a Job's sketches, drafts and pages, newest first.
+    fn get_job_artifacts(
+        &self,
+        id: SessionId,
+    ) -> impl Future<Output = Result<Vec<ipc::JobArtifact>, Refusal>> + Send;
+
+    /// `archive_artifact`: the agent, or the person where `by` is `Owner`, folds away a stale artifact, taking
+    /// one that waits on him off his list with no verdict. `caller` places a hosted session as `withdraw_sketch`'s
+    /// does. Answers with the artifact. [`Refusal::Unacceptable`] for an id the Job does not hold, or one archived already.
+    fn archive_artifact(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `restore_artifact`: lifts an archive, and the dismissal it wrote. Placed as `archive_artifact` is.
+    /// [`Refusal::Unacceptable`] for an id the Job does not hold, or one not archived.
+    fn restore_artifact(
+        &self,
+        caller: Option<crate::Caller>,
+        restore: ipc::ArtifactRef,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.

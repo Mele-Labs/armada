@@ -14,6 +14,20 @@ use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
+/// A state word as a filled chip: the hue's tint behind its own ink.
+pub(super) fn chip(look: &Look, hue: crate::look::Token, word: &str) -> gpui::Div {
+    div()
+        .flex_none()
+        .px(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_SM))
+        .bg(look.color(hue).opacity(0.18))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .text_color(look.color(hue))
+        .child(word.to_string())
+}
+
 impl JobView {
     pub(super) fn body_row(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         match row {
@@ -231,44 +245,98 @@ impl JobView {
             )
             .into_any_element(),
             SessionRow::Disputed { id, at, why, spotted, review, .. } => {
-                let spotted = match spotted {
-                    ipc::DisputeSpotted::Called => "Said by the agent",
-                    ipc::DisputeSpotted::Read => "Read by Fleet from the agent's replies",
+                let (said, whole) = match spotted {
+                    ipc::DisputeSpotted::Called => ("Said by the agent", "Said by the agent"),
+                    ipc::DisputeSpotted::Read => ("Read by Fleet", "Read by Fleet from the agent's replies"),
                 };
-                let line = div()
+                let hue = token::STEP_WAITING;
+                // The same measures as a call's row (`runs::tool_row`), so the dispute lines up with the calls around it.
+                let side = look.length(token::SPACE_6);
+                let gap = side * (10. / 24.);
+                // The mark keeps its column; the chip and the by-line wrap inside the body's column.
+                let head = div()
                     .flex()
-                    .flex_wrap()
                     .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .py(look.length(token::SPACE_1))
-                    .border_t(look.length(token::BORDER_WIDTH))
-                    .border_b(look.length(token::BORDER_WIDTH))
-                    .border_dashed()
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(token::FG_MUTED))
+                    .gap_x(gap)
+                    .min_w_0()
                     .child(
                         div()
                             .id(SharedString::from(format!("disputed-mark:{id}")))
-                            .child(glyph(look, "message-square-warning", Size::Small, look.color(token::FG_MUTED)))
+                            .flex_none()
+                            .size(side)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(glyph(look, "message-square-warning", Size::Mark, look.color(hue)))
                             .tooltip(tip("Disputed")),
                     )
-                    .child(div().w_full().text_color(look.color(token::FG_DEFAULT)).child(why.clone()))
-                    .child(spotted)
-                    .children(review.clone().map(|review| {
-                        self.opens(
-                            &review,
-                            format!("review:{id}"),
-                            "Open the review job".into(),
-                            cx,
-                            div().flex().items_center().text_color(look.color(token::ACCENT)).child("Review job"),
-                        )
-                    }))
-                    .child(self.stamp(at, look, now, true, cx));
-                labelled(div().id(SharedString::from(format!("disputed:{id}"))).child(line), Role::Region, "Notice disputed")
-                    .into_any_element()
+                    .child(
+                        div().flex_1().min_w_0().flex().flex_wrap().items_center().gap_x(gap).child(chip(look, hue, "Disputed")).child(
+                            div()
+                                .flex_none()
+                                .ml_auto()
+                                .flex()
+                                .items_center()
+                                .gap(look.length(token::SPACE_2))
+                                .child(
+                                    div()
+                                        .id(SharedString::from(format!("disputed-by:{id}")))
+                                        .flex_none()
+                                        .text_size(look.length(token::TEXT_XS))
+                                        .line_height(look.length(token::LEADING_XS))
+                                        .text_color(look.color(token::FG_SUBTLE))
+                                        .tooltip(tip(whole))
+                                        .child(said),
+                                )
+                                .child(self.stamp(at, look, now, true, cx)),
+                        ),
+                    );
+                let why = div().pl(side + gap).min_w_0().child(self.prose_in(format!("disputed-why:{id}"), why, token::FG_DEFAULT, look, cx));
+                let review = review.as_ref().map(|review| {
+                    // A flex row, so the link takes its own width rather than the line's.
+                    div().pl(side + gap).flex().child(self.opens(
+                        review,
+                        format!("review:{id}"),
+                        "Open the review job".into(),
+                        cx,
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_1))
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .text_color(look.color(token::ACCENT))
+                            .child("Review job")
+                            .child(glyph(look, "chevron-right", Size::Small, look.color(token::ACCENT))),
+                    ))
+                });
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("disputed:{id}")))
+                        .flex()
+                        .min_w_0()
+                        .rounded(look.length(token::RADIUS_SM))
+                        .overflow_hidden()
+                        .bg(look.color(hue).opacity(0.07))
+                        .child(div().flex_none().w(gpui::px(3.)).bg(look.color(hue)))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .gap(look.length(token::SPACE_1))
+                                .pl(look.length(token::SPACE_3))
+                                .pr(look.length(token::SPACE_2))
+                                .py(look.length(token::SPACE_1))
+                                .child(head)
+                                .child(why)
+                                .children(review),
+                        ),
+                    Role::Region,
+                    "Notice disputed",
+                )
+                .into_any_element()
             }
             // The open question is on the window's bar and under Waiting on you, so the thread keeps one line.
             SessionRow::WindowAsk { id, question, answer, .. } => {
@@ -278,7 +346,7 @@ impl JobView {
                 };
                 quiet_line(id, said, look)
             }
-            SessionRow::Draft { id, at, title, text, before, settled, change } => {
+            SessionRow::Draft { id, at, title, text, before, settled, change, .. } => {
                 self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, false, page, look, now, cx)
             }
             // A call that waits is the permission card in the panel; once settled the thread keeps one line.
@@ -291,7 +359,7 @@ impl JobView {
     }
 
     /// A block of output, in a sunken well.
-    fn log(&self, text: &str, look: &Look) -> gpui::Div {
+    pub(super) fn log(&self, text: &str, look: &Look) -> gpui::Div {
         div()
             .px(look.length(token::SPACE_3))
             .py(look.length(token::SPACE_1))

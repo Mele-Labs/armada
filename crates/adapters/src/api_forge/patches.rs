@@ -15,6 +15,8 @@ const MOST_PAGES: usize = 30;
 pub(crate) struct Listed {
     filename: Option<String>,
     patch: Option<String>,
+    /// The blob of the file's content at the head.
+    sha: Option<String>,
 }
 
 pub(super) fn read(api: &GitHubApi, repository: &GitHubRepository, number: u64) -> Result<Vec<PatchedFile>, ApiFailure> {
@@ -31,6 +33,10 @@ pub(super) fn read(api: &GitHubApi, repository: &GitHubRepository, number: u64) 
 pub(crate) fn listed(files: Vec<Listed>) -> Vec<PatchedFile> {
     files
         .into_iter()
-        .map(|file| PatchedFile { path: file.filename.unwrap_or_default(), patch: file.patch })
+        .map(|file| PatchedFile {
+            path: file.filename.unwrap_or_default(),
+            patch: file.patch,
+            blob: file.sha.filter(|sha| !sha.is_empty()),
+        })
         .collect()
 }

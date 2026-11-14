@@ -17,6 +17,8 @@ mod face;
 mod fleet_down;
 mod link_layer;
 mod link_panel;
+pub mod offers;
+mod origin;
 pub mod parts;
 mod projects;
 pub mod scenes;
@@ -66,11 +68,15 @@ pub enum Asked {
     RepositorySettings(usize),
     ProjectMembers(usize),
     NewProject,
-    ChangeBuild { build: BuildSource, adopt: bool },
+    ChangeBuild { build: BuildSource },
     Revert,
     Keep,
     Swap,
     Unpick(String),
+    /// Pick a branch on origin that no Job here holds into the next build.
+    PickOrigin(String),
+    /// Skip the Refresh row with this id.
+    SkipOffers(String),
     RestartFleet,
     Remedy(Remedy),
     CopyDebugInfo,
@@ -107,17 +113,9 @@ enum Popup {
     Projects,
 }
 
-/// The act a Drones dialog holds until the person says yes.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Held {
-    Choose(BuildSource),
-    Restart,
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Dialog {
     Revert,
-    Drones(Held),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -220,6 +218,8 @@ pub struct TitleBar {
     _swap_keys: Option<Subscription>,
     /// Fleet's build report as last handed in: a press's answer in the frame stands until Fleet's report moves.
     build_read: Option<ipc::FleetBuildReport>,
+    /// The offers as last handed in, which an optimistic skip stands over until Fleet answers.
+    offers_read: Option<ipc::PreviewOffers>,
     /// The live link as last handed in, read again by the clock while the face moves with time alone.
     link_read: Option<face::LiveLink>,
     /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
@@ -230,6 +230,8 @@ pub struct TitleBar {
     _restart_wait: Option<Task<()>>,
     /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
     link: link_layer::LinkPanel,
+    /// The search over the switcher's On origin row.
+    origin: origin::OriginSearch,
 }
 
 /// How long a restart may take to bring back a new Fleet before it is called unanswered (`FleetNotice.tsx`).
@@ -263,6 +265,13 @@ pub fn bind(cx: &mut App) {
             bar.update(cx, |_, cx| cx.emit(asked));
         }
     });
+}
+
+/// Fleet refused a skip: the bar of the window in front draws the Refresh row as Fleet last said it.
+pub fn offers_refused(cx: &mut App) {
+    if let Some(bar) = live(cx) {
+        bar.update(cx, |bar, cx| bar.offers_refused(cx));
+    }
 }
 
 /// The bar of the window in front, for a walk to move between scenes.
@@ -314,6 +323,8 @@ impl TitleBar {
             _swap_tick: None,
             _swap_keys: None,
             build_read: None,
+            origin: Default::default(),
+            offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
             _link_tick: None,
@@ -361,6 +372,23 @@ impl TitleBar {
         }
         self.build_read = report.cloned();
         self.face.build = report.map(face::build_of);
+        cx.notify();
+    }
+
+    /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them. A skip already
+    /// cleared the row in its frame; that stands until Fleet's offers are not the ones last handed in.
+    pub fn set_offers(&mut self, offers: Option<&ipc::PreviewOffers>, cx: &mut Context<Self>) {
+        if self.offers_read.as_ref() == offers {
+            return;
+        }
+        self.offers_read = offers.cloned();
+        self.face.offers = offers.cloned();
+        cx.notify();
+    }
+
+    /// Fleet refused a skip: the row is back as Fleet last said it.
+    pub fn offers_refused(&mut self, cx: &mut Context<Self>) {
+        self.face.offers = self.offers_read.clone();
         cx.notify();
     }
 
@@ -441,10 +469,14 @@ impl TitleBar {
 
     /// Put the open Job's Layout control and view icons in the end region, or take them out. Empty,
     /// the slot takes no room.
-    #[allow(dead_code)]
     pub fn fill_job_slot(&mut self, view: Option<AnyView>, cx: &mut Context<Self>) {
         self.job = view;
         cx.notify();
+    }
+
+    /// Whether the end region holds a screen's own control.
+    pub fn job_slot_filled(&self) -> bool {
+        self.job.is_some()
     }
 
     /// A press asked for something and Fleet refused: the face goes back to what it was, and the
@@ -586,6 +618,7 @@ impl TitleBar {
             self.shut(window, cx);
         } else {
             self.menu = None;
+            self.make_origin_search(window, cx);
             self.open_popup(Popup::Fleet, window, cx);
         }
     }
@@ -701,37 +734,19 @@ impl TitleBar {
 
     // -- the presses ---------------------------------------------------------------------------
 
-    /// Restart onto `build`. Any Jobs a restart would adopt are named first; none restarts at once.
-    fn change_build(&mut self, build: BuildSource, window: &mut Window, cx: &mut Context<Self>) {
-        let adopts = self.face.build.as_ref().is_some_and(|held| !held.adopts.is_empty());
-        if adopts {
-            self.keep_keys(window, cx);
-            self.dialog = Some(Dialog::Drones(Held::Choose(build)));
-            let focus = self.dialog_focus.clone();
-            window.defer(cx, move |window, cx| window.focus(&focus, cx));
-            cx.notify();
-        } else {
-            self.restart_onto(build, false, cx);
-        }
+    /// Restart onto `build`, at once: hosted Jobs carry across a restart, so nothing asks first.
+    fn change_build(&mut self, build: BuildSource, _window: &mut Window, cx: &mut Context<Self>) {
+        self.restart_onto(build, cx);
     }
 
     /// The restart button: merge the preview again, or move to the latest main.
-    fn restart_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn restart_pressed(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        let adopts = self.face.build.as_ref().is_some_and(|held| !held.adopts.is_empty());
-        if adopts {
-            self.keep_keys(window, cx);
-            self.dialog = Some(Dialog::Drones(Held::Restart));
-            let focus = self.dialog_focus.clone();
-            window.defer(cx, move |window, cx| window.focus(&focus, cx));
-            cx.notify();
-        } else {
-            self.restart_onto(on, false, cx);
-        }
+        self.restart_onto(on, cx);
     }
 
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
-    fn restart_onto(&mut self, build: BuildSource, adopt: bool, cx: &mut Context<Self>) {
+    fn restart_onto(&mut self, build: BuildSource, cx: &mut Context<Self>) {
         self.answer(
             |face| {
                 if let Some(held) = face.build.as_mut() {
@@ -742,24 +757,9 @@ impl TitleBar {
             },
             cx,
         );
-        cx.emit(Asked::ChangeBuild { build, adopt });
+        cx.emit(Asked::ChangeBuild { build });
     }
 
-    fn drones_confirmed(&mut self, held: Held, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(on) = self.face.build.as_ref().map(|held| held.report.on) else { return };
-        self.dialog = None;
-        let focus = self.popup_focus.clone();
-        if self.popup.is_some() {
-            window.focus(&focus, cx);
-        } else {
-            self.give_keys_back(window, cx);
-        }
-        let build = match held {
-            Held::Choose(build) => build,
-            Held::Restart => on,
-        };
-        self.restart_onto(build, true, cx);
-    }
 
     fn revert_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.keep_keys(window, cx);

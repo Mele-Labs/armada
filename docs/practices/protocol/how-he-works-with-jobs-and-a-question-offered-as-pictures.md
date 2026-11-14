@@ -77,14 +77,13 @@ A sketch is withdrawn by `withdraw_sketch` or the person's Withdraw, a window by
 
 ## What Fleet does with them
 
-No new operation or field: Fleet reads the five closed preferences and says them to the Job, and checks two of them. It also checks and keeps each option's picture.
+No new operation or field: Fleet reads the five closed preferences and says them to the Job, and checks two of them by the call they are about. It also checks and keeps each option's picture.
 
 | Where | What | Notes |
 | --- | --- | --- |
 | A Job's start note, and `get_logbook_for_subagent`'s `text` | One note: a header, the line for `take_in` and its `read_results` or `look_results`, `look_questions` where he looks, and the line for `answer_with`. At every default, the header and the read line | Read at each process start. A helper's brief ends with it, so `text` is never empty |
 | A saved change to the note, `save_preferences` | The whole new note, once, as a `taught` notice to each Job with a running process | A save that leaves the note as it was tells none |
 | `waiting_for`, `answer_with` = `buttons` | A question with no options or more than four is 422 `fleet.session_waiting_options`, naming the item | A run, an approval, a procedure, a pull request and a message are not questions |
-| A reply that asks in words, `answer_with` = `buttons` | One `reply_claim` notice telling the Job to ask it again with options | Not when the Job asked through a tool, in the turn's own question card included, and not for the reply to the notice itself |
 | `waiting_for`, an option with a `picture` | Checks the file: it exists, is a PNG or JPEG of at most 8 MiB, and is `width` by `height` pixels, read from its header. Checks every part's box lies inside the still and that part names are unique within the option. Copies the file into the Job's own kept files, and stores `image` as `/sessions/shown?session_id=<id>&path=<kept path>`, the address `GET /sessions/shown` serves | A bad picture is a 422 naming the option: `fleet.picture_missing`, `fleet.picture_too_large`, `fleet.picture_not_an_image`, `fleet.picture_size`, `fleet.picture_part_outside`, `fleet.picture_part_repeated`. Nothing in the list is kept. A file the Job showed is served where it is, and an `image` already of that address form for the same Job is kept as it is |
 | `all_done`, `take_in` = `look` and `look_results` not `picture_screens` | 409 `fleet.picture_owed` until a sketch, a window or an image through `show_file` has been shown | Listed with the other reasons `all_done` is refused |
 | A workflow's groups, handed to the Job | A step that ends on `plan_approved`, `you_approved`, `sketch_approved` or `document_approved`, or records the plan, ends with a block by `take_in`, and the buttons line where he answers by buttons | Added where the groups are built, so his own copy of a workflow gets it. None at every default, and no page-first block where `read_results` is `thread_only` |

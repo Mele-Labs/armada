@@ -31,6 +31,42 @@ pub struct MacNamed {
     pub mac: String,
 }
 
+/// `GET /admin/macs/found` on the Gateway: his other Macs on the Cloudflare account this Mac signed in with.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FoundMacs {
+    pub macs: Vec<FoundMac>,
+    /// Why the account could not be read, as a sentence. The list is then what was read last, or empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
+}
+
+/// One of his other Macs, by the tunnel Armada made for it on his account.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FoundMac {
+    /// The tunnel's name on the account, `armada-<its id's first 12>`. What Pair names.
+    pub tunnel: String,
+    /// What it calls itself where it answered, else the name it was paired under, else its address's first label.
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colour: Option<crate::MacColour>,
+    /// Its address under his domain, where the account routes one to it. Without one it cannot be asked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    /// Cloudflare says its tunnel is connected. Not online is a Mac asleep or with Armada closed.
+    pub online: bool,
+    /// It is paired with this Mac already, or a pairing with it waits on a Confirm.
+    pub paired: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<String>,
+}
+
+/// `POST /admin/macs/pair/ask` on the Gateway: ask the Mac with this tunnel to pair, with no link.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AskMacPair {
+    pub tunnel: String,
+}
+
 /// `PUT /other_macs/sessions` on Fleet: every Job row Mac `mac` shares, replacing all this Fleet held from it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OtherMacSessions {
@@ -57,4 +93,23 @@ pub struct OtherMacProjects {
 pub struct OtherMacEvent {
     pub mac: String,
     pub event: Event,
+}
+
+/// `PUT /other_macs/claims` on Fleet: every other Mac waiting for his Confirm here, as this Mac's Phone Gateway
+/// holds them, replacing all Fleet held. Fleet calls him with one `mac_pairing` call for each.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimsWaiting {
+    pub claims: Vec<MacClaimWaiting>,
+}
+
+/// One Mac waiting for his Confirm here: it pasted this Mac's link, or asked from its Settings.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MacClaimWaiting {
+    /// The asking Mac's id: what Confirm and Decline name.
+    pub mac: String,
+    pub name: String,
+    /// What `GET /admin/macs` says of it, with the four digits where it asked.
+    pub why: String,
+    /// Unix seconds: when the claim arrived.
+    pub at: i64,
 }

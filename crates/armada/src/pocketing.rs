@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use fleet::phone::PhoneSwitch;
-use ipc::PhoneGateway;
+use ipc::{MacSetup, MacSetupStep, PhoneGateway};
 use pocket::Gateway;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
@@ -132,7 +132,8 @@ impl Phone {
             .map_err(|why| format!("Armada could not open its store for the phone: {why}"))?;
         let push = pocket::Push::open(&self.machine, pocket::PLACEHOLDER_SUBJECT)?;
         let fleet_port = self.fleet_port;
-        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT).map(|kept| kept.commit);
+        let build = fleet::kept_builds::kept_at(&self.machine.join(fleet::kept_builds::BUILDS), fleet::kept_builds::CURRENT)
+            .map(|kept| pocket::ThisBuild { commit: kept.commit, built_at: kept.built_at, source: kept.source });
         let way_in = pocket::mac_way_in(self.machine.clone(), port, build);
         let tunnel = way_in.tunnel.clone();
         let gateway = Gateway {
@@ -174,6 +175,17 @@ impl Phone {
         }
     }
 
+    /// The running Gateway, where it listens.
+    fn gateway(&self) -> Option<Gateway> {
+        let running = self.running.lock().unwrap();
+        running.as_ref().filter(|running| !running.serving.is_finished()).map(|running| running.gateway.clone())
+    }
+
+    /// The setup's first step, where the Gateway is not listening: never pressed, or stuck with why.
+    fn gateway_step(&self, why: Option<String>) -> MacSetup {
+        MacSetup { step: MacSetupStep::Gateway, working: false, login: None, why, address: None }
+    }
+
     fn opt(&self, on: bool) -> Result<(), String> {
         let marker = self.machine.join(MARKER);
         match on {
@@ -212,6 +224,21 @@ impl PhoneSwitch for Phone {
         match running.as_ref() {
             Some(running) => Box::pin(pocket::send_other_mac(&running.gateway, mac, path, body)),
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn setup(&self) -> MacSetup {
+        match self.gateway() {
+            Some(gateway) => pocket::mac_setup(&gateway),
+            None => self.gateway_step(self.state().why),
+        }
+    }
+
+    fn set_up(&self) -> MacSetup {
+        let on = self.set(true);
+        match self.gateway() {
+            Some(gateway) => pocket::set_up_mac(&gateway),
+            None => self.gateway_step(Some(on.why.unwrap_or_else(|| String::from("The Phone Gateway did not start.")))),
         }
     }
 

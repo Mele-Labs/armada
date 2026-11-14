@@ -153,6 +153,7 @@ WebSocket event stream, read this first.
 | [The Reviews tab: the lists waiting on a person, a page's threads and a review's comments](protocol/the-reviews-tab-the-lists-waiting-on-a-person-a-pages-threads-and-a.md) |
 | [The Reviews tab: agent runs and review tools](protocol/the-reviews-tab-agent-runs-and-review-tools.md) |
 | [A comment on several lines, and a fix for a finding](protocol/a-comment-on-several-lines-and-a-fix-for-a-finding.md) |
+| [Change sets, an overview and practices: three run kinds and a catalogue](protocol/change-sets-an-overview-and-practices.md) |
 | [A Job's running Check: its log live, and a stop](protocol/a-jobs-running-check-its-log-live-and-a-stop.md) |
 | [A Job's reach past its slots: the folder answers](protocol/a-jobs-reach-past-its-slots-the-folder-answers.md) |
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
@@ -181,6 +182,8 @@ WebSocket event stream, read this first.
 | [Every file of a pull request, read as its patch](protocol/every-file-of-a-pull-request-read-as-its-patch.md) |
 | [A walk's notes, sent as one turn: `send_session_notes`](protocol/a-walks-notes-sent-as-one-turn.md) |
 | [The owner's notes on a pull request's lines: `list_pull_request_notes` and four more](protocol/the-owners-notes-on-a-pull-requests-lines.md) |
+| [What Fleet remembers of a pull request: seen heads, viewed files, his review, the inbox, the compare and layouts](protocol/what-fleet-remembers-of-a-pull-request.md) |
+| [The disk in `get_health`: free space, the two floors, the last pass and what the next would drop](protocol/the-disk-in-get-health.md) |
 | [A Job's MCP servers: `get_session_mcp`, `act_on_session_mcp`](protocol/a-jobs-mcp-servers.md) |
 | [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
@@ -216,6 +219,9 @@ WebSocket event stream, read this first.
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
+| [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
+| [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
+| [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1933,26 +1939,27 @@ A row with either field reads on a Bridge that does not know them as a `tool` ro
 A `SendMessage` row now carries its message twice, in `text` and in `message.text`, and a terminal Job's thread gains a `session.row` for each message it received, so this makes the unbounded sink slightly worse.
 The open risk is otherwise as it was.
 
-## A quick terminal: `start_terminal_job` and `SessionRecord.quick_terminal`
+## A Side Job: `start_side_job` and `SessionRecord.side_job`
 
-Since 12 Nov 2026. `docs/concepts/session/a-quick-terminal.md`.
+Since 12 Nov 2026. `docs/concepts/session/a-side-job.md`.
+Named a quick terminal until 13 Nov 2026, when the owner renamed it a Side Job everywhere: `start_terminal_job`, `POST /sessions/terminal/start`, `StartTerminalJob`, `TerminalJobStarted` and `quick_terminal` took the names below, and the store's `hosted_sessions.quick_terminal` column became `side_job` in the breaking migration `hosted_sessions.side_job`.
 **One operation, one route, two types and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
 The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `StartTerminalJob`, `TerminalJobStarted` and `quick_terminal` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+Bridge's half is `StartSideJob`, `SideJobStarted` and `side_job` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
 Electron draws none of it: it is frozen.
 The native Bridge sends it from the dispatch sheet, a key and the command palette.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `start_terminal_job` (`POST /sessions/terminal/start`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartTerminalJob` `{ manifest_id?, dir?, title?, model?, effort?, mode?, project?, cols?, rows? }`, exactly one of `manifest_id` and `dir`; answered with `TerminalJobStarted` `{ session_id, terminal, run_id }`, `terminal` `t1` and `run_id` its run |
-| `SessionRecord.quick_terminal` (`list_sessions`, `report_session`, `session.changed`) | Fleet writes, Bridge reads | `bool` / `quick_terminal?: true`. The Job is a quick terminal: Bridge opens it onto `t1`. Absent on every other session |
+| `start_side_job` (`POST /sessions/side_job/start`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `StartSideJob` `{ manifest_id?, dir?, title?, model?, effort?, mode?, project?, cols?, rows? }`, exactly one of `manifest_id` and `dir`; answered with `SideJobStarted` `{ session_id, terminal, run_id }`, `terminal` `t1` and `run_id` its run |
+| `SessionRecord.side_job` (`list_sessions`, `report_session`, `session.changed`) | Fleet writes, Bridge reads | `bool` / `side_job?: true`. The Job is a Side Job: Bridge opens it onto `t1`. Absent on every other session |
 
 **Refused 422 with nothing made**: both or neither of `manifest_id` and `dir`, a `dir` that is not an absolute path to a directory, a `cols` or `rows` of 0, and every refusal `start_session` makes for its `manifest_id` and `project`.
 **A `dir` outside every served repository is a loose folder**: the record has no `manifest_id`, its `cwd` is the folder, and no slot is ever leased for it.
-**What the agent reads changes, not the wire**: each message of the person's to a quick terminal carries its open terminals' screens ahead of his words, and the thread row keeps his words alone.
+**What the agent reads changes, not the wire**: each message of the person's to a Side Job carries its open terminals' screens ahead of his words, and the thread row keeps his words alone.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-A record with `quick_terminal` reads on a Bridge that does not know it as a plain Job.
+A record with `side_job` reads on a Bridge that does not know it as a plain Job.
 
 **The event stream.** Untouched in kind: the start publishes `session.changed` and `terminal.opened` for `t1`, as a start and an open each do. The open risk below is neither better nor worse.
 

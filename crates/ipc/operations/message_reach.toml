@@ -8,7 +8,7 @@ notes = """
 
 **The sender is placed by the connection**, as the door places a Job, and never named in the body. A caller that is not a hosted Job is allowed, and so is a name that is no Job's address, such as a subagent's.
 
-A Job may write to any live Job, in any repository and whichever Job started either. A Job address, `s-` and the first eight characters of an id, is refused where the Job it names has ended (`that Job has ended`) and where no Job Fleet keeps has it (`no Job has that address`). The receiver reads the sender's title and address with the message.
+A Job may write to any live Job, in any repository and whichever Job started either. A Job address, `s-` and the first eight characters of an id, is refused where the Job it names has ended (`that Job has ended`) and where no Job Fleet keeps has it (`no Job has that address`). The receiver reads the sender's title and address with the message. **A live Job his other Mac holds and shares is reachable too, where the writer is in a shared project**; a private writer is refused `no Job has that address`, as for no Job, and the message crosses as `act_from_mac`'s `job_message`.
 
 **Only as strong as the mod's hook.** Where the hook does not run, as on a Mac whose managed settings skip a plugin's hooks, nothing is asked and the message goes; Fleet still hears it after it is sent.
 """

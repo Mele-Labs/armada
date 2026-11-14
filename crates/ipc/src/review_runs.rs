@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ManifestId;
 use crate::pull_reviews::DiffSide;
+use crate::review_change_sets::{ChangeSet, ChangeSetKind, OverviewFinding, PracticeCheck, PracticeSource};
 use crate::review_walks::{ReviewMatch, ReviewRequest, WalkPlace};
 use crate::walk_steps::WalkStep;
 
@@ -117,6 +118,15 @@ pub enum ReviewRunKind {
     Search,
     /// A fix for one finding's lines, asked from its card: answers [`ReviewResult::Fix`].
     Fix,
+    /// The pull request's change sets: answers [`ReviewResult::ChangeSets`]. `name` is not read,
+    /// and the run is kept as `change-sets`.
+    ChangeSets,
+    /// Blockers, risks and possible bugs, each in a change set: answers [`ReviewResult::Overview`].
+    /// Needs the change sets kept at the head. Kept as `overview`.
+    Overview,
+    /// One change set held to the repository's own practices for its kind and area: `name` is the
+    /// set's id. Answers [`ReviewResult::Practices`]. Needs the change sets kept at the head.
+    Practices,
 }
 
 /// How far a run has got.
@@ -154,6 +164,11 @@ pub struct StartReviewRun {
     /// two runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finding: Option<ReviewFinding>,
+    /// Read only the change from this commit to the head, as `get_pull_request_compare` answers
+    /// it: the person's seen head, for what changed since he looked. Its result is kept for the
+    /// range. A base the forge no longer has fails the run with that reason. Not for a fix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
 }
 
 /// A place in the change: a range of lines of a file, on one side of the diff.
@@ -240,7 +255,17 @@ pub struct ReviewFinding {
     pub body: String,
     pub severity: ReviewSeverity,
     pub at: ReviewPlace,
+    /// Words the person can post on the pull request for it as they are, to its author: one or two
+    /// plain sentences on what is wrong and what to do, at most [`COMMENT_AT_MOST`] characters.
+    /// **Fleet posts nothing.** Empty only on a finding kept before comments were asked for.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub comment: String,
 }
+
+/// The longest a finding's [`ReviewFinding::comment`] may be, in characters.
+pub const COMMENT_AT_MOST: usize = 280;
+/// The most sentences a finding's [`ReviewFinding::comment`] may have.
+pub const COMMENT_SENTENCES_AT_MOST: usize = 2;
 
 /// One stop of a tour: a piece of the change and one line on what it does.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -290,6 +315,22 @@ pub enum ReviewResult {
         after: String,
         why: String,
     },
+    /// The change sets, in the order they run. Every hunk of the diff is in exactly one.
+    ChangeSets { sets: Vec<ChangeSet> },
+    /// Blockers first, then risks, then bugs. None is an answer.
+    Overview { findings: Vec<OverviewFinding> },
+    /// One set against the practices catalogued for its `kind` and `area`. `read_at` and
+    /// `sources` are when and from what the catalogue entry was read; `reused` is true where this
+    /// run read no doc. No checks is an answer: no doc states a practice for the set.
+    Practices {
+        set: String,
+        kind: ChangeSetKind,
+        area: String,
+        read_at: String,
+        reused: bool,
+        sources: Vec<PracticeSource>,
+        checks: Vec<PracticeCheck>,
+    },
 }
 
 /// One run about one pull request at one commit, going or kept.
@@ -302,6 +343,11 @@ pub struct ReviewRun {
     pub name: String,
     /// The commit it ran on, whole. A reader that holds a newer head marks the run out of date.
     pub head: String,
+    /// The commit its range starts from, where it read only the change from there to `head`.
+    /// **A ranged run never stands in for a whole one**, nor one range for another. Absent for the
+    /// whole pull request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
     pub state: ReviewRunState,
     /// RFC 3339.
     pub started_at: String,

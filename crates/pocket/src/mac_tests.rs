@@ -96,6 +96,7 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         .route("/other_macs/bug_reports", put(keep))
         .route("/other_macs/event", post(keep))
         .route("/other_macs/forget", post(keep))
+        .route("/other_macs/claims", put(keep))
         .with_state(fleet.clone());
     let listener = crate::bind(0).await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -108,12 +109,12 @@ fn now() -> i64 {
 }
 
 /// One Mac: its Gateway served on loopback at `address`, and its link running.
-struct Side {
-    gateway: Gateway,
+pub(crate) struct Side {
+    pub(crate) gateway: Gateway,
     fleet: FakeFleet,
     port: u16,
-    address: String,
-    keys: Arc<MemoryMacKeys>,
+    pub(crate) address: String,
+    pub(crate) keys: Arc<MemoryMacKeys>,
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
 }
 
@@ -128,7 +129,7 @@ fn pairing(name: &str, address: String) -> Pairing {
 }
 
 impl Side {
-    async fn new(name: &str, rows: &[&str]) -> Side {
+    pub(crate) async fn new(name: &str, rows: &[&str]) -> Side {
         let (fleet, fleet_port) = fake_fleet(rows).await;
         let port = crate::bind(0).await.unwrap().local_addr().unwrap().port();
         let address = format!("http://127.0.0.1:{port}");
@@ -146,12 +147,18 @@ impl Side {
         side
     }
 
-    fn id(&self) -> String {
+    pub(crate) fn id(&self) -> String {
         crate::machine::this_mac(&self.gateway).unwrap().id
     }
 
+    /// The claims this Gateway last handed its Fleet, as `PUT /other_macs/claims` carried them.
+    pub(crate) fn claims_handed(&self) -> Option<ipc::MacClaimsWaiting> {
+        let sent = self.fleet.handed("PUT /other_macs/claims").pop()?;
+        Some(ipc::decode("the claims", sent.as_bytes()).unwrap())
+    }
+
     /// Serve, and link, as `pocketing` does: a fresh `Macs` each start, over the same keys.
-    fn start(&mut self) {
+    pub(crate) fn start(&mut self) {
         self.gateway.macs = Macs::with_timing(self.keys.clone(), QUICK).unwrap();
         let listener = crate::bind_now(self.port).unwrap();
         let (stop, stopped) = oneshot::channel::<()>();
@@ -166,7 +173,7 @@ impl Side {
         self.running = Some((stop, serving, linking));
     }
 
-    async fn stop(&mut self) {
+    pub(crate) async fn stop(&mut self) {
         let (stop, serving, linking) = self.running.take().unwrap();
         self.gateway.macs.close();
         linking.abort();
@@ -174,7 +181,7 @@ impl Side {
         tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the Gateway stopped").ok();
     }
 
-    async fn admin(&self, method: Method, path: &str, body: &str) -> (StatusCode, String) {
+    pub(crate) async fn admin(&self, method: Method, path: &str, body: &str) -> (StatusCode, String) {
         let method = reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap();
         let answer = reqwest::Client::new()
             .request(method, format!("{}{path}", self.address))
@@ -187,13 +194,13 @@ impl Side {
         (status, answer.text().await.unwrap())
     }
 
-    async fn macs(&self) -> Vec<Mac> {
+    pub(crate) async fn macs(&self) -> Vec<Mac> {
         let (status, body) = self.admin(Method::GET, "/admin/macs", "").await;
         assert_eq!(status, StatusCode::OK, "{body}");
         ipc::decode("macs", body.as_bytes()).unwrap()
     }
 
-    async fn mac(&self, id: &str) -> Option<Mac> {
+    pub(crate) async fn mac(&self, id: &str) -> Option<Mac> {
         self.macs().await.into_iter().find(|mac| mac.id == id)
     }
 
@@ -207,7 +214,7 @@ impl Side {
 }
 
 /// Wait until `check` holds, up to ten seconds.
-async fn until<F, Fut>(what: &str, mut check: F)
+pub(crate) async fn until<F, Fut>(what: &str, mut check: F)
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = bool>,
@@ -349,6 +356,9 @@ async fn a_request_this_mac_signs_passes_another_gateways_check() {
         last_heard_at: None,
         asleep_since: None,
         why: None,
+        wire: None,
+        built_at: None,
+        source: None,
     };
     other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
     let time = other.gateway.pairing.now();
@@ -369,6 +379,61 @@ async fn a_request_this_mac_signs_passes_another_gateways_check() {
     assert_eq!(ask(signed(&fresh_key().unwrap())).await, StatusCode::BAD_REQUEST, "a forged signature");
     let unknown = sign(&key, "ffff", "GET", "/api/mac/hello", time, b"").unwrap();
     assert_eq!(ask(unknown).await, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_hello_and_update() {
+    let other = crate::pairing_tests::rig();
+    let key = fresh_key().unwrap();
+    // A build from before Macs compared wires says none, and is the older.
+    let mac = store::PairedMac {
+        id: "abc1".into(),
+        name: "Work".into(),
+        colour: "green".into(),
+        address: "https://work.example.com".into(),
+        public_key: from_hex(&spki_hex(&key).unwrap()),
+        build: Some("1111111".into()),
+        paired_at: 1,
+        state: store::MacState::Linked,
+        back_code: None,
+        last_heard_at: None,
+        asleep_since: None,
+        why: None,
+        wire: None,
+        built_at: None,
+        source: None,
+    };
+    other.gateway.pairing.store.lock().unwrap().keep_mac(&mac).unwrap();
+    let ask = |method: &'static str, path: &'static str| {
+        let time = other.gateway.pairing.now();
+        let headers = sign(&key, "abc1", method, path, time, b"").unwrap();
+        let mut request = axum::http::Request::builder().method(method).uri(path);
+        for (name, value) in headers {
+            request = request.header(name, value);
+        }
+        let app = other.app.clone();
+        async move {
+            let answer = app.oneshot(request.body(axum::body::Body::empty()).unwrap()).await.unwrap();
+            let status = answer.status();
+            let body = axum::body::to_bytes(answer.into_body(), 1 << 16).await.unwrap();
+            (status, String::from_utf8_lossy(&body).to_string())
+        }
+    };
+    let frozen = "Work runs an older build. Nothing crosses until it updates.";
+    for (method, path) in [("GET", "/api/mac/sessions"), ("GET", "/api/mac/live"), ("POST", "/api/mac/act"), ("POST", "/api/mac/project_act")] {
+        assert_eq!(ask(method, path).await, (StatusCode::SERVICE_UNAVAILABLE, frozen.to_string()), "{method} {path}");
+    }
+    assert_eq!(ask("GET", "/api/mac/hello").await.0, StatusCode::OK);
+    assert_ne!(ask("POST", "/api/mac/update").await.1, frozen, "the update crosses a frozen link");
+    let listed = crate::macs::listed(other.gateway.pairing.store.lock().unwrap().paired_mac("abc1").unwrap().unwrap(), &other.gateway.way_in);
+    assert_eq!((listed.link, listed.why.as_deref()), (Some(MacLink::OlderBuild), Some(frozen)));
+
+    // On this build's wire it is linked, whatever its commit.
+    let matched = store::PairedMac { wire: Some(other.gateway.way_in.wire.clone()), ..mac };
+    other.gateway.pairing.store.lock().unwrap().keep_mac(&matched).unwrap();
+    assert_ne!(ask("GET", "/api/mac/sessions").await.1, frozen);
+    let listed = crate::macs::listed(matched, &other.gateway.way_in);
+    assert_eq!(listed.link, Some(MacLink::Linked));
 }
 
 #[tokio::test]

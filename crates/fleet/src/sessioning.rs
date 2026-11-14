@@ -1141,11 +1141,11 @@ where
         Ok(ipc::SessionRunUnderway { run_id, terminal: Some(terminal) })
     }
 
-    async fn start_terminal_job(
+    async fn start_side_job(
         self: Arc<Self>,
-        start: ipc::StartTerminalJob,
-    ) -> Result<ipc::TerminalJobStarted, Refusal> {
-        self.started_quick_terminal(start).await
+        start: ipc::StartSideJob,
+    ) -> Result<ipc::SideJobStarted, Refusal> {
+        self.started_side_job(start).await
     }
 
     async fn start_terminal_run(

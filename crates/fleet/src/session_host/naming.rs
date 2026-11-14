@@ -53,7 +53,7 @@ where
             not_named(format!("Fleet could not set up the proposer, so this job was not named: {why:?}"))
         })?;
         let answered = self
-            .proposer_answered(&proposing, &hosting.manifest_id, &request, None)
+            .proposer_answered(&proposing, &hosting.manifest_id, hosting.project.as_deref(), &request, None)
             .await
             .map_err(|why| {
                 not_named(format!("the proposer did not answer, so this job was not named: {why}"))
@@ -95,7 +95,7 @@ where
     async fn title_answered(&self, id: &str, request: &str, hint: Option<&str>) -> Result<String, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let (_, hosting) = self.session_and_hosting(id).await.map_err(|_| String::from("the job is gone"))?;
-        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, request, hint).await?;
+        let answered = self.proposer_answered(&proposing, &hosting.manifest_id, hosting.project.as_deref(), request, hint).await?;
         answered
             .brief
             .read_title(&answered.reply)

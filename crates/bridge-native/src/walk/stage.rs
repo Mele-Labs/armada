@@ -29,6 +29,7 @@ impl Stage {
         crate::terminal::shells::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
+        crate::pairing::begin_mock(walk.scenario, cx);
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -89,6 +90,18 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: held.into(), focus })
             }
+            Screen::Reviews => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let jobs = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let screen = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_reviews(screen, window, cx));
+                let focus = Focus { keys, within: held.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: held.into(), focus })
+            }
             Screen::App => {
                 super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);
@@ -128,6 +141,35 @@ impl Stage {
                 let over = cx.new(|cx| crate::settings::SettingsScreen::mock(held.into(), window, cx));
                 if walk.name == crate::settings::walk::NO_FUNNEL {
                     over.update(cx, |over, cx| over.without_funnel(cx));
+                }
+                if walk.name == crate::settings::walk::OFF_EVERYWHERE {
+                    over.update(cx, |over, cx| over.with_api_bug_off(cx));
+                }
+                if walk.name == crate::settings::walk::MACS_CLAIM {
+                    over.update(cx, |over, cx| over.claim_later(cx));
+                }
+                if walk.name == crate::settings::walk::MACS_SETUP {
+                    over.update(cx, |over, cx| over.fresh_mac(cx));
+                }
+                if walk.name == crate::settings::walk::WAYS {
+                    over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
+                }
+                if walk.name == crate::settings::walk::LANES_ADD {
+                    over.update(cx, |over, cx| over.with_drafted_lane(cx));
+                }
+                if walk.name == crate::settings::walk::DELETE_PROJECT {
+                    over.update(cx, |over, cx| over.with_deletable_projects(cx));
+                }
+                if walk.name == crate::settings::walk::TAKE {
+                    over.update(cx, |over, cx| over.copied_from_base(cx));
+                }
+                if walk.name == crate::settings::walk::WAYS {
+                    // The first-run screen is over all of it, as the app opens on a Fleet that has not been asked.
+                    window.focus(&keys, cx);
+                    let settings = over.read(cx).overlay.clone();
+                    let first = cx.new(|cx| crate::first_run::FirstRunScreen::new(over.into(), settings, None, cx));
+                    let focus = Focus { keys, within: first.read(cx).within.clone() };
+                    return Ok(Stage { view: first.into(), focus });
                 }
                 let focus = Focus { keys, within: over.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
@@ -215,14 +257,14 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::NoteKey => perform(&Step { verb: Verb::Key("alt-cmd-a"), ..*step }, focus, window, cx),
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
-            if !focus.within.contains_focused(window, cx) {
+            if !focus.within.contains_focused(window, cx) && !crate::option_pictures::holds_keys(window, cx) {
                 window.focus(&focus.keys, cx);
             }
             strike(keystroke, window, cx);
             Ok(())
         }
         Verb::Keys(keys) => {
-            if !focus.within.contains_focused(window, cx) {
+            if !focus.within.contains_focused(window, cx) && !crate::option_pictures::holds_keys(window, cx) {
                 window.focus(&focus.keys, cx);
             }
             for key in keys {
@@ -251,6 +293,22 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::CmdPress => {
             let at = find(step, window, cx)?.bounds.center();
             let modifiers = Modifiers { platform: true, ..Modifiers::default() };
+            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
+            Ok(())
+        }
+        Verb::AltPressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| {
+                    let mut named = book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == name);
+                    let first = named.clone().next();
+                    named.find(|drawn| drawn.shown.size.width > px(0.) && drawn.shown.size.height > px(0.)).or(first).cloned()
+                })
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            let at = aim(&reveal(at, window, cx));
+            let modifiers = Modifiers { alt: true, ..Modifiers::default() };
             window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
             Ok(())
@@ -490,6 +548,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::Listen(name) => crate::job_view::listen_scene(name, cx).map_err(Missed),
         Verb::Marks(name) => {
             // A scene is a jump: the keys go back to the screen first, so a chip or a card the scene
             // takes away does not leave them on nothing.
@@ -498,6 +557,18 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             let corner = point(gpui::px(1.), gpui::px(1.));
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: corner, pressed_button: None, modifiers: Modifiers::default() }), cx);
             super::strip_marks::apply(name, cx).map_err(Missed)
+        }
+        Verb::Pairing(name) => {
+            window.focus(&focus.keys, cx);
+            match name {
+                "removed" => JobsList::mock_gone(&[crate::mock::AIR_REMOVED.to_string()], cx).map_err(Missed),
+                // Forgetting Air takes its Jobs from the list as well.
+                "one-mac" => {
+                    crate::pairing::scene(name, cx).map_err(Missed)?;
+                    JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
+                }
+                other => crate::pairing::scene(other, cx).map_err(Missed),
+            }
         }
         Verb::PausedScope => {
             let role = role_named("button").expect("a button is a role");
@@ -576,6 +647,31 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             // The first move past the threshold lifts the row; the list is drawn again so the next move reaches the rows' drop handlers.
             let past = point(start.x, start.y - gpui::px(8.));
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+            });
+            Ok(())
+        }
+        Verb::Carry(role, name, across, down) => {
+            let carried = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), carried, name))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("no {role} named \"{name}\"")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(over.origin.x + over.size.width * (f32::from(across) / 100.), over.origin.y + over.size.height * (f32::from(down) / 100.));
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // Past the threshold the drag starts; drawn again, the next move reaches the drop targets, as `Lift` does.
+            let past = point(start.x, start.y + gpui::px(8.));
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
             window.defer(cx, move |window, cx| {
                 window.draw(cx).clear(cx);

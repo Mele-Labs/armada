@@ -163,6 +163,31 @@ pub fn registered(job_open: bool) -> Vec<Entry> {
         .collect()
 }
 
+/// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
+/// has no row for them. Root Jobs only reads On while the switch is.
+fn fold_commands(list: &JobsList) -> Vec<Entry> {
+    let (any, root_only, _) = list.fold_facts();
+    if !any {
+        return Vec::new();
+    }
+    let command = |id: &str, label: &str, icon: &'static str, on: bool| Entry {
+        id: format!("cmd:{id}"),
+        section: Section::Commands,
+        label: label.into(),
+        icon: Some(icon),
+        shortcut: None,
+        aliases: Vec::new(),
+        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)), when: None }),
+        typed_only: false,
+        ended: false,
+    };
+    vec![
+        command("fold-all", "Fold all sub-Jobs", "list-tree", false),
+        command("unfold-all", "Unfold all sub-Jobs", "list-tree", false),
+        command("root-only", "Root Jobs only", "list-tree", root_only),
+    ]
+}
+
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
     held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
@@ -192,6 +217,10 @@ pub fn without_of(job: &SessionRecord) -> Vec<&'static str> {
 
 fn is_paused(job: &SessionRecord) -> bool {
     job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some())
+}
+
+fn is_snoozed(job: &SessionRecord) -> bool {
+    job.snoozed_until.is_some()
 }
 
 /// A Job as a row. An ended or quiet Job is a row too, found only while something is typed; an ended one ranks
@@ -310,9 +339,11 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
             return lines;
         }
     }
+    // The fold commands are found by typing, so the list a person opens on keeps the blocks it has.
     let mut found: Vec<(u32, usize)> = entries
         .iter()
         .enumerate()
+        .filter(|(_, entry)| typed || !entry.id.starts_with("cmd:"))
         .filter_map(|(at, entry)| rank(query, entry, memory.aliases.get(&entry.id).map(String::as_str)).map(|rank| (rank, at)))
         .collect();
     if !typed {
@@ -359,18 +390,22 @@ pub struct RowAct {
     pub stays: bool,
     pub destructive: bool,
     pub takes: Option<Takes>,
+    /// Why it cannot run now, said in its tooltip: the Job runs on another Mac. The act is listed, off.
+    pub off: Option<String>,
 }
 
 fn act(id: &'static str, label: &str, icon: Option<&'static str>, chord: Option<&'static str>) -> RowAct {
-    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None }
+    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None, off: None }
 }
 
 /// What a Job row's panel offers (`ownActs`). `without` is the acts nothing answers for this Job, by act id.
-pub fn job_acts(paused: bool, pinned: bool, has_pull: bool, without: &[&str]) -> Vec<RowAct> {
+pub fn job_acts(paused: bool, snoozed: bool, pinned: bool, has_pull: bool, without: &[&str]) -> Vec<RowAct> {
     let apart = |one: RowAct| RowAct { apart: true, ..one };
     let all = [
         Some(act("open", "Open", None, Some("\u{21b5}"))),
         Some(if paused { act("pause", "Resume", Some("play"), Some("\u{2318}P")) } else { act("pause", "Pause", Some("pause"), Some("\u{2318}P")) }),
+        // ⌥⌘Z: ⌘Z and ⇧⌘Z undo and redo a pane, and the bare Z a row answers is typing in here.
+        Some(if snoozed { act("wake", "Wake now", Some("bell"), Some("\u{2325}\u{2318}Z")) } else { act("snooze", "Snooze", Some("bell-off"), Some("\u{2325}\u{2318}Z")) }),
         Some(act("fork", "Fork", Some("git-fork"), Some("\u{2325}\u{2318}F"))),
         has_pull.then(|| apart(act("open-pull", "Open pull request", Some("git-pull-request"), Some("\u{21e7}\u{2318}P")))),
         has_pull.then(|| act("merge-pull", "Merge pull request", Some("git-merge"), Some("\u{21e7}\u{2318}M"))),
@@ -607,6 +642,7 @@ impl Palette {
         let mut entries = registered(on.is_some());
         // New Job here only where a quick Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
+        entries.extend(fold_commands(list));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -722,7 +758,20 @@ impl Palette {
             Some(id) => {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
-                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without_of(job));
+                let mut acts = job_acts(is_paused(job), is_snoozed(job), pinned, held_pull(job).is_some(), &without_of(job));
+                // A Job on another Mac is read here: the acts that go to Fleet are listed, off, with why, but for Stop and
+                // Merge, which Fleet carries to that Mac.
+                for one in acts.iter_mut() {
+                    let route = match one.id {
+                        "pause" => "/sessions/pause",
+                        "snooze" | "wake" => "/sessions/snooze",
+                        "fork" => "/sessions/start",
+                        "merge-pull" => "/pull_requests/:repository/:number/merge",
+                        "stop" => "/sessions/stop",
+                        _ => continue,
+                    };
+                    one.off = crate::pairing::refusal_to(job, route, cx).or(one.off.take());
+                }
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
@@ -838,6 +887,9 @@ impl Palette {
 
     /// Run an act on a row. The row says it is going in this frame; a refusal is said in the panel.
     fn run_for(&mut self, entry: &Entry, act: RowAct, window: &mut Window, cx: &mut Context<Self>) {
+        if act.off.is_some() {
+            return;
+        }
         // An act that asks for a word or a chord turns the panel's field into that ask first.
         if let Some(takes) = act.takes {
             let placeholder = if takes == Takes::Word { "Type a word" } else { "Press a chord" };
@@ -864,6 +916,13 @@ impl Palette {
                 self.keep(cx);
                 self.close(window, cx);
                 self.list.update(cx, |list, cx| list.open(job.into(), cx));
+            }
+            ("run", None) if entry.id.starts_with("cmd:") => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                let command = entry.id.trim_start_matches("cmd:").to_string();
+                self.list.update(cx, |list, cx| list.fold_command(&command, cx));
             }
             ("run", None) => {
                 self.memory.used(&entry.id);
@@ -910,6 +969,19 @@ impl Palette {
                 cx.notify();
             }
             (id @ ("pause" | "fork" | "open-pull" | "merge-pull"), Some(job)) => self.go(id, job, window, cx),
+            // Snooze asks for its presets and Wake now posts at once: neither waits on the palette, which shuts.
+            ("snooze", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                crate::dispatch::screen::snooze_ask(job.into(), entry.label.clone().into(), None, cx);
+            }
+            ("wake", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| list.snooze(&job, None, cx));
+            }
             _ => {}
         }
     }
@@ -1104,7 +1176,9 @@ impl Palette {
         match entry.id.strip_prefix("session:") {
             Some(job) => self.list.update(cx, |list, cx| list.open(job.to_string().into(), cx)),
             None => {
-                if let Some(row) = entry.id.strip_prefix("act:").and_then(|id| ACTIONS.iter().find(|row| row.id == id)) {
+                if let Some(command) = entry.id.strip_prefix("cmd:") {
+                    self.list.update(cx, |list, cx| list.fold_command(command, cx));
+                } else if let Some(row) = entry.id.strip_prefix("act:").and_then(|id| ACTIONS.iter().find(|row| row.id == id)) {
                     window.dispatch_action(Box::new(Act { id: row.id, slot: 0, digit: None }), cx);
                 }
             }
@@ -1374,7 +1448,14 @@ impl Palette {
         let rows = acts.iter().enumerate().map(|(at, shown)| {
             let on = panel.cursor == at;
             let going = panel.going == Some(shown.id);
-            let ink = if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_DEFAULT };
+            let ink = if shown.off.is_some() {
+                token::FG_SUBTLE
+            } else if shown.destructive {
+                token::STATUS_COMPLETED_FAILED
+            } else {
+                token::FG_DEFAULT
+            };
+            let off = shown.off.clone().map(SharedString::from);
             let run = shown.clone();
             let held = match shown.id {
                 "set-alias" => self.memory.aliases.get(&entry.id).cloned(),
@@ -1397,15 +1478,19 @@ impl Palette {
                 on,
             )
             .when(going, |row| row.opacity(0.5))
+            .when_some(off, |row, why| row.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
             .child(match shown.icon {
-                Some(icon) => glyph(look, icon, look.color(if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
+                Some(icon) => glyph(look, icon, look.color(if shown.off.is_some() { token::FG_SUBTLE } else if shown.destructive { token::STATUS_COMPLETED_FAILED } else { token::FG_MUTED })).into_any_element(),
                 None => div().flex_none().size(look.length(token::SPACE_4)).into_any_element(),
             })
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.label.clone())))
             .children(held.map(|value| {
                 div().flex_none().max_w_1_2().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(value))
             }))
-            .children(shown.chord.map(|chord| kbd(look, chord)))
+            .children(shown.chord.map(|chord| {
+                let cap = kbd(look, chord);
+                if shown.off.is_some() { cap.text_color(look.color(token::FG_SUBTLE)) } else { cap }
+            }))
             .on_click(cx.listener(move |this, _, window, cx| this.run_act(run.clone(), window, cx)));
             div()
                 .flex()
@@ -1833,7 +1918,7 @@ mod tests {
         let ended = all.iter().find(|job| job.state == SessionState::Ended).expect("an ended Job");
         let row = job_entry(ended).expect("a row");
         let meta = row.meta.as_ref().expect("meta");
-        assert_eq!(meta.state, Some(("unplug", "Ended".to_string(), hue_of(JobState::Ended))));
+        assert_eq!(meta.state, Some(("power-off", "Ended".to_string(), hue_of(JobState::Ended))));
         let at = chrono::DateTime::parse_from_rfc3339(ended.ended_at.as_ref().expect("an end").as_str()).expect("an instant").with_timezone(&chrono::Local);
         assert_eq!(meta.when, Some((at.format("%b %-d %H:%M").to_string(), "Ended")));
         let quiet = all.iter().find(|job| job.mark.is_some_and(|mark| mark.state == JobState::Quiet)).expect("a quiet Job");
@@ -1853,13 +1938,20 @@ mod tests {
 
     #[test]
     fn a_job_that_holds_a_pull_request_has_the_two_pull_acts_and_one_that_does_not_has_neither() {
-        assert_eq!(ids(job_acts(false, false, true, &[])), ["open", "pause", "fork", "open-pull", "merge-pull", "copy-id", "pin", "stop"]);
-        assert_eq!(ids(job_acts(false, false, false, &[])), ["open", "pause", "fork", "copy-id", "pin", "stop"]);
+        assert_eq!(ids(job_acts(false, false, false, true, &[])), ["open", "pause", "snooze", "fork", "open-pull", "merge-pull", "copy-id", "pin", "stop"]);
+        assert_eq!(ids(job_acts(false, false, false, false, &[])), ["open", "pause", "snooze", "fork", "copy-id", "pin", "stop"]);
+    }
+
+    #[test]
+    fn snooze_reads_wake_now_when_snoozed_and_keeps_its_chord() {
+        let label = |snoozed: bool| job_acts(false, snoozed, false, false, &[]).into_iter().find(|act| matches!(act.id, "snooze" | "wake")).map(|act| (act.id, act.label, act.chord));
+        assert_eq!(label(false), Some(("snooze", "Snooze".to_string(), Some("\u{2325}\u{2318}Z"))));
+        assert_eq!(label(true), Some(("wake", "Wake now".to_string(), Some("\u{2325}\u{2318}Z"))));
     }
 
     #[test]
     fn pause_reads_resume_when_paused_and_pin_reads_unpin_when_pinned() {
-        let acts = job_acts(true, true, false, &[]);
+        let acts = job_acts(true, false, true, false, &[]);
         let label = |id: &str| acts.iter().find(|act| act.id == id).map(|act| act.label.clone());
         assert_eq!(label("pause").as_deref(), Some("Resume"));
         assert_eq!(label("pin").as_deref(), Some("Unpin"));
@@ -1867,7 +1959,7 @@ mod tests {
 
     #[test]
     fn an_act_nothing_answers_for_the_job_is_left_out() {
-        let acts = job_acts(false, false, true, &["fork", "merge-pull"]);
+        let acts = job_acts(false, false, false, true, &["fork", "merge-pull"]);
         assert!(!acts.iter().any(|act| act.id == "fork" || act.id == "merge-pull"));
         assert!(acts.iter().any(|act| act.id == "open-pull"));
     }
@@ -1887,13 +1979,13 @@ mod tests {
         job.attachments.last_mut().expect("the pull").state = AttachmentState::Spent;
         assert_eq!(without_of(&job), ["merge-pull"]);
         assert!(pull_of(&job).is_none() && held_pull(&job).is_some_and(|(_, number, open)| number == 412 && !open));
-        let acts = ids(job_acts(false, false, true, &without_of(&job)));
+        let acts = ids(job_acts(false, false, false, true, &without_of(&job)));
         assert!(acts.contains(&"open-pull") && !acts.contains(&"merge-pull"));
     }
 
     #[test]
     fn the_job_acts_keep_their_chords_their_rules_and_what_stays_up() {
-        let acts = job_acts(false, false, true, &[]);
+        let acts = job_acts(false, false, false, true, &[]);
         let at = |id: &str| acts.iter().find(|act| act.id == id).expect(id).clone();
         assert_eq!(at("pause").chord, Some("\u{2318}P"));
         assert_eq!(at("fork").chord, Some("\u{2325}\u{2318}F"));
@@ -1968,5 +2060,26 @@ mod tests {
         memory.hotkeys.insert("session:mock-01".into(), "\u{2325}\u{2318}1".into());
         memory.opens = Opens::Everything;
         assert_eq!(Memory::parse(&memory.text()), memory);
+    }
+
+    #[gpui::test]
+    fn the_fold_commands_are_offered_where_a_job_has_sub_jobs_and_root_jobs_only_reads_on(cx: &mut gpui::TestAppContext) {
+        let tree = crate::mock::jobs("jobs-tree").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&tree, cx));
+        let labels = |list: &JobsList| fold_commands(list).iter().map(|entry| (entry.label.clone(), entry.meta.is_some(), entry.kind())).collect::<Vec<_>>();
+        let said = |label: &str, on: bool| (label.to_string(), on, "Command");
+        list.read_with(cx, |list, _| {
+            assert_eq!(labels(list), [said("Fold all sub-Jobs", false), said("Unfold all sub-Jobs", false), said("Root Jobs only", false)]);
+        });
+        list.update(cx, |list, cx| list.fold_command("root-only", cx));
+        list.read_with(cx, |list, _| assert_eq!(labels(list)[2], said("Root Jobs only", true)));
+        // A list with no sub-Jobs offers none of them.
+        let flat: Vec<SessionRecord> = tree.into_iter().map(|mut job| { job.attachments.retain(|one| one.kind != "started_by"); job }).collect();
+        let flat = cx.new(|cx| JobsList::mock(&flat, cx));
+        flat.read_with(cx, |list, _| assert!(fold_commands(list).is_empty()));
+        // Nothing typed, they stay out of the list the palette opens on; a word finds them.
+        let entries = list.read_with(cx, |list, _| fold_commands(list));
+        let rows = |query: &str| lines_of(&entries, query, None, Opens::Everything, &Memory::default()).iter().filter(|line| matches!(line, Line::Row(_))).count();
+        assert_eq!((rows(""), rows("fold") > 0, rows("root")), (0, true, 1));
     }
 }

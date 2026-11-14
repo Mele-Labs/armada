@@ -356,6 +356,10 @@ impl Dropdown {
         let look = cx.look();
         let has_icons = self.entries.iter().any(|entry| matches!(entry, Entry::Act { icon: Some(_), .. } | Entry::Item { icon: Some(_), .. } | Entry::Row(Row { icon: Some(_), .. })));
         let has_checks = self.entries.iter().any(|entry| matches!(entry, Entry::Toggle { .. } | Entry::Choice { .. } | Entry::Row(Row { ticked: Some(_), .. })));
+        // Where a menu holds an act that is off, the acts that are on stand in --fg-default, as Classic's item does,
+        // so off (--fg-subtle) reads as off without a hover: the muted step sits too near it.
+        let has_off = self.entries.iter().any(|entry| matches!(entry, Entry::Item { off: Some(_), .. } | Entry::Row(Row { off: Some(_), .. })));
+        let on_ink = if has_off { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let glyph = look.length(token::SPACE_4);
         match &self.entries[at] {
             Entry::Rule => div()
@@ -453,7 +457,7 @@ impl Dropdown {
                 } else if row.ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
-                    look.color(token::FG_MUTED)
+                    on_ink
                 };
                 let role = if row.ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 let (id, label) = (row.id, row.label.clone());
@@ -522,7 +526,7 @@ impl Dropdown {
                 } else if ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
-                    look.color(token::FG_MUTED)
+                    on_ink
                 };
                 let role = if ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 labelled(
@@ -602,7 +606,12 @@ impl Render for Dropdown {
                         .id("menu")
                         .track_focus(&self.focus)
                         .capture_key_down(cx.listener(Self::on_key))
-                        .on_mouse_down_out(cx.listener(|_, _, _, cx| cx.emit(DismissEvent)))
+                        // A press on a walk's bar, outside the app's room, leaves the menu open for the step that picks from it.
+                        .on_mouse_down_out(cx.listener(|_, event: &gpui::MouseDownEvent, window, cx| {
+                            if crate::room::of(window, cx).contains(&event.position) {
+                                cx.emit(DismissEvent);
+                            }
+                        }))
                         .occlude()
                         // Room for a detail after a name. A menu with a filter field is a long one, so it
                         // scrolls under the field; any other runs its length, kept inside the window.

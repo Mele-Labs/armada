@@ -74,7 +74,7 @@ where
                 &format!("job {id} follows no workflow, so it has no step to skip"),
             ));
         };
-        if !self.workflow_on(&hosting.manifest_id, workflow) {
+        if !self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
                 "this Job's workflow is switched off in Settings, so it has no step to skip",
@@ -175,7 +175,7 @@ where
                 &format!("job {id} follows no workflow, so it has no step to move to"),
             ));
         };
-        if !self.workflow_on(&hosting.manifest_id, workflow) {
+        if !self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow) {
             return Err(self.hosted_refusal(
                 WORKFLOWS_OFF,
                 "this Job's workflow is switched off in Settings, so it has no step to move to",

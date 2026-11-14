@@ -31,6 +31,23 @@ A page asks without the mark while your plan has a `document_approved` gate
 open, or the workflow step you are on ends on `document_approved`. Then each
 new revision asks again, and his approval of an older one is refused.
 
+## What it is for
+
+A page may say what it is for in one line shown under its title. Put it in the
+`<head>`:
+
+```html
+<meta name="armada-for" content="Picks the store the lease reads; your answer decides which one is built.">
+<link rel="armada-for" href="https://example.com/issues/7" title="Issue 7">
+```
+
+The `content` is one sentence: what the page serves and what his answer
+changes. Fleet keeps the first 200 characters. Each `<link rel="armada-for">`
+links what it serves. Fleet keeps the first 5 whose `href` starts `http://` or
+`https://`, and tells you which it dropped. Fleet adds the task you have in
+progress, its plan step and the open pull requests you hold, so leave those
+out.
+
 ## The skeleton
 
 ```html
@@ -115,14 +132,17 @@ notice.** The write is not refused, so fix the scene and write again. The rules:
 | Edge | `from` and `to` are ids of nodes in the scene |
 | Node `kind` | `box`, `group`, `lane`, `label`, `code`. A `group` and a `lane` need `w` and `h` |
 | Node fields | `id`, `kind`, `x`, `y`, and optionally `w`, `h`, `title`, `body`, `icon`, `lang`, `step`, `shape`, `color` |
-| Edge fields | `id`, `from`, `to`, and optionally `label`, `flow`, `step`, `color` |
+| Edge fields | `id`, `from`, `to`, and optionally `label`, `flow`, `step`, `color`, `line`, `head`, `path` |
 | `icon` | One of: activity, bot, box, clock, cpu, eye, file, git-branch, git-merge, globe, hammer, hard-drive, layers, lock, package, rocket, scale, scroll-text, server, settings, shield-check, terminal, webhook, wrench, zap |
 | `shape` | `box`, `pill`, `circle`, `diamond`, `cylinder`, `hexagon` |
 | `color` | `blue`, `teal`, `green`, `amber`, `orange`, `red`, `grey` |
+| `line` | `solid` (the default), `dashed` or `dotted`. Dotted for an optional or later step. `flow: true` is dashed |
+| `head` | `end` (the default), `start`, `both` or `none`. Both for a two-way exchange, none for a plain link |
+| `path` | `elbow` (the default), `straight` or `curve`. Straight for a short hop, curve where elbows would cross |
 | `step` | A finite number. Nodes and edges of one number play together, in order |
 | Layout | Boxes are laid out from `x` and `y`. Space them about 330 apart across and 170 down, and Bridge moves them only as far as overlap needs |
 
-An unknown `kind`, `icon`, `shape` or `color`, a duplicate id or an edge to a
+An unknown `kind`, `icon`, `shape`, `color`, `line`, `head` or `path`, a duplicate id or an edge to a
 missing node fails the whole scene. Use `color` for meaning: `red` for what
 fails, `amber` for what is unknown, `green` for what works. Leave the rest
 uncoloured.

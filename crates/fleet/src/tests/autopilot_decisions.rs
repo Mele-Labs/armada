@@ -401,6 +401,7 @@ async fn a_draft_is_approved_as_written() {
                 before: None,
                 pull_request: None,
                 session_id: Some(id.clone()),
+                ..Default::default()
             },
         )
         .await

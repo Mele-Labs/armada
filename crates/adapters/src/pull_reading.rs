@@ -13,7 +13,7 @@ const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
 /// What the pull reading reads of each pull request, in the list's query and in the by-number one.
 const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
-    mergeQueueEntry{state} \
+    mergeQueueEntry{state} isDraft reviewDecision \
     commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
     ... on CheckRun{name status conclusion detailsUrl startedAt completedAt} \
     ... on StatusContext{context state targetUrl}}}}}}}";
@@ -36,7 +36,8 @@ pub(crate) fn one_query() -> String {
 
 /// One pull request a line: number, branch, address, head, mergeability, queue state, then its
 /// checks (RS apart) of name, status, conclusion, address and seconds it ran (US apart), then the
-/// author's login, the title, and `1` where auto-merge is on.
+/// author's login, the title, `1` where auto-merge is on, `1` where it is a draft, and the
+/// forge's review decision.
 const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (.url // \"\"), (.headRefOid // \"\"), (.mergeable // \"\"), (.mergeQueueEntry.state // \"\"), \
     ([.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]? | \
@@ -45,7 +46,8 @@ const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
     (if .startedAt and .completedAt then ((.completedAt | fromdateiso8601) - \
     (.startedAt | fromdateiso8601)) else 0 end | tostring)] | join(\"\\u001f\")] \
     | join(\"\\u001e\")), (.author.login // \"\"), (.title // \"\"), \
-    (if .autoMergeRequest then \"1\" else \"0\" end)] | @tsv";
+    (if .autoMergeRequest then \"1\" else \"0\" end), \
+    (if .isDraft then \"1\" else \"0\" end), (.reviewDecision // \"\")] | @tsv";
 
 /// Every open pull request, `None` where the forge would not answer.
 pub(crate) fn read(in_repo: &str, gate: &str) -> Option<FollowedPulls> {
@@ -101,6 +103,8 @@ pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<FollowedPull> {
     let author = field.next().unwrap_or_default();
     let title = field.next().unwrap_or_default();
     let auto_merge = field.next() == Some("1");
+    let draft = field.next() == Some("1");
+    let review = field.next().unwrap_or_default();
     let checks = rollup
         .split('\u{1e}')
         .filter(|one| !one.is_empty())
@@ -132,6 +136,8 @@ pub(crate) fn pull_of_line(line: &str, gate: &str) -> Option<FollowedPull> {
             checks,
             title: as_written(title),
             auto_merge,
+            draft,
+            review: review.to_string(),
         },
         gate,
     ))
@@ -158,11 +164,14 @@ pub(crate) struct FollowedPullRead {
     pub(crate) checks: Vec<FollowedRead>,
     pub(crate) title: String,
     pub(crate) auto_merge: bool,
+    pub(crate) draft: bool,
+    /// The forge's `reviewDecision`, empty where the base needs no review.
+    pub(crate) review: String,
 }
 
 /// What the pull reading holds of one pull request, the vendor's words stopped here.
 pub(crate) fn followed_built(read: FollowedPullRead, gate: &str) -> FollowedPull {
-    let FollowedPullRead { number, branch, url, author, head, mergeable, queue, checks, title, auto_merge } = read;
+    let FollowedPullRead { number, branch, url, author, head, mergeable, queue, checks, title, auto_merge, draft, review } = read;
     let mut checks: Vec<FollowedCheck> = checks
         .into_iter()
         .map(|one| {
@@ -193,6 +202,8 @@ pub(crate) fn followed_built(read: FollowedPullRead, gate: &str) -> FollowedPull
         checks,
         title: (!title.is_empty()).then(|| FromOutside::verbatim(title)),
         auto_merge,
+        draft,
+        approved: review.eq_ignore_ascii_case("approved"),
     }
 }
 

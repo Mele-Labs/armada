@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use gpui::{canvas, div, prelude::*, px, svg, AnyElement, App, Context, Entity, FocusHandle, Focusable, FontWeight, Keystroke, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{SettingValue, WorkflowSummary};
+use ipc::{ResolvedWorkflow, SettingValue, ValueLayer, WorkflowSummary};
 
 use super::overlay::SettingsOverlay;
 use super::view::{bone, mono, ringed, small, switch_track, tip};
@@ -21,12 +21,14 @@ use crate::look::{token, Look};
 pub const FOR_JOBS: &str = "features.workflows";
 pub const OFF: &str = "workflows.off";
 
-/// Where a definition is kept, as the page names Fleet's `armada`, `repository` and `kit`.
+/// Where a definition is kept, as the page names Fleet's `armada`, `repository`, `kit` and `project`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
     Armada,
     Repository,
     Yours,
+    /// One project's copy; the row's `project` says whose.
+    Project,
 }
 
 fn place_of(wire: &str) -> Option<Place> {
@@ -34,6 +36,7 @@ fn place_of(wire: &str) -> Option<Place> {
         "armada" => Some(Place::Armada),
         "repository" => Some(Place::Repository),
         "kit" => Some(Place::Yours),
+        "project" => Some(Place::Project),
         _ => None,
     }
 }
@@ -47,6 +50,8 @@ pub struct Listed {
     /// The repository a row of Armada's or Yours runs in, where it keeps no copy of its own.
     pub runs_in: Option<String>,
     pub for_requests: Option<String>,
+    /// The project whose copy this is, where `place` is `Project`.
+    pub project: Option<String>,
 }
 
 impl Listed {
@@ -56,9 +61,12 @@ impl Listed {
             Place::Armada => "armada",
             Place::Repository => "repository",
             Place::Yours => "yours",
+            Place::Project => "project",
         };
         let at = match (&self.place, &self.runs_in) {
             (Place::Repository, _) => format!("@{}", self.manifest),
+            (Place::Project, None) => format!("/{}", self.project.as_deref().unwrap_or_default()),
+            (Place::Project, Some(runs_in)) => format!("/{}>{runs_in}", self.project.as_deref().unwrap_or_default()),
             (_, Some(runs_in)) => format!(">{runs_in}"),
             _ => String::new(),
         };
@@ -83,10 +91,10 @@ pub fn listed_of(workflows: &[WorkflowSummary], served: &[String]) -> Vec<Listed
     for one in workflows {
         let Some(place) = place_of(&one.source) else { continue };
         let manifest = one.manifest_id.as_str().to_string();
-        add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone() }, &mut out);
+        add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: one.for_requests.clone(), project: one.project.clone() }, &mut out);
         for under in &one.overrides {
             if let Some(place) = place_of(&under.source) {
-                add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: None }, &mut out);
+                add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: None, for_requests: None, project: under.project.clone() }, &mut out);
             }
         }
     }
@@ -97,7 +105,7 @@ pub fn listed_of(workflows: &[WorkflowSummary], served: &[String]) -> Vec<Listed
             if one.manifest_id.as_str() != manifest || place == Place::Repository || keeps.contains(&format!("{manifest}/{}", one.id.as_str())) {
                 continue;
             }
-            add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: Some(manifest.clone()), for_requests: one.for_requests.clone() }, &mut out);
+            add(Listed { id: one.id.as_str().to_string(), place, manifest: manifest.clone(), runs_in: Some(manifest.clone()), for_requests: one.for_requests.clone(), project: one.project.clone() }, &mut out);
         }
     }
     let ran = |one: &Listed| {
@@ -122,39 +130,87 @@ pub struct Group {
     pub label: String,
     pub rows: Vec<Listed>,
     pub at: Option<(String, String)>,
+    /// The project a repository's group is drawn under, on Every project.
+    pub under: Option<String>,
 }
 
-/// Shipped with Armada, each repository's, then Yours, each with what the search keeps.
-pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String) -> Vec<Group> {
+/// A project and the repositories it keeps, by Manifest id, in its order.
+pub struct Kept {
+    pub id: String,
+    pub name: String,
+    pub repositories: Vec<String>,
+}
+
+/// The list as the Editing picker has it.
+///
+/// **Every project:** Shipped with Armada, then each project's repositories under its name, then the repositories
+/// no project keeps, then Yours.
+/// **A project picked:** each of its repositories, the project's own copies, then what it inherits: Shipped with
+/// Armada and Yours. Another project's copies are not drawn.
+/// Each with what the search keeps.
+pub fn groups_of(rows: &[Listed], query: &str, name_of: &dyn Fn(&str) -> String, project: Option<&(String, String)>, kept: &[Kept]) -> Vec<Group> {
     let wanted = query.trim().to_lowercase();
-    let found: Vec<&Listed> = rows.iter().filter(|one| one.id.to_lowercase().contains(&wanted)).collect();
-    let mut groups = vec![Group { label: "Shipped with Armada".into(), rows: found.iter().filter(|one| one.place == Place::Armada && one.runs_in.is_none()).map(|one| (*one).clone()).collect(), at: None }];
-    let mut manifests: Vec<&str> = Vec::new();
-    for one in found.iter().filter(|one| one.in_repository()) {
-        if !manifests.contains(&one.manifest.as_str()) {
-            manifests.push(&one.manifest);
+    let found: Vec<&Listed> = rows
+        .iter()
+        .filter(|one| one.id.to_lowercase().contains(&wanted))
+        .filter(|one| project.is_none_or(|(id, _)| one.place != Place::Project || one.project.as_deref() == Some(id.as_str())))
+        .collect();
+    let place = |place: Place| -> Vec<Listed> { found.iter().filter(|one| one.place == place && one.runs_in.is_none()).map(|one| (*one).clone()).collect() };
+    let in_repository = |manifest: &str, label: String, under: Option<String>| Group {
+        label,
+        rows: found.iter().filter(|one| one.in_repository() && one.manifest == manifest).map(|one| (*one).clone()).collect(),
+        at: Some((manifest.to_string(), name_of(manifest))),
+        under,
+    };
+    let shipped = Group { label: "Shipped with Armada".into(), rows: place(Place::Armada), at: None, under: None };
+    let yours = Group { label: "Yours".into(), rows: place(Place::Yours), at: None, under: None };
+    let mut groups = Vec::new();
+    match project {
+        Some((id, name)) => {
+            for manifest in kept.iter().find(|one| one.id == *id).map(|one| one.repositories.as_slice()).unwrap_or_default() {
+                groups.push(in_repository(manifest, name_of(manifest), None));
+            }
+            let own = found.iter().filter(|one| one.place == Place::Project && one.runs_in.is_none() && one.project.as_deref() == Some(id.as_str()));
+            groups.push(Group { label: format!("{name} project"), rows: own.map(|one| (*one).clone()).collect(), at: None, under: None });
+            groups.extend([shipped, yours]);
+        }
+        None => {
+            groups.push(shipped);
+            let mut manifests: Vec<&str> = Vec::new();
+            for one in found.iter().filter(|one| one.in_repository()) {
+                if !manifests.contains(&one.manifest.as_str()) {
+                    manifests.push(&one.manifest);
+                }
+            }
+            let mut placed: Vec<&str> = Vec::new();
+            // A repository two projects keep is drawn once, under the first.
+            for each in kept {
+                for manifest in each.repositories.iter().map(String::as_str) {
+                    if !manifests.contains(&manifest) || placed.contains(&manifest) {
+                        continue;
+                    }
+                    placed.push(manifest);
+                    groups.push(in_repository(manifest, format!("{} repository", name_of(manifest)), Some(each.name.clone())));
+                }
+            }
+            for manifest in manifests.into_iter().filter(|manifest| !placed.contains(manifest)) {
+                groups.push(in_repository(manifest, format!("{} repository", name_of(manifest)), None));
+            }
+            groups.push(yours);
         }
     }
-    for manifest in manifests {
-        let name = name_of(manifest);
-        groups.push(Group {
-            label: format!("{name} repository"),
-            rows: found.iter().filter(|one| one.in_repository() && one.manifest == manifest).map(|one| (*one).clone()).collect(),
-            at: Some((manifest.to_string(), name)),
-        });
-    }
-    groups.push(Group { label: "Yours".into(), rows: found.iter().filter(|one| one.place == Place::Yours && one.runs_in.is_none()).map(|one| (*one).clone()).collect(), at: None });
     groups.retain(|group| !group.rows.is_empty());
     groups
 }
 
 /// In a repository's group, the mark of a row that is not shipped with Armada: the repository's own copy, or Yours
 /// (`customOf`). Its glyph and what its tooltip says.
-fn custom_of(one: &Listed, rows: &[Listed], name: &str) -> Option<(&'static str, String)> {
+fn custom_of(one: &Listed, rows: &[Listed], name: &str, project_name: &dyn Fn(&str) -> String) -> Option<(&'static str, String)> {
     let replaces = if rows.iter().any(|other| other.id == one.id && other.place == Place::Armada) { ", replaces Armada's" } else { "" };
     match one.place {
         Place::Repository => Some(("folder-git-2", format!("{name}'s own copy{replaces}"))),
         Place::Yours => Some(("briefcase", format!("Yours{replaces}"))),
+        Place::Project => Some(("layers", format!("{} project's copy{replaces}", project_name(one.project.as_deref().unwrap_or_default())))),
         Place::Armada => None,
     }
 }
@@ -166,6 +222,9 @@ fn replaces_of(one: &Listed, rows: &[Listed]) -> Option<&'static str> {
         Place::Repository if has(Place::Armada) => Some("This repository's copy replaces Armada's"),
         Place::Yours if has(Place::Repository) => Some("Yours replaces this repository's"),
         Place::Yours if has(Place::Armada) => Some("Yours replaces Armada's"),
+        Place::Project if has(Place::Yours) => Some("This project's copy replaces Yours"),
+        Place::Project if has(Place::Repository) => Some("This project's copy replaces this repository's"),
+        Place::Project if has(Place::Armada) => Some("This project's copy replaces Armada's"),
         _ => None,
     }
 }
@@ -224,11 +283,34 @@ pub fn switched(off: &Off, id: &str, on: bool, manifest: Option<&str>) -> Settin
     )
 }
 
-/// What a row's switch draws: on or off where it switches, or the machine's off in its place.
+/// What a row's switch draws: on or off where it switches, or the machine's or a repository's off in its place.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RowSwitch {
     Switch { on: bool, label: String },
     OffOnMachine,
+    /// Off in the repository named, drawn under a project: a project cannot switch back on what its repository switched off.
+    OffInRepository(String),
+    /// Off in every repository the project keeps, on a row of no one repository (Fleet's `from: "repository"`).
+    OffInEveryRepository,
+}
+
+/// A row's switch under a project: the project's own, where the machine and the row's repository leave the workflow on.
+/// **Off wins**, so where either switched it off it is drawn off with that layer named, and no switch. A row of no
+/// repository is off in every repository where Fleet says so: every repository the project keeps switched it off.
+pub fn project_switch(off: &Off, resolved: &[ResolvedWorkflow], id: &str, at: Option<&(String, String)>, project: &str) -> RowSwitch {
+    let held = resolved.iter().find(|one| one.id == id);
+    if off.machine.iter().any(|one| one == id) || held.is_some_and(|one| one.from == ValueLayer::Machine) {
+        return RowSwitch::OffOnMachine;
+    }
+    let holds = |manifest: &str| off.repositories.get(manifest).is_some_and(|ids| ids.iter().any(|one| one == id));
+    let from_repository = held.is_some_and(|one| one.from == ValueLayer::Repository);
+    match at {
+        Some((manifest, name)) if holds(manifest) || from_repository => return RowSwitch::OffInRepository(name.clone()),
+        None if from_repository => return RowSwitch::OffInEveryRepository,
+        _ => {}
+    }
+    let on = held.is_none_or(|one| one.on);
+    RowSwitch::Switch { on, label: format!("{} in {project}", if on { "On" } else { "Off" }) }
 }
 
 pub fn row_switch(off: &Off, id: &str, at: Option<&(String, String)>) -> RowSwitch {
@@ -298,8 +380,38 @@ impl SettingsOverlay {
         let rows = self.workflow_rows(cx)?;
         let names = self.wire.repositories(cx).unwrap_or_default();
         let name_of = |manifest: &str| names.iter().find(|(id, _, _)| id == manifest).map_or_else(|| manifest.to_string(), |(_, name, _)| name.clone());
-        let groups = groups_of(&rows, query, &name_of);
+        // A project's repositories are in the list Fleet gave Settings: until it has, the project's list is not known.
+        let projects = self.scope.projects.as_ref();
+        if self.scope.project.is_some() && projects.is_none() {
+            return None;
+        }
+        let kept: Vec<Kept> = projects
+            .map(|all| {
+                all.projects
+                    .iter()
+                    .filter(|one| one.unread.is_none())
+                    .map(|one| {
+                        let mut repositories: Vec<String> = Vec::new();
+                        for member in &one.members {
+                            if !repositories.iter().any(|held| held == member.manifest_id.as_str()) {
+                                repositories.push(member.manifest_id.as_str().to_string());
+                            }
+                        }
+                        Kept { id: one.id.clone(), name: one.name.clone(), repositories }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let groups = groups_of(&rows, query, &name_of, self.scope.project.as_ref(), &kept);
         Some((rows, groups))
+    }
+
+    /// A row's switch: the project's under a project picked, else the machine's or the row's repository's.
+    fn switch_of(&self, off: &Off, id: &str, at: Option<&(String, String)>) -> RowSwitch {
+        match &self.scope.project {
+            Some((_, name)) => project_switch(off, self.scope.values.as_ref().map_or(&[][..], |values| values.workflows.as_slice()), id, at, name),
+            None => row_switch(off, id, at),
+        }
     }
 
     /// Every row's switch whatever is searched, for ⌘K: its key, what it switches, and whether it is on.
@@ -310,12 +422,16 @@ impl SettingsOverlay {
             .into_iter()
             .flat_map(|group| {
                 let off = off.clone();
-                group.rows.into_iter().filter_map(move |one| match row_switch(&off, &one.id, group.at.as_ref()) {
+                group.rows.into_iter().filter_map(move |one| match self.switch_of(&off, &one.id, group.at.as_ref()) {
                     RowSwitch::Switch { on, .. } => {
-                        let said = group.at.as_ref().map_or_else(|| format!("{} on this machine", one.id), |(_, name)| format!("{} in {name}", one.id));
+                        let said = match (&self.scope.project, group.at.as_ref()) {
+                            (Some((_, project)), _) => format!("{} in {project}", one.id),
+                            (None, None) => format!("{} on this machine", one.id),
+                            (None, Some((_, name))) => format!("{} in {name}", one.id),
+                        };
                         Some((one.key(), said, on))
                     }
-                    RowSwitch::OffOnMachine => None,
+                    RowSwitch::OffOnMachine | RowSwitch::OffInRepository(_) | RowSwitch::OffInEveryRepository => None,
                 })
             })
             .collect()
@@ -325,7 +441,42 @@ impl SettingsOverlay {
     pub fn apply_workflow(&mut self, key: &str, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some((_, groups)) = self.workflow_groups_for("", cx) else { return };
         let Some((one, at)) = groups.into_iter().find_map(|group| group.rows.into_iter().find(|one| one.key() == key).map(|one| (one, group.at))) else { return };
-        self.switch_workflow(&one.id, on, at.as_ref().map(|(manifest, _)| manifest.as_str()), window, cx);
+        self.switch_listed(&one.id, on, at.as_ref(), window, cx);
+    }
+
+    /// A row switched: for the project picked, else on the machine or in the row's repository.
+    fn switch_listed(&mut self, id: &str, on: bool, at: Option<&(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
+        match self.scope.project.clone() {
+            Some((project, _)) => self.switch_for_project(&project, id, on, window, cx),
+            None => self.switch_workflow(id, on, at.map(|(manifest, _)| manifest.as_str()), window, cx),
+        }
+    }
+
+    /// One workflow switched for a project: Fleet answers its projects, and what the project's values come to is read again.
+    fn switch_for_project(&mut self, project: &str, id: &str, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving.is_some() || !self.live {
+            return;
+        }
+        self.saving = Some(OFF.to_string());
+        self.refused.remove(OFF);
+        let sent = self.wire.set_project_workflow(project, id, on, cx);
+        self._save = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = sent.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.saving = None;
+                match answer {
+                    Ok(projects) => {
+                        this.scope.projects = Some(projects);
+                        this.read_scope(window, cx);
+                    }
+                    Err(refused) => {
+                        this.refused.insert(OFF.to_string(), refused.said);
+                    }
+                }
+                cx.notify();
+            });
+        }));
+        cx.notify();
     }
 
     fn workflows_off(&self) -> Off {
@@ -366,7 +517,7 @@ impl SettingsOverlay {
             if picked.as_ref().is_some_and(|picked| picked.key() == one.key()) {
                 stops.push(row.clone());
             }
-            if matches!(row_switch(&off, &one.id, at.as_ref()), RowSwitch::Switch { .. }) {
+            if matches!(self.switch_of(&off, &one.id, at.as_ref()), RowSwitch::Switch { .. }) {
                 stops.push(switch.clone());
             }
         }
@@ -425,6 +576,9 @@ impl SettingsOverlay {
             self.back_to_list(window, cx);
             return true;
         }
+        if self.lanes_key(key, window, cx) {
+            return true;
+        }
         if self.band_key(key, window, cx) {
             return true;
         }
@@ -445,7 +599,7 @@ impl SettingsOverlay {
                     return true;
                 }
                 // The search is the list's: F goes back to it first.
-                "f" if !mods.shift && !self.in_text(window, cx) => {
+                "f" if !mods.shift && !self.in_text(window) => {
                     self.back_to_list(window, cx);
                     self.workflows.filter.update(cx, |filter, cx| filter.focus(window, cx));
                     return true;
@@ -461,7 +615,7 @@ impl SettingsOverlay {
             }
             return false;
         }
-        if word == "f" && !mods.shift && !self.in_text(window, cx) {
+        if word == "f" && !mods.shift && !self.in_text(window) {
             self.workflows.filter.update(cx, |filter, cx| filter.focus(window, cx));
             return true;
         }
@@ -491,8 +645,8 @@ impl SettingsOverlay {
         let on_switch = shown.iter().find(|(one, _)| self.workflows.rows.get(&one.key()).is_some_and(|[_, switch]| switch.is_focused(window))).cloned();
         if let Some((one, at)) = on_switch {
             if matches!(word, "enter" | "space") {
-                if let RowSwitch::Switch { on, .. } = row_switch(&self.workflows_off(), &one.id, at.as_ref()) {
-                    self.switch_workflow(&one.id, !on, at.as_ref().map(|(manifest, _)| manifest.as_str()), window, cx);
+                if let RowSwitch::Switch { on, .. } = self.switch_of(&self.workflows_off(), &one.id, at.as_ref()) {
+                    self.switch_listed(&one.id, !on, at.as_ref(), window, cx);
                 }
                 return true;
             }
@@ -536,7 +690,29 @@ impl SettingsOverlay {
             Role::SearchInput,
             "Search workflows",
         );
-        let kept = div().px(look.length(token::SPACE_2)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Kept in");
+        // The list is titled by what the Editing picker has: the glyph and colour the picker draws it with.
+        let (glyph, whose) = match &self.scope.project {
+            Some((_, name)) => ("layers", format!("Workflows for {name}")),
+            None => ("globe", "Workflows for every project".to_string()),
+        };
+        let head = labelled(
+            div()
+                .id("workflows-head")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL))
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_RAISED))
+                .child(svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)))
+                .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(whose.clone()))),
+            Role::Heading,
+            whose,
+        );
         let mut groups = div().id("workflows-groups").flex_1().min_h_0().overflow_y_scroll().flex().flex_col().gap(look.length(token::SPACE_4));
         let (_, picked) = self.shown_workflows(cx);
         match self.workflow_groups(cx) {
@@ -549,6 +725,8 @@ impl SettingsOverlay {
             }
             Some((rows, listed)) => {
                 let off = self.workflows_off();
+                // A run of groups under one project is drawn under its name.
+                let mut runs: Vec<(Option<String>, Vec<AnyElement>)> = Vec::new();
                 for group in listed {
                     let caption = div()
                         .flex()
@@ -568,7 +746,35 @@ impl SettingsOverlay {
                         let current = picked.as_ref().is_some_and(|picked| picked.key() == one.key());
                         block = block.child(self.render_workflow_row(one, &rows, group.at.as_ref(), current, &off, off_sending, look, window, cx));
                     }
-                    groups = groups.child(labelled(block.id(SharedString::from(format!("workflows-group-{}", group.label))), Role::Group, group.label.clone()));
+                    let drawn = labelled(block.id(SharedString::from(format!("workflows-group-{}", group.label))), Role::Group, group.label.clone()).into_any_element();
+                    match runs.last_mut() {
+                        Some((under, drawn_so_far)) if *under == group.under => drawn_so_far.push(drawn),
+                        _ => runs.push((group.under.clone(), vec![drawn])),
+                    }
+                }
+                for (under, drawn) in runs {
+                    let Some(name) = under else {
+                        groups = groups.children(drawn);
+                        continue;
+                    };
+                    let title = div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .px(look.length(token::SPACE_2))
+                        .child(svg().flex_none().path(icon_path("layers")).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)))
+                        .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(name.clone())));
+                    let inside = div()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_4))
+                        .ml(look.length(token::SPACE_2))
+                        .pl(look.length(token::SPACE_3))
+                        .border_l(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .children(drawn);
+                    let project = div().id(SharedString::from(format!("workflows-project-{name}"))).flex().flex_col().gap(look.length(token::SPACE_2)).child(title).child(inside);
+                    groups = groups.child(labelled(project, Role::Group, name));
                 }
             }
         }
@@ -597,9 +803,10 @@ impl SettingsOverlay {
             .map(|list| if narrow { list.flex_1() } else { list.flex_none().w(look.length(token::W_GUIDE_LIST)) })
             .p(look.length(token::SPACE_3))
             .gap(look.length(token::SPACE_4))
+            .child(head)
+            .children(self.refused.get(OFF).map(|said| labelled(super::view::refusal(look, said.clone()).id("workflows-refused"), Role::Alert, said.clone())))
             .child(labelled(jobs_switch, Role::Switch, "Workflows for Jobs"))
             .child(filter)
-            .child(kept)
             .child(groups);
         let back = in_place.then(|| {
             let back = ringed(
@@ -644,7 +851,8 @@ impl SettingsOverlay {
     fn render_workflow_row(&self, one: &Listed, rows: &[Listed], at: Option<&(String, String)>, current: bool, off: &Off, sending: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key();
         let Some([row_key, switch_key]) = self.workflows.rows.get(&key).cloned() else { return div().into_any_element() };
-        let custom = at.and_then(|(_, name)| custom_of(one, rows, name));
+        let project_name = |id: &str| self.project_name(id);
+        let custom = at.and_then(|(_, name)| custom_of(one, rows, name, &project_name));
         let replaces = if at.is_none() { replaces_of(one, rows) } else { None };
         let ink = if custom.is_some() { look.color(token::ACCENT) } else if current { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let press = key.clone();
@@ -664,11 +872,19 @@ impl SettingsOverlay {
                 said,
             )
         }));
-        let switch_cell = match row_switch(off, &one.id, at) {
-            RowSwitch::OffOnMachine => div().child(small(look, "Off on this machine", look.color(token::FG_MUTED))).into_any_element(),
+        // Off where this row cannot switch it back on: the layer named, and the tooltip says for whom.
+        let held_off = |said: String, tipped: String| {
+            labelled(div().id(SharedString::from(format!("workflow-off-{key}"))).ml(look.length(token::SPACE_2)).tooltip(tip(tipped)).child(small(look, said.clone(), look.color(token::FG_MUTED))), Role::Label, format!("{}: {said}", one.id)).into_any_element()
+        };
+        let switch_cell = match self.switch_of(off, &one.id, at) {
+            RowSwitch::OffOnMachine => held_off("Off on this machine".to_string(), "Off for every project on this machine".to_string()),
+            RowSwitch::OffInRepository(name) => held_off(format!("Off in {name}"), format!("Off for every project in {name}")),
+            RowSwitch::OffInEveryRepository => held_off("Off in every repository".to_string(), format!("Off in every repository {} keeps", self.scope.project.as_ref().map_or("the project", |(_, name)| name.as_str()))),
             RowSwitch::Switch { on, label } => {
                 let id = one.id.clone();
-                let manifest = at.map(|(manifest, _)| manifest.clone());
+                let at = at.cloned();
+                // Under a project, its switches wait for what its values come to.
+                let sending = sending || (self.scope.project.is_some() && self.scope.values.is_none());
                 let switch = ringed(
                     look,
                     div()
@@ -681,7 +897,7 @@ impl SettingsOverlay {
                             switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| {
                                 // The row under it picks; the switch only switches.
                                 cx.stop_propagation();
-                                this.switch_workflow(&id, !on, manifest.as_deref(), window, cx);
+                                this.switch_listed(&id, !on, at.as_ref(), window, cx);
                             }))
                         }),
                     &switch_key,
@@ -721,11 +937,22 @@ mod tests {
         listed_of(&super::super::mock::settings_workflows(), &["armada".into(), "sample-web".into(), "sample-api".into()])
     }
 
+    fn kept() -> Vec<Kept> {
+        vec![
+            Kept { id: "armada".into(), name: "Armada".into(), repositories: vec!["armada".into()] },
+            Kept { id: "storefront".into(), name: "Storefront".into(), repositories: vec!["sample-web".into(), "sample-api".into()] },
+        ]
+    }
+
+    fn labelled_rows(groups: &[Group]) -> Vec<(String, Vec<String>)> {
+        groups.iter().map(|group| (group.label.clone(), group.rows.iter().map(|one| one.id.clone()).collect())).collect()
+    }
+
     #[test]
     fn each_place_is_a_group_and_each_repository_holds_what_runs_there() {
         let rows = rows();
-        let groups = groups_of(&rows, "", &|manifest| manifest.to_string());
-        let said: Vec<(String, Vec<String>)> = groups.iter().map(|group| (group.label.clone(), group.rows.iter().map(|one| one.id.clone()).collect())).collect();
+        let groups = groups_of(&rows, "", &|manifest| manifest.to_string(), None, &[]);
+        let said = labelled_rows(&groups);
         let said: Vec<(&str, Vec<&str>)> = said.iter().map(|(label, ids)| (label.as_str(), ids.iter().map(String::as_str).collect())).collect();
         assert_eq!(
             said,
@@ -739,8 +966,54 @@ mod tests {
     }
 
     #[test]
+    fn on_every_project_each_repository_is_drawn_under_the_project_that_keeps_it() {
+        let groups = groups_of(&rows(), "", &|manifest| manifest.to_string(), None, &kept());
+        let under: Vec<(&str, Option<&str>)> = groups.iter().map(|group| (group.label.as_str(), group.under.as_deref())).collect();
+        assert_eq!(under, [("Shipped with Armada", None), ("armada repository", Some("Armada")), ("sample-web repository", Some("Storefront")), ("Yours", None)]);
+    }
+
+    #[test]
+    fn a_repository_two_projects_keep_is_drawn_once_and_one_no_project_keeps_is_drawn_bare() {
+        let mut both = kept();
+        both[1].repositories.push("armada".into());
+        let groups = groups_of(&rows(), "", &|manifest| manifest.to_string(), None, &both);
+        assert_eq!(groups.iter().filter(|group| group.label == "armada repository").count(), 1);
+        let none = groups_of(&rows(), "", &|manifest| manifest.to_string(), None, &kept()[..1]);
+        let web = none.iter().find(|group| group.label == "sample-web repository").expect("sample-web");
+        assert_eq!(web.under, None);
+    }
+
+    #[test]
+    fn with_a_project_picked_the_list_is_its_repositories_then_what_it_inherits() {
+        let rows = rows();
+        let armada = ("armada".to_string(), "Armada".to_string());
+        let groups = groups_of(&rows, "", &|manifest| manifest.to_string(), Some(&armada), &kept());
+        let labels: Vec<&str> = groups.iter().map(|group| group.label.as_str()).collect();
+        assert_eq!(labels, ["armada", "Armada project", "Shipped with Armada", "Yours"]);
+        assert!(groups.iter().all(|group| group.under.is_none()), "a project's own list has no project heads");
+        assert_eq!(groups[0].at, Some(("armada".to_string(), "armada".to_string())), "a repository's switches write that repository");
+        assert!(groups[1..].iter().all(|group| group.at.is_none()), "what the project inherits is the machine's");
+        let own = &groups[1].rows;
+        assert_eq!((own.len(), own[0].id.as_str(), own[0].project.as_deref()), (1, "design_plan", Some("armada")));
+        assert_eq!(replaces_of(&own[0], &rows), Some("This project's copy replaces Armada's"));
+        let storefront = ("storefront".to_string(), "Storefront".to_string());
+        let groups = groups_of(&rows, "", &|manifest| manifest.to_string(), Some(&storefront), &kept());
+        assert_eq!(groups.iter().map(|group| group.label.as_str()).collect::<Vec<_>>(), ["sample-web", "Shipped with Armada", "Yours"], "its repositories that run nothing have no group, and Armada's own repository is not here");
+    }
+
+    #[test]
+    fn with_a_project_picked_another_projects_copy_is_not_drawn_where_it_runs() {
+        let mut rows = rows();
+        rows.push(Listed { id: "design_plan".into(), place: Place::Project, manifest: "armada".into(), runs_in: Some("armada".into()), for_requests: None, project: Some("storefront".into()) });
+        let armada = ("armada".to_string(), "Armada".to_string());
+        let there = |groups: &[Group]| groups.iter().flat_map(|group| group.rows.iter()).filter(|one| one.project.as_deref() == Some("storefront")).count();
+        assert_eq!(there(&groups_of(&rows, "", &|manifest| manifest.to_string(), Some(&armada), &kept())), 0);
+        assert_eq!(there(&groups_of(&rows, "", &|manifest| manifest.to_string(), None, &kept())), 1, "every project draws it where it runs");
+    }
+
+    #[test]
     fn the_search_keeps_the_ids_that_hold_it_and_drops_empty_groups() {
-        let groups = groups_of(&rows(), "DOCS", &|manifest| manifest.to_string());
+        let groups = groups_of(&rows(), "DOCS", &|manifest| manifest.to_string(), None, &[]);
         assert_eq!(groups.iter().map(|group| group.label.as_str()).collect::<Vec<_>>(), ["armada repository", "Yours"]);
     }
 
@@ -748,9 +1021,9 @@ mod tests {
     fn a_repositorys_own_copy_and_yours_are_marked_in_its_group() {
         let rows = rows();
         let own = rows.iter().find(|one| one.place == Place::Repository && one.manifest == "armada").expect("armada's feature");
-        assert_eq!(custom_of(own, &rows, "armada"), Some(("folder-git-2", "armada's own copy, replaces Armada's".to_string())));
+        assert_eq!(custom_of(own, &rows, "armada", &|id| id.to_string()), Some(("folder-git-2", "armada's own copy, replaces Armada's".to_string())));
         let yours = rows.iter().find(|one| one.place == Place::Yours && one.runs_in.is_some()).expect("Yours in armada");
-        assert_eq!(custom_of(yours, &rows, "armada").map(|(glyph, _)| glyph), Some("briefcase"));
+        assert_eq!(custom_of(yours, &rows, "armada", &|id| id.to_string()).map(|(glyph, _)| glyph), Some("briefcase"));
     }
 
     #[test]
@@ -764,5 +1037,103 @@ mod tests {
         assert!(back.repositories.is_empty());
         assert_eq!(row_switch(&machine, "bug", Some(&("armada".into(), "armada".into()))), RowSwitch::OffOnMachine);
         assert_eq!(row_switch(&there, "feature", Some(&("armada".into(), "armada".into()))), RowSwitch::Switch { on: false, label: "Off in armada".into() });
+    }
+
+    #[test]
+    fn under_a_project_off_wins_and_only_the_projects_own_off_switches() {
+        let off = Off { machine: vec!["bug".into()], repositories: [("sample-web".to_string(), vec!["feature".to_string()])].into_iter().collect() };
+        let web = ("sample-web".to_string(), "sample-web".to_string());
+        let resolved = [
+            ResolvedWorkflow { id: "bug".into(), on: false, from: ValueLayer::Machine },
+            ResolvedWorkflow { id: "docs_only".into(), on: false, from: ValueLayer::Project },
+            ResolvedWorkflow { id: "feature".into(), on: true, from: ValueLayer::Default },
+        ];
+        assert_eq!(project_switch(&off, &resolved, "bug", Some(&web), "Storefront"), RowSwitch::OffOnMachine);
+        assert_eq!(project_switch(&off, &resolved, "feature", Some(&web), "Storefront"), RowSwitch::OffInRepository("sample-web".into()), "the repository's off holds where Fleet was asked about no repository");
+        assert_eq!(project_switch(&off, &resolved, "feature", None, "Storefront"), RowSwitch::Switch { on: true, label: "On in Storefront".into() });
+        assert_eq!(project_switch(&off, &resolved, "docs_only", None, "Storefront"), RowSwitch::Switch { on: false, label: "Off in Storefront".into() });
+        let every_repository = [ResolvedWorkflow { id: "feature".into(), on: false, from: ValueLayer::Repository }];
+        assert_eq!(project_switch(&off, &every_repository, "feature", None, "Storefront"), RowSwitch::OffInEveryRepository, "a row of no repository is off where every repository the project keeps switched it off");
+    }
+
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::wire::Wire;
+
+    /// Settings open on Workflows over the mock Fleet, with armada's own copy of `feature` picked.
+    fn opened(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.picked = "kit:workflows";
+                this.show(None, false, window, cx);
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.pick_workflow("repository@armada:feature", window, cx)));
+        cx.run_until_parked();
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
+    /// Every text field the pane draws for the picked row, each with the name a person knows it by: the search, the
+    /// box that asks an agent, and a lane named from nothing.
+    fn fields(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<(&'static str, gpui::FocusHandle)> {
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.add_lifecycle(window, cx);
+            })
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("enter");
+        let mut found = vec![("Search workflows", overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx)))];
+        let boxes = overlay.read_with(cx, |this, cx| this.workflows.detail.fields(cx));
+        found.extend(boxes.into_iter().map(|handle| ("a box in the detail", handle)));
+        let lane = cx.update(|window, cx| overlay.read(cx).in_text(window).then(|| window.focused(cx)).flatten());
+        found.extend(lane.map(|handle| ("Lane name", handle)));
+        found
+    }
+
+    #[gpui::test]
+    fn a_bare_f_typed_in_any_text_field_of_the_pane_lands_there_and_does_not_move_the_keys(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let found = fields(&overlay, cx);
+        let names: Vec<&str> = found.iter().map(|(name, _)| *name).collect();
+        assert!(names.contains(&"Search workflows") && names.contains(&"Lane name") && names.len() >= 3, "the search, the lane and the ask box are all reached: {names:?}");
+        for (name, handle) in found {
+            cx.update(|window, cx| window.focus(&handle, cx));
+            cx.simulate_keystrokes("f");
+            assert!(cx.update(|window, _| handle.is_focused(window)), "F typed in {name} moved the keys");
+            assert!(cx.update(|window, cx| overlay.read(cx).in_text(window)), "{name} is a text input as the focus path says it");
+        }
+    }
+
+    #[gpui::test]
+    fn the_f_typed_in_the_search_is_in_the_search_and_f_off_a_field_still_reaches_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let search = overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&search, cx));
+        cx.simulate_keystrokes("f");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.workflows.filter.read(cx).value().to_string()), "f");
+        let row = overlay.read_with(cx, |this, _| this.workflows.rows.get("repository@armada:feature").map(|[row, _]| row.clone())).expect("the row's keys");
+        cx.update(|window, cx| window.focus(&row, cx));
+        cx.simulate_keystrokes("f");
+        assert!(cx.update(|window, _| search.is_focused(window)), "off a field, F still goes to the search");
+    }
+
+    #[gpui::test]
+    fn a_bare_letter_typed_in_the_settings_search_stays_in_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let search = overlay.read_with(cx, |this, cx| this.query.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&search, cx));
+        cx.simulate_keystrokes("/ f left");
+        assert!(cx.update(|window, _| search.is_focused(window)), "the Settings search lost the keys to a shortcut");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.query_text(cx)), "/f");
     }
 }

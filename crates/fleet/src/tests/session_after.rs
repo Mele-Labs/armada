@@ -168,7 +168,7 @@ async fn ends_starts_it_with_the_handoff_then_the_brief() {
     let started = rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
     assert!(started.hosted.is_some());
     let (from, text) = rig.first_message(&waiting.id).await;
-    assert!(matches!(from, SessionVoice::Session { ref id, ref title } if id == agent.as_str() && title == "The agent"), "{from:?}");
+    assert!(matches!(from, SessionVoice::Session { ref id, ref title, .. } if id == agent.as_str() && title == "The agent"), "{from:?}");
     assert!(text.starts_with("Handoff from The agent"), "the handoff first: {text}");
     assert!(text.contains("The agent ended"), "and why it starts: {text}");
     assert!(text.contains("You start from main"), "{text}");
@@ -509,8 +509,9 @@ async fn a_wait_on_a_session_nothing_hosts_makes_no_session() {
 // ---- A Session an agent started waits too, and its first message is still the person's ----
 
 #[tokio::test]
-async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_person_once_met() {
+async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_person_once_met_under_ask_me() {
     let rig = super::agent_starts::rig(None);
+    rig.agents_start("ask_me");
     let agent = rig.a_waited_on_agent().await;
     let mut start: StartAnotherSession = begins(&rig, "Check the reader", "Read crates/reader.");
     // The agent starts a Session to follow its own end: the one it waits on is the one that asks.
@@ -531,6 +532,30 @@ async fn a_session_an_agent_started_to_wait_holds_its_first_message_for_the_pers
     assert!(unsent.trim_end().ends_with("Read crates/reader."));
     assert!(rig.rows(&held.session_id).await.iter().all(|row| !matches!(row, SessionRow::Message { .. })), "off the thread");
     assert_eq!(rig.processes(), 1, "and nothing runs until he sends it");
+}
+
+#[tokio::test]
+async fn a_session_an_agent_started_to_wait_begins_once_met_under_at_once() {
+    let rig = super::agent_starts::rig(None);
+    rig.agents_start("at_once");
+    let agent = rig.a_waited_on_agent().await;
+    let mut start: StartAnotherSession = begins(&rig, "Check the reader", "Read crates/reader.");
+    start.after = Some(StartAfter { session: agent.clone(), condition: StartCondition::Ends, base: StartBase::Main, needs: String::new() });
+
+    let made = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect("started");
+
+    assert!(rig.record(&made.session_id).await.waits.is_some(), "it waits first");
+    assert_eq!(rig.processes(), 1, "and runs nothing while it does");
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: agent.clone() }).await.expect("closed");
+
+    let met = rig.eventually(&made.session_id, "the condition met", |one| one.waits.is_none()).await;
+    assert!(met.hosted.and_then(|hosted| hosted.start).is_none(), "no start card: the word is at_once");
+    let (from, text) = rig.first_message(&made.session_id).await;
+    assert!(matches!(from, SessionVoice::Session { ref id, .. } if id == agent.as_str()), "the handoff is the first turn: {from:?}");
+    assert!(text.starts_with("Handoff from The agent"), "{text}");
+    assert!(text.trim_end().ends_with("Read crates/reader."));
+    rig.processes_reach(2).await;
 }
 
 // ---- The proposer reads the brief ----

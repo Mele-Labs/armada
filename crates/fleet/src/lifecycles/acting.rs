@@ -149,14 +149,15 @@ where
             Act::Tell { message } => self.rule_told(job, message.as_str()).await,
             Act::Wake => self.rule_told(job, &format!("The rule {} woke you. Carry on.", found.rule)).await,
             Act::StartJob { workflow, prompt } => {
-                let manifest = {
+                let (manifest, project) = {
                     let store = self.store().lock().await;
-                    store.session(job).map_err(|why| why.to_string())?.and_then(|one| one.manifest_id)
+                    let manifest = store.session(job).map_err(|why| why.to_string())?.and_then(|one| one.manifest_id);
+                    (manifest, crate::job_tracking::job_project(&store, job))
                 };
                 let manifest = manifest.ok_or("the Job is in no repository")?;
                 // Checked before the Job is made, so a workflow the repository cannot run starts nothing.
                 let named = workflow.as_ref().map(|one| one.as_str().to_string());
-                let (workflow, _) = self.workflow_checked(&manifest, named).map_err(|why| why.error().message.clone())?;
+                let (workflow, _) = self.workflow_checked(&manifest, project.as_deref(), named).map_err(|why| why.error().message.clone())?;
                 let start = StartAnotherSession {
                     manifest_id: Some(ManifestId::carried(&manifest)),
                     title: titled(prompt),
@@ -186,6 +187,7 @@ where
                     before: None,
                     pull_request: None,
                     session_id: Some(SessionId::carried(job)),
+                    ..Default::default()
                 };
                 self.draft_proposed(None, draft).await.map(|_| String::from("Drafted")).map_err(|why| why.error().message.clone())
             }

@@ -70,6 +70,7 @@ where
             None => Written::Message(SessionVoice::Session {
                 id: FLEET_NAME.to_lowercase(),
                 title: FLEET_NAME.to_string(),
+                mac: None,
             }),
         };
         // Built here rather than in the send, so a notice that asks something is kept by its row.
@@ -108,7 +109,7 @@ where
         if held.state == store::SessionState::Ended || hosting.paused_at.is_none() {
             return self.fleet_word(session, text, false, None).await;
         }
-        let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string() };
+        let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string(), mac: None };
         let row = self.written_row(session, &Written::Message(from), text.trim(), &[], &[], &[]);
         self.row_put(session, row).await;
         let turn = job_turn(text, text.to_string());
@@ -149,6 +150,7 @@ where
                 from: SessionVoice::Session {
                     id: FLEET_NAME.to_lowercase(),
                     title: FLEET_NAME.to_string(),
+                    mac: None,
                 },
                 text: text.to_string(),
                 files: files.to_vec(),
@@ -433,9 +435,9 @@ where
             turn.push_str(&line);
             turn.push_str("\n\n");
         }
-        // **A quick terminal's agent reads the terminals first**: what they show rides ahead of each
+        // **A Side Job's agent reads the terminals first**: what they show rides ahead of each
         // message of the person's, so nothing waits on the agent choosing to call read_terminal.
-        if hosting.quick_terminal && row.is_some() {
+        if hosting.side_job && row.is_some() {
             if let Some(shown) = self.terminals_shown(id).await {
                 turn.push_str(&shown);
                 turn.push_str("\n\n");

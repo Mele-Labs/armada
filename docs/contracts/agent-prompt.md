@@ -67,6 +67,7 @@ The `prompts_drone` module (deleted since) and
 | [5g. The test map reading](agent-prompt/5g-the-test-map-reading.md) |
 | [5h. The workflow change](agent-prompt/5h-the-workflow-change.md) |
 | [5i. The repair briefs](agent-prompt/5i-the-repair-briefs.md) |
+| [5j. The review-run brief](agent-prompt/5j-the-review-run-brief.md) |
 | [6. Exemplars over rules](agent-prompt/6-exemplars-over-rules.md) |
 | [7. What is never injected](agent-prompt/7-what-is-never-injected.md) |
 | [8. Where prompts live](agent-prompt/8-where-prompts-live.md) |

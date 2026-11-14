@@ -186,6 +186,8 @@ pub struct Fleet<H, V, W> {
     /// one is taken when a Job's branch is touched and released when it has
     /// been.
     merge_end: Mutex<()>,
+    /// What the sweep last found of the disk, for `get_health`. Never written down.
+    disk: std::sync::Mutex<crate::sweeping::DiskState>,
     /// When `origin main` was last fetched, for `get_fleet_build`. Nothing else
     /// of the build is held: the files `scripts/restart` leaves are the record.
     building: crate::building::Building,

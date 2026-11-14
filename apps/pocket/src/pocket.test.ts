@@ -29,7 +29,7 @@ import { Refused } from "./client";
 import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
-import { codeFromInput, linkOf } from "./pairing";
+import { codeFromInput, linkOf, linkTrouble, waitForConfirm } from "./pairing";
 import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
@@ -165,6 +165,30 @@ describe("linkOf", () => {
     expect(
       linkOf("https://laptop.tail0.ts.net/pair", "https://studio.tail0.ts.net"),
     ).toBeUndefined();
+  });
+  it("takes a Cloudflare tunnel's link as it takes any other Mac's", () =>
+    expect(linkOf(`https://home.armada.codes/pair?code=${code}`, "")).toEqual({
+      origin: "https://home.armada.codes",
+      code,
+    }));
+  it("refuses a link that pairs two Macs", () =>
+    expect(linkOf(`https://home.armada.codes/pair/mac?code=${code}`, "")).toBeUndefined());
+});
+
+describe("linkTrouble", () => {
+  const code = "0123456789abcdef0123456789abcdef";
+  it("says nothing while the box is empty or the link is usable", () => {
+    expect(linkTrouble("")).toBe("");
+    expect(linkTrouble(`https://home.armada.codes/pair?code=${code}`)).toBe("");
+    expect(linkTrouble(code)).toBe("");
+  });
+  it("names what was pasted instead of a phone's pairing link", () => {
+    expect(linkTrouble("https://home.armada.codes")).toMatch(/^That is the Mac's address/);
+    expect(linkTrouble(`https://home.armada.codes/pair/mac?code=${code}`)).toMatch(
+      /pairs two Macs/,
+    );
+    expect(linkTrouble("https://home.armada.codes/pair?code=0123")).toMatch(/cut short/);
+    expect(linkTrouble("home.armada.codes")).toMatch(/^That is not a pairing link/);
   });
 });
 
@@ -1737,5 +1761,50 @@ describe("withNewest", () => {
     const laid = withNewest(read(0, 100), read(250, 450, true));
     expect(laid.thread.rows.map((one) => one.id)).toEqual(ids(250, 450));
     expect(laid.older).toBe(true);
+  });
+});
+
+describe("waiting for Confirm on the Mac", () => {
+  const waiting = async (status: number) => {
+    const key = await crypto.subtle.generateKey(
+      {
+        name: "ECDSA",
+        namedCurve: "P-256",
+      },
+      false,
+      [
+        "sign",
+      ],
+    );
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response("", {
+          status,
+        }),
+    );
+    try {
+      return await waitForConfirm(
+        {
+          origin: "https://studio.example.com",
+          name: "",
+          deviceId: "d1",
+          key: key.privateKey,
+        },
+        1,
+        20,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  };
+
+  it("reads a 403 as the owner's Decline, and a 200 as paired", async () => {
+    expect(await waiting(403)).toBe("declined");
+    expect(await waiting(200)).toBe("paired");
+  });
+
+  it("lapses while the Mac keeps answering 401", async () => {
+    expect(await waiting(401)).toBe("lapsed");
   });
 });

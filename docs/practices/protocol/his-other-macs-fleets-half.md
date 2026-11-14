@@ -46,15 +46,17 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `hold_other_mac_bug_reports` | the Gateway calls | `PUT /other_macs/bug_reports`, body `OtherMacBugReports { mac, reports }`, replacing all held from it, then `bug_reports.changed`. Answers `MacNamed` |
 | `hold_other_mac_event` | the Gateway calls | `POST /other_macs/event`, body `OtherMacEvent { mac, event }`. `session.changed` is kept and published; `session.row`, `session.subagent`, `job_thread.tail` and `job_thread.changed` are published only for a Job held from that Mac, else 404 `fleet.other_mac_job_not_held`; `bug_reports.changed` is kept as the `PUT`; `projects.changed` replaces the copies as the `PUT` does; any other kind is 422 `fleet.other_mac_event_not_kept`. Answers `MacNamed` |
 | `act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/act`, body `MacAct { id, act, at }`, header `x-armada-mac`. See *Acting across Macs* |
+| `update_mac` | Bridge, the other Mac's Gateway, or `scripts/restart-build` calls | `POST /macs/update`, body `UpdateMac`, answered `FleetBuildChanging` with a 202. This Mac restarts with `--adopt`, or the other Mac is asked through `/other_mac/update`, the one call a frozen link carries. A call from another Mac may only move this Mac. See [update_mac](../../../crates/ipc/operations/update_mac.toml) and [Pocket](../../concepts/pocket.md), *Builds that differ* |
 | `list_queued` | Bridge calls | `GET /queued`, optional `?mac=`, answered with `QueuedList { queued }` of `Queued { id, mac, act, since, refused? }`, oldest first |
 | `take_back_queued` | Bridge calls | `POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`; 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight` |
 | `queued.changed` | Fleet sends | `QueuedList`, whole, to Bridge alone, whenever an act is kept, sent, refused or taken back |
 | `forget_other_mac` | the Gateway calls | `POST /other_macs/forget`, body `MacNamed`: every row, report, project copy and queued edit held from it dropped, `session.removed` for each row, then `bug_reports.changed`. Answers `MacNamed` |
+| `hold_mac_claims` | the Gateway calls | `PUT /other_macs/claims`, body `MacClaimsWaiting { claims }`: every other Mac waiting for his Confirm here, replacing all held, each a `mac_pairing` call on him ([What calls the person](a-jobs-calls.md)). Answers the same |
 
 A blank `mac` on any of the five the Gateway hands in is 422 `fleet.other_mac_unnamed`.
 
 **Only the Gateway hands Fleet another Mac's rows.**
-The five routes it hands them in on, and `project_act_from_mac`, are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
+The five routes it hands them in on, `hold_mac_claims` and `project_act_from_mac` are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
 This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 
@@ -67,7 +69,7 @@ An act on a Job held from another Mac goes to that Mac: `send_session_message`, 
 **`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
 `/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
 The row that comes back is kept as that Mac's, and answered with its `mac`.
-`act` is `{ kind, body }`, `kind` one of `message`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name.
+`act` is `{ kind, body }`, `kind` one of `message`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name, or `job_message`, which no route of the person's takes (*Messages and alerts*).
 The tool-gate hook is not carried, since no person makes it.
 
 **The holding Mac** runs the act through the handler its own route has, so each status and refusal is the one it gives at home, under the door `mac` (`x-armada-caller: mac`, with the sender in `x-armada-mac`; `Via::Mac`, a person's own press on another of his Macs).
@@ -80,3 +82,17 @@ A Mac with acts waiting is never sent a newer act ahead of them.
 They are sent oldest first when the Mac next speaks, by the same task as the edits, each under its own `id`.
 An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no longer sent, and the acts after it go on.
 `take_back_queued` drops one under the Mac's send guard, and is 409 while that Mac's queue is being sent.
+
+## Messages and alerts
+
+**A Job's `SendMessage` to a Job his other Mac holds crosses as one more act**, `job_message`, body `JobMessage { from, title, to, text }`, through the door and queue above.
+`message_reach` allows an address no Job of this Mac has where it is a live Job held from another Mac and the writer is in a shared project; a private writer is refused as for an address no Job has (`refused_to`, `Unreachable::Unknown`), so it learns nothing of what the other Mac holds.
+The holding Mac's share filter answers for the receiver, so a message into a private Job is 404 `fleet.no_such_session` as for no Job; one into an ended Job is 409 `fleet.message_job_ended`, and the writer gets a Fleet note with its words.
+The receiver's row is the `Message` a Job on the same Mac gets, with `SessionVoice::Session.mac` the sending Mac's id.
+**The sender's own row stays the call's `Tool` row**: its `message.to.session_id` names the receiver, whose list row carries `mac`.
+
+**The other Mac's shared Jobs call here as this Mac's do.** `relay` reaches no tap, so the rows held from another Mac are handed to the calls keeper where they are kept: each changed row of `hold_other_mac_sessions` and each `session.changed` of `hold_other_mac_event`.
+A Mac's first rows, with none held from it before, are heard quietly: what stood before the link is no news.
+A row that comes back unchanged after a sleep is not heard again, and a row a replace or a forget drops leaves the calls.
+`StandingCall.mac` names the Mac; `CallArrival` carries none, and Bridge reads it off the call or the row.
+`get_needs_you` reads a Job held from another Mac off its held row.

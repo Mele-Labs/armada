@@ -219,7 +219,7 @@ impl JobView {
                     ))
                     .when(withdraw, |footer| {
                         footer.child(labelled(
-                            button(look, SharedString::from(format!("withdraw:{key}")), "Withdraw", Tone::Ghost, true, None, true).on_click(cx.listener(
+                            super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), "Withdraw", Tone::Ghost, true, None, true), self.off_shown(cx)).on_click(cx.listener(
                                 move |this, _, window, cx| {
                                     let session_id = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
                                     let body = encoded(&DismissWaiting { session_id, item_id: title_id.clone(), reason: None, misread: false });
@@ -232,7 +232,7 @@ impl JobView {
                     })
                     .when(on_target, |footer| footer)
             };
-            column = column.child(labelled(footer.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers"));
+            column = column.child(labelled(super::acts::gated(footer.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/sketch/answer", cx)), Role::Toolbar, "Answers"));
         }
         column.into_any_element()
     }
@@ -506,13 +506,15 @@ impl JobView {
         let optimistic = page.cards.answers.get(&key);
         let settled = settled_of(card.settled.as_ref(), optimistic);
         let open = card.asked && settled.is_none();
+        // The approval row's own top padding makes up the tighter bottom.
+        let follows = open || settled.is_some() || page.cards.said.contains_key(&key);
         let band = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_1))
+            .pb(look.length(if follows { token::SPACE_1 } else { token::SPACE_3 }))
             .child(glyph(look, "file-text", Size::Small, look.color(token::FG_MUTED)))
             .child(
                 div()
@@ -535,7 +537,7 @@ impl JobView {
                     .child(format!("r{}", card.revision)),
             )
             .child(self.stamp(&card.at, look, now, true, cx));
-        let body = frame(look, true).child(band).when(open || settled.is_some() || page.cards.said.contains_key(&key), |frame| {
+        let body = frame(look, true).child(band).when(follows, |frame| {
             frame.child(self.approval(ix, &key, Subject::Document { page: card.page.clone(), revision: card.revision }, open, false, settled, true, page, look, cx))
         });
         labelled(body.id(SharedString::from(format!("document:{key}"))), Role::Article, format!("Document: {}, Revision {}", card.title, card.revision)).into_any_element()
@@ -567,12 +569,26 @@ impl JobView {
         labelled(self.quiet_base(id, icon, parts, look), Role::Row, label).into_any_element()
     }
 
-    pub(super) fn file_row(&self, id: &str, name: &str, look: &Look) -> AnyElement {
+    /// A file the Job showed. A picture draws under its name, and a press opens it larger; any other file opens
+    /// in the side panel, read as Fleet keeps it.
+    pub(super) fn file_row(&self, id: &str, path: &str, name: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
         let parts = vec![
             div().flex_none().child("Opened").into_any_element(),
             div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(name.to_string())).into_any_element(),
         ];
-        self.quiet(id, "file", format!("Opened {name}"), parts, look)
+        let label = format!("Opened {name}");
+        if let Some(picture) = super::pictures::read_picture(path) {
+            let tile = self.picture_tile(&picture, look, cx);
+            let line = self.quiet_base(id, "image", parts, look).flex_wrap().children(tile.map(|tile| div().w_full().pl(look.length(token::SPACE_6)).child(tile)));
+            return labelled(line, Role::Row, label).into_any_element();
+        }
+        let path = path.to_string();
+        let line = self
+            .quiet_base(id, "file", parts, look)
+            .cursor_pointer()
+            .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
+            .on_click(cx.listener(move |this, _, window, cx| this.open_shown_file(path.clone(), window, cx)));
+        labelled(line, Role::Button, label).into_any_element()
     }
 
     /// A reading that finished. A press opens the plan at its notes; the other artifacts open in panes the Job panes step draws.
@@ -1088,7 +1104,7 @@ impl JobView {
                 .children(self.workflow_send_back(ix, key, text, back, look, cx))
                 .child(div().flex_1())
                 .child(labelled(
-                    button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true).on_click(cx.listener(
+                    super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, no, true), self.off_shown(cx)).on_click(cx.listener(
                         move |this, _, window, cx| {
                             let answer = if kind == DraftKind::Workflow { Answer::Dismissed } else { Answer::Withdrawn };
                             this.settle(ix, out_key.clone(), answer, "/sessions/waiting/dismiss", out_body(None), window, cx)
@@ -1142,7 +1158,7 @@ impl JobView {
                 ))
                 .child(div().flex_1())
                 .child(labelled(
-                    button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, None, true).on_click(cx.listener(
+                    super::acts::gated(button(look, SharedString::from(format!("withdraw:{key}")), word_withdraw, Tone::Secondary, false, None, true), self.off_shown(cx)).on_click(cx.listener(
                         move |this, _, window, cx| {
                             let reason = this.typed_in(&out_key, Mode::Note, cx).trim().to_string();
                             let reason = (!reason.is_empty()).then_some(reason);
@@ -1154,7 +1170,7 @@ impl JobView {
                 ))
             }
         };
-        labelled(row.id(SharedString::from(format!("answers:{key}"))), Role::Toolbar, "Answers").into_any_element()
+        labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/waiting/answer", cx)), Role::Toolbar, "Answers").into_any_element()
     }
 }
 

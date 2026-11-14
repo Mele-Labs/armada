@@ -48,6 +48,9 @@ async fn paired(rig: &Rig, asleep_since: Option<i64>) {
         last_heard_at: None,
         asleep_since,
         why: asleep_since.map(|_| "Work stopped answering".into()),
+        wire: None,
+        built_at: None,
+        source: None,
     };
     rig.fleet.store().lock().await.keep_mac(&mac).expect("paired");
 }

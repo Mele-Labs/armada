@@ -680,6 +680,12 @@ pub struct ProposeDraft {
     /// Which session proposes it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// What the draft is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the
@@ -1476,10 +1482,10 @@ pub struct SessionRecord {
     /// A Mod Job started with the aim `instrument`, so it builds an instrument for a bay of the console. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mod_of_bay: bool,
-    /// A quick terminal, started by `start_terminal_job`: it opens onto its terminal `t1`, and its agent
+    /// A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub quick_terminal: bool,
+    pub side_job: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

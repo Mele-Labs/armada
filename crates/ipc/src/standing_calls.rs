@@ -23,6 +23,10 @@ pub enum StandingCallKind {
     Pull,
     /// A served checkout Fleet holds back from catching up with its base.
     Checkout,
+    /// Another Mac waits for his Confirm here to pair: it pasted this Mac's link, or asked from its Settings.
+    /// **The acts are the Phone Gateway's**: Confirm is `POST /admin/macs/pair/confirm` and Decline is
+    /// `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`. Never opened while it waits.
+    MacPairing,
 }
 
 /// How hard it holds. **Blocked** is a Job's turn held on him (a question, a permission, a plan,
@@ -37,7 +41,8 @@ pub enum CallTone {
 /// One call on the person.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StandingCall {
-    /// Electron's own: `session:<id>:<item>`, `session:<id>:needs:<turn>`, `main:<root>`, `checkout:<root>`, `pull:<number>`.
+    /// Electron's own: `session:<id>:<item>`, `session:<id>:needs:<turn>`, `main:<root>`, `checkout:<root>`, `pull:<number>`;
+    /// and `mac:<id>` for a Mac waiting to pair.
     pub key: String,
     /// Whom it is from, as `callOwnerOf` says it: `session:<id>` for a Job or for the Job already
     /// on a failure, else the key. **One badge for each owner.**
@@ -52,8 +57,13 @@ pub struct StandingCall {
     pub since: Instant,
     pub tone: CallTone,
     /// He has seen it: a Job call when he has been in the Job since it began or has it on screen
-    /// and it is not asking him, a main, checkout or pull request call when `open_call` said so.
+    /// and it is not asking him, a main, checkout or pull request call when `open_call` said so. A Mac waiting
+    /// to pair asks him, so its call never is.
     pub opened: bool,
+    /// The id of the paired Mac that holds the Job. **Absent means this Mac.** On a `mac_pairing` call, the id of
+    /// the Mac waiting to pair, which Confirm and Decline name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
 }
 
 /// `get_calls`: every call standing, oldest first.
@@ -74,19 +84,22 @@ impl StandingCalls {
     }
 }
 
-/// What a call is, to tell: a Job waiting, or a Job Fleet gave up on.
+/// What a call is, to tell: a Job waiting, a Job Fleet gave up on, or another Mac waiting to pair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CallArrivalKind {
     Needs,
     Stopped,
+    /// `session_id` is the call's key, `mac:<id>`, and names no Job.
+    MacPairing,
 }
 
 /// News: a thing that began to wait on him since the last publish. Told once.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallArrival {
+    /// The Job's id, or on `mac_pairing` the call's key.
     pub session_id: SessionId,
-    /// The Job's title, or `Job`.
+    /// The Job's title, or `Job`; on `mac_pairing` the call's title.
     pub title: String,
     pub text: String,
     pub tone: CallTone,

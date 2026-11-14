@@ -6,7 +6,7 @@ use std::sync::{Arc, OnceLock};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{PhoneGateway, WireError};
+use ipc::{MacSetup, MacSetupStep, PhoneGateway, WireError};
 
 use crate::daemon::Fleet;
 
@@ -17,6 +17,21 @@ const PHONE_NOT_SERVED: &str = "fleet.phone_not_served";
 pub trait PhoneSwitch: Send + Sync + 'static {
     fn state(&self) -> PhoneGateway;
     fn set(&self, on: bool) -> PhoneGateway;
+
+    /// How far the one-press setup for his other Macs has come. A switch with no tunnel to set up stops at
+    /// the Gateway.
+    fn setup(&self) -> MacSetup {
+        let state = self.state();
+        let step = if state.listening { MacSetupStep::SignIn } else { MacSetupStep::Gateway };
+        MacSetup { step, working: false, login: None, why: state.why, address: None }
+    }
+
+    /// The press: the Gateway on, then the rest of the setup from where it stands. Blocking for a moment,
+    /// so a sign-in page that is ready comes back with it.
+    fn set_up(&self) -> MacSetup {
+        self.set(true);
+        self.setup()
+    }
 
     /// Read `path`, one of the other Mac's `/other_mac/*` Fleet paths with its query, from paired Mac `mac`
     /// through the link: the status its Fleet answered and the bytes. A Gateway with no link to it says why.
@@ -78,7 +93,27 @@ where
         Ok(self.phone_switch()?.state())
     }
 
+    /// A Gateway that stops, or starts afresh, holds no claim from another Mac, so none calls him any more.
     pub(crate) fn phone_set(&self, on: bool) -> Result<PhoneGateway, Refusal> {
-        Ok(self.phone_switch()?.set(on))
+        let switch = self.phone_switch()?;
+        let was = switch.state().listening;
+        let state = switch.set(on);
+        if !was || !state.listening {
+            self.calls_claimed(Vec::new());
+        }
+        Ok(state)
+    }
+
+    pub(crate) fn mac_setup_now(&self) -> Result<MacSetup, Refusal> {
+        Ok(self.phone_switch()?.setup())
+    }
+
+    /// Off the async threads, since the press waits a moment for a sign-in page.
+    pub(crate) async fn mac_set_up(&self) -> Result<MacSetup, Refusal> {
+        let switch = self.phone_switch()?.clone();
+        let run_id = self.run_id();
+        tokio::task::spawn_blocking(move || switch.set_up()).await.map_err(|why| {
+            Refusal::IllegalMove(WireError::raised(PHONE_NOT_SERVED, format!("the setup stopped: {why}"), run_id))
+        })
     }
 }

@@ -69,10 +69,12 @@ pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
     chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
 }
 
-/// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare.
+/// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare. `JobPick` is a
+/// Job's own pick on one of its questions, filled in the accent that rings a Job's pick elsewhere.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Weight {
     Pick,
+    JobPick,
     Plain,
     Bare,
 }
@@ -81,13 +83,14 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
     let id: SharedString = id.into();
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
+        Weight::JobPick => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
         Weight::Plain => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_STRONG)),
         Weight::Bare => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_MUTED), gpui::transparent_black()),
     };
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let cap = key.map(|key| {
         let cap = kbd(key, look);
-        if weight == Weight::Pick { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
+        if matches!(weight, Weight::Pick | Weight::JobPick) { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
     });
     div()
         .id(id)
@@ -103,7 +106,7 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
         .bg(ground)
         .text_color(ink)
         .text_size(look.length(token::TEXT_SM))
-        .font_weight(FontWeight(look.number(if weight == Weight::Pick { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
+        .font_weight(FontWeight(look.number(if matches!(weight, Weight::Pick | Weight::JobPick) { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
         .focusable()
@@ -676,7 +679,8 @@ impl OperatorPageView {
         let keyed = self.open.as_deref() == Some(turn.id.as_str());
         let chosen = self.option_of(turn);
         let pick = face::pick_of(turn);
-        let rows = turn.item.options.iter().enumerate().map(|(at, option)| {
+        // A pictured option is its card above the rows; only options in words are rows.
+        let rows = turn.item.options.iter().enumerate().filter(|(_, option)| option.picture.is_none()).map(|(at, option)| {
             let label: SharedString = option.label.clone().into();
             let on = chosen.as_ref() == Some(&label);
             let id = turn.id.clone();
@@ -687,7 +691,8 @@ impl OperatorPageView {
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_2))
-                    .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
+                    .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
+                    .py(look.length(token::SPACE_1))
                     .px(look.length(token::SPACE_3))
                     .rounded(look.length(token::RADIUS_LG) * 1.25)
                     .border(look.length(token::BORDER_WIDTH))
@@ -702,7 +707,15 @@ impl OperatorPageView {
                         this.pick_option(&id, &pressed_label, cx)
                     }))
                     .child(glyph(if on { "circle-dot" } else { "circle" }, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
-                    .child(div().flex_1().child(label.clone()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(label.clone())
+                            .children(option.description.as_ref().filter(|said| !said.is_empty()).map(|said| {
+                                div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
+                            })),
+                    )
                     .when(pick.as_ref() == Some(&label), |row| {
                         row.child(
                             div()
@@ -717,9 +730,19 @@ impl OperatorPageView {
                 label,
             )
         });
+        // Options the asker drew as stills show them above the rows; a press on a still opens it large, its words pick it.
+        let chosen_at = turn.item.options.iter().position(|option| chosen.as_ref().is_some_and(|on| on.as_ref() == option.label));
+        let stills = crate::option_pictures::stills(&turn.id, &turn.item.options, chosen_at, self.wire.port(cx), look.color(token::OPERATOR), look, &|at| {
+            let (id, label) = (turn.id.clone(), turn.item.options[at].label.clone());
+            Box::new(cx.listener(move |this, _, _, cx| {
+                this.open = Some(id.clone());
+                this.pick_option(&id, &label, cx)
+            }))
+        }, cx);
         div()
             .mt(look.length(token::SPACE_1))
             .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Options"))
+            .children(stills.map(|stills| div().mb(look.length(token::SPACE_2)).child(stills)))
             .child(labelled(div().id("options").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Options"))
     }
 

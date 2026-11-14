@@ -331,13 +331,23 @@ where
         named: Option<ipc::SessionId>,
     ) -> Result<NeedsYou, Refusal> {
         let id = self.waiting_session(caller, named.as_ref())?;
-        let waiting = {
+        let own = {
             let store = self.store().lock().await;
-            let session = store
-                .session(&id)
-                .map_err(|why| self.ledger_fault(why))?
-                .ok_or_else(|| self.hosted_refusal(super::waiting::SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-            self.ledger_row(&store, &session)?.waiting_for
+            match store.session(&id).map_err(|why| self.ledger_fault(why))? {
+                Some(session) => Some(self.ledger_row(&store, &session)?.waiting_for),
+                None => None,
+            }
+        };
+        // A Job his other Mac shares is read off the row held from it, as it last said it.
+        let waiting = match own {
+            Some(waiting) => waiting,
+            None => self
+                .sessions_from_macs()
+                .await?
+                .into_iter()
+                .find(|one| one.id.as_str() == id)
+                .map(|one| one.waiting_for)
+                .ok_or_else(|| self.hosted_refusal(super::waiting::SESSION_WAITING_UNNAMED, "a job Fleet knows"))?,
         };
         Ok(needs_you_of(&id, &waiting))
     }

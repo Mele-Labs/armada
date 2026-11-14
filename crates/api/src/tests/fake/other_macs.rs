@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
+    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
     ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 
@@ -92,7 +92,19 @@ impl OtherMacs for FakeDaemon {
         Ok(MacNamed { mac: event.mac })
     }
 
+    async fn message_from_mac(self: Arc<Self>, _mac: String, message: JobMessage) -> Result<(), Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.no_such_session",
+            format!("No Job has the id {}.", message.to.as_str()),
+            super::shapes::run_id(),
+        )))
+    }
+
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
+    }
+
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        Ok(claims)
     }
 }

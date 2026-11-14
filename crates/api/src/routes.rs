@@ -33,7 +33,7 @@ use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
-    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build,
+    change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, update_mac,
     skip_preview_refresh, swap_fleet_build,
 };
 use crate::limiting::{get_limits, save_limits};
@@ -253,6 +253,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::pull_request_panel::get_review_runs::<D>),
         )
         .merge(crate::review_walks::mounted::<D>())
+        .merge(crate::pull_review_memory::mounted::<D>())
         .merge(crate::other_macs::mounted::<D>())
         .route(
             "/pull_request_notes/:repository/:number",
@@ -318,7 +319,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/terminal/open", post(crate::terminals::open_terminal::<D>))
         .route("/sessions/terminal/run", post(crate::terminals::start_terminal_run::<D>))
-        .route("/sessions/terminal/start", post(crate::terminals::start_terminal_job::<D>))
+        .route("/sessions/side_job/start", post(crate::terminals::start_side_job::<D>))
         .route("/sessions/terminal/type", post(crate::terminals::type_in_terminal::<D>))
         .route("/sessions/terminal/read", get(crate::terminals::read_terminal::<D>))
         .route("/sessions/terminal/list", get(crate::terminals::list_terminals::<D>))
@@ -659,12 +660,28 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )
         .route(
+            "/sessions/project",
+            post(crate::hosted_sessions::set_session_project::<D>),
+        )
+        .route(
             "/sessions/mcp",
             get(crate::hosted_sessions::get_session_mcp::<D>),
         )
         .route(
             "/sessions/quick",
             get(crate::hosted_sessions::get_session_quick::<D>),
+        )
+        .route(
+            "/sessions/artifacts",
+            get(crate::hosted_sessions::get_job_artifacts::<D>),
+        )
+        .route(
+            "/sessions/artifacts/archive",
+            post(crate::hosted_sessions::archive_artifact::<D>),
+        )
+        .route(
+            "/sessions/artifacts/restore",
+            post(crate::hosted_sessions::restore_artifact::<D>),
         )
         .route(
             "/sessions/mcp/act",
@@ -806,6 +823,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/models", get(list_models::<D>))
         .route("/fleet/build", get(get_fleet_build::<D>))
         .route("/fleet/build/change", post(change_fleet_build::<D>))
+        .route("/macs/update", post(update_mac::<D>))
         .route("/fleet/build/revert", post(revert_fleet_build::<D>))
         .route("/fleet/build/pick", post(pick_fleet_build_job::<D>))
         .route("/fleet/build/swap", post(swap_fleet_build::<D>))
@@ -819,6 +837,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/settings", get(crate::settling::get_settings::<D>))
         .route("/settings/save", post(crate::settling::save_settings::<D>))
         .route("/phone", get(crate::settling::get_phone::<D>).post(crate::settling::set_phone::<D>))
+        .route("/phone/setup", get(crate::settling::get_mac_setup::<D>).post(crate::settling::set_up_mac::<D>))
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
@@ -838,6 +857,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
+        .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

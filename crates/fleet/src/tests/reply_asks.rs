@@ -70,6 +70,24 @@ fn a_reply_that_only_tells_asks_nothing() {
     }
 }
 
+/// A reply that quotes what was asked before, to say what went wrong with it, asks nothing: the 13 Nov
+/// 2026 close that was sent back to be asked again with buttons.
+#[test]
+fn a_question_only_quoted_asks_nothing() {
+    for reply in [
+        "Three things went wrong.\n\n1. It answered in tables.\n2. It closed with \"want me to verify against the code?\". That pulled you further in.\n3. Armada moved it mid-answer.",
+        "It ended on “Should I open the pull request?” and waited, which was the mistake.",
+        "The phrase `do you want` is in the list, and it matched.",
+    ] {
+        assert_eq!(asking_line(reply), None, "{reply:?}");
+    }
+    assert_eq!(
+        asking_line("It said \"want me to\" before. Want me to land it?").as_deref(),
+        Some("Want me to land it?"),
+        "a quote beside an ask still asks"
+    );
+}
+
 /// A question the agent answers itself still reads as an ask: a wrong call costs one dismiss, a
 /// missed one costs the person a Session left waiting.
 #[test]

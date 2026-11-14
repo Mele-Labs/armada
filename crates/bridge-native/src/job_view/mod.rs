@@ -32,6 +32,11 @@ mod fork;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
+mod look_dock;
+mod look_done;
+mod look_mix;
+mod look_question;
+mod listening;
 mod keys;
 mod lines;
 mod menus;
@@ -64,8 +69,8 @@ mod subagent_read;
 mod zoom;
 mod panes;
 mod pane_store;
-mod pane_tree;
-mod pulls;
+pub(crate) mod pane_tree;
+pub(crate) mod pulls;
 mod issues;
 mod system;
 mod bays;
@@ -75,10 +80,12 @@ mod pr_panel;
 mod report_brief;
 mod side;
 mod spine;
+mod spoken;
 mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
+pub use listening::scene as listen_scene;
 pub use side::JobSide;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
@@ -89,6 +96,7 @@ mod talk;
 mod tool_icons;
 mod tune;
 pub(crate) mod wire;
+mod waits_for;
 mod workflow_card;
 
 use std::cell::RefCell;
@@ -141,6 +149,10 @@ pub(crate) enum Extra {
     Refreshing,
     /// What the Job waits on that is not the person, last of all.
     Waiting,
+    /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
+    WaitsFor,
+    /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
+    Spoken(u64, bool),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -322,6 +334,8 @@ pub struct JobView {
     mock: HashMap<String, HeldThread>,
     /// What the mock's Needs you says for each Job, as Fleet's view would: grouped from the record.
     mock_needs: HashMap<String, ipc::NeedsYou>,
+    /// The sends the mock keeps for a Mac asleep, as Fleet's `GET /queued` would answer.
+    mock_queued: ipc::QueuedList,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -420,6 +434,11 @@ pub struct JobView {
     spine: spine::Spine,
     /// The Jobs a walk reads again for a moment when they come on screen, standing in for Fleet's read.
     mock_reading: HashSet<String>,
+    /// Listen: what is read out, and the Jobs as they were when it was last looked at.
+    listen: Entity<crate::listen::engine::Listener>,
+    heard: crate::listen::Seen,
+    /// A walk's Jobs as its scenes have changed them, standing in for the records Fleet would send.
+    mock_records: Option<Vec<SessionRecord>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -459,6 +478,10 @@ impl JobView {
             composer.catalog.scripts = catalogue.talk;
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
+        let speaker = if mock.is_some() && fleet.is_none() { crate::listen::Speaker::Mock(crate::listen::scenes::begin()) } else { crate::listen::Speaker::Helper };
+        let listen = cx.new(|_| crate::listen::engine::Listener::new(speaker));
+        subscriptions.push(cx.observe(&listen, |_, _, cx| cx.notify()));
+        subscriptions.push(cx.subscribe(&listen, |this, _, _: &crate::listen::engine::Changed, cx| this.listen_changed(cx)));
         let lanes = lanes::Lanes::new(cx);
         subscriptions.push(cx.on_focus(&lanes.canvas.frame, window, |this, _, cx| {
             this.lanes.canvas.keyed.set(true);
@@ -516,6 +539,7 @@ impl JobView {
             }),
             None => Default::default(),
         };
+        let mock_on = mock.is_some();
         let mock = mock
             .unwrap_or_default()
             .into_iter()
@@ -526,6 +550,7 @@ impl JobView {
             fleet,
             mock,
             mock_needs: HashMap::new(),
+            mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
@@ -581,6 +606,9 @@ impl JobView {
             panes: panes::Panes::default(),
             spine: spine::Spine::new(remember, cx),
             mock_reading: HashSet::new(),
+            listen,
+            heard: crate::listen::Seen::default(),
+            mock_records: None,
             _subscriptions: subscriptions,
         }
     }
@@ -675,6 +703,7 @@ impl JobView {
 
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.listen_sync(cx);
         let (opened, picks) = {
             let list = self.list.read(cx);
             (list.opened_id(), list.picks())
@@ -689,6 +718,34 @@ impl JobView {
             self.picked = picks;
             self.to_composer(window, cx);
         }
+        // A Job `session.removed` took away leaves nothing of its tabs or page behind.
+        for id in self.list.update(cx, |list, _| list.take_gone()) {
+            self.pages.remove(&id);
+            self.row_tabs.remove(&id);
+            self.mock.remove(id.as_ref());
+            self.mock_needs.remove(id.as_ref());
+            self.compact_refused.remove(&id);
+        }
+    }
+
+    /// Why acts on the Job on screen are off, as [`Self::off_here`] says for the one shown.
+    pub(super) fn off_shown(&self, cx: &App) -> Option<SharedString> {
+        self.shown.as_ref().and_then(|id| self.off_here(id, cx))
+    }
+
+    /// Why acts on the Job on screen are off, where it runs on another Mac (`crate::pairing`).
+    pub(super) fn off_here(&self, id: &str, cx: &App) -> Option<SharedString> {
+        self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal(job, cx)).map(Into::into)
+    }
+
+    /// Why the act posted to `path` is off for the Job, where it runs on another Mac and Fleet does not carry it there.
+    pub(super) fn off_to(&self, id: &str, path: &str, cx: &App) -> Option<SharedString> {
+        self.list.read(cx).record(id).and_then(|job| crate::pairing::refusal_to(job, path, cx)).map(Into::into)
+    }
+
+    /// [`Self::off_to`] for the Job on screen.
+    pub(super) fn off_shown_to(&self, path: &str, cx: &App) -> Option<SharedString> {
+        self.shown.as_ref().and_then(|id| self.off_to(id, path, cx))
     }
 
     /// Put another Job on screen: its place was kept, so this swaps what is drawn and the box's
@@ -755,6 +812,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
+        self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
             self.sync(&id, cx);
@@ -778,6 +836,7 @@ impl JobView {
     /// changed and from no earlier, so a tail does not cost a thread's worth of layout.
     fn sync(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         self.want_needs(id, cx);
+        self.want_looks(id, cx);
         self.want_watches(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
@@ -824,6 +883,12 @@ impl JobView {
         if bands.end {
             extras.push(Extra::End);
         }
+        // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
+        if !self.sends_waiting(id, cx).is_empty() {
+            extras.push(Extra::WaitsFor);
+        }
+        // What was said is the newest thing in the thread, so it stands last and the thread follows it.
+        extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
@@ -836,7 +901,8 @@ impl JobView {
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
         let shift = (lead + before + added) as isize - (page.lead + page.before) as isize;
-        let top = page.version.is_some().then(|| page.list.logical_scroll_top());
+        // A thread that follows its tail needs no top kept: putting one back would stop it following.
+        let top = (page.version.is_some() && !page.list.is_following_tail()).then(|| page.list.logical_scroll_top());
         page.list.splice(from_list..page.count, total - from_list);
         if let Some(top) = top.filter(|top| shift != 0 || added_earlier > 0 || top.item_ix >= from_list) {
             let item_ix = ((top.item_ix as isize + shift).max(0) as usize).min(total.saturating_sub(1));
