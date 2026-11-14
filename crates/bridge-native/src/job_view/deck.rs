@@ -417,7 +417,7 @@ impl JobView {
                         question: row.text.clone(),
                         header: String::new(),
                         multi_select: false,
-                        options: super::dock::row_options(row).iter().map(|o| ipc::AskedChoice { label: o.label.clone(), description: String::new(), preview: String::new() }).collect(),
+                        options: super::dock::choices_of(super::dock::row_options(row)),
                     }],
                     true,
                 )),

@@ -248,6 +248,13 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.waiting_for.insert(0, asked);
         }
     }
+    // The question Search for the queue has open is a row of its Job's Needs you as Fleet lists it: options carry their words and previews.
+    if scenario == "call-rows" {
+        let asked = ipc::decode::<WaitingItem>("call rows item", CALL_ROWS_ASK.as_bytes()).map_err(|why| why.to_string())?;
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-search") {
+            one.waiting_for.insert(0, asked);
+        }
+    }
     if scenario == "option-pictures" {
         let asked = ipc::decode::<WaitingItem>("picture item", OPTION_PICTURES_ASK.as_bytes()).map_err(|why| why.to_string())?;
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
@@ -1742,6 +1749,12 @@ const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused
 {"label":"Wait for main to move","description":"Nothing retries until main has a new commit. The branch is merged with it first, the Checks run again on the merge, and only a green run pushes. A refusal that names the branch protection stops at once."},
 {"label":"Ask each time","description":"Every refusal comes here as its own question with the forge's words, the branch and how far behind main it is. Nothing is pushed until you answer, and an answer applies to that one push only."},
 {"label":"Hand it to the merge queue","description":"The pull request is queued as it stands and the queue's own retries take over. The Job ends its part once the queue has it, and a queue failure opens a new Job for the fix with the failing Check named."}]}"#;
+
+/// The call-rows walk's question as Fleet lists it beside the open call: the options of `call-9` with their words and previews.
+const CALL_ROWS_ASK: &str = r#"{"id":"ask:call-9","text":"Which look does the stale chip take?","since":"2026-11-10T22:02:00Z","source":"ask_card","act":{"kind":"answer","target":"call-9"},"options":[
+{"label":"Amber edge","description":"Matches the other waiting marks.","preview":".merge-chip[data-stale] {\n  border-color: var(--status-waiting);\n  color: var(--fg-default);\n}"},
+{"label":"Filled amber","description":"Reads from across the screen.","preview":".merge-chip[data-stale] {\n  background: var(--status-waiting);\n  color: var(--bg-sunken);\n}"},
+{"label":"Grey","description":"Reads as nothing happened."}]}"#;
 
 /// A kept style set as `GET /sessions/kept_styles` answers it. A mock scene's mock nodes name no hash, so the one set
 /// answers every hash asked.

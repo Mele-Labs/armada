@@ -107,7 +107,7 @@ async fn a_start_press_starts_a_job_at_once_on_the_composed_brief_and_tells_the_
 async fn an_answer_press_answers_the_jobs_open_ask_with_the_option() {
     let rig = rig_placing(None);
     let (id, at) = a_job(&rig).await;
-    let option = |label: &str| WaitingOption { label: label.into(), description: None, picture: None };
+    let option = |label: &str| WaitingOption { label: label.into(), description: None, picture: None, preview: None };
     let question = WaitingInput {
         id: "q1".into(),
         text: "Quarantine lease_clock?".into(),

@@ -81,7 +81,7 @@ where
         let options = if next.is_empty() {
             Vec::new()
         } else {
-            [DROP_THEM, LEAVE_THEM].map(|label| WaitingOption { label: label.to_string(), description: None, picture: None }).into()
+            [DROP_THEM, LEAVE_THEM].map(|label| WaitingOption { label: label.to_string(), description: None, picture: None, preview: None }).into()
         };
         let item = WaitingItem {
             approves: false,

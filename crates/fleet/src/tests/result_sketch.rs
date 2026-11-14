@@ -122,7 +122,7 @@ async fn a_sketch_beside_the_jobs_own_open_question_still_waits() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet.show_sketch(None, drawn(&id)).await.unwrap();
-    let option = |label: &str| WaitingOption { label: label.into(), description: None, picture: None };
+    let option = |label: &str| WaitingOption { label: label.into(), description: None, picture: None, preview: None };
     let question = WaitingInput {
         id: "which".into(),
         text: "Pick a take from the sketch".into(),

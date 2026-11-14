@@ -92,8 +92,8 @@ fn long_lived() -> SessionRecord {
             },
             WaitingItem {
                 options: vec![
-                    ipc::WaitingOption { label: "The first".into(), description: None, picture: None },
-                    ipc::WaitingOption { label: "The second".into(), description: Some("Slower".into()), picture: None },
+                    ipc::WaitingOption { label: "The first".into(), description: None, picture: None, preview: None },
+                    ipc::WaitingOption { label: "The second".into(), description: Some("Slower".into()), picture: None, preview: None },
                 ],
                 ..waiting("pick", "Which of the two", WaitingSource::Agent, None)
             },

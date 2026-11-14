@@ -594,6 +594,10 @@ pub struct WaitingOption {
     /// is words only, and from a Fleet before it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<OptionPicture>,
+    /// What the agent attached to show while this option is in focus: monospace text such as a snippet or a list of
+    /// checks. Absent where it sent none, and from a Fleet before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
 }
 
 /// An option drawn as a still, which a person can press whole or pick named parts of.

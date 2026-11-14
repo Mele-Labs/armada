@@ -127,7 +127,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                     kind: WaitingActKind::Run,
                     target: "cargo test".into(),
                 }),
-                options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
+                options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None, preview: None }],
                 steps: Vec::new(),
             })
             .collect(),
@@ -681,7 +681,7 @@ pub(super) async fn lapsed_clock_question(rig: &Rig, id: &ipc::SessionId) {
 }
 
 fn options_of(labels: &[&str]) -> Vec<WaitingOption> {
-    labels.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect()
+    labels.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None, preview: None }).collect()
 }
 
 fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> SetWaitingFor {

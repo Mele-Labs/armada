@@ -562,8 +562,8 @@ mod tests {
 
     #[test]
     fn only_options_with_a_still_are_drawn_and_keep_their_place_among_all() {
-        let words = WaitingOption { label: "Neither".into(), description: Some("Keep it as is".into()), picture: None };
-        let with = |label: &str| WaitingOption { label: label.into(), description: None, picture: Some(picture(vec![])) };
+        let words = WaitingOption { label: "Neither".into(), description: Some("Keep it as is".into()), picture: None, preview: None };
+        let with = |label: &str| WaitingOption { label: label.into(), description: None, picture: Some(picture(vec![])), preview: None };
         let options = vec![with("A"), words, with("B")];
         let places: Vec<usize> = drawn(&options).into_iter().map(|(at, _)| at).collect();
         assert_eq!(places, vec![0, 2]);

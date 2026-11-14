@@ -76,7 +76,7 @@ fn title_or_address(title: &str, session: &str) -> String {
 }
 
 fn option(label: String) -> WaitingOption {
-    WaitingOption { label, description: None, picture: None }
+    WaitingOption { label, description: None, picture: None, preview: None }
 }
 
 /// The items for the asks standing on a Job: the conflicts it raised and the landings it asked about.

@@ -104,7 +104,7 @@ fn pictures_kept(options: &[WaitingOption]) -> String {
 fn options_served(labels: Vec<String>, pictures: &str) -> Vec<WaitingOption> {
     let mut pictures: Vec<Option<ipc::OptionPicture>> = ipc::decode("an item's pictures", pictures.as_bytes()).unwrap_or_default();
     pictures.resize(labels.len(), None);
-    labels.into_iter().zip(pictures).map(|(label, picture)| WaitingOption { label, description: None, picture }).collect()
+    labels.into_iter().zip(pictures).map(|(label, picture)| WaitingOption { label, description: None, picture, preview: None }).collect()
 }
 
 pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
@@ -355,8 +355,9 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
                     .iter()
                     .map(|one| WaitingOption {
                         label: one.label.clone(),
-                        description: None,
+                        description: Some(one.description.clone()).filter(|said| !said.is_empty()),
                         picture: None,
+                        preview: Some(one.preview.clone()).filter(|text| !text.is_empty()),
                     })
                     .collect()
             } else {
@@ -387,6 +388,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
                 label: offer_label(one).to_string(),
                 description: None,
                 picture: None,
+                preview: None,
             })
             .collect(),
         steps: Vec::new(),
@@ -798,9 +800,9 @@ where
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
                     let open = change.map_or(true, |one| ready_changes.contains(&one));
-                    let mut options = vec![WaitingOption { label: String::from("Approve"), description: None, picture: None }];
+                    let mut options = vec![WaitingOption { label: String::from("Approve"), description: None, picture: None, preview: None }];
                     if change.is_some() {
-                        options.push(WaitingOption { label: String::from("Dismiss"), description: None, picture: None });
+                        options.push(WaitingOption { label: String::from("Dismiss"), description: None, picture: None, preview: None });
                     }
                     (open && !dismissed.contains(&id)).then(|| WaitingItem {
                         approves: false,

@@ -19,8 +19,8 @@ fn asked(id: &ipc::SessionId, url: &str) -> AskInWindow {
     AskInWindow {
         question: "Should the count sit beside the title or under it?".into(),
         options: vec![
-            WaitingOption { label: "Beside".into(), description: Some("One line, as on the Board".into()), picture: None },
-            WaitingOption { label: "Under".into(), description: None, picture: None },
+            WaitingOption { label: "Beside".into(), description: Some("One line, as on the Board".into()), picture: None, preview: None },
+            WaitingOption { label: "Under".into(), description: None, picture: None, preview: None },
         ],
         url: url.into(),
         selector: "main > h1".into(),
