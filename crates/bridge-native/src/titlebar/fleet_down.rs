@@ -290,6 +290,7 @@ impl TitleBar {
             next: statement.next.unwrap_or_default().into(),
             code: statement.code,
             fault: statement.kind == Kind::Fault,
+            act: None,
         }]
     }
 }
