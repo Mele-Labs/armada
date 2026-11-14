@@ -519,6 +519,16 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-agent-signed-out",
+        title: "The agents' account signed out",
+        screen: Screen::JobsInApp,
+        scenario: "agent-signed-out",
+        steps: &[
+            step("The agents' account is signed out for every Job: a toast holds its place in the corner, named as Fleet names the account, with Sign in", Verb::Look, "button", "Sign in"),
+            press_on("Sign in runs the agent's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
+        ],
+    },
+    Walk {
         name: "native-job-tabs",
         title: "Tabs beside a Job's thread",
         screen: Screen::JobsInApp,
