@@ -342,6 +342,10 @@ impl Processes for ProcessHost {
         keepers_made(&self.keepers, Path::new(&self.home), Path::new(PRIVATE_ROOT))?;
         let socket = self.socket_of(&start.session)?;
         let spool = self.keepers.join(format!("{}.spool", start.session));
+        // **One keeper per Job**: one still running is adopted or stopped first.
+        if let Some(stream) = super::keeper::make_way(&socket, KEEPER_WITHIN)? {
+            return super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool);
+        }
         let log = spool.with_extension("log");
         // Emptied, then held for append: the keeper's own error and the
         // agent's, which it writes later, land in one file.

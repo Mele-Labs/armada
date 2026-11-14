@@ -261,6 +261,7 @@ mod session_terminal;
 mod session_terminal_reading;
 mod session_terminal_replaced;
 mod session_terminal_kept;
+mod session_keeper;
 mod session_terminal_several;
 mod session_terminal_typing;
 mod side_job;
