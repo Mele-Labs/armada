@@ -446,6 +446,8 @@ impl JobView {
             None
         };
         let agent = agent.map(|(name, row)| labelled(named("agent", row), Role::Group, name));
+        // The page the Job is building, its dev server or the page it showed last: running now, so in Now alone too.
+        let live = job.activity.as_ref().and_then(|activity| activity.live.clone()).map(|live| self.live_beat(id, &live, job.mac.as_deref(), look, cx));
 
         // Fleet at work on the Job, one more worker beside the agent.
         let fleet = head.iter().flat_map(|head| head.fleet_acts.iter()).filter(|act| act.state == FleetActState::UnderWay).map(|act| {
@@ -492,7 +494,7 @@ impl JobView {
             None
         };
 
-        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
+        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
         // plan that ends on gates draws it under the live stretch's tasks instead.
@@ -574,6 +576,29 @@ impl JobView {
             .into_any_element()
         });
         beat(look, lead(look, &format!("walk:{url}"), "footprints", token::STATUS_AWAITING_REVIEW, "Walk waiting on you", true), name, ticks, None).into_any_element()
+    }
+
+    /// The Job's live page (`SessionLive`): its name, and under it its address or what Open came to; at its end the
+    /// chip of the Mac that serves it where that is another, and Open.
+    fn live_beat(&self, id: &SharedString, live: &ipc::SessionLive, mac: Option<&str>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = format!("live:{}", live.url);
+        let opening = self.page_open(id, &live.url) == Some(&super::web_pages::PageOpen::Opening);
+        let line = match self.page_words(id, &live.url) {
+            Some((said, _)) => (SharedString::from(said), token::FG_MUTED),
+            None => (SharedString::from(live.url.clone()), token::FG_SUBTLE),
+        };
+        let (job, url) = (id.to_string(), live.url.clone());
+        let open = labelled(
+            button(look, SharedString::from(format!("live-open:{}", live.url)), "Open", Tone::Secondary, false, None, !opening).when(!opening, |button| {
+                button.tooltip(tip("Open the page in the browser")).on_click(cx.listener(move |this, _, _, cx| this.open_page(&job, &url, cx)))
+            }),
+            Role::Button,
+            format!("Open {}", live.title),
+        );
+        let chip = mac.and_then(|mac| crate::pairing::chip(Some(mac), cx)).map(|chip| crate::pairing::pill(look, SharedString::from(format!("live-mac:{}", live.url)), &chip));
+        let end = div().flex().flex_none().items_center().gap(look.length(token::SPACE_2)).children(chip).child(open).into_any_element();
+        let row = beat(look, lead(look, &key, "app-window", token::ACCENT, "Live page", false), words(look, live.title.clone(), token::FG_DEFAULT, true, false, false), Some(end), Some(line));
+        labelled(named(&key, row), Role::Group, live.title.clone()).into_any_element()
     }
 
     /// One thing waiting on him: a press opens it where it is answered.

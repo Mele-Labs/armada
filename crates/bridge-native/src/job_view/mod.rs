@@ -97,6 +97,7 @@ mod tool_icons;
 mod tune;
 pub(crate) mod wire;
 mod waits_for;
+mod web_pages;
 mod workflow_card;
 
 use std::cell::RefCell;
@@ -392,6 +393,8 @@ pub struct JobView {
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
     refused_code: Option<String>,
+    /// What each web page's last Open came to: a walk's tab, and the live page in Now.
+    pages_open: web_pages::PagesOpen,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -582,6 +585,7 @@ impl JobView {
             dock_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
+            pages_open: Default::default(),
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
@@ -623,6 +627,11 @@ impl JobView {
 
     fn record<'a>(&self, id: &str, cx: &'a App) -> Option<&'a SessionRecord> {
         self.list.read(cx).record(id)
+    }
+
+    /// The paired Mac that holds Job `id`, by id, where it is another Mac.
+    pub fn mac_of(&self, id: &str, cx: &App) -> Option<String> {
+        self.record(id, cx).and_then(|job| job.mac.clone())
     }
 
     /// The shown Job's thread in front of its pane, and the keys in its message box: a Job ⌘T started.

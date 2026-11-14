@@ -120,7 +120,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
-        "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => include_bytes!("../fixtures/jobs-screens.json"),
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
@@ -158,9 +158,15 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // The tour's Jobs with three on another Mac: the one that needs him, a quiet one and one a walk has removed.
-    if scenario == "jobs-pairing" {
+    if matches!(scenario, "jobs-pairing" | "jobs-other-mac") {
         for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
             one.mac = Some("air".into());
+        }
+    }
+    // The Job on Air that needs him showed a walk of a web page and serves its dev server.
+    if scenario == "jobs-other-mac" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            other_mac_pages(one)?;
         }
     }
     // Now's figures count from now, so the scenario's clock is moved to the run's.
@@ -368,6 +374,25 @@ pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
     ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
+/// The walk Air's Job showed, on its dev server.
+pub const AIR_WALK: &str = "http://localhost:5173/merge-line?walk=freshness";
+
+/// Air's Job showed a walk of its dev server's page, which it owes him, and the dev server is its live page.
+fn other_mac_pages(job: &mut SessionRecord) -> Result<(), String> {
+    let why = |why: ipc::Undecodable| why.to_string();
+    let since = job.started_at.clone();
+    let window = format!(
+        r#"{{"kind":"artifact","target":"{AIR_WALK}","state":"standing","detail":{{"form":"window","title":"Freshness chip","brief":"The chip reads Behind once main moves past the branch. Look at its colour and its tooltip."}},"since":"{since}","changed_at":"{since}"}}"#,
+        since = since.as_str()
+    );
+    job.attachments.push(ipc::decode("window attachment", window.as_bytes()).map_err(why)?);
+    let item = format!(r#"{{"id":"walk:{AIR_WALK}","text":"Walk the freshness chip","since":"{since}","source":"walk","act":{{"kind":"walk","target":"{AIR_WALK}"}}}}"#, since = since.as_str());
+    job.waiting_for.push(ipc::decode("walk item", item.as_bytes()).map_err(why)?);
+    let activity = job.activity.get_or_insert_with(Default::default);
+    activity.live = Some(ipc::decode("live page", br#"{"url":"http://localhost:5173/","title":"sample-web dev"}"#).map_err(why)?);
+    Ok(())
+}
+
 /// The threads a scenario's fixtures hold.
 fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     #[derive(Deserialize)]
@@ -375,7 +400,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
-        "jobs-screens" | "jobs-pairing" => return screens_threads(),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
         "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
@@ -833,7 +858,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "jobs-pairing" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
+    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "jobs-pairing" | "jobs-other-mac" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {

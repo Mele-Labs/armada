@@ -10,8 +10,9 @@
 //! A subagent's tab goes the same way once the Job no longer holds the subagent. All follow "an
 //! empty slot stays empty".
 //!
-//! Only a walk of a native screen (`armada://walk/`) has a tab here: a web page's walk waits for the
-//! embedded browser.
+//! A walk of a native screen (`armada://walk/`) opens in a window of its own. A walk of a web page draws its name,
+//! brief and address here, and Open hands the page to the browser until Chrome draws it in the tab; a Job another
+//! Mac holds opens it through the link (`web_pages.rs`).
 
 use std::collections::{HashMap, HashSet};
 
@@ -177,7 +178,12 @@ fn shown_walk(record: &SessionRecord, url: &str) -> Option<ShownWalk> {
     Some(ShownWalk { title, brief })
 }
 
-/// The native walks the Job owes him, each with its tab's name: a walk is owed while Fleet's waiting
+/// Whether a walk is of a web page, which the browser opens.
+fn is_web(url: &str) -> bool {
+    url.starts_with("http://") || url.starts_with("https://")
+}
+
+/// The walks the Job owes him, each with its tab's name: a walk is owed while Fleet's waiting
 /// item for it stands, and has a tab only where the Job showed it (`owedWalks`).
 fn owed_walks(record: &SessionRecord) -> Vec<(String, String)> {
     record
@@ -185,7 +191,7 @@ fn owed_walks(record: &SessionRecord) -> Vec<(String, String)> {
         .iter()
         .filter(|one| one.source == WaitingSource::Walk)
         .filter_map(|one| one.act.as_ref().filter(|act| act.kind == WaitingActKind::Walk).map(|act| act.target.clone()))
-        .filter(|url| url.starts_with(NATIVE_WALK))
+        .filter(|url| url.starts_with(NATIVE_WALK) || is_web(url))
         .filter_map(|url| shown_walk(record, &url).map(|walk| (url, walk.title)))
         .collect()
 }
@@ -249,6 +255,14 @@ impl JobView {
     /// A press on a walk he is owed (`openJobWalk`): a native walk starts its window at once, and its
     /// tab comes forward only where Fleet does not start it.
     pub(super) fn press_walk(&mut self, url: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if is_web(url) {
+            // Its tab comes forward, so what Open came to is said where he looks.
+            self.bring_walk_forward(url, window, cx);
+            if let Some(id) = self.shown.clone() {
+                self.open_page(&id, url, cx);
+            }
+            return;
+        }
         if !url.starts_with(NATIVE_WALK) {
             return;
         }
@@ -467,6 +481,7 @@ impl JobView {
                 _ => None,
             }),
             RowKind::Document => self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)),
+            RowKind::Walk if is_web(&tab.key) => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key).map(|walk| (walk, record.mac.clone()))).map(|(walk, mac)| self.web_walk_body(id, &tab.key, walk, mac, look, cx)),
             RowKind::Walk => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key)).map(|walk| self.walk_body(id, &tab.key, walk, look, cx)),
             // The subagent's thread draws its own padding, as the reading sheet's does.
             RowKind::Subagent => {
@@ -478,6 +493,71 @@ impl JobView {
             Some(card) => div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(card).into_any_element(),
             None => div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element(),
         }
+    }
+
+    /// A walk of a web page: its name, its brief, the page's address with the chip of the Mac that serves it where
+    /// that is another, Open, and what Open came to.
+    fn web_walk_body(&self, id: &SharedString, url: &str, walk: ShownWalk, mac: Option<String>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let opening = self.page_open(id, url) == Some(&super::web_pages::PageOpen::Opening);
+        let opened = self.page_open(id, url) == Some(&super::web_pages::PageOpen::Opened);
+        let (job, key) = (id.to_string(), url.to_string());
+        let open = labelled(
+            button(look, "walk-open", "Open", Tone::Primary, false, None, !opening).when(!opening, |button| {
+                button.tooltip(super::head::tip("Open the page in the browser".into())).on_click(cx.listener(move |this, _, _, cx| this.open_page(&job, &key, cx)))
+            }),
+            Role::Button,
+            "Open",
+        );
+        let said = self.page_said(id, url, look).or_else(|| {
+            opened.then(|| labelled(div().id("walk-said").text_color(look.color(token::FG_MUTED)).child("Opened in the browser"), Role::Status, "Opened in the browser").into_any_element())
+        });
+        let chip = mac.as_deref().and_then(|mac| crate::pairing::chip(Some(mac), cx)).map(|chip| crate::pairing::pill(look, "walk-mac".into(), &chip));
+        let address = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_w_0()
+            .child(
+                labelled(
+                    div()
+                        .id("walk-address")
+                        .min_w_0()
+                        .truncate()
+                        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(SharedString::from(url.to_string())),
+                    Role::Label,
+                    url.to_string(),
+                ),
+            )
+            .children(chip);
+        labelled(
+            div()
+                .id("walk-body")
+                .flex()
+                .flex_col()
+                .p(look.length(token::SPACE_2))
+                .max_w(look.length(token::SPACE_8) * 20.)
+                .gap(look.length(token::SPACE_3))
+                .child(
+                    div()
+                        .text_size(look.length(token::TEXT_LG))
+                        .line_height(look.length(token::LEADING_LG))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .child(SharedString::from(walk.title.clone())),
+                )
+                .children(walk.brief.map(|brief| {
+                    div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(brief))
+                }))
+                .child(address)
+                .child(div().flex().items_center().gap(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_SM)).child(open).children(said)),
+            Role::Region,
+            walk.title,
+        )
+        .into_any_element()
     }
 
     /// A walk of a native screen (`NativeWalk`): its name, its brief, Open, and what Fleet answered.
