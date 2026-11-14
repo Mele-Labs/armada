@@ -482,7 +482,7 @@ mod tests {
     const THREAD: &str = r#"[
         {"kind":"row","row":{"kind":"message","id":"y1","at":"2026-11-11T02:00:00Z","from":{"kind":"you"},"text":"Why do Webhook retries pile up?"}},
         {"kind":"calls","id":"t1","names":["Bash","Read"],"rows":[
-            {"kind":"tool","id":"t1","at":"2026-11-11T02:00:05Z","text":"Bash git grep -n webhook -- crates"},
+            {"kind":"tool","id":"t1","at":"2026-11-11T02:00:05Z","text":"Bash git grep -n retry -- crates","description":"Find where webhook calls retry"},
             {"kind":"tool","id":"t1b","at":"2026-11-11T02:00:06Z","text":"Read crates/fleet/src/queue.rs"}]},
         {"kind":"row","row":{"kind":"reasoning","id":"r1","at":"2026-11-11T02:00:08Z","text":"The webhook backoff doubles; webhook calls wait."}},
         {"kind":"calls","id":"t2","names":["Bash"],"rows":[{"kind":"tool","id":"t2","at":"2026-11-11T02:00:09Z","text":"Bash ls"}]},
