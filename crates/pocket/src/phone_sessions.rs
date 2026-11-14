@@ -13,6 +13,7 @@ use ipc::{
     StopReason, StopRepair, StopRestart, WaitingItem, WaitingSource,
 };
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Serialize)]
 pub struct PhoneChoice {
@@ -156,7 +157,7 @@ pub struct PhoneSession {
     /// The state its row draws: mark, lamp and group, as Fleet read them.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mark: Option<JobMark>,
-    /// The project it was started for, by name. Not filled yet: the record carries the project's id, and a name needs `/projects`.
+    /// The project it was started for, by name. Absent where it has none, or where Fleet would not list the projects.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
     /// An instant, so the phone counts the age itself.
@@ -327,7 +328,7 @@ fn owed(record: &SessionRecord) -> Vec<&WaitingItem> {
 }
 
 impl PhoneSession {
-    pub fn of(record: &SessionRecord, repository: Option<&str>, now: i64) -> PhoneSession {
+    pub fn of(record: &SessionRecord, repository: Option<&str>, projects: &BTreeMap<String, String>, now: i64) -> PhoneSession {
         let hosted = record.origin == SessionOrigin::Bridge;
         let held = record.hosted.as_ref().is_some_and(|facts| facts.start.is_some());
         // A Terminal Session is waiting when its mod says it asked, held or not.
@@ -384,7 +385,7 @@ impl PhoneSession {
             blank: record.attachments.is_empty() && record.title.is_none() && record.last_turn_at.is_none(),
             reading: record.proposal.as_ref().is_some_and(|proposal| proposal.reading),
             mark: record.mark,
-            project: None,
+            project: record.hosted.as_ref().and_then(|hosted| hosted.project.as_ref()).and_then(|id| projects.get(id)).cloned(),
             last_turn_at: record.last_turn_at.as_ref().map(|at| at.as_str().to_string()),
             pull: standing(record, "pr").and_then(|target| target.parse().ok()),
             issue: record.attachments.iter().find(|one| one.kind == "issue").map(|one| PhoneIssue {

@@ -604,7 +604,7 @@ async fn a_fork_that_cannot_be_made_is_refused_before_fleet_starts_anything() {
 fn phone_row(tail: &str, usage: &str) -> String {
     let record = record("j1", "bridge", "live", tail).replace(r#""usage":{}"#, &format!(r#""usage":{usage}"#));
     let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
 }
 
 #[test]
@@ -711,7 +711,7 @@ fn a_row_names_its_first_open_pull_request_on_failed_checks() {
     let row = |attached: &[String]| {
         let record = record("j1", "bridge", "live", "").replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
         let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
     };
     let failed = r#""checks":"failed""#;
     // Merged, spent and given back no longer count; passing Checks never did.
@@ -737,7 +737,7 @@ fn a_row_says_a_job_is_blank_only_with_no_title_no_turn_and_nothing_attached() {
     record.title = None;
     record.last_turn_at = None;
     record.attachments.clear();
-    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap();
+    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap();
     assert!(blank.contains(r#""blank":true"#), "{blank}");
 }
 
@@ -782,7 +782,8 @@ fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
 fn row_with(tail: &str, attached: &[&str]) -> String {
     let record = record("j1", "bridge", "live", tail).replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
     let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+    let projects = std::collections::BTreeMap::from([("p1".to_string(), "Pocket".to_string())]);
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &projects, FIVE_PAST)).unwrap()
 }
 
 #[test]
@@ -792,14 +793,19 @@ fn a_row_carries_what_native_draws_its_row_from() {
             r#"{{"kind":"{kind}","target":"{target}","state":"standing","detail":{{{detail}}},"since":"2026-10-08T02:00:00.000Z","changed_at":"2026-10-08T02:00:00.000Z"}}"#
         )
     };
-    let tail = r#","last_turn_at":"2026-10-08T02:30:00.000Z","mark":{"state":"working","lamp":"running","group":"working"},"workflow":"Ship","activity":{"now":"Editing gate.rs","said":"Reading"},"so_far":"Earlier""#;
+    let tail = r#","last_turn_at":"2026-10-08T02:30:00.000Z","mark":{"state":"working","lamp":"running","group":"working"},"workflow":"Ship","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p1"},"activity":{"now":"Editing gate.rs","said":"Reading"},"so_far":"Earlier""#;
     let row = row_with(&tail, &[&attachment("pr", "77", ""), &attachment("issue", "412", r#""title":"Phone rows""#)]);
     assert!(row.contains(r#""mark":{"state":"working","lamp":"running","group":"working"}"#), "{row}");
     assert!(row.contains(r#""last_turn_at":"2026-10-08T02:30:00.000Z""#), "{row}");
+    assert!(row.contains(r#""project":"Pocket""#), "{row}");
     assert!(row.contains(r#""pull":77"#), "{row}");
     assert!(row.contains(r##""issue":{"number":"#412","title":"Phone rows"}"##), "{row}");
     assert!(row.contains(r#""step":"Ship""#), "{row}");
     assert!(row.contains(r#""now":"Editing gate.rs""#), "{row}");
+
+    // A project Fleet did not list is no name, and never its id.
+    let unlisted = row_with(r#","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p9"}"#, &[]);
+    assert!(!unlisted.contains("project") && !unlisted.contains("p9"), "{unlisted}");
 
     // An issue named by a word keeps it, and has no title where its attachment carries none.
     let word = row_with("", &[&attachment("issue", "armada-a3f2", "")]);
