@@ -1202,6 +1202,24 @@ impl FleetConnection {
     }
 }
 
+/// A connection with no link behind it, for a test that emits its events itself.
+#[cfg(test)]
+impl FleetConnection {
+    pub fn idle(_: &mut Context<Self>) -> Self {
+        FleetConnection {
+            held: Held::new(),
+            reading: BTreeSet::new(),
+            earlier: BTreeSet::new(),
+            failed: BTreeSet::new(),
+            needs_reading: BTreeMap::new(),
+            needs_failed: BTreeMap::new(),
+            following: None,
+            changes_asked: BTreeSet::new(),
+            _drain: Task::ready(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

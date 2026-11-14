@@ -125,12 +125,7 @@ pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
     let key = rulings.last().map_or(1, |one| one.key + 1);
     rulings.push(Raised { key, way: news.way, job, sentence: sentence.into() });
     cx.set_global(Rulings(rulings));
-    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
-        toasts.update(cx, |toasts, cx| {
-            toasts.unseen = true;
-            cx.notify();
-        });
-    }
+    ring(cx);
 }
 
 /// A button on a Job's page started a Job: a toast says it, as the Operator's start does, and a press on it opens the Job.
@@ -139,12 +134,21 @@ pub fn job_started(job: &str, sentence: impl Into<SharedString>, cx: &mut App) {
     let key = rulings.last().map_or(1, |one| one.key + 1);
     rulings.push(Raised { key, way: DispatchWay::Started, job: Some(job.to_string()), sentence: sentence.into() });
     cx.set_global(Rulings(rulings));
-    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
-        toasts.update(cx, |toasts, cx| {
-            toasts.unseen = true;
-            cx.notify();
-        });
-    }
+    ring(cx);
+}
+
+/// The bell says a ruling is new. Deferred, because a caller may be inside the toasts' own update, as their
+/// `Dispatched` subscriber is, and updating them again there is gpui's double lease panic (14 Nov crash).
+fn ring(cx: &mut App) {
+    let Some(toasts) = cx.try_global::<Live>().map(|live| live.0.clone()) else { return };
+    cx.defer(move |cx| {
+        if let Some(toasts) = toasts.upgrade() {
+            toasts.update(cx, |toasts, cx| {
+                toasts.unseen = true;
+                cx.notify();
+            });
+        }
+    });
 }
 
 /// What the Operator did, in bare words: the Job by its title, and for a question the title or what he sent.
@@ -275,13 +279,17 @@ impl Toasts {
         ];
         // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
         if let Some(fleet) = page.read(cx).fleet().cloned() {
-            subs.push(cx.subscribe(&fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
-                for one in &done.0 {
-                    dispatched(one.clone(), cx);
-                }
-            }));
+            subs.push(Self::hear_dispatches(&fleet, cx));
         }
         Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, _subs: subs }
+    }
+
+    fn hear_dispatches(fleet: &Entity<crate::fleet::FleetConnection>, cx: &mut Context<Self>) -> Subscription {
+        cx.subscribe(fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
+            for one in &done.0 {
+                dispatched(one.clone(), cx);
+            }
+        })
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -1035,5 +1043,26 @@ mod ruling_tests {
         let said = ruling_said(&news(DispatchWay::Asked, None), Some(about(long)));
         assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the d...");
         assert_eq!(about("one line\nsecond"), "one line");
+    }
+
+    /// 14 Nov: a dispatch from the sheet came back as `Dispatched`, and the toasts' own subscriber updated the
+    /// toasts again from inside their update, which gpui aborts on.
+    #[gpui::test]
+    fn a_dispatch_heard_while_the_toasts_are_up_rings_the_bell_without_a_panic(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(false, window, cx));
+        let toasts = cx.update(|window, cx| Toasts::mount(&page, WeakEntity::new_invalid(), window, cx));
+        let fleet = cx.update(|_, cx| cx.new(crate::fleet::FleetConnection::idle));
+        let heard = cx.update(|_, cx| toasts.update(cx, |_, cx| Toasts::hear_dispatches(&fleet, cx)));
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::Dispatched(vec![news(DispatchWay::Started, Some("Fix the build"))])));
+        cx.run_until_parked();
+        toasts.read_with(cx, |toasts, _| assert!(toasts.unseen, "the bell says a ruling is new"));
+        let said = cx.update(|_, cx| cx.global::<Rulings>().0.iter().map(|one| one.sentence.to_string()).collect::<Vec<_>>());
+        assert_eq!(said, ["Operator started Fix the build"]);
+        drop(heard);
     }
 }
