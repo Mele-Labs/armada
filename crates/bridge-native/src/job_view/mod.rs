@@ -22,6 +22,7 @@ mod claim_waits;
 mod cards;
 pub(crate) mod composer;
 mod deck;
+mod delivery_line;
 mod draft_doc;
 mod dock;
 mod done;

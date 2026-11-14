@@ -70,6 +70,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.
+        "delivery-line" => include_bytes!("../fixtures/jobs-delivery-line.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
         "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
@@ -535,6 +537,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        "delivery-line" => include_bytes!("../fixtures/delivery-line-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),

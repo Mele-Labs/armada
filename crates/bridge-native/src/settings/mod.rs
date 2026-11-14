@@ -30,4 +30,5 @@ mod workflow_detail;
 mod workflows;
 mod lanes;
 
+pub use project::SettingsAt;
 pub use screen::SettingsScreen;

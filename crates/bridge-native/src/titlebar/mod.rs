@@ -67,6 +67,8 @@ pub enum Asked {
     /// Settings, scoped to a project or to a repository in none: the switcher's Settings, and ⌘, in it.
     ProjectSettings(usize),
     RepositorySettings(usize),
+    /// Settings on a value's page, with its project picked and its row focused: a line that names a setting links here.
+    SettingsAt(crate::settings::SettingsAt),
     ProjectMembers(usize),
     NewProject,
     ChangeBuild { build: BuildSource },

@@ -697,6 +697,13 @@ pub struct SettingsAt {
     pub key: Key,
 }
 
+impl SettingsAt {
+    /// How work lands, in `project`'s column, or every project's.
+    pub fn delivery(project: Editing) -> SettingsAt {
+        SettingsAt { project, key: Key::Delivery }
+    }
+}
+
 /// A page of values: its band, then its rows.
 pub fn page(this: &SettingsOverlay, entry: &'static super::entries::Entry, page: Page, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
     let who = this.scope.project.as_ref().map_or("every project".to_string(), |(_, name)| name.clone());

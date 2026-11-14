@@ -3114,7 +3114,7 @@ pub static WALKS: &[Walk] = &[
         name: crate::settings::walk::LEARNED_LINKS,
         title: "A learned setting links to its setting",
         screen: Screen::Settings,
-        scenario: "jobs-many",
+        scenario: "delivery-line",
         steps: crate::settings::walk::LEARNED_LINKS_STEPS,
     },
     Walk {

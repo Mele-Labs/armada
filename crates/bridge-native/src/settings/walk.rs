@@ -260,7 +260,8 @@ pub static TAKE_STEPS: &[Step] = &[
 ];
 
 /// `native-learned-links`: a value Fleet learned from his first answer says so beside its setting, and a press on that
-/// takes the keys to the setting, so he can change it where he disagrees.
+/// takes the keys to the setting, so he can change it where he disagrees. So does Fleet's line in a Job's thread that says
+/// the work lands as the project's setting.
 pub const LEARNED_LINKS: &str = "native-learned-links";
 
 pub static LEARNED_LINKS_STEPS: &[Step] = &[
@@ -275,6 +276,13 @@ pub static LEARNED_LINKS_STEPS: &[Step] = &[
     step("Esc shuts them, and the keys stay on the setting", Verb::Key("escape"), "combobox", "How work lands for Armada"),
     step("Shift-Tab twice goes back to Learned from the keys", Verb::Keys(&["shift-tab", "shift-tab"]), "button", "Learned: How work lands"),
     step("Enter on it takes the keys to the setting as a press does", Verb::Key("enter"), "combobox", "How work lands for Armada"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    press_on("A Job in Armada: Fleet says in its thread that the work lands as Armada's setting", "button", "Native Bridge foundation", "link", "Change it in Settings, in the project's settings."),
+    step("The line is quiet, in Fleet's words, and its last sentence is a link", Verb::Hover, "link", "Change it in Settings, in the project's settings."),
+    step("Its tooltip", Verb::Later(800), "link", "Change it in Settings, in the project's settings."),
+    press_on("A press opens Settings on How work lands for Armada, ringed", "link", "Change it in Settings, in the project's settings.", "combobox", "How work lands for Armada"),
+    step("Esc closes Settings, and the keys go back to the link", Verb::Key("escape"), "link", "Change it in Settings, in the project's settings."),
+    step("Enter on the link opens it the same way", Verb::Key("enter"), "combobox", "How work lands for Armada"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
@@ -434,7 +442,7 @@ pub static STEPS: &[Step] = &[
     step("Esc clears the search first, and the page picked before comes back", Verb::Key("escape"), "region", "Limits"),
     press_on("Features: a switch per feature, then the folders a Job's card always allows or blocks", "button", "Features", "region", "Folders jobs reach"),
     press_on("A switch saves when pressed", "switch", "Interface sounds", "switch", "Interface sounds"),
-    press_on("A setting Fleet reads at start says it waits for a restart", "button", "Timeouts", "status", "Restart Fleet to apply."),
+    press_on("A setting Fleet reads at start says it waits for a restart", "button", "Timeouts", "status", "Restart Fleet to apply"),
     press_on(
         "A setting set where Fleet runs says the value here is not the one in force",
         "button",
