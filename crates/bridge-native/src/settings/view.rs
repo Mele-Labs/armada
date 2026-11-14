@@ -25,7 +25,7 @@ const DRAGGED_SPAN: i64 = 1000;
 /// A mark at each step, until they would crowd.
 const MARKED_STEPS: i64 = 32;
 /// Why nothing can be sent.
-const NOT_LIVE: &str = "Fleet is not connected, so nothing can be changed.";
+pub(super) const NOT_LIVE: &str = "Fleet is not connected, so nothing can be changed.";
 
 /// How wide a page's cards stand at most: the content column of the approved sketch ("Native Settings: a calmer page",
 /// a 1000 wide overlay less its nav), so a wide window leaves room at the right instead of spreading each row.
@@ -459,7 +459,7 @@ impl SettingsOverlay {
 
     // ---- a schema setting ---------------------------------------------------------------------
 
-    fn render_field(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn render_field(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(stops) = self.stops.get(&key) else { return div().into_any_element() };
         let saving = self.saving.as_deref() == Some(key.as_str());
@@ -711,7 +711,7 @@ impl SettingsOverlay {
             .into_any_element()
     }
 
-    fn save_button(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn save_button(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(stops) = self.stops.get(&key) else { return div().into_any_element() };
         let saving = self.saving.as_deref() == Some(key.as_str());
@@ -851,7 +851,7 @@ impl SettingsOverlay {
     }
 
     /// What sits at the top of the first card: Fleet's refusal of the file, or why it did not open.
-    fn file_note(&self, look: &Look) -> Vec<AnyElement> {
+    pub(super) fn file_note(&self, look: &Look) -> Vec<AnyElement> {
         let mut notes = Vec::new();
         if let Some(refused) = self.list.as_ref().and_then(|list| list.refused.as_ref()) {
             let said = format!("{} The last settings that read cleanly stay in force until the file is fixed.", refused.reason);
@@ -1014,6 +1014,9 @@ impl SettingsOverlay {
         if shown.is_some_and(|one| one.body == Body::Workflows) {
             return self.render_workflows(look, window, cx);
         }
+        if let Some(entry) = shown.filter(|one| matches!(one.body, Body::Schema(["limits"]))) {
+            return self.render_limits(entry, look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
             Some(Body::Schema(ids)) => {
@@ -1077,6 +1080,7 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);
             self.macs_keys(cx);
+            self.macs_settle(window, cx);
         }
         if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
             self.read_prefs(cx);

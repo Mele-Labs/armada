@@ -2,12 +2,12 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive and a restore publish.
+// which an archive, a restore and his Edit publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
 
-/** Who wrote a revision, always `agent` today, or who archived an artifact. */
+/** Who wrote a revision, `owner` for his Edit, or who archived an artifact. */
 export type ArtifactBy = "agent" | "owner";
 
 /** Who folded an artifact away, and when. Only `restore_artifact` lifts it; a new revision does not. */
@@ -26,6 +26,23 @@ export type ArtifactRef = {
   /** The artifact's `id`. */
   artifact: string;
   session_id?: string;
+};
+
+/**
+ * `POST /sessions/artifacts/edit`: his Edit of a page's or a draft's words, answered with the `JobArtifact` as it now
+ * reads, its newest revision `by` `owner`. The Job is sent each change first. A page's `text` is its whole HTML, the same
+ * elements and attributes in the same order, with words changed only in text, headings, lists and table cells; a
+ * draft's is its markdown. 409 `fleet.edit_not_newest`, naming the newest; 422 `fleet.edit_not_words` for a sketch or
+ * an edit of anything but words, naming the first element that differs; `fleet.edit_settled`, `fleet.edit_archived`,
+ * `fleet.artifact_not_held` and `fleet.session_unnamed`. 500 `fleet.edit_unkept`.
+ */
+export type SaveArtifactEdit = {
+  session_id: string;
+  /** The artifact's `id`: the page's path or `draft:<title>`. */
+  artifact: string;
+  /** The revision he edited, which must be the newest. */
+  revision: number;
+  text: string;
 };
 
 /** Where an artifact's newest revision stands. */

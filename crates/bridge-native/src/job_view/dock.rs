@@ -1363,7 +1363,7 @@ impl JobView {
                 }));
             labelled(button, Role::Button, word).into_any_element()
         });
-        // Options the asker drew as stills show them above the buttons; a press on one answers with it, as its button does.
+        // Options the asker drew as stills show them above the buttons; a press on a still opens it large, its words answer as its button does.
         let stills = crate::option_pictures::stills(&row.id, options, None, self.port(cx), look.color(token::STEP_WAITING), look, &|at| {
             let item = row.id.clone();
             Box::new(cx.listener(move |this, _, window, cx| this.answer_row(&item, at, window, cx)))

@@ -128,6 +128,16 @@ pub(crate) fn fixed(title: &str, text: &str) -> String {
     format!("Approved with my fixes: {title}\nUse exactly this text, as written:\n\n{text}")
 }
 
+/// His Approve of a draft whose newest revision is his Edit: his words, with any he gave after them.
+pub(crate) fn approved_his(title: &str, text: &str, words: Option<&str>) -> String {
+    let mut body = format!("Approved with his edit: {title}\nApply his text, exactly as written:\n\n{text}");
+    if let Some(words) = words {
+        body.push_str("\n\n");
+        body.push_str(words);
+    }
+    body
+}
+
 pub(crate) fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back: {title}\n{note}\nRewrite it and propose it again with propose_draft.")
 }

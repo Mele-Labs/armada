@@ -10,14 +10,18 @@
 //! And for the For line: **a sketch, a draft and a page each say what they are for in one sentence with the
 //! agent's links, Fleet adds the task in progress, its plan step and each open pull request the Job holds,
 //! a sentence over 200 characters is refused, and a page's link that is not http(s) is dropped and named.**
+//!
+//! And for his Edit: **his Edit of a page's or a draft's words is the next revision, his, the page's file holds
+//! his bytes, the Job is sent each change, and an Approve says his text; an Edit of anything but words, of a
+//! revision not the newest, or of a sketch is refused.** `crates/ipc/operations/save_artifact_edit.toml`.
 
 use std::sync::Arc;
 
 use adapter_traits::{CallDetail, DroneEvent};
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactState, DismissWaiting, DraftHow, ForLink, ProposeDraft,
-    SessionId, SessionRow, SessionVoice, ShowSketch, WithdrawSketch,
+    AnswerWaiting, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactState, DismissWaiting, DraftHow, ForLink,
+    ProposeDraft, SaveArtifactEdit, SessionId, SessionRow, SessionVoice, ShowSketch, WithdrawSketch,
 };
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -357,4 +361,133 @@ async fn a_job_working_a_task_of_its_plan_gets_the_task_and_its_plan_step_on_the
         links: vec![link(ArtifactLinkKind::Task, "Add the table", &task), link(ArtifactLinkKind::PlanStep, "Store", &group)],
     };
     assert_eq!(artifacts[0].for_line, Some(wanted));
+}
+
+const LEASE: &str = "<html><head><title>Lease expiry</title></head><body><h1>Lease expiry</h1><h2>Findings</h2><p>Leases expire.</p>\
+<table><tr><th>Store</th></tr><tr><td>Redis</td></tr></table></body></html>";
+
+/// The Job writes `html` as its page, and Fleet keeps it as revision 1.
+async fn page_holding(rig: &Rig, id: &SessionId, at: usize, html: &str) -> String {
+    let file = std::path::Path::new(&rig.root).join(".armada/documents/lease.html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, html).unwrap();
+    let path = file.to_string_lossy().into_owned();
+    rig.stand_in.says(
+        at,
+        vec![
+            DroneEvent::Called { tool: "Write".into(), call: "toolu_1".into(), detail: CallDetail::of(&format!("{path} +2")) },
+            DroneEvent::Answered { call: "toolu_1".into(), failed: false },
+        ],
+    );
+    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == path) }).await;
+    path
+}
+
+fn edit(id: &SessionId, artifact: &str, revision: u32, text: &str) -> SaveArtifactEdit {
+    SaveArtifactEdit { session_id: id.clone(), artifact: artifact.into(), revision, text: text.into() }
+}
+
+#[tokio::test]
+async fn his_edit_of_a_heading_and_a_cell_is_his_revision_in_the_pages_file_and_each_change_is_told() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let path = page_holding(&rig, &id, at, LEASE).await;
+    let told_before = sent(&rig.rows(&id).await);
+    let his = LEASE.replace("<h2>Findings</h2>", "<h2>What we found</h2>").replace("<td>Redis</td>", "<td>Postgres</td>");
+
+    let saved = Arc::clone(&rig.fleet).save_artifact_edit(edit(&id, &path, 1, &his)).await.expect("saved");
+
+    assert_eq!(saved.revisions.iter().map(|one| (one.number, one.by)).collect::<Vec<_>>(), [(1, ArtifactBy::Agent), (2, ArtifactBy::Owner)]);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), his, "the page's file holds his bytes");
+    let told: Vec<String> = sent(&rig.rows(&id).await).into_iter().skip(told_before.len()).collect();
+    let wanted = format!(
+        "He edited \"Lease expiry\": revision 2 is his, from revision 1.\n- Top: \"Findings\" → \"What we found\"\n\
+         - What we found: \"Redis\" → \"Postgres\"\nThe page at {path} holds his words. Build on them."
+    );
+    assert_eq!(told, [wanted]);
+
+    // The turn's end reads his bytes again and keeps no third, nor makes his the agent's.
+    super::documents::turn_swept(&rig, &id, at, "zz-swept.html").await;
+    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap();
+    assert_eq!(page.revisions.iter().map(|one| one.by).collect::<Vec<_>>(), [ArtifactBy::Agent, ArtifactBy::Owner]);
+}
+
+#[tokio::test]
+async fn an_edit_that_adds_an_element_is_refused_naming_it_and_keeps_nothing() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let path = page_holding(&rig, &id, at, LEASE).await;
+    let told_before = sent(&rig.rows(&id).await);
+    let his = LEASE.replace("<p>Leases expire.</p>", "<p>Leases expire.</p><p>And renew.</p>");
+
+    let Err(Refusal::Unacceptable(refused)) = Arc::clone(&rig.fleet).save_artifact_edit(edit(&id, &path, 1, &his)).await else {
+        panic!("an added element is refused");
+    };
+
+    assert_eq!(refused.code, "fleet.edit_not_words");
+    assert!(refused.message.contains("`<p>` where revision 1 has `<table>`"), "{}", refused.message);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), LEASE);
+    assert_eq!(sent(&rig.rows(&id).await), told_before, "nothing is sent");
+    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap();
+    assert_eq!(page.revisions.len(), 1);
+}
+
+#[tokio::test]
+async fn an_edit_of_a_revision_not_the_newest_is_refused_naming_the_newest() {
+    let rig = rig_placing(None);
+    let (id, _) = a_job(&rig).await;
+    rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "First words.")).await.unwrap();
+    rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "Second words.")).await.unwrap();
+
+    let Err(Refusal::IllegalMove(refused)) = Arc::clone(&rig.fleet).save_artifact_edit(edit(&id, "draft:Description for #41", 1, "His words.")).await
+    else {
+        panic!("an edit of revision 1 is refused");
+    };
+
+    assert_eq!(refused.code, "fleet.edit_not_newest");
+    assert!(refused.message.contains("revision 2 is"), "{}", refused.message);
+}
+
+#[tokio::test]
+async fn his_edit_of_a_draft_becomes_its_rows_text_and_his_approve_says_it() {
+    let rig = rig_placing(None);
+    let (id, _) = a_job(&rig).await;
+    let proposed = rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "Takes drafts out.\nKeeps the lease.")).await.unwrap();
+    let item = proposed.waiting_for.iter().find(|one| one.id.starts_with("draft:")).expect("the draft waits").id.clone();
+    let told_before = sent(&rig.rows(&id).await);
+    let his = "Takes drafts out.\nKeeps the lease for a week.";
+
+    let saved = Arc::clone(&rig.fleet).save_artifact_edit(edit(&id, "draft:Description for #41", 1, his)).await.expect("saved");
+
+    assert_eq!(saved.revisions.iter().map(|one| one.by).collect::<Vec<_>>(), [ArtifactBy::Agent, ArtifactBy::Owner]);
+    assert_eq!((saved.state, saved.item.as_deref()), (ArtifactState::Asking, Some(item.as_str())), "an Edit settles nothing");
+    let text = rig.rows(&id).await.into_iter().find_map(|row| match row {
+        SessionRow::Draft { id: row, text, .. } if format!("draft:{row}") == item => Some(text),
+        _ => None,
+    });
+    assert_eq!(text.as_deref(), Some(his));
+    let told: Vec<String> = sent(&rig.rows(&id).await).into_iter().skip(told_before.len()).collect();
+    assert_eq!(
+        told,
+        ["He edited \"Description for #41\": revision 2 is his, from revision 1.\n- Keeps the lease.\n+ Keeps the lease for a week.\n\
+          Use his text as the draft from now on."]
+    );
+
+    let approve = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None, fixed: None };
+    Arc::clone(&rig.fleet).answer_waiting(approve).await.unwrap();
+    let approved = sent(&rig.rows(&id).await).pop().unwrap();
+    assert!(approved.ends_with(&format!("\n\n{his}")), "{approved}");
+}
+
+#[tokio::test]
+async fn an_edit_of_a_sketch_is_refused() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+
+    let Err(Refusal::Unacceptable(refused)) = Arc::clone(&rig.fleet).save_artifact_edit(edit(&id, "sketch:Request flow", 1, "Words.")).await else {
+        panic!("a sketch takes no edit");
+    };
+
+    assert_eq!((refused.code.as_str(), refused.message.as_str()), ("fleet.edit_not_words", "a sketch takes notes, not edits"));
 }

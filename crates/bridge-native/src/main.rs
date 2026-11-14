@@ -198,10 +198,10 @@ struct Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // What a library widget inherits; gpui's own text colour is black.
         let text = cx.look().color(look::token::FG_DEFAULT);
-        label_root(div().size_full().text_color(text).child(self.screen.clone()))
+        label_root(div().size_full().text_color(text).child(self.screen.clone()).children(option_pictures::over(window, cx)))
     }
 }
 
