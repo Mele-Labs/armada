@@ -89,6 +89,7 @@ mod time_reading;
 mod base_moves;
 mod gate_checks;
 mod gate_holding;
+mod gate_merges;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
