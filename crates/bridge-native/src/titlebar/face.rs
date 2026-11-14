@@ -861,6 +861,11 @@ impl Face {
         }
     }
 
+    /// Fleet's id of the project the window is scoped to, which the Jobs list filters by. None on All and on one repository.
+    pub fn scoped_project(&self) -> Option<&str> {
+        self.scoped.and_then(|at| self.projects.get(at)).map(|one| one.id.as_ref())
+    }
+
     /// The repositories a project draws on, each once, in the order its members name them.
     pub fn members_said(&self, project: &Project) -> Option<SharedString> {
         let mut names: Vec<&str> = Vec::new();
