@@ -20,7 +20,6 @@ pub(super) const ASKS: &str = "Carry on in a new Job?";
 pub(super) const ITEM_PREFIX: &str = "handoff:";
 /// How many lines of the brief show before Show all, and about how many the opened well holds.
 const FOLDED_LINES: f32 = 4.;
-const OPEN_LINES: f32 = 10.;
 /// Under this width the head puts the question on a line of its own, and the card draws its presses closer.
 const NARROW: f32 = 420.;
 
@@ -133,7 +132,7 @@ impl JobView {
         // The brief's whole height and the head's width as last drawn: a draw that changes either measures again.
         let side = if place == Place::Needs { "needs" } else { "thread" };
         let cell = |part: &str| page.cards.measured.borrow_mut().entry(format!("{key}:{side}:{part}")).or_default().clone();
-        let (height, width) = (cell("brief"), cell("head"));
+        let (height, width, whole, boxed) = (cell("brief"), cell("head"), cell("card"), cell("well"));
         let list = match place {
             Place::Thread(ix) => Some((page.list.clone(), page.entry(ix))),
             Place::Needs => None,
@@ -156,10 +155,13 @@ impl JobView {
             .line_height(line)
             .text_color(look.color(token::FG_DEFAULT));
         let well = if opened {
-            // Opened, it scrolls inside its well, so the picks under it stay where they are.
-            // Narrow, the card is taller than the thread: the well keeps four lines and scrolls, so the head stays in view.
-            let lines = if narrow { FOLDED_LINES } else { OPEN_LINES };
-            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(line * lines).overflow_y_scroll().child(words))
+            // Opened, it scrolls inside its well, so the picks under it stay where they are. The well takes what the
+            // thread has left after the rest of the card, never under four lines, so the head stays in view.
+            let room = self.pane_height.unwrap_or_default() - look.length(token::SPACE_4) * 2.;
+            let rest = whole.get() - boxed.get();
+            let chrome = look.length(token::SPACE_2) * 2. + look.length(token::BORDER_WIDTH) * 2.;
+            let fits = if whole.get() > gpui::px(0.) && boxed.get() > gpui::px(0.) { room - rest - chrome } else { folded };
+            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(fits.max(folded)).overflow_y_scroll().child(words))
         } else {
             well.child(div().max_h(folded).overflow_hidden().child(words)).when(tall, |well| {
                 let clear = sunken.opacity(0.);
@@ -174,7 +176,7 @@ impl JobView {
                 )
             })
         };
-        let well = labelled(well, Role::Region, "Brief");
+        let well = labelled(well.child(measure(boxed, list.clone(), |bounds| bounds.size.height)), Role::Region, "Brief");
         let show_all = (tall || opened).then(|| {
             let said = if opened { "Show less" } else { "Show all" };
             let row = row_id.clone();
@@ -258,7 +260,7 @@ impl JobView {
         } else {
             row().relative().child(tile).child(figure).child(asks).child(limit)
         }
-        .child(measure(width, list, |bounds| bounds.size.width));
+        .child(measure(width, list.clone(), |bounds| bounds.size.width));
         let body = div()
             .flex_1()
             .min_w_0()
@@ -277,6 +279,7 @@ impl JobView {
                 Place::Thread(_) => format!("card:{key}"),
                 Place::Needs => format!("needs-{key}"),
             }))
+            .relative()
             .w_full()
             .flex()
             .overflow_hidden()
@@ -286,6 +289,7 @@ impl JobView {
             .bg(look.color(token::BG_RAISED))
             .child(div().flex_none().w(look.length(token::BORDER_WIDTH) * 3.).bg(hue))
             .child(body)
+            .child(measure(whole, list, |bounds| bounds.size.height))
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                 let key = &event.keystroke;
                 if key.modifiers.modified() || this.handoff_typing(window, cx) {
