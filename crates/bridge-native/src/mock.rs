@@ -88,7 +88,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
-        "job-tabs" => include_bytes!("../fixtures/jobs-tabs.json"),
+        // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
+        "job-tabs" | "job-web-walk" => include_bytes!("../fixtures/jobs-tabs.json"),
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
@@ -244,6 +245,27 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.waiting_for.push(item);
         }
     }
+    // The first Job owes him one walk, of a page on this machine, with the steps its Job passed to `show_window`.
+    if scenario == "job-web-walk" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            let url = format!("file://{}/fixtures/web-walk-page.html", env!("CARGO_MANIFEST_DIR"));
+            let target = |role: &str, name: &str| format!(r#"{{"role":"{role}","name":"{name}"}}"#);
+            let steps = format!(
+                "[{},{},{},{},{}]",
+                format!(r#"{{"say":"The page's heading names what changed","look":{}}}"#, target("heading", "Orders")),
+                format!(r#"{{"say":"The search box carries its label","look":{}}}"#, target("searchbox", "Search orders")),
+                format!(r#"{{"say":"Add order opens the form","press":{}}}"#, target("button", "Add order")),
+                format!(r#"{{"say":"The form stands over the list","look":{}}}"#, target("dialog", "New order")),
+                format!(r#"{{"say":"Export sits under the list","look":{}}}"#, target("button", "Export orders")),
+            );
+            one.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);
+            one.attachments.retain(|attachment| !attachment.target.starts_with("armada://walk/"));
+            let wire = format!(r#"{{"kind":"artifact","target":"{url}","state":"standing","detail":{{"form":"window","title":"Orders page","brief":"The orders list has a search box and Add order. Export moved under the list.","steps":{}}},"since":"2026-11-09T14:05:00Z","changed_at":"2026-11-09T14:05:00Z"}}"#, ipc::encode(&steps).map_err(|why| format!("{why:?}"))?);
+            one.attachments.push(ipc::decode::<ipc::Attachment>("web walk", wire.as_bytes()).map_err(|why| why.to_string())?);
+            let item = format!(r#"{{"id":"walk:{url}","text":"Walk the orders page","since":"2026-11-09T14:05:00Z","source":"walk","act":{{"kind":"walk","target":"{url}"}}}}"#);
+            one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("web walk item", item.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
     // Each open sketch waits on him as its own item, newest drawn first, as Fleet lists them.
     if scenario == "sketches-several" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {
@@ -382,7 +404,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         "needs-long" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
-        "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
+        "job-tabs" | "job-web-walk" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, and the mod Job's two Checks, the newest running.

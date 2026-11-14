@@ -72,6 +72,7 @@ mod toasts;
 mod transport;
 mod voice;
 mod waiting_sends;
+mod web;
 mod walk;
 mod ways;
 mod whisper;
