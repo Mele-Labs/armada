@@ -360,7 +360,7 @@ impl JobView {
     /// The walks the shown Job owes him get their tabs; a closed thread comes back when one arrives
     /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
     /// settled walk does.
-    pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         let subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
         if let Some(held) = self.thread(id, cx) {
             let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
@@ -378,10 +378,10 @@ impl JobView {
             self.row_tabs_of(id).keep(|tab| rows.contains(&(tab.kind, tab.key.clone())));
         }
         self.restore_row_front(id, cx);
-        let Some(owed) = self.record(id, cx).map(owed_walks) else { return };
-        self.sync_web_walks(id, &owed, window, cx);
-        if self.row_tabs_of(id).sync_walks(&owed) {
-            self.reopen_thread(id, cx);
+        if let Some(owed) = self.record(id, cx).map(owed_walks) {
+            if self.row_tabs_of(id).sync_walks(&owed) {
+                self.reopen_thread(id, cx);
+            }
         }
         self.sync_row_tabs_into_panes(id, cx);
     }
@@ -433,7 +433,8 @@ impl JobView {
 
     /// Each walk of a web page the Job owes gets its page and bar once, where its tab first arrives; a settled one takes
     /// its page with it (Classic disposes the view as the walk leaves).
-    fn sync_web_walks(&mut self, id: &SharedString, owed: &[(String, String)], window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sync_web_walks(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let owed = self.record(id, cx).map(owed_walks).unwrap_or_default();
         self.row_tabs_of(id).web.retain(|url, _| owed.iter().any(|(owed, _)| owed == url));
         let manifest = self.record(id, cx).and_then(|record| record.manifest_id.as_ref().map(|manifest| manifest.as_str().to_string()));
         for (url, title) in owed.iter().filter(|(url, _)| !is_native(url)) {

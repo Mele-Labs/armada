@@ -1134,7 +1134,8 @@ impl Render for JobView {
             cx.notify();
         }
         self.tend_kept(window, cx);
-        self.sync_walk_tabs(&id, window, cx);
+        self.sync_walk_tabs(&id, cx);
+        self.sync_web_walks(&id, window, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
