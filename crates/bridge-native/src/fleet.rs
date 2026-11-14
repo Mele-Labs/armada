@@ -122,7 +122,7 @@ pub struct Held {
     pub plan_usage: Option<ipc::PlanUsage>,
     /// Where the step down stands, as Fleet last said, held across a drop. `None` until Fleet has answered.
     pub downshift: Option<ipc::ModelDownshiftState>,
-    /// Whether Claude is signed out for every Job, and whether Fleet is signing it in, held across a drop.
+    /// Whether the agents' account is signed out for every Job, and whether Fleet is signing it in, held across a drop.
     /// `None` until Fleet has answered.
     pub agent_sign_in: Option<ipc::AgentSignIn>,
     /// Every standing write clash, as Fleet last said. `None` until Fleet has answered, and again once the
@@ -459,7 +459,7 @@ impl Held {
                 Signal::Downshift(state) => self.downshift = Some(state),
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
                 Signal::AgentSignIn(state) => self.agent_sign_in = Some(state),
-                Signal::AgentSignInFailed(why) => lines.push(Note::warn("Claude's sign-in could not be read").field("why", why)),
+                Signal::AgentSignInFailed(why) => lines.push(Note::warn("the agents' sign-in could not be read").field("why", why)),
                 Signal::Offers(offers) => self.offers = Some(offers),
                 Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
                 Signal::Queued(list) => self.queued = Some(list),

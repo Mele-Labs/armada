@@ -56,7 +56,7 @@ struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
 
-/// The words of Claude's signed-out toast, and of its banner when no window is in front.
+/// The words of the agents' signed-out toast, and of its banner when no window is in front.
 const SIGNED_OUT: &str = "Claude is signed out";
 const SIGNED_OUT_NEXT: &str = "Jobs stop at their next reply until it signs in again.";
 const SIGNING_IN_NEXT: &str = "Finish signing in in your browser.";
@@ -70,14 +70,14 @@ fn signed_out_news(was: Option<&AgentSignIn>, now: &AgentSignIn) -> bool {
     }
 }
 
-/// Claude's sign-in as Fleet last said, drawn as a held state beside Fleet's own. `None` until Fleet has
+/// The agents' sign-in as Fleet last said, drawn as a held state beside Fleet's own. `None` until Fleet has
 /// answered.
 #[derive(Default)]
 struct SignedOut(Option<AgentSignIn>);
 
 impl Global for SignedOut {}
 
-/// The toast while Claude is signed out: no close, red edge, and Sign in or its ring. It goes when Claude
+/// The toast while the agents' account is signed out: no close, red edge, and Sign in or its ring. It goes when the agent
 /// answers again (`session_host::signed_out`).
 fn signed_out_notice(cx: &App) -> Option<FleetNotice> {
     let state = cx.try_global::<SignedOut>().and_then(|kept| kept.0.clone()).filter(|state| state.signed_out_since.is_some())?;
@@ -124,7 +124,7 @@ fn notice_act(act: NoticeAct, look: &Look) -> gpui::AnyElement {
     }
 }
 
-/// Sign in: Fleet runs Claude's own sign-in, which opens his browser, as Classic's press does. Fleet's
+/// Sign in: Fleet runs the agent's own sign-in, which opens his browser, as Classic's press does. Fleet's
 /// `agent_sign_in.changed` draws the ring. With no Fleet (a mock) the ring is drawn here.
 fn sign_in_pressed(cx: &mut App) {
     let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) else { return };
@@ -352,12 +352,12 @@ impl Toasts {
             cx.observe(&page, |this, page, cx| this.page_moved(&page, cx)),
         ];
         // A mock scenario with no Fleet stands signed out, so the toast can be looked at.
-        let mock = crate::mock::scenario_is("claude-signed-out")
+        let mock = crate::mock::scenario_is("agent-signed-out")
             .then(|| AgentSignIn { signed_out_since: Some(ipc::Instant::carried("2026-11-14T09:00:00Z")), signing_in: false });
         cx.set_global(SignedOut(mock));
         // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
         if let Some(fleet) = page.read(cx).fleet().cloned() {
-            // Claude's sign-in, from the same Fleet: one account signs every Job in or out.
+            // The agents' sign-in, from the same Fleet: one account signs every Job in or out.
             cx.set_global(SignedOut(fleet.read(cx).held().agent_sign_in.clone()));
             subs.push(cx.observe_in(&fleet, window, |this, fleet, window, cx| this.sign_in_moved(&fleet, window, cx)));
             subs.push(cx.subscribe(&fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
@@ -637,7 +637,7 @@ impl Toasts {
     /// when the state does. Copy debug info is on the Fleet popover.
     fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
         let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
-        // Claude's sign-in is Claude's state, not Fleet's, and carries no code.
+        // The agents' sign-in is the agent's state, not Fleet's, and carries no code.
         let (mark, source) = match notice.act {
             Some(NoticeAct::SignIn { .. }) => ("bot", "Claude"),
             None => ("server-off", "Fleet"),
@@ -693,7 +693,7 @@ impl Toasts {
         )
     }
 
-    /// Fleet moved: where Claude's sign-in changed it is drawn, and a spell just begun marks the bell and,
+    /// Fleet moved: where the agents' sign-in changed it is drawn, and a spell just begun marks the bell and,
     /// with no window in front, posts a banner, as an urgent toast does.
     fn sign_in_moved(&mut self, fleet: &Entity<crate::fleet::FleetConnection>, window: &mut Window, cx: &mut Context<Self>) {
         let held = fleet.read(cx).held();

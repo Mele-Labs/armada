@@ -30,7 +30,7 @@ pub struct FleetNotice {
 /// A press a held state's toast offers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoticeAct {
-    /// Claude is signed out for every Job: Sign in, or the ring while `running`.
+    /// The agents' account is signed out for every Job: Sign in, or the ring while `running`.
     SignIn { running: bool },
 }
 
