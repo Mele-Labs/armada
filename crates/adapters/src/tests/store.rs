@@ -472,3 +472,13 @@ fn a_store_that_refuses_runs_is_refused_and_one_that_fails_is_unreachable() {
     assert!(store.read_runs(&repository()).unwrap_err().is_unreachable());
     server.join().unwrap();
 }
+
+#[test]
+fn the_signed_in_devices_are_read_in_the_stores_order_and_a_refusal_is_not_an_empty_list() {
+    let answered = store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa","machine":"home"},{"device":"2.bb","machine":"work"}]}"#))
+        .expect("read");
+    let named: Vec<(&str, &str)> = answered.iter().map(|one| (one.id.as_str(), one.machine.as_str())).collect();
+    assert_eq!(named, [("1.aa", "home"), ("2.bb", "work")]);
+    assert!(store::devices_held(&reply(401, r#"{"error":"unknown_device"}"#)).is_err());
+    assert!(store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa"}]}"#)).is_err(), "a device with no Mac is not read as one");
+}

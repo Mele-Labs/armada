@@ -522,7 +522,7 @@ where
 
     /// [`Fleet::projects_written`], reading every project's file again before the answer where `reading`:
     /// a write of a project itself, and not of a row in it.
-    async fn projects_written_reading<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
+    pub(crate) async fn projects_written_reading<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
     where
         F: FnOnce(&mut Store, &KeptProjects) -> Result<(), Refusal> + Send,
     {

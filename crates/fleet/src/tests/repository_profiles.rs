@@ -230,7 +230,9 @@ impl Reaching for PerProfile {
     }
 
     fn open(&self, _url: &str, directory: &Path) -> Result<Option<Box<dyn Store + Send>>, String> {
-        let account = directory.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        // `<profile>/stores/<the store's>`: the profile's folder is two up.
+        let profile = directory.parent().and_then(Path::parent).and_then(Path::file_name);
+        let account = profile.and_then(|name| name.to_str()).unwrap_or_default();
         Ok(self.stores.get(account).map(|view| Box::new(Viewed(Arc::clone(view))) as Box<dyn Store + Send>))
     }
 
@@ -265,7 +267,7 @@ async fn two_repositories() -> TwoRepositories {
         stores: BTreeMap::from([(OCTOCAT.to_string(), Arc::clone(&octocat)), (HUBOT.to_string(), Arc::clone(&hubot))]),
     });
     let fleet = crate::daemon::Fleet::assembled(fittings);
-    let changes = [("store.url", "https://store.test"), ("machine.name", "mac-a")]
+    let changes = [("machine.name", "mac-a")]
         .into_iter()
         .map(|(key, value)| (key.to_string(), Some(ipc::SettingValue::Text(value.to_string()))))
         .collect();
@@ -279,6 +281,7 @@ async fn two_repositories() -> TwoRepositories {
             set_up: Some(SetUp::of(parsed, BTreeMap::new())),
         })
         .expect("served");
+    super::red_claim::in_a_project_storing_at(&fleet, "https://store.test").await;
     let first = super::main_fix::root(&fleet).await;
     TwoRepositories { fleet, first, second, octocat, hubot, _home: home }
 }

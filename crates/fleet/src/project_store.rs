@@ -10,6 +10,7 @@
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
 use core_model::{ProjectStore, StoreAddress};
 use sha2::{Digest, Sha256};
 
@@ -83,5 +84,17 @@ where
                 None
             }
         }
+    }
+
+    /// Name `store` as project `project`'s, or none, in its file, and answer the projects as every
+    /// write does. **Nothing is called here**: a join or a deploy reaches the store first.
+    pub(crate) async fn project_store_written(&self, project: &str, store: Option<ProjectStore>) -> Result<ipc::Projects, Refusal> {
+        self.project_not_held(project).await?;
+        let held = self.project_read(project)?;
+        let named = held.clone().with_store(store);
+        if named != held {
+            self.project_stored(&named).await?;
+        }
+        self.projects_written_reading(|_, _| Ok(()), true).await
     }
 }
