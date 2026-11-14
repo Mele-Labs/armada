@@ -295,7 +295,7 @@ Why: one account enrolled with his own store and his team's is two devices, one 
 
 A store is deployed from a project's store setting in Bridge, onto his own Cloudflare account.
 Fleet uploads the Worker bundled in `apps/store/dist/worker.js`, turns on its `workers.dev` address and writes the store into the project's file, then joins this Mac to it.
-`pnpm --dir apps/store bundle` makes the bundle, and the Check `apps/store:bundle_current` refuses one older than its source.
+`pnpm --dir apps/store bundle` makes the bundle, and the Check `bundle_current` in `apps/store/armada.yml` refuses one older than its source.
 
 | Store | Worker | Durable Object |
 |---|---|---|

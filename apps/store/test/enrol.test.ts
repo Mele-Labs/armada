@@ -413,7 +413,7 @@ describe("a team store", () => {
     });
   });
 
-  it("refuses every request with 500 bad_team_config when TEAM is not a GitHub org or org/team", async () => {
+  it("refuses every request with 500 bad_team_config when TEAM is not a forge org or org/team", async () => {
     const forge = forgeAnswers(8801);
     for (const config of [
       " ",

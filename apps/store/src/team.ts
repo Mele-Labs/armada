@@ -1,4 +1,4 @@
-// A team store is this Worker with `TEAM` set: one Durable Object for everyone in a GitHub org, or in one team of it.
+// A team store is this Worker with `TEAM` set: one Durable Object for everyone in a forge org, or in one team of it.
 const ORG = /^[A-Za-z0-9-]{1,39}$/;
 const SLUG = /^[A-Za-z0-9_-]{1,100}$/;
 
@@ -25,6 +25,6 @@ export function teamOf(env: Env): Team | null | "bad" {
     : "bad";
 }
 
-/** The name of the team's Durable Object, in lowercase because GitHub names are not case-sensitive. */
+/** The name of the team's Durable Object, in lowercase because the forge's names are not case-sensitive. */
 export const teamObjectName = ({ org, slug }: Team): string =>
   `team:${org}${slug === undefined ? "" : `/${slug}`}`.toLowerCase();

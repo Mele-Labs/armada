@@ -31,7 +31,7 @@ impl StoreAddress {
     }
 }
 
-/// The GitHub org, or one team in it, whose members a team store admits. Lowercase.
+/// The forge org, or one team in it, whose members a team store admits. Lowercase.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StoreTeam {
     org: String,
@@ -127,7 +127,7 @@ impl fmt::Display for MalformedStore {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MalformedStore::Address(it) => write!(f, "`{it}` is not a store address: it is `https://` and a host, and nothing after it"),
-            MalformedStore::Team(it) => write!(f, "`{it}` is not a GitHub org or `org/team`"),
+            MalformedStore::Team(it) => write!(f, "`{it}` is not a forge org or `org/team`"),
             MalformedStore::Worker(it) => write!(f, "`{it}` is not a Worker name: lowercase letters, digits and `-`, at most 63"),
             MalformedStore::Deployed(it) => write!(f, "`{it}` is not a time, RFC 3339 in UTC"),
         }

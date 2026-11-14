@@ -88,7 +88,7 @@ export type TaskPull = {
 export type ProjectStore = {
   /** `https://` and the host the store answers at. */
   address: string;
-  /** The GitHub org, or `org/team`, a team store admits. Absent for a store of his own. */
+  /** The forge org, or `org/team`, a team store admits. Absent for a store of his own. */
   team?: string;
   /** The Worker's name on the Cloudflare account it was deployed to. Absent for a store joined by its address alone. */
   worker?: string;

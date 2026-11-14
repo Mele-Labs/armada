@@ -61,7 +61,7 @@ pub struct Project {
 pub struct ProjectStore {
     /// `https://` and the host the store answers at.
     pub address: String,
-    /// The GitHub org, or `org/team`, a team store admits. **Absent for a store of his own.**
+    /// The forge org, or `org/team`, a team store admits. **Absent for a store of his own.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<String>,
     /// The Worker's name on the Cloudflare account it was deployed to. Absent for a store joined by its

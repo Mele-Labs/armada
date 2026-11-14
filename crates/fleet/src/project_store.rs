@@ -25,7 +25,7 @@ use crate::store_deploy::{Deployed, worker_name};
 
 const STORE_MALFORMED: &str = "fleet.store_malformed";
 const STORE_NO_PROFILE: &str = "fleet.store_no_profile";
-const STORE_NEEDS_GITHUB: &str = "fleet.store_needs_github";
+const STORE_NEEDS_FORGE: &str = "fleet.store_needs_forge";
 const STORE_NOT_A_MEMBER: &str = "fleet.store_not_a_member";
 const STORE_ORG_RESTRICTED: &str = "fleet.store_org_restricted";
 const STORE_UNREACHABLE: &str = "fleet.store_unreachable";
@@ -281,7 +281,7 @@ where
             Joining::Store(StoreError::Unreachable(said)) => Refusal::Fault(error(STORE_UNREACHABLE, format!("The store did not answer: {said}"))),
             Joining::Store(StoreError::Refused(said)) => {
                 let code = if said.contains("gh is not signed in") || said.contains("gh could not be started") {
-                    STORE_NEEDS_GITHUB
+                    STORE_NEEDS_FORGE
                 } else if said.contains("not_a_member") {
                     STORE_NOT_A_MEMBER
                 } else if said.contains("org_restricted") {
