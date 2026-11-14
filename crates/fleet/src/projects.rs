@@ -501,6 +501,7 @@ where
                     unread,
                     values: read.and_then(|one| crate::values::values_set(one.values())),
                     shared_with_macs: read.is_some_and(|one| one.shared_with_macs()),
+                    store: read.and_then(|one| one.store()).map(crate::project_store::store_on_the_wire),
                     mac: None,
                     id: project.id,
                     rows,
@@ -723,7 +724,7 @@ where
         let Ok(grown) = core_model::Project::declared(held.id().clone(), held.name().clone(), members) else {
             return Ok(false);
         };
-        let grown = grown.with_values(held.values().clone()).with_shared_with_macs(held.shared_with_macs());
+        let grown = grown.with_values(held.values().clone()).with_shared_with_macs(held.shared_with_macs()).with_store(held.store().cloned());
         self.project_stored(&grown).await?;
         Ok(true)
     }
@@ -762,6 +763,7 @@ where
                 unread: None,
                 values: crate::values::values_set(one.values()),
                 shared_with_macs: one.shared_with_macs(),
+                store: one.store().map(crate::project_store::store_on_the_wire),
                 mac: None,
             })
             .collect();
@@ -822,7 +824,8 @@ where
                 Some(set) => self.values_read(set)?,
                 None => held.values().clone(),
             })
-            .with_shared_with_macs(edit.shared_with_macs.unwrap_or(held.shared_with_macs()));
+            .with_shared_with_macs(edit.shared_with_macs.unwrap_or(held.shared_with_macs()))
+            .with_store(held.store().cloned());
         let chosen = match edit.place {
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,

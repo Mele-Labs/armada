@@ -283,6 +283,8 @@ pub enum Fault {
     /// **`dir` on a Command with no `serve`.** A Command that exits runs in the
     /// repository's root; only a server is started somewhere else.
     OnlyAServerStartsIn,
+    /// A project's `store:` part that is not one: an address, a team, a Worker's name or a time.
+    NotAStore { why: core_model::MalformedStore },
     /// A server's `dir` that names no folder inside the checkout.
     NotAServeDir {
         value: String,
@@ -576,6 +578,7 @@ impl fmt::Display for Fault {
                  declares `run` alone, so it exits in the repository's root — \
                  add `serve`, or delete the key",
             ),
+            Fault::NotAStore { why } => write!(f, "{why}"),
             Fault::NotAServeDir { value, why } => write!(
                 f,
                 "is `{value}`, which cannot name the folder a server starts in: {why}"

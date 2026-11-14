@@ -17,14 +17,18 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use core_model::{Folder, MalformedFolder, MalformedProject, ManifestId, Member, Project, ScopeId, Title, Ulid, Values};
+use core_model::{
+    Folder, MalformedFolder, MalformedProject, MalformedStore, ManifestId, Member, Project, ProjectStore, ScopeId, StoreAddress, StoreTeam,
+    Timestamp, Title, Ulid, Values, WorkerName,
+};
 use serde_yaml_ng::Value;
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::piece::named;
 use crate::yaml::{self, Table};
 
-const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values", "shared_with_macs"];
+const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values", "shared_with_macs", "store"];
+const STORE: &[&str] = &["address", "team", "worker", "deployed"];
 const MEMBER: &[&str] = &["repository", "folder"];
 const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
@@ -89,11 +93,11 @@ fn parse(path: &Path, text: &str, version: Version) -> Result<Project, ProjectEr
     if let Some((at, why)) = bad_folder.filter(|_| out.is_empty()) {
         return Err(ProjectError::Folder { path: path.to_path_buf(), at, why });
     }
-    let Some((id, name, members, values, shared)) = read.filter(|_| out.is_empty()) else {
+    let Some((id, name, members, values, shared, store)) = read.filter(|_| out.is_empty()) else {
         return Err(ProjectError::Load(LoadError::Refused { path: path.to_path_buf(), refusals: out }));
     };
     Project::declared(id, name, members)
-        .map(|project| project.with_values(values).with_shared_with_macs(shared))
+        .map(|project| project.with_values(values).with_shared_with_macs(shared).with_store(store))
         .map_err(|why| ProjectError::Malformed { path: path.to_path_buf(), why })
 }
 
@@ -102,7 +106,7 @@ fn read(
     version: Version,
     out: &mut Vec<Refusal>,
     bad_folder: &mut Option<(String, MalformedFolder)>,
-) -> Option<(ScopeId, Title, Vec<Member>, Values, bool)> {
+) -> Option<(ScopeId, Title, Vec<Member>, Values, bool, Option<ProjectStore>)> {
     let (id_key, members_key, known, carried, wanted) = match version {
         Version::One => ("workspace_id", "repositories", TOP_LEVEL_V1, VERSIONS_V1, 1),
         Version::Two => ("project_id", "members", TOP_LEVEL, VERSIONS, 2),
@@ -147,8 +151,14 @@ fn read(
         Version::Two => top.optional("shared_with_macs").and_then(|value| yaml::flag("shared_with_macs", value, out)).unwrap_or(false),
         Version::One => false,
     };
+    // None where it is not written, which is a project that sends nothing.
+    let store_at = top.at("store");
+    let store = match version {
+        Version::Two => top.optional("store").and_then(|value| store(&store_at, value, out)),
+        Version::One => None,
+    };
     top.close(known, out);
-    Some((id?, name?, members?, values, shared))
+    Some((id?, name?, members?, values, shared, store))
 }
 
 fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Option<(String, MalformedFolder)>) -> Option<Member> {
@@ -171,6 +181,37 @@ fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Optio
             }
         },
     }
+}
+
+/// A `store:` block: `address`, and `team`, `worker` and `deployed` where they are written.
+fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore> {
+    let mut table = Table::open(at, value, out)?;
+    let mut read = |name: &str, required: bool, out: &mut Vec<Refusal>| {
+        let key = format!("{at}.{name}");
+        let value = if required { table.required(name, out) } else { table.optional(name) };
+        value.and_then(|value| yaml::text(&key, value, out)).map(|written| (key, written))
+    };
+    let (address, team, worker, deployed) =
+        (read("address", true, out), read("team", false, out), read("worker", false, out), read("deployed", false, out));
+    table.close(STORE, out);
+    let address = store_part(address, StoreAddress::new, out);
+    let team = store_part(team, StoreTeam::new, out);
+    let worker = store_part(worker, WorkerName::new, out);
+    let deployed = store_part(deployed, |written| {
+        let at = Timestamp::from_rfc3339(written);
+        at.epoch_millis().map(|_| at).ok_or_else(|| MalformedStore::Deployed(written.to_string()))
+    }, out);
+    Some(ProjectStore { address: address.ok()??, team: team.ok()?, worker: worker.ok()?, deployed: deployed.ok()? })
+}
+
+/// One part of `store:` made from its text, or `Err` with the fault pushed where it is not one.
+fn store_part<T>(
+    read: Option<(String, String)>,
+    make: impl Fn(&str) -> Result<T, MalformedStore>,
+    out: &mut Vec<Refusal>,
+) -> Result<Option<T>, ()> {
+    let Some((key, written)) = read else { return Ok(None) };
+    make(&written).map(Some).map_err(|why| out.push(Refusal::new(key, Fault::NotAStore { why })))
 }
 
 /// `project` as the text of its version 2 file. A Project with no members is written `members: []`.
@@ -199,6 +240,20 @@ pub fn project_text(project: &Project) -> Result<String, String> {
     }
     if project.shared_with_macs() {
         top.insert(text("shared_with_macs"), Value::Bool(true));
+    }
+    if let Some(store) = project.store() {
+        let mut block = Mapping::new();
+        block.insert(text("address"), text(store.address.as_str()));
+        if let Some(team) = &store.team {
+            block.insert(text("team"), text(&team.to_string()));
+        }
+        if let Some(worker) = &store.worker {
+            block.insert(text("worker"), text(worker.as_str()));
+        }
+        if let Some(deployed) = &store.deployed {
+            block.insert(text("deployed"), text(deployed.as_str()));
+        }
+        top.insert(text("store"), Value::Mapping(block));
     }
     crate::piece_text(&Value::Mapping(top))
 }

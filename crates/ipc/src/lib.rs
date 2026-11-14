@@ -518,7 +518,7 @@ pub use issue_queries::{
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
-    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectStore, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{

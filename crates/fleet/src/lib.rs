@@ -266,6 +266,7 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+mod project_store;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.

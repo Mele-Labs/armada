@@ -66,7 +66,7 @@ pub use workflow::{
     WorkflowSource, under,
 };
 pub use piece::PieceSource;
-pub use project::{Folder, MalformedFolder, MalformedProject, Member, Project};
+pub use project::{Folder, MalformedFolder, MalformedProject, MalformedStore, Member, Project, ProjectStore, StoreAddress, StoreTeam, WorkerName};
 pub use values::{AgentStarts, Layer, Look, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview, DeliverySetting};
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
