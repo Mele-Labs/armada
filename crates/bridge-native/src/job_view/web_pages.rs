@@ -17,9 +17,6 @@ use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
-/// The refusal that says the Mac holding the Job is asleep, with `since` in Unix seconds.
-const ASLEEP: &str = "fleet.other_mac_asleep";
-
 /// Where a page not yet drawn stands.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum PageOpen {
@@ -37,7 +34,7 @@ pub(super) struct PagesOpen(HashMap<(String, String), PageOpen>);
 fn refused(status: u16, bytes: &[u8]) -> PageOpen {
     let Ok(error) = ipc::decode::<WireError>("WireError", bytes) else { return PageOpen::Refused(format!("Fleet answered {status}")) };
     match error.fields.get("since") {
-        Some(WireValue::Int(since)) if error.code == ASLEEP => PageOpen::Asleep { said: error.message, since: *since },
+        Some(WireValue::Int(since)) if error.code == "fleet.other_mac_asleep" => PageOpen::Asleep { said: error.message, since: *since },
         _ => PageOpen::Refused(error.message),
     }
 }
