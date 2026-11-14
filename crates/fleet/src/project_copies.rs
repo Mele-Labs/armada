@@ -180,7 +180,7 @@ where
 
     /// Every project held from his other Macs, as kept, each with its Mac, in the order each Mac said. An
     /// unreadable one is left out; the next replace from its Mac writes it again.
-    async fn copies_held(&self) -> Result<Vec<Project>, Refusal> {
+    pub(crate) async fn copies_held(&self) -> Result<Vec<Project>, Refusal> {
         let held = self.from_macs::<Project>(FromMac::Projects, "a project from another Mac").await?;
         Ok(held
             .into_iter()
