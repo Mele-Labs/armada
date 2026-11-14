@@ -16,16 +16,16 @@ The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `packages/p
 | Where | Side | Carries |
 | --- | --- | --- |
 | `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`. Gains `feed`, `session_id` and each project's `operator_acts`. `turn` is the card in front, then the Waiting cards |
-| `raise_card` | The Operator's session writes | `{ kind, title, read, options, sessions?, repository?, talk_of? }` |
-| `revise_card` | The Operator's session writes | `{ card, read?, options? }` |
-| `settle_card` | The Operator's session writes | `{ card, said }` |
-| A query of every project's `operator_acts` | Bridge reads | Each project and its value |
-| A route to set one project's `operator_acts` | Bridge writes | The project and one of `act_then_tell`, `ask_before_starting`, `only_when_told` |
+| `raise_card` (`POST /operator/cards`) | The Operator's session writes | `RaiseCard` `{ kind, title, read, options, sessions?, repository?, talk_of? }`. Answers `CardRaised` `{ card }` |
+| `revise_card` (`POST /operator/cards/revise`) | The Operator's session writes | `ReviseCard` `{ card, read?, options? }`. Answers `CardRevised` `{ card }` |
+| `settle_card` (`POST /operator/cards/settle`) | The Operator's session writes | `SettleCard` `{ card, said }`. Answers `OperatorCardSettled` `{ card }` |
+| `list_operator_acts` (`GET /operator/acts`) | The Operator's session reads | `OperatorActsList` `{ projects: [{ project, name, acts? }] }` |
+| `set_operator_acts` (`POST /operator/acts`) | The Operator's session and Bridge write | `SetOperatorActs` `{ project, acts? }`, `acts` one of `act_then_tell`, `ask_before_starting`, `only_when_told`, absent to unset. Answers `OperatorActsList` |
+| `close_session` (`POST /sessions/close`) | The Operator's session writes | Ends a Job, as Bridge's Close does |
 | `operator.page_changed` | Fleet writes, Bridge reads | Nothing. Bridge reads `operator_page` again |
 
 **The card acts are the Operator's alone.**
-Fleet refuses them from any other caller.
-The names of the query and the route for `operator_acts` are fixed where the operation files are written, and this page then names them.
+Fleet refuses them from any other caller with `fleet.not_the_operator`, refuses a card it cannot take with `fleet.card_refused`, an unknown one with `fleet.card_unknown`, and a press on a card while the session is not running with `fleet.operator_session_not_running`.
 
 ## A card
 

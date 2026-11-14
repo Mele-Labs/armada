@@ -55,7 +55,8 @@ where
         let arrival = dispatch_arrival(&id, &dispatch, &request, crate::share::from_phone_or_other_mac());
         // The Operator's own session holds it: told what he dispatched, it starts or hands it on with its own tools.
         // **A session that cannot be told leaves the dispatch started as he asked**, as the Operator being off does.
-        if self.operator_on() && self.arrival_told(&arrival).await {
+        // So does one carrying `then`: the notes and messages to follow need the Job they were set up for.
+        if self.operator_on() && dispatch.then.is_empty() && self.arrival_told(&arrival).await {
             return Ok(JobDispatched { session: None, operator: Some(id), parked: None });
         }
         if !seated {
