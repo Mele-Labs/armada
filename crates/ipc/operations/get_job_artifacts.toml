@@ -20,6 +20,8 @@ notes = """
 
 **`votes`** is the newest cast of each vote a page declares, in the order each vote was first cast, each a `VoteCast` (`cast_page_vote`), read off `page_votes`. A recast replaces the earlier one in place. Absent where there is none, and for every form but a page.
 
+**`seen`** is the newest revision he opened, as `mark_artifact_seen` kept it, read off `artifact_seen`. Absent while he has opened none, and it only moves forward.
+
 Only artifacts of form `sketch`, `document` and `draft` are listed; a file, an image, a window or a note shown to him is not. Read on demand and never carried on a `SessionRecord`; a `session.changed` is when to read it again.
 
 Refused: 422 `fleet.session_unnamed`, a job Fleet does not know.

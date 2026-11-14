@@ -24,6 +24,8 @@ The owner approved the design on 13 Nov 2026.
 | Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
 | A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
 | A page's votes, `cast_page_vote` | Built in Fleet; native draws the votes later |
+| A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
+| Notes that point at words, and the revision he last saw, `mark_artifact_seen` | Built in Fleet; native draws them later |
 
 ## What an artifact is
 
@@ -266,3 +268,45 @@ The message goes first, so a send that fails keeps nothing.
 
 **Rule.** Every cast is kept in Fleet's store, apart from the page's attachment, and the newest per vote is served on the page as `votes`, so native shows the result he gave.
 A recast replaces the earlier result and is sent to the Job again, and an archived page takes no vote.
+
+## A page served sealed
+
+A client with a web view opens a page as Fleet serves it, not as the Job wrote it.
+The owner approved the looks of its actions and votes on 14 Nov 2026.
+Fleet's half is `get_artifact_page` (`crates/ipc/operations/get_artifact_page.toml`), in `crates/fleet/src/session_host/page_sealed.rs`, and the seam is `docs/practices/protocol/a-pages-sealed-serving.md`.
+
+**Rule.** Any kept revision serves, the newest where none is named, archived or not.
+
+**Rule.** The page fetches nothing and runs none of its own scripts.
+Its policy allows inline style, `data:` images and one script source, a nonce fresh for each answer, and only the kit's script carries it.
+`armada-kit.css` is inlined where it was linked, and every relative address is taken off its tag.
+
+**Rule.** The kit's script draws each action as a labelled button in a column on the right of its row, and each vote as its takes side by side.
+A pressed row is washed green with a success edge and reads `Sent to the Job: <label>` with what the press did, and keeps its buttons.
+A `message` act opens a words field under its row, sent with ⌘↵.
+A take opens full width with F or Space, ← and → move between takes, and Esc goes back with the pick and the notes kept.
+A pick has a note box on each take not picked, a rank moves a take with ⌥↑ and ⌥↓, and a score marks each part of each take Keep or Drop.
+Send sits at the foot of a vote, with ⌘↵, and every control is reached by keyboard.
+
+**Rule.** The page never calls Fleet.
+It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.
+The presses and votes made on the revision ride with it, so a reopened page shows what he did.
+
+## Seen and anchored notes
+
+A note of a verdict may point at the words it is about, and Fleet keeps the newest revision of each artifact he opened, so native can tell him what changed since.
+Fleet's half is `ItemNote` on `answer_items` (`crates/ipc/operations/answer_items.toml`) and `mark_artifact_seen` (`crates/ipc/operations/mark_artifact_seen.toml`), the seam is `docs/practices/protocol/a-notes-and-seen.md`.
+
+**Rule.** A note carries `text` and, where he marked words, `on` with the `quote` he marked and the `block` it sits in, a page block's id or a sketch part's id.
+A card's note box sends a note with no `on`.
+The Job reads an anchored note as `On "<quote>": <text>`, numbered with the rest, and a plain note as its text.
+A quote blank after trimming counts as no `on`, and a note with blank text is dropped.
+The Job is not told the `block`.
+
+**Rule.** `seen` on an artifact is the newest revision he opened.
+It only moves forward: opening an older revision leaves it, and is answered with the current one, not refused.
+A revision never kept is refused, `fleet.artifact_revision_unknown`, and so is an artifact the Job does not hold.
+
+**Rule.** Nothing is sent to the Job when he opens a revision.
+Fleet publishes `session.changed` where `seen` moved, so a Bridge reads the artifact again, and not where it held.
+An archived artifact is marked all the same, since opening it changes nothing else.

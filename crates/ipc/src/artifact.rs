@@ -45,6 +45,25 @@ pub struct JobArtifact {
     /// and for a page never voted on.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub votes: Vec<VoteCast>,
+    /// The newest revision he opened. Absent where he opened none. Only moves forward.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seen: Option<u32>,
+}
+
+/// `mark_artifact_seen`: he opened revision `revision` of an artifact. `crates/ipc/operations/mark_artifact_seen.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkArtifactSeen {
+    pub session_id: SessionId,
+    /// The artifact's id, as `JobArtifact::id`.
+    pub artifact: String,
+    /// A kept revision. An older one than `seen` leaves `seen` as it is.
+    pub revision: u32,
+}
+
+/// The answer to `mark_artifact_seen`: the newest revision he has opened, after the mark.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactSeen {
+    pub seen: u32,
 }
 
 /// `press_page_action`: his press of an action a page declares with `<armada-action>`.
@@ -221,6 +240,76 @@ pub struct VoteCast {
     pub form: VoteForm,
     pub result: VoteResult,
     pub at: Instant,
+}
+
+/// The `armada` every message between a sealed page and its host carries. It is always `1`, and a message with
+/// another value does not parse: a page and a host that disagree about the messages are not talking.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PageMessages;
+
+impl Serialize for PageMessages {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(1)
+    }
+}
+
+impl<'de> Deserialize<'de> for PageMessages {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        match u8::deserialize(deserializer)? {
+            1 => Ok(PageMessages),
+            other => Err(serde::de::Error::custom(format!("`armada` is {other}, and the only one read is 1"))),
+        }
+    }
+}
+
+/// One message between a sealed page and its host, as it crosses: `armada: 1` beside the message's own `kind` and
+/// fields. **Not a route body, so it has no operation file**: the page posts it to its host, and the host's call
+/// to Fleet is `press_page_action` or `cast_page_vote`. `docs/practices/protocol/a-pages-sealed-serving.md`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageMessage<T> {
+    pub armada: PageMessages,
+    #[serde(flatten)]
+    pub message: T,
+}
+
+impl<T> PageMessage<T> {
+    pub fn new(message: T) -> Self {
+        PageMessage { armada: PageMessages, message }
+    }
+}
+
+/// What the kit's script on a sealed page posts to its host, tagged by `kind`. Cross as `PageMessage<PageToHost>`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PageToHost {
+    /// His press of an action: `press_page_action`'s body without the `session_id`, which the host adds.
+    Press {
+        artifact: String,
+        revision: u32,
+        action: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        words: Option<String>,
+    },
+    /// His vote: `cast_page_vote`'s body without the `session_id`.
+    Vote { artifact: String, revision: u32, vote: String, result: VoteResult },
+}
+
+/// What the host sends back to the sealed page for it to draw, tagged by `kind`: Fleet's answer, or its refusal.
+/// Cross as `PageMessage<HostToPage>`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum HostToPage {
+    Pressed { press: PagePress },
+    Voted { cast: VoteCast },
+    /// Fleet's refusal of a press (`action`) or a vote (`vote`), with the error's own `code` and `message`.
+    Refused {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        vote: Option<String>,
+        code: String,
+        message: String,
+    },
 }
 
 /// An artifact the agent or he archived as stale. `archive_artifact`.

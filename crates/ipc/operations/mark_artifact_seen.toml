@@ -1,0 +1,18 @@
+[operations.mark_artifact_seen]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "He opened a revision of a Job's sketch, draft or page: Fleet keeps the newest he has opened, so Bridge can tell him what changed since"
+notes = """
+`POST /sessions/artifacts/seen`, body `MarkArtifactSeen`: `session_id`, `artifact` (the artifact's `id`) and `revision` (the revision he opened). Answered 200 with `ArtifactSeen` `{ seen }`: the newest revision he has opened, after this mark. `get_job_artifacts` serves it on the artifact as `seen`, absent while he has opened none.
+
+**`seen` only moves forward.** A mark of a revision older than `seen`, or equal to it, leaves `seen` as it is and is answered with the current one, never refused.
+
+**Nothing is sent to the Job.** `SessionChanged` is published on the Job where `seen` moved, so a Bridge reads the artifact again, and is not published where it held.
+
+**Kept in Fleet's store**, in `artifact_seen`, one row per Job and artifact, apart from the artifact's attachment, which a new revision rewrites whole.
+
+Refused with 422 and nothing kept: `fleet.artifact_revision_unknown` for a revision never kept, naming how many are (`0` is never kept), the code `get_artifact_page` refuses it with; `fleet.artifact_not_held` for an artifact the Job does not hold, naming at most 20 it does; `fleet.session_unnamed` for a Job Fleet does not know. An archived artifact is marked all the same.
+
+`agent_access` is `No`: it is what he opened.
+"""

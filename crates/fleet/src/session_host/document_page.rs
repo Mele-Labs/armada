@@ -191,7 +191,7 @@ fn row_around(html: &str, lower: &str, name: &str, at: usize) -> Option<String> 
 
 /// Where the next `<name ...>` opens at or after `from`, as `(start of the tag, after its '>')`.
 /// `lower` is the page in lower case, so the offsets are the page's own.
-fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
+pub(super) fn open_tag(lower: &str, name: &str, from: usize) -> Option<(usize, usize)> {
     let needle = format!("<{name}");
     let mut at = from;
     loop {

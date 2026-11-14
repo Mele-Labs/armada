@@ -131,10 +131,11 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
 /// **`background_tasks_changed` is the third and it is read as a level.** The
 /// harness spells the same fact four ways. This one carries the whole
 /// outstanding set rather than one task's move, which is what lets
-/// `DroneEvent::BackgroundWork` be a count instead of a fold that has to know
+/// `DroneEvent::BackgroundWork` be a level instead of a fold that has to know
 /// every terminal status the harness can send. **The other three are read for
 /// what they alone carry** — which call a task belongs to, how it ended, where
-/// its output went (`tasks.rs`) — and a Drone's fold still counts from this one.
+/// its output went (`tasks.rs`) — and a task this one stops naming has ended,
+/// whether or not they were heard.
 ///
 /// **`thinking_tokens` is the last**, read for how much the model thought and
 /// never for what: the reasoning text is a separate block, not carried.
@@ -155,7 +156,7 @@ fn system_event(system: SystemLine) -> DroneEvent {
             because: system.decision_reason.unwrap_or_default(),
         },
         "background_tasks_changed" => DroneEvent::BackgroundWork {
-            outstanding: system.tasks.len(),
+            outstanding: system.tasks.into_iter().filter_map(|task| task.task_id).collect(),
         },
         "task_started" => tasks::started(system),
         "task_updated" => tasks::updated(system),
@@ -524,11 +525,11 @@ struct SystemLine {
     tool_use_id: Option<String>,
     decision_reason: Option<String>,
     /// Present on `background_tasks_changed` and nowhere else: the whole
-    /// outstanding set, re-stated each time it changes. Counted and never read,
-    /// for [`Counted`]'s reason — what a Drone put in the background is its
-    /// own, and how much of it is still there is the whole of what Fleet needs.
+    /// outstanding set, re-stated each time it changes. Only each task's id is
+    /// read: what a Drone put in the background is its own, and which of it is
+    /// still there is the whole of what Fleet needs.
     #[serde(default)]
-    tasks: Vec<Counted>,
+    tasks: Vec<Outstanding>,
     /// The task lines (`tasks.rs`) and no other: which task, the call that asked for it, and what
     /// each of the three says of it.
     task_id: Option<String>,
@@ -543,6 +544,12 @@ struct SystemLine {
     /// `estimated_tokens_delta` beside it is not read; the running figure
     /// already holds it.
     estimated_tokens: Option<u64>,
+}
+
+/// A task of a `background_tasks_changed` set. Only its id is read.
+#[derive(Deserialize)]
+struct Outstanding {
+    task_id: Option<String>,
 }
 
 /// What a `task_updated` changed. Only the status is read.

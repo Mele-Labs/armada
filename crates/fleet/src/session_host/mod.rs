@@ -40,6 +40,8 @@ mod artifact_editing;
 mod page_words;
 mod page_actions;
 mod page_votes;
+mod page_sealed;
+mod artifact_seen;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

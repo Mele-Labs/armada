@@ -1,4 +1,4 @@
-//! Starting Fleet's quick Job, from ⌘T or the palette's New Job here: it opens on its thread, and nothing
+//! Starting Fleet's Side Job, from ⌘T or the palette's New Side Job: it opens on its thread, and nothing
 //! runs there until it is written to. Where it starts is kept, so ⌘T with nothing in view starts in the
 //! same place again.
 
@@ -7,10 +7,10 @@ use gpui::{App, Task};
 use super::screen::Cells;
 use super::shells::{self, Place, Start, Started};
 
-/// Where the last terminal Job started: `repo:<name>` or `dir:<path>`.
+/// Where the last Side Job started: `repo:<name>` or `dir:<path>`.
 const KEEP_PLACE: &str = "terminal:place";
 
-/// The place a terminal Job last started in.
+/// The place a Side Job last started in.
 pub fn kept_place(cx: &App) -> Option<Place> {
     let kept = crate::drafts::kept(KEEP_PLACE, cx)?;
     if let Some(name) = kept.strip_prefix("repo:") {

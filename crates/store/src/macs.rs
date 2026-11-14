@@ -53,6 +53,8 @@ pub struct PairedMac {
     pub built_at: Option<String>,
     /// `main` or `preview`: what its build was made from.
     pub source: Option<String>,
+    /// The SHA-256 of its Wi-Fi door certificate, as hex. A call to it on the same network checks it.
+    pub pin: Option<String>,
 }
 
 /// What the other Mac says of itself each time it is heard from.
@@ -68,7 +70,7 @@ pub struct MacSaid {
 }
 
 const COLUMNS: &str =
-    "mac_id, name, colour, address, public_key, build, paired_at, state, back_code, last_heard_at, asleep_since, why, wire, built_at, source";
+    "mac_id, name, colour, address, public_key, build, paired_at, state, back_code, last_heard_at, asleep_since, why, wire, built_at, source, pin";
 
 fn paired_mac(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<PairedMac>> {
     let state: String = row.get(7)?;
@@ -90,6 +92,7 @@ fn paired_mac(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<PairedMac>> {
         wire: row.get(12)?,
         built_at: row.get(13)?,
         source: row.get(14)?,
+        pin: row.get(15)?,
     }))
 }
 
@@ -98,7 +101,7 @@ impl Store {
     pub fn keep_mac(&mut self, mac: &PairedMac) -> Result<(), DatabaseFault> {
         self.conn
             .execute(
-                &format!("INSERT OR REPLACE INTO pocket_macs ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
+                &format!("INSERT OR REPLACE INTO pocket_macs ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"),
                 rusqlite::params![
                     mac.id,
                     mac.name,
@@ -115,6 +118,7 @@ impl Store {
                     mac.wire,
                     mac.built_at,
                     mac.source,
+                    mac.pin,
                 ],
             )
             .map_err(fault("pairing another Mac"))?;

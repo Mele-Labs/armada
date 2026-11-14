@@ -2,7 +2,7 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive, a restore, his Edit, a press and a vote publish.
+// which an archive, a restore, his Edit, a press, a vote and a mark that moved `seen` publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
@@ -95,6 +95,25 @@ export type JobArtifact = {
   presses?: PagePress[];
   /** The newest cast of each vote a page declares, in the order first cast. Absent where none, and for every form but a page. */
   votes?: VoteCast[];
+  /** The newest revision he opened, as `mark_artifact_seen` kept it. Absent while he opened none. Only moves forward. */
+  seen?: number;
+};
+
+/**
+ * `POST /sessions/artifacts/seen`: he opened revision `revision` of an artifact. Answered with `ArtifactSeen`. An
+ * older revision is answered with the current `seen`, not refused. Nothing is sent to the Job. 422
+ * `fleet.artifact_revision_unknown` for a revision never kept, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type MarkArtifactSeen = {
+  session_id: string;
+  /** The artifact's `id`. */
+  artifact: string;
+  revision: number;
+};
+
+/** The newest revision he has opened, after the mark. */
+export type ArtifactSeen = {
+  seen: number;
 };
 
 /** The forms a vote takes. */
@@ -196,6 +215,61 @@ export type PagePress = {
   did: PressDid;
 };
 
+/**
+ * `GET /sessions/artifacts/page?session_id=&artifact=&revision=`: one kept revision of a page, the newest where
+ * `revision` is left out, answered as the page itself, `text/html`, sealed: no network, its own scripts inert, and the
+ * kit's script drawing its actions and votes. An archived page serves. 422 `fleet.artifact_not_held` for an artifact
+ * not held or not a page, `fleet.artifact_revision_unknown` for a revision never kept, and `fleet.session_unnamed`.
+ * `docs/practices/protocol/a-pages-sealed-serving.md`.
+ */
+export type GetArtifactPage = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  revision?: number;
+};
+
+/** What the kit's script on a sealed page posts to its host: to `window.webkit.messageHandlers.armada` where the host has one (Native's WKWebView), otherwise to `window.parent` (Classic's iframe). The host makes the Fleet call with the Job's `session_id`. Rust's `PageMessage<PageToHost>`. */
+export type PageToHost =
+  | {
+      armada: 1;
+      kind: "press";
+      artifact: string;
+      revision: number;
+      action: string;
+      words?: string;
+    }
+  | {
+      armada: 1;
+      kind: "vote";
+      artifact: string;
+      revision: number;
+      vote: string;
+      result: VoteResult;
+    };
+
+/** What the host sends back to the sealed page for it to draw: Fleet's answer, or its refusal. Posted as a `message` event to Classic's iframe, or passed to `window.armadaHost` by Native. Rust's `PageMessage<HostToPage>`. */
+export type HostToPage =
+  | {
+      armada: 1;
+      kind: "pressed";
+      press: PagePress;
+    }
+  | {
+      armada: 1;
+      kind: "voted";
+      cast: VoteCast;
+    }
+  | {
+      armada: 1;
+      kind: "refused";
+      /** The action pressed, or the vote cast, that was refused. */
+      action?: string;
+      vote?: string;
+      code: string;
+      message: string;
+    };
+
 /** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
 export type ArtifactLinkKind = "plan_step" | "task" | "pull_request" | "link";
 
@@ -239,7 +313,23 @@ export type ItemAnswer = {
   /** The `WaitingItem` id. */
   item: string;
   how: ItemHow;
-  notes?: string[];
+  notes?: ItemNote[];
+};
+
+/**
+ * One note of a verdict. A card's note box sends no `on`; a note on words of a page, or a part of a sketch, names
+ * them, and the Job reads it as `On "<quote>": <text>`. A `quote` blank after trimming counts as no `on`.
+ */
+export type ItemNote = {
+  text: string;
+  on?: NoteOn;
+};
+
+/** The words a note points at, and the block they are in. */
+export type NoteOn = {
+  quote: string;
+  /** The page block's id, or the sketch part's id. */
+  block: string;
 };
 
 /**

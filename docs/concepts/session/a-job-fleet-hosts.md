@@ -412,8 +412,11 @@ A subagent's backgrounded command is the Job's row, heard the same way.
 | `task_started` | `target` (the task id), `detail.task` (its description), and from the call, `detail.form` and `detail.command` (the whole command) |
 | `task_updated` with a final status | `spent`, and `detail.status`: `completed`, `failed` or `killed` |
 | `task_notification` | `detail.output` (the file its output went to), `detail.exit`, and the same `status` (`stopped` is `killed`) |
+| `background_tasks_changed` | `spent` for every standing row whose task the list no longer names, with no `status` |
 
 The two ending lines each fill in what they have, in either order.
+**The harness lists every task still running each time that list changes**, after the end lines, so a row whose end lines never reached Fleet is spent at the next list.
+Without it, such a row stood for the life of the process and read the Job as working: on 14 Nov 2026 a finished Job read as running until the owner pressed Stop.
 **The exit code is the one fact read out of prose:** no key carries it, so only the end of the notice's `summary` is read, in the two forms the harness writes (`completed (exit code 0)`, `failed with exit code 3`).
 A summary in neither form has no `exit`.
 `detail.output` is only known once the task ends.
