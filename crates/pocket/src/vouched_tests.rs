@@ -154,8 +154,12 @@ async fn two_macs_of_one_account_pair_through_their_store_with_one_press_and_eac
     let press = ipc::encode(&PairVouchedMac { store: STORE.into(), device: "7.work".into() }).unwrap();
     let (status, body) = home.admin(Method::POST, "/admin/macs/pair/vouched", &press).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(home.mac(&work.id()).await.unwrap().link, Some(MacLink::Linked));
-    assert_eq!(work.mac(&home.id()).await.unwrap().link, Some(MacLink::Linked));
+    // Work links first and follows Home at once, before Home holds Work's key, so its first call can be refused and
+    // Home read as asleep until the retry a moment later.
+    until("each lists the other linked", || async {
+        home.mac(&work.id()).await.unwrap().link == Some(MacLink::Linked) && work.mac(&home.id()).await.unwrap().link == Some(MacLink::Linked)
+    })
+    .await;
     // No Confirm was asked for on either side.
     assert!(home.claims_handed().is_none_or(|told| told.claims.is_empty()));
     assert!(work.claims_handed().is_none_or(|told| told.claims.is_empty()));
