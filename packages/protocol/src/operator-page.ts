@@ -85,7 +85,10 @@ export type OperatorCard = {
 };
 
 /** One option of a card, with what it spends or risks. */
-export type CardOption = { label: string; cost: string };
+export type CardOption = {
+  label: string;
+  cost: string;
+};
 
 /** What happened since he looked that needs no decision from him. */
 export type OperatorFeedKind = "dispatched" | "merged" | "ended" | "asked" | "told" | "settled";
@@ -107,13 +110,22 @@ export type OperatorFeedEntry = {
 export type OperatorActs = "act_then_tell" | "ask_before_starting" | "only_when_told";
 
 /** One served project and its `operator_acts`. */
-export type ProjectOperatorActs = { project: string; name: string; acts?: OperatorActs };
+export type ProjectOperatorActs = {
+  project: string;
+  name: string;
+  acts?: OperatorActs;
+};
 
 /** `list_operator_acts` and `set_operator_acts`' answer. */
-export type OperatorActsList = { projects: ProjectOperatorActs[] };
+export type OperatorActsList = {
+  projects: ProjectOperatorActs[];
+};
 
 /** `set_operator_acts`: absent `acts` clears the value. */
-export type SetOperatorActs = { project: string; acts?: OperatorActs };
+export type SetOperatorActs = {
+  project: string;
+  acts?: OperatorActs;
+};
 
 /** `raise_card`, for the Operator's own session. */
 export type RaiseCard = {
@@ -128,19 +140,32 @@ export type RaiseCard = {
 };
 
 /** What `raise_card` did. */
-export type CardRaised = { card: string };
+export type CardRaised = {
+  card: string;
+};
 
 /** `revise_card`. */
-export type ReviseCard = { card: string; read?: string; options?: CardOption[] };
+export type ReviseCard = {
+  card: string;
+  read?: string;
+  options?: CardOption[];
+};
 
 /** What `revise_card` did. */
-export type CardRevised = { card: string };
+export type CardRevised = {
+  card: string;
+};
 
 /** `settle_card`. */
-export type SettleCard = { card: string; said: string };
+export type SettleCard = {
+  card: string;
+  said: string;
+};
 
 /** What `settle_card` did. */
-export type OperatorCardSettled = { card: string };
+export type OperatorCardSettled = {
+  card: string;
+};
 
 /** A Job on a card of Your turn, as a chip: its title and its address. */
 export type OperatorAskJob = {
