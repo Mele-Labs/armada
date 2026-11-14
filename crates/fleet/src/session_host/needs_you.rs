@@ -61,6 +61,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `words_address`, `fleet_call`, `watch_not_ours`, `browser_ask` | questions | plain |
 /// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
+/// | `operator_undone` | by act: a question | plain; nothing is told the agent |
 fn rule_of(source: WaitingSource) -> Rule {
     use Place::{ByAct, Done, Questions, Review, Walks};
     match source {
@@ -88,6 +89,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::RuleAct => rule(Questions, Dismiss::Skip),
         WaitingSource::OperatorSuggestion => rule(Questions, Dismiss::Skip),
         WaitingSource::BrowserAsk => rule(Questions, Dismiss::Plain),
+        WaitingSource::OperatorUndone => rule(ByAct, Dismiss::Plain),
         WaitingSource::Gate => rule(Questions, Dismiss::None),
     }
 }

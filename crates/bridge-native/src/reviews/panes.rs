@@ -10,7 +10,7 @@ use super::{panel, said, tabs, ReviewsScreen};
 use crate::job_view::pane_tree::{self as tree, Dir, Node, Pane, Side, Size, Zone};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::titlebar::parts::{glyph, mono, small, tip};
+use crate::titlebar::parts::{glyph, mono, sans, small, tip};
 
 /// A tab being dragged.
 #[derive(Clone)]
@@ -61,7 +61,7 @@ fn zone_at(fx: f32, fy: f32, on_strip: bool) -> Zone {
 
 impl ReviewsScreen {
     /// The page: the panes of the open pull request, its skeleton while it is read, or the empty place.
-    pub(super) fn render_page(&mut self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_page(&mut self, look: &Look, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let area = Rc::clone(&self.area);
         let measure = canvas(move |bounds, _, _| area.set(Some(Size { w: f64::from(f32::from(bounds.size.width)), h: f64::from(f32::from(bounds.size.height)) })), |_, _, _, _| {})
             .absolute()
@@ -77,7 +77,7 @@ impl ReviewsScreen {
                     self.render_sheet(&page, look, cx)
                 } else {
                     let root = self.arrangement.root.clone();
-                    let tree = self.node(&root, &page, look, cx);
+                    let tree = self.node(&root, &page, look, window, cx);
                     div().relative().size_full().child(measure).child(tree).into_any_element()
                 };
                 return div()
@@ -89,7 +89,15 @@ impl ReviewsScreen {
                     .flex_col()
                     .gap(look.length(token::GAP_PANEL))
                     .child(head)
-                    .child(div().flex_1().min_h_0().child(below))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .gap(look.length(token::GAP_PANEL))
+                            .child(self.render_rail(&page, look, cx))
+                            .child(div().flex_1().min_w_0().h_full().child(below)),
+                    )
                     .into_any_element();
             }
             (None, None) => labelled(
@@ -108,6 +116,46 @@ impl ReviewsScreen {
             .into_any_element(),
         };
         div().id("page").relative().flex_1().min_w_0().h_full().child(shown).into_any_element()
+    }
+
+    /// The rail down the page's left: the Overview, then each change set with the glyph of its worst
+    /// finding. Not a pane, so no layout moves it. A kept page draws the sets it kept, and the rest in grey.
+    fn render_rail(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.rail_on();
+        let hover = look.color(token::BG_HOVER);
+        let row = |id: String, name: &str, lead: AnyElement, picked: bool| {
+                div()
+                    .id(SharedString::from(id))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .cursor_pointer()
+                    .aria_selected(picked)
+                    .when(picked, |row| row.bg(look.color(token::ACCENT_MUTED)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                    .when(!picked, |row| row.hover(move |style| style.bg(hover)))
+                    .tooltip(tip(name.to_string()))
+                    .child(lead)
+                    .child(div().min_w_0().truncate().child(SharedString::from(name.to_string())))
+        };
+        let overview = row("rail-overview".into(), "Overview", glyph("layers", look.length(token::SPACE_3), look.color(token::FG_MUTED)).into_any_element(), on.is_none())
+            .on_click(cx.listener(|this, _, _, cx| this.show_overview(cx)));
+        let overview = labelled(overview, Role::ListBoxOption, "Overview");
+        let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        for set in &page.overview.sets {
+            let id = set.id.clone();
+            let lead = tabs::set_mark(format!("rail-mark-{}", set.id), set.mark, look.length(token::SPACE_3), look);
+            let one = row(format!("rail-{}", set.id), &set.title, lead, on.as_deref() == Some(&set.id)).on_click(cx.listener(move |this, _, _, cx| this.choose_set(&id, cx)));
+            rail = rail.child(labelled(one, Role::ListBoxOption, set.title.clone()));
+        }
+        if page.kept {
+            rail = rail.child(div().px(look.length(token::SPACE_2)).py(look.length(token::SPACE_2)).child(grey("rail-wait", "Writing the change sets of the commits since you looked", &[0.8, 0.6], token::BG_SUNKEN, look)));
+        }
+        labelled(rail, Role::ListBox, "Change sets").into_any_element()
     }
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
@@ -150,19 +198,28 @@ impl ReviewsScreen {
                     .min_h_0()
                     .flex()
                     .gap(look.length(token::GAP_PANEL))
-                    .child(column("main", &[0.9, 0.7, 0.8, 0.5, 0.75, 0.6]).w(relative(0.64)))
-                    .child(column("side", &[0.8, 0.6, 0.7]).flex_1()),
+                    // The rail keeps its own width; the panes share the rest as the default layout does.
+                    .child(column("rail", &[0.8, 0.9, 0.6, 0.7]).flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .gap(look.length(token::GAP_PANEL))
+                            .child(column("main", &[0.9, 0.7, 0.8, 0.5, 0.75, 0.6]).w(relative(0.6)))
+                            .child(column("side", &[0.8, 0.6, 0.7]).flex_1()),
+                    ),
             )
             .into_any_element()
     }
 
-    fn node(&mut self, node: &Node, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    fn node(&mut self, node: &Node, page: &Page, look: &Look, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let split = match node {
-            Node::Pane(pane) => return self.pane(pane, page, look, cx),
+            Node::Pane(pane) => return self.pane(pane, page, look, window, cx),
             Node::Split(split) => split,
         };
-        let a = self.node(&split.a, page, look, cx);
-        let b = self.node(&split.b, page, look, cx);
+        let a = self.node(&split.a, page, look, window, cx);
+        let b = self.node(&split.b, page, look, window, cx);
         let row = split.dir == Dir::Row;
         let ratio = split.ratio as f32;
         let gap = look.length(token::GAP_PANEL);
@@ -229,12 +286,26 @@ impl ReviewsScreen {
             .into_any_element()
     }
 
-    fn pane(&mut self, pane: &Pane, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    fn pane(&mut self, pane: &Pane, page: &Page, look: &Look, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let labels: Vec<&str> = pane.tabs.iter().map(|tab| said(&tab.kind)).collect();
         let name = if labels.is_empty() { "Pane: empty".to_string() } else { format!("Pane: {}", labels.join(", ")) };
         let strip_h = look.length(token::H_CONTROL_LG);
         let active = pane.active.clone().or_else(|| pane.tabs.first().map(|tab| tab.id.clone()));
-        let tabs: Vec<AnyElement> = pane.tabs.iter().map(|tab| self.tab(tab, active.as_deref() == Some(&tab.id), look, cx)).collect();
+        // Crowded when every tab with its name, beside Add tab, is wider than the strip was last drawn: then the
+        // tabs behind draw as glyphs alone, their names in tooltips, and only the front tab keeps its name.
+        let room = self.strips.borrow().get(&pane.id).copied();
+        let space = |at| look.length(at);
+        let wide = |text: &str, weight| {
+            let font = gpui::Font { weight: FontWeight(look.number(weight)), ..gpui::font(sans(look)) };
+            window.text_system().shape_line(SharedString::from(text.to_string()), space(token::TEXT_XS), &[gpui::TextRun { len: text.len(), font, ..Default::default() }], None).width
+        };
+        let shell = space(token::SPACE_3) * 2. + space(token::SPACE_4) + space(token::SPACE_2) + space(token::BORDER_WIDTH);
+        let named = pane.tabs.iter().fold(space(token::SPACE_1) + space(token::H_CONTROL), |sum, tab| {
+            let weight = if active.as_deref() == Some(&tab.id) { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
+            sum + shell + wide(said(&tab.kind), weight)
+        });
+        let crowded = room.is_some_and(|room| named > room);
+        let tabs: Vec<AnyElement> = pane.tabs.iter().map(|tab| self.tab(tab, active.as_deref() == Some(&tab.id), crowded, look, cx)).collect();
         let add_name = "Add tab";
         let add_pane = pane.id.clone();
         let muted = look.color(token::FG_MUTED);
@@ -259,8 +330,11 @@ impl ReviewsScreen {
             Role::Button,
             add_name,
         );
+        let strip_at = Rc::clone(&self.strips);
+        let strip_of = pane.id.clone();
         let strip = div()
             .id(SharedString::from(format!("strip-{}", pane.id)))
+            .relative()
             .flex_none()
             .h(strip_h)
             .flex()
@@ -271,8 +345,25 @@ impl ReviewsScreen {
             .border_color(look.color(token::BORDER_DEFAULT))
             .child(labelled(div().id(SharedString::from(format!("tabs-{}", pane.id))).flex().h_full().min_w_0().overflow_x_hidden().children(tabs), Role::TabList, name.clone()))
             .child(div().flex_1())
-            .child(div().h_full().flex().items_center().child(add));
+            .child(div().h_full().flex().items_center().child(add))
+            // A strip drawn at a new width is drawn again, so whether it is crowded is read from it.
+            .child(
+                canvas(
+                    move |bounds, window, _| {
+                        if strip_at.borrow_mut().insert(strip_of.clone(), bounds.size.width) != Some(bounds.size.width) {
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            );
         let kind = pane.tabs.iter().find(|tab| Some(&tab.id) == active.as_ref()).map(|tab| tab.kind.clone());
+        // The change set scrolls itself, so Show in change set can bring a hunk to its top.
+        let scrolls = kind.as_deref() != Some("pr-change-set");
         let body: AnyElement = match kind {
             Some(kind) => self.tab_body(&kind, page, look, cx),
             None => div()
@@ -326,7 +417,8 @@ impl ReviewsScreen {
                 }))
                 .on_drop(cx.listener(move |this, drag: &TabDrag, _, cx| this.drop_tab(&drag.tab, &drop_pane, cx)))
                 .child(strip)
-                .child(div().id(SharedString::from(format!("body-{}", pane.id))).flex_1().min_h_0().overflow_y_scroll().child(body))
+                // Each pull request's tab keeps its own place, so a page opened fresh starts at its top.
+                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).child(body))
                 .children(overlay),
             Role::Region,
             name,
@@ -334,23 +426,26 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    fn tab(&self, tab: &tree::Tab, front: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    fn tab(&self, tab: &tree::Tab, front: bool, crowded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let label = said(&tab.kind);
         let id = tab.id.clone();
         let lifted = cx.has_active_drag() && self.lifted.as_deref() == Some(&tab.id);
         let ink = if front { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
         let hover = look.color(token::FG_DEFAULT);
         let drag = TabDrag { tab: tab.id.clone(), label: label.into() };
+        let bare = crowded && !front;
         labelled(
             div()
                 .id(SharedString::from(format!("tab-{}", tab.id)))
-                // In a narrow pane the tabs behind give way, their names cut short, so every tab stays in reach.
+                // In a narrow pane the tabs behind give way down to their glyph, so the front tab's name stays whole.
                 .when(front, |tab| tab.flex_none())
-                .when(!front, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_12)).tooltip(tip(label)))
+                .when(!front, |tab| tab.tooltip(tip(label)))
+                .when(bare, |tab| tab.flex_none())
+                .when(!front && !bare, |tab| tab.flex_shrink(1.).min_w(look.length(token::SPACE_3) * 2. + look.length(token::SPACE_4)))
                 .h_full()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
+                .overflow_hidden()
                 .px(look.length(token::SPACE_3))
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(ink)
@@ -373,8 +468,21 @@ impl ReviewsScreen {
                         cx.notify();
                     }
                 }))
-                .child(glyph(tabs::glyph_of(&tab.kind), look.length(token::SPACE_4), if front { look.color(token::ACCENT) } else { ink }))
-                .child(div().min_w_0().truncate().child(label)),
+                // One row high: a name that does not fit whole wraps out of sight, leaving the glyph alone,
+                // never a glyph and a lone ellipsis.
+                .child(
+                    div()
+                        .when(!bare, |row| row.flex_1().min_w_0())
+                        .h(look.length(token::LEADING_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .overflow_hidden()
+                        .flex()
+                        .flex_wrap()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .child(glyph(tabs::glyph_of(&tab.kind), look.length(token::SPACE_4), if front { look.color(token::ACCENT) } else { ink }))
+                        .when(!bare, |row| row.child(div().flex_none().whitespace_nowrap().child(label))),
+                ),
             Role::Tab,
             label,
         )

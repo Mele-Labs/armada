@@ -294,6 +294,7 @@ where
         let mut out = Reviewed::none(taken.len());
         (out.journal, out.call, out.failed) = (generic.journal.take(), generic.call.take(), generic.failed.take());
         let (mut reads, mut thens, mut sures) = (generic.reads.into_iter(), generic.thens.into_iter(), generic.sure.into_iter());
+        let mut follows = generic.follows.into_iter();
         let mut read_any = false;
         for (at, vetted) in vetted.into_iter().enumerate() {
             match vetted {
@@ -301,6 +302,7 @@ where
                     out.reads[at] = reads.next().flatten();
                     out.thens[at] = thens.next().flatten();
                     out.sure[at] = sures.next().unwrap_or_default();
+                    out.follows[at] = follows.next().unwrap_or_default();
                 }
                 Some(Vetted::Unread) => {}
                 Some(Vetted::Queue(read)) => {

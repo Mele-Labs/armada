@@ -1,4 +1,4 @@
-# The Operator's page, kept by Fleet: `operator_page`, `operator_answer` and `operator.page_changed`
+# The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator_undo_ruling` and `operator.page_changed`
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
@@ -16,6 +16,7 @@ Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, fiel
 | `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest`, `mains`, `slots` |
 | `operator_answer` (`POST /operator/page/answer`) | Bridge writes | `OperatorAnswerPress` `{ id, answer, then?, project? }`, answered with `OperatorAnswered` `{ open?, started?, filed?, handed_to?, page }` |
 | `operator_later` (`POST /operator/page/later`) | Bridge writes | `OperatorLater` `{ id, until? }`, answered with `OperatorPage` |
+| `operator_undo_ruling` (`POST /operator/page/undo`) | Bridge writes | `OperatorUndoRuling` `{ id }`, the `turn:<n>` of an `OperatorRuled`, answered with `OperatorPage`. Since 13 Nov 2026 |
 | `operator_turn_order` (`POST /operator/page/order`) | Bridge writes | `OperatorTurnOrder` `{ ids }`, answered with `OperatorPage` |
 | `operator_in_front` (`POST /operator/front`) | Bridge writes | No body. Answered at once with `OperatorInFront` `{ rewriting }` |
 | `operator.page_changed` | Fleet writes, Bridge reads | Nothing. Bridge reads `operator_page` again |
@@ -178,3 +179,45 @@ Asks put Later group among themselves, after the rest.
 Any other answer on a settled item, and an Always after that minute, stays 404 `fleet.operator_turn_unknown`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+
+## Since 13 Nov 2026: an answer that follows what he said: `OperatorTurnItem.follows`, `OperatorDigest.ruled` and Undo
+
+**Additive only**: one optional field on an item, one optional list on the digest with two optional fields on its rows, one operation and route (`operator_undo_ruling`), one `WaitingSource` (`operator_undone`) and three error codes; nothing existing changes.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take; an additive field moves it all the same, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+Bridge's half is `OperatorFollows`, `OperatorRuled`, `OperatorUndoRuling`, `OperatorTurnItem.follows`, `OperatorDigest.ruled` and `WaitingSource` `operator_undone` in `packages/protocol/src/operator-page.ts`, written by hand, types only: nothing in Classic draws them.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `OperatorTurnItem.follows` | Fleet writes | `OperatorFollows`, on a go-ahead question the Operator would answer by following something he said, where no rule covers it yet. Absent where it follows nothing |
+| `OperatorDigest.ruled` | Fleet writes | `OperatorRuled`, the questions it answered by following him over the last seven days, newest first. Absent where none |
+
+`OperatorFollows` is `{ kind, session_id?, job?, question?, said, at? }`.
+`kind` is `answer`, one of his own answers to the same question in the same project, or `setting`, a preference or a repository value he saved.
+`session_id`, `job`, `question` and `at` are those of the answer and are absent on a setting.
+`said` is his choice and his words, or `key = value` for a setting.
+`OperatorRuled` is `{ id, session_id, job?, question, pick, follows, at, undone_at?, undo? }`, `id` being `turn:<n>`.
+`undone_at` is when he took it back and is absent while it stands.
+`undo` is true while it is not taken back and its Job is live, so a screen offers Undo on the rows that read `undo` and works nothing out.
+
+**Undo is Fleet putting the question back.** `operator_undo_ruling` marks the ruling taken back and tells the Job `The Operator's answer to "<question>" is withdrawn. The person will answer it; wait for his answer.`; the journal says `Undone: <Job>: <question>`.
+The Job's list then holds an item with `source` `operator_undone`, id `undone:<n>`, the question as its text and the options it had, derived on every read and never kept, and listed only while the Job is live.
+He answers it as he answers an agent's item, with `answer_waiting`: the Job is sent `Re: <question>` and his choice, the item goes, and his answer is kept for the Operator to follow.
+Dismissing it drops it and tells the Job nothing.
+The Operator's own review never answers it.
+
+| Status | Error | Where |
+| --- | --- | --- |
+| 404 | `fleet.operator_turn_unknown` | No row has `id`, or it is not a precedent ruling. Nothing is done |
+| 422 | `fleet.operator_ruling_undone` | It was taken back already. Nothing is done |
+| 422 | `fleet.operator_ruling_ended` | Its Job has ended, so the question cannot be given back. Nothing is done |
+
+**Fleet keeps his answers.** An answer he gives to a Job's item, from the Job's list or from this page, is kept with its question, options, choice, words and time; an answer given in his place never is, and neither is an answer to a draft.
+With none kept at start, his `Re: ` messages in the threads of Jobs seen in the last 30 days are kept once.
+**The review call reads them** as `answers.txt`, his newest 200 across the repositories Fleet hosts, and `settings.txt`, his preferences and each repository's values.
+It names beside each question the answer it follows as `a<n>`, or `setting <key> = <value>`, or `none`, and marks one that departs from how Classic does it as `departs`, which is never clear.
+**Fleet checks the citation.** An answer must be one kept for the item's repository or one in a project with it; a setting must be a key he saved with that value. Anything else is no citation.
+**The rule `question:precedent`** answers a question that is sure, about nothing he would see, destructive in nothing and cites a checked answer or setting.
+The Job is told which answer it followed.
+Without the rule the item is queued as a go-ahead with `follows` set, and Always here or Always on it keeps `question:precedent`; Yes answers only that one.
+A `question:answer` rule is read first.
+Autopilot leaves a question to the Operator where either rule covers it.
