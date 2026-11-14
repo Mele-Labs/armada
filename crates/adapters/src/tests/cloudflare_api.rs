@@ -37,6 +37,14 @@ fn cloudflare_at(url: &str) -> HttpCloudflare {
     HttpCloudflare::at(url, Duration::from_secs(5)).expect("a client")
 }
 
+// Fleet makes this inside its async main, where `reqwest`'s blocking client may not be built or dropped.
+#[tokio::test]
+async fn a_client_is_made_and_dropped_inside_an_async_context() {
+    let made = HttpCloudflare::new(Duration::from_secs(5));
+    assert!(made.is_ok());
+    drop(made);
+}
+
 const ACCOUNT_BINDING: &str = r#"{"type":"durable_object_namespace","name":"ACCOUNT","class_name":"Account"}"#;
 const LIMIT_BINDING: &str = r#"{"type":"ratelimit","name":"ENROL_LIMIT","namespace_id":"1001","simple":{"limit":10,"period":60}}"#;
 const MIGRATION: &str = r#""migrations":{"new_tag":"v1","new_sqlite_classes":["Account"]}"#;

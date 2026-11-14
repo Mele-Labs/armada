@@ -281,3 +281,29 @@ where
         Ok(SealedPage { revision: number, html: sealed(&html, &nonce, &record), policy: policy(&nonce) })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{sealed, KIT_SCRIPT};
+
+    /// The page the native Bridge's mock Fleet serves, before it is sealed: a message, a start, an answer and a refused
+    /// answer, a pick and a score.
+    const SOURCE: &str = include_str!("../../../bridge-native/fixtures/page-actions-source.html");
+    /// The sealed page, which the native mock reads as Fleet's answer to `get_artifact_page`.
+    const SEALED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../bridge-native/fixtures/page-actions.html");
+
+    /// **The native mock's page is sealed by this code, never written by hand**, so a native walk drives the kit Fleet
+    /// ships. `ARMADA_WRITE_NATIVE_PAGE=1` writes it again; without it, the kit in it must be today's.
+    #[test]
+    fn the_native_mock_page_is_sealed_as_fleet_seals_it() {
+        // The record the native mock swaps for the presses and votes it kept, as Fleet's own record is written.
+        let record = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
+        let page = sealed(SOURCE, "bmF0aXZlLW1vY2stcGFnZQ==", record);
+        if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
+            std::fs::write(SEALED, &page).expect("the native mock's page is written");
+        }
+        let kept = std::fs::read_to_string(SEALED).expect("the native mock's page is there");
+        assert!(kept.contains(KIT_SCRIPT), "the native mock's page carries another kit: write it again with ARMADA_WRITE_NATIVE_PAGE=1");
+        assert!(kept.contains(record), "the native mock finds the record it swaps");
+    }
+}

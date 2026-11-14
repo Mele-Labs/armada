@@ -2,11 +2,13 @@
 //! the current moment in the format they make, so a change is read before it is left.
 
 use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, AnyElement, App, Context, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, App, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use ipc::time_format::TimeFormat;
 
+use super::entries::Entry;
 use super::overlay::SettingsOverlay;
-use super::view::{bone, card, mono, ringed, switch_said};
+use super::rows::{self, rows_card, split_row, Row, Spread};
+use super::view::{ringed, switch_said};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
@@ -82,60 +84,92 @@ impl SettingsOverlay {
         SWITCHES.iter().filter_map(|(name, _)| self.prefs.keys.get(&format!("time:{name}")).cloned()).collect()
     }
 
-    pub(super) fn render_time(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let body = match &self.prefs.read {
-            None => div().flex().flex_col().gap(look.length(token::SPACE_3)).children((0..4).map(|n| bone(look, look.length(token::SPACE_6) * (7 - n % 2) as f32, look.length(token::LEADING_SM)))).into_any_element(),
+    pub(super) fn render_time(&self, entry: &'static Entry, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let spread = self.spread(look, window, cx);
+        let card = match &self.prefs.read {
+            None => self.row_bones(look, spread),
             Some(Err(said)) => labelled(super::view::refusal(look, said.clone()).id("time-unread"), Role::Alert, said.clone()).into_any_element(),
-            Some(Ok(_)) => self.time_rows(look, window, cx),
+            Some(Ok(_)) => self.time_rows(spread, look, window, cx),
         };
-        labelled(card(look, "settings-card-time", "Time", None, vec![body]), Role::Region, "Time").into_any_element()
+        self.rows_page(entry, rows::purpose_of(entry).into(), false, Vec::new(), vec![card], look, window, cx)
     }
 
-    fn time_rows(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    /// What each switch writes, said once under its name.
+    fn time_says(name: &str) -> &'static str {
+        match name {
+            "hour12" => "Off writes the 12-hour clock, with AM and PM.",
+            "seconds" => "Whether a stamp shows its seconds.",
+            _ => "Whether every stamp shows its day. A stamp from an earlier day always does.",
+        }
+    }
+
+    fn time_rows(&self, spread: Spread, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let format = self.time_format();
         let off = !self.live;
-        let rows = SWITCHES.iter().map(|(name, said)| {
-            let (on, words) = match *name {
-                "hour12" => (!format.hour12, ("24H", "12H")),
-                "seconds" => (format.seconds, ("ON", "OFF")),
-                _ => (format.date, ("ON", "OFF")),
-            };
-            let name: &'static str = name;
-            let focus = self.prefs.keys.get(&format!("time:{name}")).cloned();
-            let row = div()
-                .id(SharedString::from(format!("time-{name}")))
-                .flex()
-                .items_center()
-                .justify_between()
-                .gap(look.length(token::SPACE_3))
-                // Room inside the ring, taken back outside it so the label keeps its place.
-                .px(look.length(token::SPACE_2))
-                .py(look.length(token::SPACE_1))
-                .mx(-look.length(token::SPACE_2))
-                .my(-look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_MD))
-                .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(*said))
-                .child(switch_said(look, on, off, words))
-                .when_some(focus, |row, focus| ringed(look, row.track_focus(&focus), &focus, window))
-                .when(!off, |row| {
-                    row.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.time_switch(name, window, cx))).on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                            this.time_switch(name, window, cx);
-                        }
-                    }))
-                });
-            labelled(row, Role::Switch, *said).into_any_element()
-        });
+        let mut rows: Vec<AnyElement> = SWITCHES
+            .iter()
+            .enumerate()
+            .map(|(n, (name, said))| {
+                let (on, words) = match *name {
+                    "hour12" => (!format.hour12, ("24H", "12H")),
+                    "seconds" => (format.seconds, ("ON", "OFF")),
+                    _ => (format.date, ("ON", "OFF")),
+                };
+                let name: &'static str = name;
+                let focus = self.prefs.keys.get(&format!("time:{name}")).cloned();
+                let control = div()
+                    .id(SharedString::from(format!("time-{name}")))
+                    .flex_none()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .child(switch_said(look, on, off, words))
+                    .when_some(focus, |row, focus| ringed(look, row.track_focus(&focus), &focus, window))
+                    .when(!off, |row| {
+                        row.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.time_switch(name, window, cx))).on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                                this.time_switch(name, window, cx);
+                            }
+                        }))
+                    });
+                let control = div().flex().child(labelled(control, Role::Switch, *said));
+                let row = Row {
+                    id: SharedString::from(format!("row-time-{name}")),
+                    title: (*said).into(),
+                    tip: None,
+                    chips: Vec::new(),
+                    says: vec![rows::says(look, Self::time_says(name)).into_any_element()],
+                    changed: false,
+                    control: control.into_any_element(),
+                };
+                split_row(look, spread, row, n == 0).into_any_element()
+            })
+            .collect();
         let now = Local::now();
         let stamp = stamp_of(now, format, now);
         let sample = div()
             .flex()
-            .items_baseline()
-            .gap(look.length(token::SPACE_3))
-            .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Sample"))
-            .child(labelled(div().id("time-sample").font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(stamp)), Role::Label, "Sample"));
-        let refused = self.prefs.refused.get("time_format").map(|said| labelled(super::view::refusal(look, said.clone()).id("time-refused"), Role::Alert, said.clone()).into_any_element());
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).children(rows).child(sample).children(refused).into_any_element()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .child(labelled(
+                div().id("time-sample").text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(stamp)),
+                Role::Label,
+                "Sample",
+            ))
+            .children(self.prefs.refused.get("time_format").map(|said| labelled(super::view::refusal(look, said.clone()).id("time-refused"), Role::Alert, said.clone()).into_any_element()));
+        rows.push(split_row(
+            look,
+            spread,
+            Row {
+                id: "row-time-sample".into(),
+                title: "Sample".into(),
+                tip: None,
+                chips: Vec::new(),
+                says: vec![rows::says(look, "The current moment, as the switches write it.").into_any_element()],
+                changed: false,
+                control: sample.into_any_element(),
+            },
+            false,
+        ).into_any_element());
+        rows_card(look, "settings-card-time", rows).into_any_element()
     }
 }
 

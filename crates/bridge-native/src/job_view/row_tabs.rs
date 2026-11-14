@@ -91,6 +91,11 @@ pub(super) struct RowTabs {
     /// The web page of each walk of a web page that has a tab, by address: kept while the walk is owed, so its page, scroll and
     /// step stay while its tab is behind another or closed (Classic parks the view hidden).
     web: HashMap<String, (Entity<WebWalkTab>, Subscription)>,
+    /// The sealed page under each document tab, by its page: let go as its tab closes, so a page opened again is read
+    /// again from Fleet, with what he pressed and voted on it (`page_tab.rs`).
+    pub(super) pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
+    /// What the mock Fleet kept of the presses and votes on each page, for its record when the page is opened again.
+    pub(super) mock_kept: HashMap<String, super::page_tab::Kept>,
 }
 
 impl RowTabs {
@@ -541,7 +546,22 @@ impl JobView {
                 }
                 _ => None,
             }),
-            RowKind::Document => self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)),
+            // Its card, then the page itself under it, sealed, filling the rest (Classic's `DocumentTabBody`).
+            RowKind::Document => {
+                let Some(card) = self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)) else {
+                    return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element();
+                };
+                let sealed = self.row_tabs.get(id).and_then(|tabs| tabs.pages.get(&tab.key)).map(|(sealed, _)| sealed.clone());
+                return div()
+                    .id("row-tab-body")
+                    .track_focus(&self.row_focus)
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .child(div().flex_none().p(look.length(token::SPACE_4)).child(card))
+                    .children(sealed.map(|sealed| div().flex_1().min_h(gpui::px(0.)).child(sealed)))
+                    .into_any_element();
+            }
             // A web page's walk is its bar over its page, edge to edge; a native walk's is its name, brief and Open.
             RowKind::Walk if !is_native(&tab.key) => {
                 let web = self.row_tabs.get(id).and_then(|tabs| tabs.web.get(&tab.key)).map(|(web, _)| web.clone());

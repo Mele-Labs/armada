@@ -93,7 +93,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
-        "job-tabs" | "job-web-walk" => include_bytes!("../fixtures/jobs-tabs.json"),
+        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/jobs-tabs.json"),
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
@@ -455,7 +455,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         "needs-long" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
-        "job-tabs" | "job-web-walk" => include_bytes!("../fixtures/tabs-threads.json"),
+        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, and the mod Job's two Checks, the newest running.
@@ -674,6 +674,59 @@ fn refused(scenario: &str, id: &str) -> Option<String> {
 pub fn walk_refused(url: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
     (named.as_str() == "job-tabs" && url == "armada://walk/chipColours").then(|| "Build the walk first: cargo build in crates/bridge-native in slot-4".to_string())
+}
+
+/// The page the mock Fleet serves sealed: `Stale branch design`, revision 2, sealed by Fleet's own code from
+/// `fixtures/page-actions-source.html` (`page_sealed`'s `the_native_mock_page_is_sealed_as_fleet_seals_it` writes it).
+const SEALED_PAGE: &str = include_str!("../fixtures/page-actions.html");
+/// The record Fleet sealed it with, which the mock swaps for what was pressed and voted on it.
+const SEALED_RECORD: &str = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
+/// When the mock Fleet says a press or a vote was kept.
+const PAGE_AT: &str = "2026-11-14T09:00:00Z";
+
+/// `get_artifact_page` on the mock: the design page as Fleet serves it, its record holding the presses and the newest cast
+/// of each vote made on it, or Fleet's refusal of a revision it never kept.
+pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
+    if page != "design" || revision != 2 {
+        return Err(format!("revision {revision} of `{page}` is not kept"));
+    }
+    let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
+    let record = format!(r#"{{"artifact":"design","revision":2,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+    Ok(SEALED_PAGE.replacen(SEALED_RECORD, &record, 1))
+}
+
+/// The mock Fleet's answer to a press or a vote on the design page, as `press_page_action` and `cast_page_vote` answer:
+/// Discuss is sent, Rebase it starts Retry webhooks on a 503, Keep it answers its ask, and Drop it is refused, its ask
+/// no longer open. Its votes are kept as cast.
+pub fn page_answer(posted: &ipc::PageToHost) -> Result<Vec<u8>, (String, Option<String>)> {
+    let refused = |code: &str, why: String| Err((why, Some(code.to_string())));
+    match posted {
+        ipc::PageToHost::Press { revision, action, .. } => {
+            let (item, act, did) = match action.as_str() {
+                "discuss-dark-mode" => ("web/dark-mode", "message", r#"{"kind":"sent"}"#.to_string()),
+                "rebase-rate-limits" => ("api/rate-limits", "start", r#"{"kind":"started","job":"mock-12"}"#.to_string()),
+                "keep-docs-index" => ("docs/index", "answer", r#"{"kind":"answered","item":"ask-docs-index"}"#.to_string()),
+                "drop-checkout" => return refused("fleet.page_ask_not_open", "the Job no longer waits on `ask-checkout`".into()),
+                other => {
+                    let holds = "discuss-dark-mode, rebase-rate-limits, keep-docs-index, drop-checkout";
+                    return refused("fleet.page_action_unknown", format!("revision {revision} of `Stale branch design` holds no action `{other}`. Actions it holds: {holds}"));
+                }
+            };
+            Ok(format!(r#"{{"revision":{revision},"action":"{action}","item":"{item}","act":"{act}","at":"{PAGE_AT}","did":{did}}}"#).into_bytes())
+        }
+        ipc::PageToHost::Vote { revision, vote, result, .. } => {
+            let form = match vote.as_str() {
+                "mark" => ipc::VoteForm::Pick,
+                "row-parts" => ipc::VoteForm::Score,
+                other => return refused("fleet.page_vote_unknown", format!("revision {revision} of `Stale branch design` holds no vote `{other}`. Votes it holds: mark, row-parts")),
+            };
+            if result.form() != form {
+                return refused("fleet.page_vote_form", format!("vote `{vote}` is a {}, and this result is a {}", form.word(), result.form().word()));
+            }
+            let cast = ipc::VoteCast { revision: *revision, vote: vote.clone(), form, result: result.clone(), at: ipc::Instant::carried(PAGE_AT) };
+            ipc::encode(&cast).map(String::into_bytes).map_err(|why| (format!("{why:?}"), None))
+        }
+    }
 }
 
 /// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes

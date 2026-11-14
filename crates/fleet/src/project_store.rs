@@ -167,7 +167,7 @@ where
     }
 
     /// The roots of the served repositories project `project` holds, in served order.
-    fn project_roots(&self, project: &core_model::Project) -> Vec<String> {
+    pub(crate) fn project_roots(&self, project: &core_model::Project) -> Vec<String> {
         let served = self.repositories().served();
         served.iter().filter(|one| project.holds(one.manifest().id())).map(|one| one.root().to_string()).collect()
     }
