@@ -34,6 +34,13 @@ checks:
     run: "/bin/sh -c 'echo $1 $2 $3 $4 $ARMADA_PORT_WEB > seen.txt' sh ${port.web} ${port.api} ${port.docs} ${port.nobody}"
 "#;
 
+/// A range for one case, locked to its process and below the ephemeral floor.
+/// **Not a fixed number**: 44_700 is inside Linux's ephemeral band, where other
+/// tests' connections hold ports, and a root span found none free on CI.
+fn a_range() -> PortRange {
+    super::servers::a_range_of_its_own()
+}
+
 /// A checkout with `root` at its root and `apps/web`'s own file, claiming from
 /// `range` — each case its own, since a probe binds for an instant.
 fn a_checkout(home: &TempDir, root: &str, range: PortRange) -> Arc<Fixture> {
@@ -119,11 +126,12 @@ async fn claims(fleet: &Fixture) -> Vec<PortClaim> {
 #[tokio::test]
 async fn a_workspace_port_resolves_and_its_span_is_released_when_the_verify_ends() {
     let home = TempDir::new();
-    let fleet = a_checkout(&home, BARE_ROOT, PortRange::of(44_600, 44_699, 8));
+    let range = a_range();
+    let fleet = a_checkout(&home, BARE_ROOT, range);
 
     let seen = verified(&home, &fleet).await;
     let (web, api) = (port(&seen[0]), port(&seen[1]));
-    assert!((44_600..=44_699).contains(&web), "{seen:?}");
+    assert!((range.base()..=range.ceiling()).contains(&web), "{seen:?}");
     assert_eq!(web, api + 1, "one span, in name order: {seen:?}");
     assert_eq!(seen[4], seen[0], "the variable carries the same number");
     assert_eq!(seen[2], "${port.docs}", "the root declares no `docs`");
@@ -140,7 +148,7 @@ async fn a_workspace_port_resolves_and_its_span_is_released_when_the_verify_ends
 #[tokio::test]
 async fn the_workspace_wins_a_shared_name_and_an_undeclared_one_stays_literal() {
     let home = TempDir::new();
-    let fleet = a_checkout(&home, PORTED_ROOT, PortRange::of(44_700, 44_799, 8));
+    let fleet = a_checkout(&home, PORTED_ROOT, a_range());
 
     let seen = verified(&home, &fleet).await;
     let held = claims(&fleet).await;
@@ -167,10 +175,11 @@ async fn the_workspace_wins_a_shared_name_and_an_undeclared_one_stays_literal() 
 #[tokio::test]
 async fn a_span_a_crashed_verify_left_is_reclaimed_by_its_key() {
     let home = TempDir::new();
-    let fleet = a_checkout(&home, BARE_ROOT, PortRange::of(44_800, 44_899, 8));
+    let range = a_range();
+    let fleet = a_checkout(&home, BARE_ROOT, range);
     let left = PortClaim {
         claimant: workspace_claimant(&fleet),
-        base: 44_890,
+        base: range.ceiling(),
         width: 1,
         claimed_at: fleet.now(),
     };
@@ -199,10 +208,11 @@ async fn a_span_a_crashed_verify_left_is_reclaimed_by_its_key() {
 #[tokio::test]
 async fn shutdown_releases_a_workspace_span_left_behind() {
     let home = TempDir::new();
-    let fleet = a_checkout(&home, BARE_ROOT, PortRange::of(44_600, 44_699, 8));
+    let range = a_range();
+    let fleet = a_checkout(&home, BARE_ROOT, range);
     let left = PortClaim {
         claimant: workspace_claimant(&fleet),
-        base: 44_690,
+        base: range.ceiling() - 1,
         width: 2,
         claimed_at: fleet.now(),
     };
@@ -222,7 +232,7 @@ async fn shutdown_releases_a_workspace_span_left_behind() {
 #[tokio::test]
 async fn a_repository_served_at_a_workspace_keeps_its_span_through_that_verify() {
     let home = TempDir::new();
-    let fleet = a_checkout(&home, BARE_ROOT, PortRange::of(44_900, 44_999, 8));
+    let fleet = a_checkout(&home, BARE_ROOT, a_range());
     let nested = Path::new(fleet.first().root()).join("apps/web");
     let manifest = config::Manifest::parse(&nested.join("armada.yml"), WEB).expect("loads");
     fleet

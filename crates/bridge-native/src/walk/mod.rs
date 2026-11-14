@@ -1292,7 +1292,7 @@ pub static WALKS: &[Walk] = &[
             press_on("Read on its own, its arrows crawl the way they run. A sketch with steps plays them instead", "button", "Open sketch Merge line flow", "dialog", "Sketch: Merge line flow"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Open sketch Merge line flow"),
             step(
-                "The chip at the bottom right of Freshness chip is a mock: a picture of the page the Drone wrote, at the box's width and as tall as the page is, under its title. It takes no pointer. Until the app's web view is wired in, the app draws a plain frame with the title, and this walk draws a stand-in picture. Screen nodes, reading a sketch against an earlier one with Changes and Whole, and Share, which saves a sketch as a web page or an image or copies it as Mermaid, come with their own walks",
+                "The chip at the bottom right of Freshness chip is a mock: a picture of the page the Drone wrote, at the box's width and as tall as the page is, under its title. It takes no pointer. The app draws the page with its web view, and this walk draws a stand-in picture. Screen nodes, reading a sketch against an earlier one with Changes and Whole, and Share, which saves a sketch as a web page or an image or copies it as Mermaid, come with their own walks",
                 Verb::Wheel("region", "Thread", 360),
                 "article",
                 "Sketch: Freshness chip",

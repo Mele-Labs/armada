@@ -249,7 +249,7 @@
        {
         "id": "mock-chip",
         "kind": "mock",
-        "html": "<span class=\"armada-chip\">2 behind</span>",
+        "html": "<span class=\"armada-chip\">2 behind</span>", "kept": "00000000000000000000000000c0ffee",
         "x": 560,
         "y": 480,
         "w": 80,
@@ -452,7 +452,7 @@
         {
          "id": "mock-chip",
          "kind": "mock",
-         "html": "<span class=\"armada-chip\">2 behind</span>",
+         "html": "<span class=\"armada-chip\">2 behind</span>", "kept": "00000000000000000000000000c0ffee",
          "x": 560,
          "y": 480,
          "w": 80,
@@ -874,7 +874,7 @@
        {
         "id": "mock-chip",
         "kind": "mock",
-        "html": "<span class=\"armada-chip\">2 behind</span>",
+        "html": "<span class=\"armada-chip\">2 behind</span>", "kept": "00000000000000000000000000c0ffee",
         "x": 560,
         "y": 480,
         "w": 80,
@@ -1077,7 +1077,7 @@
         {
          "id": "mock-chip",
          "kind": "mock",
-         "html": "<span class=\"armada-chip\">2 behind</span>",
+         "html": "<span class=\"armada-chip\">2 behind</span>", "kept": "00000000000000000000000000c0ffee",
          "x": 560,
          "y": 480,
          "w": 80,
