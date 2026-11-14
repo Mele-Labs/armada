@@ -255,6 +255,10 @@ mod pull_review_memory;
 mod your_review;
 /// The agent runs about a pull request, kept per commit. `docs/concepts/pull-review.md`.
 mod review_runs;
+/// Change sets, the overview and a practice check, in the run engine. `docs/concepts/pull-review.md`.
+mod review_change_sets;
+/// A change-set run's answer held to what it was told, and the diff's hunks it is told.
+mod review_change_set_answers;
 /// Natural Search: the person's words put to every open pull request. `docs/concepts/pull-review.md`.
 mod review_searches;
 /// Saved issue queries and the query writer. `docs/concepts/tracker.md`, *Saved queries*.
@@ -267,6 +271,8 @@ mod project_copies;
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
 mod mac_update;
+/// A walk or dev server of a Job on one of his Macs, opened on another through the signed link.
+mod mac_pages;
 /// A task act another Mac made on a shared project of this Mac, run here.
 mod project_acts_held;
 /// How work behaves, laid over its layers, and what a Job freezes of it at its start.

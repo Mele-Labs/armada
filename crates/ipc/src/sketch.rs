@@ -104,6 +104,12 @@ pub struct ShowSketch {
     /// to. Fleet keeps that scene whole at the call, so a later replacement does not move the diff.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub against: Option<String>,
+    /// What the sketch is for and what his answer changes, in one sentence of at most 200 characters.
+    #[serde(rename = "for", default, skip_serializing_if = "Option::is_none")]
+    pub for_line: Option<String>,
+    /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<crate::ForLink>,
 }
 
 /// The keys of a sketch's `detail` that put it to the person and say how he answered. `detail`
@@ -118,6 +124,9 @@ pub const SKETCH_SETTLED_AT: &str = "settled_at";
 pub const SKETCH_WITHDRAWN: &str = "withdrawn";
 /// His note on `sent_back`, or his words with an approval. Absent where he gave none.
 pub const SKETCH_WORDS: &str = "words";
+/// The plan version whose Approve settled it, as text, where `approve_plan` settled it with the plan that
+/// named it. A new drawing of the title does not carry it.
+pub const SKETCH_IN_PLAN: &str = "in_plan";
 
 /// How the person answered a sketch put to him.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

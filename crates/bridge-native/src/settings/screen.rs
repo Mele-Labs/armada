@@ -64,11 +64,38 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of a workflow off in every repository Storefront keeps: sample-api has bug off from the start.
+    pub fn with_api_bug_off(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.off_in_repository("sample-api", "bug");
+            }
+        });
+    }
+
     /// For the walk of a Mac nothing is set up on.
     pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
             if let Wire::Mock(mock) = &mut overlay.wire {
                 mock.gateway = super::gateway::MockGateway::fresh();
+            }
+        });
+    }
+
+    /// For the walk of a claim from the other Mac that arrives with the page open.
+    pub fn claim_later(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::claim_later();
+            }
+        });
+    }
+
+    /// For the walk of Macs on other builds: one older, one newer.
+    pub fn builds_differ(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::builds_differ();
             }
         });
     }

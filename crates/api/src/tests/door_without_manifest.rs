@@ -85,6 +85,7 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "ask_in_window",
         "propose_draft",
         "withdraw_draft",
+        "handoff_brief",
         "list_mods",
         "scaffold_mod",
         "validate_mod",

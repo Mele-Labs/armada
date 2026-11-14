@@ -16,7 +16,7 @@ use hyper::body::Bytes;
 use hyper::header::{CONTENT_TYPE, HOST};
 use hyper::Request;
 use hyper_util::rt::TokioIo;
-use ipc::{ClaimMacLink, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState};
+use ipc::{BuildSource, ClaimMacLink, CloudflareState, FleetBuildChanging, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState, UpdateMac};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tokio::net::TcpStream;
@@ -244,6 +244,14 @@ pub struct MockGateway {
     /// The code a phone is asked to pair with, and the polls made since.
     phone_code: Option<String>,
     polls: u8,
+    /// A Mac whose claim arrives once the list has been read this many more times, as the other Mac's does.
+    claim_later: Option<(u8, Mac)>,
+    /// Every body `POST /macs/update` took, in order.
+    pub updates: Vec<UpdateMac>,
+    /// The words the next update is refused with, once: Fleet's own sentence for a Mac that did not answer.
+    pub refuse_update: Option<String>,
+    /// Updates under way: the Mac, whether this Mac is the one that moves, and the reads left before the row is linked.
+    updating: Vec<(String, bool, u8)>,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
@@ -288,7 +296,49 @@ impl MockGateway {
             sign_reads: 1,
             phone_code: None,
             polls: 0,
+            claim_later: None,
+            updates: Vec::new(),
+            refuse_update: None,
+            updating: Vec::new(),
         }
+    }
+
+    /// Two Macs on other builds: Mac mini on an older one, Mac Pro on a newer one, each with the Gateway's own why.
+    pub fn builds_differ() -> MockGateway {
+        let mut gateway = MockGateway::new();
+        gateway.macs.retain(|mac| mac.this_mac || mac.id == "mac-work");
+        gateway.macs.push(Mac {
+            id: "mac-mini".into(),
+            name: "Mac mini".into(),
+            colour: MacColour::Blue,
+            address: Some("mini.example.com".into()),
+            this_mac: false,
+            build: Some("1d199a1".into()),
+            link: Some(MacLink::OlderBuild),
+            why: Some("Mac mini runs an older build. Nothing crosses until it updates.".into()),
+            ..Default::default()
+        });
+        gateway.macs.push(Mac {
+            id: "mac-pro".into(),
+            name: "Mac Pro".into(),
+            colour: MacColour::Green,
+            address: Some("https://pro.example.ts.net".into()),
+            this_mac: false,
+            build: Some("8f04be2".into()),
+            link: Some(MacLink::NewerBuild),
+            why: Some("Mac Pro runs a newer build. Nothing crosses until this Mac updates.".into()),
+            ..Default::default()
+        });
+        gateway
+    }
+
+    /// The other Mac claims after the page opened: Mac Pro's claim arrives at the third read of the list.
+    pub fn claim_later() -> MockGateway {
+        let mut gateway = MockGateway::new();
+        let at = gateway.macs.iter().position(|mac| mac.link == Some(MacLink::ClaimWaiting)).expect("the mock has a claim");
+        let claim = gateway.macs.remove(at);
+        gateway.claim_later = Some((2, claim));
+        gateway
     }
 
     /// A Mac nothing is set up on: the Gateway is off, nothing serves it, and no other Mac is paired. Its setup runs
@@ -428,9 +478,60 @@ impl MockGateway {
         self.setup.address.as_ref().map(|address| if address.starts_with("https://") { address.clone() } else { format!("https://{address}") })
     }
 
-    pub fn read_macs(&self) -> Result<Vec<Mac>, String> {
+    pub fn read_macs(&mut self) -> Result<Vec<Mac>, String> {
         self.up()?;
+        match self.claim_later.take() {
+            Some((0, claim)) => self.macs.push(claim),
+            Some((reads, claim)) => self.claim_later = Some((reads - 1, claim)),
+            None => {}
+        }
+        self.finish_updates();
         Ok(self.macs.clone())
+    }
+
+    /// `POST /macs/update` on Fleet: 202, the restart has begun. The Mac is on the same build once the list has been
+    /// read twice more, and its row is linked then. A refusal is Fleet's sentence, said once.
+    pub fn update(&mut self, asked: &UpdateMac) -> Result<FleetBuildChanging, String> {
+        self.updates.push(asked.clone());
+        if let Some(said) = self.refuse_update.take() {
+            return Err(said);
+        }
+        let (id, this_moves) = match (&asked.mac, &asked.like) {
+            (Some(id), None) => (id.clone(), false),
+            (None, Some(id)) => (id.clone(), true),
+            _ => return Err("The body names one Mac to update, or one to update this Mac like.".into()),
+        };
+        if !self.macs.iter().any(|one| !one.this_mac && one.id == id) {
+            return Err(format!("No Mac {id} is paired with this one."));
+        }
+        self.updating.push((id, this_moves, 2));
+        Ok(FleetBuildChanging { build: BuildSource::Main })
+    }
+
+    /// Each read counts an update down, and the one that reaches nothing turns its row linked on one build.
+    fn finish_updates(&mut self) {
+        let mut done = Vec::new();
+        self.updating.retain_mut(|(id, this_moves, reads)| {
+            *reads -= 1;
+            if *reads == 0 {
+                done.push((id.clone(), *this_moves));
+            }
+            *reads > 0
+        });
+        for (id, this_moves) in done {
+            let Some(at) = self.macs.iter().position(|one| one.id == id) else { continue };
+            let build = self.macs[at].build.clone();
+            let mine = self.macs.iter().find(|one| one.this_mac).and_then(|one| one.build.clone());
+            self.macs[at].link = Some(MacLink::Linked);
+            self.macs[at].why = None;
+            if this_moves {
+                if let Some(this) = self.macs.iter_mut().find(|one| one.this_mac) {
+                    this.build = build;
+                }
+            } else {
+                self.macs[at].build = mine;
+            }
+        }
     }
 
     /// A paired Mac goes in after the others paired, ahead of the claims waiting here, as the Gateway lists them.
@@ -545,14 +646,14 @@ mod tests {
         assert_eq!(state(&mut gateway), "down");
     }
 
-    fn ids(gateway: &MockGateway) -> Vec<String> {
+    fn ids(gateway: &mut MockGateway) -> Vec<String> {
         gateway.read_macs().expect("read").into_iter().map(|one| one.id).collect()
     }
 
     #[test]
     fn the_macs_come_this_mac_first_then_paired_then_claims_waiting() {
-        let gateway = MockGateway::new();
-        assert_eq!(ids(&gateway), ["mac-studio", "mac-work", "mac-mini", "mac-air", "mac-pro"]);
+        let mut gateway = MockGateway::new();
+        assert_eq!(ids(&mut gateway), ["mac-studio", "mac-work", "mac-mini", "mac-air", "mac-pro"]);
         assert!(gateway.macs[0].this_mac && gateway.macs[0].link.is_none(), "this Mac has no link");
     }
 
@@ -564,7 +665,7 @@ mod tests {
         assert!(made.expires_at > chrono::Utc::now().timestamp(), "the link is good for a while");
         let claimed = gateway.pair_claim(MOCK_OTHER_LINK).expect("claim");
         assert_eq!((claimed.link, claimed.why.as_deref()), (Some(MacLink::ConfirmWaiting), Some("Confirm on Office iMac")));
-        assert_eq!(ids(&gateway), ["mac-studio", "mac-work", "mac-mini", "mac-air", "mac-office", "mac-pro"], "a claim made here is paired, ahead of the claims waiting");
+        assert_eq!(ids(&mut gateway), ["mac-studio", "mac-work", "mac-mini", "mac-air", "mac-office", "mac-pro"], "a claim made here is paired, ahead of the claims waiting");
         assert_eq!(gateway.pair_confirm("mac-pro"), Err("Mac Pro did not answer. Press Confirm again.".into()));
         assert_eq!(gateway.macs.iter().find(|one| one.id == "mac-pro").and_then(|one| one.link.clone()), Some(MacLink::ClaimWaiting), "the claim stays");
         let linked = gateway.pair_confirm("mac-pro").expect("confirm");

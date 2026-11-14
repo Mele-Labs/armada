@@ -153,6 +153,7 @@ WebSocket event stream, read this first.
 | [The Reviews tab: the lists waiting on a person, a page's threads and a review's comments](protocol/the-reviews-tab-the-lists-waiting-on-a-person-a-pages-threads-and-a.md) |
 | [The Reviews tab: agent runs and review tools](protocol/the-reviews-tab-agent-runs-and-review-tools.md) |
 | [A comment on several lines, and a fix for a finding](protocol/a-comment-on-several-lines-and-a-fix-for-a-finding.md) |
+| [Change sets, an overview and practices: three run kinds and a catalogue](protocol/change-sets-an-overview-and-practices.md) |
 | [A Job's running Check: its log live, and a stop](protocol/a-jobs-running-check-its-log-live-and-a-stop.md) |
 | [A Job's reach past its slots: the folder answers](protocol/a-jobs-reach-past-its-slots-the-folder-answers.md) |
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
@@ -220,6 +221,10 @@ WebSocket event stream, read this first.
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
 | [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
 | [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
+| [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
+| [His Edit of an artifact: `save_artifact_edit`](protocol/his-edit-of-an-artifact.md) |
+| [A plan carries its sketches: `sketches` on `record_plan` and `SessionPlan`, and `in_plan` on `JobArtifact`](protocol/a-plan-carries-its-sketches.md) |
+| [Approve all and Dismiss all: `answer_items` and `dismiss_items`](protocol/approve-all-and-dismiss-all.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

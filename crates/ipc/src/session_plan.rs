@@ -94,6 +94,10 @@ pub struct PlanGroupInput {
     #[serde(default, skip_serializing_if = "PlanGate::is_none")]
     pub gate: PlanGate,
     pub tasks: Vec<PlanTaskInput>,
+    /// Titles of sketches this Job drew with `show_sketch`, shown beside this group's section. The plan's
+    /// Approve settles them with it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<String>,
 }
 
 /// What ends a plan group: a fact Fleet sees for itself, never the agent's word. Groups with no gate
@@ -179,6 +183,11 @@ pub struct RecordPlan {
     pub groups: Vec<PlanGroupInput>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sketch: Option<PlanSketchInput>,
+    /// Titles of sketches this Job drew with `show_sketch`, for the plan as a whole. **They do not wait on
+    /// him alone while this version is pending**: its Approve settles them with it. A title the Job holds
+    /// no sketch for is refused.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<String>,
     /// The page the plan depends on, as `show_window` was given it. The plan is put to the person
     /// only after he approves that walk. Recording again without it clears it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -199,8 +208,37 @@ pub struct CheckedPlan {
     pub summary: String,
     pub groups: Vec<PlanGroupInput>,
     pub sketch: Option<crate::Sketch>,
+    /// The sketch titles named for the whole plan, trimmed, each once. Each group's are on its own.
+    pub sketches: Vec<String>,
     /// The walk the plan depends on, trimmed. Absent where blank.
     pub walk: Option<String>,
+}
+
+impl CheckedPlan {
+    /// Every sketch title the plan names, the whole plan's first, each once.
+    pub fn sketch_titles(&self) -> Vec<String> {
+        let mut titles: Vec<String> = Vec::new();
+        for title in self.sketches.iter().chain(self.groups.iter().flat_map(|group| group.sketches.iter())) {
+            if !titles.contains(title) {
+                titles.push(title.clone());
+            }
+        }
+        titles
+    }
+}
+
+/// The sketch titles `named` at `place`, trimmed and each once, with a problem for a blank one or one
+/// on more than one line.
+fn sketch_titles(place: &str, named: &[String], problems: &mut Vec<String>) -> Vec<String> {
+    let mut titles: Vec<String> = Vec::new();
+    for title in named.iter().map(|title| title.trim()) {
+        if title.is_empty() || title.contains('\n') {
+            problems.push(format!("{place} `sketches` holds `{title}`. Name each sketch by the title you gave show_sketch"));
+        } else if !titles.iter().any(|one| one == title) {
+            titles.push(title.to_string());
+        }
+    }
+    titles
 }
 
 fn slug(word: &str) -> bool {
@@ -311,6 +349,7 @@ impl RecordPlan {
             if lands_in.as_deref().is_some_and(|one| one.chars().count() > MOST_LANDS_IN_CHARS) {
                 problems.push(format!("{place} `lands_in` is longer than {MOST_LANDS_IN_CHARS} characters"));
             }
+            let sketches = sketch_titles(&place, &group.sketches, &mut problems);
             groups.push(PlanGroupInput {
                 id,
                 title,
@@ -322,6 +361,7 @@ impl RecordPlan {
                 own_job: group.own_job,
                 gate: group.gate,
                 tasks,
+                sketches,
             });
         }
         if total > MOST_TASKS {
@@ -335,6 +375,8 @@ impl RecordPlan {
                     scene: drawn.scene.clone(),
                     session_id: None,
                     against: None,
+                    for_line: None,
+                    links: Vec::new(),
                 };
                 match shown.checked_for("record_plan") {
                     Ok(sketch) => Some(sketch),
@@ -345,6 +387,7 @@ impl RecordPlan {
                 }
             }
         };
+        let sketches = sketch_titles("the plan", &self.sketches, &mut problems);
         let walk = self.walk.as_deref().map(str::trim).filter(|walk| !walk.is_empty()).map(str::to_string);
         if walk.as_deref().is_some_and(|walk| walk.contains(char::is_whitespace)) {
             problems.push(String::from("`walk` is not a page address. Give the url you passed to show_window"));
@@ -357,7 +400,7 @@ impl RecordPlan {
             };
             return Err(format!("the plan was not recorded: {}{more}. Fix these and call record_plan again", said.join("; ")));
         }
-        Ok(CheckedPlan { summary, groups, sketch, walk })
+        Ok(CheckedPlan { summary, groups, sketch, sketches, walk })
     }
 }
 
@@ -447,6 +490,9 @@ pub struct SessionPlanGroup {
     /// of that gate, and absent once it closes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate_checks: Option<GateChecks>,
+    /// The sketches shown beside this group's section, as `record_plan` named them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<PlanSketch>,
 }
 
 /// Where the Checks Fleet runs for a `checks_green` gate stand while the gate is open.
@@ -585,6 +631,10 @@ pub struct SessionPlan {
     pub changes: Option<PlanChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sketch: Option<PlanSketch>,
+    /// The sketches drawn with `show_sketch` for the plan as a whole, as `record_plan` named them. Each
+    /// group's are on the group. While this version is pending none waits on him alone.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sketches: Vec<PlanSketch>,
     /// The windows that keep a pending plan from being put to the person, each with what settles it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_by: Vec<PlanHold>,

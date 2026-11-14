@@ -1,0 +1,8 @@
+[operations.share_job_page]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Whether another Mac may be shown a page a shared Job of this Mac serves on loopback, asked by the Gateway before each request it sends on"
+notes = """
+`GET /other_mac/page?session_id=&port=`, answered 204. **The Job must be in a shared project**: one that is not, one in none, and one held from another Mac are refused 404 `fleet.no_such_session`, worded exactly as for a Job that does not exist. `port` must be the port of a page the Job showed with `show_window` that still stands, one of its variations, or a server the Job started that is serving, each on `localhost`, `127.0.0.1` or `[::1]` over `http`; any other is 404 `fleet.other_mac_page_not_shown`. Read again for every request, so turning sharing off stops a page at once.
+"""

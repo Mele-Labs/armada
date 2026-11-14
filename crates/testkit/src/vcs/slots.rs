@@ -725,6 +725,12 @@ impl FakeVcs {
         *self.review_head.lock().expect("not poisoned") = Some(Err(said.to_string()));
     }
 
+    /// Script the blob each path is at a bay's base. A path left out is not at the base.
+    pub fn blobs_at_base(&self, blobs: &[(&str, &str)]) {
+        *self.base_blobs.lock().expect("not poisoned") =
+            blobs.iter().map(|(path, blob)| (path.to_string(), blob.to_string())).collect();
+    }
+
     /// Every bay leased to read a pull request, as `(pull request, holder)`, in order.
     pub fn review_bays_leased(&self) -> Vec<(u64, String)> {
         self.review_leases.lock().expect("not poisoned").clone()

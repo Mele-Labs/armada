@@ -249,6 +249,22 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `answer_items`: his verdict on several items that ask for his approval, each settled as its own answer
+    /// settles it. `refused` names the items the route refused itself, which are not settled. Never refused whole.
+    fn answer_items(
+        self: Arc<Self>,
+        answer: ipc::AnswerItems,
+        refused: Vec<Option<ipc::ItemSettled>>,
+    ) -> impl Future<Output = ipc::ItemsSettled> + Send;
+
+    /// `dismiss_items`: several items that ask for his approval off his list with no verdict, each Job told in one
+    /// message. `refused` as for `answer_items`. Never refused whole.
+    fn dismiss_items(
+        self: Arc<Self>,
+        dismiss: ipc::DismissItems,
+        refused: Vec<Option<ipc::ItemSettled>>,
+    ) -> impl Future<Output = ipc::ItemsSettled> + Send;
+
     /// `convert_draft_to_document`: the person turns an open draft into a Document in the job's worktree.
     /// [`Refusal::NotFound`] for a draft the job has no row for, [`Refusal::IllegalMove`] for one already
     /// settled and for a job with no worktree, [`Refusal::Unacceptable`] for a proposal's draft.
@@ -424,6 +440,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         caller: Option<crate::Caller>,
         restore: ipc::ArtifactRef,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `save_artifact_edit`: his Edit of a page's or a draft's words, kept as the next revision, his, with the Job sent
+    /// the diff first. Answers with the artifact. [`Refusal::Unacceptable`] for a sketch, an edit that is not words
+    /// alone, or an artifact archived, settled or not held; [`Refusal::IllegalMove`] for a revision not the newest.
+    fn save_artifact_edit(
+        self: Arc<Self>,
+        edit: ipc::SaveArtifactEdit,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads

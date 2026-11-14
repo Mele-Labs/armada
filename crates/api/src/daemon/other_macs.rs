@@ -9,8 +9,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacNamed, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions,
-    ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
+    OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 
 use crate::daemon::Refusal;
@@ -89,6 +89,15 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// that does not exist.
     fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> impl Future<Output = Result<JobThread, Refusal>> + Send;
 
+    /// `share_job_page` — whether another Mac may be shown what this Mac serves on loopback port `port` for Job
+    /// `job`: a page the Job showed, or a server it started that is serving. [`Refusal::NotFound`] for a Job not
+    /// shared, worded as for a Job that does not exist.
+    fn share_job_page(&self, job: SessionId, port: u16) -> impl Future<Output = Result<(), Refusal>> + Send;
+
+    /// `open_other_mac_page` — a page a Job held from another Mac showed or serves, opened on this Mac through the
+    /// link. A page of a Job of this Mac, and one not on the other Mac's loopback, is answered as it is.
+    fn open_other_mac_page(&self, open: OpenOtherMacPage) -> impl Future<Output = Result<OtherMacPageOpened, Refusal>> + Send;
+
     /// `hold_other_mac_sessions` — every Job row Mac `mac` shares, replacing all held from it.
     fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 
@@ -111,4 +120,7 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `hold_mac_claims` — every other Mac waiting for his Confirm here, replacing all held, each a call on him.
+    fn hold_mac_claims(&self, claims: MacClaimsWaiting) -> impl Future<Output = Result<MacClaimsWaiting, Refusal>> + Send;
 }

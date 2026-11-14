@@ -1,0 +1,18 @@
+[operations.handoff_brief]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Send your brief here when Fleet tells you your context is past the limit: where the work is, what is open, what you hold. Body: brief, and session_id. The owner answers on a card, and a new job starts from your brief only if he chooses to carry on. Returns at once; end your turn without a reply. Refused when Fleet has not asked this job for a brief"
+notes = """
+`POST /sessions/handoff_brief`, body `HandoffBrief`: `brief`, and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `handoff`, the item's `handoff:<row id>`.
+
+**Only when Fleet asked.** The Context rule's telling keeps a `handoff_asked` row on the job's ledger, `standing` until a brief raises the card and `spent` from then. A job with no standing row is refused 422 `fleet.handoff_not_asked` and nothing is kept, so a second brief for one telling is refused too. A blank brief is refused 422 `fleet.handoff_brief_empty`. The brief is trimmed and cut to 6,000 characters.
+
+**It does not wait.** Fleet keeps a `handoff` row on the thread with `tokens`, the job's context now, `limit`, the Context rule's, `brief` and `remind_at`, three figures in tokens: the next 100k step above `tokens`, then 50k and 100k past it. The open card is `handoff:<row id>` in `SessionRecord.waiting_for`, source `handoff`, text `Carry on in a new Job?`, act `answer`, and six options in order: `Carry on in a new Job`, `Stay here`, `Don't ask again`, then `Remind at <figure>` for each figure, labelled `400k`.
+
+`answer_waiting` settles it with a `choice`, and words alone are refused. Choice 0 starts the successor from the brief; 1 keeps nothing; 2 keeps `handoff_quiet`; 3 to 5 keep `handoff_remind_at` at that figure. `dismiss_waiting` is Stay. The row is replaced by id with `answer`, `{ "kind": "carry_on" | "stay" | "quiet" }` or `{ "kind": "remind_at", "tokens": <figure> }`. **The job is sent nothing** whatever he presses. Only the owner answers it: an answer in his place is refused.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `show_window`'s is.
+
+`agent_access` is `Yes`: the job is the one that knows where its work stands.
+"""

@@ -82,6 +82,8 @@ mod word_asks;
 mod job_renames;
 /// A Job's artifacts archived as stale, kept apart from their attachments.
 mod artifact_archives;
+/// The revisions of a Job's artifacts the person wrote, kept apart from their attachments.
+mod artifact_owner_revisions;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -182,6 +184,7 @@ mod repositories;
 mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
+mod practice_catalogue;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
 mod pull_request_notes;
@@ -251,6 +254,7 @@ pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
 pub use artifact_archives::KeptArchive;
+pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -296,6 +300,7 @@ pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
 pub use review_runs::KeptReviewRun;
+pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
 pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};

@@ -29,6 +29,16 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/other_mac/thread",
     },
+    Route {
+        operation: "share_job_page",
+        method: "GET",
+        path: "/other_mac/page",
+    },
+    Route {
+        operation: "open_other_mac_page",
+        method: "POST",
+        path: "/sessions/other_mac_page",
+    },
     // A whole list in place of the one held, so `PUT`.
     Route {
         operation: "hold_other_mac_sessions",
@@ -74,5 +84,10 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "forget_other_mac",
         method: "POST",
         path: "/other_macs/forget",
+    },
+    Route {
+        operation: "hold_mac_claims",
+        method: "PUT",
+        path: "/other_macs/claims",
     },
 ];

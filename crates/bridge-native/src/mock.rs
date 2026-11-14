@@ -136,7 +136,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -415,6 +415,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
         "sketch-card" | "sketch-approve" | "sketches-several" => include_bytes!("../fixtures/sketch-card-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
+        // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
+        "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
         // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
@@ -730,6 +732,7 @@ pub fn lifecycles(manifest: &str) -> Option<ipc::RepositoryLifecycles> {
 const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do the row's actions take?","since":"2026-11-09T14:03:00Z","source":"agent","options":[
 {"label":"Actions in the row","description":"Every act sits on the row; the sent state reads under it.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-a.png","width":760,"height":380,"parts":[{"name":"actions","label":"Actions","x":473,"y":134,"w":258,"h":24},{"name":"sent-state","label":"Sent state","x":29,"y":278,"w":702,"h":18}]}},
 {"label":"One act and a menu","description":"The main act stays; the rest go in a menu with a note under the row.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-b.png","width":760,"height":540,"parts":[{"name":"act-primary","label":"Main act","x":623,"y":134,"w":80,"h":24},{"name":"more-menu","label":"More menu","x":707,"y":134,"w":24,"h":24},{"name":"row-note","label":"Row note","x":29,"y":229,"w":702,"h":100},{"name":"menu","label":"Menu","x":599,"y":461,"w":132,"h":66}]}},
+{"label":"Every act on a long list","description":"Each row keeps its lead act down a long list, the rest behind its menu.","picture":{"image":"/sessions/shown?session_id=mock-01&path=pick-actions-c.png","width":760,"height":2000,"parts":[{"name":"lead-acts","label":"Lead acts","x":589,"y":124,"w":110,"h":1728},{"name":"menus","label":"Menus","x":704,"y":124,"w":32,"h":1728}]}},
 {"label":"Keep today's row","description":"Nothing changes."}]}"#;
 
 /// A text file a mock Job showed, as `GET /sessions/shown` serves it.
@@ -742,6 +745,7 @@ pub fn shown_still(image: &str) -> Option<&'static [u8]> {
     match image.rsplit('=').next()? {
         "pick-actions-a.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-a.png")),
         "pick-actions-b.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-b.png")),
+        "pick-actions-c.png" => Some(include_bytes!("../fixtures/pictures/pick-actions-c.png")),
         _ => None,
     }
 }

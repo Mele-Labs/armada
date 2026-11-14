@@ -40,6 +40,8 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `share_projects` | the Gateway calls | `GET /other_mac/projects`, answered with `Projects`: this Mac's own shared projects with their tasks; never a copy, never a loose task |
 | `share_events` | the Gateway calls | `GET /other_mac/events`, a WebSocket framed as `/events`: `resync` first, then each event the share filter lets through, whole or cut, at its own cursor; `missed` and `resync` pass as they are |
 | `share_job_thread` | the Gateway calls | `GET /other_mac/thread?session_id=&before=&limit=&upto=`, answered as `get_job_thread`. Any Job not shared is 404 `fleet.no_such_session`, worded as for a Job that does not exist |
+| `share_job_page` | the Gateway calls | `GET /other_mac/page?session_id=&port=`, answered 204, before each page request another Mac sends: the Job shared, and `port` one a window it showed or a server it started that is serving stands on, on loopback. Any Job not shared is 404 `fleet.no_such_session`; a port it does not show is 404 `fleet.other_mac_page_not_shown` |
+| `open_other_mac_page` | Bridge calls | `POST /sessions/other_mac_page`, body `OpenOtherMacPage { session_id, url }`, answered `OtherMacPageOpened { url }`: for a Job held from another Mac, an address on this Mac's loopback the Gateway signs through to it, path and query kept. That Mac asleep is 409 `fleet.other_mac_asleep` with `fields.since` and `fields.mac`. See *Pages across Macs* |
 | `hold_other_mac_sessions` | the Gateway calls | `PUT /other_macs/sessions`, body `OtherMacSessions { mac, sessions }`: every row that Mac shares, replacing all held from it, each stamped with `mac`. `session.changed` for each row new or changed, `session.removed` for each row left out. Answers `MacNamed` |
 | `hold_other_mac_projects` | the Gateway calls | `PUT /other_macs/projects`, body `OtherMacProjects { mac, projects }`, replacing every copy held from it, then `projects.changed` where a copy changed. Edits queued for that Mac are then sent. Answers `MacNamed` |
 | `project_act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/project_act`, body `ProjectActFromMac { act, at? }`, `act` one of a copy's task acts tagged by `kind`. Run only in a shared project; any other is refused as a row or project that does not exist. Answers `Projects` as `share_projects` |
@@ -51,11 +53,12 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `take_back_queued` | Bridge calls | `POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`; 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight` |
 | `queued.changed` | Fleet sends | `QueuedList`, whole, to Bridge alone, whenever an act is kept, sent, refused or taken back |
 | `forget_other_mac` | the Gateway calls | `POST /other_macs/forget`, body `MacNamed`: every row, report, project copy and queued edit held from it dropped, `session.removed` for each row, then `bug_reports.changed`. Answers `MacNamed` |
+| `hold_mac_claims` | the Gateway calls | `PUT /other_macs/claims`, body `MacClaimsWaiting { claims }`: every other Mac waiting for his Confirm here, replacing all held, each a `mac_pairing` call on him ([What calls the person](a-jobs-calls.md)). Answers the same |
 
 A blank `mac` on any of the five the Gateway hands in is 422 `fleet.other_mac_unnamed`.
 
 **Only the Gateway hands Fleet another Mac's rows.**
-The five routes it hands them in on, and `project_act_from_mac`, are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
+The five routes it hands them in on, `hold_mac_claims` and `project_act_from_mac` are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
 This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 
@@ -95,3 +98,14 @@ A Mac's first rows, with none held from it before, are heard quietly: what stood
 A row that comes back unchanged after a sleep is not heard again, and a row a replace or a forget drops leaves the calls.
 `StandingCall.mac` names the Mac; `CallArrival` carries none, and Bridge reads it off the call or the row.
 `get_needs_you` reads a Job held from another Mac off its held row.
+
+## Pages across Macs
+
+A walk or a dev server of a Job held from another Mac opens on this one through the signed link, and nowhere else.
+Bridge asks `open_other_mac_page` with the address the row names, on the other Mac's loopback.
+This Mac's Gateway asks the other's `/api/mac/page`, signed, which that Fleet answers as `share_job_page`, and then opens one loopback port here for that Job and page port.
+Every request to that port is signed and sent to `/api/mac/page/<job>/<port>/<path>` on the other Gateway, which asks `share_job_page` again and only then sends it on to `127.0.0.1:<port>`.
+**A port of its own keeps the page's origin**, so its absolute paths resolve as they do at home.
+An unsigned call gets no page, and turning sharing off stops an open page at its next request.
+Pages are read whole, no redirect is followed, and a dev server's live-reload socket does not cross: he reloads by hand.
+

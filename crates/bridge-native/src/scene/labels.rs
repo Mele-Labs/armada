@@ -72,13 +72,7 @@ pub(crate) fn wrap_label(text: &str) -> Vec<String> {
 /// so it is read as its chord.
 #[allow(dead_code)]
 pub(crate) fn path_at(path: &[Seg], t: f32) -> Option<Pt> {
-    let points: Vec<Pt> = path
-        .iter()
-        .map(|seg| match seg {
-            Seg::Move(p) | Seg::Line(p) => *p,
-            Seg::Quad(_, end) => *end,
-        })
-        .collect();
+    let points: Vec<Pt> = super::route::polyline(path);
     if points.is_empty() {
         return None;
     }

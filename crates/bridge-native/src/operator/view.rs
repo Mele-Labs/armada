@@ -730,7 +730,7 @@ impl OperatorPageView {
                 label,
             )
         });
-        // Options the asker drew as stills show them above the rows; a press on one picks it.
+        // Options the asker drew as stills show them above the rows; a press on a still opens it large, its words pick it.
         let chosen_at = turn.item.options.iter().position(|option| chosen.as_ref().is_some_and(|on| on.as_ref() == option.label));
         let stills = crate::option_pictures::stills(&turn.id, &turn.item.options, chosen_at, self.wire.port(cx), look.color(token::OPERATOR), look, &|at| {
             let (id, label) = (turn.id.clone(), turn.item.options[at].label.clone());

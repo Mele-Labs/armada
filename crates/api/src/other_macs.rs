@@ -5,7 +5,7 @@ use axum::body::Bytes;
 use axum::extract::ws::{WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::Router;
 use ipc::{Delivered, Missed, StreamMessage};
@@ -28,11 +28,14 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/queued/take_back", post(crate::mac_acts::take_back_queued::<D>))
         .route("/other_mac/events", get(share_events::<D>))
         .route("/other_mac/thread", get(share_job_thread::<D>))
+        .route("/other_mac/page", get(share_job_page::<D>))
+        .route("/sessions/other_mac_page", post(open_other_mac_page::<D>))
         .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>))
         .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>))
         .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
         .route("/other_macs/event", post(hold_other_mac_event::<D>))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
+        .route("/other_macs/claims", put(hold_mac_claims::<D>))
 }
 
 async fn share_sessions<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
@@ -116,6 +119,31 @@ async fn share_job_thread<D: OtherMacs>(State(served): State<Served<D>>, Query(w
     }
 }
 
+/// `?session_id=` and `?port=` on `share_job_page`.
+#[derive(Deserialize)]
+struct WhichPage {
+    session_id: String,
+    port: u16,
+}
+
+async fn share_job_page<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichPage>) -> Response {
+    match served.daemon().share_job_page(ipc::SessionId::carried(which.session_id), which.port).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn open_other_mac_page<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let open: ipc::OpenOtherMacPage = match ipc::decode_body("a page of another Mac's Job to open", &body) {
+        Ok(open) => open,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().open_other_mac_page(open).await {
+        Ok(opened) => answer(StatusCode::OK, &opened, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 async fn hold_other_mac_sessions<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let held: ipc::OtherMacSessions = match ipc::decode_body("another Mac's Job rows", &body) {
         Ok(held) => held,
@@ -167,6 +195,17 @@ async fn forget_other_mac<D: OtherMacs>(State(served): State<Served<D>>, body: B
     };
     match served.daemon().forget_other_mac(named).await {
         Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn hold_mac_claims<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::MacClaimsWaiting = match ipc::decode_body("the Macs waiting to pair", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().hold_mac_claims(held).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

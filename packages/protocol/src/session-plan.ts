@@ -56,6 +56,8 @@ export type SessionPlanGroup = {
   gate_closed?: GateClose;
   /** The Checks Fleet last ran for this group's `checks_green` gate. Only on the first open group of that gate, and absent once it closes. */
   gate_checks?: GateChecks;
+  /** The sketches shown beside this group's section, as `record_plan` named them. Absent where none. */
+  sketches?: PlanSketch[];
 };
 
 /**
@@ -156,6 +158,8 @@ export type SessionPlan = {
   /** Against the version before. Absent for the first. */
   changes?: PlanChanges;
   sketch?: PlanSketch;
+  /** The sketches drawn with `show_sketch` for the plan as a whole. While this version is pending none waits on him alone. */
+  sketches?: PlanSketch[];
   /** The windows that keep a pending plan from being put to the person. Absent when none does. */
   held_by?: PlanHold[];
   /** The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes. Absent when no call is held and when no gate is open. */
@@ -282,7 +286,11 @@ export type RecordPlan = {
       id?: string;
       title: string;
     }[];
+    /** Titles of sketches this Job drew with `show_sketch`, shown beside this group's section. */
+    sketches?: string[];
   }[];
+  /** Titles of sketches this Job drew with `show_sketch`, for the plan as a whole. Its Approve settles them with it. */
+  sketches?: string[];
   sketch?: {
     title: string;
     scene: unknown;

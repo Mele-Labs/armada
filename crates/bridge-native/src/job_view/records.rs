@@ -272,8 +272,9 @@ impl JobView {
                     )
                     .child(
                         div().flex_1().min_w_0().flex().flex_wrap().items_center().gap_x(gap).child(chip(look, hue, "Disputed")).child(
+                            // The by-line gives way before the time does: it ends in an ellipsis, its whole in the tooltip.
                             div()
-                                .flex_none()
+                                .min_w_0()
                                 .ml_auto()
                                 .flex()
                                 .items_center()
@@ -281,7 +282,8 @@ impl JobView {
                                 .child(
                                     div()
                                         .id(SharedString::from(format!("disputed-by:{id}")))
-                                        .flex_none()
+                                        .min_w_0()
+                                        .truncate()
                                         .text_size(look.length(token::TEXT_XS))
                                         .line_height(look.length(token::LEADING_XS))
                                         .text_color(look.color(token::FG_SUBTLE))
@@ -327,7 +329,7 @@ impl JobView {
                                 .flex_col()
                                 .gap(look.length(token::SPACE_1))
                                 .pl(look.length(token::SPACE_3))
-                                .pr(look.length(token::SPACE_2))
+                                .pr(look.length(token::SPACE_3))
                                 .py(look.length(token::SPACE_1))
                                 .child(head)
                                 .child(why)
@@ -346,7 +348,7 @@ impl JobView {
                 };
                 quiet_line(id, said, look)
             }
-            SessionRow::Draft { id, at, title, text, before, settled, change } => {
+            SessionRow::Draft { id, at, title, text, before, settled, change, .. } => {
                 self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, false, page, look, now, cx)
             }
             // A call that waits is the permission card in the panel; once settled the thread keeps one line.

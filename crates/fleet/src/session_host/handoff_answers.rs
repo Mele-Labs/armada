@@ -1,48 +1,64 @@
-//! The owner's answers on a Job's handoff card that start nothing, kept on the Job's ledger, and what
-//! the Context rule does with them and with the Large context setting.
+//! The owner's handoff card and his answers on it that start nothing, kept on the Job's ledger, and
+//! what the Context rule does with them and with the Large context setting.
 //! `docs/concepts/session/a-handed-off-job.md`.
 //!
-//! **Read off the card Fleet holds, never off the agent's word.** The asking door calls in here with
-//! what the owner pressed. The Context rule (`usage_following.rs`) reads the ledger back: a Job's own
-//! answer wins over the setting for that Job.
+//! **One card, one press.** The Context rule tells the Job to send a brief with `handoff_brief`, and
+//! that brief raises a `handoff` row Fleet owns, waiting as `handoff:<row>`. His press settles it, and
+//! the Job is told nothing. **Read off the row Fleet holds, never off the agent's word.** The Context
+//! rule (`usage_following.rs`) reads the ledger back: a Job's own answer wins over the setting for
+//! that Job.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
 use config::settings as keys;
-use ipc::{AskedQuestion, QuestionAnswer, SessionAskState, SessionRow, SessionVoice};
+use ipc::{AskedQuestion, HandoffBrief, HandoffPick, QuestionAnswer, SessionAskState, SessionRecord, SessionRow, SessionVoice, WaitingOption};
 use store::{AttachmentState, Holder, KeptAttachment};
 
 use crate::daemon::Fleet;
 
-/// On the Job's ledger once the owner chose [`ipc::HANDOFF_QUIET`]: `spent`, a fact that stays.
+/// On the Job's ledger once the owner pressed [`ipc::HANDOFF_QUIET`]: `spent`, a fact that stays.
 pub(crate) const QUIET: &str = "handoff_quiet";
-/// On the Job's ledger once the owner chose a figure after [`ipc::HANDOFF_REMIND`]: `standing` until
-/// the Job's context passes it and it is told again. The target is the figure in tokens.
+/// On the Job's ledger once the owner pressed a "Remind at" figure: `standing` until the Job's
+/// context passes it and it is told again. The target is the figure in tokens.
 pub(crate) const REMIND_AT: &str = "handoff_remind_at";
+/// On the Job's ledger once the Context rule told it to send a brief: `standing` until a brief raises
+/// the card, `spent` from then. `handoff_brief` is refused without a standing one.
+pub(crate) const ASKED: &str = "handoff_asked";
 
-/// Which of the handoff answers the owner pressed on a card, in any question.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum HandoffAnswer {
-    Yes,
-    Quiet,
-    Remind,
-    Other,
+/// The id a handoff card's waiting item goes by, from its row's.
+pub(crate) const HANDOFF_PREFIX: &str = "handoff:";
+/// What the card asks, the waiting item's text.
+pub(crate) const CARD_ASKS: &str = "Carry on in a new Job?";
+
+/// A `handoff_brief` that places no Job Fleet knows.
+const HANDOFF_UNNAMED: &str = "fleet.handoff_unnamed";
+/// A `handoff_brief` from a Job the Context rule did not ask, or one whose card is raised already.
+const HANDOFF_NOT_ASKED: &str = "fleet.handoff_not_asked";
+/// A `handoff_brief` with no words in it.
+const HANDOFF_BRIEF_EMPTY: &str = "fleet.handoff_brief_empty";
+
+/// The card's options, in the order a `choice` indexes them: carry on, stay, don't ask again, then
+/// a "Remind at" for each figure.
+pub(crate) fn card_options(remind_at: &[u64]) -> Vec<WaitingOption> {
+    let option = |label: String| WaitingOption { label, description: None, picture: None };
+    [ipc::HANDOFF_YES, ipc::HANDOFF_STAY, ipc::HANDOFF_QUIET]
+        .into_iter()
+        .map(String::from)
+        .chain(remind_at.iter().map(|tokens| format!("{} {}", ipc::HANDOFF_REMIND, ipc::handoff_figure(*tokens))))
+        .map(option)
+        .collect()
 }
 
-impl HandoffAnswer {
-    pub(crate) fn of(answers: &[QuestionAnswer]) -> HandoffAnswer {
-        let chose = |label: &str| answers.iter().any(|one| one.chosen.iter().any(|chosen| chosen == label));
-        if chose(ipc::HANDOFF_YES) {
-            HandoffAnswer::Yes
-        } else if chose(ipc::HANDOFF_QUIET) {
-            HandoffAnswer::Quiet
-        } else if chose(ipc::HANDOFF_REMIND) {
-            HandoffAnswer::Remind
-        } else {
-            HandoffAnswer::Other
-        }
+/// What a `choice` on the card picks. `None` for an index past its options.
+pub(crate) fn pick_of(choice: u32, remind_at: &[u64]) -> Option<HandoffPick> {
+    match choice {
+        0 => Some(HandoffPick::CarryOn),
+        1 => Some(HandoffPick::Stay),
+        2 => Some(HandoffPick::Quiet),
+        more => remind_at.get(more as usize - 3).map(|tokens| HandoffPick::RemindAt { tokens: *tokens }),
     }
 }
 
@@ -100,7 +116,7 @@ pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>>
 /// What the Context rule does for one Job whose context is over the line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ContextAct {
-    /// Tell the Job to ask on its card. `reminded` where it is the reminder the owner asked for, which
+    /// Tell the Job to send its brief for the card. `reminded` where it is the reminder the owner asked for, which
     /// is told even where the rule told it already and has not seen it fall under.
     Tell { reminded: bool },
     /// Carry on in a new Job with no card: the Large context setting's standing consent.
@@ -161,6 +177,11 @@ where
         self.handoff_answer_kept(session, REMIND_AT, &tokens.to_string(), AttachmentState::Standing).await;
     }
 
+    /// The Job was told to send its brief: `handoff_brief` takes one from it now.
+    pub(crate) async fn handoff_asked(&self, session: &str) {
+        self.handoff_answer_kept(session, ASKED, session, AttachmentState::Standing).await;
+    }
+
     /// The reminder was told: the figure is spent, and the rule's watch takes over again.
     pub(crate) async fn handoff_reminded(&self, session: &str) {
         let now = self.now().as_str().to_string();
@@ -186,28 +207,6 @@ where
         let _ = self.published_hosted(session).await;
     }
 
-    /// The person answered a question kept for a walk, or one nobody answered in time, with a message, from Needs you: its handoff
-    /// answer is run as the card's is in the permission door. Read before the message's row is put.
-    /// `true` where the Job hands on, so the message is not sent to the process the hand ends.
-    pub(crate) async fn handoff_answered_later(self: &Arc<Self>, session: &str, text: &str) -> bool {
-        if !text.starts_with(ANSWERED_LATER) {
-            return false;
-        }
-        let Ok(rows) = self.rows_of(session).await else { return false };
-        let Some(questions) = lapsed_question(&rows) else { return false };
-        match HandoffAnswer::of(&answered_later(&questions, text)) {
-            HandoffAnswer::Yes if !self.handing_on_already(session).await => {
-                self.handed_on_apart(session, Self::handoff_brief(&questions));
-                true
-            }
-            HandoffAnswer::Quiet => {
-                self.handoff_quieted(session).await;
-                false
-            }
-            _ => false,
-        }
-    }
-
     /// Whether Job `session` has ended, is handing on already, or has handed on.
     pub(crate) async fn handing_on_already(&self, session: &str) -> bool {
         let ended = self.session_and_hosting(session).await.map_or(true, |(row, _)| row.state == store::SessionState::Ended);
@@ -217,5 +216,79 @@ where
                 (one.kind == super::replacing::STARTING && one.state == AttachmentState::Standing)
                     || (one.kind == super::replacing::REPLACED_BY && one.state == AttachmentState::Spent)
             })
+    }
+    /// `handoff_brief`: the Job sends the brief the Context rule asked it for, and the card is raised
+    /// with its context, the limit and the figures. **One brief a telling**: the `handoff_asked` row is
+    /// spent in the same write that finds it standing, so a second brief is refused.
+    pub(crate) async fn handoff_brief_sent(&self, caller: Option<api::Caller>, sent: HandoffBrief) -> Result<SessionRecord, Refusal> {
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| sent.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(HANDOFF_UNNAMED, "a job to send the brief for"))?;
+        let brief: String = sent.brief.trim().chars().take(super::replacing::BRIEF_CHARS).collect();
+        let brief = brief.trim_end().to_string();
+        if brief.is_empty() {
+            return Err(self.hosted_refusal(HANDOFF_BRIEF_EMPTY, "a brief needs its words: where the work is, what is open, what you hold"));
+        }
+        let limits = crate::usage_rules::Limits::of(&self.machine_settings().now());
+        let tokens = {
+            let mut store = self.store().lock().await;
+            if store.session(&id).map_err(|why| self.ledger_fault(why))?.is_none() {
+                return Err(self.hosted_refusal(HANDOFF_UNNAMED, "a job Fleet knows"));
+            }
+            let now = self.now().as_str().to_string();
+            let asked = store.settle_held(&Holder::session(&id), Some(ASKED), AttachmentState::Spent, &now).map_err(|why| self.ledger_fault(why))?;
+            if !asked {
+                return Err(self.hosted_refusal(
+                    HANDOFF_NOT_ASKED,
+                    "this job was not asked for a brief. Send one only when Fleet tells you your context is past the limit, once for each telling",
+                ));
+            }
+            let turns = store.turns_for_rules(&id, limits.main_turns_needed()).unwrap_or_default();
+            crate::usage_rules::context_now(&turns).unwrap_or_default()
+        };
+        let row = SessionRow::Handoff {
+            id: self.row_id(&id),
+            at: self.instant(),
+            tokens,
+            limit: limits.context_tokens.unwrap_or_default(),
+            brief,
+            remind_at: ipc::handoff_remind_ladder(tokens).to_vec(),
+            answer: None,
+        };
+        self.row_put(&id, row).await;
+        self.published_hosted(&id).await
+    }
+
+    /// The figures handoff card `row` of Job `session` offers, which its `choice` indexes past the first three.
+    pub(crate) async fn handoff_figures(&self, session: &str, row: &str) -> Vec<u64> {
+        let rows = self.rows_of(session).await.unwrap_or_default();
+        rows.into_iter()
+            .find_map(|one| match one {
+                SessionRow::Handoff { id, remind_at, .. } if id == row => Some(remind_at),
+                _ => None,
+            })
+            .unwrap_or_default()
+    }
+
+    /// His press on the handoff card `row` of Job `session`. **Only Carry on starts anything**, and the
+    /// Job is told nothing whatever he pressed. The row is kept answered, so the item leaves his list.
+    pub(crate) async fn handoff_answered(self: &Arc<Self>, session: &str, row: &str, pick: HandoffPick) -> Result<SessionRecord, Refusal> {
+        let found = self.rows_of(session).await?.into_iter().find_map(|one| match one {
+            SessionRow::Handoff { id, at, tokens, limit, brief, remind_at, answer: None } if id == row => {
+                Some((brief.clone(), SessionRow::Handoff { id, at, tokens, limit, brief, remind_at, answer: Some(pick) }))
+            }
+            _ => None,
+        });
+        let Some((brief, answered)) = found else { return Err(self.settled_already()) };
+        self.row_put(session, answered).await;
+        match pick {
+            HandoffPick::CarryOn if !self.handing_on_already(session).await => self.handed_on_apart(session, Some(brief)),
+            HandoffPick::CarryOn | HandoffPick::Stay => {}
+            HandoffPick::Quiet => self.handoff_quieted(session).await,
+            HandoffPick::RemindAt { tokens } => self.handoff_remind_kept(session, tokens).await,
+        }
+        self.published_hosted(session).await
     }
 }

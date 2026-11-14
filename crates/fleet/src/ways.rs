@@ -93,7 +93,3 @@ pub(crate) fn options_refusal(id: &str, options: usize) -> String {
 /// What the agent reads when `all_done` is refused for a Job that has shown no picture.
 pub(crate) const PICTURE_REFUSAL: &str =
     "The owner looks at results and this Job has shown no picture. Lead the result with a picture: show_sketch, show_window or show_file with an image. Then call all_done again.";
-
-/// What the agent is told once when a reply asks in words and the owner answers by buttons.
-pub(crate) const ASK_AGAIN: &str =
-    "The owner answers by buttons and your reply asks a question in words. Ask it again with AskUserQuestion: two to four options, your pick first, a cost on each, one decision a question.";

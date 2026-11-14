@@ -216,6 +216,8 @@ mod request_runs;
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
+/// A pull request's change sets, its overview, and its sets held to the repository's practices.
+mod review_change_sets;
 /// Natural Search, and where a change runs for the Walk tool.
 mod review_walks;
 /// The owner's notes on a pull request's lines, and a Job resolving one.
@@ -285,6 +287,8 @@ mod style_sources;
 mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// His verdict, or none, on several waiting items at once. `answer_items`, `dismiss_items`.
+mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
@@ -441,8 +445,8 @@ pub use timeline::{
 };
 pub use call::{
     AskedChoice, AskedQuestion, AskingToRun, CallKind, CallAnswer, CallInFlight, QuestionAnswer,
-    ReachesTo, RunOrNot, handoff_figure, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND, HANDOFF_REMIND_AT,
-    HANDOFF_REMIND_QUESTION, HANDOFF_STAY, HANDOFF_YES,
+    ReachesTo, RunOrNot, handoff_figure, handoff_remind_ladder, ASKS_A_QUESTION, HANDOFF_QUIET, HANDOFF_REMIND,
+    HANDOFF_STAY, HANDOFF_YES,
 };
 pub use holding::{
     ReclaimedSaved, ChangeSlotPool, CommitHome, RescueAct, RescueSlot, SlotAct, SlotCommit,
@@ -451,7 +455,7 @@ pub use holding::{
 };
 pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
@@ -649,6 +653,10 @@ pub use review_runs::{
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
     COMMENT_AT_MOST, COMMENT_SENTENCES_AT_MOST,
 };
+pub use review_change_sets::{
+    ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, OverviewSeverity, PracticeCheck, PracticeItem, PracticeSource,
+    PracticeVerdict,
+};
 pub use pull_request_notes::{
     NoteSide, NoteStatus, PullRequestNote, PullRequestNotes, ResolvePullRequestNote, SavePullRequestNote,
     SendPullRequestNotes,
@@ -704,17 +712,24 @@ pub use phone::{
     TailscaleState,
 };
 pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
-pub use macs::{ClaimMacLink, MacNamed, MacPairLink, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions};
+pub use macs::{
+    ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
+    OtherMacProjects, OtherMacSessions,
+};
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
-pub use artifact::{ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRef, ArtifactRevision, ArtifactState, JobArtifact, ARTIFACT_WITHDRAWN_BY};
+pub use artifact::{
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
+};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
-    SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
+    SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
 pub use sketch_screen::{
@@ -751,7 +766,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource, OptionPicture, PartPicked, PicturePart, AnswerWaitingParts,
-    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, WithdrawSketch, WithdrawWindow,
+    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, HandoffBrief, WithdrawSketch, WithdrawWindow,
 };
 pub use needs_you::{
     NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection, NeedsYouSectionKind,

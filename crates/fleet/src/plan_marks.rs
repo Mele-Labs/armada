@@ -154,6 +154,18 @@ pub(crate) fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Res
         .collect()
 }
 
+/// His notes on the plan as a whole, worded as marks are: each numbered, in order.
+pub(crate) fn plan_notes(notes: &[String]) -> Vec<Said> {
+    notes
+        .iter()
+        .enumerate()
+        .map(|(at, note)| {
+            let text = format!("{}. {}", at + 1, note.trim());
+            Said { agent: format!("Note on the plan: {text}"), line: line("Note", String::from("The plan"), None, Some(text)) }
+        })
+        .collect()
+}
+
 /// The one message the agent gets for the marks. `approve` says the plan is approved with them.
 pub(crate) fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
     let version = plan.version;
@@ -176,6 +188,19 @@ pub(crate) fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
 fn the_tasks(plan: &KeptPlan) -> String {
     let tasks: String = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| format!("\n- {}", task.text)).collect();
     format!("{} The tasks:{tasks}", ipc::TASK_LIST_IS_THE_PLAN)
+}
+
+/// `message` with the sketches its Approve settles named on one line after its first.
+pub(crate) fn with_sketches(message: String, asking: &[crate::session_host::planning::AskingSketch]) -> String {
+    if asking.is_empty() {
+        return message;
+    }
+    let named: Vec<String> = asking.iter().map(|one| format!("\"{}\"", one.title)).collect();
+    let line = format!("With it: {}.", named.join(", "));
+    match message.split_once('\n') {
+        Some((head, rest)) => format!("{head}\n{line}\n{rest}"),
+        None => format!("{message}\n{line}"),
+    }
 }
 
 /// The one message for an approval with no marks.

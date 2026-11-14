@@ -6,6 +6,7 @@ use crate::{IssueReference, PlanGate, PlanGroupInput, PlanMark, PlanTaskInput, R
 
 fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanGroupInput {
     PlanGroupInput {
+        sketches: Vec::new(),
         id: id.map(String::from),
         title: "Store".to_string(),
         agent: agent.to_string(),
@@ -20,7 +21,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
 }
 
 fn plan(groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { summary: "You get a plan page.".to_string(), groups, sketch: None, walk: None, ask_again: false, session_id: None }
+    RecordPlan { sketches: Vec::new(), summary: "You get a plan page.".to_string(), groups, sketch: None, walk: None, ask_again: false, session_id: None }
 }
 
 #[test]

@@ -2102,6 +2102,11 @@ impl JobsList {
             )
         });
         let status_on = view.on("view:status");
+        // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
+        let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
+        let mut mac_dot = dotted.then(|| crate::pairing::chip(row.mac.as_deref(), cx)).flatten().map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+        // A row with a time keeps the slot's fixed width so marks line up down the list; one without lets the slot shrink to its glyphs.
+        let timed = time.is_some();
         let marks = div()
             .flex_none()
             .flex()
@@ -2112,12 +2117,14 @@ impl JobsList {
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
-            .when(!status_on, |marks| marks.children(earlier_mark.take()))
+            .when(!status_on, |marks| marks.children(earlier_mark.take()).children(mac_dot.take()))
             .when(status_on, |marks| {
                 // The paused mark in place of the state's glyph, and a hand off's ring before it.
                 // Electron's wide mark (`ListCard.css`): two glyphs and the gap between, the state at its end.
                 let wide = look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1);
-                marks.child(div().flex_none().w(wide).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
+                // The dot and its gap are the slot's to hold once a second Mac is listed.
+                let wide = if dotted { wide + look.length(token::SPACE_2) + look.length(token::SPACE_1) } else { wide };
+                marks.child(div().flex_none().when(timed || !dotted, |slot| slot.w(wide)).flex().items_center().justify_end().gap(look.length(token::SPACE_1)).when(row.handing_off, |slot| {
                     slot.child(labelled(
                         div()
                             .id(SharedString::from(format!("handoff-{}", row.id)))
@@ -2126,7 +2133,7 @@ impl JobsList {
                         Role::Image,
                         "Handing off",
                     ))
-                }).children(quiet).children(earlier_mark.take()).children(state.map(|((glyph, said), hue)| {
+                }).children(quiet).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
@@ -2146,11 +2153,6 @@ impl JobsList {
                     ))
                 }))
             });
-        // Once a second Mac is listed, every row keeps a column for the Mac it runs on, so the chips line up.
-        let mac_column = crate::pairing::shows_chips(crate::pairing::macs(cx)).then(|| {
-            let chip = crate::pairing::chip(row.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, SharedString::from(format!("mac-{}", row.id)), &chip));
-            div().flex_none().w(look.length(token::SPACE_12) * 1.25).flex().items_center().children(chip)
-        });
         // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
         let lit = crate::clash_mark::lit(cx) == Some(row.id.as_ref());
         let movable = row.depth == 0 && !row.ended;
@@ -2200,7 +2202,6 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
-                    .children(mac_column)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
@@ -2383,6 +2384,7 @@ impl JobsList {
         .into_iter()
         .flatten()
         .collect();
+        let mac = crate::pairing::chip(row.mac.as_deref(), cx);
         let small = |look: &Look| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS));
         let key = |look: &Look, keys: &'static str, said: &'static str| {
             small(look)
@@ -2460,6 +2462,7 @@ impl JobsList {
                         )
                 })))
             })
+            .children(mac.map(|chip| small(look).text_color(look.color(token::FG_DEFAULT)).child(crate::pairing::card_line(look, &chip))))
             .child(
                 div()
                     .flex()
@@ -2619,7 +2622,7 @@ impl JobsScreen {
             }
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
-                crate::titlebar::Asked::ChangeBuild { build, adopt } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: *adopt })),
+                crate::titlebar::Asked::ChangeBuild { build } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false })),
                 crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
