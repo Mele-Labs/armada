@@ -68,6 +68,7 @@ mod sketch_read;
 mod subagent_read;
 mod zoom;
 mod panes;
+mod panel_tab;
 mod pane_store;
 pub(crate) mod pane_tree;
 pub(crate) mod pulls;
@@ -421,9 +422,10 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
-    /// A subagent's thread open on its sheet, and the last threads read, newest last.
-    subagent_reading: Option<subagent_read::Reading>,
+    /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
+    subagents_opened: HashMap<String, ipc::ToolSubagent>,
     /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
     forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
@@ -599,8 +601,8 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
-            subagent_reading: None,
             subagents_read: Vec::new(),
+            subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
@@ -1223,8 +1225,6 @@ impl Render for JobView {
             .children(self.render_sketch(window, cx))
             .children(self.render_picture(window, cx))
             .children(self.render_sketch_reading(window, cx))
-            .children(self.render_subagent_reading(window, cx))
-            .children(self.render_pane_panel(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

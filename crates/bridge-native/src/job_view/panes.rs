@@ -4,11 +4,11 @@
 //! the right column's top pane.
 
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, svg, Anchor, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, Role,
-    SharedString, Subscription, Task, Window,
+    div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CheckOutput, PullRequestFilePatches, SessionCheckState, SessionRow, ThreadItem};
@@ -16,7 +16,7 @@ use ipc::{CheckOutput, PullRequestFilePatches, SessionCheckState, SessionRow, Th
 use super::head::{below_left, drawn};
 use super::plan::task_look as task_state_look;
 use super::rows::{age, clock, glyph, mono, tip, Size};
-use super::JobView;
+use super::{JobView, ViewPane, ViewTab};
 use crate::assets::icon_path;
 use crate::diff;
 use crate::dropdown::Entry;
@@ -75,6 +75,8 @@ struct Search {
 
 struct Panel {
     job: SharedString,
+    /// The id of its view tab in the thread's pane, as `panel:check:{name}`.
+    tab_id: String,
     focus: FocusHandle,
     back: Option<FocusHandle>,
     /// The issue a pull request's panel was opened from, which its Back returns to (`useBack`).
@@ -693,9 +695,11 @@ impl JobView {
 
     fn open_panel(&mut self, of: Of, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
+        let (tab_id, title, icon) = self.panel_tab_of(&of, &job, cx);
         let focus = cx.focus_handle();
         // A panel opened from another, as a pull request from an issue, gives the keys back where the first was opened from.
         let open = self.panes.panel.take();
+        let gone = open.as_ref().map(|open| (open.job.clone(), open.tab_id.clone()));
         // Opened from a panel of another kind, the one it was on is the way back; from one of its own kind, that one's way back stands (`openInPanel`).
         let came_from = match (open.as_ref().map(|open| &open.of), &of) {
             (Some(Of::Issue(issue)), Of::Pull(_)) => Some(issue.item.clone()),
@@ -707,8 +711,36 @@ impl JobView {
             None => window.focused(cx),
         };
         window.focus(&focus, cx);
-        self.panes.panel = Some(Panel { job, focus, back, came_from, of });
-        cx.notify();
+        self.panes.panel = Some(Panel { job: job.clone(), tab_id: tab_id.clone(), focus, back, came_from, of });
+        // One panel is open at a time: the tab of the one it replaces goes, unless it is the same thing again.
+        if let Some((old_job, old_id)) = gone.filter(|(old_job, old_id)| !(*old_job == job && *old_id == tab_id)) {
+            self.close_view_tab(&old_job, &old_id, window, cx);
+        }
+        let weak = cx.weak_entity();
+        let view = cx.new(|_| super::panel_tab::PanelTab::new(weak.clone()));
+        let closed_id = tab_id.clone();
+        let closed: Rc<dyn Fn(&mut Window, &mut App)> = Rc::new(move |window, cx| {
+            weak.update(cx, |this, cx| this.panel_gone(&closed_id, window, cx)).ok();
+        });
+        let tab = ViewTab { id: tab_id, title, glyph: icon, view: view.into(), menu: Vec::new(), closing: None, closed: Some(closed), renamed: None };
+        self.open_view_tab_in(&job, ViewPane::Thread, tab, true, cx);
+    }
+
+    /// A panel's tab: its id, which names the thing so a second press on it brings the same tab forward, the title
+    /// its sheet's head had, and a glyph for its kind.
+    fn panel_tab_of(&self, of: &Of, job: &SharedString, cx: &Context<Self>) -> (String, SharedString, &'static str) {
+        let file_name = |path: &str| path.rsplit('/').next().unwrap_or(path).to_string();
+        match of {
+            Of::File { path, .. } => (format!("panel:file:{path}"), file_name(path).into(), "file"),
+            Of::Check { name, .. } => (format!("panel:check:{name}"), format!("Check {name}").into(), "shield-check"),
+            Of::Pull(panel) => (format!("panel:pull:{}", panel.pull.number), format!("Pull request #{}", panel.pull.number).into(), "git-pull-request"),
+            Of::Issue(issue) => (format!("panel:issue:{}:{}", issue.item.manifest.as_ref().map_or("", |id| id.as_str()), issue.item.reference), format!("Issue {}", issue.item.label()).into(), "ticket"),
+            Of::Bay(bay) => (format!("panel:bay:{}:{}", bay.manifest.as_str(), bay.slot), format!("Bay slot-{}", bay.slot).into(), "layout-grid"),
+            Of::ClashFile(clash) => (format!("panel:clash:{}", clash.path), file_name(&clash.path).into(), "file"),
+            Of::Watch(watch) => (format!("panel:watch:{}", watch.watch), format!("Watch {}", watch.name).into(), "radar"),
+            Of::Rule { rule, .. } => (format!("panel:rule:{rule}"), format!("Rule: {}", self.rule_label(job, rule, cx)).into(), "scroll-text"),
+            Of::Mod { name, title, .. } => (format!("panel:mod:{name}"), title.clone().into(), "box"),
+        }
     }
 
     /// A file of the Job's repository, read-only, as Fleet reads it (`GET /sessions/repository_file`).
@@ -931,7 +963,19 @@ impl JobView {
         }
     }
 
+    /// Close the open panel: its tab goes and the keys go back to where they were.
     pub(super) fn close_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((job, id)) = self.panes.panel.as_ref().map(|panel| (panel.job.clone(), panel.tab_id.clone())) else { return };
+        self.close_view_tab(&job, &id, window, cx);
+        self.panel_gone(&id, window, cx);
+    }
+
+    /// The tab `id` has closed, by its × or by [`Self::close_panel`]: the panel it held is let go, and the keys go back.
+    /// A tab that held a panel since replaced leaves the new one be.
+    pub(super) fn panel_gone(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.panes.panel.as_ref().is_none_or(|panel| panel.tab_id != id) {
+            return;
+        }
         if let Some(back) = self.panes.panel.take().and_then(|panel| panel.back) {
             window.focus(&back, cx);
         }
@@ -962,19 +1006,17 @@ impl JobView {
         }
     }
 
-    /// The panel a pane's row opened: a sheet at the trailing edge, under the title bar, as Electron's
-    /// `SidePanel` floats one at `--w-dialog-wide`.
-    pub(super) fn render_pane_panel(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
-        let panel = self.panes.panel.as_ref()?;
+    /// The panel a pane's row opened, as the body of its tab beside the thread. `width` is the pane's, as last drawn.
+    /// The subtitle (a file's path, a manifest) is its first line; the tab's own title is the panel's.
+    pub(super) fn render_panel_tab(&self, width: Pixels, window: &mut Window, cx: &Context<Self>) -> AnyElement {
+        let Some(panel) = self.panes.panel.as_ref() else { return div().into_any_element() };
         if matches!(panel.of, Of::Pull(_)) {
-            return self.render_pull_panel(window, cx);
+            return self.render_pull_panel(width, window, cx).unwrap_or_else(|| div().into_any_element());
         }
         let look = cx.look();
         let look = &look;
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
         let (title, subtitle, body): (SharedString, Option<SharedString>, AnyElement) = match &panel.of {
-            Of::Pull(_) => return None,
+            Of::Pull(_) => return div().into_any_element(),
             Of::File { path, read } => {
                 let name = path.rsplit('/').next().unwrap_or(path).to_string();
                 (name.into(), Some(path.clone().into()), Self::file_body(read.as_ref(), look))
@@ -997,88 +1039,37 @@ impl JobView {
             Of::Rule { job, rule } => (format!("Rule: {}", self.rule_label(job, rule, cx)).into(), None, self.rule_body(job, rule, look, cx)),
             Of::Mod { name, title, kind } => (title.clone().into(), None, self.mod_body(name, title, *kind, look, cx)),
         };
-        let close = labelled(
+        let subtitle = subtitle.map(|path| {
             div()
-                .id("pane-panel-close")
                 .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Close \u{b7} Esc"))
-                .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
-                .on_click(cx.listener(|this, _, window, cx| this.close_panel(window, cx))),
-            Role::Button,
-            "Close",
-        );
-        let head = div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_6))
-            .py(look.length(token::SPACE_4))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .child(div().truncate().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-                    .children(subtitle.map(|path| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(path))),
-            )
-            .child(close);
-        let margin = look.length(token::SPACE_4);
-        let wide = look.length(token::W_DIALOG_WIDE).min(viewport.width - margin * 2.);
-        let sheet = labelled(
+                .truncate()
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_2))
+                .border_b(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .font_family(mono(look))
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .child(path)
+        });
+        labelled(
             div()
                 .id("pane-panel")
                 .track_focus(&panel.focus)
                 .capture_key_down(cx.listener(Self::panel_key_down))
-                .occlude()
-                .w(wide)
-                .h(viewport.height - look.length(token::H_TITLE_BAR) - margin * 2.)
-                .mt(margin)
-                .mr(margin)
+                .size_full()
                 .flex()
                 .flex_col()
                 .overflow_hidden()
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_OVERLAY))
-                .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(head)
+                .children(subtitle)
                 .child(body),
-            Role::Dialog,
+            Role::Region,
             title,
-        );
-        Some(
-            deferred(
-                anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
-                    div()
-                        .id("pane-panel-scrim")
-                        .occlude()
-                        .w(viewport.width)
-                        .h(viewport.height - look.length(token::H_TITLE_BAR))
-                        .flex()
-                        .justify_end()
-                        .bg(look.color(token::SCRIM))
-                        .on_click(cx.listener(|this, _, window, cx| this.close_panel(window, cx)))
-                        .child(sheet),
-                ),
-            )
-            .with_priority(0)
-            .into_any_element(),
         )
+        .into_any_element()
     }
 
     /// The file: its lines under their numbers, or why it was not opened (`FileBody`, read-only).

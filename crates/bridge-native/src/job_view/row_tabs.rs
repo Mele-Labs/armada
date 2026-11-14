@@ -236,11 +236,17 @@ impl JobView {
         self.keys_to_front(window, cx);
     }
 
-    /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group.
-    /// A subagent the Job no longer holds opens no tab.
+    /// Subagent `subagent` of Job `id`, as its ledger holds it, else as the press on its row in the thread gave it.
+    pub(super) fn subagent_held(&self, id: &str, subagent: &str, cx: &gpui::App) -> Option<ipc::ToolSubagent> {
+        let ledger = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of);
+        ledger.or_else(|| self.subagents_opened.get(&Self::subagent_key(id, subagent)).cloned())
+    }
+
+    /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group or its row in the
+    /// thread. A subagent the Job no longer holds opens no tab.
     pub(super) fn open_subagent_tab(&mut self, subagent: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let Some(one) = self.record(&id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of) else { return };
+        let Some(one) = self.subagent_held(&id, subagent, cx) else { return };
         self.watch_subagent(&one, cx);
         self.row_tabs_of(&id).focus(RowKind::Subagent, subagent, one.task);
         self.keys_to_front(window, cx);
@@ -317,7 +323,8 @@ impl JobView {
     /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
     /// settled walk does.
     pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
-        let subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
+        let mut subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
+        subagents.extend(self.subagents_opened.keys().filter_map(|key| key.strip_prefix(id.as_ref()).and_then(|rest| rest.strip_prefix('/')).map(str::to_string)));
         if let Some(held) = self.thread(id, cx) {
             let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
                 tabs.tabs
@@ -358,7 +365,7 @@ impl JobView {
                 None => return,
             },
             "subagent" => {
-                let Some(one) = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == key)).map(super::ledger::subagent_of) else { return };
+                let Some(one) = self.subagent_held(id, &key, cx) else { return };
                 self.watch_subagent(&one, cx);
                 (RowKind::Subagent, one.task)
             }
@@ -440,6 +447,15 @@ impl JobView {
             .collect()
     }
 
+    /// The tab in front of the thread's pane goes, as its × takes it.
+    fn close_front_row_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        if let Some(at) = self.row_tabs.get(&id).and_then(|tabs| tabs.front) {
+            self.row_tabs_of(&id).close(at);
+        }
+        self.keys_to_front(window, cx);
+    }
+
     /// No row's tab stands in front of Job `id`'s thread pane, so a view tab opened there shows.
     pub(super) fn rows_back(&mut self, id: &SharedString) {
         self.row_tabs_of(id).show(None);
@@ -468,10 +484,25 @@ impl JobView {
             }),
             RowKind::Document => self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)),
             RowKind::Walk => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key)).map(|walk| self.walk_body(id, &tab.key, walk, look, cx)),
-            // The subagent's thread draws its own padding, as the reading sheet's does.
+            // Its type, model and context figure first, then its thread, which draws its own padding. Esc shuts the tab.
             RowKind::Subagent => {
+                let head = self.subagent_held(id, &tab.key, cx).and_then(|one| self.subagent_head(id, &one, look));
                 let thread = self.subagent_thread(id, &tab.key, window, cx);
-                return div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().children(thread).into_any_element();
+                return div()
+                    .id("row-tab-body")
+                    .track_focus(&self.row_focus)
+                    .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "escape" {
+                            this.close_front_row_tab(window, cx);
+                            cx.stop_propagation();
+                        }
+                    }))
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .children(head)
+                    .child(div().id("subagent-thread").flex_1().min_h_0().overflow_y_scroll().children(thread))
+                    .into_any_element();
             }
         };
         match card {
