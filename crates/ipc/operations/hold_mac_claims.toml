@@ -1,0 +1,8 @@
+[operations.hold_mac_claims]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Every other Mac waiting for his Confirm here, handed in by this Mac's Phone Gateway, replacing all held"
+notes = """
+`PUT /other_macs/claims`, body `MacClaimsWaiting`: `claims`, each `{ mac, name, why, at }`, `why` being what `GET /admin/macs` says of it and `at` Unix seconds. Answered with the same. Each claim stands as a `mac_pairing` call on `get_calls`, and one a Fleet did not hold before arrives once on `calls.changed`; one the list leaves out goes. The Gateway hands the list in whole whenever a claim arrives, is confirmed, declined or forgotten, or an ask's five minutes pass. Fleet drops them all when the Gateway is turned off. Kept in memory only, as the Gateway keeps the claims. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`: only the person pairs his other Macs, from Bridge. This Mac's Phone Gateway calls it from inside Fleet's own process.
+"""

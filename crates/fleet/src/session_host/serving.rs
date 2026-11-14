@@ -580,6 +580,23 @@ where
         self.job_artifacts(id.as_str()).await
     }
 
+    async fn archive_artifact(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_archived(caller, by, archive).await
+    }
+
+    async fn restore_artifact(&self, caller: Option<api::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_restored(caller, restore).await
+    }
+
+    async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
+        self.artifact_edited(edit).await
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let act = super::mcp_servers::McpAct::from(asked.act);
         let acted = self.session_mcp_acted(asked.session_id.as_str(), &asked.server, act).await?;

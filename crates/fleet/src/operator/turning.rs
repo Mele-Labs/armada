@@ -221,6 +221,13 @@ where
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
+        if let Some(manifest) = id.strip_prefix(super::disking::DISK_HOLD) {
+            return match doing.pick {
+                super::disking::DROP_THEM => self.disk_dropped(manifest).await.map(|()| Done::default()).map_err(Fault::NotDone),
+                super::disking::LEAVE_THEM => Ok(Done::default()),
+                other => Err(Fault::NotOffered(format!("{other} is not a pick this item offers"))),
+            };
+        }
         if let Some(n) = suggestion_number(id) {
             return Box::pin(self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to)), doing.rule)).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
         }

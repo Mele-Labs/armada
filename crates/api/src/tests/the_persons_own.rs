@@ -86,7 +86,7 @@ async fn a_job_cannot_change_the_slot_pool() {
     assert!(refused.message.contains("only the person changes the slot pool"), "{}", refused.message);
 }
 
-/// The four routes another Mac's rows come in on, each with a body the fake takes.
+/// The routes another Mac's rows and claims come in on, each with a body the fake takes.
 fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
     let event = ipc::OtherMacEvent {
         mac: "mac-work".into(),
@@ -97,6 +97,7 @@ fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
         ("PUT", "/other_macs/bug_reports", r#"{"mac":"mac-work","reports":[]}"#.to_string()),
         ("POST", "/other_macs/event", ipc::encode(&event).expect("encodes")),
         ("POST", "/other_macs/forget", r#"{"mac":"mac-work"}"#.to_string()),
+        ("PUT", "/other_macs/claims", r#"{"claims":[]}"#.to_string()),
     ]
 }
 

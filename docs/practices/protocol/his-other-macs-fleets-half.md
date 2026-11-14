@@ -46,15 +46,17 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `hold_other_mac_bug_reports` | the Gateway calls | `PUT /other_macs/bug_reports`, body `OtherMacBugReports { mac, reports }`, replacing all held from it, then `bug_reports.changed`. Answers `MacNamed` |
 | `hold_other_mac_event` | the Gateway calls | `POST /other_macs/event`, body `OtherMacEvent { mac, event }`. `session.changed` is kept and published; `session.row`, `session.subagent`, `job_thread.tail` and `job_thread.changed` are published only for a Job held from that Mac, else 404 `fleet.other_mac_job_not_held`; `bug_reports.changed` is kept as the `PUT`; `projects.changed` replaces the copies as the `PUT` does; any other kind is 422 `fleet.other_mac_event_not_kept`. Answers `MacNamed` |
 | `act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/act`, body `MacAct { id, act, at }`, header `x-armada-mac`. See *Acting across Macs* |
+| `update_mac` | Bridge, the other Mac's Gateway, or `scripts/restart-build` calls | `POST /macs/update`, body `UpdateMac`, answered `FleetBuildChanging` with a 202. This Mac restarts with `--adopt`, or the other Mac is asked through `/other_mac/update`, the one call a frozen link carries. A call from another Mac may only move this Mac. See [update_mac](../../../crates/ipc/operations/update_mac.toml) and [Pocket](../../concepts/pocket.md), *Builds that differ* |
 | `list_queued` | Bridge calls | `GET /queued`, optional `?mac=`, answered with `QueuedList { queued }` of `Queued { id, mac, act, since, refused? }`, oldest first |
 | `take_back_queued` | Bridge calls | `POST /queued/take_back`, body `TakeBack { id }`, answered with `QueuedList`; 404 `fleet.queued_not_found`, 409 `fleet.queued_in_flight` |
 | `queued.changed` | Fleet sends | `QueuedList`, whole, to Bridge alone, whenever an act is kept, sent, refused or taken back |
 | `forget_other_mac` | the Gateway calls | `POST /other_macs/forget`, body `MacNamed`: every row, report, project copy and queued edit held from it dropped, `session.removed` for each row, then `bug_reports.changed`. Answers `MacNamed` |
+| `hold_mac_claims` | the Gateway calls | `PUT /other_macs/claims`, body `MacClaimsWaiting { claims }`: every other Mac waiting for his Confirm here, replacing all held, each a `mac_pairing` call on him ([What calls the person](a-jobs-calls.md)). Answers the same |
 
 A blank `mac` on any of the five the Gateway hands in is 422 `fleet.other_mac_unnamed`.
 
 **Only the Gateway hands Fleet another Mac's rows.**
-The five routes it hands them in on, and `project_act_from_mac`, are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
+The five routes it hands them in on, `hold_mac_claims` and `project_act_from_mac` are in `api::callers::THE_PERSONS_OWN`, so a call to one from inside a Job, around the door, is 403 `api.the_persons_own`: "only the person pairs his other Macs, from Bridge".
 This Mac's Phone Gateway calls them from inside Fleet's own process, which no Job holds.
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 

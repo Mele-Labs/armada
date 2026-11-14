@@ -13,7 +13,7 @@ use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
 use crate::mac_client::{encoded, signed, signed_whole};
-use crate::macs::{said, MacHello};
+use crate::macs::{frozen, said, MacHello};
 use crate::{fleet_client, Gateway};
 
 /// Ends a Mac's task when it is forgotten, or when the link itself stops.
@@ -51,8 +51,10 @@ async fn follow(gateway: Gateway, mac: String) {
     let mut wait = timing.first_retry;
     loop {
         let mut opened = false;
-        let (since, why) = held_open(&gateway, &mac, &mut opened).await;
-        let _ = gateway.pairing.store.lock().unwrap().mac_asleep(&mac, since, &why);
+        // A frozen link is not asleep: the other Mac answered, and its hello is read again until it matches.
+        if let Some((since, why)) = held_open(&gateway, &mac, &mut opened).await {
+            let _ = gateway.pairing.store.lock().unwrap().mac_asleep(&mac, since, &why);
+        }
         if opened {
             wait = timing.first_retry;
         }
@@ -89,28 +91,36 @@ impl Lines {
     }
 }
 
-/// Open the other Mac's stream and follow it until it drops. Answers when it dropped and why, as a
-/// sentence; `opened` says whether it was open at all.
-async fn held_open(gateway: &Gateway, mac: &str, opened: &mut bool) -> (i64, String) {
+/// Read the other Mac's hello, then open its stream and follow it until it drops. Answers when it
+/// dropped and why, as a sentence; `opened` says whether it was open at all. **A Mac whose build speaks
+/// another wire is not followed** (`macs::frozen`): nothing is read or handed, and the answer is `None`.
+async fn held_open(gateway: &Gateway, mac: &str, opened: &mut bool) -> Option<(i64, String)> {
     let found = gateway.pairing.store.lock().unwrap().paired_mac(mac);
     let Ok(Some(row)) = found else {
-        return (gateway.pairing.now(), String::from("This Mac is not paired with it any more."));
+        return Some((gateway.pairing.now(), String::from("This Mac is not paired with it any more.")));
     };
     let name = row.name.clone();
+    let mut link = Link { gateway, mac, address: &row.address, name: &name };
+    if let Err(why) = link.hello().await {
+        return Some((gateway.pairing.now(), why));
+    }
+    // Read again on the retry's doubling pace, up to a minute, until the other Mac updates.
+    if link.frozen() {
+        return None;
+    }
     let response = signed(gateway, mac, &row.address, "GET", "/api/mac/live", None, None).await;
     let response = match response {
         Ok(response) if response.status().is_success() => response,
         Ok(response) if response.status().as_u16() == 401 => {
             let why = format!("{name} does not know this Mac any more. Forget it here, then pair again.");
-            return (gateway.pairing.now(), why);
+            return Some((gateway.pairing.now(), why));
         }
-        Ok(response) => return (gateway.pairing.now(), format!("{name} answered {}.", response.status().as_u16())),
-        Err(why) => return (gateway.pairing.now(), format!("{name} could not be reached: {why}")),
+        Ok(response) => return Some((gateway.pairing.now(), format!("{name} answered {}.", response.status().as_u16()))),
+        Err(why) => return Some((gateway.pairing.now(), format!("{name} could not be reached: {why}"))),
     };
     *opened = true;
-    let mut link = Link { gateway, mac, address: &row.address, name: &name };
-    if let Err(why) = link.opened().await {
-        return (gateway.pairing.now(), why);
+    if let Err(why) = link.both().await {
+        return Some((gateway.pairing.now(), why));
     }
     let mut heard_at = gateway.pairing.now();
     let mut lines = Lines { response, buffer: Vec::new() };
@@ -118,7 +128,7 @@ async fn held_open(gateway: &Gateway, mac: &str, opened: &mut bool) -> (i64, Str
     loop {
         let text = match lines.next(gateway.macs.timing.silence).await {
             Line::Text(text) => text,
-            Line::Ended(why) => return (heard_at, format!("{name} {why}.")),
+            Line::Ended(why) => return Some((heard_at, format!("{name} {why}."))),
         };
         heard_at = gateway.pairing.now();
         let _ = gateway.pairing.store.lock().unwrap().touch_mac(mac, heard_at);
@@ -135,7 +145,7 @@ async fn held_open(gateway: &Gateway, mac: &str, opened: &mut bool) -> (i64, Str
         };
         first = false;
         if let Err(why) = handed {
-            return (heard_at, why);
+            return Some((heard_at, why));
         }
     }
 }
@@ -149,11 +159,17 @@ struct Link<'a> {
 }
 
 impl Link<'_> {
-    async fn opened(&mut self) -> Result<(), String> {
+    /// Who the other Mac is now, its build among it, kept.
+    async fn hello(&mut self) -> Result<(), String> {
         let hello: MacHello = self.read("/api/mac/hello", "a Mac").await?;
         let now = self.gateway.pairing.now();
         let _ = self.gateway.pairing.store.lock().unwrap().heard_from_mac(self.mac, now, &said(&hello, self.address));
-        self.both().await
+        Ok(())
+    }
+
+    /// Whether the hello just kept says the other Mac's build speaks another wire.
+    fn frozen(&self) -> bool {
+        frozen_with(self.gateway, self.mac).is_some()
     }
 
     async fn both(&self) -> Result<(), String> {
@@ -219,8 +235,9 @@ impl Link<'_> {
     }
 }
 
-/// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act` or
-/// `/api/mac/act`, for the paths `/other_mac/project_act` and `/other_mac/act` and no other. The status its Fleet
+/// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`,
+/// `/api/mac/act` or `/api/mac/update`, for the paths `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`
+/// and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
 /// answered and the bytes, so a refusal there is said here as it was said.
 pub fn send_other_mac(
     gateway: &Gateway,
@@ -233,6 +250,7 @@ pub fn send_other_mac(
         let target = match path.as_str() {
             "/other_mac/project_act" => "/api/mac/project_act",
             "/other_mac/act" => "/api/mac/act",
+            "/other_mac/update" => "/api/mac/update",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
@@ -240,6 +258,12 @@ pub fn send_other_mac(
             Ok(Some(row)) if row.state == store::MacState::Linked => row,
             _ => return Err(format!("This Mac is not linked to Mac {mac}.")),
         };
+        // The update is the one call a frozen link carries: it is how the builds come to match.
+        if target != "/api/mac/update" {
+            if let Some(link) = frozen(&gateway.way_in, &row) {
+                return Err(crate::macs::frozen_why(&link, &row.name));
+            }
+        }
         let came = signed_whole(&gateway, &row.id, &row.address, "POST", target, Some(body))
             .await
             .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
@@ -261,9 +285,18 @@ pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<O
             Ok(Some(row)) if row.state == store::MacState::Linked => row,
             _ => return Err(format!("This Mac is not linked to Mac {mac}.")),
         };
+        if let Some(link) = frozen(&gateway.way_in, &row) {
+            return Err(crate::macs::frozen_why(&link, &row.name));
+        }
         let came = signed_whole(&gateway, &row.id, &row.address, "GET", &format!("/api/mac/thread{rest}"), None)
             .await
             .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
         Ok((came.status, came.body))
     }
+}
+
+/// How the link to Mac `mac` is frozen, as the store has it now, or `None` where it is not.
+pub(crate) fn frozen_with(gateway: &Gateway, mac: &str) -> Option<ipc::MacLink> {
+    let row = gateway.pairing.store.lock().unwrap().paired_mac(mac).ok().flatten()?;
+    frozen(&gateway.way_in, &row)
 }

@@ -22,12 +22,14 @@ use ipc::{
 };
 use store::{AttachmentState, Holder, KeptAttachment, KeptSession};
 
+use super::artifact_for::with_for;
 use super::sketching::{revisions_kept, titled_folder};
 use crate::daemon::Fleet;
 use crate::pull_requesting::PR;
 
 const DRAFT_UNNAMED: &str = "fleet.draft_unnamed";
 const DRAFT_EMPTY: &str = "fleet.draft_empty";
+const DRAFT_REFUSED: &str = "fleet.draft_refused";
 const DRAFT_PULL_REQUEST_NOT_HELD: &str = "fleet.draft_pull_request_not_held";
 
 /// The ledger row linking an open draft to the pull request it describes. Its target is the draft's
@@ -126,6 +128,16 @@ pub(crate) fn fixed(title: &str, text: &str) -> String {
     format!("Approved with my fixes: {title}\nUse exactly this text, as written:\n\n{text}")
 }
 
+/// His Approve of a draft whose newest revision is his Edit: his words, with any he gave after them.
+pub(crate) fn approved_his(title: &str, text: &str, words: Option<&str>) -> String {
+    let mut body = format!("Approved with his edit: {title}\nApply his text, exactly as written:\n\n{text}");
+    if let Some(words) = words {
+        body.push_str("\n\n");
+        body.push_str(words);
+    }
+    body
+}
+
 pub(crate) fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back: {title}\n{note}\nRewrite it and propose it again with propose_draft.")
 }
@@ -168,6 +180,7 @@ where
         if text.is_empty() {
             return Err(self.hosted_refusal(DRAFT_EMPTY, "a draft needs its text"));
         }
+        let said = ipc::ArtifactFor::checked(draft.for_line.as_deref(), &draft.links).map_err(|why| self.hosted_refusal(DRAFT_REFUSED, &why))?;
         let before = draft
             .before
             .map(|said| said.trim().to_string())
@@ -218,6 +231,8 @@ where
         ]
         .into();
         detail.extend(revisions.map(|revisions| ("revisions".to_string(), revisions)));
+        let for_line = self.for_line(&id, said).await;
+        with_for(&mut detail, for_line.as_ref());
         let artifact = AttachmentReport { kind: String::from("artifact"), target: format!("{DRAFT_PREFIX}{title}"), detail };
         self.row_put(
             &id,
@@ -229,6 +244,7 @@ where
                 before,
                 settled: None,
                 change: None,
+                for_line,
             },
         )
         .await;
@@ -291,13 +307,14 @@ where
     /// [`Self::draft_settled`] without publishing the Job, for a caller that publishes it once after.
     async fn row_settled(&self, session: &str, row_id: &str, how: DraftHow, words: Option<String>) -> Result<(), Refusal> {
         let found = self.rows_of(session).await?.into_iter().find_map(|row| match row {
-            SessionRow::Draft { id, at, title, text, before, change, .. } if id == row_id => Some(SessionRow::Draft {
+            SessionRow::Draft { id, at, title, text, before, change, for_line, .. } if id == row_id => Some(SessionRow::Draft {
                 id,
                 at,
                 title,
                 text,
                 before,
                 change,
+                for_line,
                 settled: Some(DraftSettled { how, words: words.clone(), at: self.instant() }),
             }),
             _ => None,
@@ -339,6 +356,7 @@ where
                 before,
                 settled: None,
                 change: Some(change),
+                for_line: None,
             },
         )
         .await;

@@ -282,6 +282,24 @@ impl HostedSessions for FakeDaemon {
         Ok(Vec::new())
     }
 
+    /// Held nothing to archive: Fleet's tests read what archiving does.
+    async fn archive_artifact(
+        self: Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _by: ipc::ArtifactBy,
+        archive: ipc::ArtifactRef,
+    ) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", archive.artifact), run_id())))
+    }
+
+    async fn restore_artifact(&self, _caller: Option<crate::Caller>, restore: ipc::ArtifactRef) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", restore.artifact), run_id())))
+    }
+
+    async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", edit.artifact), run_id())))
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),

@@ -25,9 +25,9 @@ use crate::daemon::Fleet;
 
 const DAY: i64 = 86_400_000;
 
-/// How soon `row` wants him: a red main is urgent, else its kind. No stopped Job is queued today, so none reads urgent.
+/// How soon `row` wants him: a red main and a short disk are urgent, else its kind. No stopped Job is queued today, so none reads urgent.
 fn urgency_of(row: &KeptTurn) -> OperatorUrgency {
-    if row.item.starts_with(RED) {
+    if row.item.starts_with(RED) || row.item.starts_with(super::disking::DISK_HOLD) {
         OperatorUrgency::Urgent
     } else if row.go_ahead {
         OperatorUrgency::GoAhead

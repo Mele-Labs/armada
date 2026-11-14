@@ -1,16 +1,17 @@
 //! `get_job_artifacts`: a Job's sketches, drafts and pages read as one list, each with its revisions and
 //! where its newest stands. Reads only, off the ledger rows the three are kept as, their history, his
-//! dismissals and, for a draft, its newest row. `docs/concepts/artifact.md`.
+//! dismissals, the archives, the revisions he wrote and, for a draft, its newest row. `docs/concepts/artifact.md`.
 
 use std::collections::BTreeMap;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, DraftHow, DraftSettled, Instant, JobArtifact, SessionRow, DOCUMENT_ASKED,
-    DOCUMENT_ITEM_PREFIX, DOCUMENT_SETTLED, DOCUMENT_WORDS, SKETCH_ASKED, SKETCH_SETTLED, SKETCH_WITHDRAWN, SKETCH_WORDS,
+    ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRevision, ArtifactState, DraftHow, DraftSettled, Instant, JobArtifact, SessionRow,
+    ARTIFACT_WITHDRAWN_BY, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_SETTLED, DOCUMENT_WORDS, SKETCH_ASKED, SKETCH_SETTLED,
+    SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
-use store::{Holder, KeptAttachment, KeptAttachmentVersion};
+use store::{Holder, KeptArchive, KeptAttachment, KeptAttachmentVersion};
 
 use super::drafting::{DRAFT_PREFIX, DRAFT_ROW};
 use super::sketching::TARGET_PREFIX;
@@ -29,7 +30,7 @@ where
     /// Every artifact the Job holds, newest first by when its newest revision was kept.
     pub(crate) async fn job_artifacts(&self, id: &str) -> Result<Vec<JobArtifact>, Refusal> {
         let id = id.trim();
-        let (held, versions, dismissed) = {
+        let (held, versions, dismissed, archives, his) = {
             let store = self.store().lock().await;
             if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
                 return Err(self.ledger_unnamed("a job Fleet knows"));
@@ -37,7 +38,9 @@ where
             let holder = Holder::session(id);
             let held = store.attachments_of(&holder).map_err(|why| self.ledger_fault(why))?;
             let versions = store.attachment_versions(&holder).map_err(|why| self.ledger_fault(why))?;
-            (held, versions, store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?)
+            let dismissed = store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?;
+            let archives = store.artifact_archives(id).map_err(|why| self.ledger_fault(why))?;
+            (held, versions, dismissed, archives, store.owner_revisions(id).map_err(|why| self.ledger_fault(why))?)
         };
         let made: Vec<(ArtifactForm, KeptAttachment)> =
             held.into_iter().filter(|one| one.kind == "artifact").filter_map(|one| Some((form_of(&one)?, one))).collect();
@@ -53,7 +56,15 @@ where
                 .collect(),
             false => BTreeMap::new(),
         };
-        let mut artifacts: Vec<JobArtifact> = made.iter().map(|(form, one)| artifact_of(*form, one, &versions, &dismissed, &drafts)).collect();
+        let mut artifacts: Vec<JobArtifact> =
+            made.iter().map(|(form, one)| archived(*form, one, &versions, &dismissed, &drafts, &archives)).collect();
+        for artifact in &mut artifacts {
+            for revision in &mut artifact.revisions {
+                if let Some(kept) = his.iter().find(|kept| kept.artifact == artifact.id && kept.revision == revision.number) {
+                    *revision = ArtifactRevision { by: ArtifactBy::Owner, at: Instant::carried(kept.at.clone()), ..revision.clone() };
+                }
+            }
+        }
         artifacts.sort_by(|a, b| newest(b).cmp(&newest(a)));
         Ok(artifacts)
     }
@@ -70,6 +81,31 @@ fn form_of(one: &KeptAttachment) -> Option<ArtifactForm> {
 
 fn newest(artifact: &JobArtifact) -> Option<&Instant> {
     artifact.revisions.last().map(|one| &one.at)
+}
+
+/// One artifact off its row, with its archive. **A dismissal the archive wrote is not his Dismiss**: the
+/// artifact reads as it stood before, and names no item while that dismissal stands.
+fn archived(
+    form: ArtifactForm,
+    one: &KeptAttachment,
+    versions: &[KeptAttachmentVersion],
+    dismissed: &[String],
+    drafts: &BTreeMap<String, Option<DraftSettled>>,
+    archives: &[KeptArchive],
+) -> JobArtifact {
+    let Some(archive) = archives.iter().find(|archive| archive.artifact == one.target) else {
+        return artifact_of(form, one, versions, dismissed, drafts);
+    };
+    let his: Vec<String> = dismissed.iter().filter(|item| archive.item.as_ref() != Some(*item)).cloned().collect();
+    let mut artifact = artifact_of(form, one, versions, &his, drafts);
+    if artifact.item.as_ref().is_some_and(|item| dismissed.contains(item)) {
+        artifact.item = None;
+    }
+    let by = match archive.by.as_str() {
+        "owner" => ArtifactBy::Owner,
+        _ => ArtifactBy::Agent,
+    };
+    JobArtifact { archived: Some(ArtifactArchived { by, at: Instant::carried(archive.at.clone()) }), ..artifact }
 }
 
 /// One artifact off its row. `drafts` is every draft row's settling by its id.
@@ -89,6 +125,8 @@ fn artifact_of(
     let (state, words, item) = match form {
         ArtifactForm::Sketch => match said(SKETCH_SETTLED) {
             Some(how) => (settled(how), said(SKETCH_WORDS), None),
+            // The Job's withdraw_sketch writes the dismissal his Dismiss writes, and says it was the Job's.
+            None if said(ARTIFACT_WITHDRAWN_BY) == Some("agent") => (ArtifactState::Withdrawn, None, None),
             None if gone(&one.target) => (ArtifactState::Dismissed, None, None),
             None if said(SKETCH_WITHDRAWN).is_some() => (ArtifactState::Withdrawn, None, None),
             None if said(SKETCH_ASKED) == Some("true") => (ArtifactState::Asking, None, Some(one.target.clone())),
@@ -98,6 +136,7 @@ fn artifact_of(
             let item = format!("{DOCUMENT_ITEM_PREFIX}{}", one.target);
             match said(DOCUMENT_SETTLED) {
                 Some(how) => (settled(how), said(DOCUMENT_WORDS), None),
+                None if said(ARTIFACT_WITHDRAWN_BY) == Some("agent") => (ArtifactState::Withdrawn, None, None),
                 None if gone(&item) => (ArtifactState::Dismissed, None, None),
                 // The Job deleting the page withdraws it, as Needs you reads it (`in_front_of_him`).
                 None if said(DOCUMENT_ASKED) == Some("true") && !std::path::Path::new(&one.target).is_file() => (ArtifactState::Withdrawn, None, None),
@@ -131,7 +170,8 @@ fn whole(form: ArtifactForm, one: &KeptAttachment, versions: &[KeptAttachmentVer
     let title = one.detail.get("title").cloned().unwrap_or_else(|| {
         one.target.strip_prefix(TARGET_PREFIX).or_else(|| one.target.strip_prefix(DRAFT_PREFIX)).unwrap_or(&one.target).to_string()
     });
-    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item }
+    let for_line = ipc::ArtifactFor::of_detail(&one.detail);
+    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line }
 }
 
 /// Every revision the row's `revisions` names, oldest first, and one where it names none. The first was

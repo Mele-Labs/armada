@@ -444,7 +444,7 @@ where
     /// Each `(session, job, items)` against the items standing of that session: one whose item left
     /// has left, and an item not queued and not on its way is reviewed, oldest first across them all,
     /// or done by a rule that covers it. With `all`, an item of any other session has left too, but
-    /// those in `all`, which rest. **A red main's is its own to settle**, never read off a list.
+    /// those in `all`, which rest. **A red main's and a short disk's are their own to settle**, never read off a list.
     async fn raises_reconciled(self: &Arc<Self>, lists: Vec<(String, Option<String>, Vec<WaitingItem>)>, all: Option<BTreeSet<String>>) {
         let lists: Vec<_> = lists.into_iter().map(|(session, job, items)| (session, job, without_echoes(items))).collect();
         let raising = &self.operator_seat().raising;
@@ -452,7 +452,8 @@ where
         let present = self.store().lock().await.operator_turn_present().unwrap_or_default();
         let on = self.operator_on();
         let gone = |session: &str, item: &str| {
-            if item.starts_with(super::turning::RED) {
+            // A red main's and a short disk's are their own to settle, never read off a list.
+            if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) {
                 return false;
             }
             match lists.iter().find(|(id, _, _)| id == session) {

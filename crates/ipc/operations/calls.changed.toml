@@ -4,7 +4,7 @@ transport = "WebSocket"
 agent_access = "Bridge only"
 description = "The calls on the person moved or something began to wait on him, and this is every call now with what is new"
 notes = """
-Carries `CallsChanged`: `calls`, the answer to `get_calls` whole, and `arrived`, the news since the last publish: a `CallArrival` for each item that began to wait on a live, unpaused Job (`needs`), or Job that Fleet gave up restarting (`stopped`), with the Job's title, the words and a `tone` of `blocked` where the item holds the turn and `waiting` where it does not. `arrived` is empty where only openedness or the list moved.
+Carries `CallsChanged`: `calls`, the answer to `get_calls` whole, and `arrived`, the news since the last publish: a `CallArrival` for each item that began to wait on a live, unpaused Job (`needs`), or Job that Fleet gave up restarting (`stopped`), or another Mac that began to wait for his Confirm to pair (`mac_pairing`, whose `session_id` is the call's key `mac:<id>` and names no Job), with the Job's title, the words and a `tone` of `blocked` where the item holds the turn and `waiting` where it does not. `arrived` is empty where only openedness or the list moved.
 
 **Fleet publishes when the calls or the news differ from the last publish**, off every Job's row and every merge line, not on each tick. What stood when Fleet started only seeds, so nothing it held is news, and an item the Job posts again under its id is the same one. The batching window (Electron's two seconds), the sound, the banner and the Dock count stay with the client. Nothing here is told for a merge, a finish or a merge-line call.
 

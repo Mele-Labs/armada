@@ -149,6 +149,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/project/:project/edit",
     },
     Route {
+        operation: "set_project_workflow",
+        method: "POST",
+        path: "/projects/project/:project/workflow",
+    },
+    Route {
         operation: "delete_project",
         method: "POST",
         path: "/projects/project/:project/delete",

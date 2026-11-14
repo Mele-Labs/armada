@@ -173,7 +173,7 @@ impl JobView {
             .and_then(|n| question.options.get(n).filter(|option| !option.preview.is_empty()).map(|option| (n, option.preview.clone())))
             .and_then(|(n, text)| Some((page?.keys.spot(&format!("answer:{key}:{front}:{n}"), cx).bounds.get(), frame.as_ref()?.bounds.get(), text)))
             .map(|(row, frame, text)| preview_card(&text, row, frame, look));
-        // Options the asker drew as stills show them above the rows; a press on one picks it.
+        // Options the asker drew as stills show them above the rows; a press on a still opens it large, its words pick it.
         let stills_of = stills;
         let stills = crate::option_pictures::stills(key, stills_of, deck.picked[front].first().copied(), self.port(cx), hue, look, &|n| {
             let deck_key = key.to_string();

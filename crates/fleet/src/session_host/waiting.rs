@@ -1346,9 +1346,14 @@ where
                 if let Some((change, body, how, note)) = proposal {
                     return self.proposal_answered(&id, row, change, how, note, (terminal.then_some(session), message(body))).await;
                 }
+                // A draft whose newest revision is his Edit is approved as his words, so the Job applies them.
+                let his = Box::pin(self.draft_his(&id, row)).await;
                 let (body, how, kept) = match (fixed, said.choice, words) {
                     (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
-                    (None, Some(_), words) => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                    (None, Some(_), words) => match his {
+                        Some(his) => (drafting::approved_his(&item.text, &his, words), DraftHow::Approved, words),
+                        None => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                    },
                     (None, None, Some(note)) => (drafting::sent_back(&item.text, note), DraftHow::SentBack, Some(note)),
                     (None, None, None) => {
                         return Err(self.hosted_refusal(
@@ -1474,7 +1479,7 @@ where
             self.store().lock().await.keep_misread(&id, &item.text, &now).map_err(|why| self.ledger_fault(why))?;
         }
         if item.source == WaitingSource::Sketch {
-            self.sketch_withdrawn_mark(&id, &item.id).await;
+            self.sketch_withdrawn_mark(&id, &item.id, false).await;
         }
         self.drop_answered(&id, &item.id, Some(&closed)).await
     }

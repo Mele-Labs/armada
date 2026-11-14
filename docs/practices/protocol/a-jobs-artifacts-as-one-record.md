@@ -10,7 +10,7 @@ Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Clas
 | --- | --- | --- |
 | `get_job_artifacts` (`GET /sessions/artifacts?session_id=`, `agent_access = "No"`) | Bridge reads | A list of `JobArtifact`, newest first by its newest revision's `at`: `id`, `title`, `form`, `revisions[]`, `state`, `words?`, `item?`. `ArtifactRevision`: `number`, `at`, `by`, `form`. 422 `fleet.session_unnamed` for a job Fleet does not know |
 | `ArtifactForm` | Fleet | `sketch`, `draft`, `page` |
-| `ArtifactBy` | Fleet | `agent`, `owner`; always `agent` today |
+| `ArtifactBy` | Fleet | `agent`, `owner`; `owner` on a revision he saved with his Edit ([`save_artifact_edit`](his-edit-of-an-artifact.md)) |
 | `ArtifactState` | Fleet | `reading`, `asking`, `approved`, `sent_back`, `withdrawn`, `dismissed` |
 
 **A draft is now a ledger attachment too.** `propose_draft` upserts an `artifact` of form `draft` at target `draft:<title>`, its `detail` holding `form`, `by`, `title`, `revisions` (the kept `r<n>.md` paths, oldest first) and `row`, the newest row's id.

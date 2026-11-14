@@ -25,3 +25,33 @@ fn both_lists_are_read_and_either_switches_a_workflow_off_for_its_place() {
     let only_one_list = WorkflowsOff::read(r#"{"machine":["bug"]}"#);
     assert!(only_one_list.has("any", "bug") && only_one_list.repositories.is_empty(), "a list left out is empty");
 }
+
+#[test]
+fn a_projects_list_reads_after_the_repositorys_and_the_machines_and_each_switch_names_the_layer_that_holds_it_off() {
+    use crate::ValueLayer;
+    let held = WorkflowsOff::read(r#"{"machine":["bug"],"repositories":{"one":["feature","chore"]}}"#);
+    let project = ["chore".to_string(), "bug".to_string(), "docs".to_string()];
+
+    assert_eq!(held.off_from(Some("one"), &project, "docs"), Some(ValueLayer::Project), "the project's own");
+    assert_eq!(held.off_from(Some("one"), &project, "feature"), Some(ValueLayer::Repository), "the repository's");
+    assert_eq!(held.off_from(Some("one"), &project, "chore"), Some(ValueLayer::Repository), "off in the repository holds over the project's");
+    assert_eq!(held.off_from(Some("one"), &project, "bug"), Some(ValueLayer::Machine), "off on the machine holds over both");
+    assert_eq!(held.off_from(Some("one"), &project, "spike"), None, "named by none is on");
+    assert_eq!(held.off_from(Some("two"), &project, "feature"), None, "another repository's list is not read");
+    assert_eq!(held.off_from(None, &project, "chore"), Some(ValueLayer::Project), "no repository: the machine and the project");
+    assert_eq!(held.off_from(Some("one"), &[], "docs"), None, "no project: nothing of one");
+}
+
+#[test]
+fn without_one_repository_a_workflow_off_in_every_repository_of_the_project_is_off_from_the_repository() {
+    use crate::ValueLayer;
+    let held = WorkflowsOff::read(r#"{"machine":["chore"],"repositories":{"web":["bug","docs"],"api":["docs"]}}"#);
+    let project = ["spike".to_string()];
+
+    assert_eq!(held.off_across(&["web"], &project, "bug"), Some(ValueLayer::Repository), "one repository, and it is off there");
+    assert_eq!(held.off_across(&["web", "api"], &project, "docs"), Some(ValueLayer::Repository), "off in both");
+    assert_eq!(held.off_across(&["web", "api"], &project, "bug"), None, "off in only one is left on");
+    assert_eq!(held.off_across(&["web", "api"], &project, "chore"), Some(ValueLayer::Machine), "the machine's still holds over");
+    assert_eq!(held.off_across(&["web", "api"], &project, "spike"), Some(ValueLayer::Project), "the project's own");
+    assert_eq!(held.off_across(&[], &project, "bug"), None, "a project of no repository");
+}

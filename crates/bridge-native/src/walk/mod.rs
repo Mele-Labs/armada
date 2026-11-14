@@ -100,7 +100,10 @@ pub enum Verb {
     /// The row of this name pressed and carried over the target's top edge, the button still held:
     /// the picture shows the lifted row and where it would land.
     Lift(&'static str),
-    /// The held button let go where the pointer stands, ending a `Lift`.
+    /// The element of this role and name pressed and carried onto the target, to the point this many
+    /// hundredths across and down it, the button still held: a tab dragged onto a pane's edge.
+    Carry(&'static str, &'static str, u8, u8),
+    /// The held button let go where the pointer stands, ending a `Lift` or a `Carry`.
     Release,
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
@@ -187,6 +190,8 @@ pub enum Screen {
     App,
     /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
     Settings,
+    /// The Jobs screen in front inside the Operator's screen, with Reviews in the strip on `reviews/mock.rs`.
+    Reviews,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -350,6 +355,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
     Walk {
+        name: "reviews",
+        title: "Reviews: what changed since you looked, on free panes",
+        screen: Screen::Reviews,
+        scenario: "jobs-many",
+        steps: &crate::reviews::walk::STEPS,
+    },
+    Walk {
         name: "native-run",
         title: "Run a command an agent showed, from the thread and from Needs you",
         screen: Screen::Jobs,
@@ -414,6 +426,18 @@ pub static WALKS: &[Walk] = &[
             step("Pin keeps it as your own, first among the pinned", Verb::Gone, "menuitem", "Pin"),
             step("It is yours now: its menu says Unpin", Verb::RightPress("Looks right, go ahead"), "menuitem", "Unpin"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Looks right, go ahead"),
+        ],
+    },
+    Walk {
+        name: "native-answered-bubble",
+        title: "Your answers and approvals read as your own messages",
+        screen: Screen::Jobs,
+        scenario: "job-view-composer",
+        steps: &[
+            press_on("A Job you answered and approved in", "row", "Fix the merge line freshness chip", "region", "Thread"),
+            step("Your answer to a question sits on the right as your own message: a gold band says You answered, the question is quoted, then your answer", Verb::WheelTo("region", "Thread", -200), "region", "You answered"),
+            step("The question reads in full, in quiet words above your answer", Verb::Wheel("region", "Thread", -240), "group", "Question"),
+            step("An approval takes the same bubble: You approved, and the walk it approved", Verb::WheelTo("region", "Thread", -120), "region", "You approved"),
         ],
     },
     Walk {
@@ -1708,13 +1732,16 @@ pub static WALKS: &[Walk] = &[
             step("A press on a Job opens it; its question is first in what waits on you", Verb::Press, "row", "Fix the merge line freshness chip"),
             step("The question opens whole: each option drawn as a picture is one card, its words under the still", Verb::Open("button", "Open Which look do the row's actions take?"), "button", "Picture of Actions in the row"),
             step("The pointer on a part names it", Verb::Hover, "img", "Actions"),
-            step("A press on a card picks its option", Verb::Press, "button", "Picture of Actions in the row"),
+            step("The option's words under its still pick it", Verb::Press, "button", "Choose Actions in the row"),
             step("Each part of the other still names itself too", Verb::Hover, "img", "More menu"),
-            step("The corner button shows the still at its own size, every part named, without picking", Verb::Open("button", "Full size: Actions in the row"), "dialog", "Full size: Actions in the row"),
+            step("A press on the still opens it large, every part named, and picks nothing", Verb::Open("button", "Picture of Actions in the row"), "dialog", "Full size: Actions in the row"),
+            step("\u{2192} moves to the next option's still", Verb::Key("right"), "dialog", "Full size: One act and a menu"),
+            step("A still taller than the window keeps a width you can read and scrolls inside the view, its labels with it", Verb::Key("right"), "dialog", "Full size: Every act on a long list"),
+            step("\u{2190} moves back", Verb::Key("left"), "dialog", "Full size: One act and a menu"),
             step("Esc closes it", Verb::Key("escape"), "button", "Picture of One act and a menu"),
             step("The keys went back to its card, so Space shows it again", Verb::Key("space"), "dialog", "Full size: Actions in the row"),
             step("Esc again, and the pick is as it was", Verb::Key("escape"), "button", "Picture of One act and a menu"),
-            step("The option in words is a row under the cards", Verb::Wheel("group", "Pictures", 400), "radio", "Keep today's row"),
+            step("The option in words is a row under the cards", Verb::WheelTo("group", "Pictures", 400), "radio", "Keep today's row"),
         ],
     },
     Walk {
@@ -2291,7 +2318,10 @@ pub static WALKS: &[Walk] = &[
             step("Esc closes the panel", Verb::Key("escape"), "button", "Needs you"),
             step("Needs you opens: each option's still stands above the buttons", Verb::Open("button", "Needs you"), "button", "Picture of Actions in the row"),
             step("The buttons stay under the stills, the option in words with them", Verb::Look, "button", "Keep today's row"),
-            press_on("A press on a still answers with it, as its button does", "button", "Picture of Actions in the row", "region", "Thread"),
+            step("A press on a still opens it large and answers nothing", Verb::Open("button", "Picture of Actions in the row"), "dialog", "Full size: Actions in the row"),
+            step("\u{2192} shows the next option's still", Verb::Key("right"), "dialog", "Full size: One act and a menu"),
+            step("Esc closes it, and the question still waits", Verb::Key("escape"), "button", "Picture of Actions in the row"),
+            press_on("The words under a still answer with it, as its button does", "button", "Choose Actions in the row", "region", "Thread"),
         ],
     },
     Walk {
@@ -2594,6 +2624,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_PHONE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LIMITS,
+        title: "Settings › Limits",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::LIMITS_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_CLAIM,
+        title: "Settings › Macs: a claim from the other Mac",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_CLAIM_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::WAYS,
         title: "Ways of working",
         screen: Screen::Settings,
@@ -2658,6 +2702,20 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::FOLLOWS_PICKER,
+        title: "Workflows follow the Editing picker",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::FOLLOWS_PICKER_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::OFF_EVERYWHERE,
+        title: "A workflow off in every repository a project keeps",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::OFF_EVERYWHERE_STEPS,
     },
     Walk {
         name: crate::settings::walk::DELETE_PROJECT,

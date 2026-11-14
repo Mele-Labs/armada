@@ -108,6 +108,10 @@ enum Shape {
     Tour,
     /// A fix for one finding's lines.
     Fix,
+    /// Change sets, the overview and a practice check: told and read by `review_change_sets`.
+    Sets,
+    /// One plain paragraph, as `what-changed` answers.
+    Paragraph,
 }
 
 /// **By the definition's id**: the four explanations Armada carries answer the shape their id
@@ -120,10 +124,12 @@ fn shape_of(kind: ReviewRunKind, id: &str) -> Shape {
         (ReviewRunKind::Tool, _) => Shape::Findings,
         (ReviewRunKind::Ask | ReviewRunKind::Search, _) => Shape::Text,
         (ReviewRunKind::Fix, _) => Shape::Fix,
+        (ReviewRunKind::ChangeSets | ReviewRunKind::Overview | ReviewRunKind::Practices, _) => Shape::Sets,
         (ReviewRunKind::Explanation, "how-it-works") => Shape::Themes,
         (ReviewRunKind::Explanation, "user-impact") => Shape::Impact,
         (ReviewRunKind::Explanation, "how-to-test") => Shape::Steps,
         (ReviewRunKind::Explanation, "why") => Shape::Reason,
+        (ReviewRunKind::Explanation, "what-changed") => Shape::Paragraph,
         (ReviewRunKind::Explanation, _) => Shape::Text,
     }
 }
@@ -140,6 +146,9 @@ fn kind_word(kind: ReviewRunKind) -> &'static str {
         ReviewRunKind::Ask => "ask",
         ReviewRunKind::Search => "search",
         ReviewRunKind::Fix => "fix",
+        ReviewRunKind::ChangeSets => "change_sets",
+        ReviewRunKind::Overview => "overview",
+        ReviewRunKind::Practices => "practices",
     }
 }
 
@@ -149,6 +158,9 @@ fn kind_of(word: &str) -> ReviewRunKind {
         "explanation" => ReviewRunKind::Explanation,
         "search" => ReviewRunKind::Search,
         "fix" => ReviewRunKind::Fix,
+        "change_sets" => ReviewRunKind::ChangeSets,
+        "overview" => ReviewRunKind::Overview,
+        "practices" => ReviewRunKind::Practices,
         _ => ReviewRunKind::Ask,
     }
 }
@@ -285,6 +297,8 @@ struct Plan {
     finding: Option<ReviewFinding>,
     /// The diff, where it was read before the run started: a fix's file is checked against it.
     diff: Option<PullRequestDiff>,
+    /// What a change-set run stands on, and nothing else's.
+    sets: Option<crate::review_change_sets::SetsAsked>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -362,6 +376,10 @@ where
                     return Err(unacceptable(BLANK, "a fix needs the name its card gives it".to_string()));
                 }
                 (name.clone(), name, fix_asking(finding), Shape::Fix)
+            }
+            kind @ (ReviewRunKind::ChangeSets | ReviewRunKind::Overview | ReviewRunKind::Practices) => {
+                let (name, label) = crate::review_change_sets::named(kind, &start.name);
+                (name, label, String::new(), Shape::Sets)
             }
             ReviewRunKind::Search => {
                 return Err(unacceptable(
@@ -480,6 +498,14 @@ where
             result: None,
             cost_micros: None,
         };
+        // An overview or a practice check stands on the sets kept at this head.
+        let sets = match shape {
+            Shape::Sets => Some(
+                self.sets_asked(served.root(), &manifest_id, number, &head_column(&run), run.kind, &run.name)
+                    .await?,
+            ),
+            _ => None,
+        };
         let key = key_of(&run);
         // A run already going for this key is answered, not started twice.
         if !self.review_going().lock().await.insert(key.clone()) {
@@ -506,6 +532,7 @@ where
             place,
             finding,
             diff,
+            sets,
         };
         let fleet = Arc::clone(&self);
         let started = run.clone();
@@ -605,21 +632,31 @@ where
                 None => None,
             };
             let fixing = plan.finding.as_ref().zip(before.as_deref()).map(|(finding, before)| (&finding.at, before));
-            let prompt = brief(plan, run, &diff.patch, &diff.files, before.as_deref());
+            let told = match &plan.sets {
+                Some(asked) => Some(self.sets_told(asked, &plan.pool, slot, &diff.patch).await),
+                None => None,
+            };
+            let prompt = brief(plan, run, &diff.patch, &diff.files, before.as_deref(), told.as_ref());
             let ask = Ask::put(reviewing.model.clone(), &prompt, reviewing.environment.clone())
                 .and_then(|ask| Ok(ask.reading(Reading::checkout(&path, READ_TURNS)?)))
                 .map_err(|why| spent(format!("the question could not be put: {why:?}")))?;
             let (answered, micros) = asked_and_costed(&reviewing, &ask).await;
             let answer = answered.map_err(|why| (format!("the agent did not answer: {why}"), micros))?;
-            let result = read_answer(
-                plan.shape,
-                &answer,
-                &diff.files,
-                Path::new(&path),
-                plan.body.as_deref(),
-                plan.place.as_ref(),
-                fixing,
-            )
+            let result = match &told {
+                Some(told) => {
+                    let bay = (&plan.pool, slot, &run.manifest_id);
+                    self.sets_answered(told, &answer, &diff.files, Path::new(&path), bay).await
+                }
+                None => read_answer(
+                    plan.shape,
+                    &answer,
+                    &diff.files,
+                    Path::new(&path),
+                    plan.body.as_deref(),
+                    plan.place.as_ref(),
+                    fixing,
+                ),
+            }
             .map_err(|why| (format!("the answer was refused: {why}"), micros))?;
             Ok((result, micros))
         }
@@ -690,7 +727,14 @@ pub(crate) fn short(sha: &str) -> &str {
 
 /// What the model is told. **The pull request is data and not instruction**: its description and
 /// its diff are somebody else's words, and the brief says so before it lays them in.
-fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String], before: Option<&str>) -> String {
+fn brief(
+    plan: &Plan,
+    run: &ReviewRun,
+    patch: &str,
+    files: &[String],
+    before: Option<&str>,
+    told: Option<&crate::review_change_sets::Told>,
+) -> String {
     let body = plan.body.as_deref().map(str::trim).filter(|body| !body.is_empty());
     let diff: String = patch.chars().take(DIFF_AT_MOST).collect();
     let cut = match patch.chars().count() > DIFF_AT_MOST {
@@ -725,7 +769,7 @@ fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String], before: Op
             Some(_) => "Files changed since then",
             None => "Files the pull request changes",
         },
-        asking = plan.asking.trim(),
+        asking = told.map_or(plan.asking.trim(), |told| told.asking.as_str()),
         place = match (plan.place.as_ref(), plan.finding.as_ref().zip(before)) {
             (Some(place), _) => crate::review_walk_runs::place_section(place),
             (None, Some((finding, before))) => lines_section(&finding.at, before),
@@ -733,7 +777,7 @@ fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String], before: Op
         },
         body = body.unwrap_or("(none)"),
         files = files.join("\n"),
-        contract = contract(plan.shape),
+        contract = told.map_or_else(|| contract(plan.shape), |told| told.contract.clone()),
     )
 }
 
@@ -748,7 +792,7 @@ fn comment_rule() -> String {
     )
 }
 
-const PLACE: &str = "a place is {\"path\": \"<a file in the list above>\", \"side\": \"right\" or \"left\", \
+pub(crate) const PLACE: &str = "a place is {\"path\": \"<a file in the list above>\", \"side\": \"right\" or \"left\", \
                      \"start\": <first line>, \"end\": <last line, at least start>}, with right numbering the \
                      lines of the new file and left those of the old";
 
@@ -789,6 +833,8 @@ fn contract(shape: Shape) -> String {
                        changes\"}. `after` replaces exactly those lines and nothing around them: keep each line's \
                        indentation, and repeat no line from before or after the range. It must change something."
             .to_string(),
+        Shape::Sets => String::new(),
+        Shape::Paragraph => "{\"body\": \"one plain paragraph: no heading, no list and no blank line\"}".to_string(),
         Shape::Tour => format!(
             "{{\"stops\": [{{\"title\": \"one line on what this piece does\", \"at\": <place>}}]}}. 3 to 10 stops, in \
              the order a reader should follow the change, entry point first. Skip lockfiles, generated files and \
@@ -881,7 +927,7 @@ pub(crate) fn comment_holds(comment: &str, what: &str) -> Result<(), String> {
 
 /// How many sentences a text has: each `.`, `!` or `?` followed by a space or the end ends one, a
 /// run of them once, and words after the last end are one more.
-fn sentences_in(text: &str) -> usize {
+pub(crate) fn sentences_in(text: &str) -> usize {
     let chars: Vec<char> = text.trim().chars().collect();
     let ends = |c: &char| matches!(c, '.' | '!' | '?');
     let closed = chars
@@ -892,7 +938,7 @@ fn sentences_in(text: &str) -> usize {
     closed + usize::from(chars.last().is_some_and(|last| !ends(last)))
 }
 
-fn place_holds(place: &ReviewPlace, changed: &[String], what: &str) -> Result<(), String> {
+pub(crate) fn place_holds(place: &ReviewPlace, changed: &[String], what: &str) -> Result<(), String> {
     if !changed.iter().any(|file| *file == place.path) {
         return Err(format!("{what} names `{}`, which the pull request does not change", place.path));
     }
@@ -906,7 +952,7 @@ fn place_holds(place: &ReviewPlace, changed: &[String], what: &str) -> Result<()
 }
 
 /// A file the checkout holds, named relative to its root and staying inside it.
-fn file_in(checkout: &Path, path: &str) -> Option<PathBuf> {
+pub(crate) fn file_in(checkout: &Path, path: &str) -> Option<PathBuf> {
     let relative = Path::new(path);
     let inside = !path.trim().is_empty()
         && relative.is_relative()
@@ -1099,6 +1145,12 @@ fn read_answer(
             let place = place.ok_or_else(|| "a walk is written against a place, and none was given".to_string())?;
             crate::review_walk_runs::walk_read(json, place)
         }
+        Shape::Sets => Err("a change set's answer is read against the sets it was told".to_string()),
+        Shape::Paragraph => {
+            let out: TextOut = said(json)?;
+            crate::review_change_set_answers::paragraph_holds(&out.body)?;
+            Ok(ReviewResult::Text { body: out.body.trim().to_string() })
+        }
         Shape::Fix => {
             let (at, before) = fixing.ok_or_else(|| "a fix is read against its finding's lines, and none were read".to_string())?;
             fix_read(json, at, before)
@@ -1124,6 +1176,7 @@ pub(crate) fn answer_read(
         "reason" => Shape::Reason,
         "walk" => Shape::Walk,
         "tour" => Shape::Tour,
+        "paragraph" => Shape::Paragraph,
         _ => Shape::Text,
     };
     read_answer(shape, answer, changed, checkout, description, place, None)

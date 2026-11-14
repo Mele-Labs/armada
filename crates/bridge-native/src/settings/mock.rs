@@ -453,7 +453,7 @@ impl MockFleet {
     /// What a project's values come to: its own over Kit's, Kit's over the defaults, a kind of review at a time.
     pub fn values(&self, project: &str) -> Result<ResolvedValues, Refused> {
         let own = self.projects.projects.iter().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?.values.clone().unwrap_or_default();
-        Ok(self.resolved(Some(&own)))
+        Ok(self.resolved(Some(&own), Some(project)))
     }
 
     /// What every project uses: Kit's over the defaults.
@@ -461,10 +461,10 @@ impl MockFleet {
         if !self.connected {
             return Err(Refused::said("Fleet is not connected"));
         }
-        Ok(self.resolved(None))
+        Ok(self.resolved(None, None))
     }
 
-    fn resolved(&self, own: Option<&ValuesSet>) -> ResolvedValues {
+    fn resolved(&self, own: Option<&ValuesSet>, project: Option<&str>) -> ResolvedValues {
         let kit = &self.kit;
         let word = |own: Option<String>, kit: Option<String>, default: Option<&str>| match (own, kit) {
             // What the project overrides: Kit's word, else nothing below sets it.
@@ -507,6 +507,31 @@ impl MockFleet {
         let (own_starts, kit_starts) = pick(|set| set.agent_starts.clone());
         let (own_delivery, kit_delivery) = pick(|set| set.delivery.clone());
         let tracker = own.and_then(|own| own.tracker.clone());
+        // Off wins: the machine's list, then the repositories', then the project's, as Fleet adds them up where no
+        // repository is asked about. The repositories' hold where every one the project keeps switched it off.
+        let workflows = match (own, project) {
+            (Some(own), Some(project)) => {
+                let off = super::workflows::off_of(self.list.settings.iter().find(|one| one.key == super::workflows::OFF).map(|one| &one.value));
+                let kept: Vec<&str> = self.projects.projects.iter().filter(|one| one.id == project).flat_map(|one| one.members.iter().map(|member| member.manifest_id.as_str())).collect();
+                let ids: std::collections::BTreeSet<&str> = self.workflows.iter().map(|one| one.id.as_str()).collect();
+                ids.into_iter()
+                    .map(|id| {
+                        let in_every = !kept.is_empty() && kept.iter().all(|manifest| off.repositories.get(*manifest).is_some_and(|ids| ids.iter().any(|one| one == id)));
+                        let from = if off.machine.iter().any(|one| one == id) {
+                            ValueLayer::Machine
+                        } else if in_every {
+                            ValueLayer::Repository
+                        } else if own.workflows_off.iter().any(|one| one == id) {
+                            ValueLayer::Project
+                        } else {
+                            ValueLayer::Default
+                        };
+                        ipc::ResolvedWorkflow { id: id.to_string(), on: from == ValueLayer::Default, from }
+                    })
+                    .collect()
+            }
+            _ => Vec::new(),
+        };
         ResolvedValues {
             pr_mode: word(own_mode, kit_mode, Some("ready")),
             auto_merge: word(own_merge, kit_merge, Some("never")),
@@ -520,6 +545,7 @@ impl MockFleet {
             // The first project's word is the one Fleet learned from his first answer, until he changes it.
             delivery: Some(ResolvedValue { learned: own_delivery.as_deref() == Some("auto_land"), ..word(own_delivery, kit_delivery, None) }),
             autonomy: Vec::new(),
+            workflows,
         }
     }
 
@@ -580,6 +606,24 @@ impl MockFleet {
             return Err(Refused::said(why.clone()));
         }
         one.shared_with_macs = on;
+        Ok(self.projects.clone())
+    }
+
+    /// `set_project_workflow`: off adds the id to the project's list, on takes it away.
+    /// For the walk of a workflow off in every repository a project keeps: the repository holds it off from the start.
+    pub fn off_in_repository(&mut self, manifest: &str, id: &str) {
+        let Some(one) = self.list.settings.iter_mut().find(|one| one.key == super::workflows::OFF) else { return };
+        let off = super::workflows::off_of(Some(&one.value));
+        one.value = super::workflows::switched(&off, id, false, Some(manifest));
+    }
+
+    pub fn set_project_workflow(&mut self, project: &str, workflow: &str, on: bool) -> Result<Projects, Refused> {
+        let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
+        let values = one.values.get_or_insert_with(ValuesSet::default);
+        values.workflows_off.retain(|id| id != workflow);
+        if !on {
+            values.workflows_off.push(workflow.to_string());
+        }
         Ok(self.projects.clone())
     }
 }

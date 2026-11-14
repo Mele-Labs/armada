@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use crate::leasing::disk::{
-    build_folders_in, every_checkout, inventory, pressure_plan, reclaim, shed_free_slots,
+    build_folders_in, drop_first, every_checkout, inventory, pressure_plan, reclaim, shed_free_slots,
     staged_plan, Act, BuildFolder, How, Role, MARGIN,
 };
 use crate::leasing::{Holder, Leased, Pool};
@@ -373,4 +373,65 @@ fn a_whole_removal_under_pressure_says_which_folder_and_a_building_one_is_never_
         lines.iter().any(|line| line.contains(idle.path.to_str().unwrap())),
         "{lines:?}"
     );
+}
+
+/// A worktree's build folder, built `hours` ago, whose checkout the base has.
+fn a_landed_worktree(root: &Path, name: &str, hours: u64) -> BuildFolder {
+    let checkout = root.join(".armada/worktrees").join(name);
+    built(&checkout.join("target"), hours);
+    BuildFolder {
+        path: checkout.join("target"),
+        checkout,
+        role: Role::Other,
+        last_built: SystemTime::now() - HOUR * u32::try_from(hours).unwrap(),
+        has_incremental: true,
+        landed: true,
+    }
+}
+
+#[test]
+fn a_pass_says_what_it_gained_and_names_the_folders_it_left_in_the_order_the_next_would_drop_them() {
+    let repo = TempRepo::with_a_commit();
+    let root = repo.root();
+    let folders = [a_landed_worktree(&root, "oldest", 90), a_landed_worktree(&root, "older", 80), a_landed_worktree(&root, "old", 70)];
+    let mut script = vec![90 * GIB, 95 * GIB, 100 * GIB + MARGIN].into_iter();
+
+    let passed = reclaim(&folders, SystemTime::now(), 100 * GIB, &mut || script.next(), &mut |_| {}).expect("a pass ran");
+
+    assert_eq!((passed.acts, passed.freed), (2, 10 * GIB + MARGIN));
+    let names = |folders: &[BuildFolder]| folders.iter().map(|folder| folder.path.clone()).collect::<Vec<_>>();
+    let [oldest, older, old] = <[PathBuf; 3]>::try_from(names(&folders)).unwrap();
+    assert_eq!(passed.left, vec![old, oldest, older], "the third's caches, then each folder whole");
+}
+
+#[test]
+fn a_disk_with_room_has_no_pass_to_report() {
+    let repo = TempRepo::with_a_commit();
+    let folders = [a_landed_worktree(&repo.root(), "a", 90)];
+
+    assert_eq!(reclaim(&folders, SystemTime::now(), 100 * GIB, &mut || Some(150 * GIB), &mut |_| {}), None);
+}
+
+#[test]
+fn dropping_the_first_folders_of_the_plan_takes_what_a_pass_would_and_leaves_the_rest() {
+    let repo = TempRepo::with_a_commit();
+    let root = repo.root();
+    let folders = [a_landed_worktree(&root, "oldest", 90), a_landed_worktree(&root, "older", 80)];
+
+    let dropped = drop_first(&folders, SystemTime::now(), 1);
+
+    assert_eq!(dropped, vec![folders[0].path.clone()]);
+    assert!(!folders[0].path.join("debug/incremental").exists(), "the plan's first act on it was its caches");
+    assert!(folders[0].path.join("debug/deps").exists());
+    assert!(folders[1].path.join("debug/incremental").exists());
+}
+
+#[test]
+fn dropping_leaves_a_folder_a_build_holds() {
+    let repo = TempRepo::with_a_commit();
+    let busy = a_landed_worktree(&repo.root(), "busy", 90);
+    let _lock = building_in(&busy.path);
+
+    assert!(drop_first(std::slice::from_ref(&busy), SystemTime::now(), 3).is_empty());
+    assert!(busy.path.join("debug/incremental").exists());
 }

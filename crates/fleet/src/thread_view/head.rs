@@ -49,6 +49,7 @@ pub(super) fn pinned_of(record: &SessionRecord, revisions: &Revisions) -> Option
         withdrawn: false,
         settled: None,
         revisions: revisions_of(held, revisions),
+        for_line: ipc::ArtifactFor::of_detail(&held.detail),
     })
 }
 

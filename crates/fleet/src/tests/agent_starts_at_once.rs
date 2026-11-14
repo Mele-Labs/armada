@@ -1,6 +1,6 @@
 //! The claim: **a Job an agent starts follows the `agent_starts` word.** `at_once` begins it with the brief as its
 //! first turn, from the caller; `ask_me` holds it on its start card as it always was. A Job that waits on another
-//! is held when its wait is met, whatever the word says. `docs/concepts/session.md`, *A Session an agent started*.
+//! follows the word when its wait is met. `docs/concepts/session.md`, *A Session an agent started*.
 
 use std::sync::Arc;
 

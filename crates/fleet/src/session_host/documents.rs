@@ -22,7 +22,8 @@ use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOC
 use store::{Holder, KeptAttachment};
 
 use super::document_answers::is_document;
-use super::document_page::{asks_approval, sketches_in, title_of};
+use super::artifact_for::with_for;
+use super::document_page::{asks_approval, for_of, sketches_in, title_of};
 use crate::daemon::Fleet;
 use crate::rail_ends;
 
@@ -56,15 +57,28 @@ where
         .await;
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
+        let Some(told) = self.page_kept(id, &path, &html, &revisions).await else { return };
+        let (fleet, id) = (Arc::clone(self), id.to_string());
+        // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
+        tokio::spawn(async move {
+            let _ = fleet.told_by_fleet(&id, &told, ipc::Notice::DocumentSketch).await;
+        });
+    }
+
+    /// The page at `path` was kept as its newest revision, `html`: its row says so, asking again where it asks.
+    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too.
+    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf]) -> Option<String> {
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
-        let Ok(encoded) = ipc::encode(&names) else { return };
-        let styles = self.page_styles(id, &html).await;
-        let asks = asks_approval(&html) || self.document_gate_waits(id).await;
+        let encoded = ipc::encode(&names).ok()?;
+        let styles = self.page_styles(id, html).await;
+        let asks = asks_approval(html) || self.document_gate_waits(id).await;
+        let (text, links) = for_of(html);
+        let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
         // this one is what asks the person again about the new revision, where it asks.
         let mut detail: std::collections::BTreeMap<String, String> = [
             ("form".to_string(), "document".to_string()),
-            ("title".to_string(), title_of(&html, &path)),
+            ("title".to_string(), title_of(html, path)),
             ("revisions".to_string(), encoded),
             (DOCUMENT_ASKED.to_string(), asks.to_string()),
             (DOCUMENT_REVISION.to_string(), names.len().to_string()),
@@ -73,6 +87,7 @@ where
         .into();
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
+        with_for(&mut detail, self.for_line(id, said).await.as_ref());
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
@@ -81,17 +96,15 @@ where
                 harness: String::from(adapters::HOSTED_HARNESS),
                 session_id: SessionId::carried(id),
                 fact: SessionFact::Attached {
-                    attachment: AttachmentReport { kind: String::from("artifact"), target: path.clone(), detail },
+                    attachment: AttachmentReport { kind: String::from("artifact"), target: path.to_string(), detail },
                 },
             })
             .await;
-        let told = sketches_that_will_not_draw(&html, &path);
-        if let Some(told) = styles.told(told, &path) {
-            let (fleet, id) = (Arc::clone(self), id.to_string());
-            // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
-            tokio::spawn(async move {
-                let _ = fleet.told_by_fleet(&id, &told, ipc::Notice::DocumentSketch).await;
-            });
+        let told = sketches_that_will_not_draw(html, path);
+        match (styles.told(told, path), links_dropped(&dropped)) {
+            (Some(told), Some(links)) => Some(format!("{told} {links}")),
+            (None, Some(links)) => Some(format!("In the page {path}, {}", links.replacen("The", "the", 1))),
+            (told, None) => told,
         }
     }
 
@@ -110,7 +123,7 @@ where
             store.hosting(id).ok().flatten()
         };
         let Some(hosting) = hosting else { return false };
-        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, workflow)) else {
+        let Some(workflow) = hosting.workflow.as_deref().filter(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow)) else {
             return false;
         };
         let Some(steps) = self.job_rail_steps(id, &hosting.manifest_id, workflow).await else { return false };
@@ -153,8 +166,8 @@ where
     }
 
     /// Job `new` took the place of `old`: it holds each page from here, with the revisions copied to its
-    /// own folder, the newest revision's number and his answer or dismissal, so only a real edit asks
-    /// again. `old` keeps its own, so a hand undone has lost nothing.
+    /// own folder, the newest revision's number, the revisions he wrote and his answer or dismissal, so only
+    /// a real edit asks again. `old` keeps its own, so a hand undone has lost nothing.
     pub(super) async fn pages_carried(&self, old: &str, new: &str) {
         let (held, dismissed) = {
             let store = self.store().lock().await;
@@ -170,6 +183,7 @@ where
             let now = self.instant().as_str().to_string();
             let item = format!("{DOCUMENT_ITEM_PREFIX}{}", page.target);
             let mut store = self.store().lock().await;
+            let _ = store.carry_owner_revisions(old, new, &page.target);
             let carried = KeptAttachment { holder: Holder::session(new), detail, since: now.clone(), changed_at: now, ..page };
             let _ = store.attach(&carried, false);
             if dismissed.contains(&item) {
@@ -235,8 +249,13 @@ pub(crate) fn sketches_that_will_not_draw(html: &str, path: &str) -> Option<Stri
     (!failing.is_empty()).then(|| format!("In the page {path}, {}", failing.join(" ")))
 }
 
+/// The sentence that names each For link of a page Fleet did not keep, or `None` where it kept them all.
+fn links_dropped(dropped: &[String]) -> Option<String> {
+    (!dropped.is_empty()).then(|| format!("The armada-for links {} were not kept.", dropped.join("; ")))
+}
+
 /// The folder a page's revisions are in: its path under `.armada/documents/`, as one name.
-fn folder_of(path: &str) -> String {
+pub(super) fn folder_of(path: &str) -> String {
     let under = path.rsplit_once(DOCUMENTS).map_or(path, |(_, under)| under);
     one_name(under)
 }

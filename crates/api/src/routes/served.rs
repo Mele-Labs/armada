@@ -116,6 +116,11 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/change",
     },
     Route {
+        operation: "update_mac",
+        method: "POST",
+        path: "/macs/update",
+    },
+    Route {
         operation: "revert_fleet_build",
         method: "POST",
         path: "/fleet/build/revert",

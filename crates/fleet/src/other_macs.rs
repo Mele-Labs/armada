@@ -393,4 +393,9 @@ where
         self.projects_relayed().await?;
         Ok(MacNamed { mac })
     }
+
+    async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
+        self.calls_claimed(claims.claims.clone());
+        Ok(claims)
+    }
 }
