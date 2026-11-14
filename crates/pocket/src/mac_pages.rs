@@ -209,12 +209,22 @@ async fn signed_page(
 ) -> Result<reqwest::Response, String> {
     let (me, key) = signer(gateway, mac).await?;
     let signature = sign(&key, &me, method.as_str(), target, gateway.pairing.now(), &body)?;
-    let mut request = client().request(method, format!("{address}{target}"));
-    for (name, value) in signature {
-        request = request.header(name, value);
+    // Its door while Bonjour sees it, else its tunnel: `mac_client::signed` says why the fallback is safe.
+    let ways = crate::nearby::reach(gateway, mac, address)?;
+    let last = ways.len() - 1;
+    for (n, (to, door)) in ways.into_iter().enumerate() {
+        let leg = if to == address { client().clone() } else { door };
+        let mut request = leg.request(method.clone(), format!("{to}{target}")).timeout(PATIENCE);
+        for (name, value) in &signature {
+            request = request.header(*name, value.clone());
+        }
+        for name in CARRIED.iter().filter(|name| headers.contains_key(*name)) {
+            request = request.header(name, headers[name].clone());
+        }
+        match request.body(body.clone()).send().await {
+            Err(why) if why.is_connect() && n < last => continue,
+            sent => return sent.map_err(|why| why.to_string()),
+        }
     }
-    for name in CARRIED.iter().filter(|name| headers.contains_key(*name)) {
-        request = request.header(name, headers[name].clone());
-    }
-    request.body(body).send().await.map_err(|why| why.to_string())
+    Err("It could not be reached.".to_string())
 }
