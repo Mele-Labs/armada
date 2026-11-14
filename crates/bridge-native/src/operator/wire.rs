@@ -3,7 +3,7 @@
 
 use gpui::{App, AppContext, Entity, Task};
 use ipc::operator_board::OperatorDispatched;
-use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage, OperatorTurnOrder};
+use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage, OperatorTurnOrder, OperatorUndoRuling};
 use ipc::operator_talk::{OperatorOrders, OperatorSaid, OperatorTalk, RemoveOperatorOrder, TalkToOperator};
 use ipc::{DispatchJob, JobDispatched, ParkedIdeas, RemoveParkedIdea};
 use serde::de::DeserializeOwned;
@@ -154,6 +154,15 @@ impl Wire {
         let Some(port) = self.port(cx) else { return Self::unreachable() };
         let removed = request::<OperatorOrders>(port, Ask::Post("/operator/orders/remove", said), "OperatorOrders", cx);
         cx.background_spawn(async move { removed.await.map(|_| None) })
+    }
+
+    /// `POST /operator/page/undo`: a ruling the Operator made by following him is taken back.
+    pub fn undo(&mut self, id: &str, cx: &App) -> Task<Result<OperatorPage, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.undo(id));
+        }
+        let said = body(&OperatorUndoRuling { id: id.to_string() });
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/undo", said), "OperatorPage", cx))
     }
 
     /// The week's Log, from the file `digest.handled.log.path` names on this machine; the mock holds its own.

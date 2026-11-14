@@ -1,19 +1,19 @@
-//! A subagent's own thread, read on a sheet over the window, as Electron's `session-subagent.tsx` and
-//! its `session-reading` sheet draw it: "Subagent {task}", its type and model under the title, the
-//! context figure beside them, and the thread drawn as the Job's is. Read again every 1.5 s while it
-//! runs, and each time Fleet says its thread moved (`session.subagent`). Esc or Close shut it.
+//! A subagent's own thread, read in its tab beside the thread, as Electron's `session-subagent.tsx` draws
+//! it: its type and model, the context figure beside them, and the thread drawn as the Job's is. Read
+//! again every 1.5 s while it runs, and each time Fleet says its thread moved (`session.subagent`).
+//! Esc or the tab's × shut it.
 
 use std::time::Duration;
 
-use gpui::{anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Task, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString, Task, Window};
 use ipc::{RingBand, SessionRow, SessionSubagentChanged, ThreadItem, ToolSubagent, ToolSubagentState};
 use serde::Deserialize;
 
-use super::rows::{glyph, mono, tip, Size};
+use super::rows::{mono, tip};
 use super::JobView;
 use crate::context_ring::{ContextRing, Fill};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook};
+use crate::look::{token, ActiveLook, Look};
 
 /// How often a running subagent's transcript is read again (`SUBAGENT_EVERY_MS`).
 const EVERY: Duration = Duration::from_millis(1500);
@@ -63,15 +63,6 @@ impl SubagentRead {
     }
 }
 
-/// The subagent open over the window.
-pub(super) struct Reading {
-    job: SharedString,
-    subagent: ToolSubagent,
-    focus: FocusHandle,
-    back: Option<FocusHandle>,
-    _poll: Option<Task<()>>,
-}
-
 /// The name a model is shown by, as `modelSaid` reads it: a full id as "Opus 5.5" or "Sonnet 3.5",
 /// an alias capitalised, and anything else as it came.
 pub(crate) fn model_said(model: &str) -> String {
@@ -100,19 +91,16 @@ pub(crate) fn model_said(model: &str) -> String {
 }
 
 impl JobView {
-    /// A press on a subagent's card or row: its thread opens on the sheet, from the last read of it
+    /// A press on a subagent's card or row: its thread opens as a tab beside the Job's, from the last read of it
     /// at once, then read again while it runs.
     pub(super) fn read_subagent(&mut self, subagent: ToolSubagent, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let focus = cx.focus_handle();
-        let back = window.focused(cx);
-        window.focus(&focus, cx);
-        let poll = self.subagent_poll(&job, &subagent.id, subagent.state == ToolSubagentState::Running, cx);
-        self.subagent_reading = Some(Reading { job, subagent, focus, back, _poll: poll });
-        cx.notify();
+        let id = subagent.id.clone();
+        self.subagents_opened.insert(Self::subagent_key(&job, &id), subagent);
+        self.open_subagent_tab(&id, window, cx);
     }
 
-    fn subagent_key(job: &str, id: &str) -> String {
+    pub(super) fn subagent_key(job: &str, id: &str) -> String {
         format!("{job}/{id}")
     }
 
@@ -194,14 +182,13 @@ impl JobView {
         }
     }
 
-    /// Fleet says these subagents' threads moved: each one open on the sheet or as a tab is read once
-    /// more, beside any re-read already running for it.
+    /// Fleet says these subagents' threads moved: each one open as a tab is read once more, beside any
+    /// re-read already running for it.
     pub(super) fn subagents_moved(&mut self, moved: &[SessionSubagentChanged], cx: &mut Context<Self>) {
         for one in moved {
             let job = SharedString::from(one.session_id.as_str().to_string());
             let id = one.subagent_id.as_str();
-            let on_sheet = self.subagent_reading.as_ref().is_some_and(|reading| reading.job == job && reading.subagent.id == id);
-            if on_sheet || self.subagent_tab_open(&job, id) {
+            if self.subagent_tab_open(&job, id) {
                 if let Some(read) = self.subagent_poll(&job, id, false, cx) {
                     read.detach();
                 }
@@ -209,36 +196,16 @@ impl JobView {
         }
     }
 
-    fn close_subagent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(back) = self.subagent_reading.take().and_then(|reading| reading.back) {
-            window.focus(&back, cx);
-        }
-        cx.notify();
-    }
-
-    fn subagent_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" {
-            self.close_subagent(window, cx);
-            cx.stop_propagation();
-        }
-    }
-
-    /// The sheet: wide, floating at the trailing edge under the title bar, as Electron's
-    /// `session-reading` sheet with `size="wide"` draws it.
-    pub(super) fn render_subagent_reading(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
-        let reading = self.subagent_reading.as_ref()?;
-        let look = cx.look();
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        let subagent = &reading.subagent;
-        let key = Self::subagent_key(&reading.job, &subagent.id);
+    /// What stands over a subagent's thread in its tab: its type and its model, each left out until it is known
+    /// (`SubagentMarks`), and the context figure beside them. Nothing where there is neither.
+    pub(super) fn subagent_head(&self, job: &SharedString, subagent: &ToolSubagent, look: &Look) -> Option<AnyElement> {
+        let key = Self::subagent_key(job, &subagent.id);
         let read = self.subagents_read.iter().find(|(one, _)| *one == key).map(|(_, read)| read);
-        let title: SharedString = format!("Subagent {}", subagent.task).into();
-
-        // Its type and its model, each left out until it is known (`SubagentMarks`).
         let model = read.and_then(|read| read.model.as_deref()).map(model_said);
         let marks = (subagent.agent_type.is_some() || model.is_some()).then(|| {
             div()
+                .flex_1()
+                .min_w_0()
                 .flex()
                 .flex_wrap()
                 .items_center()
@@ -253,101 +220,20 @@ impl JobView {
                 .children(model.map(|model| labelled(div().id("subagent-model").child(model.clone()).tooltip(tip("Model")), Role::Label, model)))
         });
         let figure = read.and_then(SubagentRead::fill).map(|fill| ContextRing::new(SharedString::from(format!("subagent-context:{key}")), Some(fill)));
-        let close = labelled(
+        (marks.is_some() || figure.is_some()).then(|| {
             div()
-                .id("subagent-close")
                 .flex_none()
                 .flex()
                 .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Close \u{b7} Esc"))
-                .child(glyph(look, "x", Size::Small, look.color(token::FG_MUTED)))
-                .on_click(cx.listener(|this, _, window, cx| this.close_subagent(window, cx))),
-            Role::Button,
-            "Close",
-        );
-        let head = div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_6))
-            .py(look.length(token::SPACE_4))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_1))
-                    .child(
-                        div()
-                            .text_size(look.length(if marks.is_some() { token::TEXT_BASE } else { token::TEXT_LG }))
-                            .line_height(look.length(if marks.is_some() { token::LEADING_BASE } else { token::LEADING_LG }))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .text_color(look.color(token::FG_DEFAULT))
-                            .child(title.clone()),
-                    )
-                    .children(marks),
-            )
-            .children(figure)
-            .child(close);
-
-        let body = self.subagent_thread(&reading.job, &subagent.id, window, cx);
-
-        let margin = look.length(token::SPACE_4);
-        let wide = (viewport.width * 0.62).min(viewport.width - margin * 2.);
-        let sheet = labelled(
-            div()
-                .id("subagent-sheet")
-                .track_focus(&reading.focus)
-                .capture_key_down(cx.listener(Self::subagent_key_down))
-                .occlude()
-                .w(wide)
-                .h(viewport.height - look.length(token::H_TITLE_BAR) - margin * 2.)
-                .mt(margin)
-                .mr(margin)
-                .flex()
-                .flex_col()
-                .overflow_hidden()
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
+                .gap(look.length(token::SPACE_3))
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_2))
+                .border_b(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_OVERLAY))
-                .shadow(look.shadows(token::SHADOW_OVERLAY))
-                .text_size(look.length(token::TEXT_SM))
-                .line_height(look.length(token::LEADING_SM))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(head)
-                .child(div().id("subagent-thread").flex_1().min_h_0().overflow_y_scroll().children(body)),
-            Role::Dialog,
-            title,
-        );
-        Some(
-            deferred(
-                anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
-                    // The scrim starts under the title bar, as a floating sheet's does; a press on it shuts the sheet.
-                    div()
-                        .id("subagent-scrim")
-                        .occlude()
-                        .w(viewport.width)
-                        .h(viewport.height - look.length(token::H_TITLE_BAR))
-                        .flex()
-                        .justify_end()
-                        .bg(look.color(token::SCRIM))
-                        .on_click(cx.listener(|this, _, window, cx| this.close_subagent(window, cx)))
-                        .child(sheet),
-                ),
-            )
-            .with_priority(0)
-            .into_any_element(),
-        )
+                .children(marks)
+                .children(figure)
+                .into_any_element()
+        })
     }
 }
 

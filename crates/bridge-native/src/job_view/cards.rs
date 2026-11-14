@@ -37,7 +37,7 @@ fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
 
 /// The card's frame in the spacious take: a quiet fill and a hairline edge, reaching a little past
 /// the words (`--spacious-bleed`).
-pub(super) fn frame(look: &Look, bleed: bool) -> gpui::Div {
+fn frame(look: &Look, bleed: bool) -> gpui::Div {
     div()
         .flex()
         .flex_col()
@@ -79,7 +79,7 @@ fn settled_line(look: &Look, key: &str, said: Said, words: Option<&str>) -> AnyE
 }
 
 /// The note a card was sent back with: a quote with the person's colour at its edge.
-fn quote(look: &Look, words: &str) -> AnyElement {
+pub(super) fn quote(look: &Look, words: &str) -> AnyElement {
     div()
         .px(look.length(token::SPACE_3))
         .py(look.length(token::SPACE_2))
@@ -237,40 +237,6 @@ impl JobView {
         column.into_any_element()
     }
 
-    /// The Job's sketch put to the person, or shown (B1.2, B1.3).
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn sketch(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let key = card.id.clone();
-        let optimistic = page.cards.answers.get(&key);
-        // One the waiting plan names is answered by the plan's Approve, so its card asks nothing of its own.
-        let asked = card.asked && !self.sketch_waits_with_plan(&card.sketch, cx);
-        let framed = (asked && !card.withdrawn) || card.settled.is_some() || optimistic.is_some();
-        let settled = settled_of(card.settled.as_ref(), optimistic);
-        let open = asked && !card.withdrawn && settled.is_none() && !card.replaced;
-        let revisions = card.revisions.len();
-        let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
-        let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
-        let drawn = self.drawn_of(&card.sketch, cx);
-        let band = self.sketch_band(ix, &key, &card.title, card.replaced, card.against.as_deref().filter(|_| !shown_earlier), Some((&card.at, revisions, picked)), look, now, cx);
-        let (scene_key, scene) = shown_scene(card, picked);
-        let pointed = page.cards.pointed.as_deref() == Some(key.as_str()) || page.cards.focused.as_deref() == Some(key.as_str());
-        let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
-        let glass = glass(look, card.replaced, scene.clone().map(|scene| drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default())));
-        let press = self.sketch_press(&key, &card.id, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
-        let body = frame(look, true)
-            .when(pointed, |frame| frame.border_color(look.color(token::ACCENT)))
-            .child(press)
-            .when(framed, |frame| {
-                frame.child(self.approval(ix, &key, Subject::Sketch { sketch: card.sketch.clone(), drawn }, open && !shown_earlier, true, settled, true, page, look, cx))
-            });
-        labelled(
-            body.id(SharedString::from(format!("sketch:{key}"))).when(card.replaced, |frame| frame.border_dashed()),
-            Role::Article,
-            format!("Sketch: {}", card.title),
-        )
-        .into_any_element()
-    }
-
     /// The pinned drawing's height: Classic's six space-12, or less where the thread's own height cannot hold the card
     /// round it and the rows after it (Thinking, the box) cannot, so the pin stands whole and the thread following its tail does not cut the top off.
     fn pin_drawing_height(&self, look: &Look) -> gpui::Pixels {
@@ -320,7 +286,7 @@ impl JobView {
             .items_center()
             .gap(look.length(token::SPACE_2))
             .ml_auto()
-            .child(self.revision_button(ix, &key, &card.title, revisions, picked, look, cx))
+            .child(self.revision_button(ix, &key, &card.title, revisions, picked, false, look, cx))
             .child(open)
             .child(labelled(
                 div()
@@ -441,7 +407,7 @@ impl JobView {
             .children(against.map(|against| tag(format!("Against {against}"))));
         if let Some((at, revisions, picked)) = more {
             if revisions > 0 {
-                band = band.child(self.revision_button(ix, key, title, revisions, picked, look, cx));
+                band = band.child(self.revision_button(ix, key, title, revisions, picked, false, look, cx));
             }
             band = band.child(self.stamp(at, look, now, true, cx));
         }
@@ -450,7 +416,7 @@ impl JobView {
 
     /// The button that names the revision shown, and opens the menu of them.
     #[allow(clippy::too_many_arguments)]
-    fn revision_button(&self, ix: usize, key: &str, title: &str, revisions: usize, picked: Option<usize>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn revision_button(&self, ix: usize, key: &str, title: &str, revisions: usize, picked: Option<usize>, chip: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
                 let shown = picked.map_or(revisions, |at| at + 1);
                 let (menu_key, menu_title) = (key.to_string(), title.to_string());
                 labelled(
@@ -458,14 +424,15 @@ impl JobView {
                         .id(SharedString::from(format!("revision:{key}")))
                         .flex_none()
                         .px(look.length(token::SPACE_2))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .text_size(look.length(token::TEXT_XS))
-                        .line_height(look.length(token::LEADING_SM))
+                        .rounded(look.length(if chip { token::RADIUS_SM } else { token::RADIUS_MD }))
+                        .text_size(look.length(if chip { token::TEXT_2XS } else { token::TEXT_XS }))
+                        .line_height(look.length(if chip { token::LEADING_2XS } else { token::LEADING_SM }))
                         .text_color(look.color(token::FG_MUTED))
+                        .when(chip, |chip| chip.font_family(mono(look)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)))
                         .cursor_pointer()
                         .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
                         .tooltip(tip("Revision"))
-                        .child(format!("Revision {shown}"))
+                        .child(if chip { format!("r{shown}") } else { format!("Revision {shown}") })
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
@@ -576,12 +543,13 @@ impl JobView {
     pub(super) fn file_row(&self, id: &str, path: &str, name: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
         let parts = vec![
             div().flex_none().child("Opened").into_any_element(),
-            div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(name.to_string())).into_any_element(),
+            // From no width, so a long name stays on the glyph's line and truncates at the row's end.
+            div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(name.to_string())).into_any_element(),
         ];
         let label = format!("Opened {name}");
         if let Some(picture) = super::pictures::read_picture(path) {
             let tile = self.picture_tile(&picture, look, cx);
-            let line = self.quiet_base(id, "image", parts, look).flex_wrap().children(tile.map(|tile| div().w_full().pl(look.length(token::SPACE_6)).child(tile)));
+            let line = self.quiet_base(id, "image", parts, look).flex_wrap().children(tile.map(|tile| div().w_full().child(tile)));
             return labelled(line, Role::Row, label).into_any_element();
         }
         let path = path.to_string();
@@ -694,58 +662,8 @@ pub(super) fn glass(look: &Look, replaced: bool, scene: Option<AnyElement>) -> A
 }
 
 impl JobView {
-    /// The band and the drawing as one press, `Open sketch …`, which plays the steps while the
-    /// pointer or the keys are on it, as Electron's `SketchRow` does. It opens the card `card`.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn sketch_press(&self, key: &str, card: &str, title: &str, band: AnyElement, glass: AnyElement, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
-        let spot = page.keys.spot(&format!("sketch-press:{key}"), cx);
-        let (hover_key, open_key, enter_key) = (key.to_string(), card.to_string(), card.to_string());
-        let was = page.cards.focused.as_deref() == Some(key);
-        let (focus, me, focus_key) = (spot.focus.clone(), cx.entity().downgrade(), key.to_string());
-        labelled(
-            div()
-                .id(SharedString::from(format!("sketch-press:{key}")))
-                .relative()
-                .flex()
-                .flex_col()
-                .cursor_pointer()
-                .track_focus(&spot.focus)
-                .on_hover(cx.listener(move |this, over: &bool, _, cx| this.sketch_pointed(&hover_key, Some(*over), None, plays, cx)))
-                .on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&open_key, &open_key, window, cx)))
-                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
-                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
-                        this.read_sketch(&enter_key, &enter_key, window, cx);
-                        cx.stop_propagation();
-                    }
-                }))
-                .child(band)
-                .child(glass)
-                .child(
-                    gpui::canvas(
-                        move |_, window, cx| {
-                            let now = focus.is_focused(window);
-                            if now != was {
-                                let (me, focus_key) = (me.clone(), focus_key.clone());
-                                cx.defer(move |cx| {
-                                    let _ = me.update(cx, |this, cx| this.sketch_pointed(&focus_key, None, Some(now), plays, cx));
-                                });
-                            }
-                        },
-                        |_, _, _, _| {},
-                    )
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full(),
-                ),
-            Role::Button,
-            format!("Open sketch {title}"),
-        )
-        .into_any_element()
-    }
-
     /// The pointer or the keys came onto a sketch card or left it: it plays from the start while either is on it.
-    fn sketch_pointed(&mut self, key: &str, hover: Option<bool>, focus: Option<bool>, plays: bool, cx: &mut Context<Self>) {
+    pub(super) fn sketch_pointed(&mut self, key: &str, hover: Option<bool>, focus: Option<bool>, plays: bool, cx: &mut Context<Self>) {
         let Some(cards) = self.cards_mut() else { return };
         let set = |slot: &mut Option<String>, on: bool| {
             if on {

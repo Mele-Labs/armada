@@ -107,13 +107,13 @@ fn ringed(look: &Look, control: gpui::Stateful<gpui::Div>, on: bool, radius: Pix
 }
 
 impl DispatchSheet {
-    /// New Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
+    /// New Side Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
     /// sheet reaches it, and Enter or Space starts it. It names the repository the picker names, else the title bar's. None where the title bar names nowhere.
     fn here_card(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let name = self.here_in()?;
         let look = cx.look();
         let focused = self.here_key.is_focused(window);
-        let said = format!("New Job in {name}");
+        let said = format!("New Side Job in {name}");
         let hover = look.color(token::BG_HOVER);
         let card = div()
             .id("dispatch-here")
@@ -133,7 +133,7 @@ impl DispatchSheet {
                 }
                 cx.stop_propagation();
             }))
-            .tooltip(tip("Starts a Job with no workflow and opens its thread"))
+            .tooltip(tip("Starts a Side Job with no workflow and opens its thread"))
             .h(look.length(token::H_CONTROL_LG))
             .px(look.length(token::SPACE_4))
             .flex()

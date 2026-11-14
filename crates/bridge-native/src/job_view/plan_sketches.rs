@@ -1,16 +1,14 @@
 //! The sketches a plan names (`SessionPlan::sketches`, `SessionPlanGroup::sketches`): each drawn inside the
-//! plan, the whole plan's under its summary and a group's under that group. While the plan waits its Approve
-//! answers them too, so their own cards in the thread ask nothing (his ruling of 13 Nov: one approval for one
-//! decision). Fleet already leaves them out of Needs you.
+//! plan as its card draws it (`sketch_card.rs`), the whole plan's under its summary and a group's under that
+//! group. While the plan waits its Approve answers them too, so their own cards in the thread ask nothing (his
+//! ruling of 13 Nov: one approval for one decision). Fleet already leaves them out of Needs you.
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString};
 use ipc::{PlanSketch, SessionPlan, ThreadSketch};
 
-use super::cards::{drawn_against, frame, glass, shown_scene};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use crate::scene::{Clock, Fit, Lens};
 
 /// Every sketch the plan names, each once, with the group it is drawn under: none for the whole plan's.
 /// A sketch named twice is drawn where it is named first, the whole plan before the groups.
@@ -67,18 +65,6 @@ impl JobView {
             )
             .into_any_element(),
         )
-    }
-
-    /// One sketch inside the plan: its band and drawing, a press that opens it, playing while the pointer is on it.
-    fn plan_sketch(&self, key: &str, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let band = self.sketch_band(0, key, &card.title, false, None, None, look, chrono::Local::now(), cx);
-        let (scene_key, scene) = shown_scene(card, None);
-        let playing = page.cards.playing.as_ref().filter(|(at, _)| at == key).map(|(_, since)| *since);
-        let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
-        let drawn = scene.map(|scene| drawn_against(card, None, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default()));
-        let pointed = page.cards.pointed.as_deref() == Some(key) || page.cards.focused.as_deref() == Some(key);
-        let press = self.sketch_press(key, &card.id, &card.title, band, glass(look, false, drawn), plays, page, cx);
-        frame(look, false).when(pointed, |frame| frame.border_color(look.color(token::ACCENT))).child(press).into_any_element()
     }
 }
 

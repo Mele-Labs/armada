@@ -393,6 +393,11 @@ impl JobView {
     /// `1` to `9` pick that option of the front question, or Other one past the last.
     pub(super) fn pick_digit(&mut self, n: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        // A handoff card answers its option whichever way he answers questions.
+        if let Some(row) = self.keyed_handoff(&id, cx) {
+            self.answer_handoff(&row, n - 1, super::handoff::Place::Needs, window, cx);
+            return;
+        }
         // With buttons, a number presses that option of the question the keys are on, and answers it.
         if let Some((item, count)) = self.keyed_row(&id, cx) {
             if (1..=count).contains(&n) {

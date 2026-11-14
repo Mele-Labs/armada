@@ -37,7 +37,7 @@ pub enum Asked {
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
-    /// New Job here, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
+    /// New Side Job, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
     JobHere(Option<String>),
 }
 
