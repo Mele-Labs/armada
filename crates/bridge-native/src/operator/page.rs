@@ -49,7 +49,7 @@ pub enum Opened {
 pub struct Arrived(pub Vec<OperatorTurnItem>);
 
 /// The digest's tab stops: each tile's head, and the links under them.
-pub const STOPS: [&str; 8] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "Holds", "The whole Log", "Every rule"];
+pub const STOPS: [&str; 9] = ["Ruled", "Landed", "What I handled", "Running", "Coming up", "Learned", "Holds", "The whole Log", "Every rule"];
 
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
@@ -570,6 +570,40 @@ impl OperatorPageView {
         };
         let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { tile.and_then(|tile| self.stops.get(tile)) };
         window.focus(keys.unwrap_or(&self.focus), cx);
+    }
+
+    /// Undo on a ruling: the question goes back to him. The row reads taken back at once, and Fleet's page puts
+    /// the question in Your turn; a refusal reads the page again, which puts the row back as Fleet has it.
+    pub fn undo(&mut self, id: &str, cx: &mut Context<Self>) {
+        if let Some(ruled) = self.page.as_mut().and_then(|page| page.digest.ruled.iter_mut().find(|ruled| ruled.id == id)) {
+            ruled.undo = false;
+            ruled.undone_at = Some(ipc::Instant::carried(self.clock_now.unwrap_or_else(chrono::Local::now).to_rfc3339()));
+        }
+        cx.notify();
+        let task = self.wire.undo(id, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let undone = task.await;
+            let _ = this.update(cx, |this, cx| match undone {
+                Ok(page) => {
+                    // He gave it back himself, so its return to Your turn raises no toast.
+                    if let Some(seen) = this.seen.as_mut() {
+                        seen.extend(page.turn.iter().filter(|turn| turn.item.source == ipc::WaitingSource::OperatorUndone).map(|turn| turn.id.clone()));
+                    }
+                    this.set_page(page, cx)
+                }
+                Err(why) => {
+                    Note::warn("the Operator's ruling was not taken back").field("why", why).emit();
+                    this.read(cx);
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// Undo pressed on a row: its Undo goes, so the keys go to Ruled's head.
+    pub fn undo_pressed(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.undo(id, cx);
+        window.focus(self.stops.get("Ruled").unwrap_or(&self.focus), cx);
     }
 
     /// `f` on Every rule: the selected rule.
@@ -1096,6 +1130,18 @@ impl OperatorPageView {
                 let page = mock.page.clone();
                 self.set_page(page, cx);
             }
+            // Two questions whose pick follows what he said first in Your turn, and what it ruled that way.
+            "precedent" => {
+                mock.precedent();
+                let page = mock.page.clone();
+                // They were waiting when he came back, so they raise no toast.
+                if let Some(seen) = self.seen.as_mut() {
+                    seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
+                }
+                self.set_page(page, cx);
+                self.open = self.page.as_ref().and_then(|page| page.turn.first()).map(|turn| turn.id.clone());
+                self.main_scroll.set_offset(gpui::Point::default());
+            }
             // Fleet refuses the next answer, or its reply never arrives.
             "refuse" => mock.fail_answer = Some(Failed::Refused("The tracker did not take the new issue.".into())),
             "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
@@ -1337,6 +1383,44 @@ mod tests {
             assert_eq!(page.refused.as_ref().map(|(id, _)| id.as_str()), Some("turn:1"));
             assert!(page.items().iter().any(|turn| turn.id == "turn:1"));
         });
+    }
+
+    #[gpui::test]
+    fn undo_reads_taken_back_at_once_and_the_question_comes_back_to_your_turn_with_no_toast(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("precedent", cx))).expect("the scene plays");
+        let told: Rc<RefCell<Vec<String>>> = Rc::default();
+        let heard = told.clone();
+        let _keep = cx.update(|_, cx| cx.subscribe(&page, move |_, arrived: &Arrived, _| heard.borrow_mut().extend(arrived.0.iter().map(|turn| turn.id.clone()))));
+        let ruling = |page: &Entity<OperatorPageView>, cx: &mut VisualTestContext| {
+            page.read_with(cx, |page, _| page.page.as_ref().and_then(|page| page.digest.ruled.iter().find(|ruled| ruled.id == "turn:17")).map(|ruled| (ruled.undo, ruled.undone_at.is_some())))
+        };
+        let given_back = |page: &Entity<OperatorPageView>, cx: &mut VisualTestContext| {
+            page.read_with(cx, |page, _| page.items().iter().filter(|turn| turn.item.source == ipc::WaitingSource::OperatorUndone).map(|turn| (turn.item.text.clone(), turn.item.options.len())).collect::<Vec<_>>())
+        };
+
+        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:17", cx)));
+        assert_eq!(ruling(&page, cx), Some((false, true)), "taken back before Fleet answers");
+        cx.run_until_parked();
+        assert_eq!(given_back(&page, cx), [("Rebase on main before pushing?".to_string(), 2)], "his again, with the options it was asked with");
+        assert!(told.borrow().is_empty(), "he gave it back himself, so it raises no toast");
+
+        // Taken back already: Fleet refuses, the page is read again as Fleet has it, and nothing is given back twice.
+        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:17", cx)));
+        cx.run_until_parked();
+        assert_eq!(ruling(&page, cx), Some((false, true)));
+        assert_eq!(given_back(&page, cx).len(), 1);
+    }
+
+    #[gpui::test]
+    fn a_ruling_whose_job_ended_is_not_given_back(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("precedent", cx))).expect("the scene plays");
+        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:14", cx)));
+        cx.run_until_parked();
+        let ended = page.read_with(cx, |page, _| page.page.as_ref().and_then(|page| page.digest.ruled.iter().find(|ruled| ruled.id == "turn:14")).map(|ruled| (ruled.undo, ruled.undone_at.is_some())));
+        assert_eq!(ended, Some((false, false)), "Fleet refused, and the page read again puts the row back as it stands");
+        assert!(page.read_with(cx, |page, _| page.items().iter().all(|turn| turn.item.source != ipc::WaitingSource::OperatorUndone)));
     }
 
     #[gpui::test]

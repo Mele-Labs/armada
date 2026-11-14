@@ -387,6 +387,22 @@ impl OperatorPageView {
     /// The marks beside an ask's kind: where other Jobs raised it too, and Later's chip.
     fn marks(&self, turn: &OperatorTurnItem, look: &Look) -> Vec<AnyElement> {
         let mut marks: Vec<AnyElement> = self.also_raised(turn, look).into_iter().collect();
+        if turn.item.source == ipc::WaitingSource::OperatorUndone {
+            let when = minute(turn.item.since.as_str(), self.clock_now.unwrap_or_else(chrono::Local::now)).unwrap_or_default();
+            let said = format!("You took back the Operator's answer at {when}. It does not answer this again");
+            marks.push(
+                labelled(
+                    div()
+                        .id("card-taken-back")
+                        .flex_none()
+                        .tooltip(tip(said.clone()))
+                        .child(chip("Taken back", look.color(token::OPERATOR), look.color(token::OPERATOR_MUTED), look).child(glyph("undo-2", look.length(token::SPACE_3), look.color(token::OPERATOR)))),
+                    Role::Image,
+                    said,
+                )
+                .into_any_element(),
+            );
+        }
         if turn.later_until.is_some() {
             let said = face::later_said(turn, self.clock_now.unwrap_or_else(chrono::Local::now));
             marks.push(
@@ -507,6 +523,7 @@ impl OperatorPageView {
                         .child("My read"),
                 )
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
+                .children(turn.follows.as_ref().map(|follows| self.follows_line(follows, look, cx)))
         });
         let options = face::chooses(turn).then(|| self.options(turn, look, cx));
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
@@ -988,6 +1005,122 @@ impl OperatorPageView {
         labelled(pressed(button, cx, forget), Role::Button, format!("Forget {about}")).into_any_element()
     }
 
+    /// Under a ruling's question: the repeat mark, what it picked and what it followed.
+    fn followed_line(&self, followed: &str, look: &Look) -> AnyElement {
+        div()
+            .w_full()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .min_w_0()
+            .text_size(look.length(token::TEXT_2XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(glyph("repeat", look.length(token::SPACE_3), look.color(token::OPERATOR)))
+            .child(div().min_w_0().truncate().child(followed.to_string()))
+            .into_any_element()
+    }
+
+    /// A ruling's last column, as wide on every row: Undo while it can be given back, else why not.
+    fn undo_cell(&self, ruled: RuledFacts, about: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let cell = div().flex_none().w(look.length(token::SPACE_12) * 1.75).flex().justify_end();
+        let said = |word: &'static str, why: String| {
+            labelled(div().id(SharedString::from(format!("ruled-{}", ruled.id))).tooltip(tip(why.clone())).text_color(look.color(token::FG_SUBTLE)).child(word), Role::Image, why)
+        };
+        match ruled.state {
+            RuledState::Undo => {
+                let id = ruled.id.clone();
+                let button = press(SharedString::from(format!("undo-{}", ruled.id)), "Undo".into(), Some("undo-2"), None, Weight::Bare, look)
+                    .h(look.length(token::H_CONTROL_SM))
+                    .px(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .tooltip(tip("Give the question back to you. The Job waits for your answer"))
+                    .on_key_down(cx.listener({
+                        let id = id.clone();
+                        move |this, event: &gpui::KeyDownEvent, window, cx| {
+                            if event.keystroke.key == "u" && !event.keystroke.modifiers.modified() {
+                                cx.stop_propagation();
+                                this.undo_pressed(&id, window, cx);
+                            }
+                        }
+                    }));
+                // The press stops here, so the row under it does not open its Job as well.
+                let undo = move |this: &mut OperatorPageView, window: &mut Window, cx: &mut Context<OperatorPageView>| {
+                    cx.stop_propagation();
+                    this.undo_pressed(&id, window, cx);
+                };
+                cell.child(labelled(pressed(button, cx, undo), Role::Button, format!("Undo {about}"))).into_any_element()
+            }
+            RuledState::TakenBack(at) => {
+                let when = minute(at.as_str(), self.clock_now.unwrap_or_else(chrono::Local::now)).unwrap_or_default();
+                cell.child(said("Taken back", format!("You took it back at {when}. It is in Your turn"))).into_any_element()
+            }
+            RuledState::Ended => cell.child(said("Job ended", "Its Job has ended, so it cannot be given back".into())).into_any_element(),
+        }
+    }
+
+    /// Under My read, on a pick that follows him: his earlier answer, in the Job he gave it, or his setting.
+    fn follows_line(&self, follows: &ipc::operator_page::OperatorFollows, look: &Look, cx: &Context<Self>) -> AnyElement {
+        use ipc::operator_page::OperatorFollowsKind;
+        let mark = look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4.;
+        let frame = div()
+            .id("card-follows")
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .mt(look.length(token::SPACE_2))
+            .pt(look.length(token::SPACE_2))
+            .border_t(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::OPERATOR_EDGE))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED));
+        let line = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_1)).child(glyph("repeat", mark, look.color(token::OPERATOR)));
+        // His words on their own line, under the head's words past the mark, quoted as his.
+        let said = || {
+            div()
+                .pl(mark + look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(look.color(token::FG_DEFAULT))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .child(format!("\u{201c}{}\u{201d}", follows.said))
+        };
+        let (line, reading) = match follows.kind {
+            OperatorFollowsKind::Setting => {
+                let value = div()
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .bg(look.color(token::BG_RAISED))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(follows.said.clone());
+                (frame.child(line.child("Follows your setting").child(value)), format!("Follows your setting {}", follows.said))
+            }
+            OperatorFollowsKind::Answer => {
+                let job = follows.job.clone().unwrap_or_else(|| "another Job".into());
+                let link = follows.session_id.clone().map(|session| {
+                    let link = worded(div().id("card-follows-job"), look)
+                        .text_color(look.color(token::ACCENT))
+                        .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
+                        .child(job.clone());
+                    labelled(pressed(link, cx, move |_, _, cx| cx.emit(Opened::Job(session.clone()))), Role::Link, format!("Open {job}")).into_any_element()
+                });
+                let line = line
+                    .child("Follows your answer in")
+                    .children(link)
+                    .when(follows.session_id.is_none(), |line| line.child(job.clone()))
+                    .children(follows.at.as_ref().map(|at| self.stamp(at.as_str(), Some("at"), (token::TEXT_XS, token::FG_MUTED, token::WEIGHT_BODY), look, cx)));
+                let line = frame.child(line).child(said());
+                let line = match &follows.question {
+                    Some(question) => line.tooltip(tip(format!("You were asked: {question}"))),
+                    None => line,
+                };
+                (line, format!("Follows your answer in {job}: {}", follows.said))
+            }
+        };
+        labelled(line, Role::Group, reading).into_any_element()
+    }
+
     /// Under a hold's words: each held path in mono, then what lifts it.
     fn hold_line(&self, hold: HoldFacts, look: &Look) -> AnyElement {
         div()
@@ -1024,7 +1157,7 @@ impl OperatorPageView {
             let whole = self.whole.contains(name);
             let shown = if link == Some("Every rule") { rows.len().min(FEW) } else if whole || !more { rows.len() } else { FEW };
             // A rule's or a hold's words are what matter in it, so it takes a second line before it is cut.
-            let wraps = matches!(name, "Learned" | "Holds");
+            let wraps = matches!(name, "Learned" | "Holds" | "Ruled");
             let mut last: Option<String> = None;
             let rows = rows.into_iter().take(shown).enumerate().flat_map(|(at, row)| {
                 let subhead = row.place.clone().filter(|place| last.as_ref() != Some(place)).map(|place| {
@@ -1038,6 +1171,9 @@ impl OperatorPageView {
                         .into_any_element()
                 });
                 let (text, said) = (row.text, row.said);
+                let struck = matches!(row.ruled.as_ref().map(|ruled| &ruled.state), Some(RuledState::TakenBack(_)));
+                let followed = row.ruled.as_ref().map(|ruled| self.followed_line(&ruled.followed, look));
+                let undo = row.ruled.map(|ruled| self.undo_cell(ruled, &said, look, cx));
                 let line = div()
                     .id(SharedString::from(format!("{name}-{at}")))
                     .flex()
@@ -1053,7 +1189,14 @@ impl OperatorPageView {
                             .flex()
                             .flex_col()
                             .gap(look.length(token::SPACE_1))
-                            .child(div().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .when(wraps, |words| words.line_clamp(2).text_ellipsis())
+                                    .when(!wraps, |words| words.truncate())
+                                    .when(struck, |words| words.line_through().text_color(look.color(token::FG_MUTED)))
+                                    .child(text.clone()),
+                            )
                             .children(row.hold.map(|hold| self.hold_line(hold, look))),
                     )
                     .child(match row.side {
@@ -1061,7 +1204,11 @@ impl OperatorPageView {
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
                         Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx),
                     })
-                    .children(row.forget.map(|id| self.forget_button(id, &said, look, cx)));
+                    .children(row.forget.map(|id| self.forget_button(id, &said, look, cx)))
+                    .children(undo)
+                    // A ruling's pick and what it followed take the row's whole width, under the question, time and Undo.
+                    .when(followed.is_some(), |line| line.flex_wrap())
+                    .children(followed);
                 // A row that opens a Job is a tab stop, and Enter opens it as a press does.
                 let line = match row.opened {
                     Some(opened) => pressed(worded(line, look).mx(-look.length(token::SPACE_1)), cx, move |_, _, cx| cx.emit(opened.clone())),
@@ -1141,23 +1288,45 @@ impl OperatorPageView {
     fn digest(&self, page: &OperatorPage, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
+        // First: the one tile with an act he may take on what happened while he was away.
+        if !digest.ruled.is_empty() {
+            let rows = digest
+                .ruled
+                .iter()
+                .map(|ruled| {
+                    let job = ruled.job.clone().unwrap_or_else(|| ruled.session_id.as_str().to_string());
+                    let followed = ruled_followed(ruled);
+                    Row {
+                        text: ruled.question.clone(),
+                        said: format!("{job}: {}{} {followed}", ruled.question, if ruled.question.ends_with(['?', '.']) { "" } else { "." }),
+                        place: Some(job),
+                        side: Side::At(ruled.at.clone()),
+                        opened: Some(Opened::Job(ruled.session_id.clone())),
+                        forget: None,
+                        hold: None,
+                        ruled: Some(RuledFacts { id: ruled.id.clone(), followed, state: ruled_state(ruled) }),
+                    }
+                })
+                .collect();
+            tiles.push(self.tile("Ruled", "repeat", token::OPERATOR, None, rows, None, look, cx));
+        }
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), said: format!("#{} {}", one.number, one.title), place: None, side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None, ruled: None }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None, hold: None }).collect();
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), said: handled_said(act), place: None, side: Side::At(act.at.clone()), opened: None, forget: None, hold: None, ruled: None }).collect();
             // Off, nothing new is handled: what is here it did before it was switched off.
             let aside = (!page.on).then(|| "while it was on".to_string());
             let link = digest.handled.log.as_ref().map(|_| "The whole Log");
             tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect());
+            let rows = by_place(digest.running.iter().map(|one| Row { text: one.title.clone(), said: one.title.clone(), place: one.repository.clone(), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None, ruled: None }).collect());
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None }).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), said: format!("{}: waits on {}", one.title, one.needs), place: None, side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None, hold: None, ruled: None }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -1169,7 +1338,7 @@ impl OperatorPageView {
                 }
             }
             let rows = by_place(
-                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id), hold: None }).collect(),
+                digest.learned.iter().map(|rule| Row { text: rule.said.clone(), said: rule_said(rule), place: Some(rule.repository.clone().unwrap_or_else(|| "Everywhere".into())), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id), hold: None, ruled: None }).collect(),
             );
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
@@ -1186,6 +1355,7 @@ impl OperatorPageView {
                         opened: hold.job.clone().map(Opened::Job),
                         forget: Some(hold.id),
                         hold: hold_facts(hold),
+                        ruled: None,
                     })
                     .collect(),
             );
@@ -1324,7 +1494,7 @@ const ANSWERED: &str = "Answered today";
 
 /// Tiles the chosen side column draws open: what it handled, what it learned, and what it holds.
 pub(super) fn opens_unpressed(name: &str) -> bool {
-    matches!(name, "What I handled" | "Learned" | "Holds")
+    matches!(name, "What I handled" | "Ruled" | "Learned" | "Holds")
 }
 
 /// One row of a tile: its words, what stands at its right, and where a press on it goes.
@@ -1340,6 +1510,44 @@ pub(super) struct Row {
     forget: Option<i64>,
     /// What a hold stands over and what lifts it, under its words; none on an answer from before they were sent.
     hold: Option<HoldFacts>,
+    /// On a ruling: what it picked and what it followed, and whether Undo stands.
+    ruled: Option<RuledFacts>,
+}
+
+pub(super) struct RuledFacts {
+    /// `turn:<n>`, which Undo names.
+    id: String,
+    /// What it picked and what it followed, under the question.
+    followed: String,
+    state: RuledState,
+}
+
+#[derive(Clone)]
+pub(super) enum RuledState {
+    /// It stands, and its Job is live: Undo is offered.
+    Undo,
+    /// He took it back, at this time.
+    TakenBack(ipc::Instant),
+    /// It stands, and its Job has ended, so it cannot be given back.
+    Ended,
+}
+
+/// A ruling's second line: the pick, then what it followed.
+pub(super) fn ruled_followed(ruled: &ipc::operator_page::OperatorRuled) -> String {
+    use ipc::operator_page::OperatorFollowsKind;
+    match (ruled.follows.kind, ruled.follows.job.as_deref()) {
+        (OperatorFollowsKind::Setting, _) => format!("{}, by your setting {}", ruled.pick, ruled.follows.said),
+        (OperatorFollowsKind::Answer, Some(job)) => format!("{}, as you answered in {job}", ruled.pick),
+        (OperatorFollowsKind::Answer, None) => format!("{}, as you answered before", ruled.pick),
+    }
+}
+
+pub(super) fn ruled_state(ruled: &ipc::operator_page::OperatorRuled) -> RuledState {
+    match (&ruled.undone_at, ruled.undo) {
+        (Some(at), _) => RuledState::TakenBack(at.clone()),
+        (None, true) => RuledState::Undo,
+        (None, false) => RuledState::Ended,
+    }
 }
 
 pub(super) struct HoldFacts {
@@ -1754,6 +1962,26 @@ impl OperatorPageView {
 mod tests {
     use super::*;
 
+    fn ruled(follows: &str, tail: &str) -> ipc::operator_page::OperatorRuled {
+        let wire = format!(r#"{{"id":"turn:1","session_id":"mock-01","question":"Rebase?","pick":"Rebase","follows":{follows},"at":"2026-11-11T12:52:00-05:00"{tail}}}"#);
+        ipc::decode("OperatorRuled", wire.as_bytes()).expect("a ruling")
+    }
+
+    #[test]
+    fn a_ruling_says_its_pick_then_the_answer_or_setting_it_followed() {
+        assert_eq!(ruled_followed(&ruled(r#"{"kind":"answer","job":"Tail-first thread loading","said":"Rebase"}"#, "")), "Rebase, as you answered in Tail-first thread loading");
+        assert_eq!(ruled_followed(&ruled(r#"{"kind":"answer","said":"Rebase"}"#, "")), "Rebase, as you answered before");
+        assert_eq!(ruled_followed(&ruled(r#"{"kind":"setting","said":"time_format = 24h"}"#, "")), "Rebase, by your setting time_format = 24h");
+    }
+
+    #[test]
+    fn undo_stands_only_where_fleet_says_it_takes_the_ruling_back() {
+        let follows = r#"{"kind":"setting","said":"time_format = 24h"}"#;
+        assert!(matches!(ruled_state(&ruled(follows, r#","undo":true"#)), RuledState::Undo));
+        assert!(matches!(ruled_state(&ruled(follows, "")), RuledState::Ended), "standing, its Job ended");
+        assert!(matches!(ruled_state(&ruled(follows, r#","undone_at":"2026-11-11T12:40:00-05:00""#)), RuledState::TakenBack(_)));
+    }
+
     #[test]
     fn a_bare_outcome_says_what_it_was_about() {
         let act = |outcome: &str, title: &str| ipc::operator_page::OperatorHandledAct { at: ipc::Instant::carried("2026-11-11T12:20:00-05:00"), title: title.into(), outcome: outcome.into() };
@@ -1815,7 +2043,7 @@ mod tests {
 
     #[test]
     fn rows_sit_under_their_project_everywhere_first_then_by_name() {
-        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None, hold: None };
+        let row = |text: &str, place: &str| Row { text: text.into(), said: text.into(), place: Some(place.into()), side: Side::None, opened: None, forget: None, hold: None, ruled: None };
         let rows = by_place(vec![row("a", "storefront"), row("b", "Everywhere"), row("c", "armada"), row("d", "storefront"), row("e", "Everywhere")]);
         assert_eq!(rows.iter().map(|row| row.text.as_str()).collect::<Vec<_>>(), ["b", "e", "c", "a", "d"]);
     }
