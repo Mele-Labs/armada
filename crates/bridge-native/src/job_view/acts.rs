@@ -37,6 +37,8 @@ pub(super) enum Answer {
     Going,
     /// A Judge asked for and not yet reading; it holds the id of the reading that stood when it was pressed.
     Judging(Option<String>),
+    /// A pick on a handoff card.
+    Handoff(ipc::HandoffPick),
 }
 
 /// Which of a card's boxes is open.
@@ -76,6 +78,8 @@ pub(super) struct CardState {
     pub playing: Option<(String, std::time::Instant)>,
     /// Note boxes just opened, to be scrolled clear of the composer once they are measured.
     pub reveal: HashMap<String, std::rc::Rc<std::cell::Cell<bool>>>,
+    /// How tall a handoff card's brief was last drawn whole, by card: over four lines it folds behind Show all.
+    pub brief_heights: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

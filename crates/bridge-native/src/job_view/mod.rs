@@ -29,6 +29,7 @@ mod deferred;
 mod watching;
 mod edit;
 mod fork;
+mod handoff;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
