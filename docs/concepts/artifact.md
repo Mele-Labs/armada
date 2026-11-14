@@ -20,7 +20,7 @@ The owner approved the design on 13 Nov 2026.
 | Archive and restore, by the agent or by him | Built in Fleet; native draws the fold later |
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
 | His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
-| A plan's sketches, answering several at once | Not built |
+| A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
 
 ## What an artifact is
 
@@ -49,6 +49,31 @@ The mark is what tells the Job's withdrawal from his Dismiss.
 A sketch or page withdrawn before the mark existed reads `dismissed`.
 
 **Rule.** An artifact that asks names the Needs you item that answers it: `sketch:<title>`, `document:<path>` or `draft:<row id>`.
+A sketch the pending plan names names the plan's item, `plan:<version>`.
+
+## A plan's sketches
+
+The owner ruled this on 13 Nov 2026: one approval for one decision.
+A plan carries the sketches drawn for it, and its Approve settles them together, so they do not arrive as separate cards.
+
+**Rule.** `record_plan` names sketches by title in `sketches`, on the plan or on a group, and each must be one the Job drew with `show_sketch`.
+A title it holds no sketch for is refused, naming up to twenty it holds.
+A group's sketches are drawn beside that group's section of the plan.
+
+**Rule.** While the version that names a sketch is pending, the sketch does not wait on its own.
+It has no `sketch:<title>` item, its `item` is `plan:<version>`, and `in_plan` is that version.
+
+**Rule.** His Approve of the plan settles each named sketch still asking `approved`, with no words, and the Job is told `With it: "<title>", "<title>".` on one line.
+A sketch already answered, taken back or dismissed is left as it is.
+`in_plan` then names the version whose Approve settled it.
+
+**Rule.** A version he sets aside, or one that no longer names a sketch, lets that sketch wait on its own again if it still asks.
+A sketch drawn again after its plan was approved asks on its own, as any redraw does.
+
+**Rule.** Only his Approve of the plan settles its sketches.
+A version that stands on an earlier approval, or that his Approve of a walk settles, settles none, and each still asking waits on its own.
+
+The single `sketch` a plan draws inline is approved with the plan as before, and never asks on its own.
 
 ## Drafts are keyed by title
 

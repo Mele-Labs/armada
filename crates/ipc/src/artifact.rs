@@ -22,10 +22,14 @@ pub struct JobArtifact {
     /// His note on a send back, his words with an approval, or his reason with a draft's dismissal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<String>,
-    /// The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`.
-    /// Absent where nothing waits on him.
+    /// The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or
+    /// `plan:<version>` for a sketch the pending plan names. Absent where nothing waits on him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
+    /// The plan version it goes with: the pending one that names it, so the plan's Approve settles it, or
+    /// the one whose Approve did. Absent for a sketch no plan carries, and for every other form.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub in_plan: Option<u32>,
     /// Who folded it away, and when. Only `restore_artifact` lifts it; a new revision does not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub archived: Option<ArtifactArchived>,

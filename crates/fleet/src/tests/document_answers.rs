@@ -266,8 +266,10 @@ pub(super) async fn plan_of(rig: &Rig, id: &SessionId) -> ipc::SessionPlan {
 
 pub(super) async fn plan_recorded(rig: &Rig, id: &SessionId) {
     let plan = ipc::RecordPlan {
+        sketches: Vec::new(),
         summary: "You get a plan.".into(),
         groups: vec![ipc::PlanGroupInput {
+            sketches: Vec::new(),
             id: None,
             title: "Store".into(),
             agent: "rust-engineer".into(),

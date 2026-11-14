@@ -11,6 +11,7 @@ const NOW: &str = "2026-10-29T10:00:00.000Z";
 
 fn group(title: &str, lands_in: Option<&str>) -> PlanGroupInput {
     PlanGroupInput {
+        sketches: Vec::new(),
         id: None,
         title: title.into(),
         agent: "rust-engineer".into(),
@@ -25,7 +26,7 @@ fn group(title: &str, lands_in: Option<&str>) -> PlanGroupInput {
 }
 
 fn kept(groups: &[PlanGroupInput]) -> KeptPlan {
-    recorded(None, groups, None, None, false, "You get it.".into(), NOW)
+    recorded(None, groups, None, Vec::new(), None, false, "You get it.".into(), NOW)
 }
 
 fn pull(number: u64, from_task: Option<&str>) -> PlanPull {
@@ -55,7 +56,7 @@ fn a_group_that_names_no_pull_request_lands_in_pr_1() {
 fn a_label_is_kept_when_the_plan_is_recorded_again() {
     let groups = [group("Store", Some("PR 1")), group("Fleet", Some("PR 2"))];
     let first = kept(&groups);
-    let second = recorded(Some(&first), &groups, None, None, false, "You get it.".into(), NOW);
+    let second = recorded(Some(&first), &groups, None, Vec::new(), None, false, "You get it.".into(), NOW);
     assert_eq!(second.version, 2);
     assert_eq!(second.groups[1].lands_in.as_deref(), Some("PR 2"));
     assert_eq!(wire(&second).groups[1].lands_in.label, "PR 2");
@@ -98,10 +99,10 @@ fn a_group_that_goes_to_its_own_job_says_so_on_the_wire_until_the_plan_is_record
     let first = kept(&groups);
     let marks = |plan: &KeptPlan| wire(plan).groups.iter().map(|one| one.own_job).collect::<Vec<_>>();
     assert_eq!(marks(&first), [false, true]);
-    let second = recorded(Some(&first), &groups, None, None, false, "You get it.".into(), NOW);
+    let second = recorded(Some(&first), &groups, None, Vec::new(), None, false, "You get it.".into(), NOW);
     assert_eq!(marks(&second), [false, true], "recording it again with the mark keeps it");
     let plain = [group("Store", None), group("Fleet", Some("PR 2"))];
-    let third = recorded(Some(&second), &plain, None, None, false, "You get it.".into(), NOW);
+    let third = recorded(Some(&second), &plain, None, Vec::new(), None, false, "You get it.".into(), NOW);
     assert_eq!(marks(&third), [false, false], "the new recording's, as the label is");
 }
 
@@ -112,6 +113,6 @@ fn each_groups_gate_reaches_the_wire_as_the_agent_named_it_and_a_new_recording_r
     let gates = |plan: &KeptPlan| wire(plan).groups.iter().map(|one| one.gate).collect::<Vec<_>>();
     assert_eq!(gates(&first), [PlanGate::PlanApproved, PlanGate::None, PlanGate::Merged]);
     let again = [gated("Fix", PlanGate::ChecksGreen), group("Tidy", None), gated("Deliver", PlanGate::Merged)];
-    let second = recorded(Some(&first), &again, None, None, false, "You get it.".into(), NOW);
+    let second = recorded(Some(&first), &again, None, Vec::new(), None, false, "You get it.".into(), NOW);
     assert_eq!(gates(&second), [PlanGate::ChecksGreen, PlanGate::None, PlanGate::Merged]);
 }

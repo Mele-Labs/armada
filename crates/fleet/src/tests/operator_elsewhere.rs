@@ -61,6 +61,7 @@ fn theirs(template: &SessionRecord) -> SessionRecord {
     record.id = SessionId::carried(THEIR_JOB);
     record.title = Some(THEIRS.into());
     record.plan = Some(SessionPlan {
+        sketches: Vec::new(),
         version: 1,
         summary: "The store keeps the Mac rows.".into(),
         recorded_at: template.started_at.clone(),
@@ -69,6 +70,7 @@ fn theirs(template: &SessionRecord) -> SessionRecord {
         set_aside_at: None,
         scope: vec![PLACE.into()],
         groups: vec![SessionPlanGroup {
+            sketches: Vec::new(),
             id: "g1".into(),
             agent: "rust-engineer".into(),
             title: "Store".into(),

@@ -20,6 +20,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         told: false,
     };
     let group = |id: &str, tasks: Vec<KeptPlanTask>| KeptPlanGroup {
+        sketches: Vec::new(),
         id: id.to_string(),
         gives: None,
         lands_in: None,
@@ -36,6 +37,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         tasks,
     };
     KeptPlan {
+        sketches: Vec::new(),
         version: 1,
         summary: String::new(),
         recorded_at: "2026-10-22T09:00:00.000Z".to_string(),

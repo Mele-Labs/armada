@@ -23,6 +23,7 @@ fn task(id: &str, text: &str) -> KeptPlanTask {
 
 fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
     KeptPlan {
+        sketches: Vec::new(),
         version,
         summary: "You get a page that shows what is next.".to_string(),
         recorded_at: format!("2026-10-16T09:0{version}:00.000Z"),
@@ -38,6 +39,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         calls: 0,
         held: None,
         groups: vec![KeptPlanGroup {
+            sketches: Vec::new(),
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),
             lands_in: Some("PR 2".to_string()),

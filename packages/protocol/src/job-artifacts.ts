@@ -81,10 +81,12 @@ export type JobArtifact = {
   /** His note on a send back, his words with an approval, or his reason with a draft's dismissal. */
   words?: string;
   /**
-   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>` or `draft:<row id>`. Absent while an
-   * archive keeps it off his list.
+   * The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or `plan:<version>`
+   * for a sketch the pending plan names. Absent while an archive keeps it off his list.
    */
   item?: string;
+  /** The plan version a sketch goes with: the pending one naming it, or the one whose Approve settled it. */
+  in_plan?: number;
   /** Set while archived. `state` still reads as it stood. */
   archived?: ArtifactArchived;
   /** What the newest revision is for, and what it links to. */
