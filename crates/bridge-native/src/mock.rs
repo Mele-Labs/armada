@@ -251,11 +251,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             let url = format!("file://{}/fixtures/web-walk-page.html", env!("CARGO_MANIFEST_DIR"));
             let target = |role: &str, name: &str| format!(r#"{{"role":"{role}","name":"{name}"}}"#);
             let steps = format!(
-                "[{},{},{},{},{}]",
+                "[{},{},{},{},{},{}]",
                 format!(r#"{{"say":"The page's heading names what changed","look":{}}}"#, target("heading", "Orders")),
                 format!(r#"{{"say":"The search box carries its label","look":{}}}"#, target("searchbox", "Search orders")),
                 format!(r#"{{"say":"Add order opens the form","press":{}}}"#, target("button", "Add order")),
                 format!(r#"{{"say":"The form stands over the list","look":{}}}"#, target("dialog", "New order")),
+                format!(r#"{{"say":"Cancel shuts the form","press":{}}}"#, target("button", "Cancel")),
                 format!(r#"{{"say":"Export sits under the list","look":{}}}"#, target("button", "Export orders")),
             );
             one.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);

@@ -659,7 +659,8 @@ mod tests {
         assert!(!is_native(url));
         assert_eq!(title, "Orders page");
         let shown = shown_walk(record, url).expect("the Job showed it");
-        assert_eq!(shown.steps.len(), 5);
+        assert_eq!(shown.steps.len(), 6);
+        assert_eq!(shown.steps[4].press.as_ref().map(|target| target.name.as_deref()), Some(Some("Cancel")), "the form is shut before Export");
         assert_eq!(shown.steps[2].press.as_ref().map(|target| target.role.as_str()), Some("button"));
         let mut tabs = RowTabs::default();
         assert!(tabs.sync_walks(&owed), "it arrives behind the thread");

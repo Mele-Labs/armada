@@ -126,6 +126,8 @@ pub struct WebWalkTab {
     finding: bool,
     /// The step the page was last asked for: a loaded, painted page plays its first step once.
     started: bool,
+    /// Back reloads the page and plays the steps before the one it goes to, so what an earlier step pressed is pressed again.
+    replay: Option<usize>,
     /// The Job view's row-tab handle, which a press on the tab, Tab or a pane's move already puts the keys on: the walk's own keys
     /// (⌥⌘→, ⌥⌘←, ⌘R, ⌘↵) need it drawn here, or the keys land on a handle nothing draws.
     pub focus: FocusHandle,
@@ -144,7 +146,7 @@ impl WebWalkTab {
             this.start(cx);
             cx.notify();
         });
-        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, focus, _page: watch, _find: None }
+        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, replay: None, focus, _page: watch, _find: None }
     }
 
     pub fn job(&self) -> &SharedString {
@@ -167,9 +169,44 @@ impl WebWalkTab {
         self.started = true;
         if self.steps.is_empty() {
             self.page.update(cx, |page, cx| page.take_picture(cx));
+        } else if let Some(to) = self.replay.take().filter(|to| *to > 0) {
+            self.play_to(to, cx);
         } else {
             self.go(0, cx);
         }
+    }
+
+    /// The steps before `to` that press something are pressed again on a fresh page, each once its target is there, and
+    /// step `to` is then shown (`Replay to the step before`).
+    fn play_to(&mut self, to: usize, cx: &mut Context<Self>) {
+        let targets: Vec<_> = self.steps[..to].iter().filter(|step| step.press.is_some()).filter_map(|step| target_of(step).cloned()).collect();
+        self.finding = true;
+        let page = self.page.clone();
+        self._find = Some(cx.spawn(async move |this, cx| {
+            for target in targets {
+                let mut waited = Duration::ZERO;
+                loop {
+                    let (ask, viewport) = page.read_with(cx, |page, _| (page.ask(&finder::look(&target)), page.viewport()));
+                    let answer = ask.recv().await.ok().flatten();
+                    if finder::place_of(answer.as_deref(), viewport).is_some() {
+                        let press = page.read_with(cx, |page, _| page.ask(&finder::press()));
+                        press.recv().await.ok();
+                        break;
+                    }
+                    if waited >= PATIENCE {
+                        break;
+                    }
+                    cx.background_executor().timer(RETRY).await;
+                    waited += RETRY;
+                }
+            }
+            this.update(cx, |this, cx| {
+                this.finding = false;
+                this.go(to, cx);
+            })
+            .ok();
+        }));
+        cx.notify();
     }
 
     /// Step `to` on screen: its target is found, scrolled to the middle of the page and ringed.
@@ -238,7 +275,9 @@ impl WebWalkTab {
 
     fn back(&mut self, _: &Back, _window: &mut Window, cx: &mut Context<Self>) {
         if !self.finding && self.at > 0 {
-            self.go(self.at - 1, cx);
+            self.replay = Some(self.at - 1);
+            self.started = false;
+            self.page.update(cx, |page, cx| page.reload(cx));
         }
     }
 

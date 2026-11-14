@@ -7,20 +7,22 @@
   :root { color-scheme: light dark; font-family: -apple-system, system-ui, sans-serif; }
   body { margin: 0; background: #f6f7f9; color: #15171c; }
   @media (prefers-color-scheme: dark) { body { background: #16181d; color: #e9ebf0; } }
-  header { display: flex; gap: 24px; align-items: center; padding: 16px 32px; border-bottom: 1px solid #8884; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; padding: 16px 24px; border-bottom: 1px solid #8884; }
   header strong { font-size: 18px; }
-  nav { display: flex; gap: 16px; }
+  nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
   nav a { color: #3b6cf0; text-decoration: none; }
-  main { padding: 24px 32px 120px; max-width: 720px; }
+  main { padding: 24px 24px 120px; max-width: 720px; }
   h1 { font-size: 28px; margin: 0 0 16px; }
   .tools { display: flex; gap: 12px; margin-bottom: 20px; }
+  .tools input { flex: 1; min-width: 0; }
   input, button { font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid #8886; background: transparent; color: inherit; }
   button.primary { background: #3b6cf0; border-color: #3b6cf0; color: #fff; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #8884; }
   .spacer { height: 520px; }
   footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
-  dialog { border: 1px solid #8886; border-radius: 10px; padding: 24px; background: inherit; color: inherit; min-width: 320px; }
+  dialog { border: 1px solid #8886; border-radius: 10px; padding: 24px; background: inherit; color: inherit; box-sizing: border-box; width: min(360px, calc(100vw - 32px)); }
+  dialog input { width: 100%; box-sizing: border-box; }
   dialog::backdrop { background: #0006; }
 </style>
 </head>

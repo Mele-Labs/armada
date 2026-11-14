@@ -59,6 +59,10 @@ pub enum Source {
     File(String),
 }
 
+/// Takes the scroll bars out of a page laid out in a shell, so it fills its frame as the picture does. `display: none` on the
+/// bar alone leaves its width to the layout; no overflow on the root frees it, and a script still scrolls what it asks to.
+const NO_SCROLLBARS: &str = "(() => { const style = document.createElement('style'); style.textContent = '::-webkit-scrollbar { display: none } html { overflow: hidden !important }'; document.documentElement.appendChild(style); return '1'; })()";
+
 pub struct WebPage {
     native: Option<Native>,
     /// What the page loads and how it is made, until its element first reports a frame: **the page is made then**, as
@@ -72,6 +76,9 @@ pub struct WebPage {
     hitbox: Option<Hitbox>,
     /// A gpui layer lies over the page, so its picture draws and its view is hidden.
     held: bool,
+    /// The window has no AppKit view of its own (the headless check): the page is laid out in a shell nobody sees, and a scroll
+    /// bar the snapshot cannot draw would leave a blank strip at its edge and take its width from the layout.
+    shell: bool,
     drawn: bool,
     mode: Mode,
     ring: Option<Place>,
@@ -93,6 +100,11 @@ impl WebPage {
         let watching = cx.spawn(async move |this, cx| {
             while let Ok(arrival) = arrivals.recv().await {
                 let kept = this.update(cx, |page, cx| {
+                    if matches!(arrival, Nav::Finished) && page.shell {
+                        if let Some(native) = &page.native {
+                            native.evaluate(NO_SCROLLBARS, |_| {});
+                        }
+                    }
                     page.status = match arrival {
                         Nav::Finished => Status::Ready,
                         Nav::Failed(why) => Status::Failed(why),
@@ -114,6 +126,7 @@ impl WebPage {
             visible: None,
             hitbox: None,
             held: false,
+            shell: false,
             drawn: false,
             mode: Mode::Parked,
             ring: None,
@@ -269,6 +282,7 @@ impl WebPage {
                 // No window of AppKit's own: the page is laid out at the element's size in its shell, and drawn as a picture.
                 native.set_size(frame.width, frame.height);
                 native.clear_ring();
+                self.shell = true;
                 self.mode = Mode::Picture;
             }
         }
