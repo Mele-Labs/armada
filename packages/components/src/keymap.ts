@@ -562,6 +562,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "thread",
     "terminal",
     "dispatch",
+    "review-sheet",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -631,6 +632,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // The Dispatch panel holds the keys while it is up, so its keys meet only the global ones.
   dispatch: [
     "dispatch",
+  ],
+  // The review sheet holds the keys while it is up, so its letters meet only the global ones.
+  "review sheet": [
+    "review-sheet",
   ],
 };
 
@@ -768,6 +773,12 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
     title: "Dispatch",
     scopes: [
       "dispatch",
+    ],
+  },
+  {
+    title: "Review sheet",
+    scopes: [
+      "review sheet",
     ],
   },
   {
