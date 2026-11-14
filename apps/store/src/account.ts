@@ -20,7 +20,6 @@ import {
   MAX_RUNS,
   MAX_RUNS_BODY_BYTES,
   MAX_CLAIMS,
-  MAX_DEVICES,
   MAX_KEYS,
   MAX_OWNERS,
   RATE_WINDOW_SECONDS,
@@ -94,10 +93,10 @@ export class Account extends DurableObject<Env> {
    * before them has them from its first verified request. */
   private upgraded = false;
 
-  /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has its devices. */
-  register(device: string, publicKey: string, machine: string): "ok" | "full" {
+  /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has `limit` devices. */
+  register(device: string, publicKey: string, machine: string, limit: number): "ok" | "full" {
     this.makeTables();
-    if (this.count("devices") >= MAX_DEVICES) return "full";
+    if (this.count("devices") >= limit) return "full";
     this.sql.exec(
       "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)",
       device,
@@ -280,6 +279,9 @@ export class Account extends DurableObject<Env> {
     const [v1, area, first, second, third] = parts;
     if (v1 !== "v1" || parts.length > 5) return refuse(404, "no_route");
 
+    if (area === "devices" && parts.length === 2) {
+      return method === "GET" ? this.listDevices() : refuse(405, "bad_method");
+    }
     if (area === "devices" && parts.length === 3) {
       return method === "DELETE" ? this.signOut(first!) : refuse(405, "bad_method");
     }
@@ -312,6 +314,19 @@ export class Account extends DurableObject<Env> {
       return method === "GET" ? this.readRuns(first!) : refuse(405, "bad_method");
     }
     return refuse(404, "no_route");
+  }
+
+  /** Every device of this object and the machine it named, never its key. The table has no enrolment time, so its rowid, which a new row always takes past the last, is the order they enrolled in. */
+  private listDevices(): Response {
+    const devices = this.sql
+      .exec<{
+        device: string;
+        machine: string;
+      }>("SELECT id AS device, machine FROM devices ORDER BY rowid")
+      .toArray();
+    return reply(200, {
+      devices,
+    });
   }
 
   private signOut(device: string): Response {
