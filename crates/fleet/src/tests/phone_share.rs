@@ -195,7 +195,7 @@ const ACTS: &[(&str, &str)] = &[
     ("start_waiting", r#"{"session_id":"{id}"}"#),
 ];
 
-/// A Job in `project` waiting for `on` to end.
+/// A Job in `project` waiting for `on` to end. Fleet keeps a wait only with the request it is to start on.
 async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
     let after = ipc::StartAfter { session: on.clone(), condition: ipc::StartCondition::Ends, base: ipc::StartBase::default(), needs: String::new() };
     let start = ipc::StartSession {
@@ -207,7 +207,7 @@ async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
         mode: None,
         root: None,
         fork: None,
-        request: None,
+        request: Some("Build the pane after it".to_string()),
         after: Some(after),
         held: false,
         project_rows: Vec::new(),
@@ -356,13 +356,14 @@ async fn terminal_of(phone: &Phone, job: &SessionId) -> String {
 async fn an_unshared_jobs_terminals_answer_as_ones_that_do_not_exist() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
+    // Fleet lists no terminals for a Job it does not have, so each Job holds one before it is listed.
+    let private = terminal_of(&phone, &jobs.private).await;
+    let open = terminal_of(&phone, &jobs.open).await;
     let listing = |job: &str| format!("/api/sessions/terminals?session_id={job}");
     let missing = phone.call("GET", &listing(NOBODY), "", NOBODY).await;
     assert_eq!(phone.call("GET", &listing(jobs.private.as_str()), "", jobs.private.as_str()).await, missing);
     assert_ne!(phone.call("GET", &listing(jobs.open.as_str()), "", jobs.open.as_str()).await, missing, "a shared Job's are listed");
 
-    let private = terminal_of(&phone, &jobs.private).await;
-    let open = terminal_of(&phone, &jobs.open).await;
     let keys = |run: &str| format!(r#"{{"run_id":"{run}","data":"ls\r"}}"#);
     let missing = phone.call("POST", "/api/sessions/terminal/write", &keys(NOBODY), NOBODY).await;
     assert_eq!(phone.call("POST", "/api/sessions/terminal/write", &keys(&private), &private).await, missing, "a keystroke reaches nothing");
