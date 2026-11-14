@@ -1600,6 +1600,13 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::ORIGIN,
     },
     Walk {
+        name: "native-fleet-disk",
+        title: "The Fleet panel's Disk section: free space, the floors and what Fleet drops next",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::DISK,
+    },
+    Walk {
         name: "project-switcher",
         title: "The project switcher on Fleet's projects",
         screen: Screen::Jobs,

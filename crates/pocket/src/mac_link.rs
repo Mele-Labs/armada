@@ -64,18 +64,22 @@ async fn follow(gateway: Gateway, mac: String) {
 }
 
 /// A stream from the other Mac, one line at a time.
-struct Lines {
+pub(crate) struct Lines {
     response: reqwest::Response,
     buffer: Vec<u8>,
 }
 
-enum Line {
+pub(crate) enum Line {
     Text(String),
     Ended(String),
 }
 
 impl Lines {
-    async fn next(&mut self, silence: Duration) -> Line {
+    pub(crate) fn new(response: reqwest::Response) -> Lines {
+        Lines { response, buffer: Vec::new() }
+    }
+
+    pub(crate) async fn next(&mut self, silence: Duration) -> Line {
         loop {
             if let Some(end) = self.buffer.iter().position(|b| *b == b'\n') {
                 let line: Vec<u8> = self.buffer.drain(..=end).collect();
@@ -236,8 +240,8 @@ impl Link<'_> {
 }
 
 /// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`,
-/// `/api/mac/act` or `/api/mac/update`, for the paths `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`
-/// and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
+/// `/api/mac/act`, `/api/mac/update` or `/api/mac/terminal`, for the paths `/other_mac/project_act`, `/other_mac/act`,
+/// `/other_mac/update` and `/other_mac/terminal` and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
 /// answered and the bytes, so a refusal there is said here as it was said.
 pub fn send_other_mac(
     gateway: &Gateway,
@@ -251,6 +255,7 @@ pub fn send_other_mac(
             "/other_mac/project_act" => "/api/mac/project_act",
             "/other_mac/act" => "/api/mac/act",
             "/other_mac/update" => "/api/mac/update",
+            "/other_mac/terminal" => "/api/mac/terminal",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);

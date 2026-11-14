@@ -108,6 +108,9 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
     if what == super::answering::QUESTION {
         return "Answer questions you are sure of".to_string();
     }
+    if what == super::answering::PRECEDENT {
+        return "Answer questions I have already answered".to_string();
+    }
     let (arrived, way) = what.split_once(':').unwrap_or((what, ""));
     let named = super::Arrived::from_word(arrived).map_or(arrived.to_string(), |arrived| arrived.named().to_string());
     match (way, then_of_pick(pick)) {
@@ -139,7 +142,7 @@ fn utc_millis(text: &str) -> Option<i64> {
     Some(at - offset * 60_000)
 }
 
-fn turn_number(id: &str) -> Option<i64> {
+pub(super) fn turn_number(id: &str) -> Option<i64> {
     id.strip_prefix(TURN).and_then(|n| n.parse().ok())
 }
 
@@ -169,7 +172,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn turn_unknown(&self, id: &str) -> Refusal {
+    pub(super) fn turn_unknown(&self, id: &str) -> Refusal {
         Refusal::NotFound(WireError::raised(TURN_UNKNOWN, format!("{id} is not an item waiting in Your turn"), self.run_id()))
     }
 
@@ -384,7 +387,7 @@ where
             let page = self.operator_page_wire().await?;
             return Ok(OperatorAnswered { open: None, started: None, filed: None, handed_to: None, page });
         }
-        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_pressed(&row, &item));
         let keeps = row.go_ahead && what.is_some();
         let answer_word = match answer {
             OperatorAnswer::Yes => "yes",
@@ -409,6 +412,11 @@ where
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
             })?;
+            // His press settled a question of a Job: his own answer, kept for the Operator to follow.
+            let label = super::raising::pick_of(doing.pick, &item);
+            if done.open.is_none() && !label.is_empty() && !row.session.is_empty() && super::answering::is_question(&item) {
+                self.operator_answer_kept(&row.session, &item.text, &item.options, &item.id, Some(&label), None, "operator_page").await;
+            }
             if let (true, Some(what)) = (answer != OperatorAnswer::Yes, &what) {
                 self.rule_kept(OperatorRule::PickRule { scope, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
             }
@@ -456,7 +464,7 @@ where
             return Err(refused);
         };
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
-        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_pressed(&row, &item));
         let Some(what) = what.filter(|_| row.go_ahead) else {
             return Err(self.hosted_refusal(NOT_OFFERED, "Always here and Always are offered only on what Fleet can do by itself"));
         };

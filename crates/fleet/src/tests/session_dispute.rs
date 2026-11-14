@@ -92,7 +92,12 @@ pub(super) async fn told_answering(rig: &Rig, notice: &str, after: Option<&str>)
 }
 
 pub(super) fn disputing(id: &SessionId, why: &str) -> DisputeFleet {
-    DisputeFleet { why: why.to_string(), session_id: Some(id.clone()) }
+    DisputeFleet { why: why.to_string(), notice_words: None, session_id: Some(id.clone()) }
+}
+
+/// [`disputing`] naming the notice by `words`, its opening words as the agent read them.
+fn disputing_named(id: &SessionId, why: &str, words: &str) -> DisputeFleet {
+    DisputeFleet { notice_words: Some(words.to_string()), ..disputing(id, why) }
 }
 
 /// Every job on the ledger but `but`.
@@ -318,4 +323,107 @@ async fn the_review_brief_asks_for_a_verdict_and_options_and_changes_nothing_unt
         assert!(brief.contains(asked), "the brief lacks {asked:?}:\n{brief}");
     }
     assert!(!brief.contains("fix it in Armada and land it"), "{brief}");
+}
+
+const LATER: &str = "slot-3 is 4 commits behind the base. Merge main into the branch before the next push.";
+
+/// The row id of the Fleet message that reads `text`.
+fn row_reading(rows: &[SessionRow], text: &str) -> String {
+    rows.iter()
+        .find_map(|row| match row {
+            SessionRow::Message { id, text: said, .. } if said == text => Some(id.clone()),
+            _ => None,
+        })
+        .expect("the notice row")
+}
+
+/// The notice row the job's one `disputed` row names.
+fn disputed_row(rows: &[SessionRow]) -> String {
+    rows.iter()
+        .find_map(|row| match row {
+            SessionRow::Disputed { notice, .. } => Some(notice.clone()),
+            _ => None,
+        })
+        .expect("a disputed row")
+}
+
+/// A job told [`NOTICE`] and then [`LATER`], so its latest notice is not the first.
+async fn told_twice(rig: &Rig) -> SessionId {
+    let id = told(rig, NOTICE).await;
+    assert!(rig.fleet.told_by_fleet(id.as_str(), LATER, ipc::Notice::SlotStranded).await.expect("told"));
+    id
+}
+
+/// Measured 30 Oct to 13 Nov: a dispute of an earlier notice, or of a check that is not a notice,
+/// was counted against whatever notice came last.
+#[tokio::test]
+async fn a_dispute_naming_an_earlier_notices_opening_words_is_tied_to_that_notice() {
+    let rig = serving_armada().await;
+    let id = told_twice(&rig).await;
+
+    let named = disputing_named(&id, WHY, "subagents  burned 5.0 units");
+    Arc::clone(&rig.fleet).dispute_fleet(None, named).await.expect("disputed");
+
+    let rows = rig.rows(&id).await;
+    assert_eq!(disputed_row(&rows), row_reading(&rows, NOTICE));
+}
+
+#[tokio::test]
+async fn a_dispute_naming_no_notice_or_words_no_notice_holds_is_tied_to_the_latest() {
+    for words in [None, Some("The question check said I had written nothing")] {
+        let rig = serving_armada().await;
+        let id = told_twice(&rig).await;
+
+        let dispute = DisputeFleet { notice_words: words.map(str::to_string), ..disputing(&id, WHY) };
+        Arc::clone(&rig.fleet).dispute_fleet(None, dispute).await.expect("disputed");
+
+        let rows = rig.rows(&id).await;
+        assert_eq!(disputed_row(&rows), row_reading(&rows, LATER), "{words:?}");
+    }
+}
+
+const SENT_BACK: &str = "Your reply names what the owner owes, and the armada waiting_for list does not hold it:\n- Approve PR #2415\nPut each in waiting_for with its own id, one short line and an act, passing session_id S1, then end the turn. Do not repeat them as a table.";
+
+/// The mod's stop hook already put the words in front of the agent, so Fleet keeps a row a dispute
+/// can name and sends nothing.
+#[tokio::test]
+async fn a_reported_send_back_is_kept_as_one_reply_claim_notice_and_starts_no_turn() {
+    let rig = serving_armada().await;
+    let id = told(&rig, NOTICE).await;
+    let idle = || async { !matches!(rig.turn(&id).await, ipc::SessionTurn::Working { .. }) };
+    // The agent's row is written before the end of its turn is heard.
+    eventually(idle).await;
+    let lines = || rig.stand_in.process(0).sent.lock().unwrap().len();
+    let (before, starts) = (lines(), rig.stand_in.starts().len());
+
+    let report = ipc::SessionReport {
+        harness: String::from(adapters::HOSTED_HARNESS),
+        session_id: id.clone(),
+        fact: ipc::SessionFact::SentBack { text: SENT_BACK.to_string() },
+    };
+    rig.fleet.report_session(report).await.expect("reported");
+
+    let rows = rig.rows(&id).await;
+    let kept: Vec<_> = rows
+        .iter()
+        .filter(|row| matches!(row, SessionRow::Message { notice: Some(notice), .. } if notice == "reply_claim"))
+        .collect();
+    assert_eq!(kept.len(), 1, "{rows:?}");
+    assert!(matches!(kept[0], SessionRow::Message { text, from, .. } if text == SENT_BACK && crate::session_host::disputing::is_fleets(from)));
+    assert_eq!((lines(), rig.stand_in.starts().len()), (before, starts), "nothing is sent to the agent");
+    assert!(idle().await, "no turn was started");
+
+    let named = disputing_named(&id, WHY, NOTICE);
+    Arc::clone(&rig.fleet).dispute_fleet(None, named).await.expect("disputed");
+    let named = disputing_named(&id, WHY, "Your reply names what the owner owes");
+    Arc::clone(&rig.fleet).dispute_fleet(None, named).await.expect("disputed");
+    let rows = rig.rows(&id).await;
+    let disputed: Vec<String> = rows
+        .iter()
+        .filter_map(|row| match row {
+            SessionRow::Disputed { notice, .. } => Some(notice.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(disputed, [row_reading(&rows, NOTICE), row_reading(&rows, SENT_BACK)]);
 }

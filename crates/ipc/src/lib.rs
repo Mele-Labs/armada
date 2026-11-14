@@ -389,7 +389,7 @@ pub use checks::{
     CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
 };
 pub use codec::{
-    decode, decode_body, encode, Undecodable, Unencodable,
+    decode, decode_body, encode, same_json, Undecodable, Unencodable,
 };
 pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
@@ -724,7 +724,7 @@ pub use document_answer::{
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use artifact::{
-    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, PageAct, PagePress, PressDid, PressPageAction, SaveArtifactEdit,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
 pub use sketch::{
@@ -775,7 +775,8 @@ pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
-    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
+    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalFromMac,
+    TerminalOfJob, TerminalScreen,
     TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{

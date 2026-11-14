@@ -21,7 +21,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Secret, Store, StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store, StoreError,
 };
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -76,20 +76,63 @@ impl HolderWire {
     }
 }
 
+/// A claim's holder as the store spells it: a holder, with the person's name and the Job's title.
+#[derive(Serialize, Deserialize)]
+struct ClaimantWire {
+    kind: String,
+    id: String,
+    machine: String,
+    since: i64,
+    name: String,
+    title: String,
+}
+
+impl ClaimantWire {
+    fn of(claimant: &Claimant) -> ClaimantWire {
+        let HolderWire { kind, id, machine, since } = HolderWire::of(&claimant.holder);
+        ClaimantWire { kind, id, machine, since, name: claimant.name.clone(), title: claimant.title.clone() }
+    }
+
+    fn into_claimant(self) -> Result<Claimant, StoreError> {
+        let holder = HolderWire { kind: self.kind, id: self.id, machine: self.machine, since: self.since }.into_holder()?;
+        Ok(Claimant { holder, name: self.name, title: self.title })
+    }
+}
+
 #[derive(Serialize)]
 struct ClaimBody<'a> {
     repo: &'a str,
-    red: &'a str,
-    holder: HolderWire,
+    kind: &'static str,
+    key: &'a str,
+    holder: ClaimantWire,
+}
+
+/// A claim as the store answers it. Its `renewed` is not read yet.
+#[derive(Deserialize)]
+struct ClaimReply {
+    holder: ClaimantWire,
+}
+
+/// Who a renewal is for: a holder without the `since` of any one claim.
+#[derive(Serialize)]
+struct RenewalBody<'a> {
+    holder: RenewingWire<'a>,
+}
+
+#[derive(Serialize)]
+struct RenewingWire<'a> {
+    kind: &'static str,
+    id: &'a str,
+    machine: &'a str,
+}
+
+#[derive(Deserialize)]
+struct Renewed {
+    claims: u64,
 }
 
 #[derive(Serialize)]
 struct OwnerBody {
-    holder: HolderWire,
-}
-
-#[derive(Deserialize)]
-struct HolderBody {
     holder: HolderWire,
 }
 
@@ -184,28 +227,40 @@ fn succeeded(reply: &Reply) -> bool {
     (200..300).contains(&reply.status)
 }
 
-pub(crate) fn claim_call(repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Call, StoreError> {
-    let body = ClaimBody { repo: repository.as_str(), red: red.as_str(), holder: HolderWire::of(holder) };
+pub(crate) fn claim_call(repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Call, StoreError> {
+    let body = ClaimBody { repo: repository.as_str(), kind: kind.as_wire(), key: key.as_str(), holder: ClaimantWire::of(claimant) };
     Ok(Call { method: "POST", target: "/v1/claims".to_string(), body: body_of(&body)? })
 }
 
 pub(crate) fn claimed(reply: &Reply) -> Result<Claimed, StoreError> {
     match reply.status {
         200 => Ok(Claimed::Won),
-        409 => Ok(Claimed::Held(decoded::<HolderBody>("claim holder", reply)?.holder.into_holder()?)),
+        409 => Ok(Claimed::Held(decoded::<ClaimReply>("claim holder", reply)?.holder.into_claimant()?)),
         _ => Err(not_answered(reply)),
     }
 }
 
-fn claim_target(repository: &RepositoryKey, red: &RedKey) -> String {
-    format!("/v1/claims/{}/{}", repository.as_str(), red.as_str())
+fn claim_target(repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> String {
+    format!("/v1/claims/{}/{}/{}", repository.as_str(), kind.as_wire(), key.as_str())
 }
 
-pub(crate) fn held(reply: &Reply) -> Result<Option<Holder>, StoreError> {
+pub(crate) fn held(reply: &Reply) -> Result<Option<Claimant>, StoreError> {
     match reply.status {
-        200 => Ok(Some(decoded::<HolderBody>("claim holder", reply)?.holder.into_holder()?)),
+        200 => Ok(Some(decoded::<ClaimReply>("claim holder", reply)?.holder.into_claimant()?)),
         404 => Ok(None),
         _ => Err(not_answered(reply)),
+    }
+}
+
+pub(crate) fn renewal_call(holder: &Holder) -> Result<Call, StoreError> {
+    let body = RenewalBody { holder: RenewingWire { kind: holder.kind.as_wire(), id: &holder.id, machine: &holder.machine } };
+    Ok(Call { method: "POST", target: "/v1/renewals".to_string(), body: body_of(&body)? })
+}
+
+pub(crate) fn renewed(reply: &Reply) -> Result<u64, StoreError> {
+    match succeeded(reply) {
+        true => Ok(decoded::<Renewed>("renewal", reply)?.claims),
+        false => Err(not_answered(reply)),
     }
 }
 
@@ -394,30 +449,34 @@ fn send(client: &Client, base: &str, call: &Call, headers: &[(&'static str, Stri
 }
 
 impl Store for HttpStore {
-    fn claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError> {
-        claimed(&self.send(&claim_call(repository, red, holder)?)?)
+    fn claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
+        claimed(&self.send(&claim_call(repository, kind, key, claimant)?)?)
     }
 
-    fn read_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<Option<Holder>, StoreError> {
-        let call = Call { method: "GET", target: claim_target(repository, red), body: Vec::new() };
+    fn read_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<Option<Claimant>, StoreError> {
+        let call = Call { method: "GET", target: claim_target(repository, kind, key), body: Vec::new() };
         held(&self.send(&call)?)
     }
 
-    fn release_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<(), StoreError> {
-        let call = Call { method: "DELETE", target: claim_target(repository, red), body: Vec::new() };
+    fn release_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<(), StoreError> {
+        let call = Call { method: "DELETE", target: claim_target(repository, kind, key), body: Vec::new() };
         deleted(&self.send(&call)?)
     }
 
     /// **Two requests, not one**: delete whoever holds it, then claim. Two
     /// machines taking over at once leave one winner, and the other is told who.
-    fn replace_claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError> {
-        self.release_claim(repository, red)?;
-        self.claim(repository, red, holder)
+    fn replace_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError> {
+        self.release_claim(repository, kind, key)?;
+        self.claim(repository, kind, key, claimant)
     }
 
-    fn clear_repository(&self, repository: &RepositoryKey) -> Result<(), StoreError> {
-        let call = Call { method: "DELETE", target: format!("/v1/claims/{}", repository.as_str()), body: Vec::new() };
+    fn clear_kind(&self, repository: &RepositoryKey, kind: ClaimKind) -> Result<(), StoreError> {
+        let call = Call { method: "DELETE", target: format!("/v1/claims/{}/{}", repository.as_str(), kind.as_wire()), body: Vec::new() };
         deleted(&self.send(&call)?)
+    }
+
+    fn renew(&self, holder: &Holder) -> Result<u64, StoreError> {
+        renewed(&self.send(&renewal_call(holder)?)?)
     }
 
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError> {
