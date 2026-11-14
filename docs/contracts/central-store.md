@@ -30,7 +30,7 @@ Why: Bridge holds one connection, to Fleet.
 | Device | device id | public key, machine name |
 | Claim | repository hash, kind and key hash | holder |
 | Holder | holder kind, id and machine | the person's name, the Job's title, when it last renewed |
-| Contender | repository hash, kind and key hash of a held claim, and the asker's holder kind, id and machine | the asker's name, title and `since`, and when it last asked |
+| Contender | repository hash, kind and key hash of a held claim, and the asker's holder kind, id and machine | the asker's name, title and `since`, when it last asked, and whether its claim's holder was told |
 | Owner | key hash | holder |
 | Runs | repository hash | the repository's facts, as JSON |
 | Nonce | device id and nonce | when seen |
@@ -85,6 +85,7 @@ All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `P
 | `GET /devices` | none | `200 {devices}`, each `device` and `machine`, oldest enrolment first |
 | `DELETE /devices/{device}` | none | `204`, `404 no_device` |
 | `POST /claims` | `repo`, `kind`, `key`, `holder` | `200 {holder, renewed}` won, `409 {holder, renewed}` held |
+| `GET /claims` | none | `200 {holders}`, each `holder`, `renewed`, `claims` and `waits` |
 | `GET /claims/{repo}/{kind}/{key}` | none | `200 {holder, renewed}`, `404 no_claim` |
 | `DELETE /claims/{repo}/{kind}/{key}` | none | `204` |
 | `DELETE /claims/{repo}/{kind}` | none | `204` |
@@ -114,12 +115,25 @@ A Mac asleep that long takes its claims again when it wakes.
 Why: a renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written ([Cost](#cost)).
 
 **Rule.** A `POST /claims` answered `409` keeps its asker as a contender of the claim, unless the asker is the holder itself (same holder kind, id and machine).
-A renewal answers `contested`, a list of `{repo, kind, key, holder}` for every contender on a claim the renewing holder still holds, with `holder` spelled as a `409` spells it, and deletes those rows as it answers them.
-A contender that asks again updates its name, title and time, and no second row is kept.
+A renewal answers `contested`, a list of `{repo, kind, key, holder}` for every contender on a claim the renewing holder still holds that was not told yet, with `holder` spelled as a `409` spells it.
+It marks those rows told and keeps them, so each contender is told once and stays while its asker keeps asking.
+A contender that asks again updates its name, title and time and keeps its told flag, and no second row is kept.
+A contender lapses 30 minutes after its asker last asked, and every claims route and `POST /renewals` read it as gone before the alarm has run.
+The alarm drops it with the lapsed holders.
+A contender's rows also go with its claim when the claim is given back, cleared by kind, taken over or lapsed.
 An account holding 10,000 contenders keeps no new one, and still answers the `409`; a contender is a warning, so a refusal there would hide who holds the claim.
-A contender's rows go with its claim when the claim is given back, cleared by kind, taken over or lapsed.
 Why: when two Jobs claim the same file both are told the file and the other holder, and the first holder reaches the store only by renewing.
+A Job that waits on a claim stays visible as waiting for as long as it asks, so the claims list can say what a pull request waits on.
 Decided by the owner, 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
+
+**Rule.** `GET /claims` answers every live claim of the object in `holders`, one group for each holder (kind, id and machine) that holds a live claim or is a live contender.
+A group is `holder` as `kind`, `id`, `machine`, `name` and `title`, `renewed`, `claims` and `waits`.
+`renewed` is the holder row's renewal time. A group that only contends has no holder row, so it takes `renewed`, `name` and `title` from its newest contender.
+`claims` holds every claim the holder holds as `repo`, `kind`, `key` and `since`, in order of kind, then `since`, then key.
+`waits` holds every claim held by someone else that the holder is a live contender on, as `repo`, `kind`, `key` and `holder` spelled as a `409` spells it, in order of kind, then key.
+Groups are in order of name, then machine, then holder kind, then id.
+A lapsed holder, its claims and a lapsed contender are absent, and the read writes nothing.
+Why: the claims list says who holds each thing and who waits on it, from one signed call.
 
 **Rule.** Green on main clears every `red` claim under the repository, `DELETE /claims/{repo}/red`.
 Its other claims stand.
@@ -235,6 +249,7 @@ The store is the default for every Armada user, so no one account may run up the
 | Body of `PUT /runs/{repo}` | 131072 bytes | `413 too_large` |
 | Verified requests per device per minute | 120 | `429 rate_limited`, `Retry-After: 60` |
 | A claim after its holder's last renewal | 30 minutes | Dropped, `404 no_claim` |
+| A contender after its asker last asked | 30 minutes | Dropped, absent from `waits` |
 
 **Rule.** `enrol` counts the client address, from `CF-Connecting-IP`, before it asks the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
 Why: every enrolment that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
@@ -258,6 +273,9 @@ Why: the Worker finds the object from the header alone, so anyone can name an ac
 
 **Rule.** A table added after accounts enrolled is made `IF NOT EXISTS` by the first verified request that reaches it, as well as at enrolment. `runs` is the first, then `holders`, then `contenders`.
 Why: an account that enrolled before the table existed never enrols again, and a verified device is an enrolled one.
+
+**Rule.** A `contenders` table made before it had `told` gets `told INTEGER NOT NULL DEFAULT 0` added by the first verified request, and keeps its rows, none of them told.
+Why: an account that enrolled before the column existed never enrols again, and a contender it holds is told once on its holder's next renewal.
 
 **Rule.** A `claims` table keyed `(repo, red)` is dropped by the first verified request, with its rows, and made again keyed `(repo, kind, key)`.
 Why: those rows name no person or title and nothing renews them, so the lapse would drop them anyway; the Mac that held one claims it again.
@@ -343,7 +361,8 @@ No call is logged to replay; a claim taken and given back while the store is dow
 Why: the owner ruled on 13 Nov 2026 that Jobs carry on while the store is down (`.claude/decisions/2026-11-13-claims-store.md`).
 The Job's claims and the waits they make are [Fleet](../concepts/fleet.md#claims-a-job-holds).
 
-**Rule.** A Job's own claims call the store of the projects holding its repository, whatever the Manifest says of pull request owners: naming a store in the project is the switch.
+**Rule.** A Job's own claims, a red main's and a failing test's call the store of the projects holding its repository, whatever the Manifest says of pull request owners: naming a store in the project is the switch.
+Why: a red main's or a flaky test's fix Job always starts, so two Macs that skipped the claim would both start one. The owner ruled on 13 Nov 2026 that the first claim wins.
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 

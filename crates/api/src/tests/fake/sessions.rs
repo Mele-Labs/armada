@@ -444,6 +444,14 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn call_test_flaky(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _call: ipc::CallTestFlaky,
+    ) -> Result<ipc::TestCalledFlaky, Refusal> {
+        Ok(ipc::TestCalledFlaky { pull: 12, said: String::new() })
+    }
+
     async fn show_window(
         &self,
         _caller: Option<crate::Caller>,
@@ -760,6 +768,22 @@ impl Sessions for FakeDaemon {
         _dispute: ipc::DisputeFleet,
     ) -> Result<ipc::FleetDisputed, Refusal> {
         Ok(ipc::FleetDisputed { dispute_id: String::from("dispute"), review_session_id: None, joined: false })
+    }
+
+    async fn raise_conflict(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _conflict: ipc::RaiseConflict,
+    ) -> Result<ipc::ConflictRaised, Refusal> {
+        Ok(ipc::ConflictRaised { id: String::from("conflict:s-a:s-b"), folded: false })
+    }
+
+    async fn ask_held(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _asked: ipc::AskHeld,
+    ) -> Result<ipc::HeldAsked, Refusal> {
+        Ok(ipc::HeldAsked { id: String::from("held:repo:1"), answer: None })
     }
 
     async fn report_bug(

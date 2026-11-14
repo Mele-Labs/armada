@@ -134,6 +134,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
         // The Side Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
         "new-project" => include_bytes!("../fixtures/side-jobs.json"),
+        // The same Jobs under his projects as `jobs-projects` has them, with the Side Job not started yet: ⌘T starts it, in the
+        // project the title bar names (`started_side_job`).
+        "project-filter" => include_bytes!("../fixtures/side-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // A plan with a sketch for the whole plan and one for a group, waiting on him beside a question; and the same plan once approved.
@@ -214,7 +217,10 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.workflow_copy = None;
         }
     }
-    if scenario == "jobs-projects" {
+    if scenario == "project-filter" {
+        sessions.retain(|one| one.id.as_str() != SIDE_JOB);
+    }
+    if matches!(scenario, "jobs-projects" | "project-filter") {
         let facts = |project: &str| {
             let raw = format!(r#"{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"project":"{project}"}}"#);
             ipc::decode::<ipc::HostedFacts>("HostedFacts", raw.as_bytes()).map_err(|why| why.to_string())
@@ -230,7 +236,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
                 None => one.hosted = Some(facts(project)?),
             }
         }
-        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06") {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06").filter(|_| scenario == "jobs-projects") {
             one.title = None;
         }
     }
@@ -355,6 +361,26 @@ const NOW_ANCHOR: &str = "2026-11-09T14:45:00Z";
 
 /// The repositories Fleet would serve (`GET /repositories`) in the walks: the four the title bar's
 /// switcher is drawn from, the last with no Manifest.
+/// The Side Job the walks' mock shells start.
+pub const SIDE_JOB: &str = "s-7c41e2a9";
+
+/// The Side Job as Fleet lists it once started in repository `repository`, for `project` where it was started for one.
+pub fn started_side_job(repository: &str, project: Option<&str>) -> Result<SessionRecord, String> {
+    let mut one = ipc::decode::<SessionList>("SessionList", include_bytes!("../fixtures/side-jobs.json"))
+        .map_err(|why| why.to_string())?
+        .sessions
+        .into_iter()
+        .find(|one| one.id.as_str() == SIDE_JOB)
+        .ok_or("the side job fixture holds no Side Job")?;
+    one.manifest_id = Some(ipc::ManifestId::carried(repository.to_string()));
+    one.cwd = format!("/repos/{repository}");
+    if let Some(project) = project {
+        let raw = format!(r#"{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"project":"{project}"}}"#);
+        one.hosted = Some(ipc::decode::<ipc::HostedFacts>("HostedFacts", raw.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(one)
+}
+
 pub fn repositories() -> Vec<ipc::RepositorySummary> {
     ipc::decode::<ipc::RepositoryList>("RepositoryList", include_bytes!("../fixtures/repositories.json"))
         .unwrap_or_else(|why| panic!("the repositories fixture does not decode: {why}"))
@@ -428,6 +454,11 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         }
         all.insert(id.to_string(), empty_thread(id, job.started_at.as_str())?);
     }
+    // The Side Job a walk starts is not in its list yet, and has its empty thread ready.
+    if scenario == "project-filter" {
+        let started = started_side_job("armada", None)?;
+        all.insert(SIDE_JOB.to_string(), empty_thread(SIDE_JOB, started.started_at.as_str())?);
+    }
     Ok(all)
 }
 
@@ -488,7 +519,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "review-palette" | "side-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.

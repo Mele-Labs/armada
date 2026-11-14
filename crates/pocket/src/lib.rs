@@ -35,6 +35,7 @@ mod nearby;
 mod pair_routes;
 mod pairing;
 mod phone_sessions;
+mod phone_terminals;
 mod push;
 mod reads;
 mod routes;
@@ -57,7 +58,7 @@ use tokio::net::TcpListener;
 pub use fleet_client::{Answer, Unreachable};
 pub use door::{bind_door, Door, DoorCert, CERT_FILE};
 pub use cloudflared::tunnel_sign_in;
-pub use mac_keys::{MacKeys, MemoryMacKeys};
+pub use mac_keys::{sign, spki_hex, MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
 pub use mac_pages::{open_other_mac_page, PageOpen};
 pub use mac_terminals::{follow_other_mac, Followed};
@@ -97,6 +98,8 @@ mod mac_tests;
 mod nearby_tests;
 #[cfg(test)]
 mod pairing_tests;
+#[cfg(test)]
+mod phone_terminal_tests;
 #[cfg(test)]
 mod push_tests;
 #[cfg(test)]

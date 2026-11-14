@@ -130,3 +130,130 @@ pub fn refuse_next(on: bool) {
 pub fn mock_refusal(_job: &str) -> Option<String> {
     REFUSE_NEXT.swap(false, std::sync::atomic::Ordering::SeqCst).then(|| "This Job is already moving to Air.".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ipc::MacColour;
+
+    fn studio() -> Mac {
+        Mac { id: "studio".into(), name: "Studio".into(), colour: MacColour::Teal, this_mac: true, ..Default::default() }
+    }
+
+    fn air(link: MacLink) -> Mac {
+        Mac { id: "air".into(), name: "Air".into(), colour: MacColour::Orange, link: Some(link), ..Default::default() }
+    }
+
+    /// A live Job Fleet hosts, with no pause and no move, held by this Mac.
+    fn job() -> SessionRecord {
+        let job = crate::mock::jobs("jobs-screens").expect("the fixture decodes").into_iter().find(|job| job.id.as_str() == "mock-02").expect("a hosted Job");
+        assert!(job.hosted.is_some() && job.state == SessionState::Live && job.mac.is_none());
+        job
+    }
+
+    fn label(offer: Option<Offer>) -> Option<(String, Option<String>, Option<String>)> {
+        offer.map(|one| (one.label, one.to, one.off))
+    }
+
+    #[test]
+    fn a_job_this_mac_holds_is_offered_a_move_to_the_linked_mac() {
+        let macs = [studio(), air(MacLink::Linked)];
+        assert_eq!(label(offer(&job(), &macs)), Some(("Move to Air".into(), Some("air".into()), None)));
+    }
+
+    #[test]
+    fn no_move_is_offered_while_no_other_mac_is_linked() {
+        assert_eq!(offer(&job(), &[studio()]), None, "one Mac");
+        assert_eq!(offer(&job(), &[studio(), air(MacLink::ClaimWaiting)]), None, "a claim waiting");
+        assert_eq!(offer(&job(), &[studio(), air(MacLink::ConfirmWaiting)]), None, "a confirm waiting");
+        assert_eq!(offer(&job(), &[]), None, "no Macs listed");
+    }
+
+    #[test]
+    fn a_job_that_has_ended_is_paused_or_moving_is_not_offered_a_move() {
+        let macs = [studio(), air(MacLink::Linked)];
+        let mut ended = job();
+        ended.state = SessionState::Ended;
+        assert_eq!(offer(&ended, &macs), None, "ended");
+        let mut paused = job();
+        let held = crate::mock::jobs("jobs-screens").expect("the fixture decodes").into_iter().find(|job| job.id.as_str() == "mock-05").expect("a paused Job");
+        paused.hosted.as_mut().expect("hosted").paused = held.hosted.expect("hosted").paused;
+        assert!(paused.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()));
+        assert_eq!(offer(&paused, &macs), None, "paused");
+        let mut moving = job();
+        moving.hosted.as_mut().expect("hosted").moving_to_mac = Some("air".into());
+        assert_eq!(offer(&moving, &macs), None, "moving");
+        let mut unhosted = job();
+        unhosted.hosted = None;
+        assert_eq!(offer(&unhosted, &macs), None, "a Job Fleet does not host");
+    }
+
+    #[test]
+    fn a_job_the_other_mac_holds_is_offered_bring_here_with_no_mac_to_name() {
+        let mut held = job();
+        held.mac = Some("air".into());
+        for link in [MacLink::Linked, MacLink::Asleep { since: 5 }] {
+            assert_eq!(label(offer(&held, &[studio(), air(link)])), Some(("Bring here".into(), None, None)), "it stays on while Air sleeps, as Fleet queues it");
+        }
+        let macs = [studio(), air(MacLink::Linked)];
+        held.hosted.as_mut().expect("hosted").moving_to_mac = Some("studio".into());
+        assert_eq!(offer(&held, &macs), None, "one already coming here is not offered again");
+        held.hosted.as_mut().expect("hosted").moving_to_mac = None;
+        held.state = SessionState::Ended;
+        assert_eq!(offer(&held, &macs), None, "an ended Job is not brought");
+    }
+
+    #[test]
+    fn an_asleep_mac_lists_the_move_off_with_when_it_fell_asleep() {
+        let shown = offer(&job(), &[studio(), air(MacLink::Asleep { since: 99 })]).expect("the act is listed");
+        assert_eq!((shown.label.as_str(), shown.to.as_deref()), ("Move to Air", Some("air")));
+        assert_eq!(shown.off, Some(crate::pairing::asleep_said(99)));
+        assert!(shown.off.is_some_and(|why| why.starts_with("Asleep since ")));
+    }
+
+    #[test]
+    fn a_linked_mac_is_preferred_to_an_asleep_one() {
+        let sleeper = Mac { id: "mini".into(), name: "Mini".into(), link: Some(MacLink::Asleep { since: 1 }), ..Default::default() };
+        let shown = offer(&job(), &[studio(), sleeper, air(MacLink::Linked)]).expect("the act is listed");
+        assert_eq!((shown.label.as_str(), shown.off), ("Move to Air", None));
+    }
+
+    #[test]
+    fn the_mac_a_job_is_moving_to_is_read_from_its_hosted_record() {
+        let mut moving = job();
+        assert_eq!(moving_to(&moving), None);
+        moving.hosted.as_mut().expect("hosted").moving_to_mac = Some("air".into());
+        assert_eq!(moving_to(&moving), Some("air"));
+        moving.hosted = None;
+        assert_eq!(moving_to(&moving), None, "a Job with no hosted record is moving nowhere");
+    }
+
+    #[test]
+    fn a_job_ended_as_moved_to_mac_reads_as_moved_to_the_mac_it_went_to() {
+        let macs = [studio(), air(MacLink::Linked)];
+        let mut gone = job();
+        assert!(!moved(&gone), "a live Job has not moved");
+        gone.state = SessionState::Ended;
+        gone.end_reason = Some("merged".into());
+        assert!(!moved(&gone), "ended for another reason");
+        gone.end_reason = Some(ENDED_AS.into());
+        assert!(moved(&gone));
+        gone.state = SessionState::Live;
+        assert!(!moved(&gone), "the reason alone is not an end");
+        let went = went_to(&macs);
+        assert_eq!(went, Some("air"));
+        assert_eq!(crate::pairing::chip_of(&macs, went).map(|chip| chip.name), Some("Air".into()), "the row names it Moved to Air");
+        assert_eq!(this_mac(&macs), Some("studio"));
+    }
+
+    #[test]
+    fn the_mock_refuses_the_next_move_once_in_fleets_words() {
+        assert_eq!(mock_refusal("mock-02"), None, "nothing is armed");
+        refuse_next(true);
+        assert_eq!(mock_refusal("mock-02").as_deref(), Some("This Job is already moving to Air."));
+        assert_eq!(mock_refusal("mock-02"), None, "taken once");
+        refuse_next(true);
+        refuse_next(false);
+        assert_eq!(mock_refusal("mock-02"), None, "forgotten before it was met");
+    }
+}

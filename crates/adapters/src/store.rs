@@ -21,7 +21,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, OwnerKey, Renewed, RepositoryKey, RunRow, Secret, Store, StoreDevice,
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Secret, Store, StoreDevice,
     StoreError,
 };
 use reqwest::blocking::Client;
@@ -153,6 +153,74 @@ impl ContestWire {
             key: ClaimKey::from_hash(&self.key)?,
             by: self.holder.into_claimant().ok()?,
         })
+    }
+}
+
+/// `GET /v1/claims`: every live claim, grouped by holder.
+#[derive(Deserialize)]
+struct ListedWire {
+    holders: Vec<GroupWire>,
+}
+
+/// One holder's group. The holder carries no `since`: each claim has its own.
+#[derive(Deserialize)]
+struct GroupWire {
+    holder: GroupHolderWire,
+    renewed: i64,
+    #[serde(default)]
+    claims: Vec<ListedClaimWire>,
+    #[serde(default)]
+    waits: Vec<ContestWire>,
+}
+
+#[derive(Deserialize)]
+struct GroupHolderWire {
+    kind: String,
+    id: String,
+    machine: String,
+    name: String,
+    title: String,
+}
+
+#[derive(Deserialize)]
+struct ListedClaimWire {
+    repo: String,
+    kind: String,
+    key: String,
+    since: i64,
+}
+
+impl GroupWire {
+    /// `None` for a group this build cannot name; within one, a claim or wait it cannot read is skipped.
+    fn into_group(self) -> Option<HolderClaims> {
+        let holder = HolderWire { kind: self.holder.kind, id: self.holder.id, machine: self.holder.machine, since: 0 }.into_holder().ok()?;
+        let claims = self
+            .claims
+            .into_iter()
+            .filter_map(|one| {
+                Some(ListedClaim {
+                    repository: RepositoryKey::from_hash(&one.repo)?,
+                    kind: ClaimKind::from_wire(&one.kind)?,
+                    key: ClaimKey::from_hash(&one.key)?,
+                    since: one.since,
+                })
+            })
+            .collect();
+        let waits = self
+            .waits
+            .into_iter()
+            .filter_map(ContestWire::into_contest)
+            .map(|contest| ListedWait { repository: contest.repository, kind: contest.kind, key: contest.key, held_by: contest.by })
+            .collect();
+        Some(HolderClaims { holder: Claimant { holder, name: self.holder.name, title: self.holder.title }, renewed: self.renewed, claims, waits })
+    }
+}
+
+/// The groups in a `GET /v1/claims` reply, in the store's order.
+pub(crate) fn listed(reply: &Reply) -> Result<Vec<HolderClaims>, StoreError> {
+    match succeeded(reply) {
+        true => Ok(decoded::<ListedWire>("claims list", reply)?.holders.into_iter().filter_map(GroupWire::into_group).collect()),
+        false => Err(not_answered(reply)),
     }
 }
 
@@ -527,6 +595,11 @@ impl Store for HttpStore {
 
     fn renew(&self, holder: &Holder) -> Result<Renewed, StoreError> {
         renewed(&self.send(&renewal_call(holder)?)?)
+    }
+
+    fn claims_listed(&self) -> Result<Vec<HolderClaims>, StoreError> {
+        let call = Call { method: "GET", target: "/v1/claims".to_string(), body: Vec::new() };
+        listed(&self.send(&call)?)
     }
 
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError> {

@@ -132,6 +132,20 @@ mod tests {
     }
 
     #[test]
+    fn a_move_waiting_on_the_other_mac_says_bring_here_and_its_two_halves_say_move() {
+        let said = |act: &JobAct| said_of(act, &[]);
+        let asked = act(r#"{"kind":"move","body":{"session_id":"j"}}"#);
+        assert_eq!(said(&asked), Said { kind: "Bring here".into(), detail: None });
+        let job = crate::mock::jobs("jobs-screens").expect("the fixture decodes").remove(0);
+        let arriving = JobAct::Arrive(ipc::ArrivingJob { record: job, branch: Some("native/x".into()), conversation: ipc::CarriedConversation { bytes: 12, sha256: "ab".into() } });
+        assert_eq!(said(&arriving), Said { kind: "Move".into(), detail: None });
+        let settled = act(r#"{"kind":"move_settled","body":{"session_id":"j"}}"#);
+        assert_eq!(said(&settled), Said { kind: "Move".into(), detail: None });
+        let refused = act(r#"{"kind":"move_settled","body":{"session_id":"j","refused":"No room"}}"#);
+        assert_eq!(said(&refused), Said { kind: "Move".into(), detail: None }, "a refusal is still a move's half, with no words of its own");
+    }
+
+    #[test]
     fn a_jobs_sends_are_its_own_in_fleets_order() {
         let one = |id: &str, job: &str| Queued { id: id.into(), mac: "air".into(), act: act(&format!(r#"{{"kind":"stop","body":{{"session_id":"{job}"}}}}"#)), since: 1, refused: None };
         let list = QueuedList { queued: vec![one("a", "j1"), one("b", "j2"), one("c", "j1")] };

@@ -128,6 +128,13 @@ fn threads(id: &str) -> Option<String> {
     })
 }
 
+/// One project of this Mac, shared, holding both repositories: where a Job the phone starts goes.
+fn shared_projects() -> String {
+    let members = ipc::decode::<Vec<ipc::ProjectMember>>("members", br#"[{"manifest_id":"m1"},{"manifest_id":"m2"}]"#).unwrap();
+    let shop = ipc::Project { id: "shop".into(), name: "Shop".into(), members, shared_with_macs: true, ..Default::default() };
+    ipc::encode(&ipc::Projects { projects: vec![shop], loose: Vec::new(), left_out: Vec::new() }).unwrap()
+}
+
 async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, rows: String) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
@@ -137,6 +144,7 @@ async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, row
     let app = Router::new()
         .route("/sessions", get(move || async move { rows }))
         .route("/manifests", get(move || async move { manifests }))
+        .route("/projects", get(|| async { shared_projects() }))
         .route("/events", get(events))
         .route(
             "/sessions/one",
@@ -425,7 +433,7 @@ async fn dispatch_starts_a_session_on_the_manifest_the_label_maps_to() {
     // The words name the Job, then reach the agent as its first message, to the Job just started.
     let seen = seen.lock().unwrap();
     assert_eq!(seen.len(), 2, "{seen:?}");
-    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string()));
+    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing","project":"shop"}"#.to_string()));
     assert_eq!(seen[1], ("/sessions/message".to_string(), r#"{"session_id":"s9","text":"Fix the thing"}"#.to_string()));
 }
 
@@ -475,6 +483,7 @@ async fn an_operator_dispatch_reaches_fleet_as_a_dispatch_with_its_kind_and_no_m
     assert_eq!(path, "/sessions/dispatch");
     assert!(sent.contains(r#""manifest_id":"m2""#) && sent.contains(r#""request":"Fix the thing""#) && sent.contains(r#""kind":"bug""#), "{sent}");
     assert!(!sent.contains(r#""mac""#) && !sent.contains("on_your_words"), "{sent}");
+    assert!(sent.contains(r#""project":"shop""#), "a Job the phone starts here goes into the shared project: {sent}");
 }
 
 #[tokio::test]
@@ -559,7 +568,7 @@ async fn a_live_job_is_forked_at_its_agents_last_message_and_not_at_the_last_row
     let seen = seen.lock().unwrap();
     assert_eq!(
         *seen,
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"}}"#.to_string())],
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"},"project":"shop"}"#.to_string())],
         "one start, with no message after it"
     );
 }
@@ -571,7 +580,7 @@ async fn an_ended_job_is_forked_whole() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(
         *seen.lock().unwrap(),
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"}}"#.to_string())]
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"},"project":"shop"}"#.to_string())]
     );
 }
 
@@ -604,7 +613,7 @@ async fn a_fork_that_cannot_be_made_is_refused_before_fleet_starts_anything() {
 fn phone_row(tail: &str, usage: &str) -> String {
     let record = record("j1", "bridge", "live", tail).replace(r#""usage":{}"#, &format!(r#""usage":{usage}"#));
     let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
 }
 
 #[test]
@@ -711,7 +720,7 @@ fn a_row_names_its_first_open_pull_request_on_failed_checks() {
     let row = |attached: &[String]| {
         let record = record("j1", "bridge", "live", "").replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
         let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
     };
     let failed = r#""checks":"failed""#;
     // Merged, spent and given back no longer count; passing Checks never did.
@@ -737,7 +746,7 @@ fn a_row_says_a_job_is_blank_only_with_no_title_no_turn_and_nothing_attached() {
     record.title = None;
     record.last_turn_at = None;
     record.attachments.clear();
-    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap();
+    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap();
     assert!(blank.contains(r#""blank":true"#), "{blank}");
 }
 
@@ -776,4 +785,52 @@ fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
         "{held}"
     );
     assert!(!held.contains("BRIEF-SECRET"), "{held}");
+}
+
+/// The row `PhoneSession::of` makes of a hosted Job with `tail` after its fields and `attached` standing on it.
+fn row_with(tail: &str, attached: &[&str]) -> String {
+    let record = record("j1", "bridge", "live", tail).replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
+    let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+    let projects = std::collections::BTreeMap::from([("p1".to_string(), "Pocket".to_string())]);
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &projects, FIVE_PAST)).unwrap()
+}
+
+#[test]
+fn a_row_carries_what_native_draws_its_row_from() {
+    let attachment = |kind: &str, target: &str, detail: &str| {
+        format!(
+            r#"{{"kind":"{kind}","target":"{target}","state":"standing","detail":{{{detail}}},"since":"2026-10-08T02:00:00.000Z","changed_at":"2026-10-08T02:00:00.000Z"}}"#
+        )
+    };
+    let tail = r#","last_turn_at":"2026-10-08T02:30:00.000Z","mark":{"state":"working","lamp":"running","group":"working"},"workflow":"Ship","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p1"},"activity":{"now":"Editing gate.rs","said":"Reading"},"so_far":"Earlier""#;
+    let row = row_with(&tail, &[&attachment("pr", "77", ""), &attachment("issue", "412", r#""title":"Phone rows""#)]);
+    assert!(row.contains(r#""mark":{"state":"working","lamp":"running","group":"working"}"#), "{row}");
+    assert!(row.contains(r#""last_turn_at":"2026-10-08T02:30:00.000Z""#), "{row}");
+    assert!(row.contains(r#""project":"Pocket""#), "{row}");
+    assert!(row.contains(r#""pull":77"#), "{row}");
+    assert!(row.contains(r##""issue":{"number":"#412","title":"Phone rows"}"##), "{row}");
+    assert!(row.contains(r#""step":"Ship""#), "{row}");
+    assert!(row.contains(r#""now":"Editing gate.rs""#), "{row}");
+
+    // A project Fleet did not list is no name, and never its id.
+    let unlisted = row_with(r#","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p9"}"#, &[]);
+    assert!(!unlisted.contains("project") && !unlisted.contains("p9"), "{unlisted}");
+
+    // An issue named by a word keeps it, and has no title where its attachment carries none.
+    let word = row_with("", &[&attachment("issue", "armada-a3f2", "")]);
+    assert!(word.contains(r#""issue":{"number":"armada-a3f2","title":""}"#), "{word}");
+
+    // What the Job said stands in for what it is doing, and what it has done so far for both.
+    let said = row_with(r#","activity":{"said":"Reading"},"so_far":"Earlier""#, &[]);
+    assert!(said.contains(r#""now":"Reading""#), "{said}");
+    let earlier = row_with(r#","so_far":"Earlier""#, &[]);
+    assert!(earlier.contains(r#""now":"Earlier""#), "{earlier}");
+}
+
+#[test]
+fn a_row_with_none_of_them_leaves_their_keys_out() {
+    let plain = row_with("", &[]);
+    for field in ["mark", "project", "last_turn_at", "pull", "issue", "step", "now"] {
+        assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
+    }
 }

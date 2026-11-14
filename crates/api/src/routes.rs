@@ -92,8 +92,10 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
     let waiting = served
         .waiting_on()
         .map(|over| (over, served.run_id().clone()));
-    let app =
-        surface(served.clone()).merge(crate::door::mounted::<D>(served.clone(), surface(served)));
+    let phone = from_fn_with_state(served.clone(), crate::phone_share::to_the_phone::<D>);
+    let app = surface(served.clone())
+        .merge(crate::door::mounted::<D>(served.clone(), surface(served)))
+        .layer(phone);
     // Inside the refusal, so a page is turned away at once and not after the wait.
     let app = match waiting {
         Some(waiting) => app.layer(from_fn_with_state(
@@ -406,6 +408,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
+        .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
+        .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
         .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
         .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
         .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
@@ -549,6 +553,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/take_main_red",
             post(crate::sessions::take_main_red::<D>),
+        )
+        .route(
+            "/sessions/call_test_flaky",
+            post(crate::sessions::call_test_flaky::<D>),
         )
         .route(
             "/sessions/start_another",
@@ -890,6 +898,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),
         )
         .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
+        .route("/projects/project/:project/claims", get(crate::projects::get_project_claims::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

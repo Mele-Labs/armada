@@ -1355,7 +1355,7 @@ impl JobView {
             Kind::Plan => {
                 let card = held.head.plan.as_ref();
                 match card.and_then(|card| self.record(job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version).map(|plan| (card, plan))) {
-                    Some((card, plan)) => self.plan_body(SHEET, &card.id, plan, false, None, page, look, cx),
+                    Some((card, plan)) => self.plan_body(SHEET, &card.id, plan, false, &[], page, look, cx),
                     None => self.review_skeleton(look),
                 }
             }

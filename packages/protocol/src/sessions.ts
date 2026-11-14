@@ -305,7 +305,9 @@ export type SessionRecord = {
 
 /**
  * A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is its assignee in beads.
+ * Or a failing test another Job is fixing, which threw the Job's pull request out of the merge queue: `item` is the test.
  * `holder` is the holding Job's forge login or the assignee, `machine` and `title` the holding Job's, absent for a person in beads.
+ * `holder` is empty where main is red on the test.
  */
 export type ClaimWait = {
   item: string;
@@ -316,8 +318,11 @@ export type ClaimWait = {
   ends: ClaimWaitEnds;
 };
 
-/** What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads. */
-export type ClaimWaitEnds = "claim_ends" | "unassigned";
+/**
+ * What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads.
+ * `fix_merges`: a failing test's fix merges and main is green, or main's red is fixed, and the pull request is queued again.
+ */
+export type ClaimWaitEnds = "claim_ends" | "unassigned" | "fix_merges";
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
 export type SessionStarted = {
@@ -481,6 +486,10 @@ export type WaitingAct = {
  * `operator_undone` (id `undone:<n>`, `<n>` the row of a ruling he took back with `operator_undo_ruling`, text the question, the options the question had, act `answer` whose `target` is the id)
  * is a question the Operator answered by following something he said and he took back. Answering it sends the agent `Re: <question>` and his choice, as for an
  * `agent` item, and the item goes. Dismissing it drops it. The Operator's own review never answers it. Since 13 Nov 2026.
+ * `job_conflict` (id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, act `answer`) is a `raise_conflict` nothing answered:
+ * `Tell <sender> to change` (choice 0), `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds it; each Job named is told his answer.
+ * `job_held` (id `held:<repository>:<pull or branch>`, act `answer`) is an `ask_held` Fleet could not answer: `Land it` (choice 0) and `Hold it` (choice 1);
+ * the Job that asked is told. Neither can be dismissed. Since 14 Nov 2026.
  */
 export type WaitingSource =
   | "agent"
@@ -508,7 +517,9 @@ export type WaitingSource =
   | "sketch"
   | "document"
   | "gate"
-  | "operator_undone";
+  | "operator_undone"
+  | "job_conflict"
+  | "job_held";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -977,6 +988,25 @@ export type IssueClaimed = {
 export type TakeMainRed = {
   session_id?: string;
   take_over?: boolean;
+};
+
+/**
+ * `POST /sessions/call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of the
+ * merge queue says the test is flaky, with `log_line`, the line of the failing run's log that shows it. Fleet claims the
+ * test, starts the one Job that fixes it, and queues the pull request again when that fix merges. `session_id` names the
+ * Session where the connection places none. Fleet refuses 409 `fleet.test_not_asked` where it did not ask this Job about
+ * the test, and 422 `fleet.test_not_callable` for a call that places no Session or names no log line. Since 14 Nov 2026.
+ */
+export type CallTestFlaky = {
+  session_id?: string;
+  test: string;
+  log_line: string;
+};
+
+/** What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it tells the Job. */
+export type TestCalledFlaky = {
+  pull: number;
+  said: string;
 };
 
 /** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */

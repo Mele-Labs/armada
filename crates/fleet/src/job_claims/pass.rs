@@ -9,6 +9,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, ClaimKind, Claimant, Delivery, Holder, HolderKind, Vcs, WorkProduct};
 
 use super::wanting::JobRead;
+use crate::flaky_tests::{test_waits_kept, WaitEnded};
 use super::words::{files_shared, item_closed, wait_over, waiting};
 use super::{exchanged, Answered, Asked, JobHeld, Wait, WaitedOn, Wanted, PASS_EVERY};
 use crate::daemon::Fleet;
@@ -43,8 +44,10 @@ fn answered_in(held: &mut JobHeld, answered: Option<Answered>, wanted: &BTreeSet
         held.sent.clear();
         held.elsewhere.clear();
         held.unsent = false;
+        held.storeless = true;
         return;
     };
+    held.storeless = false;
     for one in answered.released {
         held.sent.remove(&one);
     }
@@ -91,7 +94,8 @@ fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, 
         }
     }
     let mut words = Vec::new();
-    let ended: Vec<String> = held.waits.keys().filter(|item| !now_waiting.contains_key(*item)).cloned().collect();
+    // A failing test's wait is `test_waits_kept`'s.
+    let ended: Vec<String> = held.waits.iter().filter(|(item, wait)| wait.requeues.is_none() && !now_waiting.contains_key(*item)).map(|(item, _)| item.clone()).collect();
     for item in ended {
         held.waits.remove(&item);
         words.push(match job.items.contains_key(&item) {
@@ -106,7 +110,7 @@ fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, 
         });
         if !same {
             words.push(waiting(&item, &on));
-            held.waits.insert(item, Wait { on, since: since.to_string() });
+            held.waits.insert(item, Wait { on, since: since.to_string(), requeues: None });
         }
     }
     words
@@ -141,13 +145,15 @@ where
     pub(crate) async fn claims_passed(self: &Arc<Self>) {
         let now = self.now().epoch_millis().unwrap_or_default();
         let since = self.now().as_str().to_string();
-        let jobs = self.jobs_read().await;
+        let mut jobs = self.jobs_read().await;
+        self.fixes_ended(&mut jobs).await;
         let live_here: BTreeSet<String> = jobs.iter().map(|job| job.id.clone()).collect();
         let assignees = self.job_claims().with(|kept| {
             kept.jobs.retain(|id, _| live_here.contains(id));
             kept.assignees.clone()
         });
         let mut said = Said::default();
+        let mut ended: Vec<WaitEnded> = Vec::new();
         for job in jobs {
             let person_held = job.person_held(&assignees);
             let (asked, wanted, before) = self.job_claims().with(|kept| {
@@ -166,6 +172,7 @@ where
                 let held = kept.jobs.entry(job.id.clone()).or_default();
                 answered_in(held, answered, &wanted, now, &mut shared);
                 let words = waits_kept(&job, held, &person_held, &since);
+                ended.extend(test_waits_kept(&job, held, &since));
                 if (held.waits.clone(), held.unsent) != before {
                     said.moved.insert(job.id.clone());
                 }
@@ -175,6 +182,7 @@ where
             said.told.extend(shared.iter().map(|(files, by)| (job.id.clone(), files_shared(&files.iter().collect::<Vec<_>>(), by))));
         }
         self.claims_said(said).await;
+        self.test_waits_ended(ended).await;
     }
 
     /// Ask `asked` of the store for `job`. `None` where no store applies; a store that would not

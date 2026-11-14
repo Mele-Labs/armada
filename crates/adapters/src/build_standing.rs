@@ -115,6 +115,11 @@ pub fn branch_tip(root: &str, branch: &str) -> Option<String> {
     commits(root, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}^{{commit}}")])?.pop()
 }
 
+/// Whether `commit` is on `origin/main` as last fetched in `root`. False where git cannot say.
+pub fn on_main(root: &str, commit: &str) -> bool {
+    read_in(root, "git", &["merge-base", "--is-ancestor", commit, "origin/main"]).is_ok_and(|run| run.status.success())
+}
+
 /// The lines git printed for these arguments in `root`, or `None` where it failed.
 fn commits(root: &str, args: &[&str]) -> Option<Vec<String>> {
     let run = read_in(root, "git", args).ok().filter(|run| run.status.success())?;

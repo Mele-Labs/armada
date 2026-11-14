@@ -775,6 +775,22 @@ Whether he has read one is Bridge's own and is not on the wire.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `bug_reports.changed` is a new kind; a Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
 
+## A Job's two asks of the Operator: `raise_conflict` and `ask_held`
+
+Since 14 Nov 2026. `crates/ipc/src/job_asks.rs`.
+**Additive only**: two operations, two routes, the `job_asks` table, two `WaitingSource` values (`job_conflict`, `job_held`) and two optional fields, `conflict` and `held`, on `OperatorTurnItem`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `raise_conflict` (`POST /sessions/raise_conflict`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `RaiseConflict` `{ with, files, wire, mine, theirs, breaks, session_id? }`; answers `ConflictRaised` `{ id, folded }`. Refused with `fleet.conflict_refused` and a sentence naming the part |
+| `ask_held` (`POST /sessions/ask_held`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `AskHeld` `{ pull? or branch?, session_id? }`; answers `HeldAsked` `{ id, answer? }`. Refused with `fleet.held_refused` and a sentence naming the part |
+| `job_conflict`, `job_held` (`WaitingSource`) | Bridge reads | The sending Job's Needs you item while the Operator is off. Choices: `Tell <sender> to change`, `Tell <other>`, `Hold both`; `Land it`, `Hold it`. Answered by `answer_waiting` with a `choice`; never dismissed |
+| `OperatorTurnItem::conflict`, `::held` | Bridge reads | `OperatorConflict` `{ raised_by, with, files, wire, mine, theirs, breaks }` and `OperatorHeld` `{ pull?, branch?, title?, checks?, asked_by }`, each Job an `OperatorAskJob` `{ session_id, address, title }`. `also_raised_by` carries the folded asks |
+
+**Fleet answers a landing question with no call where the forge shows the pull request merged or closed**, and the same words are sent to the Job as a Fleet message.
+**Nothing is written to a forge.**
+**The store.** `job_asks` is additive, `crates/store/migrations/20261114T0500Z-job_asks.table.sql`, keyed by the ask's id and its round, with no foreign key: an ask outlives its Jobs.
+
 ## A reported bug is fixed by the Job started on it: `report` on `TagKind`, and `fixed` on `BugReport`
 
 Since 31 Oct 2026. `crates/ipc/src/hosted_sessions.rs`, `crates/ipc/src/bug_reports.rs`.
@@ -2014,3 +2030,26 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
+
+## What the running build holds: `FleetBuildReport.holds`
+
+Since 14 Nov 2026.
+**Additive only**: one field on an existing type, one optional field on `OriginBranch`, and the type `holds` carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `HeldBranch` and `OriginBranch.title` in `packages/protocol/src/building.ts`, written by hand, field for field.
+Electron reads none of it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `FleetBuildReport` (`get_fleet_build`) | Fleet writes, Bridge reads | Gains `holds`, absent when empty: the `[[job]]` rows of `builds/current`, whatever Keep or a pick said |
+| `HeldBranch` | Fleet writes | `{ branch, title?, landed? }`. `landed` is left out when false |
+| `OriginBranch` | Fleet writes | Gains `title?`, the Job here that held the branch last, ended Jobs included |
+
+**`trying` empties after Keep and `picked` follows the person's picks**, so neither says what the running build holds; `holds` does.
+`title` is the live Job holding the branch, else the Job whose ledger `branch` row was settled last, which outlives the Job.
+A branch no Job here ever held, such as one worked in a worktree cut by hand, has none.
+`landed` is the tip the build recorded for the row being on `origin/main` as last fetched, so a branch deleted once it merged still reads landed.
+`origin` no longer lists plumbing: the merge queue's `gh-readonly-queue/*`, beads' `__dolt_remote_info__`, and each Mac's `preview/*`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event.

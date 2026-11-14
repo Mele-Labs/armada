@@ -387,6 +387,8 @@ mod slot_reclaiming;
 pub mod red_claim;
 /// What each live Job holds, claimed in its project's store, and the waits and words that follow.
 mod job_claims;
+mod flaky_tests;
+mod claims_list;
 /// A red main whose pull request a Session merged is claimed for that Session, or for a fork of it.
 mod session_red;
 mod taking_red;
@@ -436,6 +438,10 @@ mod worktrees_kept;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
+/// A pull request that changes a wire type, told to the Jobs whose branches read it.
+mod wire_notices;
+/// Which public wire types a pull request's patches change.
+mod wire_types;
 mod workflow_lifecycles;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.

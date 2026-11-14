@@ -178,10 +178,20 @@ The phone asks once more for an address when one lapses, and the video keeps its
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
 
+> **Rule (12 Nov).** The phone sees only Jobs in a project he shares, and Jobs held from another Mac, which only a shared project sends.
+> A Job in an unshared project, or in none, is answered on every route as a Job that does not exist, and is in no list, stream or push.
+> Why: he called keeping private projects private "absolutely critical", and a phone is a paired device like his other Macs.
+
+**Fleet rules on every route the Gateway calls as the phone, by name** (`crates/api/src/phone_share.rs`, with the rulings in `crates/fleet/src/share.rs`).
+A route asked about a Job the phone does not see is asked with an id no Job has, so it answers in its own words for a missing Job.
+The Jobs list, the repositories and the projects are cut to what the phone sees, `/events` drops every other Job's change, and a route with no ruling is 404.
+A Job the phone starts goes into the first shared project of this Mac holding its repository, which the Gateway names, and Fleet refuses one into any other.
+
 **Waiting follows Bridge's order.** A Job is not waiting while it is paused, failed to start, waits on another Job, sits on its start card or is held by the plan's limit, whatever it owes.
 Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
+A row carries what native's Jobs-list row reads: its mark, project, last turn, pull request, issue, workflow step and what it is doing now.
 
 **A Job's thread is not narrowed.** `/api/sessions/one` is Fleet's `SessionThread` as Fleet sends it, the Job record included.
 
@@ -191,7 +201,8 @@ Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery ques
 | A file the Job showed: text up to 1 MiB, or a picture's bytes up to 8 MiB | A file the Job did not show, or text over 1 MiB or a picture over 8 MiB (413) |
 | A video the Job showed, of any size, in ranges from the Mac's disk | A video the Job did not show, or one through an address that has lapsed or whose phone is unpaired |
 | A revision the Job kept of its document, up to 1 MiB, as text | The page in the worktree, or a revision another Job kept |
-| A sketch the Job drew, from the scene its record carries | A terminal |
+| A sketch the Job drew, from the scene its record carries | A terminal the phone opens, resizes or stops: it follows the ones the Mac opened |
+| The terminals the Mac opened in a Job, what they printed so far and what they print next, and keys typed into them | A run Fleet has ended and forgotten (422), or keys the Gateway could not deliver, which are never queued |
 
 **`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed, or one a `document` artifact's `revisions` names.
 **The phone asks for a revision by its kept path**, as the record names it, oldest first, so a page has no route of its own.
@@ -216,6 +227,13 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
 | `POST /api/sessions/start_waiting` | `start_waiting_now` |
 | `GET /api/queued`, `POST /api/queued/take_back` | `list_queued` and `take_back_queued`, as Fleet answers them |
+| `GET /api/sessions/terminals?session_id=` | `list_terminals`, answered as Fleet's `JobTerminals`: each terminal's `terminal`, `name`, `run_id` and whether a program is `running` in it |
+| `POST /api/sessions/terminal/write`, body `{run_id, data}` | `write_session_run`, Fleet's status and body as it said them: 422 for a run that has ended |
+| `GET /api/sessions/terminal/observe?run_id=` | `observe_session_run` as NDJSON, one `SessionRunMessage` a line and an empty line on a quiet beat, as `/api/live` |
+
+**A terminal is followed and typed into, never opened.**
+The phone lists the terminals the Mac opened in a Job, follows one from what it printed so far to `exited`, and writes keys to it as they are (Ctrl-C is the byte 3).
+Nothing is queued: a key the Gateway cannot hand to Fleet is refused at once, and a stream Fleet ends or drops ends.
 
 **A Job that waits on another opens to its waiting screen**, in place of its thread and message box.
 It holds what Bridge's waiting pane holds: the brief, the Job it waits on, the condition as a select, what it needs, where it starts from, Approve and Start now.
@@ -318,7 +336,7 @@ The signed layer finds the device among the phones, then among the linked Macs.
 | A linked Mac | Only `/api/mac/*` | 404 |
 
 The wrong side gets 404 and never 401, so it reads as a route that is not there.
-**This line keeps private work off the other Mac**: the phone's routes are not share-filtered.
+**This line keeps the other Mac off the phone's routes**, which show Jobs held from a third Mac that the other Mac was never sent.
 
 | Route, for a linked Mac | Answers |
 |---|---|
@@ -433,6 +451,7 @@ A network that drops multicast, as some work networks and VPNs do, hides a Mac t
 ## What pushes
 
 Only Needs you: a Job whose `waiting_for` gains an item id it did not have, and that item is still open 60 seconds later.
+Only a Job the phone sees pushes: the watcher reads `/events` as the phone, cut as *What the phone sees* says.
 
 | Job | Pushes |
 |---|---|

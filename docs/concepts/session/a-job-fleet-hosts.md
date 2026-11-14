@@ -327,7 +327,24 @@ A Fleet that attaches mid-turn is told so, and the job shows as working.
 **A keeper ends** when the agent exits and Fleet has been told (`GONE`), on
 `END` (closing a job, the quiet timeout, a tune), or when no Fleet has been
 attached for 30 minutes, which also ends the agent: a keeper no Fleet will
-return to must not run one for ever. The permission door (`armada mcp`) waits up
+return to must not run one for ever.
+It also ends on `SIGTERM`, and it ends the agent when it cannot pass on what the agent says, such as when the spool cannot be written on a full disk.
+An agent nobody can hear is never left running.
+
+**The keeper owns itself across a restart, and its lock says so.**
+No Fleet owns a keeper: each one holds an `flock` on `<id>.lock`, beside its socket, for its whole life, with its pid inside.
+The kernel lets the lock go however the keeper ends, so a lock found held means that keeper is alive.
+A Job has at most one keeper:
+
+| Who | What it does |
+|---|---|
+| A second keeper of the same Job | finds the lock held and exits before it touches the socket or starts an agent |
+| Fleet, before it starts a Job's keeper | reads the lock; a keeper that answers at the socket is adopted, and one that does not is sent `SIGTERM` and waited for |
+| A keeper that will not stop within 10 seconds | is an error on the Job, and no second agent starts beside it |
+
+A keeper can hold the lock with no socket: Fleet removes the socket as it sends `END`, so the next message does not reattach to an agent that is ending.
+Before the lock, a keeper that missed its `END` ran on unreachable while Fleet started another, and one Job ran twice for a day (14 Nov 2026).
+Keepers started by a build without the lock hold none, and only their socket finds them. The permission door (`armada mcp`) waits up
 to 90 seconds for a Fleet that is restarting before it fails a call. It reads
 Fleet's port once, so a Fleet that comes back on another port is not found; the
 port is claimed from the store and is normally the same.
