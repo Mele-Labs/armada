@@ -44,7 +44,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
 ⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
 ⌥⌘N      the history of the Operator's toasts, in the native Bridge only
-⌘T       new terminal: a Side Job, opened on its shell with no sheet, in the native Bridge only
+⌘T       new Side Job: started with no sheet and opened on its thread, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
@@ -59,6 +59,9 @@ is the back-fill by hand that this section existed to prevent.
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
 ⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
 ⌥⌘Y      fold Needs you: shut or open the open Job's card, to read the thread
+⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
+⌘G       next match of the thread's find bar, in the native Bridge only
+⇧⌘G      previous match of the thread's find bar, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -293,7 +296,8 @@ Three reversals against what stood before, each with a reason:
 - **`⌘F` is deleted.** It duplicated `/`, and two bindings for one act
   breaks the one-artifact rule above. `/` is deleted too, on 28 Sep 2026:
   the Job Board held the only field it focused, and the command palette is
-  what searches now.
+  what searches now. `⌘F` came back on 13 Nov 2026 as another act, at the
+  owner's ask: find in a Job's thread, with no other key for it.
 
 **`x` for kill and every safety rule below are unchanged.** Neither was
 in play, and the destructive-key rule is what kept `x` off `k`.

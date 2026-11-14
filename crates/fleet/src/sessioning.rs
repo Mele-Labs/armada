@@ -658,6 +658,10 @@ where
             if let Some(why) = crate::native_walks::takes_no(&show) {
                 return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
             }
+            // His one press must open it: a walk the build he runs cannot play goes back to the Job.
+            if let Some(why) = crate::native_walks::unplayable(&self.host().home, &show).await {
+                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, &why));
+            }
         } else if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }

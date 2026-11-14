@@ -7,8 +7,7 @@ use std::collections::HashSet;
 
 use chrono::Local;
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, Anchor, Animation, AnimationExt as _, AnyElement, ClipboardItem, Context, Entity, FontWeight, KeyDownEvent, Role, ScrollHandle, SharedString,
-    Subscription, Task, Window,
+    div, point, prelude::*, px, Animation, AnimationExt as _, AnyElement, ClipboardItem, Context, Entity, FontWeight, KeyDownEvent, Pixels, Role, ScrollHandle, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 use ipc::{
@@ -724,74 +723,59 @@ impl JobView {
 }
 
 impl JobView {
-    /// The panel: the file list beside it on Files; then the sheet with its head, body and comment box.
+    /// The panel as the body of its tab: the manifest as its first line, with the way back where it was opened from an
+    /// issue; then the body and comment box, and the file list beside them on Files where the pane has the room.
     /// The plates stand inside the body at every width, where Classic stands them off the leading edge.
-    pub(super) fn render_pull_panel(&self, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_pull_panel(&self, width: Pixels, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
         let (focus, panel) = self.pull_panel_focus()?;
         let look = cx.look();
         let look = &look;
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
         let pull = self.live_pull(&panel.pull, cx);
         let title: SharedString = format!("Pull request #{}", pull.number).into();
-        let close = labelled(
-            icon_button(look, "pull-panel-close", "x", "Close \u{b7} Esc".into()).on_click(cx.listener(|this, _, window, cx| this.close_panel(window, cx))),
-            Role::Button,
-            "Close",
-        );
-        let titles = div()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .child(div().truncate().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-            .children(pull.manifest.clone().map(|name| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(name))));
-        let head = div()
+        let first = div()
             .flex_none()
             .flex()
+            .items_center()
             .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_6))
-            .py(look.length(token::SPACE_4))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_2))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_DEFAULT));
-        // Opened from an issue, the way back and the way out share the head's first line, and the title takes the line under them (`Sheet` back).
-        let head = match self.panel_came_from().cloned() {
-            Some(issue) => {
-                let said = format!("Back to {}", issue.label());
-                let (ground, ink, muted) = (look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::FG_MUTED));
-                let back = labelled(
-                    div()
-                        .id("pull-panel-back")
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_1))
-                        .h(look.length(token::H_CONTROL_SM))
-                        .pl(look.length(token::SPACE_2))
-                        .pr(look.length(token::SPACE_3))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .text_size(look.length(token::TEXT_XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                        .text_color(muted)
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(ground).text_color(ink))
-                        .tooltip(tip(said.clone()))
-                        .child(glyph(look, "chevron-left", Size::Small, muted))
-                        .child(SharedString::from(said.clone()))
-                        .on_click(cx.listener(move |this, _, window, cx| this.open_issue(issue.clone(), window, cx))),
-                    Role::Button,
-                    said,
-                );
-                head.flex_col().child(div().flex().items_center().justify_between().child(back).child(close)).child(titles)
-            }
-            None => head.items_center().child(titles).child(close),
-        };
+        // Opened from an issue, the way back stands in the first line (`Sheet` back).
+        let back = self.panel_came_from().cloned().map(|issue| {
+            let said = format!("Back to {}", issue.label());
+            let (ground, ink, muted) = (look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::FG_MUTED));
+            labelled(
+                div()
+                    .id("pull-panel-back")
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .h(look.length(token::H_CONTROL_SM))
+                    .pl(look.length(token::SPACE_2))
+                    .pr(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(muted)
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(ground).text_color(ink))
+                    .tooltip(tip(said.clone()))
+                    .child(glyph(look, "chevron-left", Size::Small, muted))
+                    .child(SharedString::from(said.clone()))
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_issue(issue.clone(), window, cx))),
+                Role::Button,
+                said,
+            )
+        });
+        let manifest = pull.manifest.clone().map(|name| div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(name)));
+        let first = (back.is_some() || manifest.is_some()).then(|| first.children(back).children(manifest));
         let margin = look.length(token::SPACE_4);
-        let wide = look.length(token::W_DIALOG_WIDE).min(viewport.width - margin * 2.);
-        let high = viewport.height - look.length(token::H_TITLE_BAR) - margin * 2.;
+        let wide = look.length(token::W_DIALOG_WIDE);
+        let high = crate::room::of(window, cx).size.height;
         let aside_w = px(336.);
-        let room_left = viewport.width - wide - margin * 3.;
-        let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && room_left >= aside_w;
+        let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
         let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
         let foot = self.pull_composer(panel, look, cx);
         let sheet = labelled(
@@ -799,51 +783,23 @@ impl JobView {
                 .id("pull-panel")
                 .track_focus(&focus)
                 .capture_key_down(cx.listener(Self::panel_key_down))
-                .occlude()
-                .flex_none()
-                .w(wide)
-                .h(high)
+                .flex_1()
+                .min_w_0()
+                .h_full()
                 .flex()
                 .flex_col()
                 .overflow_hidden()
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_OVERLAY))
-                .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(head)
+                .children(first)
                 .child(body)
                 .child(foot),
-            Role::Dialog,
+            Role::Region,
             title,
         );
         let beside: Option<AnyElement> = if files_beside { panel.page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
-        Some(
-            deferred(
-                anchored().position(room.origin + point(px(0.), look.length(token::H_TITLE_BAR))).anchor(Anchor::TopLeft).child(
-                    div()
-                        .id("pull-panel-scrim")
-                        .occlude()
-                        .w(viewport.width)
-                        .h(viewport.height - look.length(token::H_TITLE_BAR))
-                        .flex()
-                        .justify_end()
-                        .items_start()
-                        .gap(look.length(token::SPACE_3))
-                        .pt(margin)
-                        .pr(margin)
-                        .bg(look.color(token::SCRIM))
-                        .on_click(cx.listener(|this, _, window, cx| this.close_panel(window, cx)))
-                        .children(beside)
-                        .child(sheet),
-                ),
-            )
-            .with_priority(0)
-            .into_any_element(),
-        )
+        Some(div().size_full().flex().items_stretch().gap(look.length(token::SPACE_3)).children(beside.map(|list| div().flex_none().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list))).child(sheet).into_any_element())
     }
 
     /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, and the failing checks.
