@@ -550,7 +550,8 @@ describe("the phone draws as Bridge does", {
     ])
       expect(lamp(title)).not.toBe("needs");
     expect(lamp("Trace the slow restart")).toBe("needs");
-    // A paused Job holds nothing of his and says nothing on a second line.
+    // A paused Job is out of Active, as native's is; under Paused it holds nothing of his and says nothing on a second line.
+    expect(job("Sort the palette rows")).toBeNull();
     await scope("paused");
     expect(lamp("Sort the palette rows")).not.toBe("needs");
     expect(job("Sort the palette rows")!.querySelector(".pk-job__says")).toBeNull();

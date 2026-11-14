@@ -48,7 +48,10 @@ const keptFolds = (): Set<string> => {
   }
 };
 
-/** The lines a group draws: a folded starter's sub-Jobs leave the list and ride on it as glyphs. */
+/**
+ * The lines a group draws: a folded starter's sub-Jobs leave the list and ride on it as glyphs. Active leaves out a
+ * paused Job, as native's does, unless a sub-Job of it is not paused, which keeps its starter in view.
+ */
 function shownOf(lines: readonly Line[], folded: ReadonlySet<string>) {
   const shown: {
     line: Line;
@@ -62,6 +65,15 @@ function shownOf(lines: readonly Line[], folded: ReadonlySet<string>) {
     for (const next of lines.slice(at + 1)) {
       if (next.depth <= line.depth) break;
       kids.push(next.item);
+    }
+    if (
+      [
+        line.item,
+        ...kids,
+      ].every((one) => one.state === "paused")
+    ) {
+      under = line.depth;
+      return;
     }
     if (kids.length > 0 && folded.has(keyOf(line.item))) under = line.depth;
     shown.push({
