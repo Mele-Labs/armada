@@ -9,6 +9,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 import { answer, type Posted } from "./src/fixture/gateway";
+import { pairing, STORE_AT } from "./src/fixture/store";
 import { everyState, fixtureMacs, mediaJob, type FixtureMac } from "./src/fixture/wire";
 
 const read = (request: IncomingMessage): Promise<string> =>
@@ -56,12 +57,16 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       response.setHeader("Access-Control-Allow-Origin", origin);
       response.setHeader(
         "Access-Control-Allow-Headers",
-        "content-type, x-pocket-device, x-pocket-time, x-pocket-signature",
+        "content-type, x-pocket-device, x-pocket-time, x-pocket-signature, x-armada-device, x-armada-time, x-armada-nonce, x-armada-signature, x-armada-store",
       );
       response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     }
     const ours =
-      target.startsWith("/api/") || target === "/pair" || target.startsWith("/fixture-media/");
+      target.startsWith("/api/") ||
+      target === "/pair" ||
+      target.startsWith("/pair/") ||
+      target.startsWith("/fixture-media/") ||
+      target.startsWith(`${STORE_AT}/`);
     if (!ours) return next === undefined ? response.writeHead(404).end() : next();
     if (request.method === "OPTIONS") return response.writeHead(204).end();
     // A Mac that sleeps answers nothing, as one off the tailnet does.
@@ -89,14 +94,23 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       return;
     }
     const body = await read(request);
-    const said = answer(
-      mac(),
-      posted,
-      request.method ?? "GET",
-      target,
-      body,
-      /^[0-9a-f]{128}$/.test(String(request.headers["x-pocket-signature"] ?? "")),
-    );
+    const said =
+      pairing(
+        mac(),
+        request.method ?? "GET",
+        target,
+        body,
+        `http://${request.headers.host}`,
+        /^[0-9a-f]{128}$/.test(String(request.headers["x-armada-signature"] ?? "")),
+      ) ??
+      answer(
+        mac(),
+        posted,
+        request.method ?? "GET",
+        target,
+        body,
+        /^[0-9a-f]{128}$/.test(String(request.headers["x-pocket-signature"] ?? "")),
+      );
     if (posted.length > 0)
       console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
     if (said.then !== undefined) {
@@ -127,6 +141,10 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
  * pairs the phone with both on first load. `POCKET_FIXTURE_UNPAIRED=laptop` makes that Mac answer 401, as a
  * Mac that forgot the phone does. `POCKET_FIXTURE_ASLEEP=laptop` makes it answer nothing, and a send to it through
  * `studio` waits there.
+ *
+ * The store's path plays too: `/pair/store` on `studio`, a fixture store under `/fixture-store/v1/` (a code, two pending answers,
+ * then signed in) and three Macs it lists: `studio`, already paired; `mini` on the port after `laptop`, which vouches; and `desk`
+ * on the one after, which answers `not_vouched`. `src/fixture/store.ts`.
  */
 function fixtureGateway(): Plugin {
   const now = Date.now();
@@ -140,6 +158,24 @@ function fixtureGateway(): Plugin {
   const media = mediaJob(now);
   macs["studio"]!.live.unshift(media.listed);
   macs["studio"]!.threads[media.listed.id] = media.thread;
+  // The two Macs only the store lists: no Jobs, so a paired one opens on an empty list.
+  for (const name of [
+    "mini",
+    "desk",
+  ])
+    macs[name] = {
+      name,
+      needs: [],
+      live: [],
+      threads: {},
+      kept: {},
+      shown: {},
+      repositories: [
+        "armada",
+      ],
+      usage: macs["laptop"]!.usage,
+      models: macs["laptop"]!.models,
+    };
   const sleeping = process.env["POCKET_FIXTURE_ASLEEP"];
   if (sleeping !== undefined)
     macs["studio"]!.asleep = [
@@ -154,11 +190,17 @@ function fixtureGateway(): Plugin {
       server.middlewares.use(serve(() => macs["studio"]!, []));
       server.httpServer?.once("listening", () => {
         const { port, address } = server.httpServer!.address() as AddressInfo;
-        const beside = createServer(serve(() => macs["laptop"]!, []));
-        beside.listen(port + 1, address, () =>
-          console.log(`  fixture laptop Mac on port ${port + 1}`),
-        );
-        server.httpServer!.once("close", () => beside.close());
+        [
+          "laptop",
+          "mini",
+          "desk",
+        ].forEach((name, at) => {
+          const beside = createServer(serve(() => macs[name]!, []));
+          beside.listen(port + 1 + at, address, () =>
+            console.log(`  fixture ${name} Mac on port ${port + 1 + at}`),
+          );
+          server.httpServer!.once("close", () => beside.close());
+        });
       });
     },
   };
