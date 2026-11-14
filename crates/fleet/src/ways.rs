@@ -33,9 +33,9 @@ fn take_in_line(prefs: &Preferences) -> &'static str {
             ReadResults::ThreadOnly => "Results: in the thread as text. No separate pages.",
         },
         TakeIn::Look => match prefs.look_results {
-            LookResults::PictureEvery => "Results: lead every result with a picture through show_sketch, a mock for a screen and a diagram for anything else, with two lines of text under it. all_done is refused until a picture is shown.",
+            LookResults::PictureEvery => "Results: lead every result with a picture through show_sketch, a mock for a screen and a diagram for anything else, with two lines of text under it. all_done is refused until a picture is shown. The result picture rides on the done card, so it asks no approval of its own.",
             LookResults::PictureScreens => "Results: lead a result that changes a screen with a mock through show_sketch. Other results may be text.",
-            LookResults::WalkVisible => "Results: open anything he would see as a walk with show_window, and a diagram through show_sketch for the rest. all_done is refused until a picture is shown.",
+            LookResults::WalkVisible => "Results: open anything he would see as a walk with show_window, and a diagram through show_sketch for the rest. all_done is refused until a picture is shown. The result picture rides on the done card, so it asks no approval of its own.",
         },
         TakeIn::Listen => "Results: Bridge reads your all_done summary aloud. Write it as two or three spoken sentences, saying what changed and what waits on him. No paths, code or tables in it.",
     }
@@ -92,4 +92,4 @@ pub(crate) fn options_refusal(id: &str, options: usize) -> String {
 
 /// What the agent reads when `all_done` is refused for a Job that has shown no picture.
 pub(crate) const PICTURE_REFUSAL: &str =
-    "The owner looks at results and this Job has shown no picture. Lead the result with a picture: show_sketch, show_window or show_file with an image. Then call all_done again.";
+    "The owner looks at results and this Job has shown no picture. Lead the result with a picture: show_sketch, show_window or show_file with an image. It rides on the done card and asks no approval of its own. Then call all_done again.";

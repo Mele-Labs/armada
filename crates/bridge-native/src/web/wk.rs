@@ -67,6 +67,9 @@ pub struct Options {
     pub sealed: bool,
     /// The page's appearance, where it is not the system's: dark when `Some(true)`.
     pub dark: Option<bool>,
+    /// Whether the view paints no ground of its own, so what the page leaves transparent stays so in its
+    /// picture: a sketch's mock sits on the canvas, as Classic's frame does. A live page keeps its ground.
+    pub clear: bool,
 }
 
 fn pending_up() {
@@ -223,7 +226,11 @@ impl Native {
             let config = WKWebViewConfiguration::new(mtm);
             match options.store {
                 Some(id) => {
-                    let uuid = NSUUID::from_bytes(id);
+                    // From its text, not its bytes: objc2's debug check refuses `initWithUUIDBytes:` on this
+                    // macOS, so a debug build, which Fleet plays walks from, panicked on every web page.
+                    let hex: String = id.iter().map(|byte| format!("{byte:02X}")).collect();
+                    let text = format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]);
+                    let uuid = NSUUID::from_string(&NSString::from_str(&text)).expect("a UUID's own text parses");
                     config.setWebsiteDataStore(&WKWebsiteDataStore::dataStoreForIdentifier(&uuid, mtm));
                 }
                 None => config.setWebsiteDataStore(&WKWebsiteDataStore::nonPersistentDataStore(mtm)),
@@ -238,6 +245,11 @@ impl Native {
             view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
             (view, navigation)
         };
+        if options.clear {
+            // SAFETY: key-value coding on the live view, on the main thread; `drawsBackground` is a boolean key
+            // WKWebView answers on macOS, and an `NSNumber` is the object KVC takes for a boolean.
+            let _: () = unsafe { msg_send![&*view, setValue: &*NSNumber::new_bool(false), forKey: &*NSString::from_str("drawsBackground")] };
+        }
         if let Some(dark) = options.dark {
             // SAFETY: `NSAppearanceNameDarkAqua` and the aqua name are AppKit's own constants.
             let name = unsafe { if dark { NSAppearanceNameDarkAqua } else { objc2_app_kit::NSAppearanceNameAqua } };

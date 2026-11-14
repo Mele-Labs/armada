@@ -92,13 +92,13 @@ fn the_note_joins_a_take_in_part_and_an_answer_part_in_his_words() {
 
     let look = |results, questions| Preferences { take_in: TakeIn::Look, look_results: results, look_questions: questions, ..Preferences::default() };
     let every = ways::note(&look(LookResults::PictureEvery, LookQuestions::PicturesMix));
-    assert!(every.contains("Results: lead every result with a picture through show_sketch, a mock for a screen and a diagram for anything else, with two lines of text under it. all_done is refused until a picture is shown."), "{every}");
+    assert!(every.contains("Results: lead every result with a picture through show_sketch, a mock for a screen and a diagram for anything else, with two lines of text under it. all_done is refused until a picture is shown. The result picture rides on the done card, so it asks no approval of its own."), "{every}");
     assert!(every.ends_with("Questions with options that look different: draw each option as a mock and offer them as pictures, with the parts he might take from one and not another named by data-part."), "{every}");
     let screens = ways::note(&look(LookResults::PictureScreens, LookQuestions::PicturesWhole));
     assert!(screens.contains("Results: lead a result that changes a screen with a mock through show_sketch. Other results may be text."), "{screens}");
     assert!(screens.ends_with("offer them as pictures."), "the whole, with no parts clause: {screens}");
     let walk = ways::note(&look(LookResults::WalkVisible, LookQuestions::PicturesMix));
-    assert!(walk.contains("Results: open anything he would see as a walk with show_window, and a diagram through show_sketch for the rest. all_done is refused until a picture is shown."), "{walk}");
+    assert!(walk.contains("Results: open anything he would see as a walk with show_window, and a diagram through show_sketch for the rest. all_done is refused until a picture is shown. The result picture rides on the done card, so it asks no approval of its own."), "{walk}");
 
     let listen = ways::note(&prefs(TakeIn::Listen, AnswerWith::Type));
     assert!(listen.ends_with("Results: Bridge reads your all_done summary aloud. Write it as two or three spoken sentences, saying what changed and what waits on him. No paths, code or tables in it."), "{listen}");
