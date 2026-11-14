@@ -3096,6 +3096,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LANES_ADD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LEARNED_LINKS,
+        title: "A learned setting links to its setting",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::LEARNED_LINKS_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::FOLLOWS_PICKER,
         title: "Workflows follow the Editing picker",
         screen: Screen::Settings,

@@ -195,6 +195,11 @@ pub fn entry(id: &str) -> Option<&'static Entry> {
     ENTRIES.iter().find(|one| one.id == id)
 }
 
+/// The page that holds a project's value.
+pub fn holding(key: super::project::Key) -> Option<&'static Entry> {
+    ENTRIES.iter().find(|one| matches!(one.body, Body::Values(page) if page.keys().contains(&key)))
+}
+
 /// A settings.json section's id from its name, as `sectionId` makes it: `Token use` is `token-use`.
 pub fn section_id(section: &str) -> String {
     let mut id = String::new();

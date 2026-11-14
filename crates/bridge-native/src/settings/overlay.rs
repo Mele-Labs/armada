@@ -5,7 +5,7 @@
 //! time it opens, and Esc clears a search first, then closes, the keys going back where they were.
 //! Everything else is Classic's System page (`apps/desktop/src/renderer/src/system-surface.tsx`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -80,12 +80,18 @@ pub struct Scope {
     /// The confirm's keys: Delete, then Cancel.
     pub delete_stop: FocusHandle,
     pub cancel_stop: FocusHandle,
+    /// The Learned chip's key: Enter and Space take the keys to the value it is about (`SettingsOverlay::go_to`).
+    pub learned: FocusHandle,
+    /// The page's scroll, so a row asked for is brought into view.
+    pub page_scroll: gpui::ScrollHandle,
+    /// The value whose row is to be scrolled into view as the page next draws it: taken by the row that draws it.
+    pub reveal: Rc<Cell<Option<Key>>>,
 }
 
 impl Scope {
     fn new(cx: &mut App) -> Scope {
         let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
-        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle() }
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle(), learned: cx.focus_handle().tab_stop(true), page_scroll: gpui::ScrollHandle::new(), reveal: Rc::new(Cell::new(None)) }
     }
 }
 
@@ -976,6 +982,10 @@ impl SettingsOverlay {
         // Enter and Space open the picker where it holds the keys.
         if bare && matches!(key.key.as_str(), "enter" | "space" | "down") && self.scope.picker.is_focused(window) {
             self.open_picker(true, window, cx);
+            return true;
+        }
+        if bare && matches!(key.key.as_str(), "enter" | "space") && self.scope.learned.is_focused(window) {
+            self.go_to_learned(window, cx);
             return true;
         }
         if bare && self.grid_key(&key.key, window, cx) {

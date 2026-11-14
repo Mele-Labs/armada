@@ -243,6 +243,25 @@ pub static TAKE_STEPS: &[Step] = &[
     step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
 ];
 
+/// `native-learned-links`: a value Fleet learned from his first answer says so beside its setting, and a press on that
+/// takes the keys to the setting, so he can change it where he disagrees.
+pub const LEARNED_LINKS: &str = "native-learned-links";
+
+pub static LEARNED_LINKS_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    step("\u{2318}P opens the Editing picker, and Armada is under it", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} and Enter pick Armada", Verb::Keys(&["down", "enter"]), "group", "For Armada"),
+    press_on("Pull requests: How work lands is Armada's own word, and Learned marks it as the one Fleet kept from his first answer", "button", "Pull requests", "button", "Learned: How work lands"),
+    step("Learned is a press: its tooltip says what it is and that it takes him to the setting", Verb::Hover, "button", "Learned: How work lands"),
+    step("Its tooltip", Verb::Later(800), "button", "Learned: How work lands"),
+    press_on("A press takes the keys to How work lands for Armada, ringed", "button", "Learned: How work lands", "combobox", "How work lands for Armada"),
+    step("Enter opens its choices, where he changes it", Verb::Key("enter"), "menuitemcheckbox", "Auto land"),
+    step("Esc shuts them, and the keys stay on the setting", Verb::Key("escape"), "combobox", "How work lands for Armada"),
+    step("Shift-Tab twice goes back to Learned from the keys", Verb::Keys(&["shift-tab", "shift-tab"]), "button", "Learned: How work lands"),
+    step("Enter on it takes the keys to the setting as a press does", Verb::Key("enter"), "combobox", "How work lands for Armada"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-workflows-follow-picker`: the Workflows list headed for what the Editing picker has, and F typed into a box.
 pub const FOLLOWS_PICKER: &str = "native-workflows-follow-picker";
 
@@ -636,7 +655,7 @@ pub static STEPS: &[Step] = &[
     step("Its tooltip says it is Armada's default", Verb::Later(800), "combobox", "Plans for every project"),
     step("A cell of every project's can still be changed from here", Verb::Hover, "combobox", "Pull requests for every project"),
     step("Its tooltip says it changes every project", Verb::Later(800), "combobox", "Pull requests for every project"),
-    step("How work lands: Armada lands on its own, the word Fleet learned from his first answer", Verb::Look, "img", "Learned: Fleet learned this from your first answer"),
+    step("How work lands: Armada lands on its own, the word Fleet learned from his first answer", Verb::Look, "button", "Learned: How work lands"),
     step("⌘P again shows Armada ticked, with what it sets", Verb::Key("cmd-p"), "menuitem", "Armada"),
     step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Armada"),
     press_on("✕ clears Merging for Armada, so it follows every project again", "button", "Clear Merging for Armada", "combobox", "Merging for Armada"),

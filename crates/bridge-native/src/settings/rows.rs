@@ -367,6 +367,7 @@ impl SettingsOverlay {
                 .id("settings-page-scroll")
                 .size_full()
                 .overflow_y_scroll()
+                .track_scroll(&self.scope.page_scroll)
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))

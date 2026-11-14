@@ -8,10 +8,13 @@
 //! `GET /projects/values` says came from Kit. **A kind of review falls through on its own** (#3504): a project sets
 //! only the kinds it names.
 
-use gpui::{div, prelude::*, px, svg, AnyElement, App, Context, FocusHandle, FontWeight, Role, SharedString, Toggled, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{canvas, div, point, prelude::*, px, svg, AnyElement, App, Context, FocusHandle, FontWeight, Pixels, Role, ScrollHandle, SharedString, Toggled, Window};
 use ipc::{LookSet, PrMode, Projects, ResolvedValues, ReviewsSet, ValueLayer, ValuesSet};
 
-use super::entries::Body;
+use super::entries::{self, Body};
 use super::overlay::{Picking, SettingsOverlay};
 use super::rows::{says, segment, segment_track, split_row, rows_card, Pick, Row, SEGMENTS_MAX, SELECT_W};
 use super::view::{bone, bounds_of, ringed, small, switch_track, tip};
@@ -386,7 +389,52 @@ impl SettingsOverlay {
         if self.scope.every.is_none() || (self.scope.project.is_some() && self.scope.values.is_none()) {
             return Vec::new();
         }
-        self.grid_of(cx).into_iter().flatten().filter_map(|cell| self.scope.cells.get(&cell).cloned()).collect()
+        let mut chip = self.learned_here() && self.grid_of(cx).iter().flatten().any(|cell| cell.0 == Key::Delivery);
+        let mut stops = Vec::new();
+        for cell in self.grid_of(cx).into_iter().flatten() {
+            // The Learned chip is read before the value it is about.
+            if chip && cell.0 == Key::Delivery {
+                stops.push(self.scope.learned.clone());
+                chip = false;
+            }
+            stops.extend(self.scope.cells.get(&cell).cloned());
+        }
+        stops
+    }
+
+    /// Whether the page draws the Learned chip: the project's How work lands is the word Fleet learned from his first answer.
+    pub fn learned_here(&self) -> bool {
+        self.scope.project.is_some() && self.scope.values.as_ref().and_then(|own| own.delivery.as_ref()).is_some_and(|value| value.learned)
+    }
+
+    /// Take the keys to `at`'s value: Settings opens if it is shut, the project is picked, the page that holds the value
+    /// is shown and the value's cell has the keys, scrolled into view.
+    pub fn go_to(&mut self, at: SettingsAt, window: &mut Window, cx: &mut Context<Self>) {
+        let SettingsAt { project, key } = at;
+        let Some(entry) = entries::holding(key) else { return };
+        if !self.open {
+            self.show(project.clone(), false, window, cx);
+        } else {
+            if !self.query_text(cx).is_empty() {
+                self.query.update(cx, |query, cx| query.set_value("", window, cx));
+            }
+            if self.scope.project != project {
+                self.edit(project.clone(), window, cx);
+            }
+        }
+        self.picked = entry.id;
+        let column = if project.is_some() { Column::Own } else { Column::Every };
+        if let Some(handle) = self.scope.cells.get(&(key, column)) {
+            window.focus(handle, cx);
+        }
+        self.scope.reveal.set(Some(key));
+        cx.notify();
+    }
+
+    /// A press on the Learned chip: its value, in the project picked.
+    pub fn go_to_learned(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let at = SettingsAt { project: self.scope.project.clone(), key: Key::Delivery };
+        self.go_to(at, window, cx);
     }
 
     /// The cell holding the keys, if one does.
@@ -563,12 +611,13 @@ pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, wind
             id: SharedString::from(format!("values-row-{key:?}")),
             title: key.title().into(),
             tip: None,
-            chips: learned(this, key, look).into_iter().collect(),
+            chips: learned(this, key, look, window, cx).into_iter().collect(),
             says: vec![says(look, key.description()).into_any_element()],
             changed: false,
             control: cells.into_any_element(),
         };
-        labelled(split_row(look, spread, row, n == 0), Role::Row, key.title()).into_any_element()
+        let line = split_row(look, spread, row, n == 0).when(this.scope.reveal.get() == Some(key), |line| line.child(reveal(this.scope.page_scroll.clone(), Rc::clone(&this.scope.reveal), key)));
+        labelled(line, Role::Row, key.title()).into_any_element()
     });
     let refused = this.scope.refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("values-refused"), Role::Alert, said).into_any_element());
     let shared_refused = this.scope.share_refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("project-shared-refused"), Role::Alert, said).into_any_element());
@@ -579,13 +628,16 @@ pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, wind
     div().flex().flex_col().gap(look.length(token::SPACE_2)).child(table).children(refused).children(shared_refused).into_any_element()
 }
 
-/// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer.
-fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> {
-    let own = this.scope.values.as_ref().filter(|_| key == Key::Delivery && this.scope.project.is_some())?;
-    own.delivery.as_ref().filter(|value| value.learned)?;
+/// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer. A press
+/// on it, or Enter, takes the keys to the value it is about, so he can change it where he disagrees.
+fn learned(this: &SettingsOverlay, key: Key, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Option<AnyElement> {
+    if key != Key::Delivery || !this.learned_here() {
+        return None;
+    }
     let ink = look.color(token::STATUS_AWAITING_REVIEW);
     let chip = div()
         .id("value-learned-Delivery")
+        .track_focus(&this.scope.learned)
         .flex_none()
         .px(look.length(token::SPACE_2))
         .rounded_full()
@@ -595,12 +647,55 @@ fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> 
         .text_size(look.length(token::TEXT_2XS))
         .line_height(look.length(token::LEADING_2XS))
         .text_color(ink)
+        .cursor_pointer()
+        .hover(|chip| chip.bg(ink).text_color(look.color(token::STATUS_AWAITING_REVIEW_BG)))
         .tooltip(tip(LEARNED_WHY))
+        .on_click(cx.listener(|this, _, window, cx| this.go_to_learned(window, cx)))
         .child("Learned");
-    Some(labelled(chip, Role::Image, format!("Learned: {LEARNED_WHY}")).into_any_element())
+    Some(labelled(ringed(look, chip, &this.scope.learned, window), Role::Button, LEARNED_NAME).into_any_element())
 }
 
-const LEARNED_WHY: &str = "Fleet learned this from your first answer";
+const LEARNED_WHY: &str = "Fleet learned this from your first answer. Press to change it";
+const LEARNED_NAME: &str = "Learned: How work lands";
+
+/// Scrolls the page the least that shows the row this fills, once, then lets go of the request. It waits while the page
+/// has not been laid out.
+fn reveal(page: ScrollHandle, pending: Rc<Cell<Option<Key>>>, key: Key) -> impl IntoElement {
+    canvas(
+        move |bounds, window, _| {
+            let view = page.bounds();
+            if pending.get() != Some(key) || view.size.height == Pixels::ZERO {
+                return;
+            }
+            pending.set(None);
+            let mut by = Pixels::ZERO;
+            if bounds.bottom() > view.bottom() {
+                by = bounds.bottom() - view.bottom();
+            }
+            if bounds.top() - by < view.top() {
+                by = bounds.top() - view.top();
+            }
+            if by == Pixels::ZERO {
+                return;
+            }
+            let offset = page.offset();
+            page.set_offset(point(offset.x, (offset.y - by).max(-page.max_offset().y).min(Pixels::ZERO)));
+            window.refresh();
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+}
+
+/// A value to take the keys to: the page that holds it, with `project` picked in the Editing picker, or every project.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SettingsAt {
+    pub project: Editing,
+    pub key: Key,
+}
 
 /// A page of values: its band, then its rows.
 pub fn page(this: &SettingsOverlay, entry: &'static super::entries::Entry, page: Page, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
@@ -932,5 +1027,97 @@ mod tests {
         assert_eq!(shared_of(&projects, "api"), Some(false));
         assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");
         assert_eq!(shared_of(&projects, "none"), None);
+    }
+
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::wire::Wire;
+
+    /// Settings over the mock Fleet, shut, on a page that is not the one a learned value is on.
+    fn shut(cx: &mut TestAppContext) -> (gpui::Entity<SettingsOverlay>, &mut VisualTestContext, (String, String)) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let armada = crate::mock::projects().projects.first().map(|one| (one.id.clone(), one.name.clone())).expect("the mock Fleet's first project");
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        (overlay, cx, armada)
+    }
+
+    fn learned_at(armada: &(String, String)) -> SettingsAt {
+        SettingsAt { project: Some(armada.clone()), key: Key::Delivery }
+    }
+
+    #[gpui::test]
+    fn a_learned_chip_opens_settings_on_its_page_with_its_project_picked_and_its_row_focused(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert!(this.open, "Settings opened from shut");
+            assert_eq!(this.scope.project.as_ref(), Some(&armada), "the project it is about is in the Editing picker");
+            assert_eq!(this.picked, "values:pull-requests", "the page that holds How work lands");
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)), "its row has the keys, in the project's column");
+            assert!(this.learned_here(), "and the chip is drawn on it");
+        });
+    }
+
+    #[gpui::test]
+    fn a_link_from_another_page_and_project_changes_both_and_leaves_no_search_in_the_way(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.show(None, false, window, cx)));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.pick("kit:models", cx);
+                this.query.update(cx, |query, cx| query.set_value("models", window, cx));
+                this.go_to(learned_at(&armada), window, cx);
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert_eq!((this.scope.project.as_ref(), this.picked), (Some(&armada), "values:pull-requests"));
+            assert_eq!(this.query_text(cx), "", "a search that hid the page is cleared");
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)));
+        });
+    }
+
+    #[gpui::test]
+    fn the_learned_chip_is_a_stop_just_before_how_work_lands_and_enter_on_it_takes_the_keys_there(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        let stops = cx.update(|_, cx| overlay.read(cx).grid_stops(cx));
+        let (chip, every, own) = cx.update(|_, cx| {
+            let this = overlay.read(cx);
+            (this.scope.learned.clone(), this.scope.cells[&(Key::Delivery, Column::Every)].clone(), this.scope.cells[&(Key::Delivery, Column::Own)].clone())
+        });
+        assert_eq!(stops.iter().take(3).collect::<Vec<_>>(), [&chip, &every, &own], "Tab reaches the chip, then the value in every project, then the project's");
+        cx.update(|window, cx| window.focus(&chip, cx));
+        cx.simulate_keystrokes("enter");
+        cx.update(|window, cx| assert_eq!(overlay.read(cx).cell_focused(window), Some((Key::Delivery, Column::Own)), "Enter followed the link"));
+    }
+
+    #[gpui::test]
+    fn the_chip_is_drawn_only_for_a_project_whose_word_was_learned(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert!(overlay.read(cx).learned_here()));
+        cx.update(|_, cx| {
+            overlay.update(cx, |this, _| {
+                if let Some(value) = this.scope.values.as_mut().and_then(|own| own.delivery.as_mut()) {
+                    value.learned = false;
+                }
+            })
+        });
+        cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "a word he set, or changed, is not learned"));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(None, window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "every project has none"));
     }
 }
