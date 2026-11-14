@@ -197,6 +197,11 @@ pub enum Screen {
     Reviews,
 }
 
+/// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
+const PRECEDENT_ANSWER: &str = "Follows your answer in Walk window takes: Only the tests it reaches: the whole suite is CI's";
+const PRECEDENT_RULED: &str = "Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
+const PRECEDENT_UNDO: &str = "Undo Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
+
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
     Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
 }
@@ -1788,6 +1793,28 @@ pub static WALKS: &[Walk] = &[
             step("Yes on the second ask answers it alone: it leaves for Answered today, and the card keeps the first", Verb::Open("button", "Yes"), "button", "Passkey"),
             step("One ask left is a card like any other, its kind beside the title", Verb::Look, "article", "Pocket sign-in on the phone"),
             step("⌥↓ moves it back under the red main", Verb::Key("alt-down"), "article", "Pocket sign-in on the phone"),
+        ],
+    },
+    Walk {
+        name: "native-operator-precedent",
+        title: "The Operator follows what you said before",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &[
+            answer("A go-ahead question whose pick follows your own answer: under My read, the Job you gave it in, when, and what you said", "precedent", "group", PRECEDENT_ANSWER),
+            step("Its tooltip says what you were asked then", Verb::Hover, "group", PRECEDENT_ANSWER),
+            step("The Job's name is a link: Enter or a press opens that Job", Verb::Look, "link", "Open Walk window takes"),
+            step("Yes answers this one. Always here keeps the rule, and then such a question is answered as it arrives", Verb::Look, "button", "Always here"),
+            step("↓ opens the next: this pick follows a setting of yours, its key and value in mono", Verb::Key("down"), "group", "Follows your setting time_format = 24h"),
+            step("Ruled, first in Since you last looked: the questions it answered by following you, under each Job, newest first", Verb::Look, "button", "Ruled"),
+            step("Each row is the question, then the pick and what it followed, and its time", Verb::Look, "listitem", PRECEDENT_RULED),
+            step("A ruling you took back is struck through and says so", Verb::Hover, "img", "You took it back at 12:40:00. It is in Your turn"),
+            step("A ruling whose Job has ended cannot be given back", Verb::Hover, "img", "Its Job has ended, so it cannot be given back"),
+            step("Undo, or U while it has the keys, gives the question back: the row reads Taken back at once, and the keys go to Ruled", Verb::Open("button", PRECEDENT_UNDO), "img", "You took it back at 13:05:00. It is in Your turn"),
+            answer("The question joins Your turn at its end, as yours", "rest", "row", "Pocket install banner"),
+            press_on("A press opens it where its row was", "row", "Pocket install banner", "article", "Pocket install banner"),
+            step("Its head says it was taken back, beside its kind; the tooltip says when, and that the Operator does not answer it again", Verb::Wheel("article", "Pocket install banner", -320), "img", "You took back the Operator's answer at 13:05:00. It does not answer this again"),
+            step("Its options are the ones the Job asked with, and the Operator gives no read. As on any question with no pick, the first is filled until you pick another; A sends it to the Job", Verb::Look, "radio", "Merge main in"),
         ],
     },
     Walk {
