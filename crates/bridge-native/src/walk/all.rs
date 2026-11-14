@@ -34,7 +34,7 @@ pub static STEPS: &[Step] = &[
     scene("Fleet's reading is back to normal: both rings low and green, 42% and 71% on the card, no offer", "rings-normal", "button", "Fleet — Running"),
     step("The dot opens its panel under it: on Main, aligned, nothing to update", Verb::Press, "button", "Fleet — Running"),
     scene("On Preview: five ahead, two behind, and the branches left out say why", "build-preview", "list", "Left out of the preview"),
-    press_on("Refresh preview is under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
+    press_on("Refresh is under way in the same frame", "button", "Refresh", "button", "Refreshing"),
     scene("A restart that did not take says why", "build-failed", "alert", "scripts/preview stopped: cargo build failed in crates/fleet"),
     scene("Main is three behind: Update to main is offered", "build-main-behind", "button", "Update to main"),
     press_on("Update to main restarts with no dialog: the restart is under way in the same frame", "button", "Update to main", "button", "Updating to main"),
