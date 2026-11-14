@@ -68,6 +68,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
+        "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.

@@ -1,12 +1,13 @@
-//! The Refresh row of the Fleet build switcher: the branches Jobs offered for the preview, each named by its
-//! Job's title and its line on what it holds, with where Fleet's check of it stands. The words are worked out
-//! here from `ipc::PreviewOffers`; the row draws them.
+//! The Fleet panel's Waiting section: the branches Jobs offered for the preview, each named by its Job's title
+//! and its line on what it holds, with where Fleet's check of it stands, then what the preview left out and the
+//! build of the picked branches. The words are worked out here from `ipc::PreviewOffers`; the section draws them.
 
 use gpui::{div, prelude::*, px, AnyElement, Context, Role, SharedString, Window};
-use ipc::{PreviewOffers, PreviewState};
+use ipc::{BuildSource, PreviewOffers, PreviewState, SnapshotState};
 
-use super::face::Build;
-use super::parts::{glyph, sans, spinner, tip, Btn, Weight};
+use super::face::{stage_word, Build};
+use super::parts::{glyph, spinner, tip, Btn, Weight};
+use super::switcher::{band_card, row, state_glyph, Row};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
@@ -16,6 +17,8 @@ use crate::look::{token, Look, Token};
 pub struct OfferLine {
     /// The Job's title; the branch only where Fleet holds no offer for it, or the offer has no title.
     pub name: String,
+    /// The branch, said on hover.
+    pub branch: String,
     /// The Job's line on what the branch holds.
     pub about: Option<String>,
     /// Where the check stands. Absent for a branch Fleet holds no offer for.
@@ -41,11 +44,12 @@ pub fn lines(offers: &PreviewOffers) -> Option<OfferLines> {
         match offers.offers.iter().find(|offer| offer.branch == branch) {
             Some(offer) => OfferLine {
                 name: if offer.title.trim().is_empty() { offer.branch.clone() } else { offer.title.clone() },
+                branch: offer.branch.clone(),
                 about: Some(offer.about.clone()).filter(|about| !about.trim().is_empty()),
                 state: Some(offer.state),
                 why: offer.why.clone(),
             },
-            None => OfferLine { name: branch.to_string(), about: None, state: None, why: None },
+            None => OfferLine { name: branch.to_string(), branch: branch.to_string(), about: None, state: None, why: None },
         }
     };
     let named = refresh.branches.iter().map(|branch| line(branch)).collect();
@@ -56,12 +60,6 @@ pub fn lines(offers: &PreviewOffers) -> Option<OfferLines> {
         .map(|offer| line(&offer.branch))
         .collect();
     Some(OfferLines { named, waiting })
-}
-
-/// Whether the switcher's own restart button stays: not while the Refresh row shows and that button would also
-/// read Refresh preview, so one button of that name is drawn. Update to main stays.
-pub fn restart_stays(held: &Build, row_shows: bool) -> bool {
-    !(row_shows && held.restart().target == ipc::BuildSource::Preview)
 }
 
 /// What a state glyph's tooltip says: the state, and on a failed offer what failed it.
@@ -85,146 +83,140 @@ fn hue(state: Option<PreviewState>) -> Token {
 }
 
 impl TitleBar {
-    /// The Refresh row, stacked in the switcher: the branches Refresh brings in, then Refresh preview and Skip, then
-    /// after a hairline the offers still being checked or failed.
-    pub(super) fn offers_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let offers = self.face.offers.as_ref()?;
-        let id = offers.refresh.as_ref()?.id.clone();
-        let shown = lines(offers)?;
-        let busy = held.report.restarting.is_some() || held.report.reverting || held.report.swapping;
-        let restart = held.restart();
-        let refreshing = restart.pending && restart.target == ipc::BuildSource::Preview;
-        // One row of an offer; `at` numbers the rows down the whole section, so each keeps its own ids.
-        let draw = |at: usize, one: &OfferLine| -> AnyElement {
+    /// What waits to be added: the ready offers Refresh brings in, the offers still being checked or failed, the
+    /// branches the preview left out, and the build of the picked branches. None where nothing waits.
+    pub(super) fn waiting_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let report = &held.report;
+        let offers = self.face.offers.as_ref();
+        let shown = offers.and_then(lines);
+        let left_out: &[ipc::LeftOutBranch] = if report.on == BuildSource::Preview && report.restarting.is_none() { &report.left_out } else { &[] };
+        let snapshot = report.snapshot.as_ref();
+        if shown.is_none() && left_out.is_empty() && snapshot.is_none() {
+            return None;
+        }
+        let offer_row = |at: usize, one: &OfferLine| -> AnyElement {
             let ink = look.color(hue(one.state));
-            let mark = one.state.map(|state| {
-                let said: SharedString = state_said(state, one.why.as_deref()).into();
-                let drawn = match state {
-                    PreviewState::Checking => spinner(("offer-spin", at), px(12.), ink, cx).into_any_element(),
-                    PreviewState::Ready => glyph("check", px(12.), ink).into_any_element(),
-                    PreviewState::Failed => glyph("x", px(12.), ink).into_any_element(),
-                };
-                labelled(
-                    div().id(("offer-state", at)).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().tooltip(tip(said.clone())).child(drawn),
-                    Role::Image,
-                    said,
-                )
-            });
-            let about = one.about.clone().map(|about| {
-                let said: SharedString = about.into();
-                div()
-                    .id(("offer-about", at))
-                    .min_w_0()
-                    // Two lines, then an ellipsis; the whole line is in the tooltip.
-                    .line_clamp(2)
-                    .text_ellipsis()
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(token::FG_MUTED))
-                    .tooltip(tip(said.clone()))
-                    .child(said)
-            });
-            div()
-                .id(("offer", at))
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_2))
-                // The state's hue on the row's edge.
-                .border_l(look.length(token::BORDER_WIDTH) * 2.)
-                .border_color(ink)
-                .children(mark)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .flex()
-                        .flex_col()
-                        // The title keeps the row's width and wraps, where it would be cut short.
-                        .child(
-                            div()
-                                .min_w_0()
-                                .font_family(sans(look))
-                                .text_size(look.length(token::TEXT_SM))
-                                .line_height(look.length(token::LEADING_SM))
-                                .text_color(look.color(token::FG_DEFAULT))
-                                .child(one.name.clone()),
-                        )
-                        .children(about),
-                )
-                .into_any_element()
+            let mark = match one.state {
+                Some(state) => {
+                    let said: SharedString = state_said(state, one.why.as_deref()).into();
+                    let drawn = match state {
+                        PreviewState::Checking => spinner(("offer-spin", at), px(12.), ink, cx).into_any_element(),
+                        PreviewState::Ready => glyph("check", px(12.), ink).into_any_element(),
+                        PreviewState::Failed => glyph("x", px(12.), ink).into_any_element(),
+                    };
+                    labelled(div().id(("offer-state", at)).flex_none().tooltip(tip(said.clone())).child(drawn), Role::Image, said).into_any_element()
+                }
+                None => state_glyph(format!("offer-state-{at}").into(), "git-branch", look.color(token::FG_MUTED), "Not offered".into()),
+            };
+            row(
+                look,
+                "offer",
+                at,
+                Row {
+                    mark,
+                    name: one.name.clone().into(),
+                    hover: (one.name != one.branch).then(|| one.branch.clone().into()),
+                    about: one.about.clone().map(Into::into),
+                    word: None,
+                    end: None,
+                },
+            )
         };
-        // A list of rows in its own frame, a hairline between them apart from the rows so each edge keeps its hue.
-        let list = |first: usize, rows: &[OfferLine], name: &'static str| -> AnyElement {
-            let rows: Vec<AnyElement> = rows
+        let list = |name: &'static str, rows: Vec<AnyElement>| -> Option<AnyElement> {
+            (!rows.is_empty()).then(|| labelled(div().id(name).flex().flex_col().children(rows), Role::List, name).into_any_element())
+        };
+        let mut groups: Vec<AnyElement> = Vec::new();
+        if let Some(shown) = shown.as_ref() {
+            let ready = shown.named.len();
+            groups.extend(list("Offered for the preview", shown.named.iter().enumerate().map(|(at, one)| offer_row(at, one)).collect()));
+            groups.extend(list("Offers not ready", shown.waiting.iter().enumerate().map(|(at, one)| offer_row(ready + at, one)).collect()));
+        }
+        let amber = look.color(token::STATUS_AWAITING_REVIEW);
+        let title_of = |branch: &str| {
+            offers.and_then(|offers| offers.offers.iter().find(|offer| offer.branch == branch && !offer.title.trim().is_empty())).map(|offer| offer.title.clone())
+        };
+        groups.extend(list(
+            "Left out of the preview",
+            left_out
                 .iter()
                 .enumerate()
-                .map(|(within, one)| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .children((within > 0).then(|| div().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE))))
-                        .child(draw(first + within, one))
-                        .into_any_element()
+                .map(|(at, one)| {
+                    let name = title_of(&one.branch);
+                    let moved = one.moved.then(|| state_glyph(format!("left-out-moved-{at}").into(), "git-commit-horizontal", look.color(token::FG_MUTED), "Moved since it was left out".into()));
+                    row(
+                        look,
+                        "left-out",
+                        at,
+                        Row {
+                            mark: state_glyph(format!("left-out-mark-{at}").into(), "circle-slash", amber, "Left out of the preview".into()),
+                            hover: name.is_some().then(|| one.branch.clone().into()),
+                            name: name.unwrap_or_else(|| one.branch.clone()).into(),
+                            about: Some(one.why.clone().into()),
+                            word: Some(("left out", amber)),
+                            end: moved,
+                        },
+                    )
                 })
-                .collect();
-            labelled(
-                div()
-                    .id(name)
-                    .flex()
-                    .flex_col()
-                    .overflow_hidden()
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::BG_SUNKEN))
-                    .children(rows),
-                Role::List,
-                name,
-            )
-            .into_any_element()
-        };
-        let refresh = {
-            let label = if refreshing { "Refreshing preview" } else { "Refresh preview" };
-            let button = Btn::new("refresh-offers", label, Weight::Primary).icon("rotate-cw").pending(refreshing).disabled(busy).draw(look, cx).flex_1();
-            let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.refresh_offers_pressed(window, cx))) };
-            labelled(button.tooltip(tip("Merge the offered branches and restart on the preview")), Role::Button, label)
-        };
-        let skip = {
-            let button = Btn::new("skip-offers", "Skip", Weight::Secondary).draw(look, cx);
-            let button = button.on_click(cx.listener(move |this, _, window, cx| this.skip_offers_pressed(id.clone(), window, cx)));
-            labelled(button.tooltip(tip("Hide this row until the offers change")), Role::Button, "Skip")
-        };
-        let ready_count = shown.named.len();
+                .collect(),
+        ));
+        groups.extend(snapshot.map(|snapshot| self.snapshot_row(held, snapshot, look, cx)));
         Some(
-            div()
-                .id("fleet-offers")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .children((!shown.named.is_empty()).then(|| list(0, &shown.named, "Offered for the preview")))
-                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(refresh).child(skip))
-                // Below the buttons, after a hairline; none, and no hairline, where nothing waits.
-                .children((!shown.waiting.is_empty()).then(|| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_2))
-                        .child(div().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE)))
-                        .child(list(ready_count, &shown.waiting, "Offers not ready"))
-                }))
-                .into_any_element(),
+            labelled(
+                band_card(look, "waiting", "plus", token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG, "Waiting to be added", None, None, groups),
+                Role::Group,
+                "Waiting to be added",
+            )
+            .into_any_element(),
         )
     }
 
-    /// Refresh preview: the switcher's own preview switch.
-    fn refresh_offers_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.change_build(ipc::BuildSource::Preview, window, cx);
+    /// The build of the picked branches: being built, ready to swap onto, or failed.
+    fn snapshot_row(&self, held: &Build, snapshot: &ipc::KeptSnapshot, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let report = &held.report;
+        let (mark, word, about): (AnyElement, (&'static str, gpui::Hsla), Option<SharedString>) = match snapshot.state {
+            SnapshotState::Building => {
+                let ink = look.color(token::STATUS_RUNNING);
+                let said = snapshot.stage.map_or("Building", stage_word);
+                (
+                    labelled(div().id("snapshot-mark").flex_none().tooltip(tip(said)).child(spinner("snapshot-spin", px(12.), ink, cx)), Role::Status, "Building").into_any_element(),
+                    ("building", ink),
+                    None,
+                )
+            }
+            SnapshotState::Ready => {
+                let ink = look.color(token::STATUS_COMPLETED_SUCCESS);
+                (state_glyph("snapshot-mark".into(), "check", ink, "Ready".into()), ("ready", ink), snapshot.bridge_reopens.then(|| "Bridge reopens".into()))
+            }
+            SnapshotState::Failed => {
+                let ink = look.color(token::STATUS_COMPLETED_FAILED);
+                (state_glyph("snapshot-mark".into(), "x", ink, "Failed".into()), ("failed", ink), snapshot.failed.clone().map(Into::into))
+            }
+        };
+        let swap = (snapshot.state == SnapshotState::Ready).then(|| {
+            let off = report.swapping || report.reverting || report.restarting.is_some();
+            let label = if report.swapping { "Swapping" } else { "Swap" };
+            let button = Btn::new("swap-build", label, Weight::Secondary).pending(report.swapping).disabled(off).draw(look, cx).tooltip(tip("Restart Fleet on the build of the picked branches"));
+            let button = if off { button } else { button.on_click(cx.listener(|this, _, _, cx| this.swap_pressed(cx))) };
+            labelled(button, Role::Button, label).into_any_element()
+        });
+        let drawn = row(
+            look,
+            "snapshot",
+            0,
+            Row {
+                mark,
+                name: "Picked branches".into(),
+                hover: (!snapshot.jobs.is_empty()).then(|| snapshot.jobs.join(", ").into()),
+                about,
+                word: if swap.is_some() { None } else { Some(word) },
+                end: swap,
+            },
+        );
+        labelled(div().id("held-by-snapshot").child(drawn), Role::List, "Held by the snapshot").into_any_element()
     }
 
     /// Skip: the row goes in this frame, and Fleet is asked to keep it skipped. The keys stay in the panel.
-    fn skip_offers_pressed(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn skip_offers_pressed(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         let skipped = id.clone();
         self.answer(
             move |face| {
@@ -266,6 +258,7 @@ mod tests {
             shown.named,
             vec![OfferLine {
                 name: "Quiet the write-clash notices".into(),
+                branch: "armada/session-1".into(),
                 about: Some("About Quiet the write-clash notices".into()),
                 state: Some(PreviewState::Ready),
                 why: None
@@ -280,7 +273,7 @@ mod tests {
         let json = format!(r#"{{"offers":[{}],"refresh":{{"id":"r1","branches":["armada/a","armada/gone"]}}}}"#, row("armada/a", "", "ready", ""));
         let shown = lines(&offers(&json)).expect("a row");
         assert_eq!(shown.named[0].name, "armada/a");
-        assert_eq!(shown.named[1], OfferLine { name: "armada/gone".into(), about: None, state: None, why: None });
+        assert_eq!(shown.named[1], OfferLine { name: "armada/gone".into(), branch: "armada/gone".into(), about: None, state: None, why: None });
     }
 
     #[test]
@@ -298,20 +291,6 @@ mod tests {
         assert_eq!(names(&shown.waiting), ["Beta", "Gamma"]);
         let only_ready = format!(r#"{{"offers":[{ready}],"refresh":{{"id":"r1","branches":["armada/a"]}}}}"#);
         assert!(lines(&offers(&only_ready)).expect("a row").waiting.is_empty(), "nothing waits, so nothing is drawn below the buttons");
-    }
-
-    #[test]
-    fn the_switchers_restart_gives_way_only_where_it_would_also_read_refresh_preview() {
-        let held = |json: &str| super::super::face::build_of(&ipc::decode::<ipc::FleetBuildReport>("FleetBuildReport", json.as_bytes()).expect("a report"));
-        let on_preview = held(r#"{"on":"preview"}"#);
-        assert_eq!(on_preview.restart().label, "Refresh preview");
-        assert!(!restart_stays(&on_preview, true), "with the row, only the row's button reads Refresh preview");
-        assert!(restart_stays(&on_preview, false), "with no row, the switcher's own stays");
-        let on_main = held(r#"{"on":"main","position":{"ahead":0,"behind":3}}"#);
-        assert_eq!(on_main.restart().label, "Update to main");
-        assert!(restart_stays(&on_main, true), "Update to main is not a Refresh preview, and stays");
-        let going = held(r#"{"on":"main","restarting":"preview"}"#);
-        assert!(!restart_stays(&going, true), "a restart onto the preview shows its pending word on the row's button");
     }
 
     #[test]
