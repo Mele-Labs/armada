@@ -328,7 +328,7 @@ impl JobView {
     }
 
     /// The word a tab reads.
-    fn tab_word(&self, job: &SharedString, tab: &Tab) -> SharedString {
+    pub(super) fn tab_word(&self, job: &SharedString, tab: &Tab) -> SharedString {
         match tab.kind.as_str() {
             "thread" => "Thread".into(),
             "now" => "Now".into(),

@@ -473,6 +473,9 @@ impl JobView {
         // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Move to window is held.
         let zoomed = self.thread_pane().is_some_and(|pane| self.zoomed().as_deref() == Some(pane.as_str()));
         groups.push(super::place_menu::pane_entries(zoomed));
+        if let Some(tab) = self.thread_tab_id() {
+            groups.push(self.move_entries(&tab));
+        }
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -504,7 +507,7 @@ impl JobView {
         if let Some(why) = self.off_here(id, cx) {
             for entry in &mut entries {
                 match entry {
-                    Entry::Item { id, .. } if *id == "zoom" => {}
+                    Entry::Item { id, .. } if *id == "zoom" || super::place_menu::is_move(id) => {}
                     Entry::Item { off, .. } => *off = Some(why.clone()),
                     Entry::Toggle { id, label, .. } => {
                         *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
@@ -553,7 +556,13 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if act != "zoom" && self.off_here(&id, cx).is_some() {
+        if act != "zoom" && !super::place_menu::is_move(act) && self.off_here(&id, cx).is_some() {
+            return;
+        }
+        if super::place_menu::is_move(act) {
+            if let Some(tab) = self.thread_tab_id() {
+                self.move_tab_picked(act, &tab, window, cx);
+            }
             return;
         }
         let session_id = Self::session_id(&id);
