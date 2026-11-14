@@ -1241,7 +1241,7 @@ impl SettingsOverlay {
                     lines.push(alert(look, "macs-tunnel-why", why));
                 }
                 lines.extend(refused);
-                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, "No tunnel yet"), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), first)
+                step_row(look, not_done(look, "macs-tunnel-mark"), step_name(look, if funnel.is_some() { "No tunnel for your other Macs yet" } else { "No tunnel yet" }), lines, Some(self.macs_button("setup", "Set up tunnel", Weight::Primary, page.pressing, look, window, cx)), first)
             }
         };
         rows.push(row);
