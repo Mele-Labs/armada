@@ -775,7 +775,8 @@ pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
-    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
+    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalFromMac,
+    TerminalOfJob, TerminalScreen,
     TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{
