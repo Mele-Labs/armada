@@ -31,6 +31,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
             unread: None,
             values: None,
             shared_with_macs: false,
+            store: None,
             mac: None,
             rows: vec![
                 task("r1", "Write the page"),

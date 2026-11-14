@@ -243,6 +243,13 @@ pub struct RunRow {
 /// **Every call is a network round trip**, so a caller on a hot path reads
 /// what it already has and calls this only where an answer must be fresh: a
 /// take always meets the store itself.
+/// A device signed in to a store, and the Mac's name it enrolled as.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoreDevice {
+    pub id: String,
+    pub machine: String,
+}
+
 pub trait Store {
     /// Take the thing if nobody holds it. **One call, answered atomically by the
     /// store**: of two machines racing, the first wins and the other is told who.
@@ -282,6 +289,10 @@ pub trait Store {
     /// store allows any device of an account to, so a lost machine can be
     /// removed. A device already gone is not an error.
     fn delete_device(&self, device: &str) -> Result<(), StoreError>;
+
+    /// Every device signed in to the store this one signs into, oldest first: the account's on a store
+    /// of one's own, every member's on a team store.
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError>;
 
     /// Replace every run the store holds for a repository. The caller has read and merged first, so
     /// a fact another machine added stays. An empty list leaves the store holding none.

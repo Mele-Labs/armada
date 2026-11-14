@@ -21,7 +21,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store, StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store, StoreDevice, StoreError,
 };
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
@@ -183,6 +183,26 @@ struct RunsBody {
 #[derive(Deserialize)]
 struct RunsReply {
     facts: Vec<RunWire>,
+}
+
+#[derive(Deserialize)]
+struct DevicesReply {
+    devices: Vec<DeviceWire>,
+}
+
+#[derive(Deserialize)]
+struct DeviceWire {
+    device: String,
+    machine: String,
+}
+
+/// The devices in a `GET /v1/devices` reply, in the store's order.
+pub(crate) fn devices_held(reply: &Reply) -> Result<Vec<StoreDevice>, StoreError> {
+    if !succeeded(reply) {
+        return Err(not_answered(reply));
+    }
+    let devices = decoded::<DevicesReply>("devices", reply)?.devices;
+    Ok(devices.into_iter().map(|one| StoreDevice { id: one.device, machine: one.machine }).collect())
 }
 
 #[derive(Serialize)]
@@ -508,6 +528,11 @@ impl Store for HttpStore {
         }
         let call = Call { method: "DELETE", target: format!("/v1/devices/{device}"), body: Vec::new() };
         deleted(&self.send(&call)?)
+    }
+
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
+        let call = Call { method: "GET", target: "/v1/devices".to_string(), body: Vec::new() };
+        devices_held(&self.send(&call)?)
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {

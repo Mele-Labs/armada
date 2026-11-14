@@ -15,6 +15,13 @@ The account is [Account](../concepts/account.md).
 **Rule.** One Durable Object holds one account, named by the account's numeric id.
 Why: a Durable Object runs one request at a time, so a claim is atomic with no lock written.
 
+**Rule.** A Worker deployed with the var `TEAM` is a team store: one Durable Object holds everyone who belongs to that GitHub org, or to one team in it, named `team:<org>` or `team:<org>/<team>` in lowercase.
+`TEAM` is `org` or `org/team-slug`: an org of 1 to 39 letters, digits and `-`, a slug of at most 100 letters, digits, `-` and `_`.
+A `TEAM` that is neither refuses every request `500 bad_team_config`, so a mistyped deploy is never open to everyone.
+Every signed request on a team store goes to the team's object, whatever account the device id starts with.
+Why: a team shares claims only if its members' devices sign into one object, and a device id keeps one shape on both kinds of store.
+Decided by the owner, 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
+
 **Rule.** Bridge never calls the store. Fleet does, and signs every call.
 Why: Bridge holds one connection, to Fleet.
 
@@ -74,6 +81,7 @@ All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `P
 | Request | Body | Answers |
 |---|---|---|
 | `POST /enrol` | `token`, `public_key`, `machine` | `200 {device}` |
+| `GET /devices` | none | `200 {devices}`, each `device` and `machine`, oldest enrolment first |
 | `DELETE /devices/{device}` | none | `204`, `404 no_device` |
 | `POST /claims` | `repo`, `kind`, `key`, `holder` | `200 {holder, renewed}` won, `409 {holder, renewed}` held |
 | `GET /claims/{repo}/{kind}/{key}` | none | `200 {holder, renewed}`, `404 no_claim` |
@@ -180,10 +188,26 @@ The device id is the account id, a dot, and 32 hex characters, so the Worker fin
 | 502 | `forge_unreadable` | The forge answered with no usable numeric id |
 | 400 | `invalid_public_key` | The key is not a P-256 public key |
 | 429 | `enrol_rate_limited` | The address used its enrolments for the minute, [Limits](#limits) |
-| 413 | `devices_full` | The account already has 16 devices |
+| 413 | `devices_full` | The account already has 16 devices, or the team store 256 |
 
 **Rule.** Any device of an account may sign out another device of that account.
 Why: a machine that is lost cannot sign itself out.
+
+**Rule.** `GET /devices` answers every device of the object the caller signs into, with the Mac's name it enrolled as and never its key.
+Why: the store setting says which Macs are signed in.
+
+**Rule.** On a team store, enrol also asks the forge whether the token's account belongs: `GET /user/memberships/orgs/<org>` for an org, `GET /orgs/<org>/teams/<team>/memberships/<login>` for a team, at the origin of the user endpoint.
+A member is a `200` whose `state` is `active`.
+The token is read for these calls and dropped, as for the user endpoint, and a refused enrolment registers nothing.
+
+| Status | `error` | When |
+|---|---|---|
+| 403 | `not_a_member` | The forge answered `404`, or a membership that is not active |
+| 403 | `org_restricted` | The forge answered `403`: the org's OAuth app restrictions block the read until an org owner approves the app |
+| 401 | `forge_refused` | The membership call answered `401` |
+| 502 | `forge_unreachable` | The membership call did not answer, or failed |
+| 502 | `forge_unreadable` | The user endpoint named no login, on a team store |
+| 500 | `bad_team_config` | `TEAM` is not an org or `org/team` |
 
 ## Limits
 
@@ -193,6 +217,7 @@ The store is the default for every Armada user, so no one account may run up the
 |---|---|---|
 | Enrolments per address per minute | 10 | `429 enrol_rate_limited` |
 | Devices per account | 16 | `413 devices_full` |
+| Devices per team store | 256 | `413 devices_full` |
 | Claims per account | 10,000 | `413 claims_full` |
 | Owners per account | 10,000 | `413 owners_full` |
 | Repositories with runs per account | 1,000 | `413 runs_full` |
@@ -247,6 +272,20 @@ Fleet reads either as the store not answering ([Failure](#failure)).
 The Workers Paid plan is at least $5 a month, with 10 million Worker requests, 1 million Durable Object requests and 50 million rows written a month included.
 The pages do not say whether the Rate Limiting binding `enrol` uses is on the Free plan, so that is checked at the first deploy.
 
+## A store per project
+
+**Rule.** A store is named by a project, never by the machine. A project's file names it under `store:`, as `address`, and `team` where it is a team store, and `worker` and `deployed` where a Mac of his deployed it.
+A project with none sends nothing.
+Why: a work project points at the team's store and Armada at his own, decided by the owner on 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
+
+**Rule.** A repository calls the store the projects holding it name, read when the call is made.
+A repository in no project, or in projects that name none, makes no call, and that holds for what was still to send when a store was taken out.
+A repository in two projects that name different stores makes no call either, and Fleet says so on its log.
+Why: nothing says which store the person meant, and a claim sent to the wrong one is a claim his other Macs never see.
+
+**Rule.** A profile keeps a key and a device id for each store it enrolled with, in `stores/<the first 16 hex of the address's sha256>` under the profile's folder.
+Why: one account enrolled with his own store and his team's is two devices, one in each.
+
 ## Failure
 
 **Rule.** A store that cannot be reached, or answers with a refusal, refuses the take. Fleet never proceeds on a claim it could not make.
@@ -254,11 +293,11 @@ Why: a fix nobody else can see is the double fix this exists to stop. Decided by
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
-**Rule.** A repository with the switch off, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
+**Rule.** A repository with the switch off, one in no project that names a store, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
 Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
 
 **Rule.** A repository's runs call as its own profile whether or not its Manifest turns the pull request owners on: choosing the place `cloud` is the switch.
-A repository with no remote, one bound to no profile and one with no store address set refuse the choice, `422 fleet.run_cloud_unsigned`.
+A repository with no remote, one bound to no profile and one in no project that names a store refuse the choice, `422 fleet.run_cloud_unsigned`.
 
 **Rule.** A store that cannot be reached, or answers with a refusal, on the choice of `cloud` refuses the choice and the old place stays.
 Later, a write that fails keeps the facts in Fleet's own record, marked waiting with the reason, and the next turn's end writes again.

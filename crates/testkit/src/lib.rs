@@ -25,6 +25,7 @@
 
 mod beads;
 mod bucket;
+mod cloudflare;
 mod harness;
 mod judge;
 mod link_lookup;
@@ -40,6 +41,7 @@ mod workflow;
 
 pub use beads::{Bead, FakeBeads, FakeBeadsRemote};
 pub use bucket::FakeBucket;
+pub use cloudflare::{CloudflareCall, FakeCloudflare, FakeCloudflareTokens, FAKE_SUBDOMAIN};
 pub use harness::{FakeHarness, EDITS, READS, REACHES, REPLAYED, RUNS};
 pub use judge::{refusal, FakeJudge};
 pub use link_lookup::FakeLinkLookup;

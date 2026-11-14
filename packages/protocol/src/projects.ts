@@ -84,6 +84,18 @@ export type TaskPull = {
   state?: "open" | "merged" | "closed";
 };
 
+/** A project's claims store as its file names it. `docs/contracts/central-store.md`, A store per project. */
+export type ProjectStore = {
+  /** `https://` and the host the store answers at. */
+  address: string;
+  /** The GitHub org, or `org/team`, a team store admits. Absent for a store of his own. */
+  team?: string;
+  /** The Worker's name on the Cloudflare account it was deployed to. Absent for a store joined by its address alone. */
+  worker?: string;
+  /** When it was last deployed, RFC 3339. Absent where no Mac of his deployed it. */
+  deployed?: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -99,6 +111,8 @@ export type Project = {
   values?: ValuesSet;
   /** Whether its Jobs may be seen and acted on from his other Macs. False until he turns it on, and absent while false. */
   shared_with_macs?: boolean;
+  /** The claims store its Jobs' claims go to. Absent is none, and a project with none sends nothing. `GET /projects/project/:project/store` says which Macs are signed in and whether a deploy or a join can run now. */
+  store?: ProjectStore;
   /** The other Mac that holds this project, where this is a read copy of it. Absent for this Mac's own. A task act on a copy is sent to that Mac; what a copy refuses is `fleet.other_mac_project_held`. */
   mac?: string;
 };

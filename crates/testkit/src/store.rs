@@ -19,13 +19,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, OwnerKey, RepositoryKey, RunRow, Store, StoreError};
+use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, OwnerKey, RepositoryKey, RunRow, Store, StoreDevice, StoreError};
 
 #[derive(Debug, Default)]
 struct Rows {
     claims: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Claimant>,
     owners: BTreeMap<OwnerKey, Holder>,
     devices: BTreeSet<String>,
+    /// The Mac each device enrolled as, in the order they enrolled.
+    machines: Vec<(String, String)>,
     runs: BTreeMap<RepositoryKey, Vec<RunRow>>,
 }
 
@@ -54,7 +56,15 @@ impl FakeStore {
     /// Register a device as an enrolment would. The real store does this on
     /// `POST /v1/enrol`, which is not part of [`Store`].
     pub fn enrol(&self, device: &str) {
-        self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner).devices.insert(device.to_string());
+        self.enrol_as(device, "");
+    }
+
+    /// [`FakeStore::enrol`], as the Mac named `machine`.
+    pub fn enrol_as(&self, device: &str, machine: &str) {
+        let mut rows = self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if rows.devices.insert(device.to_string()) {
+            rows.machines.push((device.to_string(), machine.to_string()));
+        }
     }
 
     /// The devices the store holds, whichever handle enrolled them.
@@ -147,8 +157,15 @@ impl Store for FakeStore {
     }
 
     fn delete_device(&self, device: &str) -> Result<(), StoreError> {
-        self.rows("delete_device")?.devices.remove(device);
+        let mut rows = self.rows("delete_device")?;
+        rows.devices.remove(device);
+        rows.machines.retain(|(id, _)| id != device);
         Ok(())
+    }
+
+    fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
+        let rows = self.rows("signed_in_devices")?;
+        Ok(rows.machines.iter().map(|(id, machine)| StoreDevice { id: id.clone(), machine: machine.clone() }).collect())
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {

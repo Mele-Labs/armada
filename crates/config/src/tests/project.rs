@@ -164,3 +164,38 @@ fn a_project_is_unshared_unless_its_file_says_so_and_is_written_shared_only_whil
     let refused = parse_project(Path::new("shop.yml"), &format!("{file}shared_with_macs: yes please\n")).expect_err("not a flag");
     assert!(refused.to_string().contains("shared_with_macs"), "{refused}");
 }
+
+#[test]
+fn a_project_names_no_store_unless_its_file_does_and_a_named_one_reads_back_whole() {
+    let file = "version: 2\nproject_id: shop\nname: Shop\nmembers:\n  - repository: web\n";
+    let none = parse_project(Path::new("shop.yml"), file).expect("a Project");
+    assert_eq!(none.store(), None, "a file that names none sends nothing");
+    assert!(!project_text(&none).expect("text").contains("store"), "none is not written");
+
+    let team = format!(
+        "{file}store:\n  address: https://Armada-Store.acme.workers.dev/\n  team: Acme/Platform\n  worker: armada-store-acme\n  deployed: 2026-11-13T10:00:00.000Z\n"
+    );
+    let read = parse_project(Path::new("shop.yml"), &team).expect("a Project with a team store");
+    let store = read.store().expect("its store");
+    assert_eq!(store.address.as_str(), "https://armada-store.acme.workers.dev", "lowercased, the trailing slash taken off");
+    assert_eq!(store.team.as_ref().map(ToString::to_string).as_deref(), Some("acme/platform"));
+    assert_eq!(store.worker.as_ref().map(|it| it.as_str()), Some("armada-store-acme"));
+    let written = project_text(&read).expect("text");
+    assert_eq!(parse_project(Path::new("shop.yml"), &written).expect("read back"), read);
+
+    let mine = parse_project(Path::new("shop.yml"), &format!("{file}store:\n  address: https://store.example.com\n")).expect("joined by address");
+    assert_eq!(mine.store().map(|it| (it.team.is_none(), it.worker.is_none(), it.deployed.is_none())), Some((true, true, true)));
+
+    for (bad, names) in [
+        ("store:\n  address: http://store.example.com\n", "store.address"),
+        ("store:\n  address: https://store.example.com/claims\n", "store.address"),
+        ("store:\n  address: https://store.example.com\n  team: acme/plat/form\n", "store.team"),
+        ("store:\n  address: https://store.example.com\n  worker: Armada_Store\n", "store.worker"),
+        ("store:\n  address: https://store.example.com\n  deployed: yesterday\n", "store.deployed"),
+        ("store:\n  team: acme\n", "store"),
+        ("store:\n  address: https://store.example.com\n  token: abc\n", "store"),
+    ] {
+        let refused = parse_project(Path::new("shop.yml"), &format!("{file}{bad}")).expect_err(bad);
+        assert!(refused.to_string().contains(names), "{bad}: {refused}");
+    }
+}
