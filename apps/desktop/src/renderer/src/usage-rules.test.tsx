@@ -147,6 +147,6 @@ test("the picked rule shows what the Job is told, with the newest trip's figure"
   expect(host.querySelector(".armada-usage__tell")).toBeNull();
   await press("1");
   expect(host.querySelector(".armada-usage__tell")?.textContent).toContain(
-    "Context is 351k tokens.",
+    "Context is 351k tokens, past the 300k limit.",
   );
 });
