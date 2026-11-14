@@ -1255,6 +1255,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-thread-subagents",
+        title: "A subagent sent more work runs again in the thread",
+        screen: Screen::Jobs,
+        scenario: "thread-subagents",
+        steps: &[
+            press_on("A Job at work whose agent sent a finished subagent more work. The card at the foot says it is running", "row", "Run the native rebuild", "button", "1 subagent running"),
+            step("The card opens on it", Verb::Open("button", "1 subagent running"), "button", "Subagent Build Needs you take A"),
+            step("Up the thread, the row that first started it reads running again, timed from the message", Verb::WheelTo("region", "Thread", -200), "button", "Subagent Build Needs you take A, running"),
+            step("The one that finished stays finished", Verb::Look, "button", "Subagent Build the context handoff card, finished"),
+            press_on("The Subagents tab lists it too", "button", "Add tab: Done", "menuitem", "Subagents"),
+            press_on("Running ones first", "menuitem", "Subagents", "button", "Build Needs you take A"),
+        ],
+    },
+    Walk {
         name: "native-history",
         title: "A Job's history: handed on and forked",
         screen: Screen::Jobs,
