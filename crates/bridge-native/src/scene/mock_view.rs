@@ -195,8 +195,17 @@ pub fn set_painter(painter: Painter, cx: &mut App) {
 pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut App) {
     let fleet = fleet.clone();
     cx.default_global::<Pictures>().port = Some(Rc::new(move |cx: &App| fleet.read(cx).held().port()));
-    // render_html: `set_painter(Rc::new(|html, width, scale, appearance, cx| ...), cx)` goes here, wrapping `web::render::render_html`
-    // (mapping `Appearance` to its own and `Rendered` to `(image, height)`). Until it does, a mock keeps its plain frame.
+    set_painter(
+        Rc::new(|html, width, scale, appearance, cx: &mut App| {
+            let appearance = match appearance {
+                Appearance::Light => crate::web::Appearance::Light,
+                Appearance::Dark => crate::web::Appearance::Dark,
+            };
+            let drawn = crate::web::render_html(html, width, scale, appearance, cx);
+            cx.foreground_executor().spawn(async move { drawn.await.map(|rendered| (rendered.image, rendered.height)) })
+        }),
+        cx,
+    );
 }
 
 /// How tall a page's content stands at this width, once any picture of it has come.

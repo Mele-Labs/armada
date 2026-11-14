@@ -550,6 +550,12 @@ fn token_from_gh(host: &str) -> Result<Secret<String>, ApiFailure> {
     token_read(&["auth", "token", "--hostname", host])
 }
 
+/// The token `gh` holds for `login` on GitHub, for a store's enrol to read once. A refusal says `gh`
+/// is not signed in as `login`, and never carries the token.
+pub fn forge_token_as(login: &str) -> Result<Secret<String>, String> {
+    token_from_gh_as(GITHUB_HOST, login).map_err(|why| format!("gh is not signed in to GitHub as {login}: {why}"))
+}
+
 /// The token `gh` holds for `login` on `host`, whichever account is active: `gh` can hold several.
 pub(crate) fn token_from_gh_as(host: &str, login: &str) -> Result<Secret<String>, ApiFailure> {
     token_read(&["auth", "token", "--hostname", host, "--user", login])

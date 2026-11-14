@@ -134,6 +134,9 @@ async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
     assert_eq!(refused_code(&outcomes[0]), "fleet.items_send_back_empty");
     assert_eq!(outcomes[1], ItemSettled::Settled);
     assert!(sent(&rig.rows(&id).await).contains(&sketching::sent_back("Two", "1. Bigger")));
+    // Drawn in the turn still running, the one left waits once that turn ends.
+    rig.stand_in.finishes(0, "Drawn.");
+    eventually(|| async { !ids(&record_of(&rig, &id).await).is_empty() }).await;
     assert_eq!(ids(&record_of(&rig, &id).await), ["sketch:One"]);
 }
 

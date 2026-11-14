@@ -140,7 +140,7 @@ impl WebPage {
     /// The page, made and loading, where it was not yet.
     fn make(&mut self, size: Frame) {
         let Some((manifest, source, events)) = self.waiting.take() else { return };
-        let options = Options { store: Some(super::frame::store_id(manifest.as_deref())), scripts: true, sealed: false, dark: None };
+        let options = Options { store: Some(super::frame::store_id(manifest.as_deref())), scripts: true, sealed: false, dark: None, clear: false };
         self.native = Native::new(&options, size, events);
         match (&self.native, &source) {
             (Some(native), Source::Url(url)) => native.load_url(url),

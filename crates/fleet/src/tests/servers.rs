@@ -92,7 +92,7 @@ const SPAN: u16 = 20;
 const BAND_FLOOR: u16 = 20_000;
 
 /// Ports other fleet tests take by number: `tests::daemon`'s default range,
-/// and `ports`', `listener`'s, `repositories`' and `workspace_ports`' own. A
+/// and `ports`', `listener`'s and `repositories`' own. A
 /// span here is probed and bound by both sides with neither's lock.
 const NAMED_BY_OTHER_TESTS: std::ops::RangeInclusive<u16> = 41_000..=44_999;
 

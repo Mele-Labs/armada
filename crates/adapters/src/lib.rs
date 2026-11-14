@@ -38,6 +38,7 @@
 //! would resolve a bare issue link, and `fleet` is what has a network to run
 //! it with.
 
+mod store_worker;
 mod acted;
 pub mod agent_mod;
 pub mod debug_facts;
@@ -147,6 +148,9 @@ mod bucket_signing;
 mod requests;
 mod mac_keys;
 mod request_secrets;
+/// Deploying a project's claims store to the person's own Cloudflare account, and the token he pasted for it.
+mod cloudflare_api;
+mod cloudflare_tokens;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
@@ -190,8 +194,9 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, links_in, pull_linked_in, remote_of, ForgeAddress};
+pub use store_worker::{CLOUDFLARE_TOKEN_PAGE, STORE_WORKER};
 pub use github_api::{
-    Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
+    forge_token_as, Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
 };
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
@@ -224,6 +229,8 @@ pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
+pub use cloudflare_api::{HttpCloudflare, CLOUDFLARE_API};
+pub use cloudflare_tokens::{KeychainCloudflareTokens, CLOUDFLARE_TOKEN_SERVICE};
 pub use mac_keys::{KeychainMacKeys, MAC_KEY_SERVICE};
 pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};
 pub use requests::HttpRequests;
