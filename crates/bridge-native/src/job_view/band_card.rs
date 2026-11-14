@@ -444,7 +444,7 @@ impl JobView {
             None
         };
         let open = foot.openable.then(|| ghost(look, foot, "open", "Open", "\u{21b5}", "Read it on its own", Act::Open, cx));
-        let row = row.child(group().ml_auto().children(extras).children(edit).children(away).children(open));
+        let row = row.child(group().flex_shrink_1().flex_wrap().min_w_0().ml_auto().justify_end().children(extras).children(edit).children(away).children(open));
         column.child(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to(foot.route, cx))).into_any_element()
     }
 
