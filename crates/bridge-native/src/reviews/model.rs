@@ -271,53 +271,131 @@ pub enum Summary {
     Written(String),
 }
 
-/// Where a review tool's answer goes: a problem found is a suggestion in Review comments, the rest
-/// read under the tool's own row.
+/// How serious a finding on the Overview is, which hues its card.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Section {
-    FindProblems,
-    Explain,
-    WalkThrough,
+pub enum FlagKind {
+    Blocker,
+    Risk,
+    PossibleBug,
 }
 
-impl Section {
-    pub const ALL: [Section; 3] = [Section::FindProblems, Section::Explain, Section::WalkThrough];
-
+impl FlagKind {
     pub fn said(self) -> &'static str {
         match self {
-            Section::FindProblems => "Find problems",
-            Section::Explain => "Explain",
-            Section::WalkThrough => "Walk through",
+            FlagKind::Blocker => "Blocker",
+            FlagKind::Risk => "Risk",
+            FlagKind::PossibleBug => "Possible bug",
+        }
+    }
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            FlagKind::Blocker => "circle-x",
+            FlagKind::Risk => "triangle-alert",
+            FlagKind::PossibleBug => "circle-question-mark",
         }
     }
 }
 
-/// One review tool, as `crates/config/review-tools` names it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Tool {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub section: Section,
+/// A blocker, risk or possible bug Find problems wrote, in the change set it sits in.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Flag {
+    pub id: String,
+    pub kind: FlagKind,
+    /// The change set's id.
+    pub set: String,
+    pub title: String,
+    /// One plain sentence or two: why it matters.
+    pub said: String,
+    pub path: String,
+    pub line: u64,
+    /// The suggestion's title beside its hunk: what to do.
+    pub fix: String,
+    /// The suggestion's words, which become the draft comment.
+    pub comment: String,
 }
 
-pub const TOOLS: [Tool; 9] = [
-    Tool { id: "risks", name: "Risks", section: Section::FindProblems },
-    Tool { id: "bugs", name: "Possible bugs", section: Section::FindProblems },
-    Tool { id: "api-breaking-changes", name: "API breaks", section: Section::FindProblems },
-    Tool { id: "how-it-works", name: "How it works", section: Section::Explain },
-    Tool { id: "user-impact", name: "Who it affects", section: Section::Explain },
-    Tool { id: "how-to-test", name: "How to test", section: Section::Explain },
-    Tool { id: "why", name: "Why", section: Section::Explain },
-    Tool { id: "walk", name: "Walk", section: Section::WalkThrough },
-    Tool { id: "tour", name: "Tour", section: Section::WalkThrough },
-];
+/// A change set's worst finding, as Fleet works it out: its glyph in the rail.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mark {
+    Blocked,
+    Risky,
+    Clear,
+}
 
-/// A tool's last run on this pull request.
+/// Whether a change set keeps one of the repository's practices.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kept {
+    Met,
+    Missed,
+    DoesNotApply,
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub enum ToolRun {
-    Running,
-    /// `on` is whose changes it read, after "Ran on": `Tuesday's changes`. An explanation keeps its words.
-    Ran { on: String, said: Option<String> },
+pub struct Practice {
+    pub said: String,
+    pub kept: Kept,
+}
+
+/// One hunk of a change set, in the order the change runs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Hunk {
+    pub path: String,
+    pub patch: String,
+    /// The diff line a finding points at, counted from the hunk's first drawn line.
+    pub hot: Option<usize>,
+    /// The finding drawn beside it.
+    pub flag: Option<String>,
+}
+
+/// Part of a pull request that does one thing, across the files it touches.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChangeSet {
+    pub id: String,
+    pub title: String,
+    pub purpose: String,
+    pub files: u32,
+    pub mark: Mark,
+    /// What kind of change it is, after "Practices for": `migrations`.
+    pub kind: String,
+    /// Where its practices were read from and when, as Armada keeps them.
+    pub kept_note: String,
+    pub practices: Vec<Practice>,
+    pub hunks: Vec<Hunk>,
+}
+
+impl ChangeSet {
+    /// `Adds a stage column. 2 files`
+    pub fn line(&self) -> String {
+        match self.files {
+            1 => format!("{} 1 file", self.purpose),
+            many => format!("{} {many} files", self.purpose),
+        }
+    }
+}
+
+/// What the Overview draws: why the author made it, what Find problems wrote, and its change sets.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Overview {
+    pub why: String,
+    pub flags: Vec<Flag>,
+    pub sets: Vec<ChangeSet>,
+}
+
+/// What a change set's Explain tools are asked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Explain {
+    HowItWorks,
+    HowToTest,
+}
+
+impl Explain {
+    pub fn said(self) -> &'static str {
+        match self {
+            Explain::HowItWorks => "How it works",
+            Explain::HowToTest => "How to test",
+        }
+    }
 }
 
 /// A pull request's page.
@@ -344,8 +422,7 @@ pub struct Page {
     pub threads: Vec<PullReviewThread>,
     pub critique: Critique,
     pub summary: Summary,
-    /// Each tool's last run, by its id; a tool not here has not run.
-    pub tools: std::collections::HashMap<&'static str, ToolRun>,
+    pub overview: Overview,
     /// The Job that holds it, whose notes Send to job sends.
     pub holder: Option<String>,
     /// His notes for that Job, unsent.
@@ -380,6 +457,14 @@ impl Page {
     /// Whether the author changed it since he looked: the page opens on What changed.
     pub fn changed(&self) -> bool {
         self.seen.as_ref().is_some_and(|seen| seen.gone || !self.new_commits.is_empty())
+    }
+
+    pub fn set(&self, id: &str) -> Option<&ChangeSet> {
+        self.overview.sets.iter().find(|set| set.id == id)
+    }
+
+    pub fn flag(&self, id: &str) -> Option<&Flag> {
+        self.overview.flags.iter().find(|flag| flag.id == id)
     }
 
     /// The range a critique reads: the author's changes since he looked, or else the whole pull request.
@@ -418,6 +503,13 @@ pub fn possessive(author: &str) -> String {
     let mut chars = author.chars();
     let first = chars.next().map(|first| first.to_uppercase().collect::<String>()).unwrap_or_default();
     format!("{first}{}'s", chars.as_str())
+}
+
+/// `Mira`, from the login `mira`.
+pub fn named(author: &str) -> String {
+    let mut chars = author.chars();
+    let first = chars.next().map(|first| first.to_uppercase().collect::<String>()).unwrap_or_default();
+    format!("{first}{}", chars.as_str())
 }
 
 /// `on Tuesday`, `today`, `yesterday`: a day after a verb.
