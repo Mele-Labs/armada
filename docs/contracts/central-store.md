@@ -1,7 +1,7 @@
 # Central store
 
 **Kind:** contract.
-**Governs:** the Worker that holds an account's red main claims, pull request owners and the runs of its repositories: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer.
+**Governs:** the Worker that holds an account's claims, pull request owners and the runs of its repositories: its wire, how a request is signed, what a row may hold, and what Fleet does when the Worker does not answer.
 Both halves build to this page.
 The Worker is `apps/store`; Fleet's side is its `Store` port, and `HttpStore` for runs.
 
@@ -21,15 +21,18 @@ Why: Bridge holds one connection, to Fleet.
 | Held | Keyed by | Value |
 |---|---|---|
 | Device | device id | public key, machine name |
-| Claim | repository hash and red hash | holder |
+| Claim | repository hash, kind and key hash | holder |
+| Holder | holder kind, id and machine | the person's name, the Job's title, when it last renewed |
 | Owner | key hash | holder |
 | Runs | repository hash | the repository's facts, as JSON |
 | Nonce | device id and nonce | when seen |
 
 ## Rows
 
-**Rule.** A claim or an owner holds opaque hashes and a holder, and nothing else.
-Why: a work repository carries no trace of Armada, and the store is not trusted with names.
+**Rule.** An owner holds opaque hashes and a holder, and nothing else.
+A claim holds opaque hashes and a holder with the person's name and the Job's title in the clear.
+Why: a work repository carries no trace of Armada, and the store is not trusted with the names of things.
+Who holds a claim is readable so another Mac can say who, decided by the owner on 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
 
 **Rule.** The runs of a repository hold the commands and workspace paths its Jobs ran, in the clear, and nothing else about it: no name, no title, no token, no file content.
 Why: how a repository runs should follow the signed-in account to every machine, as the Kit `runs` place `cloud`, and a hash cannot be run.
@@ -37,11 +40,14 @@ Decided by the owner, 19 Oct 2026. This reverses the earlier rule that the store
 
 | Field | Holds | Refused |
 |---|---|---|
-| `repo`, `red`, `key` | A hash made on the machine, 32 to 128 characters of letters, digits, `_` and `-` | A name |
+| `repo`, `key` | A hash made on the machine, 32 to 128 characters of letters, digits, `_` and `-` | A name |
+| `kind` | `item`, `file`, `test`, `red` or `pull_request` | Anything else |
 | `holder.kind` | `session` or `job` | Anything else |
 | `holder.id` | The short id, letters, digits, `.`, `_`, `-`, at most 64 | A title |
 | `holder.machine` | The machine's name, at most 64 characters, no control characters | |
 | `holder.since` | Whole seconds since the Unix epoch | A fraction, a negative, text |
+| `holder.name` | On a claim only: the person, as their forge login, at most 64 characters, no control characters, empty where the Mac knows none | On an owner |
+| `holder.title` | On a claim only: the Job's title, at most 200 characters, no control characters, empty where it has none | On an owner |
 
 A fact is one thing a repository ran:
 
@@ -57,7 +63,9 @@ A fact is one thing a repository ran:
 
 **Rule.** A body holds exactly the fields its request names, and so does a fact, except that `port` may be absent. A missing field and an extra one are both refused with `400 invalid_body`.
 
-A pull request's key is a hash of its repository and number. A red's key is two hashes: the repository, and the commit main went red at.
+A pull request's key is a hash of its repository and number.
+A claim is keyed by the repository's hash, its kind and the key's hash: for a red main, the commit main went red at.
+The same key under two kinds is two claims.
 
 ## Wire
 
@@ -67,25 +75,37 @@ All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `P
 |---|---|---|
 | `POST /enrol` | `token`, `public_key`, `machine` | `200 {device}` |
 | `DELETE /devices/{device}` | none | `204`, `404 no_device` |
-| `POST /claims` | `repo`, `red`, `holder` | `200 {holder}` won, `409 {holder}` held |
-| `GET /claims/{repo}/{red}` | none | `200 {holder}`, `404 no_claim` |
-| `DELETE /claims/{repo}/{red}` | none | `204` |
-| `DELETE /claims/{repo}` | none | `204` |
+| `POST /claims` | `repo`, `kind`, `key`, `holder` | `200 {holder, renewed}` won, `409 {holder, renewed}` held |
+| `GET /claims/{repo}/{kind}/{key}` | none | `200 {holder, renewed}`, `404 no_claim` |
+| `DELETE /claims/{repo}/{kind}/{key}` | none | `204` |
+| `DELETE /claims/{repo}/{kind}` | none | `204` |
+| `POST /renewals` | `holder` as `kind`, `id`, `machine` | `200 {claims}` |
 | `PUT /owners/{key}` | `holder` | `204` |
 | `GET /owners?keys=a,b,c` | none | `200 {key: holder}` |
 | `DELETE /owners/{key}` | none | `204` |
 | `PUT /runs/{repo}` | `facts` | `204` |
 | `GET /runs/{repo}` | none | `200 {facts}`, `404 no_runs` |
 
-**Rule.** A claim is claim-if-free. The first call for a repository and red wins and every later one is told the winner's holder.
-Why: two machines that read the same red must not both fix it.
+**Rule.** A claim is claim-if-free. The first call for a repository, kind and key wins and every later one is told the winner's holder, name, title and `renewed`.
+Why: two machines that reach the same thing must not both work on it, and the one refused can name who has it.
 
 **Rule.** Giving a claim back and taking it over are the same delete. A take over deletes the row, then claims.
 Why: the store does not know whose claim it is; the machine does.
 
 **Rule.** Deleting a row that is not there answers `204`.
 
-**Rule.** A claim never expires in the store. Its `since` lets a person see its age, and green on main clears every claim under the repository.
+**Rule.** A claim lapses 30 minutes after its holder last renewed.
+A won claim renews its holder; so does `POST /renewals`.
+An alarm on the account's object drops the lapsed holders and their claims, and every claims route reads a lapsed claim as gone before the alarm has run.
+Why: a Mac that stops, sleeps or loses its network must not hold work forever.
+A Mac asleep that long takes its claims again when it wakes.
+
+**Rule.** `POST /renewals` renews every claim of one holder (kind, id and machine) in one call, and answers how many it still holds.
+`0` is a holder whose claims lapsed, and it claims them again.
+Why: a renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written ([Cost](#cost)).
+
+**Rule.** Green on main clears every `red` claim under the repository, `DELETE /claims/{repo}/red`.
+Its other claims stand.
 
 **Rule.** `GET /owners` answers only the keys that have a row, at most 100 keys, and a key with none is absent.
 
@@ -179,6 +199,7 @@ The store is the default for every Armada user, so no one account may run up the
 | Facts per repository | 200 | `400 invalid_body` |
 | Body of `PUT /runs/{repo}` | 131072 bytes | `413 too_large` |
 | Verified requests per device per minute | 120 | `429 rate_limited`, `Retry-After: 60` |
+| A claim after its holder's last renewal | 30 minutes | Dropped, `404 no_claim` |
 
 **Rule.** `enrol` counts the client address, from `CF-Connecting-IP`, before it asks the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
 Why: every enrolment that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
@@ -196,8 +217,35 @@ Why: `409` already means a claim is held, so a full table needs a status Fleet d
 A request for an account or a device that never enrolled is refused `401 unknown_device` and writes no table, no row and no nonce.
 Why: the Worker finds the object from the header alone, so anyone can name an account number, and a name must not cost the owner storage.
 
-**Rule.** A table added after accounts enrolled is made `IF NOT EXISTS` by the first verified request that reaches it, as well as at enrolment. `runs` is the first.
+**Rule.** A table added after accounts enrolled is made `IF NOT EXISTS` by the first verified request that reaches it, as well as at enrolment. `runs` is the first, then `holders`.
 Why: an account that enrolled before the table existed never enrols again, and a verified device is an enrolled one.
+
+**Rule.** A `claims` table keyed `(repo, red)` is dropped by the first verified request, with its rows, and made again keyed `(repo, kind, key)`.
+Why: those rows name no person or title and nothing renews them, so the lapse would drop them anyway; the Mac that held one claims it again.
+The October store was never deployed, so no live account holds one, and `apps/store/test/store.test.ts` opens a store built on it.
+
+## Cost
+
+The store runs on the Workers Free plan, read from Cloudflare's pricing and limits pages on 13 Nov 2026 (`developers.cloudflare.com/workers/platform/pricing/`, `/durable-objects/platform/pricing/` and the two `limits/` pages).
+Each daily allowance is per Cloudflare account and resets at 00:00 UTC.
+
+| Free plan | Allowance a day | What the store spends |
+|---|---|---|
+| Worker requests | 100,000 | One per call |
+| Durable Object requests | 100,000 | One per call that reaches the account's object, and one per alarm |
+| SQLite rows written | 100,000 | About 4 per call for its nonce, kept and deleted with its index, 1 more for a renewal and about 3 more for a claim won |
+| SQLite rows read | 5,000,000 | A few per call |
+| SQLite storage | 5 GB in all | Well under 1 MB at the limits above |
+| CPU per request | 10 ms | Signature check and one or two statements |
+
+At 10 live Jobs renewing every 5 minutes, 2,880 renewals a day spend about 2,880 of each request allowance and about 14,400 rows written.
+A renewal that wrote each claim instead would spend about two rows per claim, so ten Jobs holding twenty files each would come to about 115,000, over the allowance.
+The 2,880 is arithmetic, not a measurement of a day of Jobs.
+
+A Worker over its daily requests answers Cloudflare's error 1027, and a Durable Object over an allowance fails the operation with an error.
+Fleet reads either as the store not answering ([Failure](#failure)).
+The Workers Paid plan is at least $5 a month, with 10 million Worker requests, 1 million Durable Object requests and 50 million rows written a month included.
+The pages do not say whether the Rate Limiting binding `enrol` uses is on the Free plan, so that is checked at the first deploy.
 
 ## Failure
 

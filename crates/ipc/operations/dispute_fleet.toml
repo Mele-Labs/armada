@@ -2,13 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Say that Fleet's latest notice in this job was wrong, with why: the reason in a sentence. Fleet keeps the dispute and, where dispute reviews are on, starts a review job in Armada that decides who was right. If the notice would be wrong for any job in that state, not only this one, call report_bug as well. Then carry on with your work"
+description = "Say that a notice from Fleet in this job was wrong, with why: the reason in a sentence, and notice_words: the notice's opening words as you read it, so the dispute is tied to that notice and not to whichever came last. Fleet keeps the dispute and, where dispute reviews are on, starts a review job in Armada that decides who was right. If the notice would be wrong for any job in that state, not only this one, call report_bug as well. Then carry on with your work"
 notes = """
-`POST /sessions/dispute_fleet`, body `DisputeFleet`: `why`, and an optional `session_id`. Answered with `FleetDisputed`: `dispute_id`, `review_session_id` where a review job was started or joined, and `joined` where it was one already open.
+`POST /sessions/dispute_fleet`, body `DisputeFleet`: `why`, an optional `notice_words` and an optional `session_id`. Answered with `FleetDisputed`: `dispute_id`, `review_session_id` where a review job was started or joined, and `joined` where it was one already open.
 
 **The job is the one whose process holds the connection**, as `all_done`'s is. Only a job Fleet hosts is served: a terminal job's thread is not Fleet's, so there is no notice to tie the dispute to. An ended job is refused, and so is an empty `why`.
 
-**The notice is the job's latest Message row in Fleet's voice.** A job Fleet has told nothing is refused.
+**The notice is the newest Message row in Fleet's voice whose text holds `notice_words`**, read without case and with runs of whitespace as one, since the agent sees no row ids. Where `notice_words` is absent, empty or held by none, it is the job's latest such row; nothing is refused for it. A job Fleet has told nothing is refused.
 
 **One review per notice.** A dispute of a notice whose text, with its numbers taken out, matches one whose review job has not ended joins that job: it is sent the new dispute as a message, and no second job starts. Otherwise Fleet starts a job in the Manifest `armada`, titled `Disputed:` and two to four words one `models.dispute` call names the notice by, as "Disputed: opus spend notice" (`Disputed notice` where the call fails or answers anything else), on the `bug` workflow, and sends it a brief carrying the notice, the job's reason, how it was spotted and about twenty thread rows around the notice. The brief asks for a verdict with evidence from Armada's code, reported in a few lines, then two to four choices that fit the case put to the person; nothing is changed and no branch opened until the person picks. A Fleet that does not serve `armada` keeps the dispute, starts nothing and says why on its stderr.
 

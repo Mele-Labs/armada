@@ -1,7 +1,7 @@
-//! `dispute_fleet`: a hosted job says Fleet's latest notice in it was wrong. The dispute is kept,
-//! a review job is started or joined to settle it (`dispute_review`), and the job's thread gains a
-//! `disputed` row naming both. Fleet reading the same out of the agent's replies is
-//! `dispute_reading`, and ends here too.
+//! `dispute_fleet`: a hosted job says a Fleet notice in it was wrong, the one its opening words name
+//! or else the latest. The dispute is kept, a review job is started or joined to settle it
+//! (`dispute_review`), and the job's thread gains a `disputed` row naming both. Fleet reading the
+//! same out of the agent's replies is `dispute_reading`, and ends here too.
 
 use std::sync::Arc;
 
@@ -38,8 +38,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The job's latest Fleet notice, disputed. Refused for a job Fleet does not host, an ended
-    /// one, an empty reason, and a job Fleet has told nothing.
+    /// The job's Fleet notice its words name, else its latest, disputed. Refused for a job Fleet does
+    /// not host, an ended one, an empty reason, and a job Fleet has told nothing.
     pub(crate) async fn fleet_disputed(
         self: &Arc<Self>,
         caller: Option<api::Caller>,
@@ -55,7 +55,7 @@ where
             return Err(self.closed(&id));
         }
         let rows = self.rows_of(&id).await?;
-        let Some((notice_row, notice)) = latest_notice(&rows) else {
+        let Some((notice_row, notice)) = disputed_notice(&rows, dispute.notice_words.as_deref()) else {
             return Err(self.hosted_refusal(
                 DISPUTE_REFUSED,
                 "Fleet has sent this job no notice, so there is nothing to dispute",
@@ -126,12 +126,26 @@ pub(crate) fn is_fleets(from: &SessionVoice) -> bool {
     matches!(from, SessionVoice::Session { id, .. } if *id == FLEET_NAME.to_lowercase())
 }
 
-/// The latest message in Fleet's voice: its row id and its words.
-fn latest_notice(rows: &[SessionRow]) -> Option<(&str, &str)> {
-    rows.iter().rev().find_map(|row| match row {
+/// The disputed message in Fleet's voice, its row id and its words: the newest whose words hold
+/// `words`, read without case and with runs of spaces as one, else the latest. The agent names a
+/// notice by its words as it read them, since it sees no row ids.
+fn disputed_notice<'a>(rows: &'a [SessionRow], words: Option<&str>) -> Option<(&'a str, &'a str)> {
+    let words = words.map(plain).filter(|words| !words.is_empty());
+    let named = words.and_then(|words| fleets(rows).find(|(_, text)| plain(text).contains(&words)));
+    named.or_else(|| fleets(rows).next())
+}
+
+/// The messages in Fleet's voice, newest first: each row id and its words.
+fn fleets(rows: &[SessionRow]) -> impl Iterator<Item = (&str, &str)> {
+    rows.iter().rev().filter_map(|row| match row {
         SessionRow::Message { id, from, text, .. } if is_fleets(from) => Some((id.as_str(), text.as_str())),
         _ => None,
     })
+}
+
+/// `text` lowercased, with each run of whitespace one space.
+fn plain(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
 }
 
 /// What a second dispute of the same notice is matched by: its words with every number, and any
