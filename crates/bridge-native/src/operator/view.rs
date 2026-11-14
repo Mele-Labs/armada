@@ -1657,7 +1657,8 @@ impl Render for OperatorPageView {
             return root.child(top).child(self.skeleton(look)).child(self.composer.clone()).into_any_element();
         };
         let off = (!page.on).then(|| self.off(look, cx));
-        let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
+        // The message box leads the left column, above Your turn.
+        let mut parts: Vec<AnyElement> = vec![self.composer.clone().into_any_element(), self.turn_head(look).into_any_element()];
         // Another Mac waiting for his Confirm stands first: it lapses in five minutes and no Job holds it.
         parts.extend(self.pairing_cards(look, cx));
         parts.extend(self.on_it(page, look, cx));
@@ -1712,7 +1713,6 @@ impl Render for OperatorPageView {
         root.relative()
             .child(top.children(self.top_line(page, look)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
-            .child(self.composer.clone())
             .children(sheet)
             .children(log)
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))

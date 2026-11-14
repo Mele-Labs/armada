@@ -100,7 +100,7 @@ pub static OPERATOR_FLOW: [Step; 21] = [
 
 /// The box at the Operator page's foot: an idea sent with no chip, a bug sent with one, and an idea the Operator kept started.
 pub static COMPOSER_FLOW: [Step; 14] = [
-    step("The Operator's page: Your turn above, the ideas it kept under it, the message box pinned at the foot", Verb::Look, "group", "Message box"),
+    step("The Operator's page: the message box atop the left column, Your turn under it, the ideas it kept under that", Verb::Look, "group", "Message box"),
     step("⌥M puts the caret in the box from anywhere on the page", Verb::Key("alt-m"), "textbox", "Message"),
     step("An idea typed, with no chip picked: Send is lit", Verb::Typed("Let the sheet remember its last model"), "button", "Send"),
     step("⌘↩ sends it as a dispatch. The box empties and the toast says what the Operator did, standing clear of the box", Verb::Key("cmd-enter"), "alert", "Toast: Operator kept it as an idea"),

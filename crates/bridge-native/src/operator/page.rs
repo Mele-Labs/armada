@@ -75,7 +75,7 @@ pub struct OperatorPageView {
     /// The option he picked on an item that offers more than one, by its label; else the Operator's.
     pub(super) option: HashMap<String, String>,
     pub(super) chat: Option<Entity<OperatorChat>>,
-    /// The box at the page's foot, whose send is a dispatch to the Operator.
+    /// The box atop the page's left column, above Your turn, whose send is a dispatch to the Operator.
     pub(super) composer: Entity<OperatorComposer>,
     /// The ideas the Operator kept for later.
     pub(super) parked: Entity<ParkedIdeas>,
