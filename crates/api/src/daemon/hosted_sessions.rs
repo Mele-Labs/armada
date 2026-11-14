@@ -189,6 +189,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::operator_page::OperatorAnswerPress,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
 
+    /// `operator_undo_ruling`: take back a ruling the Operator made by following something he said.
+    /// [`Refusal::NotFound`] where no precedent ruling has the id, [`Refusal::Unacceptable`] where it is taken
+    /// back already or its Job has ended.
+    fn operator_undo_ruling(
+        self: Arc<Self>,
+        undo: ipc::operator_page::OperatorUndoRuling,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
     /// `operator_turn_order`: Your turn as he dragged it.
     fn operator_turn_order(
         self: Arc<Self>,

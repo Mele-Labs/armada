@@ -340,6 +340,19 @@ pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Serv
     }
 }
 
+/// A precedent ruling taken back. 200 with the page; 404 where no precedent ruling has the id, 422 where it is
+/// taken back already or its Job has ended.
+pub(crate) async fn operator_undo_ruling<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let undo: ipc::operator_page::OperatorUndoRuling = match ipc::decode_body("a ruling taken back", &body) {
+        Ok(undo) => undo,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_undo_ruling(undo).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Your turn as he dragged it. 200 with the page.
 pub(crate) async fn operator_turn_order<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let order: ipc::operator_page::OperatorTurnOrder = match ipc::decode_body("an order of Your turn", &body) {

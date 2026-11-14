@@ -389,7 +389,7 @@ pub use checks::{
     CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
 };
 pub use codec::{
-    decode, decode_body, encode, Undecodable, Unencodable,
+    decode, decode_body, encode, same_json, Undecodable, Unencodable,
 };
 pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,

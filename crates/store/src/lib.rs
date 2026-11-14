@@ -125,6 +125,8 @@ mod operator_rulings;
 mod operator_orders;
 mod operator_switches;
 mod operator_turn;
+/// The person's own answers to a Job's questions, which the Operator may follow.
+mod operator_answer;
 mod operator_suggestions;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
@@ -289,6 +291,7 @@ pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;
 pub use operator_turn::{KeptPage, KeptTurn};
+pub use operator_answer::KeptAnswer;
 pub use operator_suggestions::KeptSuggestion;
 pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;

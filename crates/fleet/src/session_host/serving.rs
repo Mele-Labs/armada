@@ -318,6 +318,10 @@ where
         self.operator_answered(press).await
     }
 
+    async fn operator_undo_ruling(self: Arc<Self>, undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_ruling_undone(undo).await
+    }
+
     async fn operator_turn_order(self: Arc<Self>, order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         self.operator_turn_ordered(order).await
     }
