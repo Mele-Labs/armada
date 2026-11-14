@@ -37,23 +37,26 @@ tr.armada-row.armada-pressed > :first-child, li.armada-row.armada-pressed { box-
 }
 
 /* Votes. */
-armada-vote { display: block; margin: var(--space-6) 0; }
+armada-vote { display: block; container-type: inline-size; margin: var(--space-6) 0; }
 .armada-vote-question { font-weight: var(--weight-heading); }
 .armada-takes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-3); }
 armada-vote[data-form="rank"] .armada-takes, .armada-expanded .armada-takes { grid-auto-flow: row; }
 .armada-expanded armada-take:not(.armada-full) { display: none; }
+/* A narrow page stacks the takes one to a row, so no take is squeezed past its controls. */
+@container (max-width: 40rem) { .armada-takes { grid-auto-flow: row; } }
 armada-take {
   display: block; min-inline-size: 0; padding: var(--space-3); border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg); background: var(--bg-raised);
 }
 armada-take[data-picked] { border-color: var(--accent); }
 .armada-take-head { display: flex; align-items: center; gap: var(--space-2); margin-block-end: var(--space-3); }
-.armada-take-title { flex: 1; font-weight: var(--weight-medium); }
+.armada-take-title { flex: 1; min-inline-size: 0; font-weight: var(--weight-medium); }
+.armada-take-head > button { flex: none; white-space: nowrap; }
 .armada-rank-number { min-inline-size: 2ch; color: var(--fg-muted); font-family: var(--font-mono); }
 .armada-note { margin-block-start: var(--space-3); }
 .armada-parts { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: var(--space-2) var(--space-3); margin-block-start: var(--space-3); }
 .armada-part { color: var(--fg-muted); font-size: var(--text-xs); }
-.armada-segmented { display: inline-flex; }
+.armada-segmented { display: inline-flex; flex-wrap: nowrap; white-space: nowrap; }
 .armada-segmented > button { border-radius: 0; }
 .armada-segmented > button:first-child { border-start-start-radius: var(--radius-md); border-end-start-radius: var(--radius-md); }
 .armada-segmented > button:last-child { border-inline-start-width: 0; border-start-end-radius: var(--radius-md); border-end-end-radius: var(--radius-md); }
