@@ -599,6 +599,16 @@ pub struct Palette {
     keys: Option<Subscription>,
 }
 
+/// The palette last opened, so an overlay under it that hears keys first, such as Settings, leaves them to it.
+struct Up(gpui::WeakEntity<Palette>);
+
+impl gpui::Global for Up {}
+
+/// Whether a palette is up: while it is, every key is its own.
+pub fn is_up(cx: &App) -> bool {
+    cx.try_global::<Up>().and_then(|up| up.0.upgrade()).is_some_and(|palette| palette.read(cx).is_open())
+}
+
 /// The acts the panel's field narrows to.
 fn panel_acts(panel: &Panel, cx: &App) -> Vec<RowAct> {
     let typed = panel.field.read(cx).value().to_lowercase();
@@ -671,6 +681,7 @@ impl Palette {
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
         self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false });
         query.update(cx, |query, cx| query.focus(window, cx));
+        cx.set_global(Up(cx.entity().downgrade()));
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
             if window.window_handle().window_id() != here {
@@ -920,7 +931,7 @@ impl Palette {
                 self.memory.used(&entry.id);
                 self.keep(cx);
                 self.close(window, cx);
-                self.list.update(cx, |list, cx| list.open(job.into(), cx));
+                self.open_job(job, cx);
             }
             ("run", None) if entry.id.starts_with("cmd:") => {
                 self.memory.used(&entry.id);
@@ -1147,7 +1158,7 @@ impl Palette {
                     if id == "fork" {
                         if let Ok(forked) = ipc::decode::<SessionRecord>("SessionRecord", &bytes) {
                             let forked = forked.id.as_str().to_string();
-                            this.list.update(cx, |list, cx| list.open(forked.into(), cx));
+                            this.open_job(forked, cx);
                         }
                     }
                 }
@@ -1155,6 +1166,14 @@ impl Palette {
             });
         })
         .detach();
+    }
+
+    /// A Job opens on the Jobs screen, which comes to the front if another place is there, as Electron's `openSession`.
+    fn open_job(&self, job: String, cx: &mut Context<Self>) {
+        self.list.update(cx, |list, cx| list.open(job.into(), cx));
+        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+            (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
+        }
     }
 
     fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
