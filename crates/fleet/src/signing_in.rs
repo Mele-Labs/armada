@@ -11,15 +11,16 @@
 //!    a repository's owner is later matched against. A forge that will not list
 //!    them leaves `orgs` empty and the profile marked unread, which is not a
 //!    failed sign-in.
-//! 4. This profile's key is enrolled with the store under a device id, and the
-//!    device-flow token is dropped. **The token is a [`Secret`] held on that
+//! 4. The device-flow token is dropped. **The token is a [`Secret`] held on that
 //!    thread's stack and nowhere else**: it is never written, logged or kept.
 //! 5. Only then does the profile join the list. A flow that ends before this
 //!    leaves no profile and no directory.
 //!
-//! A profile signing in twice is the same profile: its login is brought up to
-//! date and its device is enrolled afresh, because the store may have lost the
-//! old row or moved. The old device is then signed out of the store.
+//! **A sign-in enrols with no store.** A store is named by a project, and a profile
+//! joins one when a project picks it ([`SigningIn::join_store`]), with `gh`'s token
+//! read once then. `docs/contracts/central-store.md`, *A store per project*.
+//!
+//! A profile signing in twice is the same profile: its login is brought up to date.
 //!
 //! # Blocking
 //!
@@ -33,7 +34,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
-use adapter_traits::{Polled, Secret, SignIn, SignInError, HOME_REPOSITORY};
+use adapter_traits::{Polled, Secret, SignIn, SignInError, StoreError, HOME_REPOSITORY};
 use ipc::{
     AccountFlow, Accounts, BoundRepository, Profile, ProfileHome, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut,
     UnmatchedRepository,
@@ -46,17 +47,17 @@ use crate::clock::Clock;
 use crate::profiles::{Joined, Orgs, Profiles};
 use crate::repository_profiles::{binding, Binding, Choices, Repo};
 
-/// What a sign-in is begun with: three values read from the machine's settings
-/// when the person asks, so a change to them is the next sign-in's.
+/// What a sign-in is begun with: read from the machine's settings when the
+/// person asks, so a change is the next sign-in's.
 #[derive(Clone, Debug)]
 pub struct Begin {
     /// The OAuth app's client id. Blank means none is registered.
     pub client_id: String,
-    /// The central store's address. Blank means none is deployed.
-    pub store_url: String,
-    /// How the other machines on the account will name this one.
-    pub machine: String,
 }
+
+/// The file in a profile's store folder that names the store it enrolled with, so a
+/// sign-out can reach each one.
+const STORE_ADDRESS_FILE: &str = "address";
 
 /// Why a request on the account was not taken.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -257,18 +258,11 @@ impl SigningIn {
         }
     }
 
-    /// Begin a sign-in and answer with the code to type. **Refused while either
-    /// of the two settings it needs is blank**, in words that name which.
+    /// Begin a sign-in and answer with the code to type. **Refused while the
+    /// sign-in app is blank**, in words that say so.
     pub fn start(&self, begin: Begin, repositories: &[Repo]) -> Result<Accounts, Refused> {
-        let missing = match (begin.client_id.trim().is_empty(), begin.store_url.trim().is_empty()) {
-            (false, false) => None,
-            (true, false) => Some("the sign-in app"),
-            (false, true) => Some("the store address"),
-            (true, true) => Some("the sign-in app and the store address"),
-        };
-        if let Some(missing) = missing {
-            let verb = if missing.contains(" and ") { "are" } else { "is" };
-            return Err(Refused::Unavailable(format!("Sign-in is unavailable: {missing} {verb} blank in Settings.")));
+        if begin.client_id.trim().is_empty() {
+            return Err(Refused::Unavailable("Sign-in is unavailable: the sign-in app is blank in Settings.".to_string()));
         }
         let code = self
             .inner
@@ -294,31 +288,67 @@ impl SigningIn {
         self.accounts(repositories)
     }
 
-    /// Sign a profile out of the store and off this machine. **The local profile
-    /// goes whatever the store says**: a person signing out is not held by a
-    /// store that is down, and is told its row remains.
-    pub fn sign_out(&self, account_id: u64, store_url: &str, repositories: &[Repo]) -> Result<SignedOut, Refused> {
+    /// Sign a profile out of every store it joined and off this machine. **The
+    /// local profile goes whatever the stores say**: a person signing out is not
+    /// held by a store that is down, and is told its row remains.
+    pub fn sign_out(&self, account_id: u64, repositories: &[Repo]) -> Result<SignedOut, Refused> {
         let profiles = &self.inner.profiles;
         if !profiles.has(account_id).map_err(Refused::Fault)? {
             return Err(Refused::NoSuchAccount(account_id));
         }
-        let directory = profiles.directory_of(account_id);
-        let left = match adapters::device_id(&directory) {
-            Ok(None) => None,
-            Ok(Some(_)) if store_url.trim().is_empty() => {
-                Some("No store address is set, so the store was not asked.".to_string())
-            }
-            Ok(Some(device)) => self
-                .inner
-                .stores
-                .delete_device(store_url.trim(), &directory, &device)
-                .err()
-                .map(|why| why.said()),
-            // The profile still goes; what the store holds is left for a person to clear.
-            Err(why) => Some(why),
-        };
+        let left: Vec<String> = self
+            .stores_joined(account_id)
+            .into_iter()
+            .filter_map(|(address, directory)| match adapters::device_id(&directory) {
+                Ok(None) => None,
+                Ok(Some(device)) => {
+                    self.inner.stores.delete_device(&address, &directory, &device).err().map(|why| format!("{address}: {}", why.said()))
+                }
+                // The profile still goes; what the store holds is left for a person to clear.
+                Err(why) => Some(format!("{address}: {why}")),
+            })
+            .collect();
         profiles.leave(account_id).map_err(Refused::Fault)?;
-        Ok(SignedOut { accounts: self.accounts(repositories)?, store_row_remains: left.is_some(), said: left })
+        let said = (!left.is_empty()).then(|| left.join(" "));
+        Ok(SignedOut { accounts: self.accounts(repositories)?, store_row_remains: said.is_some(), said })
+    }
+
+    /// Each store profile `account_id` joined, as its address and the folder its device is kept in.
+    fn stores_joined(&self, account_id: u64) -> Vec<(String, PathBuf)> {
+        let stores = self.inner.profiles.directory_of(account_id).join("stores");
+        let Ok(entries) = std::fs::read_dir(&stores) else { return Vec::new() };
+        let mut joined: Vec<(String, PathBuf)> = entries
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let address = std::fs::read_to_string(entry.path().join(STORE_ADDRESS_FILE)).ok()?;
+                Some((address.trim().to_string(), entry.path()))
+            })
+            .collect();
+        joined.sort();
+        joined
+    }
+
+    /// Enrol profile `account_id` with the store at `address` as `machine`, with
+    /// `gh`'s token for the profile's login read once and dropped. **A profile
+    /// already enrolled there is left as it is** and answers its device. Blocking.
+    pub fn join_store(&self, account_id: u64, address: &core_model::StoreAddress, machine: &str) -> Result<String, StoreError> {
+        let profiles = &self.inner.profiles;
+        let joined = profiles.list().map_err(StoreError::Refused)?;
+        let Some(profile) = joined.iter().find(|one| one.account_id == account_id) else {
+            return Err(StoreError::Refused(format!("This Mac is not signed in as account {account_id}.")));
+        };
+        let directory = crate::project_store::store_directory(&profiles.directory_of(account_id), address);
+        if let Some(device) = adapters::device_id(&directory).map_err(StoreError::Refused)? {
+            return Ok(device);
+        }
+        std::fs::create_dir_all(&directory).map_err(|why| StoreError::Refused(format!("{} could not be made: {why}", directory.display())))?;
+        let token = self.inner.stores.token_for(&profile.login).map_err(StoreError::Refused)?;
+        let device = self.inner.stores.enrol(address.as_str(), &directory, &token, machine);
+        drop(token);
+        let device = device?;
+        std::fs::write(directory.join(STORE_ADDRESS_FILE), address.as_str())
+            .map_err(|why| StoreError::Refused(format!("{} could not be written: {why}", directory.display())))?;
+        Ok(device)
     }
 
     /// The profile `repo` claims and syncs as. **The one function the store's
@@ -414,7 +444,7 @@ impl SigningIn {
                     last_unreachable = None;
                     wait += pacing.slow_down;
                 }
-                Ok(Polled::Granted(token)) => return self.finish(generation, begin, token),
+                Ok(Polled::Granted(token)) => return self.finish(generation, token),
                 Ok(Polled::Expired) => {
                     return self.end(generation, SignInOutcome::Expired, Some("The code ran out before it was typed.".to_string()))
                 }
@@ -428,55 +458,33 @@ impl SigningIn {
         }
     }
 
-    /// The code was typed: read who signed in, enrol this profile's key, and
-    /// take the profile in. **`token` is dropped when this returns.**
-    fn finish(&self, generation: u64, begin: &Begin, token: Secret<String>) {
-        let steps = |identity, store| SetUpSteps { identity, store, home: SetUpState::Waiting };
-        self.flow_is(
-            generation,
-            Flow::Setup { login: String::new(), steps: steps(SetUpState::Working, SetUpState::Waiting) },
-        );
+    /// The code was typed: read who signed in, and take the profile in. **`token`
+    /// is dropped when this returns.** The store step is done at once: a store is
+    /// joined by a project, not here.
+    fn finish(&self, generation: u64, token: Secret<String>) {
+        let steps = |identity| SetUpSteps { identity, store: SetUpState::Done, home: SetUpState::Waiting };
+        self.flow_is(generation, Flow::Setup { login: String::new(), steps: steps(SetUpState::Working) });
         let account = match self.inner.forge.who(&token) {
             Ok(account) => account,
             Err(why) => return self.end(generation, outcome_of(&why), Some(why.said())),
         };
         // Read now: the token is dropped before the profile joins, and is not asked again.
         let orgs = self.inner.forge.organisations(&token).map_or(Orgs::Unread, Orgs::Read);
-        self.flow_is(
-            generation,
-            Flow::Setup { login: account.login.clone(), steps: steps(SetUpState::Done, SetUpState::Working) },
-        );
+        drop(token);
+        self.flow_is(generation, Flow::Setup { login: account.login.clone(), steps: steps(SetUpState::Done) });
         let profiles = &self.inner.profiles;
         let rejoining = match profiles.has(account.id) {
             Ok(has) => has,
             Err(why) => return self.end(generation, SignInOutcome::Refused, Some(why)),
         };
-        let directory = match profiles.make_directory(account.id) {
-            Ok(directory) => directory,
-            Err(why) => return self.end(generation, SignInOutcome::Refused, Some(why)),
-        };
-        let before = adapters::device_id(&directory).ok().flatten();
-        let url = begin.store_url.trim();
-        let device = match self.inner.stores.enrol(url, &directory, &token, &begin.machine) {
-            Ok(device) => device,
-            Err(why) => {
-                if !rejoining {
-                    profiles.remove_directory(account.id).ok();
-                }
-                return self.end(generation, outcome_of_store(&why), Some(why.said()));
-            }
-        };
-        drop(token);
+        if let Err(why) = profiles.make_directory(account.id) {
+            return self.end(generation, SignInOutcome::Refused, Some(why));
+        }
         if let Err(why) = profiles.join(&account, orgs, self.inner.clock.now().as_str()) {
-            self.inner.stores.delete_device(url, &directory, &device).ok();
             if !rejoining {
                 profiles.remove_directory(account.id).ok();
             }
             return self.end(generation, SignInOutcome::Refused, Some(why));
-        }
-        // The old device is the same key under an id the store may still hold.
-        if let Some(old) = before.filter(|old| *old != device) {
-            self.inner.stores.delete_device(url, &directory, &old).ok();
         }
         self.end(generation, SignInOutcome::SignedIn, None);
     }
@@ -484,14 +492,6 @@ impl SigningIn {
 
 
 fn outcome_of(why: &SignInError) -> SignInOutcome {
-    if why.is_unreachable() {
-        SignInOutcome::Unreachable
-    } else {
-        SignInOutcome::Refused
-    }
-}
-
-fn outcome_of_store(why: &adapter_traits::StoreError) -> SignInOutcome {
     if why.is_unreachable() {
         SignInOutcome::Unreachable
     } else {

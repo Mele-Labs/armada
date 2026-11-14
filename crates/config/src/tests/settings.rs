@@ -227,7 +227,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::OPEN_PULL_REQUESTS_IN,
         s::MACHINE_NAME,
         s::ACCOUNT_CLIENT_ID,
-        s::STORE_URL,
         s::THEME,
         s::SPACING,
         s::TAKE_IN,

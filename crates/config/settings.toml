@@ -1579,21 +1579,6 @@ The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavai
 **The value lives in settings.json under `account.clientId`** (live), read when a sign-in starts.
 """
 
-[settings.store-url]
-name = "Store address"
-scope = "Machine"
-default = "blank"
-lifetime = "Live"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-The address of the central store the machines signed in to one account share (`docs/contracts/central-store.md`). Blank leaves sign-in unavailable: a sign-in enrols this machine with the store, so starting one is refused with a plain reason until a store is deployed.
-
-**The value lives in settings.json under `store.url`** (live), read when a sign-in starts.
-"""
-
 [settings.token-compaction-window]
 name = "Compaction window"
 scope = "Machine"
