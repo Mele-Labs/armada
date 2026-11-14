@@ -275,6 +275,14 @@ pub struct MockGateway {
 const MOCK_ADDRESS: &str = "studio.example.com";
 /// The address Tailscale Funnel serves this Mac at.
 const MOCK_FUNNEL: &str = "https://studio.example.ts.net";
+/// This Mac's name in [`MockGateway::long_names`]: 50 characters.
+pub const LONG_THIS_MAC: &str = "Studio in the corner of the second floor west wing";
+/// A listed Mac's name there: 60 characters.
+pub const LONG_MAC: &str = "Work MacBook Pro that travels between the office and the lab";
+/// A Mac found nearby and not paired, there: 60 characters.
+pub const LONG_FOUND: &str = "Office iMac in the corner of the third floor east wing today";
+/// The tunnel's address there: 90 characters.
+pub const LONG_ADDRESS: &str = "https://studio-in-the-second-floor-corner-of-the-north-office.tunnels.example.com/pairing/";
 /// A link Start made on another Mac, which the mock's Claim takes.
 pub const MOCK_OTHER_LINK: &str = "https://office.example.ts.net/pair/mac?code=7c41e0b2";
 /// The code in the link the mock's Start makes.
@@ -374,6 +382,23 @@ impl MockGateway {
             why: Some("Mac Pro runs a newer build. Nothing crosses until this Mac updates.".into()),
             ..Default::default()
         });
+        gateway
+    }
+
+    /// Names and an address far wider than any card: This Mac's is 50 characters, a Mac's on the list 60, and the
+    /// tunnel's address 90.
+    pub fn long_names() -> MockGateway {
+        let mut gateway = MockGateway::new();
+        gateway.macs[0].name = LONG_THIS_MAC.into();
+        gateway.macs[1].name = LONG_MAC.into();
+        let found = |tunnel: &str, name: &str, colour: MacColour, paired: bool| FoundMac { tunnel: tunnel.into(), name: name.into(), colour: Some(colour), online: true, paired, build: Some("2930ac0".into()), nearby: true, ..Default::default() };
+        gateway.found = vec![found("armada-mac-work", LONG_MAC, MacColour::Orange, true), found("armada-mac-office", LONG_FOUND, MacColour::Blue, false)];
+        gateway.setup.served = Served::None;
+        gateway.setup.named = true;
+        gateway.setup.address = Some(LONG_ADDRESS.into());
+        gateway.setup.cloudflared = Some("2025.11.0".into());
+        gateway.setup.cloudflare = CloudflareState::Running { address: LONG_ADDRESS.into() };
+        gateway.drops = false;
         gateway
     }
 

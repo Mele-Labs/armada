@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, px, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, FoundMac, FoundMacs, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac};
 
@@ -16,7 +16,7 @@ use super::entries::Body;
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::gateway::{PhoneClaim, PhoneCode, Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
-use super::view::{bone, bounds_of, card, ghost, mono, ringed, tip};
+use super::view::{bone, bounds_of, card, ghost, ringed, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -1155,7 +1155,18 @@ impl SettingsOverlay {
             Part::Cards => vec![capped(self.lead_cards(look, window, cx))],
             Part::Steps => vec![capped(self.steps_card(look, window, cx))],
             Part::Waiting => vec![capped(self.waiting_card(look, window, cx))],
-            Part::Page => vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)],
+            Part::Page => {
+                let room = page_room(look, window, cx);
+                if room < px(TWO_COLUMNS) {
+                    return vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)];
+                }
+                // This Mac and its tunnel stack on the left and the list of Devices fills the right. The page's own
+                // stack stops at `PAGE_MAX`, so the pair is as wide as the page and stands out of it.
+                let gap = look.length(token::GAP_PANEL);
+                let left = div().flex_1().min_w_0().flex().flex_col().gap(gap).child(self.this_mac_card(look)).child(self.tunnel_card(look, window, cx));
+                let right = div().flex_1().min_w_0().child(self.devices_card(look, window, cx));
+                vec![div().flex_none().w(room).flex().items_start().gap(gap).child(left).child(right).into_any_element()]
+            }
         }
     }
 
@@ -1227,7 +1238,7 @@ impl SettingsOverlay {
 
         // The tunnel.
         let (mark, name, lines, press) = match state {
-            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "Your other Macs reach this Mac at", address).into_any_element()], None),
+            Some(CloudflareState::Running { address }) => (done(look, "macs-step-tunnel"), "Tunnel made", vec![reach_line(look, "macs-tunnel-address", "Your other Macs reach this Mac at", address).into_any_element()], None),
             Some(CloudflareState::NoTunnel { why: Some(why) }) => (failed(look, "macs-step-tunnel"), "Make the tunnel", vec![alert(look, "macs-tunnel-why", why)], Some(again())),
             Some(CloudflareState::NoTunnel { why: None }) if page.tunnel_asked => (working(look, "macs-step-tunnel"), "Making the tunnel", Vec::new(), None),
             _ => (not_done(look, "macs-step-tunnel"), "Make the tunnel", Vec::new(), None),
@@ -1264,7 +1275,19 @@ impl SettingsOverlay {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(chip(look, mac))
-                    .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(mac.name.clone())))
+                    .child(labelled(
+                        div()
+                            .id("macs-this-name")
+                            .min_w_0()
+                            .truncate()
+                            .text_size(look.length(token::TEXT_SM))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .tooltip(tip(mac.name.clone()))
+                            .child(SharedString::from(mac.name.clone())),
+                        Role::Label,
+                        mac.name.clone(),
+                    ))
                     .children(mac.build.as_ref().map(|build| build_mark(look, "macs-this-build", build)))
                     .into_any_element(),
             },
@@ -1284,7 +1307,7 @@ impl SettingsOverlay {
             Some(Ok(setup)) => {
                 body.extend(self.tunnel_rows(setup, look, window, cx));
                 if let Some(version) = &setup.cloudflared {
-                    let line = div().id("macs-cloudflared").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
+                    let line = div().id("macs-cloudflared").flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
                     body.push(div().flex().child(labelled(line, Role::Label, "cloudflared version")).into_any_element());
                 }
             }
@@ -1301,7 +1324,7 @@ impl SettingsOverlay {
         let funnel = page.funnel_row();
         let mut rows: Vec<AnyElement> = funnel
             .map(|address| {
-                let line = labelled(div().id("macs-funnel").child(reach_line(look, "Phones reach this Mac at", address)), Role::Status, format!("Phones reach this Mac at {address}"));
+                let line = labelled(div().id("macs-funnel").child(reach_line(look, "macs-funnel-address", "Phones reach this Mac at", address)), Role::Status, format!("Phones reach this Mac at {address}"));
                 step_row(look, glyph(look, "macs-funnel-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), Vec::new(), Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             })
             .into_iter()
@@ -1311,12 +1334,12 @@ impl SettingsOverlay {
             CloudflareState::Running { address } => {
                 let served = setup.served == Served::Funnel;
                 let (lead, said) = if served { ("New phones pair at", format!("New phones pair at {address}")) } else { ("Phones and your other Macs reach this Mac at", format!("Reached at {address}")) };
-                let line = labelled(div().id("macs-running").child(reach_line(look, lead, address)), Role::Status, said);
+                let line = labelled(div().id("macs-running").child(reach_line(look, "macs-running-address", lead, address)), Role::Status, said);
                 let lines: Vec<AnyElement> = served.then(|| caption(look, "Phones already paired keep using Tailscale Funnel while it is on.").into_any_element()).into_iter().collect();
                 step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), lines, Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             }
             CloudflareState::Down { address, since, why } => {
-                let name = div().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
+                let name = labelled(div().id("macs-down-address").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.clone())).child(SharedString::from(address.clone())), Role::Label, address.clone());
                 let since = format!("Not connected since {}", clock_of(*since));
                 let mut lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
                 lines.extend(refused);
@@ -1440,7 +1463,11 @@ impl SettingsOverlay {
                     None => (look.color(token::FG_SUBTLE), "No colour".to_string()),
                 };
                 let dot = labelled(div().id(SharedString::from(format!("macs-found-dot-{}", one.tunnel))).flex_none().size(look.length(token::SPACE_3)).rounded_full().bg(dot.0), Role::Image, dot.1);
-                let name = div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.name.clone()));
+                let name = labelled(
+                    div().id(SharedString::from(format!("macs-found-name-{}", one.tunnel))).flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(one.name.clone())).child(SharedString::from(one.name.clone())),
+                    Role::Label,
+                    one.name.clone(),
+                );
                 let chip = presence_chip(look, format!("macs-found-chip-{}", one.tunnel), presence_of(one), &one.name);
                 let row = div()
                     .flex()
@@ -1494,8 +1521,8 @@ impl SettingsOverlay {
         }
         let live = page.phone.as_ref().map(|phone| {
             let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
-            let link = div().id("macs-phone-link").min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
-            let figure = div().id("macs-phone-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            let link = div().id("macs-phone-link").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(phone.link.clone())).child(SharedString::from(phone.link.clone()));
+            let figure = div().id("macs-phone-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             let facts = div()
                 .flex_1()
                 .min_w_0()
@@ -1559,9 +1586,9 @@ impl SettingsOverlay {
         let refused = |act: &str| page.refused.get(act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
         let made = page.link.as_ref().map(|made| {
             let left = time_left(made.expires_at - chrono::Utc::now().timestamp());
-            // The code is at the link's end, so a narrow page wraps it rather than cutting it off.
-            let link = div().id("macs-pair-link").flex_1().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
-            let figure = div().id("macs-pair-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            // One line, stopped in an ellipsis; Copy link takes the whole of it, and so does the tooltip.
+            let link = div().id("macs-pair-link").flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(made.link.clone())).child(SharedString::from(made.link.clone()));
+            let figure = div().id("macs-pair-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             div()
                 .flex()
                 .items_center()
@@ -1689,6 +1716,16 @@ fn said_of<T>(read: &Result<T, String>) -> Option<&str> {
     read.as_ref().err().map(String::as_str).filter(|said| *said != NOT_RUNNING)
 }
 
+/// The page is two columns from this wide, and one column under it.
+pub(super) const TWO_COLUMNS: f32 = 840.;
+
+/// How wide the overlay leaves the page: the box is nine tenths of the room, less its padding, its border, the index
+/// and the gap between the index and the page.
+pub(super) fn page_room(look: &Look, window: &Window, cx: &App) -> Pixels {
+    let pad = look.length(token::GAP_PANEL);
+    crate::room::of(window, cx).size.width * 0.9 - pad * 3. - look.length(token::BORDER_WIDTH) * 2. - look.length(token::W_SETTINGS_INDEX)
+}
+
 /// The setup's parts stand in the settings column's width (`view.rs`'s `PAGE_MAX` on the Settings stack).
 fn capped(part: AnyElement) -> AnyElement {
     div().w_full().max_w(gpui::px(720.)).child(part).into_any_element()
@@ -1737,16 +1774,17 @@ fn glyph(look: &Look, id: impl Into<SharedString>, name: &'static str, ink: Hsla
     labelled(div().id(id.into()).flex_none().tooltip(tip(said.to_string())).child(svg().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(ink)), Role::Image, said.to_string()).into_any_element()
 }
 
-/// A sentence ending on an address, the address in mono.
-fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
+/// A sentence, and the address it ends on under it on one line: the lead stays whole, the address takes the width
+/// there is and stops in an ellipsis, with the whole of it in a tooltip.
+fn reach_line(look: &Look, id: &'static str, lead: &str, address: &str) -> gpui::Div {
     div()
         .flex()
-        .flex_wrap()
-        .items_baseline()
+        .flex_col()
+        .min_w_0()
         .text_size(look.length(token::TEXT_SM))
         .text_color(look.color(token::FG_MUTED))
-        .child(SharedString::from(format!("{lead}\u{a0}")))
-        .child(div().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.to_string())))
+        .child(SharedString::from(lead.to_string()))
+        .child(labelled(div().id(id).min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.to_string())).child(SharedString::from(address.to_string())), Role::Label, address.to_string()))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
@@ -1757,7 +1795,7 @@ fn build_mark(look: &Look, id: impl Into<SharedString>, build: &str) -> AnyEleme
 /// A build's hash in the ink given: amber on a Mac whose build differs.
 fn build_mark_in(look: &Look, id: impl Into<SharedString>, build: &str, ink: Hsla) -> AnyElement {
     let said = format!("Build {build}");
-    let hash = div().id(id.into()).flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
+    let hash = div().id(id.into()).flex_none().text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
     labelled(hash, Role::Label, said).into_any_element()
 }
 
@@ -1793,9 +1831,10 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
                 .child(
                     div()
                         .flex()
+                        .min_w_0()
                         .items_baseline()
                         .gap(look.length(token::SPACE_2))
-                        .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).child(SharedString::from(name.to_string())))
+                        .child(labelled(div().id(SharedString::from(format!("macs-name-{name}"))).min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).tooltip(tip(name.to_string())).child(SharedString::from(name.to_string())), Role::Label, name.to_string()))
                         .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside)))
                         .children(chip.map(|chip| div().flex_none().self_center().child(chip))),
                 )
@@ -1806,9 +1845,9 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
 /// How wide the chip column of a found row stands: "On your account", the widest of its three.
 const FOUND_CHIP: f32 = 2.5;
 
-/// A small uppercase muted heading over a list.
+/// A small muted heading over a list, in sentence case as Settings draws every heading.
 fn section_head(look: &Look, id: &'static str, said: &'static str) -> AnyElement {
-    let head = div().id(id).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child(said.to_uppercase());
+    let head = div().id(id).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child(said);
     labelled(head, Role::Heading, said).into_any_element()
 }
 
@@ -1890,6 +1929,30 @@ mod tests {
         (overlay, cx)
     }
 
+    /// The page drawn, on a Gateway whose names and tunnel address are far wider than any card.
+    fn opened_long(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| {
+            let mut fleet = MockFleet::new();
+            fleet.gateway = super::super::gateway::MockGateway::long_names();
+            SettingsOverlay::new(Wire::Mock(Box::new(fleet)), window, cx)
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.read_macs(window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| {
+            this.macs_keys(cx);
+            this.open = true;
+            this.picked = "bridge:macs";
+            cx.notify();
+        }));
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
     fn updates(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<UpdateMac> {
         overlay.read_with(cx, |this, _| match &this.wire {
             Wire::Mock(mock) => mock.gateway.updates.clone(),
@@ -1920,6 +1983,39 @@ mod tests {
             let presses: Vec<_> = this.macs.macs.iter().flatten().flatten().map(|mac| press_of_mac(mac).map(|(act, _)| act)).collect();
             assert_eq!(presses, [None, Some("forget"), Some("forget"), Some("forget"), Some("confirm")], "this Mac has no press; one waiting on Confirm there can be forgotten");
         });
+    }
+
+    #[gpui::test]
+    fn a_long_name_or_address_stops_in_an_ellipsis_and_leaves_the_press_column_where_it_was(cx: &mut TestAppContext) {
+        use super::super::gateway::{LONG_ADDRESS, LONG_FOUND, LONG_MAC, LONG_THIS_MAC};
+        assert_eq!((LONG_THIS_MAC.chars().count(), LONG_MAC.chars().count(), LONG_FOUND.chars().count(), LONG_ADDRESS.chars().count()), (50, 60, 60, 90));
+        for width in [gpui::px(1400.), gpui::px(820.)] {
+            let (overlay, cx) = opened_long(cx);
+            cx.simulate_resize(gpui::size(width, gpui::px(900.)));
+            cx.update(|_, cx| overlay.update(cx, |_, cx| cx.notify()));
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                let edge = |role, name: &str| bounds_of(window, cx, role, name).map(|bounds| (bounds.origin.x, bounds.right(), bounds.size.width));
+                let long = edge(Role::Button, &format!("Forget {LONG_MAC}")).expect("the long-named Mac's press is drawn");
+                let short = edge(Role::Button, "Forget Mac mini").expect("a short-named Mac's press is drawn");
+                assert_eq!(long.1, short.1, "at {width:?} the long name does not push its press out of the column");
+                assert_eq!(long.2, short.2, "and the press keeps its width");
+                let devices = bounds_of(window, cx, Role::Region, "Devices").expect("the Devices card is drawn");
+                assert!(long.1 <= devices.right(), "at {width:?} the press is inside the Devices card");
+                let copy = edge(Role::Button, "Copy address").expect("Copy address is drawn");
+                let tunnel_card = bounds_of(window, cx, Role::Region, "Tunnel").expect("the Tunnel card is drawn");
+                assert!(copy.1 <= tunnel_card.right(), "at {width:?} a 90 character address does not push Copy address out of its card");
+                let tunnel = bounds_of(window, cx, Role::Status, &format!("Reached at {LONG_ADDRESS}")).expect("the tunnel's row is drawn");
+                assert!(tunnel.right() <= copy.0, "at {width:?} the address stops before Copy address");
+                // Not truncated, a text this long wraps onto a second line, so one line is what proves the ellipsis.
+                let pair = bounds_of(window, cx, Role::Button, &format!("Pair {LONG_FOUND}")).expect("the found Mac's Pair is drawn");
+                assert!(pair.right() <= devices.right(), "at {width:?} a long found name does not push its Pair out of the Devices card");
+                for text in [LONG_THIS_MAC, LONG_MAC, LONG_FOUND, LONG_ADDRESS] {
+                    let drawn = bounds_of(window, cx, Role::Label, text).unwrap_or_else(|| panic!("{text} is drawn"));
+                    assert!(drawn.size.height < gpui::px(30.), "at {width:?} {text} is on one line, not {:?} tall", drawn.size.height);
+                }
+            });
+        }
     }
 
     #[test]

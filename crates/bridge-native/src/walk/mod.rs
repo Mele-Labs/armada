@@ -3038,6 +3038,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_BUILD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_MODELS,
+        title: "Settings › Macs and Models use the width",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_MODELS_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_LONG,
+        title: "Settings › Macs: long names and addresses",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_LONG_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::MACS_NEARBY,
         title: "Settings › Macs: Macs nearby and on your account",
         screen: Screen::Settings,
