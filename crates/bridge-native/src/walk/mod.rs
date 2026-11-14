@@ -519,6 +519,16 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-agent-signed-out",
+        title: "The agents' account signed out",
+        screen: Screen::JobsInApp,
+        scenario: "agent-signed-out",
+        steps: &[
+            step("The agents' account is signed out for every Job: a toast holds its place in the corner, named as Fleet names the account, with Sign in", Verb::Look, "button", "Sign in"),
+            press_on("Sign in runs the agent's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
+        ],
+    },
+    Walk {
         name: "native-job-tabs",
         title: "Tabs beside a Job's thread",
         screen: Screen::JobsInApp,
@@ -3318,6 +3328,25 @@ pub static WALKS: &[Walk] = &[
             step("The other file opens as a tab beside the thread", Verb::Open("button", "Opened mac-mark.md"), "tab", "Job column: mac-mark.md"),
             step("The tab holds the file, read-only", Verb::Look, "region", "mac-mark.md"),
             step("Esc closes the tab and the thread is back", Verb::Key("escape"), "button", "Opened mac-mark.md"),
+        ],
+    },
+    Walk {
+        name: "native-other-mac-page",
+        title: "A walk and the dev server of a Job on the other Mac, in a tab",
+        screen: Screen::JobsInApp,
+        scenario: "jobs-other-mac",
+        steps: &[
+            press_on("A Job on Air owes a walk of a page: its tab arrives behind the thread", "row", "Fix the merge line freshness chip", "tab", "Job tab: Orders page"),
+            press_on("The tab names the walk and the page, with Air's chip and Open", "tab", "Job tab: Orders page", "button", "Open"),
+            press_on("Open while Air sleeps: nothing opens, and Fleet's words stand under it", "button", "Open", "status", "Air is asleep. Its pages open when it wakes."),
+            pairing("Air wakes", "air-awake", "button", "Open"),
+            press_on("Open again: the page is drawn under the walk's bar, step 1 ringed", "button", "Open", "img", "The target of this step"),
+            press_on("Next acts on the ringed target and rings the next", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            step("Its dev server stands in Now with Air's chip and Open", Verb::Look, "button", "Open Orders dev server"),
+            pairing("The link to Air stops carrying", "link-down", "button", "Open Orders dev server"),
+            press_on("Open on the dev server: its tab says what the link answered", "button", "Open Orders dev server", "alert", crate::terminal::shells::UNREACHED),
+            pairing("The link carries again", "link-up", "button", "Open"),
+            press_on("Open tries again: the page is drawn under a bar of its name and Reload, with no steps and no Approve", "button", "Open", "button", "Reload"),
         ],
     },
     Walk {
