@@ -3002,6 +3002,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_PHONE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::CUSTOM_TRACKER,
+        title: "Settings: a tracker Armada has no adapter for",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::CUSTOM_TRACKER_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::CUSTOM_TRACKER_NEW_PROJECT,
+        title: "New project: a tracker Armada has no adapter for",
+        screen: Screen::App,
+        scenario: "new-project",
+        steps: crate::settings::walk::CUSTOM_TRACKER_NEW_PROJECT_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::PAGES,
         title: "Settings: every page drawn as rows",
         screen: Screen::Settings,

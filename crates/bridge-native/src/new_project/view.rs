@@ -759,7 +759,12 @@ impl NewProjectSheet {
                 format!("{} set for this project", key.label()),
             )
         });
-        Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label())).into_any_element()
+        let row = Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label()));
+        // Custom, picked among the trackers, opens its name field right under the row.
+        if key == Key::Tracker && self.tracker.read(cx).is_shown() {
+            return div().flex().flex_col().gap(look.length(token::SPACE_2)).pb(look.length(token::SPACE_3)).child(row).child(self.tracker.clone()).into_any_element();
+        }
+        row.into_any_element()
     }
 
     fn share_row(&self, window: &Window, cx: &Context<Self>) -> AnyElement {

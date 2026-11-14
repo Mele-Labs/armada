@@ -813,6 +813,21 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/mods/session".into(), said), "ModSessionStarted", cx))
     }
 
+    /// `POST /sessions/dispatch`: a Job started in a repository, in `project` where there is one, with `words` as its first
+    /// message, by the route and client Bridge's own start uses. The answer is the Job's id, none where the Operator holds the idea.
+    pub fn start_job(&mut self, manifest: &str, project: Option<&str>, words: String, cx: &App) -> Task<Result<Option<String>, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.start_job(manifest, project, words));
+        }
+        let Some(port) = self.port(cx) else { return unreachable() };
+        let body = match crate::custom_tracker::dispatch_body(manifest, project, &words) {
+            Ok(body) => body,
+            Err(why) => return Task::ready(Err(Refused::said(why))),
+        };
+        let sent = crate::custom_tracker::send(port, body, cx);
+        cx.background_spawn(async move { sent.await.map_err(Refused::said) })
+    }
+
     /// Open settings.json in the editor settings.json names, off the main thread. The mock opens nothing.
     pub fn open_file(&mut self, list: &SettingsList, cx: &App) -> Task<Result<(), String>> {
         if let Wire::Mock(mock) = self {

@@ -139,6 +139,28 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/projects/values".into()), "ResolvedValues", cx))
     }
 
+    /// The mods on this Mac, as the connection last read them: the trackers among them are offered beside the built in ones.
+    pub fn mods(&self, cx: &App) -> Vec<ipc::ModSummary> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().mods.clone().unwrap_or_default(),
+            Wire::Mock(mock) => mock.mods.clone(),
+        }
+    }
+
+    /// `POST /sessions/dispatch`: a Job started in a repository with `words` as its first message, by the route and
+    /// client Bridge's own start uses. The answer is the Job's id, none where the Operator holds the idea.
+    pub fn start_job(&mut self, manifest: &str, words: String, cx: &App) -> Task<Result<Option<String>, String>> {
+        if let Wire::Mock(mock) = self {
+            mock.started.push((manifest.to_string(), words));
+            return Task::ready(Ok(Some("mock-tracker-mod".to_string())));
+        }
+        let Some(port) = self.port(cx) else { return unreachable() };
+        match crate::custom_tracker::dispatch_body(manifest, None, &words) {
+            Ok(body) => crate::custom_tracker::send(port, body, cx),
+            Err(why) => Task::ready(Err(why)),
+        }
+    }
+
     /// `GET /models`: the models a review may run on.
     pub fn models(&self, cx: &App) -> Task<Result<Vec<String>, String>> {
         if let Wire::Mock(mock) = self {
@@ -225,6 +247,10 @@ pub struct Mock {
     pub projects: Projects,
     /// The repositories his forge account sees in the walks.
     pub forge: ForgeRepositories,
+    /// The mods on this Mac in the walks.
+    pub mods: Vec<ipc::ModSummary>,
+    /// Every Job the walk or a test started through a dispatch: the repository's Manifest id and the words.
+    pub started: Vec<(String, String)>,
 }
 
 /// Folders below the two the areas read, as an index of every folder would hold them: what the walk's search
@@ -246,6 +272,8 @@ impl Mock {
             models: vec!["opus".into(), "sonnet".into(), "haiku".into()],
             projects: crate::mock::projects(),
             forge: ipc::decode("ForgeRepositories", MOCK_FORGE.as_bytes()).unwrap_or_else(|why| panic!("the mock forge does not decode: {why}")),
+            mods: crate::settings::walk::tracker_mods(),
+            started: Vec::new(),
         }
     }
 

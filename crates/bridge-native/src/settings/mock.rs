@@ -47,6 +47,8 @@ pub struct MockFleet {
     /// The project each Job was started for, by Job id (`HostedFacts.project`): the walk's Native Bridge
     /// foundation was started for Armada.
     pub job_projects: Vec<(&'static str, &'static str)>,
+    /// Every Job the walk or a test started through a dispatch: the repository's Manifest id, the project, and the words.
+    pub started: Vec<(String, Option<String>, String)>,
     /// Whether a repository's copy has its workflow lane drawn from its text, as Fleet draws it: the walk of choosing what
     /// to take sets it, where the other walks keep the lanes file's steps.
     pub lanes_from_text: bool,
@@ -139,6 +141,7 @@ impl MockFleet {
             gateway: super::gateway::MockGateway::new(),
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
+            started: Vec::new(),
             lanes_from_text: false,
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
@@ -448,6 +451,15 @@ impl MockFleet {
             return Err(Refused::said("Fleet is not connected"));
         }
         ipc::decode("ModSessionStarted", br#"{"session_id":"01SESSIONMODJOBAAAAAAAAAAA","title":"Mod Job"}"#).map_err(|why| Refused::said(why.to_string()))
+    }
+
+    /// A dispatch, started: the Job's id is `mock-tracker-mod`, and what it was asked is kept.
+    pub fn start_job(&mut self, manifest: &str, project: Option<&str>, words: String) -> Result<Option<String>, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        self.started.push((manifest.to_string(), project.map(str::to_string), words));
+        Ok(Some("mock-tracker-mod".to_string()))
     }
 
     /// What a project's values come to: its own over Kit's, Kit's over the defaults, a kind of review at a time.

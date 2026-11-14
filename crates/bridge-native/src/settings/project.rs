@@ -145,9 +145,9 @@ impl Key {
             Key::Plans | Key::PullRequests => &[("off", "Off"), ("review", "Review"), ("review_and_approve", "Review and approve")],
             Key::Walks => &[("off", "Off"), ("review", "Review")],
             Key::AgentStarts => &[("at_once", "Start at once"), ("ask_me", "Ask me")],
-            Key::Tracker => &[("linear", "Linear"), ("beads", "Beads")],
             Key::Density => &[("compact", "Compact"), ("default", "Default"), ("roomy", "Roomy")],
-            Key::ReviewModel | Key::Theme | Key::Layout | Key::Shared => &[],
+            // The trackers this Mac has grow with its mods, so they are read in `options`.
+            Key::ReviewModel | Key::Theme | Key::Layout | Key::Tracker | Key::Shared => &[],
         };
         let mut words: Vec<(String, String)> = pairs.iter().map(|(word, said)| (word.to_string(), said.to_string())).collect();
         if self == Key::Delivery {
@@ -352,6 +352,7 @@ impl SettingsOverlay {
             },
             Key::Theme => self.theme_choices(cx).into_iter().map(|(_, one)| (one.id, one.title)).collect(),
             Key::Layout => self.wire.mods(cx).into_iter().filter(|row| row.kind == Some(ipc::ModKind::Layout) && row.valid).map(|row| (row.name.clone(), row.name)).collect(),
+            Key::Tracker => crate::custom_tracker::options(&self.wire.mods(cx)),
             _ => key.fixed(),
         };
         if let Some(now) = now.filter(|now| !words.iter().any(|(word, _)| word == now)) {
@@ -386,7 +387,75 @@ impl SettingsOverlay {
         if self.scope.every.is_none() || (self.scope.project.is_some() && self.scope.values.is_none()) {
             return Vec::new();
         }
-        self.grid_of(cx).into_iter().flatten().filter_map(|cell| self.scope.cells.get(&cell).cloned()).collect()
+        let mut stops = Vec::new();
+        for cell in self.grid_of(cx).into_iter().flatten() {
+            stops.extend(self.scope.cells.get(&cell).cloned());
+            // The Custom tracker's field and its press come right after the tracker's choice.
+            if cell == (Key::Tracker, Column::Own) {
+                stops.extend(self.custom.read(cx).stops(cx));
+            }
+        }
+        stops
+    }
+
+    /// Custom, picked among a project's trackers: the name field opens under the row, with the keys in it.
+    fn open_custom(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let repository = self.custom_target(cx).map(|(_, name)| name).unwrap_or_default();
+        self.custom.update(cx, |custom, cx| custom.show(repository.into(), window, cx));
+    }
+
+    /// The repository the Job starts in: the project's first member, else the first one Fleet serves, by Manifest id and name.
+    fn custom_target(&self, cx: &App) -> Option<(String, String)> {
+        let served = self.wire.repositories(cx).unwrap_or_default();
+        let member = self.scope.project.as_ref().and_then(|(id, _)| self.scope.projects.as_ref()?.projects.iter().find(|one| one.id == *id)).and_then(|one| one.members.first());
+        let named = member.and_then(|member| served.iter().find(|(id, _, _)| id.as_str() == member.manifest_id.as_str()));
+        named.or_else(|| served.first()).map(|(id, name, _)| (id.clone(), name.clone()))
+    }
+
+    /// What the Custom tracker's field asked: Make its mod starts the Job, Open the Job opens it and Settings gets out of the way.
+    pub(super) fn custom_asked(&mut self, asked: &crate::custom_tracker::Asked, window: &mut Window, cx: &mut Context<Self>) {
+        use crate::custom_tracker::Asked;
+        match asked {
+            Asked::Make(tracker) => {
+                let Some((project, name)) = self.scope.project.clone() else { return };
+                let Some((manifest, repository)) = self.custom_target(cx) else {
+                    self.custom.update(cx, |custom, cx| custom.refused("Fleet serves no repository to start it in", cx));
+                    return;
+                };
+                let words = crate::custom_tracker::message(tracker, &name, &repository);
+                let sent = self.wire.start_job(&manifest, Some(&project), words, cx);
+                let custom = self.custom.clone();
+                cx.spawn_in(window, async move |_, cx| {
+                    let answer = sent.await;
+                    let _ = custom.update(cx, |custom, cx| match answer {
+                        Ok(job) => custom.started(job, cx),
+                        Err(why) => custom.refused(why.said, cx),
+                    });
+                })
+                .detach();
+            }
+            Asked::OpenJob(id) => {
+                if let Some(open) = cx.try_global::<crate::job_view::OpenJobFrom>().cloned() {
+                    let id = id.clone();
+                    cx.defer(move |cx| (open.0)(id, None, cx));
+                }
+                self.close(window, cx);
+            }
+        }
+    }
+
+    /// Esc in the Custom tracker's field shuts it and puts the keys back on the tracker's choice.
+    pub(super) fn custom_key(&mut self, key: &gpui::Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let bare = !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt;
+        let custom = self.custom.read(cx);
+        if key.key != "escape" || !bare || !custom.asking() || !custom.contains_focused(window, cx) {
+            return false;
+        }
+        self.custom.update(cx, |custom, cx| custom.hide(cx));
+        if let Some(handle) = self.scope.cells.get(&(Key::Tracker, Column::Own)) {
+            window.focus(handle, cx);
+        }
+        true
     }
 
     /// The cell holding the keys, if one does.
@@ -416,7 +485,8 @@ impl SettingsOverlay {
         let Some(values) = values else { return };
         let (now, from) = resolved(values, cell.0);
         let own = cell.1 == Column::Every || from == ValueLayer::Project;
-        let ticked = now.filter(|_| own);
+        // A project with no tracker word reads from the forge's own, which is GitHub Issues.
+        let ticked = now.filter(|_| own).or_else(|| (cell.0 == Key::Tracker).then(String::new));
         let options = self.options(cell.0, ticked.as_deref(), cx).into_iter().map(|(word, said)| (SharedString::from(said), ticked.as_deref() == Some(word.as_str()))).collect();
         let name = self.cell_name(cell);
         let at = bounds_of(window, cx, Role::ComboBox, &name).or_else(|| bounds_of(window, cx, Role::RadioGroup, &name)).map(|bounds| bounds.bottom_left()).unwrap_or_default();
@@ -431,6 +501,14 @@ impl SettingsOverlay {
         };
         let now = values.and_then(|values| resolved(values, key).0);
         let Some((word, _)) = self.options(key, now.as_deref(), cx).into_iter().nth(n) else { return };
+        if word == crate::custom_tracker::CUSTOM {
+            self.open_custom(window, cx);
+            return;
+        }
+        // The forge's own is no word: picking it takes the project's tracker out, and where none is set there is nothing to write.
+        if key == Key::Tracker && word.is_empty() && !values.is_some_and(|values| set_here(values, key)) {
+            return;
+        }
         self.write_cell((key, column), Some(word), window, cx);
     }
 
@@ -559,6 +637,12 @@ pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, wind
         if let Some((_, name)) = &project {
             cells = cells.child(captioned(look, Some((name.clone(), true)), cell(this, (key, Column::Own), look, window, cx)));
         }
+        // Custom, picked among the trackers, opens its name field right under the choice.
+        let control = if key == Key::Tracker && project.is_some() && this.custom.read(cx).is_shown() {
+            div().flex().flex_col().gap(look.length(token::SPACE_3)).child(cells).child(this.custom.clone()).into_any_element()
+        } else {
+            cells.into_any_element()
+        };
         let row = Row {
             id: SharedString::from(format!("values-row-{key:?}")),
             title: key.title().into(),
@@ -566,7 +650,7 @@ pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, wind
             chips: learned(this, key, look).into_iter().collect(),
             says: vec![says(look, key.description()).into_any_element()],
             changed: false,
-            control: cells.into_any_element(),
+            control,
         };
         labelled(split_row(look, spread, row, n == 0), Role::Row, key.title()).into_any_element()
     });
@@ -669,7 +753,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     });
     let options = this.options(key, word.as_deref(), cx);
     // What this Mac has, such as models, themes and layouts, grows, so it is a dropdown however few there are.
-    let open_ended = matches!(key, Key::ReviewModel | Key::Theme | Key::Layout);
+    let open_ended = matches!(key, Key::ReviewModel | Key::Theme | Key::Layout | Key::Tracker);
     if !open_ended && !options.is_empty() && options.len() <= SEGMENTS_MAX {
         // Up to three words are segments: the word in force raised, in the accent where it is set at this layer.
         let strong = !same && !defaulted && lock.is_none();
@@ -932,5 +1016,99 @@ mod tests {
         assert_eq!(shared_of(&projects, "api"), Some(false));
         assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");
         assert_eq!(shared_of(&projects, "none"), None);
+    }
+
+    /// Settings on the mock Fleet, editing Storefront, whose tracker no layer names.
+    fn editing_storefront(cx: &mut gpui::TestAppContext) -> (gpui::Entity<SettingsOverlay>, &mut gpui::VisualTestContext) {
+        use super::super::mock::MockFleet;
+        use super::super::wire::Wire;
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.show(Some(("storefront".into(), "Storefront".into())), false, window, cx)));
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
+    fn pick_custom(overlay: &gpui::Entity<SettingsOverlay>, cx: &mut gpui::VisualTestContext) {
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                let at = this.options(Key::Tracker, None, cx).iter().position(|(word, _)| word == crate::custom_tracker::CUSTOM).expect("Custom is offered");
+                this.chose_cell((Key::Tracker, Column::Own), at, window, cx);
+            })
+        });
+        cx.run_until_parked();
+    }
+
+    fn make_its_mod(overlay: &gpui::Entity<SettingsOverlay>, name: &'static str, cx: &mut gpui::VisualTestContext) {
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.custom.update(cx, |custom, cx| {
+                    custom.typed(name, window, cx);
+                    custom.make(cx);
+                })
+            })
+        });
+        cx.run_until_parked();
+    }
+
+    /// What the mock Fleet was asked to start, and the tracker block it holds for Storefront.
+    fn asked_of(overlay: &gpui::Entity<SettingsOverlay>, cx: &mut gpui::VisualTestContext) -> (Vec<(String, Option<String>, String)>, Option<std::collections::BTreeMap<String, String>>) {
+        overlay.read_with(cx, |this, _| match &this.wire {
+            super::super::wire::Wire::Mock(mock) => {
+                let tracker = mock.projects.projects.iter().find(|one| one.id == "storefront").and_then(|one| one.values.as_ref()).and_then(|values| values.tracker.clone());
+                (mock.started.clone(), tracker)
+            }
+            super::super::wire::Wire::Live(_) => panic!("the test runs on the mock Fleet"),
+        })
+    }
+
+    #[gpui::test]
+    fn custom_asks_for_a_name(cx: &mut gpui::TestAppContext) {
+        let (overlay, cx) = editing_storefront(cx);
+        let said: Vec<String> = overlay.read_with(cx, |this, cx| this.options(Key::Tracker, None, cx).into_iter().map(|(_, said)| said).collect());
+        assert_eq!(&said[..3], ["GitHub Issues", "Linear", "Beads"]);
+        assert_eq!(said.last().map(String::as_str), Some("Custom"), "Custom ends the choice");
+        assert!(overlay.read_with(cx, |this, cx| !this.custom.read(cx).is_shown()), "the field stays shut until Custom is picked");
+        pick_custom(&overlay, cx);
+        let (shown, name, focused) = cx.update(|window, cx| overlay.read_with(cx, |this, cx| (this.custom.read(cx).is_shown(), this.custom.read(cx).name(cx), this.custom.read(cx).contains_focused(window, cx))));
+        assert!(shown, "Custom opens the name field in place");
+        assert_eq!(name, "", "it asks for the name and holds none");
+        assert!(focused, "the keys are in the field");
+        let (started, _) = asked_of(&overlay, cx);
+        assert!(started.is_empty(), "picking Custom starts no Job");
+    }
+
+    #[gpui::test]
+    fn make_its_mod_starts_one_job_with_the_tracker_name_in_its_message(cx: &mut gpui::TestAppContext) {
+        let (overlay, cx) = editing_storefront(cx);
+        pick_custom(&overlay, cx);
+        make_its_mod(&overlay, "Jira", cx);
+        let (started, _) = asked_of(&overlay, cx);
+        assert_eq!(started.len(), 1, "one press, one Job");
+        let (manifest, project, words) = &started[0];
+        assert_eq!(manifest, "sample-web", "it starts in the project's first repository");
+        assert_eq!(project.as_deref(), Some("storefront"), "in the project being edited");
+        assert!(words.starts_with("Make a tracker mod for Jira."), "{words}");
+        assert!(words.contains("Project: Storefront."), "{words}");
+        assert!(words.contains("armada-mods skill"), "{words}");
+        overlay.update(cx, |this, cx| this.custom.update(cx, |custom, cx| custom.make(cx)));
+        cx.run_until_parked();
+        assert_eq!(asked_of(&overlay, cx).0.len(), 1, "a second press is not a second Job");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.custom.read(cx).job().map(str::to_string)).as_deref(), Some("mock-tracker-mod"), "the row holds the Job it started");
+    }
+
+    #[gpui::test]
+    fn no_provider_is_saved_for_custom(cx: &mut gpui::TestAppContext) {
+        let (overlay, cx) = editing_storefront(cx);
+        pick_custom(&overlay, cx);
+        assert_eq!(asked_of(&overlay, cx).1, None, "picking Custom writes no tracker");
+        make_its_mod(&overlay, "Jira", cx);
+        assert_eq!(asked_of(&overlay, cx).1, None, "nor does making its mod");
+        let (word, from) = overlay.read_with(cx, |this, _| resolved(this.scope.values.as_ref().expect("read"), Key::Tracker));
+        assert_eq!((word, from), (None, ValueLayer::Default), "the choice stays on what it was");
     }
 }

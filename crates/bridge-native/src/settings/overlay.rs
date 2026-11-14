@@ -122,6 +122,8 @@ pub struct SettingsOverlay {
     pub saving: Option<String>,
     pub refused: BTreeMap<String, String>,
     pub scope: Scope,
+    /// Starting Jobs › Tracker › Custom: the name field opened under the row, and the Job it starts.
+    pub custom: Entity<crate::custom_tracker::CustomTracker>,
     /// What opening settings.json answered when it did not open.
     pub file_said: Option<String>,
     pub file_stop: FocusHandle,
@@ -193,7 +195,9 @@ impl SettingsOverlay {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
         let theme = super::theme::ThemeField::new(cx);
         let lanes = super::lanes::WorkflowLanes::new(cx);
+        let custom = cx.new(|cx| crate::custom_tracker::CustomTracker::new("settings", "settings:custom-tracker", window, cx));
         let typing = vec![
+            cx.subscribe_in(&custom, window, |this, _, asked: &crate::custom_tracker::Asked, window, cx| this.custom_asked(asked, window, cx)),
             cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
                 if matches!(event, InputEvent::Change) {
                     this.query_changed(cx);
@@ -221,6 +225,7 @@ impl SettingsOverlay {
             saving: None,
             refused: BTreeMap::new(),
             scope: Scope::new(cx),
+            custom,
             file_said: None,
             file_stop: cx.focus_handle().tab_stop(true),
             popup: None,
@@ -262,6 +267,7 @@ impl SettingsOverlay {
         let bindings = self.wire.key_bindings(cx);
         self.keyboard.set(super::keyboard::Bindings::read(&bindings));
         self.theme.refused = None;
+        self.custom.update(cx, |custom, cx| custom.reset(cx));
         self.mods.refused.clear();
         self.models.reopen();
         self.macs.reopen();
@@ -608,6 +614,7 @@ impl SettingsOverlay {
         let scope = &mut self.scope;
         if scope.project != project {
             scope.values = None;
+            self.custom.update(cx, |custom, cx| custom.reset(cx));
         }
         scope.project = project;
         scope.refused = None;
@@ -933,6 +940,10 @@ impl SettingsOverlay {
                 return true;
             }
             return false;
+        }
+        // Esc in the Custom tracker's field shuts the field, and not Settings.
+        if self.custom_key(key, window, cx) {
+            return true;
         }
         // A key waiting for its binding takes the next key, whatever it is.
         if self.keyboard_key(key, window, cx) {

@@ -165,6 +165,8 @@ pub struct NewProjectSheet {
     pub new_parent: Option<String>,
     pub place: Place,
     pub custom: bool,
+    /// Tracker › Custom: the name field opened under the row, and the Job it starts.
+    pub tracker: Entity<crate::custom_tracker::CustomTracker>,
     /// What every project uses, once Fleet has said.
     pub inherited: Option<HashMap<Key, String>>,
     pub picked: HashMap<Key, String>,
@@ -235,6 +237,8 @@ impl NewProjectSheet {
                 }
             }));
         }
+        let tracker = cx.new(|cx| crate::custom_tracker::CustomTracker::new("np", "new-project:custom-tracker", window, cx));
+        subs.push(cx.subscribe_in(&tracker, window, |this, _, asked: &crate::custom_tracker::Asked, window, cx| this.tracker_asked(asked, window, cx)));
         let settings = values::GROUPS.iter().flat_map(|group| group.keys.iter().map(|key| (*key, cx.focus_handle().tab_stop(true)))).collect();
         let at = Handles {
             frame: cx.focus_handle(),
@@ -264,6 +268,7 @@ impl NewProjectSheet {
             new_parent: None,
             place: Place::Mac,
             custom: false,
+            tracker,
             inherited: None,
             picked: HashMap::new(),
             models: Vec::new(),
@@ -677,7 +682,13 @@ impl NewProjectSheet {
         stops.extend([self.at.defaults.clone(), self.at.custom.clone()]);
         if self.custom {
             for group in &values::GROUPS {
-                stops.extend(group.keys.iter().filter_map(|key| self.at.settings.get(key).cloned()));
+                for key in group.keys {
+                    stops.extend(self.at.settings.get(key).cloned());
+                    // The Custom tracker's field and its press come right after the tracker's choice.
+                    if *key == Key::Tracker {
+                        stops.extend(self.tracker.read(cx).stops(cx));
+                    }
+                }
             }
             stops.push(self.at.share.clone());
         }
@@ -690,6 +701,13 @@ impl NewProjectSheet {
         let key = &event.keystroke;
         let plain = !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt;
         match key.key.as_str() {
+            // Esc in the Custom tracker's field shuts the field, and not the sheet.
+            "escape" if self.tracker.read(cx).asking() && self.tracker.read(cx).contains_focused(window, cx) => {
+                self.tracker.update(cx, |tracker, cx| tracker.hide(cx));
+                if let Some(handle) = self.at.settings.get(&Key::Tracker) {
+                    window.focus(handle, cx);
+                }
+            }
             "escape" => self.close(window, cx),
             "tab" if plain => {
                 let stops = self.stops(cx);
@@ -816,7 +834,9 @@ impl NewProjectSheet {
         let entries = match menu {
             Menu::Setting(key) => {
                 let now = self.shown(key).map(|(word, _)| word).unwrap_or_default();
-                key.options(&self.models)
+                // The trackers this Mac has grow with its mods, and end on Custom.
+                let words = if key == Key::Tracker { crate::custom_tracker::options(&self.wire.mods(cx)) } else { key.options(&self.models) };
+                words
                     .into_iter()
                     .map(|(word, label)| Entry::Choice { id: crate::titlebar::id_of(format!("word:{word}")), label: label.into(), on: word == now })
                     .collect()
@@ -837,6 +857,10 @@ impl NewProjectSheet {
             let word = id.strip_prefix("word:").unwrap_or_default().to_string();
             this.popup = None;
             match menu {
+                Menu::Setting(_) if word == crate::custom_tracker::CUSTOM => {
+                    this.open_custom(window, cx);
+                    return;
+                }
                 Menu::Setting(key) => {
                     this.picked.insert(key, word);
                 }
@@ -873,6 +897,53 @@ impl NewProjectSheet {
             return;
         }
         self.open_menu(Menu::Setting(key), key.label(), gpui::Role::Button, window, cx);
+    }
+
+    /// The repository the Job starts in: the first one picked, else the first one Fleet serves, by Manifest id and name.
+    fn tracker_target(&self) -> Option<(String, SharedString)> {
+        let served = self.served.as_deref().unwrap_or_default();
+        let first = self.members().into_iter().next().map(|member| member.manifest_id.as_str().to_string());
+        first.and_then(|id| served.iter().find(|one| one.id == id)).or_else(|| served.first()).map(|one| (one.id.clone(), one.name.clone()))
+    }
+
+    /// Custom, picked among the trackers: the name field opens under the row, with the keys in it.
+    fn open_custom(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let repository = self.tracker_target().map(|(_, name)| name).unwrap_or_default();
+        self.tracker.update(cx, |tracker, cx| tracker.show(repository, window, cx));
+        cx.notify();
+    }
+
+    /// What the field asked: Make its mod starts a Job in the first repository, which the project is not made yet to
+    /// hold, and Open the Job opens it over the sheet's place.
+    fn tracker_asked(&mut self, asked: &crate::custom_tracker::Asked, window: &mut Window, cx: &mut Context<Self>) {
+        use crate::custom_tracker::Asked;
+        match asked {
+            Asked::Make(name) => {
+                let Some((manifest, repository)) = self.tracker_target() else {
+                    self.tracker.update(cx, |tracker, cx| tracker.refused("Fleet serves no repository to start it in", cx));
+                    return;
+                };
+                let typed = self.boxes.name.read(cx).value().trim().to_string();
+                let project = if typed.is_empty() { "a new project".to_string() } else { typed };
+                let sent = self.wire.start_job(&manifest, crate::custom_tracker::message(name, &project, &repository), cx);
+                let tracker = self.tracker.clone();
+                cx.spawn_in(window, async move |_, cx| {
+                    let answer = sent.await;
+                    let _ = tracker.update(cx, |tracker, cx| match answer {
+                        Ok(job) => tracker.started(job, cx),
+                        Err(why) => tracker.refused(why, cx),
+                    });
+                })
+                .detach();
+            }
+            Asked::OpenJob(id) => {
+                self.close(window, cx);
+                if let Some(open) = cx.try_global::<crate::job_view::OpenJobFrom>().cloned() {
+                    let id = id.clone();
+                    cx.defer(move |cx| (open.0)(id, None, cx));
+                }
+            }
+        }
     }
 
     pub fn open_parent(&mut self, clone: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -1003,6 +1074,7 @@ impl NewProjectSheet {
         self.sending = false;
         self.picks.clear();
         self.picked.clear();
+        self.tracker.update(cx, |tracker, cx| tracker.reset(cx));
         self.opened = None;
         self.clone_open = false;
         self.new_open = false;

@@ -675,3 +675,46 @@ pub static STEPS: &[Step] = &[
     step("It opens where it was, on All", Verb::Look, "region", "All"),
     press_on("Create mod starts an empty Mod Job and gets Settings out of the way", "button", "Create mod", "button", "Menu"),
 ];
+
+/// The tracker mods this Mac has in the walks, as the Settings walk's mods list them: one that passed its try.
+pub fn tracker_mods() -> Vec<ipc::ModSummary> {
+    let all = ipc::decode::<ipc::ModList>("mods", include_bytes!("../../fixtures/mods-settings.json")).unwrap_or_else(|why| panic!("the mods fixture does not decode: {why}"));
+    all.mods.into_iter().filter(|one| one.kind == Some(ipc::ModKind::Tracker)).collect()
+}
+
+/// `native-custom-tracker`: a project's tracker choice lists what Armada reads and the tracker mods this Mac has, then
+/// Custom, which asks the tracker's name and starts a Job that makes its mod.
+pub const CUSTOM_TRACKER: &str = "native-custom-tracker";
+
+pub static CUSTOM_TRACKER_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    step("⌘P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("↓ twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    press_on("Starting Jobs: the tracker is Storefront's own", "button", "Starting Jobs", "combobox", "Tracker for Storefront"),
+    press_on("The tracker choice lists GitHub Issues, Linear, Beads and the tracker mods this Mac has, then Custom", "combobox", "Tracker for Storefront", "menuitemcheckbox", "Custom"),
+    press_on("Custom opens a name field under the row, the keys in it", "menuitemcheckbox", "Custom", "textbox", "Your tracker's name"),
+    step("Esc shuts the field, and the keys go back to the choice", Verb::Key("escape"), "combobox", "Tracker for Storefront"),
+    press_on("The choice is still what it was. Custom opens the field again", "combobox", "Tracker for Storefront", "menuitemcheckbox", "Custom"),
+    press_on("The field is open", "menuitemcheckbox", "Custom", "textbox", "Your tracker's name"),
+    step("The tracker's name", Verb::Typed("Jira"), "button", "Make its mod"),
+    press_on("Make its mod starts one Job in Storefront, which asks for a tracker mod for Jira and a try of it", "button", "Make its mod", "status", "Job started: a tracker mod for Jira"),
+    step("The row says the Job started, with a press that opens it. The choice stays as it was until the mod exists", Verb::Look, "button", "Open the Job"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-custom-tracker-new-project`: the same choice on the New project sheet, which starts the Job in the first repository.
+pub const CUSTOM_TRACKER_NEW_PROJECT: &str = "native-custom-tracker-new-project";
+
+pub static CUSTOM_TRACKER_NEW_PROJECT_STEPS: &[Step] = &[
+    step("The project switcher, or below 900 the menu that holds its rows", Verb::PressOnFirst(&[("button", "Project"), ("button", "Menu")]), "searchbox", "Find a project"),
+    step("Typing narrows it to New project", Verb::Keys(&["n", "e", "w"]), "searchbox", "Find a project"),
+    step("Enter opens the sheet over the window, the keys in Name", Verb::Key("enter"), "textbox", "Name"),
+    step("Its name", Verb::Typed("Pocket"), "textbox", "Name"),
+    step("Settings: Customize opens every group", Verb::Wheel("dialog", "New project", 600), "radio", "Customize"),
+    press_on("Customize opens every group", "radio", "Customize", "button", "Tracker"),
+    press_on("Tracker opens its choice: the built in ones, the mods this Mac has, then Custom", "button", "Tracker", "menuitemcheckbox", "Custom"),
+    press_on("Custom opens a name field under the row, the keys in it", "menuitemcheckbox", "Custom", "textbox", "Your tracker's name"),
+    step("The tracker's name", Verb::Typed("Jira"), "button", "Make its mod"),
+    press_on("Make its mod starts one Job in the first repository, which asks for a tracker mod for Jira", "button", "Make its mod", "status", "Job started: a tracker mod for Jira"),
+    step("The row says the Job started, and the choice stays as it was", Verb::Look, "button", "Open the Job"),
+];

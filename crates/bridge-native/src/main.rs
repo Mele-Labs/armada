@@ -20,6 +20,7 @@ mod capture;
 mod chrome;
 mod clash_mark;
 mod context_ring;
+mod custom_tracker;
 mod deep_link;
 mod dictation;
 mod diff;
