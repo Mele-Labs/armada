@@ -129,7 +129,7 @@ An edit on the holding Mac reaches the copy the same way.
 
 Sync never ticks a task: a copy is only what the holding Mac says, and a tick crosses only as his own.
 The Operator's call is handed the open tasks of every project, the copies' among them, and only reads them.
-The phone's routes do not pass the filter yet.
+The phone passes the same filter: it sees a Job in a shared project, or one held from another Mac, and nothing of any other (`docs/concepts/pocket.md`, *What the phone sees*).
 
 ## What a project sets
 

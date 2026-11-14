@@ -92,8 +92,10 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
     let waiting = served
         .waiting_on()
         .map(|over| (over, served.run_id().clone()));
-    let app =
-        surface(served.clone()).merge(crate::door::mounted::<D>(served.clone(), surface(served)));
+    let phone = from_fn_with_state(served.clone(), crate::phone_share::to_the_phone::<D>);
+    let app = surface(served.clone())
+        .merge(crate::door::mounted::<D>(served.clone(), surface(served)))
+        .layer(phone);
     // Inside the refusal, so a page is turned away at once and not after the wait.
     let app = match waiting {
         Some(waiting) => app.layer(from_fn_with_state(
