@@ -18,7 +18,7 @@ pub mod finder;
 pub mod frame;
 pub mod keys;
 mod page;
-// `render_html` is what sketch mock nodes draw from, in another Job's branch: nothing here calls it yet.
+// `render_html` is what sketch mock nodes draw from in Job 677d0cb0, which builds against it: nothing here calls it yet.
 #[allow(dead_code)]
 mod render;
 mod wk;

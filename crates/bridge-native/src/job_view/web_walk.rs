@@ -126,6 +126,8 @@ pub struct WebWalkTab {
     finding: bool,
     /// The step the page was last asked for: a loaded, painted page plays its first step once.
     started: bool,
+    /// The Job view's row-tab handle, which a press on the tab, Tab or a pane's move already puts the keys on: the walk's own keys
+    /// (⌥⌘→, ⌥⌘←, ⌘R, ⌘↵) need it drawn here, or the keys land on a handle nothing draws.
     pub focus: FocusHandle,
     _page: Subscription,
     _find: Option<Task<()>>,
@@ -134,7 +136,7 @@ pub struct WebWalkTab {
 impl EventEmitter<WebWalkEvent> for WebWalkTab {}
 
 impl WebWalkTab {
-    pub fn new(job: SharedString, url: String, title: String, steps: Vec<WalkStep>, manifest: Option<&str>, cx: &mut Context<Self>) -> Self {
+    pub fn new(job: SharedString, url: String, title: String, steps: Vec<WalkStep>, manifest: Option<&str>, focus: FocusHandle, cx: &mut Context<Self>) -> Self {
         let source = source_of(&url);
         let manifest = manifest.map(str::to_string);
         let page = cx.new(|cx| WebPage::new(manifest.as_deref(), source, cx));
@@ -142,7 +144,7 @@ impl WebWalkTab {
             this.start(cx);
             cx.notify();
         });
-        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, focus: cx.focus_handle(), _page: watch, _find: None }
+        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, focus, _page: watch, _find: None }
     }
 
     pub fn job(&self) -> &SharedString {

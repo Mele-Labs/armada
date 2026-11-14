@@ -315,18 +315,8 @@ impl JobView {
     /// The keys go to what is in front of the pane that has the focus: a row's tab body, the thread's message box.
     fn keys_to_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let arrangement = self.arrangement().into_owned();
-        let front = super::pane_tree::pane_by_id(&arrangement, &arrangement.focus).and_then(super::panes_place::front_of);
-        // A web page's walk takes its own keys: ⌥⌘→, ⌥⌘←, ⌘R and ⌘↵ are the walk bar's.
-        let web = front
-            .and_then(|tab| tab.row.as_deref())
-            .and_then(|key| self.shown.as_ref().and_then(|id| self.row_tabs.get(id)).and_then(|tabs| tabs.web.get(key)))
-            .map(|(web, _)| web.read(cx).focus.clone());
-        if let Some(focus) = web {
-            window.focus(&focus, cx);
-            cx.notify();
-            return;
-        }
-        match front.map(|tab| tab.kind.as_str()) {
+        let front = super::pane_tree::pane_by_id(&arrangement, &arrangement.focus).and_then(super::panes_place::front_of).map(|tab| tab.kind.clone());
+        match front.as_deref() {
             Some("thread") => self.to_composer(window, cx),
             Some(kind) if super::panes_place::row_kind_of(kind).is_some() => window.focus(&self.row_focus, cx),
             _ => {}
@@ -452,7 +442,8 @@ impl JobView {
             }
             let Some(walk) = self.record(id, cx).and_then(|record| shown_walk(record, url)) else { continue };
             let (job, address, title) = (id.clone(), url.clone(), title.clone());
-            let tab = cx.new(|cx| WebWalkTab::new(job, address, title, walk.steps, manifest.as_deref(), cx));
+            let keys = self.row_focus.clone();
+            let tab = cx.new(|cx| WebWalkTab::new(job, address, title, walk.steps, manifest.as_deref(), keys, cx));
             let approving = cx.subscribe_in(&tab, window, |this, tab, _: &WebWalkEvent, window, cx| {
                 let (job, url) = (tab.read(cx).job().clone(), tab.read(cx).url().to_string());
                 this.approve_web_walk(&job, &url, window, cx);
