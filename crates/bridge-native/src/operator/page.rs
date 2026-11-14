@@ -92,6 +92,16 @@ pub struct OperatorPageView {
     /// Switch on pressed, and Fleet has not answered; or why it refused.
     pub(super) switching: bool,
     pub(super) switch_refused: Option<SharedString>,
+    /// A Mac waiting to pair whose Confirm or Decline is in flight, by its call's key.
+    pub(super) pairing_pending: BTreeSet<String>,
+    /// What the Gateway refused on a Mac waiting to pair, by its call's key, with its sentence.
+    pub(super) pairing_refused: Option<(String, SharedString)>,
+    /// The Mac waiting to pair whose card a banner brought to the front.
+    pub(super) pairing_front: Option<String>,
+    /// The front pairing card's Confirm, where a banner's press puts the keys.
+    pub(super) pairing_focus: FocusHandle,
+    /// The front card waits to be scrolled to and given the keys at the next frame.
+    pub(super) pairing_reveal: bool,
     /// The digest's tiles and links, each a tab stop that Enter presses, by name.
     pub(super) stops: HashMap<&'static str, FocusHandle>,
     /// Tiles drawing every row, past the first few.
@@ -165,6 +175,11 @@ impl OperatorPageView {
             clock_now: None,
             switching: false,
             switch_refused: None,
+            pairing_pending: BTreeSet::new(),
+            pairing_refused: None,
+            pairing_front: None,
+            pairing_focus: cx.focus_handle(),
+            pairing_reveal: false,
             stops: STOPS.iter().map(|name| (*name, cx.focus_handle())).collect(),
             whole: BTreeSet::new(),
             rules: None,
@@ -191,6 +206,9 @@ impl OperatorPageView {
         let mut this = Self::new(Wire::Live(fleet.clone()), pane, window, cx);
         this.subs.push(cx.observe(fleet, |this, fleet, cx| {
             let held = fleet.read(cx).held();
+            // A Mac confirmed or declined stays pressed until Fleet's calls drop it.
+            let waiting: Vec<String> = held.calls.iter().flat_map(|calls| calls.calls.iter()).filter(|call| call.kind == ipc::StandingCallKind::MacPairing).map(|call| call.key.clone()).collect();
+            this.pairing_pending.retain(|key| waiting.contains(key));
             let moved = held.operator_page_moved;
             let ready = held.port().is_some();
             if ready && (moved != this.read_at || (this.page.is_none() && !this.reading)) {
@@ -1091,6 +1109,13 @@ impl OperatorPageView {
                 // The step looks at the row that joined, at the queue's end.
                 self.main_scroll.scroll_to_bottom();
             }
+            // Work asks to pair, and a press on its banner brings the page and its card to the front.
+            "pairing" => {
+                mock.pairings = vec![super::pairing::waiting("0a0b", "Work", "4821", "2026-11-11T14:08:00-05:00")];
+                cx.defer(|cx| super::screen::open_call("mac:0a0b".into(), cx));
+            }
+            // The Gateway refuses the next Confirm or Decline.
+            "pairing-refused" => mock.refuse_pairing = Some("Work's ask ran out. Ask again from Work's Settings.".into()),
             "raised" => {
                 mock.raised();
                 let page = mock.page.clone();

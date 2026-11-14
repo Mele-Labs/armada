@@ -225,6 +225,17 @@ impl OperatorScreen {
     }
 }
 
+/// A press on the banner of a call no Job holds, such as another Mac waiting to pair: the Operator's page in
+/// front with that call's card first and the keys on its Confirm. Never opens a Job.
+pub fn open_call(key: String, cx: &mut App) {
+    if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
+        (sink.0)(&Asked::Place("operator"), cx);
+    }
+    if let Some(page) = live(cx) {
+        page.update(cx, |page, cx| page.show_pairing(&key, cx));
+    }
+}
+
 fn go(me: &WeakEntity<OperatorScreen>, handle: AnyWindowHandle, to: Option<Front>, cx: &mut App) {
     let me = me.clone();
     cx.defer(move |cx| {

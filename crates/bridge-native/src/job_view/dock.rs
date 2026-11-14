@@ -59,6 +59,12 @@ pub(super) struct DockState {
     pub reveal: Option<(String, Rc<std::cell::Cell<u8>>)>,
     /// What he reads when he takes a Job's work in as pictures: the stills, the parts taken, the done card's lead.
     pub looked: super::look_dock::Looked,
+    /// A question asked in pictures, open over the thread from the band's Look and choose.
+    pub choosing: Option<super::choose::Choosing>,
+    /// The question the message box answers, from the sheet's Answer in words, until he sends or presses Esc.
+    pub answering: Option<String>,
+    /// How wide the band's row for a question asked in pictures was last drawn: it decides how many thumbnails fit.
+    pub look_row: Rc<std::cell::Cell<f32>>,
 }
 
 /// How many draws a run started from a row is kept in view for.
@@ -1434,7 +1440,7 @@ impl JobView {
     }
 
     /// Answer in words: what he typed goes as his own words, and what was kept for the box goes.
-    fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let words = words.trim().to_string();
         if words.is_empty() {

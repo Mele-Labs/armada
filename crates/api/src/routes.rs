@@ -699,6 +699,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::press_page_action::<D>),
         )
         .route(
+            "/sessions/artifacts/vote",
+            post(crate::hosted_sessions::cast_page_vote::<D>),
+        )
+        .route(
             "/sessions/mcp/act",
             post(crate::hosted_sessions::act_on_session_mcp::<D>),
         )
