@@ -656,6 +656,8 @@ impl JobView {
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
+                let doing = self.shown.as_deref().and_then(|id| self.record(id, cx)).and_then(|job| job.activity.as_ref()).and_then(|activity| activity.now.as_deref());
+                let words = working_words(doing);
                 let line = labelled(
                     div()
                         .id("working")
@@ -667,7 +669,7 @@ impl JobView {
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_MUTED))
                         .child(div().id("working-mark").child(self.working_mark(look, ink)).tooltip(tip("Working")))
-                        .child("Thinking")
+                        .child(div().min_w_0().truncate().child(words))
                         .child(self.stop_button(look, cx)),
                     Role::Status,
                     "Working",
@@ -1493,9 +1495,22 @@ fn tag_glyph(kind: TagKind) -> &'static str {
     }
 }
 
+/// The working line's words: what Fleet says the Job is doing now, as its Jobs list row says it, or
+/// Thinking where Fleet names nothing.
+fn working_words(doing: Option<&str>) -> SharedString {
+    doing.map(str::trim).filter(|doing| !doing.is_empty()).map_or_else(|| SharedString::from("Thinking"), |doing| SharedString::from(doing.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_working_line_says_what_the_job_is_doing_and_thinking_only_when_fleet_names_nothing() {
+        assert_eq!(working_words(Some("Running python3")), "Running python3");
+        assert_eq!(working_words(None), "Thinking");
+        assert_eq!(working_words(Some("  ")), "Thinking");
+    }
 
     #[test]
     fn a_lone_line_break_is_kept_and_code_is_left_as_written() {
