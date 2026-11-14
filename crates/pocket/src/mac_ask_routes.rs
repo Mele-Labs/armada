@@ -28,7 +28,7 @@ use crate::mac_client::{encoded, hello_now, post_with, Came};
 use crate::mac_keys::{fresh_key, spki_hex};
 use crate::mac_pair_routes::{claims_told, fault, keep_waiting, said_why};
 use crate::machine::short_name;
-use crate::macs::{asked, digits, hashed, reachable, sane, Asking, HeldClaim, MacAsk, MacAsked, MacGreeting, MacHello, MacReveal};
+use crate::macs::{asked, digits, hashed, older_build, reachable, sane, Asking, HeldClaim, MacAsk, MacAsked, MacGreeting, MacHello, MacReveal};
 use crate::pairing::{from_hex, random_hex, CODE_TTL};
 use crate::reads::json;
 use crate::tunnel::{tunnel_name, AccountTunnel, TUNNEL_PREFIX};
@@ -42,7 +42,7 @@ const GREETING_WAIT: Duration = Duration::from_secs(3);
 /// `GET /pair/mac/hello`, unsigned: this Mac's name, colour and build, and nothing else.
 pub async fn hello(State(gateway): State<Gateway>) -> Response {
     match hello_now(&gateway).await {
-        Ok(me) => json(&MacGreeting { name: me.name, colour: me.colour, build: me.build }),
+        Ok(me) => json(&MacGreeting { name: me.name, colour: me.colour, build: me.build, wire: me.wire, built_at: me.built_at }),
         Err(why) => fault(why),
     }
 }
@@ -76,6 +76,7 @@ fn with_nearby(gateway: &Gateway, mut macs: Vec<FoundMac>) -> Vec<FoundMac> {
             Some(mac) => {
                 mac.nearby = true;
                 mac.online = true;
+                mac.older_build |= older_build(near.wire.as_deref(), near.built_at.as_deref(), &gateway.way_in);
             }
             None => macs.push(FoundMac {
                 tunnel,
@@ -84,6 +85,7 @@ fn with_nearby(gateway: &Gateway, mut macs: Vec<FoundMac>) -> Vec<FoundMac> {
                 address: None,
                 online: true,
                 paired: false,
+                older_build: older_build(near.wire.as_deref(), near.built_at.as_deref(), &gateway.way_in),
                 build: near.build,
                 nearby: true,
             }),
@@ -136,11 +138,17 @@ async fn read_account(gateway: &Gateway) -> (Vec<FoundMac>, Option<String>) {
                 .map(|g| g.colour)
                 .or_else(|| row.and_then(|row| MacColour::named(&row.colour)))
                 .or_else(|| before.and_then(|mac| mac.colour));
+            // Heard from at the hello, else at its pairing; a Mac heard from at neither keeps what was last said.
+            let older = match (greeting.as_ref(), row) {
+                (Some(g), _) => older_build(g.wire.as_deref(), g.built_at.as_deref(), &gateway.way_in),
+                (None, Some(row)) => older_build(row.wire.as_deref(), row.built_at.as_deref(), &gateway.way_in),
+                (None, None) => before.is_some_and(|mac| mac.older_build),
+            };
             let build = greeting
                 .and_then(|g| g.build)
                 .or_else(|| row.and_then(|row| row.build.clone()))
                 .or_else(|| before.and_then(|mac| mac.build.clone()));
-            FoundMac { tunnel: t.name, name, colour, address: t.address, online: t.connected, paired: false, build, nearby: false }
+            FoundMac { tunnel: t.name, name, colour, address: t.address, online: t.connected, paired: false, build, nearby: false, older_build: older }
         })
         .collect();
     let mut kept = gateway.macs.found.lock().unwrap();
