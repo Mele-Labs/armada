@@ -218,6 +218,14 @@ pub fn fitted_over<V>(
         // Reaches nothing: a switch that is off never asks. `crate::tests::red_claim`
         // plants a store where the subject is a claim.
         reaching: Arc::new(crate::tests::red_claim::Planted::signed_out()),
+        // Cloudflare refuses every token and the Mac has no tunnel: `crate::tests::store_deploy` plants its own.
+        deploying: crate::store_deploy::Deploying {
+            cloudflare: Arc::new(testkit::FakeCloudflare::new()),
+            tokens: Arc::new(testkit::FakeCloudflareTokens::default()),
+            tunnel: Arc::new(|| None),
+            script: Arc::from("export default {};"),
+            token_page: "https://dash.example/tokens".to_string(),
+        },
         session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
         // A real sender, reached only by a case that sends to a socket of its own, and secrets held
         // in memory: no fixture touches a keychain.

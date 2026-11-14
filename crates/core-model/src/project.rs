@@ -15,6 +15,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::lifecycle::ScopeId;
+use store::ProjectStore as Store;
 use crate::values::Values;
 use crate::workflow::{ManifestId, Title};
 
@@ -99,6 +100,7 @@ pub struct Project {
     members: Vec<Member>,
     values: Values,
     shared_with_macs: bool,
+    store: Option<Store>,
 }
 
 impl Project {
@@ -119,7 +121,7 @@ impl Project {
                 return Err(MalformedProject::NamedLikeItsRepository { repository: member.repository.clone() });
             }
         }
-        Ok(Project { id, name, members, values: Values::default(), shared_with_macs: false })
+        Ok(Project { id, name, members, values: Values::default(), shared_with_macs: false, store: None })
     }
 
     /// The same Project setting `values`, which replace what it set whole.
@@ -132,6 +134,17 @@ impl Project {
     pub fn with_shared_with_macs(mut self, shared: bool) -> Project {
         self.shared_with_macs = shared;
         self
+    }
+
+    /// The same Project naming `store` for its claims, or none.
+    pub fn with_store(mut self, store: Option<Store>) -> Project {
+        self.store = store;
+        self
+    }
+
+    /// The store its Jobs' claims go to. **None sends nothing.**
+    pub fn store(&self) -> Option<&Store> {
+        self.store.as_ref()
     }
 
     /// Whether anything of its Jobs may leave this Mac for his other Macs. **Off until he turns it on.**
@@ -213,6 +226,10 @@ impl fmt::Display for MalformedProject {
 }
 
 impl core::error::Error for MalformedProject {}
+
+mod store;
+
+pub use store::{MalformedStore, ProjectStore, StoreAddress, StoreTeam, WorkerName};
 
 #[cfg(test)]
 mod tests;

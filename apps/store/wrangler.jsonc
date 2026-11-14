@@ -10,6 +10,7 @@
       }
     ]
   },
+  // `TEAM` (`org` or `org/team-slug`) is set at deploy time and makes this a team store.
   // Enrol calls the forge, so an address gets 10 a minute. The binding counts per Cloudflare location,
   // and `namespace_id` is any integer no other limiter on the account uses.
   "ratelimits": [

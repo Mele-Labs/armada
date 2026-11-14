@@ -99,6 +99,7 @@ export * from "./session-plan";
 export * from "./session-waits";
 export * from "./plan-usage";
 export * from "./model-downshift";
+export * from "./project-store";
 export * from "./projects";
 export * from "./values";
 export * from "./agent-sign-in";

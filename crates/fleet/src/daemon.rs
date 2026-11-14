@@ -65,6 +65,8 @@ pub struct Fleet<H, V, W> {
     /// The central store's other half: a repository's forge address and the
     /// store a profile is enrolled with. See [`crate::red_claim`].
     reaching: Arc<dyn crate::red_claim::Reaching>,
+    /// Deploying a project's store. See [`crate::store_deploy`].
+    deploying: crate::store_deploy::Deploying,
     judge: Arc<dyn ModelClient + Send + Sync>,
     trackers: Arc<dyn Trackers + Send + Sync>,
     /// The tracker, the issue lists last read from it, and when Fleet last
