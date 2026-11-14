@@ -3630,4 +3630,52 @@ mod tests {
         assert_eq!(Folds::load(Some(&path)), per_parent, "the switch off is kept off");
         let _ = std::fs::remove_file(&path);
     }
+
+    fn row_of(all: &[SessionRecord], id: &str) -> Option<Row> {
+        lines_of(all, &[], Scope::Active, "", &[], &Names::default()).into_iter().find_map(|line| match line {
+            Line::Job(row) if row.id.as_ref() == id => Some(row),
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn a_job_moving_to_the_other_mac_says_so_on_its_row_and_one_that_went_stays_listed_as_moved() {
+        let mut all = crate::mock::jobs("jobs-screens").expect("the fixture decodes");
+        let at = all.iter().position(|job| job.id.as_str() == "mock-02").expect("a hosted Job");
+        let quiet = row_of(&all, "mock-02").expect("listed");
+        assert_eq!((quiet.moving_to.as_deref(), quiet.moved), (None, false));
+        all[at].hosted.as_mut().expect("hosted").moving_to_mac = Some("air".into());
+        let moving = row_of(&all, "mock-02").expect("listed while it moves");
+        assert_eq!((moving.moving_to.as_deref(), moving.moved), (Some("air"), false));
+        all[at].hosted.as_mut().expect("hosted").moving_to_mac = None;
+        all[at].state = SessionState::Ended;
+        all[at].end_reason = Some("merged".into());
+        assert!(row_of(&all, "mock-02").is_none(), "an ended Job leaves the active list");
+        all[at].end_reason = Some(crate::move_to_mac::ENDED_AS.into());
+        let gone = row_of(&all, "mock-02").expect("a Job that went to the other Mac stays, ended as moved");
+        assert!(gone.moved);
+    }
+
+    #[gpui::test]
+    fn the_mock_refuses_a_move_once_when_armed_and_the_next_press_marks_the_job_moving(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| crate::pairing::scene("air-awake", cx).expect("the scene is named"));
+        let list = cx.new(|cx| JobsList::mock(&crate::mock::jobs("jobs-screens").expect("the fixture decodes"), cx));
+        let moving = |list: &Entity<JobsList>, cx: &mut gpui::TestAppContext| list.read_with(cx, |list, _| list.record("mock-02").and_then(|job| crate::move_to_mac::moving_to(job).map(str::to_string)));
+        assert_eq!(moving(&list, cx), None);
+        crate::move_to_mac::refuse_next(true);
+        list.update(cx, |list, cx| list.move_to_mac("mock-02", cx));
+        assert_eq!(moving(&list, cx), None, "refused: nothing is marked");
+        list.update(cx, |list, cx| list.move_to_mac("mock-02", cx));
+        assert_eq!(moving(&list, cx).as_deref(), Some("air"), "the refusal was taken once, so this press goes through");
+        list.update(cx, |list, cx| list.move_to_mac("mock-02", cx));
+        assert_eq!(moving(&list, cx).as_deref(), Some("air"), "a Job already moving is not moved again");
+    }
+
+    #[gpui::test]
+    fn a_move_left_off_while_the_other_mac_sleeps_marks_nothing(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| crate::pairing::scene("two-macs", cx).expect("the scene is named"));
+        let list = cx.new(|cx| JobsList::mock(&crate::mock::jobs("jobs-screens").expect("the fixture decodes"), cx));
+        list.update(cx, |list, cx| list.move_to_mac("mock-02", cx));
+        list.read_with(cx, |list, _| assert_eq!(list.record("mock-02").and_then(crate::move_to_mac::moving_to), None));
+    }
 }
