@@ -2652,6 +2652,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_PHONE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::PAGES,
+        title: "Settings: every page drawn as rows",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::PAGES_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::LIMITS,
         title: "Settings › Limits",
         screen: Screen::Settings,
