@@ -128,13 +128,13 @@ mod tests {
                 "picked":[{"branch":"native/settings-split-rows","title":"Native Settings"},{"branch":"native/settings-macs-models-width"},{"branch":"native/plan-sketches"}],
                 "trying":["Native Settings","native/settings-macs-models-width","native/plan-sketches"]}"#,
         );
-        let offers = offers(&format!(
+        let offered = offers(&format!(
             r#"{{"offers":[{},{},{}],"refresh":{{"id":"r1","branches":["armada/session-66faf58b"]}}}}"#,
             offer("native/settings-split-rows", "Native Settings", "ready", true),
             offer("native/settings-macs-models-width", "Native Settings", "ready", true),
             offer("armada/session-66faf58b", "Move a Job between Macs", "ready", false),
         ));
-        (report, offers)
+        (report, offered)
     }
 
     #[test]
@@ -161,8 +161,8 @@ mod tests {
 
     #[test]
     fn refresh_says_what_it_builds_naming_each_ready_job_once() {
-        let (_, offers) = his();
-        assert_eq!(refresh_said(Some(&offers)), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
+        let (_, his_offers) = his();
+        assert_eq!(refresh_said(Some(&his_offers)), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
         assert_eq!(refresh_said(None), "Restarts Fleet on latest main.");
         let three = offers(&format!(
             r#"{{"offers":[{},{},{},{}]}}"#,
