@@ -155,9 +155,11 @@ pub(crate) async fn upgrade_or_refused(
         .await
         .map_err(|why| cut(why.to_string()))?;
     tokio::spawn(connection.with_upgrades());
+    // Named as the phone, as [`send`] is: Fleet cuts `/events` to what the phone sees.
     let request = Request::builder()
         .uri(path)
         .header(HOST, format!("127.0.0.1:{port}"))
+        .header(CALLER, "phone")
         .header(CONNECTION, "Upgrade")
         .header(UPGRADE, "websocket")
         .header("Sec-WebSocket-Version", "13")

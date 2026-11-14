@@ -98,6 +98,12 @@ impl HeadlessAgent {
         "Claude Code"
     }
 
+    /// The account the harness signs in with, as a person names it when it signs out. Spelled here, for
+    /// [`harness_name`](Self::harness_name)'s reason.
+    pub fn account_name() -> &'static str {
+        "Claude"
+    }
+
     /// The command that updates the CLI installed on the `PATH`, for a person to run in a terminal.
     pub fn update_command() -> String {
         format!("{ON_PATH} update")

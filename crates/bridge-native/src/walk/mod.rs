@@ -19,6 +19,7 @@ pub mod fleet;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
+pub mod project_filter;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -515,6 +516,16 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             press_on("Fleet refuses this Job's thread: its words come as a toast, and the thread draws nothing in place of placeholder shapes", "row", "Quiet the write-clash notices", "alert", "Toast: Fleet could not read this Job's ledger: it ends mid-row at line 2214"),
             press_on("A Job whose thread is read draws it as before", "row", "Fix the merge line freshness chip", "region", "Thread"),
+        ],
+    },
+    Walk {
+        name: "native-agent-signed-out",
+        title: "The agents' account signed out",
+        screen: Screen::JobsInApp,
+        scenario: "agent-signed-out",
+        steps: &[
+            step("The agents' account is signed out for every Job: a toast holds its place in the corner, named as Fleet names the account, with Sign in", Verb::Look, "button", "Sign in"),
+            press_on("Sign in runs the agent's own sign-in in your browser, and the ring stands until it ends", "button", "Sign in", "status", "Signing in"),
         ],
     },
     Walk {
@@ -1390,6 +1401,24 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketch-start",
+        title: "Where a sketch starts",
+        screen: Screen::Jobs,
+        scenario: "sketch-card",
+        steps: &[
+            press_on("A Job puts a sketch to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            press_on("Open in the panel reads it on its own", "button", "Open in the panel", "dialog", "Sketch: Freshness chip"),
+            step("Its start is marked: the node at the first step has its frame in the accent and a Start tab on its top edge", Verb::Look, "group", "Start, Webhook"),
+            press_on("Play the steps: each lights its boxes in turn", "button", "Play the steps", "button", "Stop the steps"),
+            step("The Start tab stays where it is while the steps play, and the box stands back like the rest", Verb::Look, "group", "Start, Webhook"),
+            press_on("Stop the steps", "button", "Stop the steps", "button", "Play the steps"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Open in the panel"),
+            step("Above it, a sketch with no steps", Verb::WheelTo("region", "Thread", -360), "article", "Sketch: Merge line flow"),
+            press_on("It starts at the one box its arrows leave and none reach: Push carries the mark", "button", "Open sketch Merge line flow", "group", "Start, Push"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Open sketch Merge line flow"),
+        ],
+    },
+    Walk {
         name: "native-sketch-changes",
         title: "A sketch read against an earlier one",
         screen: Screen::Jobs,
@@ -1483,7 +1512,7 @@ pub static WALKS: &[Walk] = &[
             press_on("A Job puts a sketch of every arrow kind to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Arrow kinds"),
             step("Open in the panel reads it on its own", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
             press_on("It opens paused, every step drawn lit. Nothing plays until Play", "button", "Open in the panel", "button", "Play the steps"),
-            step("Line: solid, dashed and dotted", Verb::Look, "group", "Dashed"),
+            step("Line: solid, dashed and dotted", Verb::Look, "group", "Start, Dashed"),
             step("Path: an elbow, straight, a curve. Each ends in a straight run two head lengths long, so its head points along its line", Verb::Look, "group", "Curve"),
             step("Head: at the end, at the start, at both, or none", Verb::Look, "group", "Head at start"),
             step("The kinds combine: dotted, a head at both ends, on a curve", Verb::Look, "group", "Dotted both curve"),
@@ -1730,6 +1759,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "new-project",
         steps: &new_project::STEPS,
+    },
+    Walk {
+        name: "native-project-filter",
+        title: "The project switcher narrows the Jobs list, and ⌘T starts its Job in the project",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &project_filter::STEPS,
     },
     Walk {
         name: "jobs-ended-glyph",
@@ -3316,14 +3352,15 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             pairing("Air is awake and linked: a Job this Mac holds can go there", "air-awake", "row", "Native Bridge foundation"),
             step("A right press on it offers Move to Air under Snooze, with M at its right", Verb::RightPress("Native Bridge foundation"), "menuitem", "Move to Air"),
-            step("Move to Air asks Fleet. The Job finishes its turn first: the row turns a ring before its state, with Air's dot in place of this Mac's", Verb::Open("menuitem", "Move to Air"), "img", "Moving to Air"),
-            step("The ring's tooltip says where it goes", Verb::Hover, "img", "Moving to Air"),
+            step("Move to Air asks Fleet. The Job finishes its turn first: its row stays one line, with its edge in amber and, at its end, this Mac's dot, an arrow, Air's dot and Moving in amber", Verb::Open("menuitem", "Move to Air"), "status", "Moving to Air"),
+            step("The pointer on the mark says where it goes", Verb::Hover, "status", "Moving to Air"),
             press_on("The Job's head carries the same: the ring, then Air's chip in place of this Mac's", "row", "Native Bridge foundation", "status", "Moving to Air"),
+            step("Its thread ends on a card: Moving to Air, with the move's three steps", Verb::Look, "region", "Moving"),
             pairing("The turn ends, the branch is pushed and Air takes the Job: its row here ends, reading Moved to Air", "move-ended", "img", "Moved to Air"),
             step("Its thread ends on the same words, which open the Job where it is now", Verb::Look, "button", "Moved to Air"),
             pairing("Air's row of the same Job stands in its place, with Air's dot", "move-landed", "row", "Native Bridge foundation"),
             step("A Job Air holds offers Bring here instead", Verb::RightPress("Audit the docs index"), "menuitem", "Bring here"),
-            step("Bring here asks Air to send it: the row turns the ring, with this Mac's dot", Verb::Open("menuitem", "Bring here"), "img", "Moving to Studio"),
+            step("Bring here asks Air to send it: the row's end reads Air's dot, an arrow, this Mac's dot and Moving", Verb::Open("menuitem", "Bring here"), "status", "Moving to Studio"),
             pairing("Air has let go of it: the row stands under this Mac again", "move-landed", "row", "Audit the docs index"),
             pairing("Another window asked for a move of it first: Fleet refuses the next one", "move-refused", "row", "Audit the docs index"),
             step("A right press on it again", Verb::RightPress("Audit the docs index"), "menuitem", "Move to Air"),

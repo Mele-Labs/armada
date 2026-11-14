@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use crate::slots::{CheckSlots, InUse};
+use crate::slots::{CheckSlots, InUse, Loaded};
 
 /// A directory of its own for one test, gone when it is dropped.
 struct Dir(PathBuf);
@@ -120,6 +120,7 @@ fn a_holder_that_dies_frees_its_slot() {
             of: 1,
             wants: 1,
             behind_the_line: false,
+            loaded: None,
         }),
         "the other process holds the one slot"
     );
@@ -192,6 +193,7 @@ async fn the_wait_says_how_many_are_in_use() {
             of: 4,
             wants: 1,
             behind_the_line: false,
+            loaded: None,
         })
     );
 }
@@ -237,10 +239,46 @@ fn a_resize_reaches_every_clone_and_leaves_a_holder_its_slot() {
     slots.resize(1);
     assert_eq!(shared.count(), 1, "the clone a Fleet's places hold");
     let Err(in_use) = shared.try_take(1).expect("writable") else { panic!("slot 0 is held") };
-    assert_eq!(in_use, InUse { in_use: 1, of: 1, wants: 1, behind_the_line: false });
+    assert_eq!(in_use, InUse { in_use: 1, of: 1, wants: 1, behind_the_line: false, loaded: None });
 
     drop(held);
     slots.resize(0);
     assert_eq!(slots.count(), 1, "never fewer than one");
     assert!(shared.try_take(1).expect("writable").is_ok());
+}
+
+/// **A loaded machine runs one Check at a time.** Under the limit two asks each
+/// take a slot; at or over it the second waits while the first holds one, and
+/// says why. The first always starts, and the merge line is never held.
+#[test]
+fn over_the_load_limit_a_check_waits_while_another_runs() {
+    let dir = Dir::new("loaded");
+    let quiet = CheckSlots::at(&dir.0, 4).under_load(24, || Some(23.9));
+    let one = quiet.try_take(1).expect("writable").expect("free");
+    let two = quiet.try_take(1).expect("writable").expect("under the limit a second starts");
+    drop(two);
+
+    let loaded = CheckSlots::at(&dir.0, 4).under_load(24, || Some(31.4));
+    let Err(waits) = loaded.try_take(1).expect("writable") else { panic!("one Check runs already") };
+    assert_eq!(waits.loaded, Some(Loaded { load: 31, limit: 24 }));
+    assert_eq!(
+        waits.to_string(),
+        "waiting for a Check slot: the fifteen-minute load is 31, at or over 24, so Checks run one at a time"
+    );
+    assert!(loaded.clone().ahead().try_take(1).expect("writable").is_ok(), "the merge line is never held");
+
+    drop(one);
+    let first = loaded.try_take(2).expect("writable").expect("nothing else runs, so the first starts");
+    assert!(quiet.try_take(2).expect("writable").is_ok(), "the first took only what it wanted");
+    drop(first);
+}
+
+/// A machine whose load cannot be read gates nothing.
+#[test]
+fn an_unread_load_gates_nothing() {
+    let dir = Dir::new("unread");
+    let slots = CheckSlots::at(&dir.0, 2).under_load(24, || None);
+    let one = slots.try_take(1).expect("writable").expect("free");
+    assert!(slots.try_take(1).expect("writable").is_ok());
+    drop(one);
 }

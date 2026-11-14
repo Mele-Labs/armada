@@ -2,6 +2,8 @@
 // Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
 // `@armada/protocol`'s SessionRecord and nothing here is generated.
 
+import type { SessionState } from "@armada/components";
+
 /**
  * One `data:` line of GET /api/live. `resync` means read the lists again. `operator` is what the Operator did with
  * a dispatch it held, and `queued` that what waits for a sleeping Mac changed: read `/api/queued` again.
@@ -105,6 +107,25 @@ export type PhoneSession = {
   blank?: boolean;
   /** The proposer is reading the request, and it starts on the answer. */
   reading?: boolean;
+  /**
+   * What native's row reads off the Job record, asked of the Gateway and absent until it sends them: Fleet's mark, the
+   * project the list groups under, the last turn's instant, the pull request and issue attached, the workflow step and what
+   * the Job is doing now. A row draws nothing for one that is absent.
+   */
+  mark?: {
+    state: SessionState;
+    lamp: "needs" | "failed" | "running" | "done" | "idle";
+    group: "needs" | "working" | "held" | "done";
+  };
+  project?: string;
+  last_turn_at?: string;
+  pull?: number;
+  issue?: {
+    number: string;
+    title: string;
+  };
+  step?: string;
+  now?: string;
 };
 
 export type PhoneHold =

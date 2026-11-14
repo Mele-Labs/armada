@@ -207,6 +207,11 @@ impl SessionRuns {
         self.held.lock().expect("not poisoned").get(run_id).cloned()
     }
 
+    /// The Job run `run_id` runs in, where it is a Job's. **None for a run this Fleet does not hold.**
+    pub(crate) fn job_of(&self, run_id: &str) -> Option<String> {
+        self.get(run_id).and_then(|run| run.session.clone())
+    }
+
     fn in_flight(&self, run_id: &str) -> Option<Arc<Run>> {
         self.get(run_id).filter(|run| !run.ended())
     }

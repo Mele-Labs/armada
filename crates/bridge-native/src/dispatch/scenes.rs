@@ -5,18 +5,18 @@
 
 use ipc::{SessionRecord, SessionState};
 
-use super::face::{Chip, Cycle, Face, Glyph, Mark, Mentions, Offered, Reading, Ticket, Tuning, Wait};
+use super::face::{Cycle, Face, Glyph, InProject, Mark, Mentions, Offered, Reading, Ticket, Tuning, Wait};
 
-/// Repositories the mock Mac serves, in the order the chips take: the first nine keyed, the rest under More.
-const REPOSITORIES: [&str; 4] = ["sample-api", "armada", "sample-web", "sample-docs"];
+/// More repositories in no project, for the scene with more rows than keys.
 const PAST_NINE: [&str; 8] = ["sample-ops", "sample-ml", "sample-mobile", "sample-infra", "sample-kit", "sample-auth", "sample-search", "sample-billing"];
 
-fn chips(names: &[&str], first_key: u8) -> Vec<Chip> {
-    names
-        .iter()
-        .enumerate()
-        .map(|(at, name)| Chip { name: name.to_string().into(), key: (first_key as usize + at <= 9).then_some(first_key + at as u8), mark: Mark::Plain })
-        .collect()
+/// The picker's rows on the mock Mac, as a live Fleet's are made: his projects from the mock's, each with
+/// its repositories, then every repository the mock serves in no project.
+fn rows() -> Vec<(Option<InProject>, gpui::SharedString)> {
+    let served = crate::mock::repositories();
+    let repositories = crate::titlebar::repositories_of(&served, &[]);
+    let projects = super::live::projects_of(&crate::titlebar::projects_of(&served, &crate::mock::projects()), &repositories);
+    super::live::rows_of(&super::live::served(&served), &projects)
 }
 
 /// The live Jobs of the Jobs list, as the sheet offers them to wait on or tag.
@@ -32,7 +32,7 @@ pub fn live(records: &[SessionRecord]) -> Vec<Offered> {
 pub fn rest(records: &[SessionRecord]) -> Face {
     Face {
         connected: true,
-        chips: chips(&REPOSITORIES, 1),
+        chips: super::live::chips(&rows()).0,
         more: Vec::new(),
         reading: Reading::Idle,
         tuning: Tuning {
@@ -66,16 +66,9 @@ pub fn rest(records: &[SessionRecord]) -> Face {
     }
 }
 
-/// Fleet read a repository from the words: the one they name is read and chosen.
-pub fn found(mut face: Face) -> Face {
-    for chip in &mut face.chips {
-        chip.mark = if chip.name == "sample-api" { Mark::Chosen } else { Mark::Plain };
-        if chip.name == "sample-api" {
-            chip.mark = Mark::Chosen;
-        }
-    }
-    face.reading = Reading::Detected;
-    face
+/// Fleet read a repository from the words: its first row, the project's, is chosen.
+pub fn found(face: Face) -> Face {
+    super::live::read(face, Some(&"sample-api".into()))
 }
 
 /// Fleet found no repository in the words.
@@ -87,23 +80,18 @@ pub fn unresolved(mut face: Face) -> Face {
     face
 }
 
-/// The rail is scoped to one repository.
-pub fn scoped(mut face: Face) -> Face {
-    for chip in &mut face.chips {
-        chip.mark = if chip.name == "armada" { Mark::Chosen } else { Mark::Plain };
-    }
-    face.reading = Reading::Scoped;
-    face
+/// The window is scoped to one repository in no project: its row alone, chosen.
+pub fn scoped(face: Face) -> Face {
+    super::live::narrowed(face, None, &["armada".into()])
 }
 
-/// Twelve repositories: nine chips with keys, three under More.
+/// More rows than keys: nine with keys, the rest under More.
 pub fn many(mut face: Face) -> Face {
-    let mut all: Vec<&str> = REPOSITORIES.to_vec();
-    all.extend(PAST_NINE);
-    let shown = chips(&all[..9], 1);
-    let rest = chips(&all[9..], 10);
+    let mut all = rows();
+    all.extend(PAST_NINE.iter().map(|name| (None, name.to_string().into())));
+    let (shown, more) = super::live::chips(&all);
     face.chips = shown;
-    face.more = rest;
+    face.more = more;
     face
 }
 

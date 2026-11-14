@@ -561,7 +561,7 @@ impl Shells for Mock {
         Task::ready(Ok(ListedTerminal { terminal: held.0.clone(), name: held.1.clone(), run_id: held.2.clone(), running: false }))
     }
 
-    fn start(&self, start: Start, _cx: &mut App) -> Task<Result<Started, String>> {
+    fn start(&self, start: Start, cx: &mut App) -> Task<Result<Started, String>> {
         let mut state = self.state.borrow_mut();
         state.next_job += 1;
         let job = if state.starts_as.is_empty() { format!("terminal-{}", state.next_job) } else { state.starts_as.remove(0) };
@@ -570,6 +570,13 @@ impl Shells for Mock {
             Place::Folder(path) => path.replace(&std::env::var("HOME").unwrap_or_default(), "~"),
         };
         let run = Self::shell(&mut state, &job, "t1".into(), &folder);
+        drop(state);
+        // The Job joins the walk's list in the project it was started for, as Fleet lists it.
+        if let (true, Place::Repository(repository)) = (job == crate::mock::SIDE_JOB, &start.place) {
+            if let Ok(record) = crate::mock::started_side_job(repository, start.project.as_deref()) {
+                crate::jobs::JobsList::mock_started(record, cx);
+            }
+        }
         Task::ready(Ok(Started { job, terminal: "t1".into(), run }))
     }
 
@@ -675,6 +682,13 @@ pub fn starts(cx: &App) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_start_for_a_project_sends_its_id_and_one_for_none_sends_none() {
+        let start = |project: Option<&str>| Start { place: Place::Repository("sample-web".into()), size: Cells { cols: 120, rows: 32 }, project: project.map(str::to_string) };
+        assert_eq!(start_body(start(Some("storefront"))).project.as_deref(), Some("storefront"));
+        assert_eq!(start_body(start(None)).project, None);
+    }
 
     #[gpui::test]
     fn a_mock_shell_echoes_and_answers_a_command(cx: &mut gpui::TestAppContext) {

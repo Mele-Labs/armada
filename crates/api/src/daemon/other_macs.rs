@@ -12,7 +12,7 @@ use ipc::{
     BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
     OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
-use ipc::{ArrivingJob, JobTerminals, MoveJobToMac, SessionRunUnderway, TerminalFromMac, TerminalOfJob};
+use ipc::{ArrivingJob, JobTerminals, ManifestSummary, MoveJobToMac, SessionRunUnderway, StartSession, TerminalFromMac, TerminalOfJob};
 
 use crate::daemon::Refusal;
 
@@ -51,6 +51,25 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `share_projects` — this Mac's own shared projects with their tasks. Never a copy held from another Mac.
     fn share_projects(&self) -> impl Future<Output = Result<Projects, Refusal>> + Send;
+
+    /// Whether the phone sees Job `job`: one of this Mac's in a shared project, or one held from another Mac.
+    fn job_for_phone(&self, job: &str) -> impl Future<Output = bool> + Send;
+
+    /// Whether the phone sees terminal run `run_id`: one of a Job it sees.
+    fn run_for_phone(&self, run_id: &str) -> impl Future<Output = bool> + Send;
+
+    /// `event`, where the phone is sent it.
+    fn event_for_phone(&self, event: Event) -> impl Future<Output = Option<Event>> + Send;
+
+    /// A Job the phone starts here: into a shared project, and a fork only of a Job it sees. [`Refusal::NotFound`]
+    /// otherwise, worded as for a project or Job that does not exist.
+    fn start_from_phone(&self, start: &StartSession) -> impl Future<Output = Result<(), Refusal>> + Send;
+
+    /// The projects the phone is named: this Mac's shared ones, and the copies held from another Mac.
+    fn projects_for_phone(&self, projects: Projects) -> impl Future<Output = Projects> + Send;
+
+    /// The repositories the phone is named: those in a project it sees.
+    fn manifests_for_phone(&self, manifests: Vec<ManifestSummary>) -> impl Future<Output = Vec<ManifestSummary>> + Send;
 
     /// `project_act_from_mac` — a task act another Mac made on its copy of a shared project of this Mac, run
     /// here. [`Refusal::NotFound`] for a row or project that is not shared, worded as for one that does not

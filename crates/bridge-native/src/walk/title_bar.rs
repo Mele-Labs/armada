@@ -13,7 +13,7 @@ pub static BUILD_LIVE: [Step; 10] = [
     scene("Fleet's report on Main, level with main: the restart is off and says so", "build-live-main", "button", "Fleet — Running"),
     step("The panel opens under the dot", Verb::Press, "button", "Fleet — Running"),
     scene("On Preview, as Fleet counts it: five ahead, two behind, and the branches left out say why", "build-live-preview", "list", "Left out of the preview"),
-    press_on("Refresh preview is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh preview", "button", "Refreshing preview"),
+    press_on("Refresh is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh", "button", "Refreshing"),
     scene("A restart Fleet refused says Fleet's words where a failed restart is said", "build-live-refused", "alert", "no served repository holds scripts/restart-build"),
     scene("Update to main: Fleet carries two working Jobs across the restart", "build-live-carried", "button", "Update to main"),
     press_on("Nothing asks first, since those Jobs keep running: the restart is under way in the same frame", "button", "Update to main", "button", "Updating to main"),
@@ -23,22 +23,23 @@ pub static BUILD_LIVE: [Step; 10] = [
 ];
 
 /// The On origin row of the build switcher: branches no Job here holds, picked into the next build (#3547).
-pub static ORIGIN: [Step; 9] = [
+pub static ORIGIN: [Step; 10] = [
     scene("Origin holds nine branches main lacks that no Job on this Mac holds", "build-origin", "button", "Fleet — Running"),
-    press_on("The panel lists them under On origin, newest first, each with how long ago it was last committed to", "button", "Fleet — Running", "list", "On origin"),
+    press_on("The panel opens with Add a branch at its foot", "button", "Fleet — Running", "button", "Add a branch"),
+    press_on("Add a branch opens the branches on origin, newest first, each with how long ago it was last committed to", "button", "Add a branch", "list", "On origin"),
     step("The list runs long, so a search sits over it", Verb::Press, "searchbox", "Search branches on origin"),
     step("Typing narrows it to the branches whose name holds every word", Verb::Keys(&["n", "a", "t", "i", "v", "e"]), "list", "On origin"),
     step("A name no branch holds says so", Verb::Keys(&["space", "z"]), "list", "On origin"),
     step("Clearing the search brings the list back", Verb::Keys(&["backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace"]), "button", "Add native/refresh-set to the next build"),
-    press_on("The plus adds a branch to the next build: it joins the picked chips in the same frame and leaves the list", "button", "Add native/refresh-set to the next build", "button", "Leave native/refresh-set out of the build"),
-    scene("Fleet builds a snapshot of main and the branch beside the running build, and offers Swap when it is ready", "build-origin-ready", "button", "Swap"),
+    press_on("The plus adds a branch to the next build: it stands above the search with an x in the same frame, and leaves the list", "button", "Add native/refresh-set to the next build", "button", "Leave native/refresh-set out of the build"),
+    scene("Fleet builds main and the picked branches beside the running build, and Waiting offers Swap when it is ready", "build-origin-ready", "button", "Swap"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
 ];
 
 /// The Refresh row of the build switcher on the branches Jobs offered for the preview.
 pub static PREVIEW_OFFERS: [Step; 12] = [
     scene("Three branches are offered for the preview, one of them ready", "preview-offers", "button", "Fleet — Running"),
-    press_on("The panel opens with the Refresh row under the build: each branch by its Job's title and line", "button", "Fleet — Running", "list", "Offered for the preview"),
+    press_on("The panel opens with what waits to be added: each branch by its Job's title and line", "button", "Fleet — Running", "list", "Offered for the preview"),
     step("A ready branch has a green check; its tooltip says Ready", Verb::Hover, "img", "Ready"),
     step("A branch still being checked has a turning ring in blue", Verb::Hover, "img", "Checking"),
     step("A failed one has a red cross, and its tooltip says what failed it", Verb::Hover, "img", "Failed: merge conflict in crates/fleet/src/building.rs"),
@@ -46,15 +47,16 @@ pub static PREVIEW_OFFERS: [Step; 12] = [
     scene("Fleet's answer carries the offers and no row: it stays away", "preview-offers-skipped", "button", "Fleet — Running"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
     scene("A different set of ready offers brings the row back", "preview-offers", "button", "Fleet — Running"),
-    press_on("The panel opens on the row again", "button", "Fleet — Running", "button", "Refresh preview"),
-    press_on("Refresh preview is the switcher's own switch: under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
+    press_on("The panel opens on what waits again", "button", "Fleet — Running", "button", "Refresh"),
+    press_on("Refresh is under way in the same frame", "button", "Refresh", "button", "Refreshing"),
     step("Esc shuts the panel and the keys go back", Verb::Key("escape"), "button", "Fleet — Running"),
 ];
 
 /// The Disk section of the Fleet panel, on Fleet's `disk` in three states.
-pub static DISK: [Step; 7] = [
+pub static DISK: [Step; 8] = [
     scene("Fleet reports 142 GB free against a reclaim floor of 100 GB", "disk-over", "button", "Fleet — Running"),
-    press_on("The panel opens with a Disk section: the figure, a meter with the two floors ticked, and what Fleet does under the floor. All green", "button", "Fleet — Running", "group", "Disk"),
+    press_on("The panel opens with a Disk row at its foot: the figure and a bar, all green", "button", "Fleet — Running", "button", "Disk"),
+    press_on("The row opens the section: a meter with the two floors ticked, and what Fleet does under the floor", "button", "Disk", "group", "Disk"),
     scene("Under the reclaim floor: amber, with the pass Fleet last ran and the folders it drops next", "disk-reclaim", "img", "64 GB free of a 100 GB floor"),
     step("A folder is cut short with an ellipsis; its tooltip says the whole path", Verb::Hover, "listitem", crate::titlebar::scenes::FIRST_TO_DROP),
     scene("Under the hold floor: red, and no new Job starts", "disk-hold", "img", "22 GB free of a 100 GB floor"),
@@ -103,7 +105,7 @@ pub static STEPS: [Step; 60] = [
     scene("The dot is green while Fleet runs; the panel opens under it", "rings-normal", "button", "Fleet — Running"),
     step("On Main, aligned: nothing to update", Verb::Press, "button", "Fleet — Running"),
     scene("On Preview: five ahead, two behind, and the branches left out say why", "build-preview", "list", "Left out of the preview"),
-    press_on("Refresh preview is under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
+    press_on("Refresh is under way in the same frame", "button", "Refresh", "button", "Refreshing"),
     scene("The restart names the stage it has got to", "build-restarting", "status", "Building Fleet"),
     scene("Picked Jobs, and a snapshot ready to swap onto", "build-picked", "list", "Held by the snapshot"),
     scene("A restart that did not take says why", "build-failed", "alert", "scripts/preview stopped: cargo build failed in crates/fleet"),

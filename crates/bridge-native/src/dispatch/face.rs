@@ -38,13 +38,36 @@ pub enum Mark {
     Chosen,
 }
 
-/// A repository in the row.
+/// One of his projects, as a row of the picker carries it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InProject {
+    /// Fleet's id, which the start sends.
+    pub id: SharedString,
+    pub name: SharedString,
+}
+
+/// A row of the picker: a project and one repository of it, or a repository in no project.
 #[derive(Clone, Debug)]
 pub struct Chip {
+    /// The repository a Job here starts in.
     pub name: SharedString,
+    /// The project the Job is for; none is a repository in no project.
+    pub project: Option<InProject>,
     /// The digit of its `dispatch_repository` key: the first nine chips carry one.
     pub key: Option<u8>,
     pub mark: Mark,
+}
+
+impl Chip {
+    /// What the row is called: the project's name, else the repository's.
+    pub fn label(&self) -> &SharedString {
+        self.project.as_ref().map_or(&self.name, |project| &project.name)
+    }
+
+    /// The row's own key: a repository may stand in several projects and in none.
+    pub fn id(&self) -> String {
+        format!("{}/{}", self.project.as_ref().map_or("", |project| project.id.as_ref()), self.name)
+    }
 }
 
 /// The six readings of which repository the words name (`DP/DispatchPanel.tsx:95-126`).
@@ -62,22 +85,22 @@ impl Reading {
     /// What its tooltip says.
     pub fn tip(self) -> &'static str {
         match self {
-            Reading::Idle => "Repository",
-            Reading::Detecting => "Finding the repository",
-            Reading::Unresolved => "No repository found",
+            Reading::Idle => "Project",
+            Reading::Detecting => "Finding the project",
+            Reading::Unresolved => "No project found",
             Reading::Detected => "Found in the request",
             Reading::Picked => "Picked by you",
-            Reading::Scoped => "The one the rail is on",
+            Reading::Scoped => "The one the window is on",
         }
     }
 
-    /// Its accessible name, the repository's name after it where one is chosen.
+    /// Its accessible name, the row's name after it where one is chosen.
     pub fn name(self, chosen: Option<&str>) -> String {
         match (self, chosen) {
-            (Reading::Detecting, _) => "Repository, finding".into(),
-            (Reading::Unresolved, _) => "Repository, not found".into(),
-            (Reading::Detected | Reading::Picked | Reading::Scoped, Some(name)) => format!("Repository {name}"),
-            _ => "Repository".into(),
+            (Reading::Detecting, _) => "Project, finding".into(),
+            (Reading::Unresolved, _) => "Project, not found".into(),
+            (Reading::Detected | Reading::Picked | Reading::Scoped, Some(name)) => format!("Project {name}"),
+            _ => "Project".into(),
         }
     }
 
@@ -384,13 +407,13 @@ impl Face {
         self.reading = Reading::Idle;
     }
 
-    /// The repository chosen by hand: it is `Chosen`, and the rest are not. The read one stays marked.
-    pub fn pick(&mut self, name: &str) {
+    /// The row chosen by hand, by its [`Chip::id`]: it is `Chosen`, and the rest are not. The read one stays marked.
+    pub fn pick(&mut self, id: &str) {
         for chip in self.chips.iter_mut().chain(self.more.iter_mut()) {
             if chip.mark == Mark::Chosen {
                 chip.mark = Mark::Plain;
             }
-            if chip.name == name {
+            if chip.id() == id {
                 chip.mark = Mark::Chosen;
             }
         }

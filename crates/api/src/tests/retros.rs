@@ -79,7 +79,6 @@ async fn a_request_is_named_by_the_door_it_came_through() {
         get("/lessons", Some(BRIDGE)),
         get("/lessons", None),
         get("/lessons", Some("something-else")),
-        get("/lessons", Some(crate::PHONE)),
         through_the_door(ANYONE, "list_lessons"),
         through_the_door(WORDS, "list_lessons"),
     ] {
@@ -100,11 +99,13 @@ async fn a_request_is_named_by_the_door_it_came_through() {
             Some("bridge"),
             Some("http"),
             Some("http"),
-            Some("phone"),
             Some("door"),
             Some("job"),
         ]
     );
+    // The phone reads no lessons: `crate::phone_share` has no ruling for the route, so it is not there for it.
+    let (status, _) = sent(&app, get("/lessons", Some(crate::PHONE))).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 /// A Session's retro answers at its own route.

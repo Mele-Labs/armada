@@ -804,6 +804,23 @@
    "overridden_by_env": null
   },
   {
+   "key": "features.operator",
+   "group": "Features",
+   "section": "Features",
+   "title": "Operator",
+   "description": "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start, plan and quiet Job goes on as it did before the Operator.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": false,
+   "value": false,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
    "key": "features.draftPullRequests",
    "group": "Features",
    "section": "Features",

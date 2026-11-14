@@ -241,11 +241,20 @@ pub fn rest() -> Face {
 /// Start a walk's bar at rest: the face a fresh bar opens with, and the one already open. The Fleet
 /// panel reads no disk and runs no command while a walk plays.
 pub fn begin(cx: &mut App) {
+    begin_with(rest(), cx);
+}
+
+/// [`begin`] with the window on All, as a live bar opens: the walk of the project filter picks a project itself.
+pub fn begin_on_all(cx: &mut App) {
+    begin_with(Face { scoped: None, ..rest() }, cx);
+}
+
+fn begin_with(face: Face, cx: &mut App) {
     cx.set_global(StandIn::default());
-    cx.set_global(Opening(rest()));
+    cx.set_global(Opening(face.clone()));
     if let Some(bar) = live(cx) {
         bar.update(cx, |bar: &mut TitleBar, cx| {
-            bar.reset(rest());
+            bar.reset(face);
             cx.notify();
         });
     }
