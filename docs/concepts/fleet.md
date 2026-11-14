@@ -496,6 +496,19 @@ Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `sessi
 Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
 
+### Telling the Jobs that read a wire type
+
+**No agent relays a wire change. Fleet tells every other live hosted Job whose branch reads a type a pull request changes.**
+It reads the pull request's patches from the forge when it enters the merge queue, and again once it has merged.
+The changed types are the `pub struct`, `pub enum` and `pub type` items under `crates/ipc/src` with an added or removed line in their body; a patch under `crates/ipc/src/tests` and a changed comment are not the wire.
+Where the lines are fields or variants, the notice names them as added, removed or changed.
+A Job reads a type when its branch, against its merge base with main, changes a file under `crates/bridge-native`, `apps/pocket` or `packages/protocol`, and its worktree names the type there as a whole word.
+The notice gives at most three `path:line` for each type.
+**The pull request's own Jobs are not told.**
+**Each notice is told once a pull request, cause and Job**, kept in the store beside the pull request notices.
+A Job told at the queue is told in one line at the merge; a Job the queue did not reach is told in full at the merge.
+The notice kind is `wire_changed`, and a person mutes it as any other.
+
 ### Watches
 
 **A watch is a command Fleet runs for a Job, so no agent has to poll.** It is for what a pull request's reading cannot see: a deploy, an environment, a pipeline another branch's push starts.
