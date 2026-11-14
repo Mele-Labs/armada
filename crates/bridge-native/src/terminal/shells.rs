@@ -68,7 +68,9 @@ pub trait Shells {
     fn open(&self, job: &str, which: Which, size: Cells, cx: &mut App) -> Task<Result<SessionRunUnderway, String>>;
     /// What the run printed so far, then what it prints next, then its end. Closed when the socket is.
     fn observe(&self, run: &str, cx: &mut App) -> Receiver<SessionRunMessage>;
-    fn write(&self, run: &str, data: String, cx: &mut App);
+    /// Keys for the shell. A refusal is the sentence Fleet or the link gave, and the keys are gone: nothing holds
+    /// them to type later (`share_job_terminal.toml`).
+    fn write(&self, run: &str, data: String, cx: &mut App) -> Task<Result<(), String>>;
     fn resize(&self, run: &str, size: Cells, cx: &mut App);
     fn stop(&self, run: &str, cx: &mut App);
     fn list(&self, job: &str, cx: &mut App) -> Task<Result<JobTerminals, String>>;
@@ -150,8 +152,9 @@ impl Shells for Live {
         rx
     }
 
-    fn write(&self, run: &str, data: String, cx: &mut App) {
-        self.tell("/sessions/run/write", &WriteSessionRun { run_id: run.to_string(), data }, cx);
+    fn write(&self, run: &str, data: String, cx: &mut App) -> Task<Result<(), String>> {
+        let writing: Task<Result<SessionRunUnderway, String>> = ask(self.port(cx), "/sessions/run/write".into(), encoded(&WriteSessionRun { run_id: run.to_string(), data }), "SessionRunUnderway", cx);
+        cx.background_executor().spawn(async move { writing.await.map(|_| ()) })
     }
 
     fn resize(&self, run: &str, size: Cells, cx: &mut App) {
@@ -229,7 +232,14 @@ struct MockState {
     next_job: u32,
     /// The Jobs of the walk's own list a start becomes, in turn, so the Job it opens is one the list holds.
     starts_as: Vec<String>,
+    /// The Jobs held on another Mac, whose shells go through the link.
+    elsewhere: Vec<String>,
+    /// The link to that Mac does not carry: an open and a key are refused in its words.
+    link_down: bool,
 }
+
+/// What the link says when it cannot reach the other Mac, as the Gateway words it.
+pub const UNREACHED: &str = "That Mac is not answering. It may be asleep.";
 
 struct MockRun {
     tx: Option<Sender<SessionRunMessage>>,
@@ -329,6 +339,39 @@ impl Mock {
         self
     }
 
+    /// These Jobs are held on another Mac: their shells go through the link.
+    pub fn elsewhere(self, jobs: &[&str]) -> Mock {
+        self.state.borrow_mut().elsewhere = jobs.iter().map(|job| job.to_string()).collect();
+        self
+    }
+
+    /// The link to the other Mac carries again, or stops carrying: a key or an open on its Jobs is refused.
+    pub fn link(&self, up: bool) {
+        self.state.borrow_mut().link_down = !up;
+    }
+
+    /// The link's stream from the other Mac drops: each of its shells that is watched ends here as Fleet ends it,
+    /// `exited` with no code and not stopped, while the shell itself runs on there.
+    pub fn streams_drop(&self) {
+        let mut state = self.state.borrow_mut();
+        let runs: Vec<String> = state.jobs.iter().filter(|(job, _)| state.elsewhere.contains(job)).flat_map(|(_, shells)| shells.iter().map(|(_, _, run)| run.clone())).collect();
+        for run in runs {
+            if let Some(tx) = state.runs.get_mut(&run).and_then(|one| one.tx.take()) {
+                let _ = tx.try_send(SessionRunMessage::Exited { code: None, stopped: false });
+            }
+        }
+    }
+
+    /// Whether the link refuses what goes to Job `job`'s shells now.
+    fn cut_off(state: &MockState, job: &str) -> bool {
+        state.link_down && state.elsewhere.iter().any(|one| one == job)
+    }
+
+    /// The Job whose shell `run` is.
+    fn job_of(state: &MockState, run: &str) -> Option<String> {
+        state.jobs.iter().find(|(_, shells)| shells.iter().any(|(_, _, one)| one == run)).map(|(job, _)| job.clone())
+    }
+
     /// End a shell as `exit` would, so a walk shows Shell ended.
     pub fn end(&self, job: &str, terminal: &str) {
         let mut state = self.state.borrow_mut();
@@ -377,6 +420,9 @@ impl Shells for Mock {
         if let Which::Command(command) = &which {
             return self.run(job, command, size, cx);
         }
+        if Self::cut_off(&self.state.borrow(), job) {
+            return Task::ready(Err(UNREACHED.into()));
+        }
         Task::ready(Ok(self.opened(job, which)))
     }
 
@@ -394,11 +440,14 @@ impl Shells for Mock {
         rx
     }
 
-    fn write(&self, run: &str, data: String, _cx: &mut App) {
+    fn write(&self, run: &str, data: String, _cx: &mut App) -> Task<Result<(), String>> {
         let mut state = self.state.borrow_mut();
-        let Some(one) = state.runs.get_mut(run) else { return };
+        if Self::job_of(&state, run).is_some_and(|job| Self::cut_off(&state, &job)) {
+            return Task::ready(Err(UNREACHED.into()));
+        }
+        let Some(one) = state.runs.get_mut(run) else { return Task::ready(Err("No such run".into())) };
         if one.ended {
-            return;
+            return Task::ready(Err("The run has ended".into()));
         }
         let mut echo = String::new();
         let mut done = Vec::new();
@@ -466,7 +515,7 @@ impl Shells for Mock {
             if command.trim() == "exit" {
                 Self::print(&mut state, run, "\r\n".into());
                 Self::finish(&mut state, run, false);
-                return;
+                return Task::ready(Ok(()));
             }
             if command.trim() == "pnpm dev" {
                 let (said, _) = ran("pnpm dev");
@@ -474,10 +523,11 @@ impl Shells for Mock {
                     one.busy = true;
                 }
                 Self::print(&mut state, run, said);
-                return;
+                return Task::ready(Ok(()));
             }
             Self::print(&mut state, run, format!("\r\n{}{}", answer(&command), prompt(&folder)));
         }
+        Task::ready(Ok(()))
     }
 
     fn resize(&self, _run: &str, _size: Cells, _cx: &mut App) {}
@@ -567,9 +617,29 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
     cx.set_global(Held(Rc::new(Live { port: Rc::new(move |cx: &App| fleet.read(cx).held().port()) })));
 }
 
+/// A walk's shells, kept beside [`Held`] so a scene can reach the link.
+struct WalkShells(Rc<Mock>);
+
+impl gpui::Global for WalkShells {}
+
 /// A walk's shells: one open on the first mock Job, and each terminal Job started is the scenario's fresh one.
+/// The Jobs the pairing walks put on Air go through its link.
 pub fn hold_walk(cx: &mut App) {
-    cx.set_global(Held(Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 8]))));
+    let mock = Rc::new(Mock::with(&[("mock-01", 1)]).starting_as(&["s-7c41e2a9"; 8]).elsewhere(&crate::mock::AIR_JOBS));
+    cx.set_global(Held(mock.clone()));
+    cx.set_global(WalkShells(mock));
+}
+
+/// A walk's scene for the link to Air: `up`, `down` (keys and opens refused), or `drops` (the watched shells end here).
+pub fn walk_link(scene: &str, cx: &mut App) -> Result<(), String> {
+    let mock = cx.try_global::<WalkShells>().map(|held| held.0.clone()).ok_or("no walk shells")?;
+    match scene {
+        "up" => mock.link(true),
+        "down" => mock.link(false),
+        "drops" => mock.streams_drop(),
+        other => return Err(format!("no link scene named {other}")),
+    }
+    Ok(())
 }
 
 pub fn of(cx: &App) -> Option<Rc<dyn Shells>> {
@@ -611,7 +681,7 @@ mod tests {
         let mock = Mock::with(&[("job", 1)]);
         let run = mock.opened("job", Which::First).run_id;
         let rx = cx.update(|cx| mock.observe(&run, cx));
-        cx.update(|cx| mock.write(&run, "ls\r".into(), cx));
+        cx.update(|cx| mock.write(&run, "ls\r".into(), cx)).detach();
         let printed: String = std::iter::from_fn(|| rx.try_recv().ok())
             .filter_map(|message| match message {
                 SessionRunMessage::Output { text } => Some(text),
@@ -620,6 +690,36 @@ mod tests {
             .collect();
         assert!(printed.contains("ls\r\n"), "{printed:?}");
         assert!(printed.contains("Cargo.toml"), "{printed:?}");
+    }
+
+    #[gpui::test]
+    async fn a_link_that_does_not_carry_refuses_keys_and_opens_on_another_macs_job(cx: &mut gpui::TestAppContext) {
+        let mock = Mock::with(&[("air", 1), ("here", 1)]).elsewhere(&["air"]);
+        let air = mock.opened("air", Which::First).run_id;
+        let here = mock.opened("here", Which::First).run_id;
+        mock.link(false);
+        assert_eq!(cx.update(|cx| mock.write(&air, "x".into(), cx)).await, Err(UNREACHED.to_string()));
+        assert_eq!(cx.update(|cx| mock.write(&here, "x".into(), cx)).await, Ok(()));
+        let size = Cells { cols: 80, rows: 24 };
+        assert_eq!(cx.update(|cx| mock.open("air", Which::First, size, cx)).await.map(|_| ()), Err(UNREACHED.to_string()));
+        mock.link(true);
+        assert_eq!(cx.update(|cx| mock.write(&air, "x".into(), cx)).await, Ok(()));
+        assert!(cx.update(|cx| mock.open("air", Which::First, size, cx)).await.is_ok());
+    }
+
+    #[gpui::test]
+    fn a_dropped_stream_ends_only_the_other_macs_shells_with_no_code(cx: &mut gpui::TestAppContext) {
+        let mock = Mock::with(&[("air", 1), ("here", 1)]).elsewhere(&["air"]);
+        let air = mock.opened("air", Which::First).run_id;
+        let here = mock.opened("here", Which::First).run_id;
+        let (air_rx, here_rx) = cx.update(|cx| (mock.observe(&air, cx), mock.observe(&here, cx)));
+        mock.streams_drop();
+        let ended = |rx: &Receiver<SessionRunMessage>| std::iter::from_fn(|| rx.try_recv().ok()).find_map(|message| match message {
+            SessionRunMessage::Exited { code, stopped } => Some((code, stopped)),
+            _ => None,
+        });
+        assert_eq!(ended(&air_rx), Some((None, false)));
+        assert_eq!(ended(&here_rx), None);
     }
 
     fn start(place: Place) -> Start {
