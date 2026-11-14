@@ -53,6 +53,7 @@ mod pull_request;
 mod pull_request_detail;
 mod pull_review;
 mod request;
+mod cloudflare;
 mod secret;
 mod setup;
 mod shared_home;
@@ -115,6 +116,7 @@ pub use pull_review::{
 pub use request::{
     Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };
+pub use cloudflare::{Cloudflare, CloudflareError, CloudflareTokens, WorkerUpload};
 pub use secret::Secret;
 pub use shared_home::{
     HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
