@@ -110,6 +110,9 @@ pub enum Signal {
     /// `GET /model_downshift`, once per connection; `model_downshift.changed` carries it after that.
     Downshift(ipc::ModelDownshiftState),
     DownshiftFailed(String),
+    /// `GET /agent/sign_in`, once per connection; `agent_sign_in.changed` carries it after that.
+    AgentSignIn(ipc::AgentSignIn),
+    AgentSignInFailed(String),
     /// `GET /clashes/all`, on connect and after a `Missed`; `write_clashes.changed` carries it after that.
     Clashes(ipc::AllWriteClashes),
     ClashesFailed(String),
@@ -426,7 +429,7 @@ async fn fetch_workflows(tx: Sender<Signal>, port: u16) {
     let _ = tx.send(signal).await;
 }
 
-/// `GET /plan_usage` and `GET /model_downshift`, once per connection, retried as the Jobs are.
+/// `GET /plan_usage`, `GET /model_downshift` and `GET /agent/sign_in`, once per connection, retried as the Jobs are.
 async fn fetch_plan(tx: Sender<Signal>, port: u16) {
     let usage = match read_with_retries::<ipc::PlanUsage>(port, "/plan_usage", "plan usage").await {
         Ok(usage) => Signal::PlanUsage(usage),
@@ -439,7 +442,14 @@ async fn fetch_plan(tx: Sender<Signal>, port: u16) {
         Ok(state) => Signal::Downshift(state),
         Err(why) => Signal::DownshiftFailed(why),
     };
-    let _ = tx.send(downshift).await;
+    if tx.send(downshift).await.is_err() {
+        return;
+    }
+    let sign_in = match read_with_retries::<ipc::AgentSignIn>(port, "/agent/sign_in", "agent sign-in").await {
+        Ok(state) => Signal::AgentSignIn(state),
+        Err(why) => Signal::AgentSignInFailed(why),
+    };
+    let _ = tx.send(sign_in).await;
 }
 
 /// `GET /fleet/build/offers`, retried as the Jobs are.

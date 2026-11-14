@@ -21,7 +21,7 @@ use gpui::{
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
 use ipc::JobState;
-use ipc::CallTone;
+use ipc::{AgentSignIn, CallTone};
 
 use super::{Ended, FleetNotice, Shelf, Toast, Urgency};
 use crate::keymap::Act;
@@ -55,6 +55,20 @@ impl Global for Live {}
 struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
+
+/// The words of Claude's signed-out toast, and of its banner when no window is in front.
+const SIGNED_OUT: &str = "Claude is signed out";
+const SIGNED_OUT_NEXT: &str = "Jobs stop at their next reply until it signs in again.";
+const SIGNING_IN_NEXT: &str = "Finish signing in in your browser.";
+
+/// Whether `now` begins a signed-out spell `was` did not hold. **The state found on connecting is not
+/// news** (`was` is `None`), as Classic's `AgentSignInNotice` seeds it: the toast stands, the banner does not post.
+fn signed_out_news(was: Option<&AgentSignIn>, now: &AgentSignIn) -> bool {
+    match (was, &now.signed_out_since) {
+        (Some(was), Some(since)) => was.signed_out_since.as_ref() != Some(since),
+        _ => false,
+    }
+}
 
 /// What a told toast's Retry does again.
 pub type Retry = Rc<dyn Fn(&mut App)>;
@@ -249,6 +263,9 @@ pub struct Toasts {
     file: Option<PathBuf>,
     /// How far the pile stands above its corner so it clears a message box drawn under it.
     lift: gpui::Pixels,
+    /// Claude's sign-in as Fleet last said: a toast with Sign in stands while it is signed out. `None`
+    /// until Fleet has answered.
+    sign_in: Option<AgentSignIn>,
     _subs: Vec<Subscription>,
 }
 
@@ -269,6 +286,9 @@ impl Toasts {
             cx.subscribe_in(&page, window, |this, _, arrived: &Arrived, window, cx| this.arrived(&arrived.0, window, cx)),
             cx.observe(&page, |this, page, cx| this.page_moved(&page, cx)),
         ];
+        // A mock scenario with no Fleet stands signed out, so the toast can be looked at.
+        let mut sign_in = crate::mock::scenario_is("claude-signed-out")
+            .then(|| AgentSignIn { signed_out_since: Some(ipc::Instant::carried("2026-11-14T09:00:00Z")), signing_in: false });
         // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
         if let Some(fleet) = page.read(cx).fleet().cloned() {
             subs.push(cx.subscribe(&fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
@@ -276,8 +296,43 @@ impl Toasts {
                     dispatched(one.clone(), cx);
                 }
             }));
+            // Claude's sign-in, from the same Fleet: one account signs every Job in or out.
+            sign_in = fleet.read(cx).held().agent_sign_in.clone();
+            subs.push(cx.observe_in(&fleet, window, |this, fleet, window, cx| this.sign_in_moved(&fleet, window, cx)));
         }
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), _subs: subs }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), sign_in, _subs: subs }
+    }
+
+    /// Fleet moved: where Claude's sign-in changed it is drawn, and a spell just begun marks the bell and,
+    /// with no window in front, posts a banner, as an urgent toast does.
+    fn sign_in_moved(&mut self, fleet: &Entity<crate::fleet::FleetConnection>, window: &mut Window, cx: &mut Context<Self>) {
+        let held = fleet.read(cx).held();
+        let Some(now) = held.agent_sign_in.clone() else { return };
+        if self.sign_in.as_ref() == Some(&now) {
+            return;
+        }
+        if signed_out_news(self.sign_in.as_ref(), &now) {
+            self.unseen = true;
+            if held.notifications && !window.is_window_active() {
+                crate::banner::post("agent-sign-in", SIGNED_OUT, SIGNED_OUT_NEXT, crate::notify::sound_of(CallTone::Blocked));
+            }
+        }
+        self.sign_in = Some(now);
+        cx.notify();
+    }
+
+    /// Sign in: Fleet runs Claude's own sign-in, which opens his browser, as Classic's press does. Fleet's
+    /// `agent_sign_in.changed` draws the ring. With no Fleet (a mock) the ring is drawn here.
+    fn sign_in_pressed(&mut self, cx: &mut Context<Self>) {
+        match self.page.read(cx).fleet().cloned() {
+            Some(fleet) => crate::jobs::send_bare(fleet.read(cx).held().port(), "/agent/sign_in", cx),
+            None => {
+                if let Some(state) = self.sign_in.as_mut() {
+                    state.signing_in = true;
+                }
+                cx.notify();
+            }
+        }
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -596,6 +651,75 @@ impl Toasts {
         )
     }
 
+    /// Claude signed out, for every Job at once: the failed edge, what stops, and Sign in, or the ring while
+    /// the browser is open. No close: it goes when Claude answers again (`session_host::signed_out`).
+    fn sign_in_toast(&self, look: &Look, cx: &Context<Self>) -> Option<impl IntoElement> {
+        let state = self.sign_in.as_ref().filter(|state| state.signed_out_since.is_some())?;
+        let edge = look.color(token::STATUS_COMPLETED_FAILED);
+        let head = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .child(glyph("bot", look.length(token::SPACE_4), edge))
+            .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Claude"));
+        let act = if state.signing_in {
+            labelled(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(crate::titlebar::parts::spinner("toast-signing-in", look.length(token::SPACE_3), look.color(token::FG_MUTED), cx))
+                    .child("Signing in"),
+                Role::Status,
+                "Signing in",
+            )
+            .into_any_element()
+        } else {
+            labelled(
+                press("toast-sign-in", "Sign in".into(), Some("user"), None, Weight::JobPick, look)
+                    .tooltip(tip("Opens Claude's sign-in in your browser"))
+                    .on_click(cx.listener(|this, _, _, cx| this.sign_in_pressed(cx))),
+                Role::Button,
+                "Sign in",
+            )
+            .into_any_element()
+        };
+        let next = if state.signing_in { SIGNING_IN_NEXT } else { SIGNED_OUT_NEXT };
+        let body = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .child(head)
+            .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SIGNED_OUT))
+            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(next))
+            .child(div().flex().justify_end().pt(look.length(token::SPACE_1)).child(act));
+        Some(labelled(
+            div()
+                .id("toast:agent-sign-in")
+                .w(gpui::px(WIDTH))
+                .flex()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_LG) * 1.5)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(edge.opacity(0.6))
+                .bg(look.color(token::BG_OVERLAY))
+                .shadow(look.shadows(token::SHADOW_OVERLAY))
+                // A press on a toast never reaches what is under it.
+                .occlude()
+                .font_family(sans(look))
+                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
+                .child(body),
+            Role::Alert,
+            format!("Toast: {SIGNED_OUT}"),
+        ))
+    }
+
     /// A sentence the app was told: the failed edge, the sentence, Retry where it has one, and its close.
     fn told_toast(&self, one: &TellOne, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let (key, sentence) = (one.key, &one.sentence);
@@ -867,6 +991,8 @@ impl Render for Toasts {
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
             .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
+            // Then Claude signed out: every Job stops on it, so it holds its place as Fleet's states do.
+            .children(self.sign_in_toast(look, cx))
             .children(told.iter().map(|one| self.told_toast(one, look, cx)))
             .children(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx)))
             .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
@@ -1003,5 +1129,29 @@ mod ruling_tests {
         let said = ruling_said(&news(DispatchWay::Asked, None), Some(about(long)));
         assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the d...");
         assert_eq!(about("one line\nsecond"), "one line");
+    }
+}
+
+#[cfg(test)]
+mod sign_in_tests {
+    use super::*;
+
+    fn out(since: &str) -> AgentSignIn {
+        AgentSignIn { signed_out_since: Some(ipc::Instant::carried(since)), signing_in: false }
+    }
+
+    #[test]
+    fn a_signed_out_spell_is_news_once_and_never_on_connecting() {
+        let signed_in = AgentSignIn::default();
+        // Found signed out on connecting: the toast stands, no banner.
+        assert!(!signed_out_news(None, &out("09:00")));
+        // Signed out after being signed in: news.
+        assert!(signed_out_news(Some(&signed_in), &out("09:00")));
+        // The same spell again, as signing in starts: not news.
+        let signing = AgentSignIn { signing_in: true, ..out("09:00") };
+        assert!(!signed_out_news(Some(&out("09:00")), &signing));
+        // Signed back in: not news; a new spell later is.
+        assert!(!signed_out_news(Some(&out("09:00")), &signed_in));
+        assert!(signed_out_news(Some(&out("09:00")), &out("11:30")));
     }
 }
