@@ -20,14 +20,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderClaims, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError,
 };
 
 #[derive(Debug, Default)]
 struct Rows {
     claims: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Claimant>,
-    /// Who asked for a held claim, until its holder's next renewal answers them.
-    contenders: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Vec<Claimant>>,
+    /// Who asked for a held claim, and whether its holder's renewal has told of them yet. Kept
+    /// while the claim stands, so the list can say what each asker waits on.
+    contenders: BTreeMap<(RepositoryKey, ClaimKind, ClaimKey), Vec<(Claimant, bool)>>,
     owners: BTreeMap<OwnerKey, Holder>,
     devices: BTreeSet<String>,
     /// The Mac each device enrolled as, in the order they enrolled.
@@ -116,8 +117,9 @@ impl Store for FakeStore {
             Some(held) => {
                 if !same_holder(&held.holder, &claimant.holder) {
                     let asked = rows.contenders.entry(at).or_default();
-                    asked.retain(|one| !same_holder(&one.holder, &claimant.holder));
-                    asked.push(claimant.clone());
+                    let told = asked.iter().any(|(one, told)| *told && same_holder(&one.holder, &claimant.holder));
+                    asked.retain(|(one, _)| !same_holder(&one.holder, &claimant.holder));
+                    asked.push((claimant.clone(), told));
                 }
                 Ok(Claimed::Held(held))
             }
@@ -160,11 +162,50 @@ impl Store for FakeStore {
         let mine: Vec<_> = rows.claims.iter().filter(|(_, held)| same_holder(&held.holder, holder)).map(|(at, _)| at.clone()).collect();
         let mut contested = Vec::new();
         for at in &mine {
-            for by in rows.contenders.remove(at).unwrap_or_default() {
-                contested.push(Contest { repository: at.0.clone(), kind: at.1, key: at.2.clone(), by });
+            for (by, told) in rows.contenders.get_mut(at).into_iter().flatten() {
+                if !*told {
+                    *told = true;
+                    contested.push(Contest { repository: at.0.clone(), kind: at.1, key: at.2.clone(), by: by.clone() });
+                }
             }
         }
         Ok(Renewed { claims: mine.len() as u64, contested })
+    }
+
+    /// Grouped by holder in the store's order: name, Mac, kind, id. **`renewed` is the newest
+    /// `since` of its claims**, since the fake keeps no clock.
+    fn claims_listed(&self) -> Result<Vec<HolderClaims>, StoreError> {
+        let rows = self.rows("claims_listed")?;
+        let mut groups: Vec<HolderClaims> = Vec::new();
+        let group_of = |groups: &mut Vec<HolderClaims>, who: &Claimant| -> usize {
+            match groups.iter().position(|group| same_holder(&group.holder.holder, &who.holder)) {
+                Some(at) => at,
+                None => {
+                    let holder = Holder { since: 0, ..who.holder.clone() };
+                    groups.push(HolderClaims { holder: Claimant { holder, ..who.clone() }, renewed: 0, claims: Vec::new(), waits: Vec::new() });
+                    groups.len() - 1
+                }
+            }
+        };
+        for ((repository, kind, key), held) in &rows.claims {
+            let at = group_of(&mut groups, held);
+            groups[at].renewed = groups[at].renewed.max(held.holder.since);
+            groups[at].claims.push(ListedClaim { repository: repository.clone(), kind: *kind, key: key.clone(), since: held.holder.since });
+        }
+        for ((repository, kind, key), asked) in &rows.contenders {
+            let Some(held) = rows.claims.get(&(repository.clone(), *kind, key.clone())) else { continue };
+            for (by, _) in asked {
+                let at = group_of(&mut groups, by);
+                groups[at].waits.push(ListedWait { repository: repository.clone(), kind: *kind, key: key.clone(), held_by: held.clone() });
+            }
+        }
+        for group in &mut groups {
+            group.claims.sort_by(|a, b| (a.kind, a.since, &a.key).cmp(&(b.kind, b.since, &b.key)));
+            group.waits.sort_by(|a, b| (a.kind, &a.key).cmp(&(b.kind, &b.key)));
+        }
+        let order = |group: &HolderClaims| (group.holder.name.clone(), group.holder.holder.machine.clone(), group.holder.holder.id.clone());
+        groups.sort_by_key(order);
+        Ok(groups)
     }
 
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError> {

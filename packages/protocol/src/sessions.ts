@@ -305,7 +305,9 @@ export type SessionRecord = {
 
 /**
  * A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is its assignee in beads.
+ * Or a failing test another Job is fixing, which threw the Job's pull request out of the merge queue: `item` is the test.
  * `holder` is the holding Job's forge login or the assignee, `machine` and `title` the holding Job's, absent for a person in beads.
+ * `holder` is empty where main is red on the test.
  */
 export type ClaimWait = {
   item: string;
@@ -316,8 +318,11 @@ export type ClaimWait = {
   ends: ClaimWaitEnds;
 };
 
-/** What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads. */
-export type ClaimWaitEnds = "claim_ends" | "unassigned";
+/**
+ * What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads.
+ * `fix_merges`: a failing test's fix merges and main is green, or main's red is fixed, and the pull request is queued again.
+ */
+export type ClaimWaitEnds = "claim_ends" | "unassigned" | "fix_merges";
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
 export type SessionStarted = {
