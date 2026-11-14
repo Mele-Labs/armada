@@ -3,7 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { vi } from "vitest";
 import { signRequest, toBase64, type SignedHeaders } from "../src/signing";
 import worker from "../src/index";
-import type { Fact, Holder } from "../src/rows";
+import type { ClaimHolder, ClaimKind, Fact, Holder } from "../src/rows";
 
 export const STORE = "https://store.test";
 
@@ -19,6 +19,18 @@ export const holder = (id: string, machine = "studio"): Holder => ({
   id,
   machine,
   since: 1760449990,
+});
+
+/** A claim's holder: a holder with the person's name and the Job's title. */
+export const claimant = (
+  id: string,
+  machine = "studio",
+  name = "Nick",
+  title = "Fix the flaky queue test",
+): ClaimHolder => ({
+  ...holder(id, machine),
+  name,
+  title,
 });
 
 export const fact = (change: Partial<Fact> = {}): Fact => ({
@@ -143,11 +155,28 @@ export async function call(
   });
 }
 
-export async function claim(device: Device, repo: string, red: string, who: Holder) {
+export async function claim(device: Device, repo: string, kind: ClaimKind, key: string, who: ClaimHolder) {
   return call(device, "POST", "/v1/claims", {
     repo,
-    red,
+    kind,
+    key,
     holder: who,
+  });
+}
+
+/** A red main claim: the kind Fleet's client has always made. */
+export const claimRed = (device: Device, repo: string, red: string, who: ClaimHolder) =>
+  claim(device, repo, "red", red, who);
+
+export const claimPath = (repo: string, kind: ClaimKind, key: string) => `/v1/claims/${repo}/${kind}/${key}`;
+
+export async function renew(device: Device, who: Pick<Holder, "kind" | "id" | "machine">) {
+  return call(device, "POST", "/v1/renewals", {
+    holder: {
+      kind: who.kind,
+      id: who.id,
+      machine: who.machine,
+    },
   });
 }
 

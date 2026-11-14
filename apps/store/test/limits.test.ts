@@ -13,7 +13,8 @@ import {
   STORE,
   accountObject,
   call,
-  claim,
+  claimRed,
+  claimant,
   enrolDevice,
   everythingStoredFor,
   fact,
@@ -96,8 +97,9 @@ describe("a request for an account or device that never enrolled", () => {
 
     const answer = await call(stranger, "POST", "/v1/claims", {
       repo: hash("a"),
-      red: hash("b"),
-      holder: holder("j-1"),
+      kind: "red",
+      key: hash("b"),
+      holder: claimant("j-1"),
     });
 
     expect(answer.status).toBe(401);
@@ -108,7 +110,7 @@ describe("a request for an account or device that never enrolled", () => {
   });
 
   it("stores nothing for a request that is only half signed", async () => {
-    const answer = await toStore(`${STORE}/v1/claims/${hash("a")}/${hash("b")}`, {
+    const answer = await toStore(`${STORE}/v1/claims/${hash("a")}/red/${hash("b")}`, {
       headers: {
         "X-Armada-Device": `9002.${"b".repeat(32)}`,
       },
@@ -142,7 +144,7 @@ describe("a request for an account or device that never enrolled", () => {
     };
     const before = await everythingStoredFor(9004);
 
-    const answer = await call(stranger, "GET", `/v1/claims/${hash("a")}/${hash("b")}`);
+    const answer = await call(stranger, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`);
 
     expect(answer.status).toBe(401);
     expect(await everythingStoredFor(9004)).toBe(before);
@@ -152,7 +154,7 @@ describe("a request for an account or device that never enrolled", () => {
   it("is still the same Durable Object once the account does enrol", async () => {
     await everythingStoredFor(9005);
     const device = await enrolDevice(9005);
-    expect((await claim(device, hash("a"), hash("b"), holder("j-1"))).status).toBe(200);
+    expect((await claimRed(device, hash("a"), hash("b"), claimant("j-1"))).status).toBe(200);
   });
 });
 
@@ -201,13 +203,17 @@ async function fill(account: number, table: "claims" | "owners", count: number) 
     const sql = state.storage.sql;
     for (let n = 0; n < count; n++) {
       const key = rowKey(n);
-      if (table === "claims")
+      if (table === "claims") {
         sql.exec(
-          "INSERT INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, 'job', 'j-0', 'studio', 1)",
+          "INSERT INTO claims (repo, kind, key, holder_kind, holder_id, machine, since) VALUES (?, 'red', ?, 'job', 'j-0', 'studio', 1)",
           key,
           key,
         );
-      else
+        sql.exec(
+          "INSERT OR IGNORE INTO holders (kind, id, machine, name, title, renewed) VALUES ('job', 'j-0', 'studio', '', '', ?)",
+          Math.floor(Date.now() / 1000),
+        );
+      } else
         sql.exec(
           "INSERT INTO owners (key, kind, id, machine, since) VALUES (?, 'job', 'j-0', 'studio', 1)",
           key,
@@ -221,34 +227,38 @@ describe("claims", () => {
     const device = await enrolDevice(9201);
     await fill(9201, "claims", MAX_CLAIMS);
 
-    const over = await claim(device, hash("a"), hash("b"), holder("j-1"));
+    const over = await claimRed(device, hash("a"), hash("b"), claimant("j-1"));
 
     expect(over.status).toBe(413);
     expect(await over.json()).toEqual({
       error: "claims_full",
     });
-    expect((await call(device, "GET", `/v1/claims/${hash("a")}/${hash("b")}`)).status).toBe(404);
+    expect((await call(device, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`)).status).toBe(404);
   });
 
   it("still answer 409 with the holder when the claim already exists and the table is full", async () => {
     const device = await enrolDevice(9202);
-    expect((await claim(device, hash("a"), hash("b"), holder("j-1"))).status).toBe(200);
+    expect((await claimRed(device, hash("a"), hash("b"), claimant("j-1"))).status).toBe(200);
     await fill(9202, "claims", MAX_CLAIMS - 1);
 
-    const again = await claim(device, hash("a"), hash("b"), holder("j-2"));
+    const again = await claimRed(device, hash("a"), hash("b"), claimant("j-2"));
     expect(again.status).toBe(409);
-    expect(await again.json()).toEqual({
-      holder: holder("j-1"),
-    });
+    expect(
+      (
+        (await again.json()) as {
+          holder: unknown;
+        }
+      ).holder,
+    ).toEqual(claimant("j-1"));
   });
 
   it("take a new claim again once one is given back", async () => {
     const device = await enrolDevice(9203);
     await fill(9203, "claims", MAX_CLAIMS);
-    expect((await claim(device, hash("a"), hash("b"), holder("j-1"))).status).toBe(413);
+    expect((await claimRed(device, hash("a"), hash("b"), claimant("j-1"))).status).toBe(413);
     const full = rowKey(0);
-    await call(device, "DELETE", `/v1/claims/${full}/${full}`);
-    expect((await claim(device, hash("a"), hash("b"), holder("j-1"))).status).toBe(200);
+    await call(device, "DELETE", `/v1/claims/${full}/red/${full}`);
+    expect((await claimRed(device, hash("a"), hash("b"), claimant("j-1"))).status).toBe(200);
   });
 });
 
@@ -403,9 +413,9 @@ describe("runs", () => {
       state.storage.sql.exec("DROP TABLE runs");
       (
         instance as unknown as {
-          runsMade: boolean;
+          upgraded: boolean;
         }
-      ).runsMade = false;
+      ).upgraded = false;
     });
     expect((await call(device, "GET", path)).status).toBe(404);
     expect(
@@ -448,7 +458,7 @@ describe("runs", () => {
 describe("a device's requests", () => {
   it(`are refused with 429 once ${REQUESTS_PER_MINUTE} verified ones fall in a minute`, async () => {
     const device = await enrolDevice(9401);
-    const path = `/v1/claims/${hash("a")}/${hash("b")}`;
+    const path = `/v1/claims/${hash("a")}/red/${hash("b")}`;
 
     for (let n = 0; n < REQUESTS_PER_MINUTE; n++) {
       expect((await call(device, "GET", path)).status).toBe(404);
@@ -467,7 +477,7 @@ describe("a device's requests", () => {
       await enrolDevice(9402),
       await enrolDevice(9402),
     ];
-    const path = `/v1/claims/${hash("a")}/${hash("b")}`;
+    const path = `/v1/claims/${hash("a")}/red/${hash("b")}`;
     for (let n = 0; n < REQUESTS_PER_MINUTE; n++) await call(busy, "GET", path);
     expect((await call(busy, "GET", path)).status).toBe(429);
     expect((await call(quiet, "GET", path)).status).toBe(404);
@@ -476,7 +486,7 @@ describe("a device's requests", () => {
   it("are not counted when they fail to verify, so a stranger cannot use up a device's minute", async () => {
     const device = await enrolDevice(9403);
     const { key } = await newKeyPair();
-    const path = `/v1/claims/${hash("a")}/${hash("b")}`;
+    const path = `/v1/claims/${hash("a")}/red/${hash("b")}`;
     for (let n = 0; n < REQUESTS_PER_MINUTE + 5; n++) {
       const headers = await signRequest(key, device.id, "GET", path, "", undefined, newNonce());
       const answer = await toStore(`${STORE}${path}`, {
@@ -489,7 +499,7 @@ describe("a device's requests", () => {
 
   it("start again once the minute has passed", async () => {
     const device = await enrolDevice(9404);
-    const path = `/v1/claims/${hash("a")}/${hash("b")}`;
+    const path = `/v1/claims/${hash("a")}/red/${hash("b")}`;
     vi.useFakeTimers({
       toFake: [
         "Date",

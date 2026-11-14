@@ -1,10 +1,18 @@
+import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { CLAIM_KINDS, LAPSE_SECONDS } from "../src/rows";
 import { signRequest } from "../src/signing";
+import vector from "../test-vectors/red-claim.json";
 import {
   STORE,
+  accountObject,
   call,
   toStore,
   claim,
+  claimPath,
+  claimRed,
+  claimant,
+  renew,
   enrolDevice,
   everythingStoredFor,
   fact,
@@ -14,6 +22,35 @@ import {
 } from "./support";
 
 const now = () => Math.floor(Date.now() / 1000);
+
+type Answered = {
+  holder: Record<string, unknown>;
+  renewed: number;
+};
+const answered = async (answer: Response) => (await answer.json()) as Answered;
+
+/** Sets when each holder last renewed, as though that many seconds had passed since. */
+async function renewedAgo(account: number, ago: Record<string, number>) {
+  await runInDurableObject(accountObject(account), (_instance, state) => {
+    for (const [id, seconds] of Object.entries(ago))
+      state.storage.sql.exec("UPDATE holders SET renewed = ? WHERE id = ?", now() - seconds, id);
+  });
+}
+
+/** The ids of the holders that hold a claim, straight from the table. */
+async function holdersOfClaims(account: number): Promise<string[]> {
+  return runInDurableObject(accountObject(account), (_instance, state) =>
+    state.storage.sql
+      .exec<{
+        holder_id: string;
+      }>("SELECT DISTINCT holder_id FROM claims ORDER BY holder_id")
+      .toArray()
+      .map((row) => row.holder_id),
+  );
+}
+
+const alarmOf = (account: number) =>
+  runInDurableObject(accountObject(account), (_instance, state) => state.storage.getAlarm());
 
 describe("a claim", () => {
   it("is won by exactly one of eight concurrent claims", async () => {
@@ -25,7 +62,7 @@ describe("a claim", () => {
       {
         length: 8,
       },
-      (_, n) => claim(n % 2 ? a : b, hash("a"), hash("b"), holder(`j-${n}`)),
+      (_, n) => claimRed(n % 2 ? a : b, hash("a"), hash("b"), claimant(`j-${n}`)),
     );
     const answers = await Promise.all(attempts);
 
@@ -34,53 +71,85 @@ describe("a claim", () => {
     expect(won).toHaveLength(1);
     expect(lost).toHaveLength(7);
 
-    const winner = (
-      (await won[0]!.json()) as {
-        holder: unknown;
-      }
-    ).holder;
-    for (const answer of lost)
-      expect(
-        (
-          (await answer.json()) as {
-            holder: unknown;
-          }
-        ).holder,
-      ).toEqual(winner);
-    const read = await call(a, "GET", `/v1/claims/${hash("a")}/${hash("b")}`);
-    expect(
-      (
-        (await read.json()) as {
-          holder: unknown;
-        }
-      ).holder,
-    ).toEqual(winner);
+    const winner = (await answered(won[0]!)).holder;
+    for (const answer of lost) expect((await answered(answer)).holder).toEqual(winner);
+    const read = await call(a, "GET", claimPath(hash("a"), "red", hash("b")));
+    expect((await answered(read)).holder).toEqual(winner);
   });
 
-  it("tells the second machine who holds it", async () => {
-    const [a, b] = [
-      await enrolDevice(5002),
-      await enrolDevice(5002),
-    ];
-    expect((await claim(a, hash("a"), hash("b"), holder("j-1", "laptop"))).status).toBe(200);
-    const second = await claim(b, hash("a"), hash("b"), holder("s-9", "desktop"));
-    expect(second.status).toBe(409);
-    expect(await second.json()).toEqual({
-      holder: holder("j-1", "laptop"),
+  for (const [n, kind] of CLAIM_KINDS.entries())
+    it(`of kind ${kind} is taken once and refused to a second holder with the first's name, Mac and Job title`, async () => {
+      const [home, work] = [
+        await enrolDevice(5011 + n),
+        await enrolDevice(5011 + n),
+      ];
+      const first = claimant("s-1", "Home Mac", "Nick", "Fix the flaky queue test");
+      const taken = await claim(home, hash("a"), kind, hash("b"), first);
+      expect(taken.status).toBe(200);
+      expect((await answered(taken)).holder).toEqual(first);
+
+      const second = await claim(
+        work,
+        hash("a"),
+        kind,
+        hash("b"),
+        claimant("s-2", "Work Mac", "Sam", "Speed up the queue"),
+      );
+      expect(second.status).toBe(409);
+      const refused = await answered(second);
+      expect(refused.holder).toEqual(first);
+      expect(refused.renewed).toBeGreaterThanOrEqual(now() - 5);
+
+      const read = await call(work, "GET", claimPath(hash("a"), kind, hash("b")));
+      expect(read.status).toBe(200);
+      expect((await answered(read)).holder).toEqual(first);
     });
+
+  it("under one key of two kinds is two claims", async () => {
+    const a = await enrolDevice(5009);
+    expect((await claim(a, hash("a"), "test", hash("b"), claimant("s-1"))).status).toBe(200);
+    expect((await claim(a, hash("a"), "item", hash("b"), claimant("s-2"))).status).toBe(200);
+    const test = await answered(await call(a, "GET", claimPath(hash("a"), "test", hash("b"))));
+    const item = await answered(await call(a, "GET", claimPath(hash("a"), "item", hash("b"))));
+    expect(test.holder.id).toBe("s-1");
+    expect(item.holder.id).toBe("s-2");
+  });
+
+  it("made by Fleet's client for a red main is taken under the new key", async () => {
+    const redClaim = {
+      body: JSON.parse(vector.body) as {
+        repo: string;
+        key: string;
+        holder: Record<string, unknown>;
+      },
+    };
+    const [a, b] = [
+      await enrolDevice(5010),
+      await enrolDevice(5010),
+    ];
+    const taken = await call(a, "POST", "/v1/claims", redClaim.body);
+    expect(taken.status).toBe(200);
+    expect((await answered(taken)).holder).toEqual(redClaim.body.holder);
+    const read = await call(b, "GET", claimPath(redClaim.body.repo, "red", redClaim.body.key));
+    expect((await answered(read)).holder).toEqual(redClaim.body.holder);
+    const second = await call(b, "POST", "/v1/claims", {
+      ...redClaim.body,
+      holder: claimant("s-2", "Work Mac"),
+    });
+    expect(second.status).toBe(409);
   });
 
   it("leaves another red of the same repository free", async () => {
     const a = await enrolDevice(5003);
-    expect((await claim(a, hash("a"), hash("b"), holder("j-1"))).status).toBe(200);
-    expect((await claim(a, hash("a"), hash("c"), holder("j-2"))).status).toBe(200);
+    expect((await claimRed(a, hash("a"), hash("b"), claimant("j-1"))).status).toBe(200);
+    expect((await claimRed(a, hash("a"), hash("c"), claimant("j-2"))).status).toBe(200);
   });
 
   it("reads as 404 until taken, and 404 again once given back", async () => {
     const a = await enrolDevice(5004);
-    const path = `/v1/claims/${hash("a")}/${hash("b")}`;
+    const path = claimPath(hash("a"), "file", hash("b"));
     expect((await call(a, "GET", path)).status).toBe(404);
-    await claim(a, hash("a"), hash("b"), holder("j-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("j-1"));
     expect((await call(a, "GET", path)).status).toBe(200);
     expect((await call(a, "DELETE", path)).status).toBe(204);
     expect((await call(a, "GET", path)).status).toBe(404);
@@ -91,20 +160,22 @@ describe("a claim", () => {
       await enrolDevice(5005),
       await enrolDevice(5005),
     ];
-    await claim(a, hash("a"), hash("b"), holder("j-1"));
-    await call(b, "DELETE", `/v1/claims/${hash("a")}/${hash("b")}`);
-    expect((await claim(b, hash("a"), hash("b"), holder("j-2"))).status).toBe(200);
+    await claimRed(a, hash("a"), hash("b"), claimant("j-1"));
+    await call(b, "DELETE", claimPath(hash("a"), "red", hash("b")));
+    expect((await claimRed(b, hash("a"), hash("b"), claimant("j-2"))).status).toBe(200);
   });
 
-  it("is cleared for a whole repository and no other", async () => {
+  it("is cleared for one kind of a repository, and no other kind or repository", async () => {
     const a = await enrolDevice(5006);
-    await claim(a, hash("a"), hash("b"), holder("j-1"));
-    await claim(a, hash("a"), hash("c"), holder("j-2"));
-    await claim(a, hash("d"), hash("b"), holder("j-3"));
-    expect((await call(a, "DELETE", `/v1/claims/${hash("a")}`)).status).toBe(204);
-    expect((await call(a, "GET", `/v1/claims/${hash("a")}/${hash("b")}`)).status).toBe(404);
-    expect((await call(a, "GET", `/v1/claims/${hash("a")}/${hash("c")}`)).status).toBe(404);
-    expect((await call(a, "GET", `/v1/claims/${hash("d")}/${hash("b")}`)).status).toBe(200);
+    await claimRed(a, hash("a"), hash("b"), claimant("j-1"));
+    await claimRed(a, hash("a"), hash("c"), claimant("j-2"));
+    await claim(a, hash("a"), "item", hash("b"), claimant("j-2"));
+    await claimRed(a, hash("d"), hash("b"), claimant("j-3"));
+    expect((await call(a, "DELETE", `/v1/claims/${hash("a")}/red`)).status).toBe(204);
+    expect((await call(a, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
+    expect((await call(a, "GET", claimPath(hash("a"), "red", hash("c")))).status).toBe(404);
+    expect((await call(a, "GET", claimPath(hash("a"), "item", hash("b")))).status).toBe(200);
+    expect((await call(a, "GET", claimPath(hash("d"), "red", hash("b")))).status).toBe(200);
   });
 
   it("is not seen by another account", async () => {
@@ -112,69 +183,218 @@ describe("a claim", () => {
       await enrolDevice(5007),
       await enrolDevice(5008),
     ];
-    await claim(mine, hash("a"), hash("b"), holder("j-1"));
-    expect((await call(theirs, "GET", `/v1/claims/${hash("a")}/${hash("b")}`)).status).toBe(404);
-    expect((await claim(theirs, hash("a"), hash("b"), holder("j-2"))).status).toBe(200);
+    await claimRed(mine, hash("a"), hash("b"), claimant("j-1"));
+    expect((await call(theirs, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
+    expect((await claimRed(theirs, hash("a"), hash("b"), claimant("j-2"))).status).toBe(200);
+  });
+});
+
+describe("a renewal", () => {
+  it("renews every claim a Job holds in one call, and no other Job's", async () => {
+    const a = await enrolDevice(5501);
+    for (const kind of CLAIM_KINDS) await claim(a, hash("a"), kind, hash("b"), claimant("s-1"));
+    await claim(a, hash("c"), "file", hash("d"), claimant("s-2"));
+    await renewedAgo(5501, {
+      "s-1": 20 * 60,
+      "s-2": 20 * 60,
+    });
+
+    const renewal = await renew(a, claimant("s-1"));
+
+    expect(renewal.status).toBe(200);
+    expect(await renewal.json()).toEqual({
+      claims: CLAIM_KINDS.length,
+    });
+    for (const kind of CLAIM_KINDS) {
+      const read = await answered(await call(a, "GET", claimPath(hash("a"), kind, hash("b"))));
+      expect(read.renewed).toBeGreaterThanOrEqual(now() - 5);
+    }
+    const other = await answered(await call(a, "GET", claimPath(hash("c"), "file", hash("d"))));
+    expect(other.renewed).toBeLessThanOrEqual(now() - 20 * 60 + 5);
+  });
+
+  it("is for one Mac's holder: the same id on another Mac renews nothing", async () => {
+    const a = await enrolDevice(5502);
+    await claimRed(a, hash("a"), hash("b"), claimant("s-1", "Home Mac"));
+    expect(await (await renew(a, claimant("s-1", "Work Mac"))).json()).toEqual({
+      claims: 0,
+    });
+  });
+
+  it("answers 0 for a holder whose claims lapsed, so it knows to claim again", async () => {
+    const a = await enrolDevice(5503);
+    await claimRed(a, hash("a"), hash("b"), claimant("s-1"));
+    await renewedAgo(5503, {
+      "s-1": LAPSE_SECONDS + 1,
+    });
+    expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
+      claims: 0,
+    });
+    expect((await call(a, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
+  });
+
+  it("refuses a body that is not a holder, and a method it does not take", async () => {
+    const a = await enrolDevice(5504);
+    const withSince = await call(a, "POST", "/v1/renewals", {
+      holder: claimant("s-1"),
+    });
+    expect(withSince.status).toBe(400);
+    const person = await call(a, "POST", "/v1/renewals", {
+      holder: {
+        kind: "person",
+        id: "s-1",
+        machine: "studio",
+      },
+    });
+    expect(person.status).toBe(400);
+    expect((await call(a, "GET", "/v1/renewals")).status).toBe(405);
+  });
+});
+
+describe("the lapse", () => {
+  it("is set as an alarm when a claim is taken, for 30 minutes after it", async () => {
+    const a = await enrolDevice(5601);
+    await claimRed(a, hash("a"), hash("b"), claimant("s-1"));
+    const alarm = await alarmOf(5601);
+    expect(alarm).not.toBeNull();
+    expect(Math.abs(alarm! / 1000 - (now() + LAPSE_SECONDS))).toBeLessThanOrEqual(5);
+  });
+
+  it("drops by alarm a claim not renewed for 30 minutes, and keeps one renewed inside them", async () => {
+    const a = await enrolDevice(5602);
+    await claim(a, hash("a"), "item", hash("b"), claimant("s-lapsed"));
+    await claim(a, hash("a"), "file", hash("c"), claimant("s-lapsed"));
+    await claim(a, hash("a"), "test", hash("d"), claimant("s-renewing"));
+    await renewedAgo(5602, {
+      "s-lapsed": LAPSE_SECONDS + 1,
+      "s-renewing": LAPSE_SECONDS - 60,
+    });
+
+    expect(await runDurableObjectAlarm(accountObject(5602))).toBe(true);
+
+    expect(await holdersOfClaims(5602)).toEqual([
+      "s-renewing",
+    ]);
+    const next = await alarmOf(5602);
+    expect(Math.abs(next! / 1000 - (now() + 60))).toBeLessThanOrEqual(5);
+  });
+
+  it("reads as gone at once, before the alarm has run, and the key is free to claim", async () => {
+    const [home, work] = [
+      await enrolDevice(5603),
+      await enrolDevice(5603),
+    ];
+    await claim(home, hash("a"), "item", hash("b"), claimant("s-1", "Home Mac"));
+    await renewedAgo(5603, {
+      "s-1": LAPSE_SECONDS,
+    });
+    expect((await call(work, "GET", claimPath(hash("a"), "item", hash("b")))).status).toBe(404);
+    expect((await claim(work, hash("a"), "item", hash("b"), claimant("s-2", "Work Mac"))).status).toBe(200);
+  });
+});
+
+describe("a store built on the October schema", () => {
+  it("drops its red claims at the first verified request, and the red is claimed again under the new key", async () => {
+    const account = 5701;
+    const { key, spki } = await newKeyPair();
+    const device = {
+      id: `${account}.${"e".repeat(32)}`,
+      key,
+      account,
+      token: "",
+    };
+    await runInDurableObject(accountObject(account), (_instance, state) => {
+      const sql = state.storage.sql;
+      sql.exec(`
+        CREATE TABLE devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
+        CREATE TABLE nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
+        CREATE TABLE claims (repo TEXT NOT NULL, red TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, red));
+        CREATE TABLE owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
+      `);
+      sql.exec("INSERT INTO devices (id, public_key, machine) VALUES (?, ?, 'studio')", device.id, spki);
+      sql.exec(
+        "INSERT INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, 'session', 's-old', 'studio', 1)",
+        hash("a"),
+        hash("b"),
+      );
+    });
+
+    expect((await call(device, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
+    expect((await claimRed(device, hash("a"), hash("b"), claimant("s-new"))).status).toBe(200);
+    expect(await holdersOfClaims(account)).toEqual([
+      "s-new",
+    ]);
   });
 });
 
 describe("a row", () => {
-  it("refuses a field a holder does not have", async () => {
+  it("refuses a field a claim's holder does not have, and a title on an owner", async () => {
     const a = await enrolDevice(5101);
-    const withTitle = {
-      ...holder("j-1"),
-      title: "Fix the login bug",
+    const withRepository = {
+      ...claimant("j-1"),
+      repository: "mele-labs/armada",
     };
-    expect((await claim(a, hash("a"), hash("b"), withTitle as never)).status).toBe(400);
-    expect(
-      (
-        await call(a, "POST", "/v1/claims", {
-          repo: hash("a"),
-          red: hash("b"),
-          holder: holder("j-1"),
-          name: "x",
-        })
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await call(a, "PUT", `/v1/owners/${hash("c")}`, {
-          holder: withTitle,
-        })
-      ).status,
-    ).toBe(400);
+    expect((await claimRed(a, hash("a"), hash("b"), withRepository as never)).status).toBe(400);
+    const withPath = await call(a, "POST", "/v1/claims", {
+      repo: hash("a"),
+      kind: "red",
+      key: hash("b"),
+      holder: claimant("j-1"),
+      path: "src/main.rs",
+    });
+    expect(withPath.status).toBe(400);
+    const owner = await call(a, "PUT", `/v1/owners/${hash("c")}`, {
+      holder: claimant("j-1"),
+    });
+    expect(owner.status).toBe(400);
+  });
+
+  it("refuses a claim's holder with no name or title, or one too long or with a control character", async () => {
+    const a = await enrolDevice(5104);
+    const { name: _name, ...nameless } = claimant("j-1");
+    const { title: _title, ...untitled } = claimant("j-1");
+    for (const bad of [
+      nameless,
+      untitled,
+      claimant("j-1", "studio", "n".repeat(65)),
+      claimant("j-1", "studio", "Nick", "t".repeat(201)),
+      claimant("j-1", "studio", "Nick", "two\nlines"),
+    ])
+      expect((await claimRed(a, hash("a"), hash("b"), bad as never)).status).toBe(400);
+    expect((await claimRed(a, hash("a"), hash("b"), claimant("j-1", "studio", "", ""))).status).toBe(200);
+  });
+
+  it("refuses a kind it does not know, in a body and in a path", async () => {
+    const a = await enrolDevice(5105);
+    expect((await claim(a, hash("a"), "branch" as never, hash("b"), claimant("j-1"))).status).toBe(400);
+    const read = await call(a, "GET", `/v1/claims/${hash("a")}/branch/${hash("b")}`);
+    expect(read.status).toBe(400);
+    expect(await read.json()).toEqual({
+      error: "invalid_key",
+    });
   });
 
   it("refuses a key that is a name and not a hash", async () => {
     const a = await enrolDevice(5102);
-    expect((await claim(a, "armada", "main-is-red", holder("j-1"))).status).toBe(400);
-    expect(
-      (
-        await call(a, "PUT", "/v1/owners/armada-pull-1", {
-          holder: holder("j-1"),
-        })
-      ).status,
-    ).toBe(400);
+    expect((await claim(a, "armada", "file", "src/main.rs", claimant("j-1"))).status).toBe(400);
+    const owner = await call(a, "PUT", "/v1/owners/armada-pull-1", {
+      holder: holder("j-1"),
+    });
+    expect(owner.status).toBe(400);
   });
 
   it("refuses a holder that is not a session or a job", async () => {
     const a = await enrolDevice(5103);
-    expect(
-      (
-        await claim(a, hash("a"), hash("b"), {
-          ...holder("j-1"),
-          kind: "person",
-        } as never)
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await claim(a, hash("a"), hash("b"), {
-          ...holder("j-1"),
-          since: "yesterday",
-        } as never)
-      ).status,
-    ).toBe(400);
+    const person = {
+      ...claimant("j-1"),
+      kind: "person",
+    };
+    expect((await claimRed(a, hash("a"), hash("b"), person as never)).status).toBe(400);
+    const yesterday = {
+      ...claimant("j-1"),
+      since: "yesterday",
+    };
+    expect((await claimRed(a, hash("a"), hash("b"), yesterday as never)).status).toBe(400);
   });
 });
 
@@ -642,7 +862,7 @@ describe("a device", () => {
       await enrolDevice(5301),
     ];
     expect((await call(a, "DELETE", `/v1/devices/${b.id}`)).status).toBe(204);
-    const after = await call(b, "GET", `/v1/claims/${hash("a")}/${hash("b")}`);
+    const after = await call(b, "GET", `/v1/claims/${hash("a")}/red/${hash("b")}`);
     expect(after.status).toBe(401);
     expect(await after.json()).toEqual({
       error: "unknown_device",
@@ -651,7 +871,7 @@ describe("a device", () => {
 });
 
 describe("a request", () => {
-  const target = `/v1/claims/${hash("a")}/${hash("b")}`;
+  const target = `/v1/claims/${hash("a")}/red/${hash("b")}`;
 
   it("signed by a key that is not the device's is refused", async () => {
     const a = await enrolDevice(5401);
@@ -669,13 +889,14 @@ describe("a request", () => {
     const a = await enrolDevice(5402);
     const body = {
       repo: hash("a"),
-      red: hash("b"),
-      holder: holder("j-1"),
+      kind: "red",
+      key: hash("b"),
+      holder: claimant("j-1"),
     };
     const answer = await call(a, "POST", "/v1/claims", body, {
       signedBody: JSON.stringify({
         ...body,
-        holder: holder("j-2"),
+        holder: claimant("j-2"),
       }),
     });
     expect(answer.status).toBe(401);
@@ -687,8 +908,8 @@ describe("a request", () => {
 
   it("whose path changed after signing is refused", async () => {
     const a = await enrolDevice(5403);
-    const headers = await signRequest(a.key, a.id, "DELETE", `/v1/claims/${hash("a")}`);
-    const answer = await toStore(`${STORE}/v1/claims/${hash("d")}`, {
+    const headers = await signRequest(a.key, a.id, "DELETE", `/v1/claims/${hash("a")}/red`);
+    const answer = await toStore(`${STORE}/v1/claims/${hash("d")}/red`, {
       method: "DELETE",
       headers,
     });

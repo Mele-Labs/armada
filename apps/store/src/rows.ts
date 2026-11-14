@@ -1,6 +1,7 @@
-// What a row may hold. A claim or an owner is opaque hashes and a holder; a repository's runs are
-// facts about how it runs. The store refuses the rest, so a title, a repository name or code has
-// nowhere to go. `docs/contracts/central-store.md`.
+// What a row may hold. An owner is opaque hashes and a holder; a claim is opaque hashes and a holder
+// with the person's name and the Job's title; a repository's runs are facts about how it runs. The
+// store refuses the rest, so a repository name, a file name or code has nowhere to go.
+// `docs/contracts/central-store.md`.
 
 export type Holder = {
   kind: "session" | "job";
@@ -27,6 +28,8 @@ export const MAX_RUNS = 1000;
 export const MAX_FACTS = 200;
 export const REQUESTS_PER_MINUTE = 120;
 export const RATE_WINDOW_SECONDS = 60;
+/** A holder's claims lapse this long after its last renewal, or after its last claim where it never renewed. */
+export const LAPSE_SECONDS = 30 * 60;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,6 +61,74 @@ export function holderOf(value: unknown): Holder | null {
     machine,
     since,
   };
+}
+
+/** What a claim is on. Its key is a hash, and the same hash under two kinds is two claims. */
+export const CLAIM_KINDS = [
+  "item",
+  "file",
+  "test",
+  "red",
+  "pull_request",
+] as const;
+export type ClaimKind = (typeof CLAIM_KINDS)[number];
+
+export const claimKindOf = (value: unknown): ClaimKind | null =>
+  CLAIM_KINDS.includes(value as ClaimKind) ? (value as ClaimKind) : null;
+
+/** A claim's holder, with the person's name and the Job's title in the clear so another Mac can say who. */
+export type ClaimHolder = Holder & {
+  name: string;
+  title: string;
+};
+
+// Empty is allowed: a Mac that knows no name or title sends none rather than a placeholder.
+const NAME = /^[^\p{Cc}]{0,64}$/u;
+const TITLE = /^[^\p{Cc}]{0,200}$/u;
+
+export function claimHolderOf(value: unknown): ClaimHolder | null {
+  const row = exactly(value, [
+    "kind",
+    "id",
+    "machine",
+    "since",
+    "name",
+    "title",
+  ]);
+  if (!row) return null;
+  const { name, title, ...rest } = row;
+  const holder = holderOf(rest);
+  if (!holder) return null;
+  if (typeof name !== "string" || !NAME.test(name)) return null;
+  if (typeof title !== "string" || !TITLE.test(title)) return null;
+  return {
+    ...holder,
+    name,
+    title,
+  };
+}
+
+/** Who a renewal is for: a holder without the parts that belong to one claim. */
+export type Renewing = Pick<Holder, "kind" | "id" | "machine">;
+
+export function renewingOf(value: unknown): Renewing | null {
+  const row = exactly(value, [
+    "kind",
+    "id",
+    "machine",
+  ]);
+  if (!row) return null;
+  const holder = holderOf({
+    ...row,
+    since: 0,
+  });
+  return holder
+    ? {
+        kind: holder.kind,
+        id: holder.id,
+        machine: holder.machine,
+      }
+    : null;
 }
 
 /** One thing a repository ran: the facts Fleet keeps for the Kit `runs` place `cloud`. */
