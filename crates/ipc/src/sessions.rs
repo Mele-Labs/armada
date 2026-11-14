@@ -1637,6 +1637,45 @@ pub struct SessionRecord {
     /// `docs/practices/protocol/a-draft-names-the-pull-request-it-describes.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_request_drafts: Vec<crate::PullRequestDraft>,
+    /// Each tracker item the Job waits on because another holds it, in the item's order. Empty where it
+    /// waits on none. Since 14 Nov 2026. `docs/practices/protocol/a-jobs-wait-on-a-held-item.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_waits: Vec<ClaimWait>,
+    /// Whether the Job holds claims its project's store has not taken yet, because the store did not
+    /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub claims_unsent: bool,
+}
+
+/// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is
+/// its assignee in beads. The Job's wait line. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimWait {
+    /// The item as its tracker names it: `armada-zasx.3`, `12`.
+    pub item: String,
+    /// The person holding it: the holding Job's forge login, or the assignee in beads. Empty where the
+    /// store named none.
+    pub holder: String,
+    /// The holding Job's Mac. Absent for a person in beads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine: Option<String>,
+    /// The holding Job's title. Absent for a person in beads, and for a Job with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// When the wait began.
+    pub since: Instant,
+    /// What ends the wait.
+    pub ends: ClaimWaitEnds,
+}
+
+/// What ends a wait on a held item. Either way the Job is woken to carry on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimWaitEnds {
+    /// The other Job's claim ends: it closes the item, drops it, or its Mac stops renewing for 30 minutes.
+    ClaimEnds,
+    /// The person is no longer the item's assignee in beads.
+    Unassigned,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

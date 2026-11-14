@@ -204,5 +204,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
             .filter(|one| one.kind == PR_DRAFT && one.state == AttachmentState::Standing)
             .filter_map(pull_request_draft)
             .collect(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
