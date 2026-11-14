@@ -83,6 +83,36 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// What an answer follows: one of his own answers, or a setting of his. Since 13 Nov 2026.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorFollowsKind {
+    /// His answer to the same question in the same project.
+    Answer,
+    /// A preference or a repository's value he saved.
+    Setting,
+}
+
+/// What the Operator's pick follows, as Fleet checked it. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorFollows {
+    pub kind: OperatorFollowsKind,
+    /// The Job where he gave the answer. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// That Job's title. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// What he was asked. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
+    /// What he said: his choice and his words, or `key = value` for a setting.
+    pub said: String,
+    /// When he said it. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Instant>,
+}
+
 /// One item of Your turn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorTurnItem {
@@ -129,6 +159,10 @@ pub struct OperatorTurnItem {
     /// the first of them, in the order the Job raised them, and Bridge draws them as one entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// What the Operator's pick follows, on a go-ahead question that no rule of his covers yet: his own earlier answer in
+    /// the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follows: Option<OperatorFollows>,
 }
 
 /// What the Operator is reading now.
@@ -236,6 +270,29 @@ pub struct OperatorHold {
     pub at: Instant,
 }
 
+/// A question the Operator answered by following something he had already said. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRuled {
+    /// `turn:<n>`, the row of Your turn that kept it.
+    pub id: String,
+    pub session_id: SessionId,
+    /// The Job's title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// The question it answered.
+    pub question: String,
+    /// The option it picked.
+    pub pick: String,
+    pub follows: OperatorFollows,
+    pub at: Instant,
+    /// When he took it back. Absent while it stands. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub undone_at: Option<Instant>,
+    /// Whether `operator_undo_ruling` takes it back now: it is not taken back and its Job is live. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub undo: bool,
+}
+
 /// Since he last looked, and what stands.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorDigest {
@@ -253,6 +310,9 @@ pub struct OperatorDigest {
     /// The holds that stand, beside Learned.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub holds: Vec<OperatorHold>,
+    /// Questions it answered by following what he had said, over the last seven days, newest first. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ruled: Vec<OperatorRuled>,
 }
 
 /// One repository's main, as the head draws it: a pill, red when main is red. Since 10 Nov 2026.
@@ -346,6 +406,13 @@ pub struct OperatorAnswered {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handed_to: Option<SessionId>,
     pub page: OperatorPage,
+}
+
+/// `operator_undo_ruling`: take back a ruling the Operator made by following something he said. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorUndoRuling {
+    /// The ruling's `id`, `turn:<n>`, as `OperatorRuled` names it.
+    pub id: String,
 }
 
 /// `operator_turn_order`: the items as he dragged them.

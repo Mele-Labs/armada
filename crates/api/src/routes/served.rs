@@ -692,6 +692,11 @@ const ROUTES: &[Route] = &[
         path: "/operator/page/answer",
     },
     Route {
+        operation: "operator_undo_ruling",
+        method: "POST",
+        path: "/operator/page/undo",
+    },
+    Route {
         operation: "operator_turn_order",
         method: "POST",
         path: "/operator/page/order",

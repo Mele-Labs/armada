@@ -48,6 +48,30 @@ links what it serves. Fleet keeps the first 5 whose `href` starts `http://` or
 progress, its plan step and the open pull requests you hold, so leave those
 out.
 
+## Actions
+
+An action is a button on any part of the page, such as each row of a table of
+things to review. His press calls back to Fleet, which runs it in your Job.
+
+```html
+<tr><td>Lease clock drifts</td><td>
+  <armada-action id="investigate-7" act="start" label="Investigate" item="row-7" brief="Find why the lease clock drifts."></armada-action>
+  <armada-action id="discuss-7" act="message" label="Discuss" item="row-7"></armada-action>
+</td></tr>
+```
+
+| Act | What his press does | Also takes |
+|---|---|---|
+| `message` | You are sent `He pressed "<label>" on <item> in "<title>".`, the row's text and his words | |
+| `start` | A Job starts at once on `brief`, the row's text and his words, and you are told its id | `brief`, and `repository` where it is not yours |
+| `answer` | Your ask is answered with that option, as his own pick | `ask`, the item's id in `waiting_for`, and `option`, one of its labels |
+
+Give every action an `id` unique on the page, a short `label` and the `item` it
+sits on. Fleet runs these three acts only. Anything that lands, merges, deletes
+or stops is a `message` button whose label says what you will do, such as
+`Merge it`, and you do it when the message arrives. Fleet names each action
+that will not run when it keeps the page.
+
 ## The skeleton
 
 ```html

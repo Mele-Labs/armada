@@ -8,7 +8,7 @@
 // (turned away once with its outline, `reading.ts`), an `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
-// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, and each line a reply named as owed that the session left out of
+// line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, the lines a stop is sent back with, and each line a reply named as owed that the session left out of
 // `waiting_for` after it was sent back.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
@@ -1167,7 +1167,10 @@ async function sendBack($: Dollar, answer: string, stopActive: boolean): Promise
     if (found.length === 0 || turn.asked || isCovered(found, one.waiting)) return undefined
     turn.sentBack = found
     turn.setWaiting = false
-    return sentBackReason(found, id)
+    // Told to Fleet unawaited, so it keeps the words as a notice a dispute can name.
+    const reason = sentBackReason(found, id)
+    say($, id, { kind: 'sent_back', text: reason })
+    return reason
   }
   turn.reported = true
   const needs = [...new Set([...(turn.sentBack ?? []), ...found])]
