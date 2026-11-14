@@ -1189,6 +1189,7 @@ button.pk-send__title {
 .pk-pair {
   align-content: start;
   justify-items: stretch;
+  padding-bottom: calc(var(--space-4) + var(--pk-inset-bottom));
 }
 .pk-pair .pk-code {
   justify-self: center;
@@ -1215,8 +1216,22 @@ button.pk-send__title {
 .pk-macs .pk-jobs {
   padding: 0;
 }
-.pk-macs .pk-job__card {
+/* A Mac's row: its glyph, its name and its button on one line, a refusal's sentence under the name. */
+.pk-macs__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding-left: var(--space-3);
+}
+.pk-macs__says {
+  grid-column: 2 / -1;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+.pk-macs > .armada-button,
+.pk-with-link > .armada-button {
+  min-height: var(--space-12);
 }
 .pk-macs__wait {
   display: grid;
@@ -1232,9 +1247,10 @@ button.pk-send__title {
   color: var(--status-completed-failed);
 }
 /* GitHub's code: the one number on the screen, drawn as the rare hero figure on a card with the waiting lamp. */
-.pk-card {
+.pk-signin {
   --pk-lamp: var(--status-awaiting-review);
   display: grid;
+  justify-items: start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: var(--border-width) solid var(--border-subtle);
@@ -1242,23 +1258,38 @@ button.pk-send__title {
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--pk-lamp) 6%, var(--bg-sunken));
 }
-.pk-card__code {
+.pk-signin__code {
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xl);
   line-height: var(--leading-2xl);
   user-select: all;
 }
-.pk-card__acts {
+.pk-signin__acts {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
-.pk-card .armada-button {
+.pk-signin .armada-button {
   min-height: var(--space-12);
   text-decoration: none;
 }
-.pk-card .pk-waiting {
+.pk-signin__wait {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--status-awaiting-review);
   font-size: var(--text-xs);
+}
+.pk-field {
+  display: grid;
+  gap: var(--space-1);
+}
+.pk-field__label {
+  padding: 0 var(--space-2);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
 }

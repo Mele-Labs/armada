@@ -235,7 +235,7 @@ export async function vouch(sign: StoreSignIn, peer: Peer, name: string): Promis
   if (response.status === 403)
     throw new Refused(
       403,
-      "This Mac did not find this phone in your store. Sign in to the same GitHub account on the Mac, then press Pair.",
+      "This Mac did not find this phone in your store. Sign in to the same GitHub account on the Mac, then try again.",
     );
   if (!response.ok)
     throw new Refused(

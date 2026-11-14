@@ -153,7 +153,7 @@ function Row({
   return (
     <li className="pk-job">
       <div
-        className="pk-job__card"
+        className="pk-job__card pk-macs__row"
         data-lamp={
           state === "paired"
             ? "done"
@@ -164,36 +164,35 @@ function Row({
                 : undefined
         }
       >
-        <span className="pk-job__fold" />
-        <div className="pk-job__open">
-          <span className="pk-job__line">
-            <span className="pk-job__title">{peer.machine}</span>
-            <Mark
-              state={state}
-              {...(act?.at === "refused"
-                ? {
-                    refused: act.status,
-                  }
-                : {})}
-            />
-          </span>
-          {!paired && act?.at === "refused" ? (
-            <span className="pk-job__second">
-              <span className="pk-job__says">{act.says}</span>
-            </span>
-          ) : null}
-        </div>
+        <Mark
+          state={state}
+          {...(act?.at === "refused"
+            ? {
+                refused: act.status,
+              }
+            : {})}
+        />
+        <span className="pk-job__title">{peer.machine}</span>
         <Button
           variant="secondary"
           size="sm"
           ground="sunken"
-          aria-label={paired ? `${peer.machine} paired` : `Pair ${peer.machine}`}
+          aria-label={
+            paired
+              ? `${peer.machine} paired`
+              : state === "refused"
+                ? `Try again with ${peer.machine}`
+                : `Pair ${peer.machine}`
+          }
           disabled={paired || unnamed}
           pending={state === "pairing"}
           onClick={onPair}
         >
-          {paired ? "Paired" : "Pair"}
+          {paired ? "Paired" : state === "refused" ? "Try again" : "Pair"}
         </Button>
+        {!paired && act?.at === "refused" ? (
+          <span className="pk-job__says pk-macs__says">{act.says}</span>
+        ) : null}
       </div>
     </li>
   );
@@ -428,9 +427,9 @@ export function YourMacs({ name }: { name: string }) {
     );
   else if (stage.at === "code")
     body = (
-      <div className="pk-card" data-lamp="needs">
-        <p className="pk-card__code">{stage.code.user_code}</p>
-        <div className="pk-card__acts">
+      <div className="pk-signin">
+        <p className="pk-signin__code">{stage.code.user_code}</p>
+        <div className="pk-signin__acts">
           <Button variant="secondary" size="sm" ground="sunken" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}
           </Button>
@@ -460,8 +459,9 @@ export function YourMacs({ name }: { name: string }) {
             Cancel
           </Button>
         </div>
-        <p className="pk-waiting" role="status">
-          <LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for GitHub
+        <p className="pk-signin__wait" role="status">
+          <LoaderCircle className="pk-spin" size={16} aria-hidden="true" />
+          Waiting for GitHub
         </p>
       </div>
     );

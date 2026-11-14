@@ -63,61 +63,58 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
           : {})}
       />
       <div className="pk-body pk-pair">
-        <YourMacs name={name} />
-        {phase === "link" ? (
-          <>
+        {phase === "link" && (
+          <label className="pk-field">
+            <span className="pk-field__label">This phone's name</span>
             <input
               className="pk-line"
-              aria-label="Name"
               value={name}
               autoCapitalize="words"
               onChange={(event) => setName(event.target.value)}
             />
-            <section className="pk-group pk-with-link" aria-label="With a pairing link">
-              <h2 className="pk-group__head">With a pairing link</h2>
-              <div className="pk-code" data-phase={phase} aria-hidden="true">
-                {Array.from(
-                  {
-                    length: 169,
-                  },
-                  (_, i) => (
-                    <i key={i} data-on={(i * 7 + (i >> 3) * 5) % 3 === 0 || i % 13 === 0} />
-                  ),
-                )}
-              </div>
-              {fromUrl === "" && (
-                <input
-                  className="pk-line"
-                  aria-label="Pairing link"
-                  placeholder="Pairing link"
-                  value={link}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  onChange={(event) => setLink(event.target.value)}
-                />
+          </label>
+        )}
+        <YourMacs name={name} />
+        {phase === "link" ? (
+          <section className="pk-group pk-with-link" aria-label="With a pairing link">
+            <h2 className="pk-group__head">With a pairing link</h2>
+            <div className="pk-code" data-phase={phase} aria-hidden="true">
+              {Array.from(
+                {
+                  length: 169,
+                },
+                (_, i) => (
+                  <i key={i} data-on={(i * 7 + (i >> 3) * 5) % 3 === 0 || i % 13 === 0} />
+                ),
               )}
-              <Trouble says={trouble || (fromUrl === "" ? linkTrouble(link) : "")} />
-            </section>
-          </>
+            </div>
+            {fromUrl === "" && (
+              <input
+                className="pk-line"
+                aria-label="Pairing link"
+                placeholder="Pairing link"
+                value={link}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setLink(event.target.value)}
+              />
+            )}
+            <Trouble says={trouble || (fromUrl === "" ? linkTrouble(link) : "")} />
+            <Button
+              variant={target === undefined ? "secondary" : "primary"}
+              disabled={target === undefined || name.trim() === ""}
+              onClick={() => void pair()}
+            >
+              Pair
+            </Button>
+          </section>
         ) : (
           <p className="pk-fact pk-waiting">
             <LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac
           </p>
         )}
       </div>
-      {phase === "link" && (
-        <footer className="pk-bar">
-          <Button
-            variant={target === undefined ? "secondary" : "primary"}
-            className="pk-big"
-            disabled={target === undefined || name.trim() === ""}
-            onClick={() => void pair()}
-          >
-            Pair
-          </Button>
-        </footer>
-      )}
     </section>
   );
 }

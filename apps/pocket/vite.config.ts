@@ -63,7 +63,7 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
     }
     const ours =
       target.startsWith("/api/") ||
-      target === "/pair" ||
+      (target === "/pair" && request.method !== "GET") ||
       target.startsWith("/pair/") ||
       target.startsWith("/fixture-media/") ||
       target.startsWith(`${STORE_AT}/`);
