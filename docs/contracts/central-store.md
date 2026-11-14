@@ -30,6 +30,7 @@ Why: Bridge holds one connection, to Fleet.
 | Device | device id | public key, machine name |
 | Claim | repository hash, kind and key hash | holder |
 | Holder | holder kind, id and machine | the person's name, the Job's title, when it last renewed |
+| Contender | repository hash, kind and key hash of a held claim, and the asker's holder kind, id and machine | the asker's name, title and `since`, and when it last asked |
 | Owner | key hash | holder |
 | Runs | repository hash | the repository's facts, as JSON |
 | Nonce | device id and nonce | when seen |
@@ -87,7 +88,7 @@ All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `P
 | `GET /claims/{repo}/{kind}/{key}` | none | `200 {holder, renewed}`, `404 no_claim` |
 | `DELETE /claims/{repo}/{kind}/{key}` | none | `204` |
 | `DELETE /claims/{repo}/{kind}` | none | `204` |
-| `POST /renewals` | `holder` as `kind`, `id`, `machine` | `200 {claims}` |
+| `POST /renewals` | `holder` as `kind`, `id`, `machine` | `200 {claims, contested}` |
 | `PUT /owners/{key}` | `holder` | `204` |
 | `GET /owners?keys=a,b,c` | none | `200 {key: holder}` |
 | `DELETE /owners/{key}` | none | `204` |
@@ -111,6 +112,14 @@ A Mac asleep that long takes its claims again when it wakes.
 **Rule.** `POST /renewals` renews every claim of one holder (kind, id and machine) in one call, and answers how many it still holds.
 `0` is a holder whose claims lapsed, and it claims them again.
 Why: a renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written ([Cost](#cost)).
+
+**Rule.** A `POST /claims` answered `409` keeps its asker as a contender of the claim, unless the asker is the holder itself (same holder kind, id and machine).
+A renewal answers `contested`, a list of `{repo, kind, key, holder}` for every contender on a claim the renewing holder still holds, with `holder` spelled as a `409` spells it, and deletes those rows as it answers them.
+A contender that asks again updates its name, title and time, and no second row is kept.
+An account holding 10,000 contenders keeps no new one, and still answers the `409`; a contender is a warning, so a refusal there would hide who holds the claim.
+A contender's rows go with its claim when the claim is given back, cleared by kind, taken over or lapsed.
+Why: when two Jobs claim the same file both are told the file and the other holder, and the first holder reaches the store only by renewing.
+Decided by the owner, 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
 
 **Rule.** Green on main clears every `red` claim under the repository, `DELETE /claims/{repo}/red`.
 Its other claims stand.
@@ -220,6 +229,7 @@ The store is the default for every Armada user, so no one account may run up the
 | Devices per team store | 256 | `413 devices_full` |
 | Claims per account | 10,000 | `413 claims_full` |
 | Owners per account | 10,000 | `413 owners_full` |
+| Contenders per account | 10,000 | None: the `409` is still answered and no row is kept |
 | Repositories with runs per account | 1,000 | `413 runs_full` |
 | Facts per repository | 200 | `400 invalid_body` |
 | Body of `PUT /runs/{repo}` | 131072 bytes | `413 too_large` |
@@ -246,7 +256,7 @@ Why: `409` already means a claim is held, so a full table needs a status Fleet d
 A request for an account or a device that never enrolled is refused `401 unknown_device` and writes no table, no row and no nonce.
 Why: the Worker finds the object from the header alone, so anyone can name an account number, and a name must not cost the owner storage.
 
-**Rule.** A table added after accounts enrolled is made `IF NOT EXISTS` by the first verified request that reaches it, as well as at enrolment. `runs` is the first, then `holders`.
+**Rule.** A table added after accounts enrolled is made `IF NOT EXISTS` by the first verified request that reaches it, as well as at enrolment. `runs` is the first, then `holders`, then `contenders`.
 Why: an account that enrolled before the table existed never enrols again, and a verified device is an enrolled one.
 
 **Rule.** A `claims` table keyed `(repo, red)` is dropped by the first verified request, with its rows, and made again keyed `(repo, kind, key)`.
@@ -262,7 +272,7 @@ Each daily allowance is per Cloudflare account and resets at 00:00 UTC.
 |---|---|---|
 | Worker requests | 100,000 | One per call |
 | Durable Object requests | 100,000 | One per call that reaches the account's object, and one per alarm |
-| SQLite rows written | 100,000 | About 4 per call for its nonce, kept and deleted with its index, 1 more for a renewal and about 3 more for a claim won |
+| SQLite rows written | 100,000 | About 4 per call for its nonce, kept and deleted with its index, 1 more for a renewal, about 3 more for a claim won and about 1 more for a `409` |
 | SQLite rows read | 5,000,000 | A few per call |
 | SQLite storage | 5 GB in all | Well under 1 MB at the limits above |
 | CPU per request | 10 ms | Signature check and one or two statements |
