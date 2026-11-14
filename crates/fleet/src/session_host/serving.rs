@@ -369,6 +369,14 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn answer_items(self: Arc<Self>, answer: ipc::AnswerItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_answered(answer, refused).await
+    }
+
+    async fn dismiss_items(self: Arc<Self>, dismiss: ipc::DismissItems, refused: Vec<Option<ipc::ItemSettled>>) -> ipc::ItemsSettled {
+        self.approvals_dismissed(dismiss, refused).await
+    }
+
     async fn convert_draft_to_document(
         self: Arc<Self>,
         convert: ipc::ConvertDraftToDocument,
