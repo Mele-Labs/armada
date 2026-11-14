@@ -44,7 +44,7 @@ fn question(id: &str, options: usize) -> WaitingInput {
         id: id.into(),
         text: "Which way?".into(),
         act: None,
-        options: (0..options).map(|n| WaitingOption { label: format!("Way {n}"), description: None, picture: None }).collect(),
+        options: (0..options).map(|n| WaitingOption { label: format!("Way {n}"), description: None, picture: None, preview: None }).collect(),
         approves: false,
         steps: Vec::new(),
     }

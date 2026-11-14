@@ -59,8 +59,8 @@ fn asking(id: &SessionId, picture: OptionPicture) -> SetWaitingFor {
             text: "Which header?".into(),
             act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new() }),
             options: vec![
-                WaitingOption { label: "Wide".into(), description: None, picture: Some(picture) },
-                WaitingOption { label: "Words only".into(), description: None, picture: None },
+                WaitingOption { label: "Wide".into(), description: None, picture: Some(picture), preview: None },
+                WaitingOption { label: "Words only".into(), description: None, picture: None, preview: None },
             ],
             steps: Vec::new(),
         }],

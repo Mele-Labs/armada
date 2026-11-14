@@ -105,7 +105,7 @@ mod tests {
     use super::*;
 
     fn option(label: &str, description: Option<&str>) -> WaitingOption {
-        WaitingOption { label: label.into(), description: description.map(str::to_string), picture: None }
+        WaitingOption { label: label.into(), description: description.map(str::to_string), picture: None, preview: None }
     }
 
     #[test]

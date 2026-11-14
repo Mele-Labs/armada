@@ -591,6 +591,8 @@ export type WaitingOption = {
   description?: string;
   /** The option as a picture, where the asker drew one. Absent on an option that is words only. */
   picture?: OptionPicture;
+  /** What the agent attached to show while this option is in focus: monospace text. Absent where it sent none. */
+  preview?: string;
 };
 
 /** An option drawn as a still, which a person can press whole or pick named parts of. */

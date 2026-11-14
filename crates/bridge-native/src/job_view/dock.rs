@@ -132,6 +132,15 @@ pub(super) fn row_options(row: &NeedsYouRow) -> &[ipc::WaitingOption] {
     }
 }
 
+/// A row's options as the deck draws a question's: each with its words and the preview that stands beside the panel
+/// while it is in focus, which the row carries as Fleet copied them from the asked call.
+pub(super) fn choices_of(options: &[ipc::WaitingOption]) -> Vec<ipc::AskedChoice> {
+    options
+        .iter()
+        .map(|option| ipc::AskedChoice { label: option.label.clone(), description: option.description.clone().unwrap_or_default(), preview: option.preview.clone().unwrap_or_default() })
+        .collect()
+}
+
 pub(super) fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or("")
 }
@@ -1616,10 +1625,7 @@ impl JobView {
                     question: row.text.clone(),
                     header: String::new(),
                     multi_select: false,
-                    options: row_options(row)
-                        .iter()
-                        .map(|option| ipc::AskedChoice { label: option.label.clone(), description: option.description.clone().unwrap_or_default(), preview: String::new() })
-                        .collect(),
+                    options: choices_of(row_options(row)),
                 }];
                 self.deck_with(id, &row.id, &questions, row_options(row), false, true, super::deck::Source::Waiting(row.id.clone()), look, cx)
             }
@@ -1681,4 +1687,22 @@ struct ItemKeys {
     stands: Option<AnyElement>,
     previous: Option<AnyElement>,
     next: Option<AnyElement>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::choices_of;
+    use ipc::WaitingOption;
+
+    fn option(label: &str, description: Option<&str>, preview: Option<&str>) -> WaitingOption {
+        WaitingOption { label: label.into(), description: description.map(str::to_string), picture: None, preview: preview.map(str::to_string) }
+    }
+
+    #[test]
+    fn a_waiting_row_s_option_reaches_the_deck_with_its_words_and_its_preview() {
+        let options = [option("Amber edge", Some("Matches the other marks."), Some(".chip {\n  color: amber;\n}")), option("Grey", None, None)];
+        let choices = choices_of(&options);
+        assert_eq!((choices[0].description.as_str(), choices[0].preview.as_str()), ("Matches the other marks.", ".chip {\n  color: amber;\n}"));
+        assert_eq!((choices[1].description.as_str(), choices[1].preview.as_str()), ("", ""), "an option with neither draws neither");
+    }
 }

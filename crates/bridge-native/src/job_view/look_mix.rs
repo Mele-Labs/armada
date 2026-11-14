@@ -162,8 +162,8 @@ mod tests {
 
     fn options() -> Vec<WaitingOption> {
         vec![
-            WaitingOption { label: "Stacked (Recommended)".into(), description: None, picture: Some(page()) },
-            WaitingOption { label: "Sidebar".into(), description: None, picture: Some(OptionPicture { parts: vec![part("sidebar", "Sidebar", 0, 0, 280, 800)], ..page() }) },
+            WaitingOption { label: "Stacked (Recommended)".into(), description: None, picture: Some(page()), preview: None },
+            WaitingOption { label: "Sidebar".into(), description: None, picture: Some(OptionPicture { parts: vec![part("sidebar", "Sidebar", 0, 0, 280, 800)], ..page() }), preview: None },
         ]
     }
 

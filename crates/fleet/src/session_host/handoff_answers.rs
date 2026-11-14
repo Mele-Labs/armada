@@ -43,7 +43,7 @@ const HANDOFF_BRIEF_EMPTY: &str = "fleet.handoff_brief_empty";
 /// The card's options, in the order a `choice` indexes them: carry on, stay, don't ask again, then
 /// a "Remind at" for each figure.
 pub(crate) fn card_options(remind_at: &[u64]) -> Vec<WaitingOption> {
-    let option = |label: String| WaitingOption { label, description: None, picture: None };
+    let option = |label: String| WaitingOption { label, description: None, picture: None, preview: None };
     [ipc::HANDOFF_YES, ipc::HANDOFF_STAY, ipc::HANDOFF_QUIET]
         .into_iter()
         .map(String::from)
