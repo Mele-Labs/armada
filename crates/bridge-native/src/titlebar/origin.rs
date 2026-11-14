@@ -211,7 +211,7 @@ mod tests {
     use super::*;
 
     fn branch(name: &str, at: &str) -> ipc::OriginBranch {
-        ipc::OriginBranch { branch: name.into(), committed_at: ipc::Instant::carried(at) }
+        ipc::OriginBranch { branch: name.into(), committed_at: ipc::Instant::carried(at), title: None }
     }
 
     #[test]

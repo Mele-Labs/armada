@@ -27,6 +27,30 @@ impl OtherMacs for FakeDaemon {
         Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
     }
 
+    async fn job_for_phone(&self, _job: &str) -> bool {
+        true
+    }
+
+    async fn run_for_phone(&self, _run_id: &str) -> bool {
+        true
+    }
+
+    async fn event_for_phone(&self, event: Event) -> Option<Event> {
+        Some(event)
+    }
+
+    async fn start_from_phone(&self, _start: &ipc::StartSession) -> Result<(), Refusal> {
+        Ok(())
+    }
+
+    async fn projects_for_phone(&self, projects: Projects) -> Projects {
+        projects
+    }
+
+    async fn manifests_for_phone(&self, manifests: Vec<ipc::ManifestSummary>) -> Vec<ipc::ManifestSummary> {
+        manifests
+    }
+
     async fn project_act_from_mac(&self, _sent: ProjectActFromMac) -> Result<Projects, Refusal> {
         Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
     }

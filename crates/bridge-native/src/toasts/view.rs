@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
+    div, prelude::*, AnyElement, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
     Stateful, Subscription, WeakEntity, Window,
 };
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
@@ -36,6 +36,8 @@ use crate::titlebar::parts::{glyph, icon_button, sans, tip};
 
 /// A toast's width: its three presses on one line, keys and all.
 const WIDTH: f32 = 400.;
+/// How many cards peek out under the newest one in the pile.
+const PEEK_DEPTH: usize = 2;
 
 /// The most toasts the history file keeps.
 const KEPT: usize = 200;
@@ -249,6 +251,8 @@ pub struct Toasts {
     file: Option<PathBuf>,
     /// How far the pile stands above its corner so it clears a message box drawn under it.
     lift: gpui::Pixels,
+    /// The pointer is over the pile, so it fans out into a column.
+    fanned: bool,
     _subs: Vec<Subscription>,
 }
 
@@ -277,7 +281,7 @@ impl Toasts {
                 }
             }));
         }
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), _subs: subs }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, _subs: subs }
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -847,6 +851,12 @@ impl Render for Toasts {
             self.lift = lift;
             window.request_animation_frame();
         }
+        // On the Operator's page no toast of the Operator's is drawn: the page holds each item. Fleet's
+        // states and the presses Fleet did not take still show.
+        let on_page = self.screen.upgrade().is_some_and(|screen| screen.read(cx).front == Front::Operator);
+        if on_page {
+            self.shelf.hush();
+        }
         let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
@@ -854,9 +864,17 @@ impl Render for Toasts {
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the Operator did with his dispatches, each until he presses it or closes it.
-        let ruled: Vec<Raised> = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+        let ruled: Vec<Raised> = if on_page { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
-        let stack = div()
+        let mut cards: Vec<AnyElement> = Vec::new();
+        cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));
+        cards.extend(told.iter().map(|one| self.told_toast(one, look, cx).into_any_element()));
+        cards.extend(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx).into_any_element()));
+        cards.extend(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx).into_any_element()));
+        // A pile: only the newest card stands in full, the ones under it peek out above it, and a pointer over the pile fans them out.
+        let fanned = self.fanned || cards.len() < 2;
+        let mut stack = div()
+            .id("toast-pile")
             .absolute()
             .top(look.length(token::H_TITLE_BAR) + look.length(token::SPACE_2))
             .right(look.length(token::SPACE_6))
@@ -866,10 +884,24 @@ impl Render for Toasts {
             .justify_end()
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
-            .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
-            .children(told.iter().map(|one| self.told_toast(one, look, cx)))
-            .children(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx)))
-            .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if this.fanned != *hovered {
+                    this.fanned = *hovered;
+                    cx.notify();
+                }
+            }));
+        if fanned {
+            stack = stack.children(cards);
+        } else {
+            let front = cards.pop();
+            // The nearest card under the front peeks least, and the farthest is painted first so the nearest sits on top.
+            let behind: Vec<AnyElement> = cards.into_iter().rev().take(PEEK_DEPTH).collect();
+            for (depth, card) in behind.into_iter().enumerate().rev() {
+                let offset = look.length(token::SPACE_2) * (depth + 1) as f32;
+                stack = stack.child(div().absolute().bottom(offset).right(offset / 2.).w(gpui::px(WIDTH)).child(card));
+            }
+            stack = stack.children(front);
+        }
         div()
             .absolute()
             .top_0()

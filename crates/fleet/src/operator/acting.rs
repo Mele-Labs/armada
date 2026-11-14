@@ -80,7 +80,7 @@ where
 
     /// A raise is its Log row, but for a dispatch's, which is asked of him.
     fn sourced(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
-        if ruling.way == Way::Raise && !arrival.is_dispatch() {
+        if ruling.way == Way::Raise && !arrival.is_dispatch() && !arrival.is_job_ask() {
             return carried();
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());

@@ -67,7 +67,7 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
-/// `native-settings-pages`: each Settings page still drawn as rows, one step a page, as it is today.
+/// `native-settings-pages`: each Settings page drawn as split rows, one step a page, then a project's own values beside every project's.
 pub const PAGES: &str = "native-settings-pages";
 
 pub static PAGES_STEPS: &[Step] = &[
@@ -82,13 +82,15 @@ pub static PAGES_STEPS: &[Step] = &[
     press_on("Plan: stepping down on the weekly plan", "button", "Plan", "button", "Plan"),
     press_on("Machine: this Mac's name", "button", "Machine", "button", "Machine"),
     press_on("Account: the sign-in app", "button", "Account", "button", "Account"),
-    press_on("Store: the central store's address", "button", "Store", "button", "Store"),
     press_on("Features: switches and folders", "button", "Features", "button", "Features"),
     press_on("Spacing: density", "button", "Spacing", "button", "Spacing"),
     press_on("Time: how stamps are written", "button", "Time", "button", "Time"),
     press_on("Editor: where code opens", "button", "Editor", "button", "Editor"),
     press_on("Terminal: which terminal opens", "button", "Terminal", "button", "Terminal"),
     press_on("Links: where pull requests open", "button", "Links", "button", "Links"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    press_on("Pull requests under a project: its own value beside every project's", "button", "Pull requests", "radiogroup", "Merging for Storefront"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
@@ -134,6 +136,22 @@ pub static MACS_BUILD_STEPS: &[Step] = &[
     step("Tab goes on to Mac Pro, which runs a newer build", Verb::Key("tab"), "button", "Update this Mac onto Mac Pro"),
     step("Shift+F10 opens its menu: Forget stays one key away", Verb::Key("shift-f10"), "menuitem", "Forget Mac Pro"),
     step("Esc shuts the menu, and the keys go back to the press", Verb::Key("escape"), "button", "Update this Mac onto Mac Pro"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-nearby-macs`: his other Macs found on this network and on his account, each with where it is reached and a
+/// Pair. Pair on the one nearby asks it with no link, and its row waits on Confirm; the one only on his account refuses.
+pub const MACS_NEARBY: &str = "native-nearby-macs";
+
+pub static MACS_NEARBY_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: the paired Macs come first", "button", "Macs", "list", "Devices"),
+    step("Work MacBook is paired and on this network, so it carries a green Nearby", Verb::Wheel("region", "Devices", 600), "label", "Work MacBook is nearby"),
+    step("Found Macs follow: one on this network, one on his account, one asleep, each with one chip and a Pair", Verb::Look, "list", "Found Macs"),
+    step("Pair is off while a Mac is asleep, and its tooltip says why", Verb::Hover, "button", "Pair Old iMac"),
+    press_on("Pair on the Mac nearby asks it, with no link: its row waits on Confirm and shows the four digits", "button", "Pair Office iMac", "img", "Confirm on Office iMac if it shows 4821."),
+    press_on("The Mac only on his account does not answer, and the Gateway's sentence stands under its row", "button", "Pair MacBook Pro", "alert", "MacBook Pro did not answer. Check Armada is open there, then press Pair again."),
+    step("Tab goes on to the next Pair", Verb::Key("tab"), "button", "Pair Old iMac"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 

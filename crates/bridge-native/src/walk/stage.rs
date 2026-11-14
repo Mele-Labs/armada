@@ -106,7 +106,11 @@ impl Stage {
             }
             Screen::App => {
                 super::strip_marks::leave(cx);
-                crate::titlebar::scenes::begin(cx);
+                if walk.scenario == "project-filter" {
+                    crate::titlebar::scenes::begin_on_all(cx);
+                } else {
+                    crate::titlebar::scenes::begin(cx);
+                }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let keys = list.read(cx).focus_handle().clone();
@@ -149,6 +153,9 @@ impl Stage {
                 }
                 if walk.name == crate::settings::walk::MACS_CLAIM {
                     over.update(cx, |over, cx| over.claim_later(cx));
+                }
+                if walk.name == crate::settings::walk::MACS_NEARBY {
+                    over.update(cx, |over, cx| over.nearby_macs(cx));
                 }
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
@@ -591,6 +598,14 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 "one-mac" => {
                     crate::pairing::scene(name, cx).map_err(Missed)?;
                     JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
+                }
+                // How a move ends: the Mac the Job left ends it, then the other Mac's row of the same id stands in its place.
+                "move-ended" => JobsList::mock_move_settled(false, cx).map_err(Missed),
+                "move-landed" => JobsList::mock_move_settled(true, cx).map_err(Missed),
+                // Another window asked first: Fleet refuses the next move.
+                "move-refused" => {
+                    crate::move_to_mac::refuse_next(true);
+                    Ok(())
                 }
                 // The link to Air for its Jobs' shells: carrying, refusing keys and opens, or its streams dropping.
                 "link-up" | "link-down" | "link-drops" => crate::terminal::shells::walk_link(&name["link-".len()..], cx).map_err(Missed),

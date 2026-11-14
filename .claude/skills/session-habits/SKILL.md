@@ -99,8 +99,11 @@ the owner's corrections on top of it.
 **One machine carries every Check, agent, Fleet and Bridge** (2 and 8 Oct, twice
 frozen).
 
+- **Fleet handles load, not the Job or the orchestrator** (14 Nov). A Check
+  waits in its slot while the machine is loaded and says why; agents already
+  run at utility priority. No brief carries a load wait or `taskpolicy`.
 - Never create load to reproduce a flaky test: no burners, no `dd` loops. One
-  `--stress-count` run of that one test at `taskpolicy -c utility`.
+  `--stress-count` run of that one test.
 - A brief names the tests the change adds or touches. Whole suites are CI's.
 - Rust: `armada check test a b c` with every name in one call, or `--changed`
   with the paths on stdin. One call per name is a build and a slot wait each

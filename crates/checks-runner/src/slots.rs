@@ -8,14 +8,17 @@
 //! **All or none.** A Check wanting three slots takes three or waits holding
 //! nothing, so two wide Checks never each hold half of what the other needs.
 //! The cost is order: nothing here queues.
+//!
+//! **A loaded machine runs one Check at a time** ([`CheckSlots::under_load`]),
+//! so no Job's agent has to wait on the load average by hand.
 
 use std::fmt;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
 /// Set on everything a slot-holding Check starts. A Check started inside one —
 /// a suite running `armada check` on a fixture — runs under its parent's slots,
@@ -38,6 +41,15 @@ pub const AHEAD_ENV: &str = "ARMADA_CHECK_AHEAD";
 /// held waits too, so a freed slot goes to the ask ahead.
 const AHEAD: &str = "ahead";
 
+/// The fifteen-minute load at or over which the machine runs one Check at a
+/// time. The owner's number for his 18-core Mac, kept by hand in every brief
+/// until 14 Nov 2026, and the one Fleet's fetch of origin waits under.
+pub const LOAD_LIMIT: u32 = 24;
+
+/// How long a load reading is used before it is read again. The fifteen-minute
+/// average barely moves in this time, and a wait looks every [`LOOK_AGAIN`].
+const LOAD_KEPT: Duration = Duration::from_secs(10);
+
 /// `count` slots in `dir`.
 ///
 /// **The count is shared by every clone**, so [`CheckSlots::resize`] on the
@@ -47,6 +59,72 @@ pub struct CheckSlots {
     dir: PathBuf,
     count: Arc<AtomicUsize>,
     ahead: bool,
+    load: Option<LoadGate>,
+}
+
+/// What reads the machine's fifteen-minute load. `None` where it would not say.
+type ReadLoad = dyn Fn() -> Option<f64> + Send + Sync;
+
+/// The limit, its reader, and the last reading, shared by every clone.
+#[derive(Clone)]
+struct LoadGate {
+    limit: u32,
+    read: Arc<ReadLoad>,
+    last: Arc<Mutex<Option<(Instant, Option<f64>)>>>,
+}
+
+impl fmt::Debug for LoadGate {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        out.debug_struct("LoadGate").field("limit", &self.limit).finish_non_exhaustive()
+    }
+}
+
+impl LoadGate {
+    /// The load, where it is at or over the limit. A reading that fails gates
+    /// nothing: a machine that cannot be read must not hold every Check back.
+    fn over(&self) -> Option<Loaded> {
+        let mut last = self.last.lock().unwrap_or_else(PoisonError::into_inner);
+        let load = match *last {
+            Some((at, load)) if at.elapsed() < LOAD_KEPT => load,
+            _ => {
+                let load = (self.read)();
+                *last = Some((Instant::now(), load));
+                load
+            }
+        };
+        let load = load.filter(|load| load.is_finite() && *load >= f64::from(self.limit))?;
+        Some(Loaded {
+            load: load.round() as u32,
+            limit: self.limit,
+        })
+    }
+}
+
+/// The machine's fifteen-minute load, off `sysctl -n vm.loadavg`, which says
+/// `{ 7.22 5.98 4.54 }`. Read at utility priority. `None` where it would not
+/// say, which is anywhere but darwin.
+pub fn fifteen_minute_load() -> Option<f64> {
+    let out = crate::Priority::Low
+        .spawning("sysctl")
+        .args(["-n", "vm.loadavg"])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    let said = String::from_utf8_lossy(&out.stdout);
+    said.trim()
+        .trim_matches(|c| c == '{' || c == '}')
+        .split_whitespace()
+        .nth(2)?
+        .parse()
+        .ok()
+}
+
+/// The load an ask found the machine at, rounded to whole, and the limit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Loaded {
+    pub load: u32,
+    pub limit: u32,
 }
 
 /// Every slot an ask wanted. Dropping it closes the files, which lets the
@@ -69,6 +147,9 @@ pub struct InUse {
     /// The merge line is waiting [`CheckSlots::ahead`], so nothing was
     /// counted: `in_use` is every slot.
     pub behind_the_line: bool,
+    /// The machine is at or over its load limit and another Check runs, so
+    /// this one waits for the load to fall or that Check to end.
+    pub loaded: Option<Loaded>,
 }
 
 impl fmt::Display for InUse {
@@ -77,9 +158,13 @@ impl fmt::Display for InUse {
             1 => out.write_str("waiting for a Check slot")?,
             wants => write!(out, "waiting for {wants} Check slots")?,
         }
-        match self.behind_the_line {
-            true => out.write_str(": the merge line asked first"),
-            false => write!(out, ": {} of {} in use", self.in_use, self.of),
+        match (self.behind_the_line, self.loaded) {
+            (true, _) => out.write_str(": the merge line asked first"),
+            (false, Some(Loaded { load, limit })) => write!(
+                out,
+                ": the fifteen-minute load is {load}, at or over {limit}, so Checks run one at a time"
+            ),
+            (false, None) => write!(out, ": {} of {} in use", self.in_use, self.of),
         }
     }
 }
@@ -91,7 +176,29 @@ impl CheckSlots {
             dir: dir.as_ref().to_path_buf(),
             count: Arc::new(AtomicUsize::new(count.max(1))),
             ahead: false,
+            load: None,
         }
+    }
+
+    /// The same slots, run one at a time while the fifteen-minute load is at
+    /// or over `limit`: an ordinary ask then takes slots only where no other
+    /// Check holds one, and says why it waits. `read` says the load.
+    ///
+    /// **The first Check always starts**, as a short machine slows Checks and
+    /// never stops them: load from outside Checks would otherwise hold every
+    /// one back for good. **The merge line's ask is never gated**, for
+    /// [`CheckSlots::ahead`]'s reason.
+    pub fn under_load(
+        mut self,
+        limit: u32,
+        read: impl Fn() -> Option<f64> + Send + Sync + 'static,
+    ) -> CheckSlots {
+        self.load = Some(LoadGate {
+            limit,
+            read: Arc::new(read),
+            last: Arc::new(Mutex::new(None)),
+        });
+        self
     }
 
     /// The same slots, asked for ahead of every ordinary ask: the merge line's,
@@ -128,9 +235,14 @@ impl CheckSlots {
                 of: count,
                 wants,
                 behind_the_line: true,
+                loaded: None,
             }));
         }
-        let mut files = Vec::with_capacity(wants);
+        let loaded = match (&self.load, self.ahead) {
+            (Some(gate), false) => gate.over(),
+            _ => None,
+        };
+        let mut files = Vec::with_capacity(count);
         let mut in_use = 0;
         for slot in 0..count {
             let file = OpenOptions::new()
@@ -143,15 +255,21 @@ impl CheckSlots {
                 Err(TryLockError::WouldBlock) => in_use += 1,
                 Err(TryLockError::Error(why)) => return Err(why),
             }
-            if files.len() == wants {
+            // Loaded, every slot is looked at, so a Check held anywhere is seen.
+            if files.len() == wants && loaded.is_none() {
                 return Ok(Ok(Held { _files: files }));
             }
+        }
+        if loaded.is_some() && in_use == 0 {
+            files.truncate(wants);
+            return Ok(Ok(Held { _files: files }));
         }
         Ok(Err(InUse {
             in_use,
             of: count,
             wants,
             behind_the_line: false,
+            loaded: loaded.filter(|_| in_use > 0),
         }))
     }
 

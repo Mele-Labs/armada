@@ -338,7 +338,7 @@ impl SettingsOverlay {
                 _ => None,
             };
             let Some(lines) = lines else { continue };
-            let held = held_text(&one.value);
+            let held = held_text(super::limits::current(one));
             if !self.typed.contains_key(&one.key) {
                 let typed = if lines {
                     let rows = if matches!(one.kind, SettingKind::Prompt) { (8, 24) } else { (4, 4) };
@@ -358,7 +358,7 @@ impl SettingsOverlay {
                 continue;
             }
             // A republished value is the answer to a save: what was typed has gone, and the field reads it.
-            let before = was.as_ref().and_then(|was| was.settings.iter().find(|row| row.key == one.key)).map(|row| held_text(&row.value));
+            let before = was.as_ref().and_then(|was| was.settings.iter().find(|row| row.key == one.key)).map(|row| held_text(super::limits::current(row)));
             if before.as_deref() != Some(held.as_str()) {
                 if let Some(typed) = self.typed.get(&one.key) {
                     typed.set(&held, window, cx);
@@ -407,7 +407,7 @@ impl SettingsOverlay {
             return;
         }
         let Some(text) = self.typed.get(key).map(|typed| typed.text(cx)) else { return };
-        let held = self.setting(key).map(|one| held_text(&one.value));
+        let held = self.setting(key).map(|one| held_text(super::limits::current(one)));
         if held.as_deref() == Some(text.as_str()) {
             crate::drafts::clear(&keep_key(key), cx);
         } else {
@@ -530,7 +530,7 @@ impl SettingsOverlay {
     pub fn save_typed(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.setting(key) else { return };
         let Some(text) = self.typed.get(key).map(|typed| typed.text(cx)) else { return };
-        if text == held_text(&one.value) {
+        if text == held_text(super::limits::current(one)) {
             return;
         }
         let Some(value) = typed_value(&one.kind, &text) else { return };
@@ -591,7 +591,7 @@ impl SettingsOverlay {
             Picking::Setting(key) => {
                 let Some(SettingKind::Choice { options }) = self.setting(key).map(|one| one.kind.clone()) else { return };
                 let Some(word) = options.get(n) else { return };
-                if self.setting(key).is_some_and(|one| one.value == SettingValue::Text(word.clone())) {
+                if self.setting(key).is_some_and(|one| *super::limits::current(one) == SettingValue::Text(word.clone())) {
                     return;
                 }
                 self.save(key.clone(), Some(SettingValue::Text(word.clone())), window, cx);
@@ -849,7 +849,7 @@ impl SettingsOverlay {
                 if self.dirty(&one.key, cx) || self.saving.as_deref() == Some(one.key.as_str()) {
                     stops.push(held.save.clone());
                 }
-                if one.saved.is_some() {
+                if super::limits::changed(one) {
                     stops.push(held.reset.clone());
                 }
             }
@@ -864,7 +864,7 @@ impl SettingsOverlay {
     /// Whether what is typed into a setting differs from the value in force.
     pub fn dirty(&self, key: &str, cx: &App) -> bool {
         let (Some(one), Some(typed)) = (self.setting(key), self.typed.get(key)) else { return false };
-        typed.text(cx) != held_text(&one.value)
+        typed.text(cx) != held_text(super::limits::current(one))
     }
 
     fn all_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
@@ -913,6 +913,10 @@ impl SettingsOverlay {
 
     /// The overlay's own keys, ahead of the app's while it is open. `true` where one was taken.
     fn on_keystroke(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        // The command palette over Settings takes every key, Esc included, until it closes.
+        if crate::palette::is_up(cx) {
+            return false;
+        }
         // A project's Delete, asked, takes every key until it is answered.
         if self.delete_key(key, window, cx) {
             return true;
@@ -979,6 +983,9 @@ impl SettingsOverlay {
             return true;
         }
         if bare && self.grid_key(&key.key, window, cx) {
+            return true;
+        }
+        if bare && matches!(key.key.as_str(), "left" | "right") && self.segment_key(&key.key, window, cx) {
             return true;
         }
         match key.key.as_str() {
@@ -1056,6 +1063,27 @@ impl SettingsOverlay {
         true
     }
 
+    /// ← and → on a choice drawn as segments move the pick to the next word and save it. ← from the first word is
+    /// the sidebar's, as it is from a grid's first column.
+    fn segment_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((name, options)) = self.stops.iter().find(|(_, stops)| stops.control.is_focused(window)).and_then(|(name, _)| match self.setting(name).map(|one| (&one.kind, held_text(super::limits::current(one)))) {
+            Some((SettingKind::Choice { options }, now)) if options.len() <= super::rows::SEGMENTS_MAX => Some((name.clone(), (options.clone(), now))),
+            _ => None,
+        }) else {
+            return false;
+        };
+        let (options, now) = options;
+        let at = options.iter().position(|word| *word == now).unwrap_or(0);
+        let to = if key == "left" { at.checked_sub(1) } else { Some(at + 1).filter(|to| *to < options.len()) };
+        match to {
+            Some(to) => {
+                self.chose(&Picking::Setting(name), to, window, cx);
+                true
+            }
+            None => key == "right",
+        }
+    }
+
     fn on_slider(&self, window: &Window) -> bool {
         self.stops.values().any(|stops| stops.slider.is_focused(window))
     }
@@ -1065,7 +1093,7 @@ impl SettingsOverlay {
         let Some(key) = self.stops.iter().find(|(_, stops)| stops.slider.is_focused(window)).map(|(key, _)| key.clone()) else { return };
         let Some(one) = self.setting(&key) else { return };
         let (SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max }) = one.kind else { return };
-        let now = self.typed.get(&key).and_then(|typed| typed.text(cx).trim().parse::<i64>().ok()).unwrap_or(match one.value {
+        let now = self.typed.get(&key).and_then(|typed| typed.text(cx).trim().parse::<i64>().ok()).unwrap_or(match *super::limits::current(one) {
             SettingValue::Integer(n) => n,
             _ => min,
         });

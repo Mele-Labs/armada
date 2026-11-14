@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 use super::acts::{button, refusal, Answer, Mode, Tone};
 use super::dock::first_line;
-use super::judge::{plan_reading, Pinned};
+use super::judge::{earlier_plan_readings, plan_reading, Pinned};
 use super::keys::{Card, Run};
 use super::rows::{eyebrow, glyph, mono, tip, Size};
 use super::{JobView, Page};
@@ -81,6 +81,8 @@ impl JobView {
         let record = self.record(&job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version);
         let answer = page.cards.answers.get(&key);
         let reading = self.record(&job, cx).and_then(|record| plan_reading(record, card.version));
+        // Only the card of the plan now recorded carries the notes the Judge raised on its earlier versions.
+        let earlier = self.record(&job, cx).filter(|_| record.is_some()).map(|held| earlier_plan_readings(held, card.version)).unwrap_or_default();
         let approved = card.state == PlanCardState::Approved || matches!(answer, Some(Answer::Approved | Answer::Going));
         let going = matches!(answer, Some(Answer::Going));
         let aside = !approved && (card.state == PlanCardState::SetAside || matches!(answer, Some(Answer::SetAside)));
@@ -173,16 +175,16 @@ impl JobView {
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(head);
         // The Judge's notes are pinned to the plan while it waits and is open; its keys answer wherever focus is on the card.
         let live = !folded && !approved;
-        let pinned = record.filter(|_| live).and_then(|plan| Pinned::new(ix, &key, reading, plan));
+        let pinned = record.filter(|_| live).map(|plan| Pinned::on_card(ix, &key, reading, &earlier, plan)).unwrap_or_default();
         if !folded {
             if let Some(plan) = record {
-                column = column.child(self.plan_body(ix, &key, plan, approved, pinned.as_ref(), page, look, cx));
+                column = column.child(self.plan_body(ix, &key, plan, approved, &pinned, page, look, cx));
             }
             if let Some(why) = page.cards.said.get(&key) {
                 column = column.child(refusal(look, &key, why.clone()));
             }
             if !approved {
-                column = column.child(self.plan_answers(ix, &key, card.version, record, reading, aside, target, page, look, approve, cx));
+                column = column.child(self.plan_answers(ix, &key, card.version, record, reading, &earlier, aside, target, page, look, approve, cx));
             }
         }
         let aim = key.clone();
@@ -242,7 +244,7 @@ impl JobView {
 
     /// What the plan says: what the person gets, and the groups behind it.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn plan_body(&self, ix: usize, key: &str, plan: &SessionPlan, approved: bool, pinned: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn plan_body(&self, ix: usize, key: &str, plan: &SessionPlan, approved: bool, pinned: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let revising = !approved && plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty());
         let technical_key = format!("{key}:technical");
         let plain = !plan.summary.trim().is_empty();
@@ -263,7 +265,7 @@ impl JobView {
                         .child(SharedString::from(plan.summary.clone())),
                 )
                 .children(self.plan_sketches(key, plan, None, page, look, cx))
-                .children(pinned.and_then(|at| self.notes_list(at, at.whole(), "Findings on the plan".to_string(), page, look, cx)))
+                .children(self.plan_notes(pinned, page, look, cx))
                 .child(labelled(
                     div()
                         .id(SharedString::from(format!("gives:{key}")))
@@ -305,7 +307,7 @@ impl JobView {
                 self.plan_groups(key, plan, approved, plain, pinned, page, look, cx)
             };
             // With no plain view the notes about the plan as a whole stand above the groups.
-            body = match pinned.filter(|_| !plain).and_then(|at| self.notes_list(at, at.whole(), "Findings on the plan".to_string(), page, look, cx)) {
+            body = match self.plan_notes(pinned, page, look, cx).filter(|_| !plain) {
                 Some(whole) => body.child(div().flex().flex_col().gap(look.length(token::SPACE_2)).child(whole).child(inner)),
                 None => body.child(inner),
             };
@@ -365,7 +367,7 @@ impl JobView {
 
     /// The groups of the plan with their tasks' marks and agents (B2.3, 3c).
     #[allow(clippy::too_many_arguments)]
-    fn plan_groups(&self, key: &str, plan: &SessionPlan, approved: bool, plain: bool, pinned: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn plan_groups(&self, key: &str, plan: &SessionPlan, approved: bool, plain: bool, pinned: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mut runs: Vec<(String, Vec<&SessionPlanGroup>)> = Vec::new();
         for group in &plan.groups {
             let label = group.lands_in.label.clone();
@@ -425,7 +427,7 @@ impl JobView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn plan_group(&self, group: &SessionPlanGroup, approved: bool, plain: bool, pinned: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn plan_group(&self, group: &SessionPlanGroup, approved: bool, plain: bool, pinned: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let marks = group.tasks.iter().map(|task| {
             let (icon, ink, said) = task_look(task.state);
             div().id(SharedString::from(format!("task:{}", task.id))).child(glyph(look, icon, Size::Small, look.color(ink))).tooltip(tip(said))
@@ -463,7 +465,7 @@ impl JobView {
                     .child(div().font_family(mono(look)).child(SharedString::from(group.agent.clone()))),
             );
         // The Judge's notes on the group open under its line; the plain view draws them under what the group gives.
-        match pinned.filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx)) {
+        match Some(pinned).filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx)) {
             None => row.into_any_element(),
             Some(notes) => div().flex().flex_col().child(row).child(notes).into_any_element(),
         }
@@ -588,6 +590,7 @@ impl JobView {
         version: u32,
         record: Option<&SessionPlan>,
         reading: Option<&ipc::JudgeReading>,
+        earlier: &[&ipc::JudgeReading],
         aside: bool,
         target: bool,
         page: &Page,
@@ -660,7 +663,7 @@ impl JobView {
         if noting {
             column = column.children(self.box_of(key, Mode::Note, "Note", look, cx));
         }
-        let row = row.child(self.judge_press(ix, key, super::judge::plan_artifact(version), reading, page, look, cx));
+        let row = row.child(self.judge_press(ix, key, super::judge::plan_artifact(version), reading, earlier, page, look, cx));
         column
             .child(labelled(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/plan/approve", cx)), Role::Toolbar, "Answers"))
             .into_any_element()

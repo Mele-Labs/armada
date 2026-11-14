@@ -19,6 +19,8 @@ mod call_tabs;
 mod callchip;
 mod choose;
 mod claim_waits;
+mod moving;
+pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
@@ -173,6 +175,8 @@ pub(crate) enum Extra {
     WaitsFor,
     /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
     ClaimWaits,
+    /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
+    Moving,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -912,7 +916,7 @@ impl JobView {
         let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -927,6 +931,10 @@ impl JobView {
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
+        }
+        // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
+        if self.record(id, cx).is_some_and(moving::on_its_way) {
+            extras.push(Extra::Moving);
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
