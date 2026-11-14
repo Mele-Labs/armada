@@ -63,6 +63,7 @@ async fn a_mac_on_the_account_is_found_asked_and_paired_with_the_same_code_on_bo
         paired: false,
         build: None,
         nearby: false,
+        older_build: false,
     };
     assert_eq!(listed, FoundMacs { macs: vec![expected], why: None }, "only his other Armada Mac, and never this one");
 
