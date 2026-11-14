@@ -138,21 +138,23 @@ pub(crate) fn door_router(gateway: Gateway) -> Router {
 /// The door, serving, and Bonjour saying where it is.
 pub struct Door {
     pub port: u16,
+    /// Why Bonjour did not start, for the caller to log. The door still answers a Mac already paired.
+    pub bonjour_off: Option<String>,
     serving: JoinHandle<()>,
     bonjour: Option<crate::nearby::Bonjour>,
 }
 
 impl Door {
     /// Open the door on every network with the certificate kept in `machine`, and say so over Bonjour.
-    /// Called from inside a Tokio runtime. **Bonjour that cannot start is one line**, and the door
-    /// still answers a Mac paired with it that is told the address another way.
+    /// Called from inside a Tokio runtime. **Bonjour that cannot start is said in `bonjour_off`**, and the
+    /// door is still open.
     pub fn open(machine: &Path, gateway: Gateway) -> Result<Door, String> {
         let cert = DoorCert::open(machine)?;
         let listener = bind_door().map_err(|why| format!("Armada could not listen for other Macs on this network: {why}"))?;
         let mut door = Door::serve(listener, &cert, gateway.clone())?;
         match crate::nearby::advertise_and_browse(&gateway, door.port) {
             Ok(bonjour) => door.bonjour = Some(bonjour),
-            Err(why) => eprintln!("Bonjour not started: {why}"),
+            Err(why) => door.bonjour_off = Some(why),
         }
         Ok(door)
     }
@@ -183,7 +185,7 @@ impl Door {
                 });
             }
         });
-        Ok(Door { port, serving, bonjour: None })
+        Ok(Door { port, bonjour_off: None, serving, bonjour: None })
     }
 
     /// Stop answering and stop saying so. A Mac's open `/api/mac/live` ends with [`crate::Macs::close`].

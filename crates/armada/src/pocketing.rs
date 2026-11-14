@@ -163,6 +163,9 @@ impl Phone {
         tunnel.start(port);
         // One line where it cannot open: the tunnel and the phone still work without it.
         let door = pocket::Door::open(&self.machine, kept.clone()).map_err(|why| eprintln!("Wi-Fi door not opened: {why}")).ok();
+        if let Some(why) = door.as_ref().and_then(|door| door.bonjour_off.as_deref()) {
+            eprintln!("Bonjour not started: {why}");
+        }
         Ok(Running { stop, serving, following, linking, tunnel, door, gateway: kept })
     }
 
