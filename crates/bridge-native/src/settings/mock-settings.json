@@ -451,23 +451,6 @@
    "overridden_by_env": null
   },
   {
-   "key": "store.url",
-   "group": "Fleet",
-   "section": "Store",
-   "title": "Store address",
-   "description": "The address of the central store your machines share. Blank leaves sign-in unavailable until a store is deployed.",
-   "tip": null,
-   "kind": {
-    "kind": "text"
-   },
-   "default": "",
-   "value": "",
-   "saved": null,
-   "applies": "live",
-   "pending_restart": false,
-   "overridden_by_env": null
-  },
-  {
    "key": "harness.agent",
    "group": "Agents",
    "section": "Harness",

@@ -82,7 +82,6 @@ pub static PAGES_STEPS: &[Step] = &[
     press_on("Plan: stepping down on the weekly plan", "button", "Plan", "button", "Plan"),
     press_on("Machine: this Mac's name", "button", "Machine", "button", "Machine"),
     press_on("Account: the sign-in app", "button", "Account", "button", "Account"),
-    press_on("Store: the central store's address", "button", "Store", "button", "Store"),
     press_on("Features: switches and folders", "button", "Features", "button", "Features"),
     press_on("Spacing: density", "button", "Spacing", "button", "Spacing"),
     press_on("Time: how stamps are written", "button", "Time", "button", "Time"),

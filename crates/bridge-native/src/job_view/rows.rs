@@ -94,6 +94,12 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
     }
 }
 
+/// Where a moved Job went, as the row at the foot of its thread names it: a repository, or his other Mac.
+enum Went {
+    Repository(String),
+    Mac(crate::pairing::Chip),
+}
+
 /// What a person's message says when it answers or approves instead of talking (`Did`, A2.4).
 #[derive(Debug, PartialEq)]
 enum Act<'a> {
@@ -272,7 +278,7 @@ impl JobView {
                     .justify_center()
                     .px(look.length(token::SPACE_4) + super::bleed(look))
                     .pb(self.row_gap(look))
-                    .child(div().w_full().min_w_0().max_w(self.column(look)).child(self.moved_row(&id, "from", moved, look, cx)))
+                    .child(div().w_full().min_w_0().max_w(self.column(look)).child(self.moved_row(&id, "from", moved.0, Went::Repository(self.repository_word(&moved.1, cx)), look, cx)))
                     .into_any_element(),
                 _ => self.earlier_row(&id, look, cx),
             };
@@ -693,8 +699,12 @@ impl JobView {
             Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;
+                // A Job that went to his other Mac says so as a move to another repository does; the Job is the same id there.
+                if let Some(chip) = self.record(&id, cx).filter(|job| crate::move_to_mac::moved(job)).and_then(|_| crate::pairing::chip(crate::move_to_mac::went_to(crate::pairing::macs(cx)), cx)) {
+                    return Some(self.moved_row(&id, "to", id.to_string(), Went::Mac(chip), look, cx));
+                }
                 let moved = self.moved(&id, "forked_to", cx)?;
-                return Some(self.moved_row(&id, "to", moved, look, cx));
+                return Some(self.moved_row(&id, "to", moved.0, Went::Repository(self.repository_word(&moved.1, cx)), look, cx));
             }
             Extra::Refreshing => div()
                 .flex()
@@ -716,9 +726,11 @@ impl JobView {
 
     /// Where a moved Job went, at the foot of its thread, or where it came from, at the head of the new
     /// one (`MovedRow`): a press opens the other.
-    fn moved_row(&self, id: &SharedString, way: &'static str, (other, manifest): (String, String), look: &Look, cx: &Context<Self>) -> AnyElement {
-        let repository = self.repository_word(&manifest, cx);
-        let said = format!("Moved {way} {repository}");
+    fn moved_row(&self, id: &SharedString, way: &'static str, other: String, went: Went, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let said = match &went {
+            Went::Repository(repository) => format!("Moved {way} {repository}"),
+            Went::Mac(chip) => format!("Moved {way} {}", chip.name),
+        };
         let press = div()
             .id(SharedString::from(format!("moved-{way}:{id}")))
             .flex()
@@ -734,9 +746,12 @@ impl JobView {
             .text_color(look.color(token::FG_MUTED))
             .cursor_pointer()
             .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
-            .child(glyph(look, "folder-git-2", Size::Small, look.color(token::FG_MUTED)))
+            .when(matches!(went, Went::Repository(_)), |press| press.child(glyph(look, "folder-git-2", Size::Small, look.color(token::FG_MUTED))))
             .child(format!("Moved {way}"))
-            .child(div().min_w_0().truncate().font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()).child(repository))
+            .child(match &went {
+                Went::Repository(repository) => div().min_w_0().truncate().font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()).child(repository.clone()).into_any_element(),
+                Went::Mac(chip) => crate::pairing::pill(look, SharedString::from(format!("moved-mac:{id}")), chip),
+            })
             .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)))
             .on_click(cx.listener(move |this, _, _, cx| this.open_job(other.clone(), cx)));
         div().w_full().flex().child(labelled(press, Role::Button, said)).into_any_element()
