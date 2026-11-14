@@ -91,15 +91,15 @@ VoiceOver reads them, walks and notes aim at them, and tests find elements by th
 
 ## Web content
 
-**Web content goes through the one Chrome host and the Armada profile.**
+**Web content goes through the one web view host and Armada's own sign-in store.**
 That covers documents, sketch mocks, walks of web pages and the Browser tool.
+The host is Apple's WKWebView, laid over its pane's frame, with the page's picture drawn in its place while a sheet covers it or a walk plays with no window.
 
 ## Load
 
 | Rule | Detail |
 |---|---|
 | A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
-| A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
 | Tests | Only through `armada check crates/bridge-native:test <name>` or `armada check crates/bridge-native:test --changed`: the crate is a workspace of its own, so the root's `armada check test` does not reach it. `bridge-native --walk <name> --check` stays the walk's own test. CI runs the whole suite in the `native` job on any pull request whose change touches the crate, and `ci` waits on it |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 

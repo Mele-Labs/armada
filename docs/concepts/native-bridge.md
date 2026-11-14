@@ -51,14 +51,15 @@ A walk steps through labelled elements.
 The same labels are what VoiceOver reads and what tests find.
 A native screen is walked in its own native window on mock data, with a walk bar.
 
-### 5. Chrome for all web content
+### 5. Apple's web view for all web content
 
-**Chrome (CEF) is embedded for all web content: documents, sketch mocks, walks of web pages and the Browser tool.**
-One Armada Chrome profile keeps sign-ins, and the owner's own Chrome is never touched.
-Chrome draws inside the gpui window: it renders windowless, and gpui shows each frame in a `surface`.
-Bridge carries a small patch to gpui so `surface` takes Chrome's frames as they are, in exact colour and with alpha.
-A page has no view of its own, so its accessibility tree is mapped into gpui's for VoiceOver.
-What was measured is in [the Chrome spike](../spikes/native-bridge-chrome.md).
+**Web content is drawn by Apple's web view, WKWebView: documents, sketch mocks, walks of web pages and the Browser tool.**
+The owner chose it over embedding Chrome on 13 Nov 2026: it ships with macOS, so nothing is downloaded, built or bundled, and VoiceOver, keys, scrolling and colour work as they are.
+A page is a real view laid over the frame its pane reports, as Armada Classic lays its web view over a walk's frame.
+gpui cannot draw over a live page, so while a sheet, menu or popover covers it, its last picture is drawn in its place, as Classic does.
+Sign-ins are kept in Armada's own store, apart from Safari's.
+Pages render with Safari's engine, not the Chromium Classic uses, and the Chrome DevTools Protocol does not reach them.
+What embedding Chrome would have cost was measured in [the Chrome spike](../spikes/native-bridge-chrome.md).
 
 ### 6. Order
 
@@ -67,7 +68,7 @@ Each step is its own Job, and at most two run at once.
 
 | Step | What it gives |
 |---|---|
-| Foundation | A native window on Fleet listing Jobs in his theme, the native walk window on mock data, the Chrome test and the speed check |
+| Foundation | A native window on Fleet listing Jobs in his theme, the native walk window on mock data, the web page test and the speed check |
 | Fleet views | Thread rows, lanes and the merge line worked out in Fleet, beside the foundation |
 | Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
