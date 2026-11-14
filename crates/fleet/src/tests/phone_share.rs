@@ -374,4 +374,12 @@ async fn an_unshared_jobs_terminals_answer_as_ones_that_do_not_exist() {
     let missing = phone.call("GET", &follow(NOBODY), "", NOBODY).await;
     assert_ne!(missing.0, StatusCode::OK, "{missing:?}");
     assert_eq!(phone.call("GET", &follow(&private), "", &private).await, missing, "nothing of it is followed");
+    ended(&phone, &private).await;
+    ended(&phone, &open).await;
+}
+
+/// Shell `run` stopped and seen to end: a shell left running holds the test's runtime open.
+async fn ended(phone: &Phone, run: &str) {
+    phone.rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: run.into() }).await.expect("in flight");
+    super::session_host::eventually(|| async { phone.rig.fleet.observe_session_run(run.into()).await.map_or(true, |seen| seen.live.is_err()) }).await;
 }
