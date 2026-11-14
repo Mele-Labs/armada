@@ -17,17 +17,15 @@
 
 mod exchange;
 mod pass;
-mod wanting;
-mod words;
+pub(crate) mod wanting;
+pub(crate) mod words;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use adapter_traits::{ClaimKind, Claimant};
 
-#[cfg(test)]
-pub(crate) use exchange::key_of;
-pub(crate) use exchange::{exchanged, Answered, Asked};
+pub(crate) use exchange::{exchanged, key_of, Answered, Asked};
 
 /// How often a pass sends what changed. A new write waits at most this long to be claimed.
 pub(crate) const PASS_EVERY: Duration = Duration::from_secs(60);
@@ -60,6 +58,11 @@ impl Wanted {
     pub(crate) fn pull_request(number: u64) -> Wanted {
         Wanted { kind: ClaimKind::PullRequest, named: number.to_string() }
     }
+
+    /// A failing test, by the name its runner prints.
+    pub(crate) fn test(named: &str) -> Wanted {
+        Wanted { kind: ClaimKind::Test, named: named.to_string() }
+    }
 }
 
 /// Who an item is held by, while a Job waits on it.
@@ -69,13 +72,18 @@ pub(crate) enum WaitedOn {
     Job(Claimant),
     /// A person is its assignee in beads.
     Person(String),
+    /// Main is red on the test, and main's own fix ends the wait.
+    Main,
 }
 
-/// A Job waiting on an item, and since when (RFC 3339).
+/// A Job waiting on an item or a failing test, and since when (RFC 3339).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Wait {
     pub on: WaitedOn,
     pub since: String,
+    /// For a failing test, the pull request the queue threw out, queued again when the fix merges.
+    /// `None` for a tracker item.
+    pub requeues: Option<u64>,
 }
 
 /// What one live Job holds, as far as this Mac knows.
@@ -95,6 +103,8 @@ pub(crate) struct JobHeld {
     pub files_ended: BTreeSet<String>,
     /// The pull requests whose end was already read for its files.
     pub pulls_ended: BTreeSet<u64>,
+    /// No store applies to its repository, as the last pass found.
+    pub storeless: bool,
 }
 
 impl JobHeld {
@@ -112,6 +122,9 @@ pub(crate) struct Kept {
     pub passed_at: Option<i64>,
     /// The assignees each beads item had when last read, by repository and reference.
     pub assignees: BTreeMap<(String, String), Vec<String>>,
+    /// The pull requests the merge queue threw out for each test, by repository root and test, each
+    /// with when (epoch milliseconds). A test that failed two pull requests is a flake.
+    pub queue_failed: BTreeMap<(String, String), BTreeMap<u64, i64>>,
 }
 
 /// The fields a Job's record carries: each item it waits on, and whether its claims are unsent.
@@ -150,18 +163,18 @@ impl Shown {
             .map(|(item, wait)| {
                 let since = ipc::Instant::from(&core_model::Timestamp::from_rfc3339(wait.since.clone()));
                 let known = |text: &str| Some(text.trim().to_string()).filter(|text| !text.is_empty());
+                let ends = match wait.requeues {
+                    Some(_) => ipc::ClaimWaitEnds::FixMerges,
+                    None => ipc::ClaimWaitEnds::ClaimEnds,
+                };
                 match &wait.on {
-                    WaitedOn::Job(by) => ipc::ClaimWait {
-                        item: item.clone(),
-                        holder: by.name.clone(),
-                        machine: known(&by.holder.machine),
-                        title: known(&by.title),
-                        since,
-                        ends: ipc::ClaimWaitEnds::ClaimEnds,
-                    },
+                    WaitedOn::Job(by) => {
+                        ipc::ClaimWait { item: item.clone(), holder: by.name.clone(), machine: known(&by.holder.machine), title: known(&by.title), since, ends }
+                    }
                     WaitedOn::Person(person) => {
                         ipc::ClaimWait { item: item.clone(), holder: person.clone(), machine: None, title: None, since, ends: ipc::ClaimWaitEnds::Unassigned }
                     }
+                    WaitedOn::Main => ipc::ClaimWait { item: item.clone(), holder: String::new(), machine: None, title: None, since, ends },
                 }
             })
             .collect()

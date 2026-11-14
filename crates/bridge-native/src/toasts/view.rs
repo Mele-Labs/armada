@@ -133,6 +133,20 @@ pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
     }
 }
 
+/// A button on a Job's page started a Job: a toast says it, as the Operator's start does, and a press on it opens the Job.
+pub fn job_started(job: &str, sentence: impl Into<SharedString>, cx: &mut App) {
+    let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let key = rulings.last().map_or(1, |one| one.key + 1);
+    rulings.push(Raised { key, way: DispatchWay::Started, job: Some(job.to_string()), sentence: sentence.into() });
+    cx.set_global(Rulings(rulings));
+    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        toasts.update(cx, |toasts, cx| {
+            toasts.unseen = true;
+            cx.notify();
+        });
+    }
+}
+
 /// What the Operator did, in bare words: the Job by its title, and for a question the title or what he sent.
 fn ruling_said(news: &OperatorDispatched, held: Option<String>) -> String {
     match news.way {

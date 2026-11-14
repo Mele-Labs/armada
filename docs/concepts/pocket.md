@@ -182,6 +182,7 @@ The phone asks once more for an address when one lapses, and the video keeps its
 Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
+A row carries what native's Jobs-list row reads: its mark, project, last turn, pull request, issue, workflow step and what it is doing now.
 
 **A Job's thread is not narrowed.** `/api/sessions/one` is Fleet's `SessionThread` as Fleet sends it, the Job record included.
 

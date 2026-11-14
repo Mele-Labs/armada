@@ -82,6 +82,9 @@ impl Store for Viewed {
     fn renew(&self, holder: &Holder) -> Result<adapter_traits::Renewed, adapter_traits::StoreError> {
         self.0.renew(holder)
     }
+    fn claims_listed(&self) -> Result<Vec<adapter_traits::HolderClaims>, adapter_traits::StoreError> {
+        self.0.claims_listed()
+    }
     fn put_owner(&self, key: &adapter_traits::OwnerKey, holder: &Holder) -> Result<(), adapter_traits::StoreError> {
         self.0.put_owner(key, holder)
     }

@@ -210,36 +210,25 @@ async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_
     rig.fleet.settle_later(None, dropped).await.expect("the Job settles it itself");
 }
 
+/// The owner's ruling of 13 Nov 2026: a red main's fix Job starts at once, with no go-ahead to press.
 #[tokio::test]
-async fn a_red_main_autopilot_finds_is_asked_once_and_a_fix_starts_only_on_yes() {
+async fn a_red_main_starts_its_fix_at_once_with_the_operator_on_and_asks_nothing() {
     let (rig, judge) = rig_calling(SURE_OF_THE_FIRST);
     switched(&rig, "features.operator", true).await;
     let call = Answers::with(&[]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
-    started(&rig, &[AutopilotDecision::Red]).await;
     let commit = "b".repeat(40);
     red_main(&rig, &commit).await;
     let item = format!("red:{}:{commit}", rig.manifest.as_str());
-    let in_turn = || async { rig.fleet.operator_page_wire().await.expect("page").turn.into_iter().filter(|one| one.item.id == item).collect::<Vec<_>>() };
 
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "the Operator has it, not Autopilot's own start");
-    eventually(|| async { in_turn().await.len() == 1 }).await;
-    assert!(judge.asked().is_empty(), "Autopilot makes no call of its own for a red");
-    assert_eq!(jobs_titled(&rig, "Fix main").await, 0, "nothing starts until he says yes");
-    let log = rulings(&rig).await;
-    assert!(log.iter().all(|row| row.outcome != "new_job" && row.outcome != "proposed_new_job"), "the ruling does not ask a second time: {log:#?}");
-
-    rig.fleet.decision_pass().await.expect("passed");
-    rig.fleet.decision_pass().await.expect("passed");
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    let waiting = in_turn().await;
-    assert_eq!(waiting.len(), 1, "one ask for each red commit");
-    assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
-
-    let press = ipc::operator_page::OperatorAnswerPress { id: waiting[0].id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None, option: None, project: None };
-    let answered = rig.fleet.operator_answered(press).await.expect("answered");
-    assert!(answered.started.is_some());
+    assert_eq!(rig.fleet.reds_fixed().await, 1);
     assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
+    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
+    rig.fleet.red_item_offered(&main).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let page = rig.fleet.operator_page_wire().await.expect("page");
+    assert!(!page.turn.iter().any(|one| one.item.id == item), "no go-ahead for a red a Job has");
+    assert!(judge.asked().is_empty(), "no call is made for a red");
 }
 
 #[tokio::test]

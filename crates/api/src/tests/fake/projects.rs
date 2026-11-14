@@ -151,6 +151,11 @@ impl Projects for FakeDaemon {
         Ok(store_state(&project, None))
     }
 
+    async fn get_project_claims(&self, project: String) -> Result<ipc::ProjectClaims, Refusal> {
+        held(&project)?;
+        Ok(ipc::ProjectClaims { project, store: false, unread: None, holders: Vec::new() })
+    }
+
     async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
         held(&project)?;
         let store = set.store.map(|join| ipc::ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false });

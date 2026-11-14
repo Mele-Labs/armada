@@ -125,7 +125,8 @@ export class Account extends DurableObject<Env> {
    * anyway, and the Mac that held one claims it again under the new key.
    *
    * A renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written.
-   * `contenders` holds the Jobs a held claim refused, until the claim's holder is told or the claim ends.
+   * `contenders` holds the Jobs a held claim refused, for as long as each keeps asking and the claim stands. A table
+   * made before it had `told` gets the column here, its rows told none.
    */
   private upgrade(): void {
     const claims = this.sql
@@ -134,12 +135,19 @@ export class Account extends DurableObject<Env> {
       }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'claims'")
       .toArray()[0];
     if (claims && !claims.sql.includes("holder_kind")) this.sql.exec("DROP TABLE claims");
+    const contenders = this.sql
+      .exec<{
+        sql: string;
+      }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contenders'")
+      .toArray()[0];
+    if (contenders && !contenders.sql.includes("told"))
+      this.sql.exec("ALTER TABLE contenders ADD COLUMN told INTEGER NOT NULL DEFAULT 0");
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS claims (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, holder_kind TEXT NOT NULL, holder_id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, kind, key));
       CREATE INDEX IF NOT EXISTS claims_holder ON claims (holder_kind, holder_id, machine);
       CREATE TABLE IF NOT EXISTS holders (kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, renewed INTEGER NOT NULL, PRIMARY KEY (kind, id, machine));
       CREATE TABLE IF NOT EXISTS runs (repo TEXT PRIMARY KEY, facts TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS contenders (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, contender_kind TEXT NOT NULL, contender_id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, since INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (repo, kind, key, contender_kind, contender_id, machine));
+      CREATE TABLE IF NOT EXISTS contenders (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, contender_kind TEXT NOT NULL, contender_id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, since INTEGER NOT NULL, at INTEGER NOT NULL, told INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (repo, kind, key, contender_kind, contender_id, machine));
     `);
     this.upgraded = true;
   }
@@ -176,9 +184,11 @@ export class Account extends DurableObject<Env> {
     return answer;
   }
 
-  /** Drops every claim of each holder that has not renewed for `LAPSE_SECONDS`, its contenders, and the holder. */
+  /** Drops every claim of each holder that has not renewed for `LAPSE_SECONDS`, its contenders, and the holder, and
+   * every contender that has not asked for as long. */
   private lapse(now: number): void {
     const cutoff = now - LAPSE_SECONDS;
+    this.sql.exec("DELETE FROM contenders WHERE at <= ?", cutoff);
     this.sql.exec(
       `DELETE FROM contenders WHERE (repo, kind, key) IN (
          SELECT repo, kind, key FROM claims WHERE (holder_kind, holder_id, machine) IN (SELECT kind, id, machine FROM holders WHERE renewed <= ?))`,
@@ -191,12 +201,14 @@ export class Account extends DurableObject<Env> {
     this.sql.exec("DELETE FROM holders WHERE renewed <= ?", cutoff);
   }
 
-  /** When the holder that renewed longest ago lapses, or `null` with no holder. */
+  /** When the holder that renewed, or the contender that asked, longest ago lapses, or `null` with neither. */
   private nextLapse(): number | null {
     const at = this.sql
       .exec<{
         at: number | null;
-      }>("SELECT MIN(renewed) AS at FROM holders")
+      }>(
+        "SELECT MIN(at) AS at FROM (SELECT renewed AS at FROM holders UNION ALL SELECT at FROM contenders)",
+      )
       .one().at;
     return at === null ? null : at + LAPSE_SECONDS;
   }
@@ -301,7 +313,11 @@ export class Account extends DurableObject<Env> {
       // A claim that lapsed reads as gone before its alarm has run.
       this.lapse(nowSeconds());
       if (parts.length === 2)
-        return method === "POST" ? this.claim(text) : refuse(405, "bad_method");
+        return method === "POST"
+          ? this.claim(text)
+          : method === "GET"
+            ? this.listClaims()
+            : refuse(405, "bad_method");
       const kind = claimKindOf(second);
       if (!HASH.test(first ?? "") || parts.length === 3 || !kind) return refuse(400, "invalid_key");
       if (third === undefined)
@@ -376,7 +392,186 @@ export class Account extends DurableObject<Env> {
     return reply(won.rowsWritten > 0 ? 200 : 409, held);
   }
 
-  /** A claim refused is kept for its holder's next renewal, unless the asker is the holder or the table is full. */
+  /** Every live claim, grouped by its holder, with what each holder waits on. A holder that only contends has no `holders` row, so its name, title and renewal are its newest contender's. */
+  private listClaims(): Response {
+    const holders = new Map(
+      this.sql
+        .exec<{
+          kind: Holder["kind"];
+          id: string;
+          machine: string;
+          name: string;
+          title: string;
+          renewed: number;
+        }>("SELECT kind, id, machine, name, title, renewed FROM holders")
+        .toArray()
+        .map((row) => [
+          `${row.kind}\0${row.id}\0${row.machine}`,
+          row,
+        ]),
+    );
+    type Group = {
+      holder: {
+        kind: Holder["kind"];
+        id: string;
+        machine: string;
+        name: string;
+        title: string;
+      };
+      renewed: number;
+      claims: {
+        repo: string;
+        kind: ClaimKind;
+        key: string;
+        since: number;
+      }[];
+      waits: {
+        repo: string;
+        kind: ClaimKind;
+        key: string;
+        holder: ReturnType<typeof claimFrom>["holder"];
+      }[];
+    };
+    const groups = new Map<string, Group>();
+    const groupOf = (
+      kind: Holder["kind"],
+      id: string,
+      machine: string,
+      name: string,
+      title: string,
+      renewed: number,
+    ): Group => {
+      const at = `${kind}\0${id}\0${machine}`;
+      const known = groups.get(at);
+      const row = holders.get(at);
+      if (known) {
+        // Rows come oldest first, so the last contender of a holder with no row of its own names it.
+        if (!row) {
+          known.renewed = renewed;
+          known.holder.name = name;
+          known.holder.title = title;
+        }
+        return known;
+      }
+      const made: Group = {
+        holder: {
+          kind,
+          id,
+          machine,
+          name: row?.name ?? name,
+          title: row?.title ?? title,
+        },
+        renewed: row?.renewed ?? renewed,
+        claims: [],
+        waits: [],
+      };
+      groups.set(at, made);
+      return made;
+    };
+
+    for (const row of this.sql
+      .exec<{
+        repo: string;
+        kind: ClaimKind;
+        key: string;
+        since: number;
+        holder_kind: Holder["kind"];
+        holder_id: string;
+        machine: string;
+        name: string;
+        title: string;
+        renewed: number;
+      }>(
+        `SELECT claims.repo, claims.kind, claims.key, claims.since, claims.holder_kind, claims.holder_id, claims.machine, holders.name, holders.title, holders.renewed
+         FROM claims JOIN holders ON holders.kind = claims.holder_kind AND holders.id = claims.holder_id AND holders.machine = claims.machine
+         ORDER BY claims.kind, claims.since, claims.key, claims.repo`,
+      )
+      .toArray()) {
+      groupOf(
+        row.holder_kind,
+        row.holder_id,
+        row.machine,
+        row.name,
+        row.title,
+        row.renewed,
+      ).claims.push({
+        repo: row.repo,
+        kind: row.kind,
+        key: row.key,
+        since: row.since,
+      });
+    }
+
+    for (const row of this.sql
+      .exec<{
+        repo: string;
+        kind: ClaimKind;
+        key: string;
+        since: number;
+        holder_kind: Holder["kind"];
+        holder_id: string;
+        machine: string;
+        name: string;
+        title: string;
+        renewed: number;
+        contender_kind: Holder["kind"];
+        contender_id: string;
+        contender_machine: string;
+        contender_name: string;
+        contender_title: string;
+        at: number;
+      }>(
+        `SELECT claims.repo, claims.kind, claims.key, claims.since, claims.holder_kind, claims.holder_id, claims.machine, holders.name, holders.title, holders.renewed,
+                contenders.contender_kind, contenders.contender_id, contenders.machine AS contender_machine, contenders.name AS contender_name, contenders.title AS contender_title, contenders.at
+         FROM contenders
+         JOIN claims ON claims.repo = contenders.repo AND claims.kind = contenders.kind AND claims.key = contenders.key
+         JOIN holders ON holders.kind = claims.holder_kind AND holders.id = claims.holder_id AND holders.machine = claims.machine
+         ORDER BY contenders.at, contenders.rowid`,
+      )
+      .toArray()) {
+      groupOf(
+        row.contender_kind,
+        row.contender_id,
+        row.contender_machine,
+        row.contender_name,
+        row.contender_title,
+        row.at,
+      ).waits.push({
+        repo: row.repo,
+        kind: row.kind,
+        key: row.key,
+        holder: claimFrom({
+          kind: row.holder_kind,
+          id: row.holder_id,
+          machine: row.machine,
+          since: row.since,
+          name: row.name,
+          title: row.title,
+          renewed: row.renewed,
+        }).holder,
+      });
+    }
+
+    const order = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+    const holdersOut = [
+      ...groups.values(),
+    ].sort(
+      (a, b) =>
+        order(a.holder.name, b.holder.name) ||
+        order(a.holder.machine, b.holder.machine) ||
+        order(a.holder.kind, b.holder.kind) ||
+        order(a.holder.id, b.holder.id),
+    );
+    for (const group of holdersOut)
+      group.waits.sort(
+        (a, b) => order(a.kind, b.kind) || order(a.key, b.key) || order(a.repo, b.repo),
+      );
+    return reply(200, {
+      holders: holdersOut,
+    });
+  }
+
+  /** A claim refused is kept while its asker keeps asking, unless the asker is the holder or the table is full. An asker already told stays told. */
   private putContender(
     repo: string,
     kind: ClaimKind,
@@ -498,7 +693,7 @@ export class Account extends DurableObject<Env> {
     });
   }
 
-  /** The contenders on the claims `who` holds, deleted as they are answered so each is told once. */
+  /** The contenders on the claims `who` holds that were not told yet, marked told as they are answered so each is told once. */
   private takeContested(who: Renewing) {
     const mine = `SELECT repo, kind, key FROM claims WHERE holder_kind = ? AND holder_id = ? AND machine = ?`;
     const rows = this.sql
@@ -514,7 +709,7 @@ export class Account extends DurableObject<Env> {
         since: number;
       }>(
         `SELECT repo, kind, key, contender_kind, contender_id, machine, name, title, since FROM contenders
-         WHERE (repo, kind, key) IN (${mine}) ORDER BY at, rowid`,
+         WHERE told = 0 AND (repo, kind, key) IN (${mine}) ORDER BY at, rowid`,
         who.kind,
         who.id,
         who.machine,
@@ -522,7 +717,7 @@ export class Account extends DurableObject<Env> {
       .toArray();
     if (rows.length > 0)
       this.sql.exec(
-        `DELETE FROM contenders WHERE (repo, kind, key) IN (${mine})`,
+        `UPDATE contenders SET told = 1 WHERE told = 0 AND (repo, kind, key) IN (${mine})`,
         who.kind,
         who.id,
         who.machine,
