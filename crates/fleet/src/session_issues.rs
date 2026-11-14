@@ -320,6 +320,7 @@ where
                 continue;
             };
             self.lifecycle_ticket_seen(manifest_id, issue.as_str(), &read).await;
+            self.assignees_seen(manifest_id.as_str(), issue.as_str(), read.assignees.iter().map(|one| one.as_written().trim().to_string()).collect());
             let status = tracker_word(&read);
             let fresh = [
                 ("title", read.title.as_written()),

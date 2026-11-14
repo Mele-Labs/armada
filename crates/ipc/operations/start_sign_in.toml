@@ -10,5 +10,5 @@ notes = """
 
 **A second `start_sign_in` replaces the first**, whose code is no longer polled. Signing in again as an account this machine already has is the same profile, not a second; its device is enrolled afresh and the old one is signed out of the store.
 
-Refused with 422 `fleet.sign_in_unavailable` while `account.clientId` or `store.url` is blank, naming which, and with 422 `fleet.sign_in_not_begun` when the forge would not begin one (the app has the device flow off, or the forge could not be reached). `agent_access` is `No`: signing in is the person's.
+Refused with 422 `fleet.sign_in_unavailable` while `account.clientId` is blank, and with 422 `fleet.sign_in_not_begun` when the forge would not begin one (the app has the device flow off, or the forge could not be reached). `agent_access` is `No`: signing in is the person's.
 """

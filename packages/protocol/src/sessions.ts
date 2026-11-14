@@ -297,7 +297,27 @@ export type SessionRecord = {
   lanes?: JobLanesView;
   /** The pull request descriptions this Job proposed that wait on the person, each with its pull request. Absent where none waits. Since 12 Nov 2026. */
   pull_request_drafts?: PullRequestDraft[];
+  /** Each tracker item the Job waits on because another holds it, in the item's order. Absent where it waits on none. Since 14 Nov 2026. */
+  claim_waits?: ClaimWait[];
+  /** Whether the Job holds claims its project's store has not taken yet, because the store did not answer. Absent where all are sent. Since 14 Nov 2026. */
+  claims_unsent?: boolean;
 };
+
+/**
+ * A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is its assignee in beads.
+ * `holder` is the holding Job's forge login or the assignee, `machine` and `title` the holding Job's, absent for a person in beads.
+ */
+export type ClaimWait = {
+  item: string;
+  holder: string;
+  machine?: string;
+  title?: string;
+  since: string;
+  ends: ClaimWaitEnds;
+};
+
+/** What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads. */
+export type ClaimWaitEnds = "claim_ends" | "unassigned";
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
 export type SessionStarted = {

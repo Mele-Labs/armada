@@ -94,6 +94,9 @@ pub enum Notice {
     GateClosed,
     /// A gate holds: its Checks went red, or `all_done` could not finish when the last gate closed.
     GateHold,
+    /// A claim of the Job's in its project's store: an item it waits on, the end of that wait, or a
+    /// file another Job writes too.
+    Claims,
 }
 
 impl Notice {
@@ -169,6 +172,7 @@ impl Notice {
             Notice::StartedJobEnded => "started_job_ended",
             Notice::GateClosed => "gate_closed",
             Notice::GateHold => "gate_hold",
+            Notice::Claims => "claims",
         }
     }
 }

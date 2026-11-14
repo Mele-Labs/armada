@@ -144,9 +144,11 @@ async fn his_list(rig: &Rig, id: &SessionId) -> Vec<String> {
 #[tokio::test]
 async fn the_agent_archiving_an_asking_sketch_takes_it_off_his_list_and_sends_nothing() {
     let rig = rig_placing(None);
-    let (id, _) = a_job(&rig).await;
+    let (id, at) = a_job(&rig).await;
     rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
-    assert!(his_list(&rig, &id).await.contains(&"sketch:Request flow".to_string()));
+    // A sketch drawn in the turn still running waits once that turn ends.
+    rig.stand_in.finishes(at, "Drawn.");
+    eventually(|| async { his_list(&rig, &id).await.contains(&"sketch:Request flow".to_string()) }).await;
     let told_before = sent(&rig.rows(&id).await);
 
     let archived = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Request flow")).await.expect("archived");
