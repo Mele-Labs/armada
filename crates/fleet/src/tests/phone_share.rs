@@ -195,6 +195,27 @@ const ACTS: &[(&str, &str)] = &[
     ("start_waiting", r#"{"session_id":"{id}"}"#),
 ];
 
+/// A Job in `project` waiting for `on` to end.
+async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
+    let after = ipc::StartAfter { session: on.clone(), condition: ipc::StartCondition::Ends, base: ipc::StartBase::default(), needs: String::new() };
+    let start = ipc::StartSession {
+        project: Some(project.to_string()),
+        manifest_id: rig.manifest.clone(),
+        title: Some("Build the pane after it".to_string()),
+        model: None,
+        effort: None,
+        mode: None,
+        root: None,
+        fork: None,
+        request: None,
+        after: Some(after),
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+    };
+    api::HostedSessions::start_session(&*rig.fleet, start).await.expect("started, waiting").id
+}
+
 #[tokio::test]
 async fn an_act_on_an_unshared_job_answers_as_an_act_on_no_job_and_a_shared_one_reaches_it() {
     let phone = Phone::paired().await;
@@ -208,8 +229,12 @@ async fn an_act_on_an_unshared_job_answers_as_an_act_on_no_job_and_a_shared_one_
             let unshared = phone.call("POST", &route, &body.replace("{id}", job.as_str()), job.as_str()).await;
             assert_eq!(unshared, missing, "{act}: the answer says nothing of it");
         }
-        // A Job of its own, so an act before it (a close, a stop) is not what this one meets.
-        let open = job_in(&phone.rig, Some(&garden)).await;
+        // A Job of its own, so an act before it (a close, a stop) is not what this one meets. A change to a wait
+        // needs a Job that waits: Fleet answers one that does not exactly as it answers no Job.
+        let open = match *act {
+            "change_waiting" => waiting_in(&phone.rig, &garden, &jobs.open).await,
+            _ => job_in(&phone.rig, Some(&garden)).await,
+        };
         let reached = phone.call("POST", &route, &body.replace("{id}", open.as_str()), open.as_str()).await;
         assert_ne!(reached, missing, "{act}: a shared Job takes the act");
     }
