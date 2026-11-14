@@ -50,6 +50,8 @@ Its picker lists his projects by name, each with its repository on a line under 
 Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project.
 A window scoped to a project offers that project's rows alone, and a window on one repository in no project starts there.
 The words of the request choose the first row of the repository they name, a project's before none.
+Queue for later keeps the row's project with the idea, and the Job it starts is for that project, wherever the window is then.
+⌘T over the sheet, and the card under it, start in the row picked, for its project.
 
 > **Rule.** A project whose file cannot be read is shown as unread, with its members empty, and is not written over.
 > Why: a write over a file Fleet could not read would lose what it held.

@@ -153,7 +153,7 @@ pub fn bind(cx: &mut App) {
                 return;
             }
             return reach(cx, |this, window, cx| {
-                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_repository()).flatten();
+                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_row()).flatten();
                 this.new_terminal(picked, window, cx)
             });
         }
@@ -352,8 +352,8 @@ impl DispatchScreen {
             return;
         }
         // Queue for later is kept here, on a live Fleet or not.
-        if let Asked::Queue { words, repository, project: _, model, effort } = asked {
-            self.queue_idea(words, repository, model.clone(), effort.clone(), window, cx);
+        if let Asked::Queue { words, repository, project, model, effort } = asked {
+            self.queue_idea(words, repository, project.clone(), model.clone(), effort.clone(), window, cx);
             cx.notify();
             return;
         }
@@ -373,13 +373,16 @@ impl DispatchScreen {
 
     /// ⌘T, New Side Job: a Job where the window is, else where the last one started, with no sheet. With
     /// neither, the sheet opens to be told where.
-    /// A repository the sheet's picker named starts it there; none, where the title bar is.
-    fn new_terminal(&mut self, picked: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    /// A row the sheet's picker named starts it in that repository, for that row's project; none, where the title bar is.
+    fn new_terminal(&mut self, picked: Option<super::sheet::PickedRow>, window: &mut Window, cx: &mut Context<Self>) {
         // ⌘T over the sheet does what its card does: the sheet shuts first.
         if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
             self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
         }
-        let here = terminal_place(picked, scope(cx));
+        let here = match picked {
+            Some(row) => Some((Place::Repository(row.repository), row.project)),
+            None => terminal_place(None, scope(cx)),
+        };
         let size = crate::terminal::start::size(cx);
         match here.map(|(place, project)| Start { place, size, project }).or_else(|| crate::terminal::start::kept_place(cx).map(|place| Start { place, size, project: None })) {
             Some(start) => self.start_terminal(start, None, window, cx),
@@ -620,15 +623,15 @@ impl DispatchScreen {
         }
     }
 
-    /// Queue for later (`queueSession`): the words, the repository's root and name, the model and effort picked,
-    /// saved on this machine; the sheet clears and goes, and nothing starts.
-    fn queue_idea(&mut self, words: &str, repository: &str, model: Option<String>, effort: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    /// Queue for later (`queueSession`): the words, the repository's root and name, the project of the row picked,
+    /// the model and effort picked, saved on this machine; the sheet clears and goes, and nothing starts.
+    fn queue_idea(&mut self, words: &str, repository: &str, project: Option<String>, model: Option<String>, effort: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.served_now(cx).into_iter().find(|one| one.name == repository).map(|one| one.root) else {
             let said = format!("Fleet serves no repository named {repository}");
             self.sheet.update(cx, |sheet, cx| sheet.refused(said.into(), cx));
             return;
         };
-        let idea = crate::queued::QueuedIdea { id: crate::queued::new_id(), text: words.to_string(), root, repository: repository.to_string(), model, effort };
+        let idea = crate::queued::QueuedIdea { id: crate::queued::new_id(), text: words.to_string(), root, repository: repository.to_string(), model, effort, project };
         crate::queued::add(idea, cx);
         self.sheet.update(cx, |sheet, cx| {
             sheet.answered(window, cx);
@@ -664,7 +667,8 @@ impl DispatchScreen {
             after: None,
             project_rows: Vec::new(),
             on_your_words: None,
-            project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
+            // The project of the row it was saved from, whatever the window is on now.
+            project: idea.project.clone(),
         };
         // His idea is his work: it goes as a dispatch, unheld, its words the first message, answered as the sheet's Start is.
         let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];

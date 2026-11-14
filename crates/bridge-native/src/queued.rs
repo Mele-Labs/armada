@@ -20,6 +20,10 @@ pub struct QueuedIdea {
     pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
+    /// The project of the row it was saved from, by Fleet's id, which its Job is started for. None is no project,
+    /// and an idea saved before the picker listed projects has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 impl QueuedIdea {
@@ -55,6 +59,7 @@ fn read(path: &PathBuf) -> Vec<QueuedIdea> {
         repository: Option<String>,
         model: Option<String>,
         effort: Option<String>,
+        project: Option<String>,
     }
     let Ok(bytes) = std::fs::read(path) else { return Vec::new() };
     let some = |value: Option<String>| value.filter(|value| !value.is_empty());
@@ -69,6 +74,7 @@ fn read(path: &PathBuf) -> Vec<QueuedIdea> {
                 repository: some(kept.repository)?,
                 model: some(kept.model),
                 effort: some(kept.effort),
+                project: some(kept.project),
             })
         })
         .collect()
@@ -147,4 +153,20 @@ fn radix36(mut value: u64) -> String {
     }
     out.reverse();
     String::from_utf8(out).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_idea_keeps_its_project_and_one_kept_before_reads_with_none() {
+        let path = std::env::temp_dir().join(format!("bridge-native-queued-{}.json", std::process::id()));
+        let kept = QueuedIdea { id: "a".into(), text: "Fix the login".into(), root: "/r/sample-api".into(), repository: "sample-api".into(), model: None, effort: None, project: Some("storefront".into()) };
+        std::fs::write(&path, ipc::encode(&vec![kept.clone()]).expect("encodes")).expect("writes");
+        assert_eq!(read(&path), [kept], "the project comes back as it was saved");
+        std::fs::write(&path, br#"[{"id":"b","text":"Old idea","root":"/r/armada","repository":"armada"}]"#).expect("writes");
+        assert_eq!(read(&path).first().map(|one| one.project.clone()), Some(None), "an idea from before has no project");
+        let _ = std::fs::remove_file(&path);
+    }
 }
