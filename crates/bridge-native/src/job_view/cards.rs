@@ -366,54 +366,6 @@ impl JobView {
         drawn_in(&self.record(job, cx)?.attachments, sketch)
     }
 
-    /// The band over a sketch: its glyph, title, tags, revision menu and time.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn sketch_band(
-        &self,
-        ix: usize,
-        key: &str,
-        title: &str,
-        replaced: bool,
-        against: Option<&str>,
-        more: Option<(&Instant, usize, Option<usize>)>,
-        look: &Look,
-        now: DateTime<Local>,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let tag = |text: String| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(text);
-        let mut band = div()
-            .flex()
-            .items_center()
-            // The title keeps its width: Revision and the time wrap under it where the row is too narrow for all three.
-            .flex_wrap()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_1))
-            .child(glyph(look, "pencil-ruler", Size::Small, look.color(token::FG_MUTED)))
-            .child(
-                div()
-                    .flex_grow(1.)
-                    .min_w_0()
-                    .max_w_full()
-                    .truncate()
-                    .text_size(look.length(token::TEXT_BASE))
-                    .line_height(look.length(token::LEADING_BASE))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(title.to_string())),
-            )
-            .when(replaced, |band| band.child(tag("Replaced".into())))
-            .children(against.map(|against| tag(format!("Against {against}"))));
-        if let Some((at, revisions, picked)) = more {
-            if revisions > 0 {
-                band = band.child(self.revision_button(ix, key, title, revisions, picked, false, look, cx));
-            }
-            band = band.child(self.stamp(at, look, now, true, cx));
-        }
-        band.into_any_element()
-    }
-
     /// The button that names the revision shown, and opens the menu of them.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn revision_button(&self, ix: usize, key: &str, title: &str, revisions: usize, picked: Option<usize>, chip: bool, look: &Look, cx: &Context<Self>) -> AnyElement {

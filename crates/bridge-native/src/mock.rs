@@ -88,6 +88,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-projects" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
+        // Three Jobs asking: a plan and a sketch, a sketch and a document, and a draft.
+        "review-grouped" => include_bytes!("../fixtures/review-grouped.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
@@ -121,6 +123,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // tie between Workspaces, Smoke tests' lifecycle waiting on a removal, and a proposed rule from #88's Merged.
         "job-lanes-marks" => include_bytes!("../fixtures/jobs-workflow.json"),
         "job-view-composer" | "owner-fixes" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
+        // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
+        "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
@@ -303,6 +308,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
         }
     }
+    if scenario == "claim-waits" {
+        claim_waits(&mut sessions)?;
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -312,6 +320,26 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
+fn claim_waits(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    #[derive(Deserialize)]
+    struct Held {
+        session_id: String,
+        #[serde(default)]
+        claim_waits: Vec<ipc::ClaimWait>,
+        #[serde(default)]
+        claims_unsent: bool,
+    }
+    let read: Vec<Held> = serde_json::from_slice(include_bytes!("../fixtures/claim-waits.json")).map_err(|why| why.to_string())?;
+    for held in read {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == held.session_id) {
+            one.claim_waits = held.claim_waits.into_iter().map(|wait| ipc::ClaimWait { since: shifted(NOW_ANCHOR, &wait.since), ..wait }).collect();
+            one.claims_unsent = held.claims_unsent;
+        }
+    }
+    Ok(())
 }
 
 /// The moment `jobs-snoozed` counts from, so the times a snooze names read the same on every run and in every
@@ -421,6 +449,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" => return screens_threads(),
         "job-view" | "review-palette" | "side-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
@@ -440,7 +469,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -659,6 +688,42 @@ pub fn act_refused(route: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
     (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
         .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
+}
+
+/// The sketch Fleet refuses an approval of in `review-grouped`: drawn again since he read it.
+pub const REVIEW_REDRAWN: (&str, &str) = ("mock-04", "sketch:Docs index layout");
+
+/// What `answer_items` and `dismiss_items` answer on mock data: every item settles, but in `review-grouped` the
+/// Docs index sketch's approval is refused as Fleet refuses a drawing read before it was drawn again.
+pub fn items_settled(route: &str, body: &str) -> Result<ipc::ItemsSettled, String> {
+    let asked: Vec<(ipc::SessionId, String, bool)> = match route {
+        "/sessions/items/answer" => ipc::decode::<ipc::AnswerItems>("AnswerItems", body.as_bytes())
+            .map_err(|why| why.to_string())?
+            .items
+            .into_iter()
+            .map(|one| (one.session_id, one.item, one.how == ipc::ItemHow::Approve))
+            .collect(),
+        "/sessions/items/dismiss" => {
+            ipc::decode::<ipc::DismissItems>("DismissItems", body.as_bytes()).map_err(|why| why.to_string())?.items.into_iter().map(|one| (one.session_id, one.item, false)).collect()
+        }
+        other => return Err(format!("{other} is not an items route")),
+    };
+    let grouped = scenario_is("review-grouped");
+    let outcomes = asked
+        .into_iter()
+        .map(|(session_id, item, approves)| {
+            let outcome = if grouped && approves && (session_id.as_str(), item.as_str()) == REVIEW_REDRAWN {
+                ipc::ItemSettled::Refused {
+                    code: "fleet.sketch_redrawn".into(),
+                    message: "the sketch `Docs index layout` is not the drawing that was read: the job has drawn it again since".into(),
+                }
+            } else {
+                ipc::ItemSettled::Settled
+            };
+            ipc::ItemOutcome { session_id, item, outcome }
+        })
+        .collect();
+    Ok(ipc::ItemsSettled { outcomes })
 }
 
 /// What `GET /sessions/lead_picture` answers for a Job in the scenario last named: the last thing the Job showed before
