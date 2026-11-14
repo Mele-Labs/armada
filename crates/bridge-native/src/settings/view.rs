@@ -12,7 +12,7 @@ use ipc::{Setting, SettingKind, SettingValue};
 
 use super::entries::{self, Body, Entry, Side};
 use super::overlay::{held_text, Picking, SettingsOverlay, Typed};
-use super::rows::{self, changed_chip, default_words, reset_press, restart_chip, says, segment, segment_track, split_row, rows_card, Pick, Row, Spread, SEGMENTS_MAX, SELECT_W};
+use super::rows::{self, changed_chip, default_words, reset_press, restart_chip, says, segment, segment_track, split_row, rows_card, Pick, Row, Spread, FIELD_W, SEGMENTS_MAX, SELECT_W};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
