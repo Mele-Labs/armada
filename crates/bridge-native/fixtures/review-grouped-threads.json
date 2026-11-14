@@ -1,0 +1,1597 @@
+{
+  "threads": [
+    {
+      "session_id": "mock-01",
+      "older": "older-1",
+      "head": {
+        "trail": {
+          "started": "2026-11-09T12:58:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-09T13:00:00Z"
+            }
+          ]
+        },
+        "plan": {
+          "id": "plan:v2",
+          "version": 2,
+          "state": "waiting"
+        },
+        "sketch": {
+          "id": "sk-3",
+          "at": "2026-11-09T14:01:00Z",
+          "sketch": "sketch:Tail layout",
+          "title": "Tail layout",
+          "drawing": {
+            "nodes": [
+              {
+                "id": "lane-fleet",
+                "kind": "lane",
+                "x": 0,
+                "y": 0,
+                "w": 1000,
+                "h": 150,
+                "title": "Fleet"
+              },
+              {
+                "id": "lane-bridge",
+                "kind": "lane",
+                "x": 0,
+                "y": 236,
+                "w": 1000,
+                "h": 200,
+                "title": "Bridge"
+              },
+              {
+                "id": "hook",
+                "kind": "box",
+                "x": 30,
+                "y": 40,
+                "title": "Webhook",
+                "body": "GitHub push",
+                "icon": "webhook",
+                "shape": "hexagon",
+                "color": "blue",
+                "step": 1
+              },
+              {
+                "id": "queue",
+                "kind": "box",
+                "x": 230,
+                "y": 40,
+                "title": "Merge queue",
+                "icon": "layers",
+                "shape": "cylinder",
+                "color": "teal",
+                "step": 2
+              },
+              {
+                "id": "behind",
+                "kind": "box",
+                "x": 440,
+                "y": 40,
+                "title": "Behind main?",
+                "shape": "diamond",
+                "color": "amber",
+                "step": 3
+              },
+              {
+                "id": "group-line",
+                "kind": "group",
+                "x": 20,
+                "y": 300,
+                "w": 400,
+                "h": 140,
+                "title": "Merge line"
+              },
+              {
+                "id": "chip",
+                "kind": "box",
+                "x": 40,
+                "y": 340,
+                "title": "Freshness chip",
+                "icon": "git-branch",
+                "shape": "pill",
+                "color": "amber",
+                "step": 4
+              },
+              {
+                "id": "main",
+                "kind": "box",
+                "x": 240,
+                "y": 340,
+                "title": "main",
+                "shape": "circle",
+                "color": "green",
+                "step": 4
+              },
+              {
+                "id": "rule",
+                "kind": "code",
+                "x": 450,
+                "y": 300,
+                "lang": "rust",
+                "body": "if behind > 0 {\n    Tone::Amber\n}",
+                "step": 3
+              },
+              {
+                "id": "note",
+                "kind": "label",
+                "x": 450,
+                "y": 400,
+                "title": "Grey once it is current"
+              },
+              {
+                "id": "wire-row",
+                "kind": "wire",
+                "x": 40,
+                "y": 480,
+                "w": 200,
+                "h": 36,
+                "wire": "list",
+                "title": "Merge line rows"
+              },
+              {
+                "id": "wire-btn",
+                "kind": "wire",
+                "x": 260,
+                "y": 480,
+                "w": 120,
+                "h": 36,
+                "wire": "button",
+                "title": "Update branch"
+              },
+              {
+                "id": "plain",
+                "kind": "box",
+                "x": 420,
+                "y": 480,
+                "title": "Toast",
+                "shape": "box",
+                "color": "red",
+                "icon": "zap"
+              },
+              {
+                "id": "mock-chip",
+                "kind": "mock",
+                "html": "<span class=\"armada-chip\">2 behind</span>",
+                "x": 560,
+                "y": 480,
+                "w": 80,
+                "h": 36
+              }
+            ],
+            "edges": [
+              {
+                "id": "e1",
+                "from": "hook",
+                "to": "queue",
+                "label": "enqueue",
+                "flow": true,
+                "step": 2
+              },
+              {
+                "id": "e2",
+                "from": "queue",
+                "to": "behind",
+                "step": 3,
+                "color": "amber"
+              },
+              {
+                "id": "e3",
+                "from": "behind",
+                "to": "chip",
+                "label": "yes",
+                "step": 4,
+                "color": "amber"
+              },
+              {
+                "id": "e4",
+                "from": "chip",
+                "to": "main",
+                "label": "rebases onto",
+                "step": 4
+              },
+              {
+                "id": "e5",
+                "from": "wire-btn",
+                "to": "plain",
+                "color": "red"
+              }
+            ],
+            "strokes": [
+              {
+                "id": "s1",
+                "points": [
+                  {
+                    "x": 560,
+                    "y": 110
+                  },
+                  {
+                    "x": 580,
+                    "y": 125
+                  },
+                  {
+                    "x": 600,
+                    "y": 118
+                  },
+                  {
+                    "x": 620,
+                    "y": 135
+                  }
+                ]
+              }
+            ]
+          },
+          "asked": true,
+          "revisions": [
+            {
+              "nodes": [
+                {
+                  "id": "lane-fleet",
+                  "kind": "lane",
+                  "x": 0,
+                  "y": 0,
+                  "w": 1000,
+                  "h": 150,
+                  "title": "Fleet"
+                },
+                {
+                  "id": "lane-bridge",
+                  "kind": "lane",
+                  "x": 0,
+                  "y": 236,
+                  "w": 1000,
+                  "h": 200,
+                  "title": "Bridge"
+                },
+                {
+                  "id": "hook",
+                  "kind": "box",
+                  "x": 30,
+                  "y": 40,
+                  "title": "Webhook",
+                  "body": "GitHub push",
+                  "icon": "webhook",
+                  "shape": "hexagon",
+                  "color": "blue",
+                  "step": 1
+                },
+                {
+                  "id": "queue",
+                  "kind": "box",
+                  "x": 230,
+                  "y": 40,
+                  "title": "Merge queue",
+                  "icon": "layers",
+                  "shape": "cylinder",
+                  "color": "teal",
+                  "step": 2
+                },
+                {
+                  "id": "behind",
+                  "kind": "box",
+                  "x": 440,
+                  "y": 40,
+                  "title": "Behind main?",
+                  "shape": "diamond",
+                  "color": "amber",
+                  "step": 3
+                },
+                {
+                  "id": "group-line",
+                  "kind": "group",
+                  "x": 20,
+                  "y": 300,
+                  "w": 400,
+                  "h": 140,
+                  "title": "Merge line"
+                },
+                {
+                  "id": "chip",
+                  "kind": "box",
+                  "x": 40,
+                  "y": 340,
+                  "title": "Freshness chip",
+                  "icon": "git-branch",
+                  "shape": "pill",
+                  "color": "amber",
+                  "step": 4
+                },
+                {
+                  "id": "main",
+                  "kind": "box",
+                  "x": 240,
+                  "y": 340,
+                  "title": "main",
+                  "shape": "circle",
+                  "color": "green",
+                  "step": 4
+                },
+                {
+                  "id": "rule",
+                  "kind": "code",
+                  "x": 450,
+                  "y": 300,
+                  "lang": "rust",
+                  "body": "if behind > 0 {\n    Tone::Amber\n}",
+                  "step": 3
+                },
+                {
+                  "id": "note",
+                  "kind": "label",
+                  "x": 450,
+                  "y": 400,
+                  "title": "Grey once it is current"
+                },
+                {
+                  "id": "wire-row",
+                  "kind": "wire",
+                  "x": 40,
+                  "y": 480,
+                  "w": 200,
+                  "h": 36,
+                  "wire": "list",
+                  "title": "Merge line rows"
+                },
+                {
+                  "id": "wire-btn",
+                  "kind": "wire",
+                  "x": 260,
+                  "y": 480,
+                  "w": 120,
+                  "h": 36,
+                  "wire": "button",
+                  "title": "Update branch"
+                },
+                {
+                  "id": "plain",
+                  "kind": "box",
+                  "x": 420,
+                  "y": 480,
+                  "title": "Toast",
+                  "shape": "box",
+                  "color": "red",
+                  "icon": "zap"
+                },
+                {
+                  "id": "mock-chip",
+                  "kind": "mock",
+                  "html": "<span class=\"armada-chip\">2 behind</span>",
+                  "x": 560,
+                  "y": 480,
+                  "w": 80,
+                  "h": 36
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e1",
+                  "from": "hook",
+                  "to": "queue",
+                  "label": "enqueue",
+                  "flow": true,
+                  "step": 2
+                },
+                {
+                  "id": "e2",
+                  "from": "queue",
+                  "to": "behind",
+                  "step": 3,
+                  "color": "amber"
+                },
+                {
+                  "id": "e3",
+                  "from": "behind",
+                  "to": "chip",
+                  "label": "yes",
+                  "step": 4,
+                  "color": "amber"
+                },
+                {
+                  "id": "e4",
+                  "from": "chip",
+                  "to": "main",
+                  "label": "rebases onto",
+                  "step": 4
+                },
+                {
+                  "id": "e5",
+                  "from": "wire-btn",
+                  "to": "plain",
+                  "color": "red"
+                }
+              ],
+              "strokes": [
+                {
+                  "id": "s1",
+                  "points": [
+                    {
+                      "x": 560,
+                      "y": 110
+                    },
+                    {
+                      "x": 580,
+                      "y": 125
+                    },
+                    {
+                      "x": 600,
+                      "y": 118
+                    },
+                    {
+                      "x": 620,
+                      "y": 135
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "nodes": [
+                {
+                  "id": "lane-fleet",
+                  "kind": "lane",
+                  "x": 0,
+                  "y": 0,
+                  "w": 1000,
+                  "h": 150,
+                  "title": "Fleet"
+                },
+                {
+                  "id": "lane-bridge",
+                  "kind": "lane",
+                  "x": 0,
+                  "y": 236,
+                  "w": 1000,
+                  "h": 200,
+                  "title": "Bridge"
+                },
+                {
+                  "id": "hook",
+                  "kind": "box",
+                  "x": 30,
+                  "y": 40,
+                  "title": "Webhook",
+                  "body": "GitHub push",
+                  "icon": "webhook",
+                  "shape": "hexagon",
+                  "color": "blue",
+                  "step": 1
+                },
+                {
+                  "id": "queue",
+                  "kind": "box",
+                  "x": 230,
+                  "y": 40,
+                  "title": "Merge queue",
+                  "icon": "layers",
+                  "shape": "cylinder",
+                  "color": "teal",
+                  "step": 2
+                },
+                {
+                  "id": "behind",
+                  "kind": "box",
+                  "x": 440,
+                  "y": 40,
+                  "title": "Behind main?",
+                  "shape": "diamond",
+                  "color": "amber",
+                  "step": 3
+                },
+                {
+                  "id": "group-line",
+                  "kind": "group",
+                  "x": 20,
+                  "y": 300,
+                  "w": 400,
+                  "h": 140,
+                  "title": "Merge line"
+                },
+                {
+                  "id": "chip",
+                  "kind": "box",
+                  "x": 40,
+                  "y": 340,
+                  "title": "Freshness chip",
+                  "icon": "git-branch",
+                  "shape": "pill",
+                  "color": "amber",
+                  "step": 4
+                },
+                {
+                  "id": "main",
+                  "kind": "box",
+                  "x": 240,
+                  "y": 340,
+                  "title": "main",
+                  "shape": "circle",
+                  "color": "green",
+                  "step": 4
+                },
+                {
+                  "id": "rule",
+                  "kind": "code",
+                  "x": 450,
+                  "y": 300,
+                  "lang": "rust",
+                  "body": "if behind > 0 {\n    Tone::Amber\n}",
+                  "step": 3
+                },
+                {
+                  "id": "note",
+                  "kind": "label",
+                  "x": 450,
+                  "y": 400,
+                  "title": "Grey once it is current"
+                },
+                {
+                  "id": "wire-row",
+                  "kind": "wire",
+                  "x": 40,
+                  "y": 480,
+                  "w": 200,
+                  "h": 36,
+                  "wire": "list",
+                  "title": "Merge line rows"
+                },
+                {
+                  "id": "wire-btn",
+                  "kind": "wire",
+                  "x": 260,
+                  "y": 480,
+                  "w": 120,
+                  "h": 36,
+                  "wire": "button",
+                  "title": "Update branch"
+                },
+                {
+                  "id": "plain",
+                  "kind": "box",
+                  "x": 420,
+                  "y": 480,
+                  "title": "Toast",
+                  "shape": "box",
+                  "color": "red",
+                  "icon": "zap"
+                },
+                {
+                  "id": "mock-chip",
+                  "kind": "mock",
+                  "html": "<span class=\"armada-chip\">2 behind</span>",
+                  "x": 560,
+                  "y": 480,
+                  "w": 80,
+                  "h": 36
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e1",
+                  "from": "hook",
+                  "to": "queue",
+                  "label": "enqueue",
+                  "flow": true,
+                  "step": 2
+                },
+                {
+                  "id": "e2",
+                  "from": "queue",
+                  "to": "behind",
+                  "step": 3,
+                  "color": "amber"
+                },
+                {
+                  "id": "e3",
+                  "from": "behind",
+                  "to": "chip",
+                  "label": "yes",
+                  "step": 4,
+                  "color": "amber"
+                },
+                {
+                  "id": "e4",
+                  "from": "chip",
+                  "to": "main",
+                  "label": "rebases onto",
+                  "step": 4
+                },
+                {
+                  "id": "e5",
+                  "from": "wire-btn",
+                  "to": "plain",
+                  "color": "red"
+                }
+              ],
+              "strokes": [
+                {
+                  "id": "s1",
+                  "points": [
+                    {
+                      "x": 560,
+                      "y": 110
+                    },
+                    {
+                      "x": 580,
+                      "y": 125
+                    },
+                    {
+                      "x": 600,
+                      "y": 118
+                    },
+                    {
+                      "x": 620,
+                      "y": 135
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "for_line": {
+            "text": "Picks how the thread's tail draws the chip.",
+            "links": []
+          }
+        },
+        "asked": {
+          "command": "Which colour does the stale chip take?",
+          "call": {
+            "call": "call-1",
+            "manifest_id": "armada",
+            "asked_at": "2026-11-09T14:02:00Z",
+            "tool": "AskUserQuestion",
+            "detail": "Which colour does the stale chip take?",
+            "truncated": false,
+            "rule": "ask",
+            "offers": [
+              "allow_once",
+              "refuse"
+            ],
+            "holding_for_seconds": 120,
+            "questions": [
+              {
+                "question": "Which colour does the stale chip take?",
+                "header": "Colour",
+                "multi_select": false,
+                "options": [
+                  {
+                    "label": "Amber",
+                    "description": "Matches the other waiting marks."
+                  },
+                  {
+                    "label": "Orange",
+                    "description": "Reads as an error."
+                  },
+                  {
+                    "label": "Grey",
+                    "description": "Reads as nothing happened."
+                  }
+                ]
+              },
+              {
+                "question": "Where does the chip show how far behind it is?",
+                "header": "Place",
+                "multi_select": true,
+                "options": [
+                  {
+                    "label": "In the tooltip",
+                    "description": "A press is not needed."
+                  },
+                  {
+                    "label": "In the chip",
+                    "description": "Always visible."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-001",
+            "at": "2026-11-09T13:01:07Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "The merge line chip stays green when the branch is behind main. It should turn amber while it is stale.\n\nCan you look at where the chip reads its colour, and tell me before you change it?\n\n## Debug info\nBuild 4f2a91c on main\nWindow 1 of 1"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "lease",
+            "id": "lea-002",
+            "at": "2026-11-09T13:02:14Z",
+            "slot": 4,
+            "branch": "armada/merge-line-chip"
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-003",
+          "names": [
+            "Read",
+            "Grep",
+            "Edit"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-003",
+              "at": "2026-11-09T13:03:21Z",
+              "text": "Read apps/desktop/src/renderer/src/merge-line.ts"
+            },
+            {
+              "kind": "tool",
+              "id": "t-004",
+              "at": "2026-11-09T13:04:28Z",
+              "text": "Grep mergeLineTone"
+            },
+            {
+              "kind": "tool",
+              "id": "t-005",
+              "at": "2026-11-09T13:05:35Z",
+              "text": "Read packages/components/src/MergeLine/MergeLine.tsx"
+            },
+            {
+              "kind": "tool",
+              "id": "t-006",
+              "at": "2026-11-09T13:06:42Z",
+              "text": "Edit packages/components/src/MergeLine/MergeLine.tsx"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-007",
+            "at": "2026-11-09T13:07:49Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "I found where the chip takes its colour. It reads `mergeLineTone` in `merge-line.ts` and the tone comes from the pull request's `mergeable` field alone.\n\n## What I will change\n\n- Read `behind_by` from the record as well\n- Keep green only when `behind_by` is `0`\n- Show amber for a stale branch, with the tooltip `Behind main`\n\n```rust\nfn tone(pr: &Pull) -> Tone {\n    if pr.behind_by > 0 { Tone::Amber } else { Tone::Green }\n}\n```\n\nThis leaves **red** for a failed Check alone. Tell me if you want the stale state to take another colour."
+          }
+        },
+        {
+          "kind": "checks",
+          "id": "chk-1",
+          "rows": [
+            {
+              "kind": "check",
+              "id": "chk-1",
+              "at": "2026-11-09T13:08:56Z",
+              "name": "desktop_unit",
+              "run": 412,
+              "state": "failed"
+            },
+            {
+              "kind": "check",
+              "id": "chk-2",
+              "at": "2026-11-09T13:09:03Z",
+              "name": "desktop_unit",
+              "run": 413,
+              "state": "passed"
+            }
+          ]
+        },
+        {
+          "kind": "checks",
+          "id": "chk-3",
+          "rows": [
+            {
+              "kind": "check",
+              "id": "chk-3",
+              "at": "2026-11-09T13:10:10Z",
+              "name": "foundations",
+              "run": 414,
+              "state": "passed",
+              "target": "docs"
+            }
+          ]
+        },
+        {
+          "kind": "checks",
+          "id": "chk-4",
+          "rows": [
+            {
+              "kind": "check",
+              "id": "chk-4",
+              "at": "2026-11-09T13:11:17Z",
+              "name": "ci",
+              "run": 415,
+              "state": "running"
+            }
+          ]
+        },
+        {
+          "kind": "subagent",
+          "id": "sub-1",
+          "at": "2026-11-09T13:12:24Z",
+          "subagent": {
+            "id": "agent-1",
+            "agent_type": "explorer",
+            "task": "Find every reader of mergeLineTone",
+            "state": "finished",
+            "since": "2026-11-09T13:20:00Z",
+            "ended": "2026-11-09T13:20:42Z"
+          }
+        },
+        {
+          "kind": "subagent",
+          "id": "sub-2",
+          "at": "2026-11-09T13:13:31Z",
+          "subagent": {
+            "id": "agent-2",
+            "task": "Read the chip's stories",
+            "latest": "Read Chip.stories.tsx",
+            "state": "running",
+            "since": "2026-11-09T13:22:00Z"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "command",
+            "id": "com-008",
+            "at": "2026-11-09T13:14:38Z",
+            "text": "/reload-plugins"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "ran",
+            "id": "ran-009",
+            "at": "2026-11-09T13:15:45Z",
+            "command": "cargo check -p core-model\nsecond line",
+            "code": 0,
+            "tail": "Finished dev profile in 4.2s"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "ran",
+            "id": "ran-010",
+            "at": "2026-11-09T13:16:52Z",
+            "command": "pnpm exec tsc --noEmit",
+            "code": 2,
+            "tail": "src/merge-line.ts(41,9): error TS2322\nsrc/merge-line.ts(44,3): error TS2304"
+          }
+        },
+        {
+          "kind": "fleet_turn",
+          "id": "n-011",
+          "notice": {
+            "kind": "message",
+            "id": "n-011",
+            "at": "2026-11-09T13:17:59Z",
+            "from": {
+              "kind": "session",
+              "id": "fleet",
+              "title": "Fleet"
+            },
+            "text": "The branch is 3 commits behind main. Merge main in before you push.\nThe slot is clean.",
+            "notice": "behind_base"
+          },
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-012",
+              "at": "2026-11-09T13:18:06Z",
+              "text": "Bash git merge origin/main"
+            }
+          ],
+          "handled": true
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-014",
+            "at": "2026-11-09T13:20:20Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "Merged main in. No conflicts."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-015",
+            "at": "2026-11-09T13:21:27Z",
+            "from": {
+              "kind": "session",
+              "id": "mock-02",
+              "title": "Native Bridge foundation"
+            },
+            "text": "The list's tokens moved to `look::token`. Your chip reads them from `packages/tokens` already."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-016",
+            "at": "2026-11-09T13:22:34Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Approved: http://localhost:5173/?walk=mergeLine&take=amber"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-017",
+            "at": "2026-11-09T13:23:41Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Re: Which colour should the stale state take?\nAmber, the same as the Needs you hue.\nFleet took this off your waiting list."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "compaction",
+            "id": "com-018",
+            "at": "2026-11-09T13:24:48Z",
+            "text": "The agent read the merge line chip and its tone rule, proposed reading `behind_by`, and merged main in."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "window",
+            "id": "win-019",
+            "at": "2026-11-09T13:25:55Z",
+            "title": "Merge line chip: stale state",
+            "url": "armada://walk/mergeLine"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "requested",
+            "id": "req-020",
+            "at": "2026-11-09T13:26:02Z",
+            "by": "owner",
+            "method": "GET",
+            "url": "http://localhost:5173/api/health",
+            "status": 200,
+            "ms": 84,
+            "response": "ok"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "requested",
+            "id": "req-021",
+            "at": "2026-11-09T13:27:09Z",
+            "by": "agent",
+            "method": "POST",
+            "url": "http://localhost:5173/api/chip",
+            "status": 503,
+            "ms": 1520,
+            "response": "busy",
+            "truncated": false
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "saved",
+            "id": "sav-022",
+            "at": "2026-11-09T13:28:16Z",
+            "name": "Chip colour",
+            "collection": "Merge line",
+            "collection_id": "c1",
+            "request": "r1"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "started",
+            "id": "sta-023",
+            "at": "2026-11-09T13:29:23Z",
+            "session": {
+              "id": "mock-03",
+              "title": "Move Bridge's thread rows into Fleet"
+            },
+            "fork": false
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "started",
+            "id": "sta-024",
+            "at": "2026-11-09T13:30:30Z",
+            "session": {
+              "id": "mock-04",
+              "title": "Audit the docs index"
+            },
+            "fork": true
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "linked",
+            "id": "lin-025",
+            "at": "2026-11-09T13:31:37Z",
+            "session": {
+              "id": "mock-09",
+              "title": "Upgrade the router"
+            },
+            "event": "merged"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "linked",
+            "id": "lin-026",
+            "at": "2026-11-09T13:32:44Z",
+            "session": {
+              "id": "mock-12",
+              "title": "Retry webhooks on a 503"
+            },
+            "event": "done"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "waiter",
+            "id": "wai-027",
+            "at": "2026-11-09T13:33:51Z",
+            "session": {
+              "id": "mock-06",
+              "title": "Quiet the write-clash notices"
+            },
+            "event": "waits",
+            "says": "Wait for the chip to land"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "waiter",
+            "id": "wai-028",
+            "at": "2026-11-09T13:34:58Z",
+            "session": {
+              "id": "mock-06",
+              "title": "Quiet the write-clash notices"
+            },
+            "event": "changed",
+            "from": "After a pull request merges",
+            "to": "After a Check passes"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "disputed",
+            "id": "dis-029",
+            "at": "2026-11-09T13:35:05Z",
+            "notice": "n-x",
+            "why": "The slot was clean; the notice said it had changes.",
+            "spotted": "called",
+            "review": "mock-14"
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "plan_changes",
+            "id": "pla-030",
+            "at": "2026-11-09T13:36:12Z",
+            "version": 1,
+            "approved": false,
+            "lines": [
+              {
+                "verb": "Renamed",
+                "place": "Build",
+                "from": "Chip",
+                "text": "Merge line chip"
+              },
+              {
+                "verb": "Added",
+                "place": "Walk",
+                "text": "Show the stale state"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "sent",
+            "id": "sen-031",
+            "at": "2026-11-09T13:37:19Z",
+            "text": "Use amber for the stale chip.",
+            "target": {
+              "id": "mock-02",
+              "kind": "session",
+              "title": "Native Bridge foundation"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "retro",
+            "id": "ret-032",
+            "at": "2026-11-09T13:39:33Z",
+            "stage": "written",
+            "stage_since": "2026-11-09T13:38:26Z",
+            "characters": 0,
+            "items": [],
+            "retro": 14
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "release",
+            "id": "rel-033",
+            "at": "2026-11-09T13:40:40Z",
+            "slot": 4,
+            "branch": "armada/merge-line-chip"
+          }
+        },
+        {
+          "kind": "change",
+          "id": "chg-1",
+          "at": "2026-11-09T13:41:47Z",
+          "what": "model",
+          "from": "opus",
+          "to": "sonnet"
+        },
+        {
+          "kind": "change",
+          "id": "chg-2",
+          "at": "2026-11-09T13:42:54Z",
+          "what": "workflow",
+          "from": "Feature",
+          "to": "Fix"
+        },
+        {
+          "kind": "plan",
+          "id": "plan:v1",
+          "version": 1,
+          "state": "approved"
+        },
+        {
+          "kind": "sketch",
+          "id": "sk-0",
+          "at": "2026-11-09T13:40:12Z",
+          "sketch": "sketch:Chip states",
+          "title": "Chip states",
+          "drawing": {
+            "nodes": []
+          },
+          "replaced": true,
+          "asked": true
+        },
+        {
+          "kind": "sketch",
+          "id": "sk-1",
+          "at": "2026-11-09T13:43:01Z",
+          "sketch": "sketch:Chip states",
+          "title": "Chip states",
+          "drawing": {
+            "nodes": []
+          },
+          "settled": {
+            "how": "approved",
+            "at": "2026-11-09T13:44:08Z"
+          }
+        },
+        {
+          "kind": "document",
+          "id": "document:notes:r1",
+          "at": "2026-11-09T13:44:40Z",
+          "page": "notes",
+          "title": "Release notes",
+          "revision": 1,
+          "asked": true,
+          "settled": {
+            "how": "sent_back",
+            "at": "2026-11-09T13:45:00Z",
+            "words": "Say which branches are affected."
+          }
+        },
+        {
+          "kind": "document",
+          "id": "document:design:r2",
+          "at": "2026-11-09T13:45:15Z",
+          "page": "design",
+          "title": "Stale branch design",
+          "revision": 2,
+          "asked": true
+        },
+        {
+          "kind": "file",
+          "id": "file-1",
+          "at": "2026-11-09T13:46:22Z",
+          "path": "/tmp/chip.png",
+          "name": "chip.png"
+        },
+        {
+          "kind": "judged",
+          "id": "judged:7",
+          "at": "2026-11-09T13:47:29Z",
+          "artifact": {
+            "kind": "plan",
+            "id": "2",
+            "title": "Plan v2"
+          },
+          "clean": false
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-034",
+            "at": "2026-11-09T13:48:36Z",
+            "title": "Comment on #3290",
+            "text": "The chip now reads `behind_by`.",
+            "before": "The chip is green."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-040",
+            "at": "2026-11-09T13:49:00Z",
+            "title": "Comment on #3291",
+            "text": "The chip reads amber when the branch is behind main.",
+            "settled": {
+              "how": "approved",
+              "at": "2026-11-09T13:49:30Z"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-041",
+            "at": "2026-11-09T13:50:00Z",
+            "title": "Comment on #3292",
+            "text": "The chip now reads `behind_by`.",
+            "settled": {
+              "how": "fixed",
+              "words": "The chip now reads `behind_by` and says how far.",
+              "at": "2026-11-09T13:50:30Z"
+            },
+            "before": "The chip is green."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-042",
+            "at": "2026-11-09T13:51:00Z",
+            "title": "Workflow quick-fix",
+            "text": "steps:\n  - build\n  - land",
+            "change": 12
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-044",
+            "at": "2026-11-09T13:51:20Z",
+            "title": "Comment on #3294",
+            "text": "The chip is amber while the branch is behind."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-045",
+            "at": "2026-11-09T13:51:40Z",
+            "title": "Comment on #3295",
+            "text": "Merging now."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-043",
+            "at": "2026-11-09T13:52:00Z",
+            "title": "Comment on #3293",
+            "text": "Closing this as a duplicate.",
+            "settled": {
+              "how": "sent_back",
+              "words": "Name the issue it duplicates.",
+              "at": "2026-11-09T13:52:30Z"
+            }
+          }
+        },
+        {
+          "kind": "not_started",
+          "id": "ns-1",
+          "at": "2026-11-09T13:49:43Z",
+          "cause": "the agent exited before its first turn",
+          "log": [
+            "error: no such file"
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-035",
+            "at": "2026-11-09T13:50:50Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "The chip is amber while the branch is behind. Everything above is on the branch."
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "mock-04",
+      "head": {
+        "trail": {
+          "started": "2026-11-09T12:58:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-09T13:00:00Z"
+            }
+          ]
+        },
+        "asked": {
+          "command": "rm -rf target/debug/incremental",
+          "call": {
+            "call": "call-2",
+            "manifest_id": "armada",
+            "asked_at": "2026-11-09T14:03:00Z",
+            "tool": "Bash",
+            "detail": "rm -rf target/debug/incremental",
+            "truncated": false,
+            "rule": "ask",
+            "offers": [
+              "allow_once",
+              "allow_and_remember",
+              "refuse",
+              "always_allow",
+              "always_block",
+              "allow_for_session",
+              "allow_like_this_for_session"
+            ],
+            "holding_for_seconds": 30,
+            "reaches": "/repos/armada/target/debug/incremental",
+            "reaches_to": "write",
+            "kind": {
+              "program": "rm"
+            }
+          }
+        },
+        "lapsed": {
+          "id": "ask-7",
+          "questions": [
+            {
+              "question": "Should the chip link to the pull request?",
+              "header": "Link",
+              "multi_select": false,
+              "options": [
+                {
+                  "label": "Yes",
+                  "description": "Opens the pull request."
+                },
+                {
+                  "label": "No",
+                  "description": "Stays a label."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-336",
+            "at": "2026-11-09T18:51:57Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Check that the docs index lists every page."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t-337",
+          "names": [
+            "Bash"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t-337",
+              "at": "2026-11-09T18:52:04Z",
+              "text": "Bash armada check docs"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-338",
+            "at": "2026-11-09T18:53:11Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "Every page is listed. The index is current."
+          }
+        },
+        {
+          "kind": "sketch",
+          "id": "sk-401",
+          "at": "2026-11-09T14:12:00Z",
+          "sketch": "sketch:Docs index layout",
+          "title": "Docs index layout",
+          "drawing": {
+            "nodes": [
+              {
+                "id": "push",
+                "kind": "box",
+                "x": 0,
+                "y": 0,
+                "title": "Push",
+                "body": "to the Job's branch",
+                "icon": "git-branch",
+                "color": "blue"
+              },
+              {
+                "id": "queue",
+                "kind": "box",
+                "x": 260,
+                "y": 0,
+                "title": "Merge queue",
+                "icon": "layers",
+                "shape": "cylinder",
+                "color": "teal"
+              },
+              {
+                "id": "check",
+                "kind": "box",
+                "x": 520,
+                "y": 0,
+                "title": "Behind main?",
+                "shape": "diamond",
+                "color": "amber"
+              },
+              {
+                "id": "rebase",
+                "kind": "box",
+                "x": 260,
+                "y": 200,
+                "title": "Rebase",
+                "body": "onto main",
+                "icon": "git-merge",
+                "color": "green"
+              },
+              {
+                "id": "chip",
+                "kind": "box",
+                "x": 0,
+                "y": 200,
+                "title": "Freshness chip",
+                "shape": "pill",
+                "color": "grey"
+              }
+            ],
+            "edges": [
+              {
+                "id": "f1",
+                "from": "push",
+                "to": "queue",
+                "label": "enqueue"
+              },
+              {
+                "id": "f2",
+                "from": "queue",
+                "to": "check"
+              },
+              {
+                "id": "f3",
+                "from": "check",
+                "to": "rebase",
+                "label": "yes",
+                "color": "amber"
+              },
+              {
+                "id": "f4",
+                "from": "rebase",
+                "to": "chip",
+                "label": "grey again"
+              }
+            ]
+          },
+          "asked": true,
+          "for_line": {
+            "text": "Which layout the docs index keeps.",
+            "links": []
+          }
+        },
+        {
+          "kind": "document",
+          "id": "document:docs-index:r3",
+          "at": "2026-11-09T14:14:00Z",
+          "page": "docs-index",
+          "title": "Docs index design",
+          "revision": 3,
+          "asked": true,
+          "for_line": {
+            "text": "What the index lists first.",
+            "links": []
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "mock-06",
+      "head": {
+        "trail": {
+          "started": "2026-11-09T09:30:00Z"
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-601",
+            "at": "2026-11-09T14:15:00Z",
+            "text": "The clash mark is quieter now. Drafted the release note.",
+            "from": {
+              "kind": "agent"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-101",
+            "at": "2026-11-09T14:16:00Z",
+            "title": "Release note for the clash mark",
+            "text": "**Quieter write-clash notices**\n\nA clash is told once per pair of Jobs, and again only when a new file joins it. The mark on each Job's row stays until the clash ends.",
+            "for_line": {
+              "text": "The release note under #3602.",
+              "links": []
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -129,10 +129,6 @@ impl JobView {
         cx.notify();
     }
 
-    pub(super) fn plan_field_open(&self) -> bool {
-        self.shown.as_ref().and_then(|id| self.pages.get(id.as_str())).is_some_and(|page| page.plan_edit.field.is_some())
-    }
-
     /// Shut by a key: the keys go back to the sheet's list, not to a field no longer drawn.
     pub(super) fn field_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.shut_field(cx);
