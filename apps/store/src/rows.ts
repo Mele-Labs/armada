@@ -25,6 +25,8 @@ export const MAX_DEVICES = 16;
 /** What a team store's one object may hold in devices: everyone in the org or team. */
 export const MAX_TEAM_DEVICES = 256;
 export const MAX_CLAIMS = 10_000;
+/** Jobs refused a claim and not yet told to its holder. A full table still answers the refusal and keeps no row. */
+export const MAX_CONTENDERS = 10_000;
 export const MAX_OWNERS = 10_000;
 export const MAX_RUNS = 1000;
 export const MAX_FACTS = 200;

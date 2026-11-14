@@ -1,6 +1,6 @@
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { CLAIM_KINDS, LAPSE_SECONDS } from "../src/rows";
+import { CLAIM_KINDS, LAPSE_SECONDS, MAX_CONTENDERS } from "../src/rows";
 import { signRequest } from "../src/signing";
 import vector from "../test-vectors/red-claim.json";
 import {
@@ -204,6 +204,7 @@ describe("a renewal", () => {
     expect(renewal.status).toBe(200);
     expect(await renewal.json()).toEqual({
       claims: CLAIM_KINDS.length,
+      contested: [],
     });
     for (const kind of CLAIM_KINDS) {
       const read = await answered(await call(a, "GET", claimPath(hash("a"), kind, hash("b"))));
@@ -218,6 +219,7 @@ describe("a renewal", () => {
     await claimRed(a, hash("a"), hash("b"), claimant("s-1", "Home Mac"));
     expect(await (await renew(a, claimant("s-1", "Work Mac"))).json()).toEqual({
       claims: 0,
+      contested: [],
     });
   });
 
@@ -229,6 +231,7 @@ describe("a renewal", () => {
     });
     expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
       claims: 0,
+      contested: [],
     });
     expect((await call(a, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
   });
@@ -248,6 +251,185 @@ describe("a renewal", () => {
     });
     expect(person.status).toBe(400);
     expect((await call(a, "GET", "/v1/renewals")).status).toBe(405);
+  });
+});
+
+/** The contenders left in the table, as `kind/id` of each. */
+async function contendersLeft(account: number): Promise<string[]> {
+  return runInDurableObject(accountObject(account), (_instance, state) =>
+    state.storage.sql
+      .exec<{
+        who: string;
+      }>("SELECT contender_kind || '/' || contender_id AS who FROM contenders ORDER BY who")
+      .toArray()
+      .map((row) => row.who),
+  );
+}
+
+describe("a contested claim", () => {
+  it("records the one refused, and the holder's next renewal is told of it once", async () => {
+    const a = await enrolDevice(5801);
+    await claim(
+      a,
+      hash("a"),
+      "file",
+      hash("b"),
+      claimant("s-1", "Home Mac", "Nick", "Fix the queue"),
+    );
+    const refused = await claim(
+      a,
+      hash("a"),
+      "file",
+      hash("b"),
+      claimant("s-2", "Work Mac", "Ada", "Rename the queue"),
+    );
+    expect(refused.status).toBe(409);
+    expect(await contendersLeft(5801)).toEqual([
+      "job/s-2",
+    ]);
+
+    const told = (await (await renew(a, claimant("s-1", "Home Mac"))).json()) as {
+      claims: number;
+      contested: Record<string, unknown>[];
+    };
+    expect(told.claims).toBe(1);
+    expect(told.contested).toEqual([
+      {
+        repo: hash("a"),
+        kind: "file",
+        key: hash("b"),
+        holder: {
+          kind: "job",
+          id: "s-2",
+          machine: "Work Mac",
+          since: claimant("s-2").since,
+          name: "Ada",
+          title: "Rename the queue",
+        },
+      },
+    ]);
+    expect(await contendersLeft(5801)).toEqual([]);
+    expect(await (await renew(a, claimant("s-1", "Home Mac"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+  });
+
+  it("keeps one row for a contender that asks again, with its latest title", async () => {
+    const a = await enrolDevice(5802);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "First"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "Second"));
+    const told = (await (await renew(a, claimant("s-1"))).json()) as {
+      contested: {
+        holder: {
+          title: string;
+        };
+      }[];
+    };
+    expect(told.contested.map((contest) => contest.holder.title)).toEqual([
+      "Second",
+    ]);
+  });
+
+  it("is not recorded when the holder asks for its own claim again", async () => {
+    const a = await enrolDevice(5803);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    expect((await claim(a, hash("a"), "file", hash("b"), claimant("s-1"))).status).toBe(409);
+    expect(await contendersLeft(5803)).toEqual([]);
+    expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+  });
+
+  it("is told only to the holder of the claim", async () => {
+    const a = await enrolDevice(5804);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    expect(await (await renew(a, claimant("s-2"))).json()).toEqual({
+      claims: 0,
+      contested: [],
+    });
+    expect(await contendersLeft(5804)).toEqual([
+      "job/s-2",
+    ]);
+  });
+
+  it("drops its contenders when the claim is given back, when its kind is cleared and when it lapses", async () => {
+    const a = await enrolDevice(5805);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "red", hash("c"), claimant("s-1"));
+    await claim(a, hash("a"), "test", hash("d"), claimant("s-3"));
+    for (const [kind, key] of [
+      [
+        "file",
+        "b",
+      ],
+      [
+        "red",
+        "c",
+      ],
+      [
+        "test",
+        "d",
+      ],
+    ] as const)
+      await claim(a, hash("a"), kind, hash(key), claimant("s-2"));
+    expect(await contendersLeft(5805)).toEqual([
+      "job/s-2",
+      "job/s-2",
+      "job/s-2",
+    ]);
+
+    await call(a, "DELETE", claimPath(hash("a"), "file", hash("b")));
+    expect(await contendersLeft(5805)).toHaveLength(2);
+    await call(a, "DELETE", `/v1/claims/${hash("a")}/red`);
+    expect(await contendersLeft(5805)).toHaveLength(1);
+    await renewedAgo(5805, {
+      "s-3": LAPSE_SECONDS,
+    });
+    await call(a, "GET", claimPath(hash("a"), "test", hash("d")));
+    expect(await contendersLeft(5805)).toEqual([]);
+  });
+
+  it("drops its contenders when a lapse is run by the alarm", async () => {
+    const a = await enrolDevice(5806);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    await renewedAgo(5806, {
+      "s-1": LAPSE_SECONDS,
+    });
+    await runDurableObjectAlarm(accountObject(5806));
+    expect(await contendersLeft(5806)).toEqual([]);
+  });
+
+  it("is answered 409 with no row kept once the account holds 10,000 contenders", async () => {
+    const a = await enrolDevice(5807);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await runInDurableObject(accountObject(5807), (_instance, state) => {
+      state.storage.sql.exec(
+        `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+         INSERT INTO contenders (repo, kind, key, contender_kind, contender_id, machine, name, title, since, at)
+         SELECT ?, 'file', ?, 'job', 'filler-' || i, 'studio', '', '', 1, 1 FROM n`,
+        MAX_CONTENDERS,
+        hash("a"),
+        hash("b"),
+      );
+    });
+    const refused = await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    expect(refused.status).toBe(409);
+    expect((await answered(refused)).holder.id).toBe("s-1");
+    const kept = await runInDurableObject(
+      accountObject(5807),
+      (_instance, state) =>
+        state.storage.sql
+          .exec<{
+            n: number;
+          }>("SELECT COUNT(*) AS n FROM contenders WHERE contender_id = 's-2'")
+          .one().n,
+    );
+    expect(kept).toBe(0);
   });
 });
 
