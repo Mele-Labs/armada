@@ -67,6 +67,23 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-limits`: Settings › Limits as tiles, group by group, then a count stepped and put back.
+pub const LIMITS: &str = "native-settings-limits";
+
+pub static LIMITS_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Limits: a band in the page's hue, then tiles in groups", "button", "Limits", "heading", "At once"),
+    step("Memory and disk: sizes typed with their unit inside", Verb::Wheel("region", "Limits", 330), "heading", "Memory and disk"),
+    step("Agents: a switch among the figures", Verb::Wheel("region", "Limits", 440), "heading", "Agents"),
+    step("Its switch, among the figures", Verb::Wheel("region", "Limits", 700), "switch", "Tell a Job its context is large"),
+    step("Ports", Verb::Wheel("region", "Limits", 900), "heading", "Ports"),
+    step("The page ends at Ports", Verb::Wheel("region", "Limits", 3000), "heading", "Ports"),
+    step("Back at the top, a count has Fewer and More either side of its figure", Verb::Wheel("region", "Limits", -3000), "button", "More Drones at once"),
+    press_on("More steps Drones at once and saves it", "button", "More Drones at once", "status", "Drones at once: 4"),
+    press_on("Reset puts back what ships, and what was beside the figure goes", "button", "Reset: Drones at once", "status", "Drones at once: 2"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-settings-macs-claim`: the other Mac claims while Macs is open here, and its Confirm turns up without
 /// reopening Settings.
 pub const MACS_CLAIM: &str = "native-settings-macs-claim";
@@ -76,6 +93,22 @@ pub static MACS_CLAIM_STEPS: &[Step] = &[
     press_on("Macs: no claim from the other Mac yet", "button", "Macs", "list", "Devices"),
     step("The other Mac claims while the page is open", Verb::Later(5000), "button", "Confirm Mac Pro"),
     step("Its row turns up with Confirm, and Settings was never reopened", Verb::Wheel("region", "Devices", 600), "button", "Confirm Mac Pro"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-settings-macs-build`: two Macs run other builds. Update moves the older one onto this Mac's build, and Forget
+/// stays on a menu the keys open.
+pub const MACS_BUILD: &str = "native-settings-macs-build";
+
+pub static MACS_BUILD_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: a Mac on an older build and one on a newer build, each edged in amber", "button", "Macs", "list", "Devices"),
+    step("Update takes the place of Forget on both rows", Verb::Wheel("region", "Devices", 600), "button", "Update Mac mini"),
+    press_on("Update moves Mac mini onto this Mac's build", "button", "Update Mac mini", "button", "Updating Mac mini"),
+    step("Once the list reads it on the same build, its row is linked", Verb::Later(5500), "button", "Forget Mac mini"),
+    step("Tab goes on to Mac Pro, which runs a newer build", Verb::Key("tab"), "button", "Update this Mac onto Mac Pro"),
+    step("Shift+F10 opens its menu: Forget stays one key away", Verb::Key("shift-f10"), "menuitem", "Forget Mac Pro"),
+    step("Esc shuts the menu, and the keys go back to the press", Verb::Key("escape"), "button", "Update this Mac onto Mac Pro"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
@@ -326,17 +359,11 @@ const LIST: Verb = Verb::Key("f");
 pub static STEPS: &[Step] = &[
     step("⌘, opens Settings over the app, at nine tenths of the window, on Limits", Verb::Key("cmd-,"), "dialog", "Settings"),
     step("Search sits at the top left, over the groups", Verb::Look, "searchbox", "Search Settings"),
-    step("A figure in a short range is dragged as well as typed", Verb::Look, "textbox", "Drones at once"),
+    step("A count is stepped, a size typed with its unit inside", Verb::Look, "textbox", "Memory to keep free"),
     step("A setting changed from what ships says so, with Reset", Verb::Look, "button", "Reset: Drones at once"),
-    step(
-        "Enter goes into the page, Tab reaches the slider, and → moves the figure a step; Save comes up beside it",
-        Verb::Keys(&["enter", "tab", "tab", "right"]),
-        "button",
-        "Save Drones at once",
-    ),
-    press_on("Save sends it to Fleet, and the figure stands", "button", "Save Drones at once", "button", "Reset: Drones at once"),
-    step("Type past the range", Verb::Type("9"), "textbox", "Drones at once"),
-    step("A figure out of range says the range, and Save does not send it", Verb::Look, "alert", "Between 1 and 8."),
+    press_on("A press on More steps the count and saves it", "button", "More Drones at once", "status", "Drones at once: 4"),
+    step("Type past the range", Verb::Type("9"), "textbox", "Memory to keep free"),
+    step("A figure out of range says the range, and Save does not send it", Verb::Look, "alert", "Between 0 and 50."),
     step("⌘F goes to the search", Verb::Key("cmd-f"), "searchbox", "Search Settings"),
     step("Typing finds a page by any setting it holds", Verb::Typed("ghostty"), "region", "Terminal"),
     step("Only the pages it found are listed", Verb::Absent("button", "Limits"), "button", "Terminal"),

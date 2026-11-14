@@ -1,12 +1,13 @@
 //! The options of a Needs you question that the asker drew as stills (`ipc::OptionPicture`). Each still is
 //! read from Fleet once (`GET /sessions/shown`), off the main thread, and kept by gpui's asset cache. Stills
-//! sit side by side where the column fits them and stack where it does not. A press on one picks its option,
-//! and the pointer on a named part shows that part's label over its box.
+//! sit side by side where the column fits them and stack where it does not. A press on a still opens it large,
+//! never picks (owner, 13 Nov: a press to look cast his vote); the option's words under it pick. The pointer
+//! on a named part shows that part's label over its box.
 
 use std::sync::Arc;
 
 use gpui::{
-    anchored, deferred, div, img, point, prelude::*, px, relative, AnyElement, App, Asset, ClickEvent, FocusHandle, FontWeight, Global, Hsla,
+    anchored, deferred, div, img, prelude::*, px, relative, AnyElement, App, Asset, ClickEvent, FocusHandle, FontWeight, Global, Hsla,
     Image, ImageCacheError, ImageFormat, ObjectFit, RenderImage, Role, SharedString, Window,
 };
 use ipc::{OptionPicture, PicturePart, WaitingOption};
@@ -82,26 +83,55 @@ pub fn card_size(picture: &OptionPicture) -> (f32, f32) {
     (w * scale, h * scale)
 }
 
-/// The still open at its own size over the window: its card's key, and the focus to give back on Esc.
-struct Enlarged {
+/// One still as the full-size view draws it.
+#[derive(Clone)]
+struct Shown {
     key: SharedString,
+    picture: OptionPicture,
+    source: StillAt,
+    label: String,
+    hue: Hsla,
+}
+
+/// The still open at its own size over the window: every still of its question in order (← and → move
+/// between them), which one is open, and the focus to give back on Esc. The window's root draws it
+/// (`over`), so no panel it was pressed in limits its size.
+struct Enlarged {
+    ring: Vec<Shown>,
+    at: usize,
     focus: FocusHandle,
     back: Option<FocusHandle>,
 }
 
 impl Global for Enlarged {}
 
-thread_local! {
-    /// The window's size at the last frame that drew stills: what the full-size view covers.
-    static ROOM: std::cell::Cell<gpui::Size<gpui::Pixels>> = std::cell::Cell::new(gpui::size(px(1200.), px(800.)));
-}
-
-fn enlarge(key: SharedString, window: &mut Window, cx: &mut App) {
+fn enlarge(ring: Vec<Shown>, at: usize, window: &mut Window, cx: &mut App) {
     let focus = cx.focus_handle();
     let back = window.focused(cx);
     window.focus(&focus, cx);
-    cx.set_global(Enlarged { key, focus, back });
+    cx.set_global(Enlarged { ring, at, focus, back });
     window.refresh();
+}
+
+/// The still `by` places along from the open one, wrapping at either end.
+fn step_to(by: isize, window: &mut Window, cx: &mut App) {
+    let Some(open) = cx.try_global::<Enlarged>() else { return };
+    let next = (open.at as isize + by).rem_euclid(open.ring.len().max(1) as isize) as usize;
+    cx.global_mut::<Enlarged>().at = next;
+    window.refresh();
+}
+
+/// Whether an opened still has the keys: it is drawn at the window's root, outside any screen, so a walk
+/// that hands keys back to its screen leaves them here.
+pub fn holds_keys(window: &Window, cx: &App) -> bool {
+    cx.try_global::<Enlarged>().is_some_and(|open| open.focus.is_focused(window))
+}
+
+/// The open still over the whole window, for the window's root to draw last; nothing while none is open.
+pub fn over(window: &Window, cx: &App) -> Option<AnyElement> {
+    let open = cx.try_global::<Enlarged>()?;
+    let shown = open.ring.get(open.at)?;
+    Some(full_size(shown, &open.focus, open.ring.len() > 1, crate::room::of(window, cx), crate::look::ActiveLook::look(cx)))
 }
 
 fn shrink(window: &mut Window, cx: &mut App) {
@@ -117,11 +147,14 @@ fn shrink(window: &mut Window, cx: &mut App) {
 /// seldom are, and over it when the box reaches the still's foot.
 fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (f32, f32), named: bool, hue: Hsla, look: &Look) -> gpui::Div {
     let source = source.clone();
-    let parts = picture.parts.iter().map(|part| {
+    let tiers = label_tiers(picture, w);
+    let step = f32::from(look.length(token::LEADING_2XS)) + 4.;
+    let parts = picture.parts.iter().zip(tiers).map(|(part, tier)| {
         let [x, y, pw, ph] = part_box(picture, part);
         let name = SharedString::from(format!("{id}:{}", part.name));
         let label = div().absolute().right_0();
-        let label = if y + ph > 0.88 { label.bottom_full().mb(px(2.)) } else { label.top_full().mt(px(2.)) };
+        let gap = px(2. + tier as f32 * step);
+        let label = if y + ph > 0.88 { label.bottom_full().mb(gap) } else { label.top_full().mt(gap) };
         let label = label
             .px(look.length(token::SPACE_1))
             .py(px(1.))
@@ -158,10 +191,29 @@ fn still(id: &SharedString, picture: &OptionPicture, source: &StillAt, (w, h): (
         .children(parts)
 }
 
+/// How many label heights each part's label drops below (or rises above) its box, so labels whose boxes end
+/// side by side never sit on one another. A label's width is guessed from its letters.
+fn label_tiers(picture: &OptionPicture, w: f32) -> Vec<usize> {
+    let mut placed: Vec<(bool, usize, f32, f32)> = Vec::new();
+    picture
+        .parts
+        .iter()
+        .map(|part| {
+            let [x, y, pw, ph] = part_box(picture, part);
+            let below = y + ph <= 0.88;
+            let end = (x + pw) * w;
+            let start = end - (part.label.chars().count() as f32 * 6.5 + 8.);
+            let tier = (0..).find(|tier| !placed.iter().any(|&(side, at, a, b)| side == below && at == *tier && start < b && a < end)).unwrap_or(0);
+            placed.push((below, tier, start, end));
+            tier
+        })
+        .collect()
+}
+
 /// One card for each option the asker drew as a still, or nothing when none was: the still, then the
-/// option's number, label and what choosing it means. A press on the card picks it; the corner button and
-/// Space open the still at its own size without picking. `chosen` is the option picked; `pick` makes the
-/// press handler for an option, by its place.
+/// option's number, label and what choosing it means. A press on the still, or Space on the card, opens it
+/// large; only a press on its words picks it. `chosen` is the option picked; `pick` makes the press handler
+/// for an option, by its place.
 #[allow(clippy::too_many_arguments)]
 pub fn stills(
     key: &str,
@@ -171,47 +223,40 @@ pub fn stills(
     hue: Hsla,
     look: &Look,
     pick: &dyn Fn(usize) -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>,
-    cx: &App,
+    _cx: &App,
 ) -> Option<AnyElement> {
     let drawn = drawn(options);
     if drawn.is_empty() {
         return None;
     }
-    let open = cx.try_global::<Enlarged>().map(|open| (open.key.clone(), open.focus.clone()));
-    let cards = drawn.into_iter().map(|(at, picture)| {
+    let ring: Vec<Shown> = drawn
+        .iter()
+        .map(|(at, picture)| Shown { key: SharedString::from(format!("still:{key}:{at}")), picture: (*picture).clone(), source: StillAt { port, image: picture.image.clone() }, label: options[*at].label.clone(), hue })
+        .collect();
+    let cards = drawn.into_iter().enumerate().map(|(place, (at, picture))| {
         let option = &options[at];
         let label = option.label.clone();
         let on = chosen == Some(at);
         let source = StillAt { port, image: picture.image.clone() };
         let card_key = SharedString::from(format!("still:{key}:{at}"));
         let (w, h) = card_size(picture);
-        let expand_key = card_key.clone();
-        let expand = labelled(
-            div()
-                .id(SharedString::from(format!("{card_key}:expand")))
-                .absolute()
-                .top(look.length(token::SPACE_1))
-                .right(look.length(token::SPACE_1))
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::BG_OVERLAY).opacity(0.85))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .hover(|style| style.border_color(hue))
+        let (space_ring, press_ring) = (ring.clone(), ring.clone());
+        let picture_press = labelled(
+            still(&card_key, picture, &source, (w, h), false, hue, look)
+                .id(SharedString::from(format!("{card_key}:picture")))
+                .w_full()
+                .max_w(px(w))
+                .h_auto()
+                .aspect_ratio(w / h)
                 .cursor_pointer()
-                .tooltip(crate::titlebar::parts::tip("Full size (Space)"))
-                .child(crate::titlebar::parts::glyph("maximize-2", look.length(token::SPACE_4), look.color(token::FG_DEFAULT)))
+                .tooltip(crate::titlebar::parts::tip("Larger (Space)"))
                 .on_click(move |_, window, cx| {
                     cx.stop_propagation();
-                    enlarge(expand_key.clone(), window, cx);
+                    enlarge(press_ring.clone(), place, window, cx);
                 }),
             Role::Button,
-            format!("Full size: {label}"),
+            format!("Picture of {label}"),
         );
-        let space_key = card_key.clone();
         let card = div()
             .id(card_key.clone())
             .focusable()
@@ -223,21 +268,24 @@ pub fn stills(
             .gap(look.length(token::SPACE_2))
             .p(look.length(token::SPACE_2))
             .rounded(look.length(token::RADIUS_LG))
-            .cursor_pointer()
             .bg(if on { hue.opacity(0.14) } else { look.color(token::FG_DEFAULT).opacity(0.04) })
             .border(look.length(token::BORDER_WIDTH))
             .border_color(if on { hue } else { look.color(token::FG_DEFAULT).opacity(0.07) })
-            .hover(|style| style.border_color(hue.opacity(0.6)))
-            .on_click(pick(at))
             .on_key_down(move |event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "space" {
                     cx.stop_propagation();
-                    enlarge(space_key.clone(), window, cx);
+                    enlarge(space_ring.clone(), place, window, cx);
                 }
             })
-            .child(still(&card_key, picture, &source, (w, h), false, hue, look).w_full().max_w(px(w)).h_auto().aspect_ratio(w / h).child(expand))
-            .child(
+            .child(picture_press)
+            .child(labelled(
                 div()
+                    .id(SharedString::from(format!("{card_key}:pick")))
+                    .cursor_pointer()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .py(look.length(token::SPACE_1))
+                    .hover(|style| style.bg(hue.opacity(0.12)))
+                    .on_click(pick(at))
                     .flex()
                     .items_start()
                     .gap(look.length(token::SPACE_2))
@@ -254,37 +302,49 @@ pub fn stills(
                                 div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone()))
                             })),
                     ),
-            );
-        let enlarged = open.as_ref().filter(|(open_key, _)| *open_key == card_key).map(|(_, focus)| full_size(&card_key, picture, &source, &label, focus, hue, look));
-        div().flex_none().max_w_full().child(labelled(card, Role::Button, format!("Picture of {label}"))).children(enlarged).into_any_element()
+                Role::Button,
+                format!("Choose {label}"),
+            ));
+        div().flex_none().max_w_full().child(labelled(card, Role::Group, label.clone())).into_any_element()
     });
-    let room = gpui::canvas(|_, window, _| ROOM.with(|room| room.set(window.viewport_size())), |_, _, _, _| {}).absolute().size_0();
-    Some(labelled(div().id(SharedString::from(format!("stills:{key}"))).relative().flex().flex_wrap().gap(look.length(token::SPACE_3)).children(cards).child(room), Role::Group, "Pictures").into_any_element())
+    Some(labelled(div().id(SharedString::from(format!("stills:{key}"))).flex().flex_wrap().gap(look.length(token::SPACE_3)).children(cards), Role::Group, "Pictures").into_any_element())
 }
 
-/// The still at its own size, or less where the window is smaller: the room left inside the dim and the frame
-/// around it, and under the frame's head.
+/// The still whole at its own size, or scaled down to fit the room left inside the dim, the frame around it
+/// and the frame's head (owner, 13 Nov: a zoom shows the whole picture). A still so tall that fitting it
+/// would leave it narrower than `READABLE` keeps that width and scrolls in the frame instead.
 fn natural_in(picture: &OptionPicture, room: gpui::Size<gpui::Pixels>, look: &Look) -> (f32, f32) {
     let (w, h) = (picture.width.max(1) as f32, picture.height.max(1) as f32);
     let inset = (f32::from(look.length(token::SPACE_8)) + f32::from(look.length(token::SPACE_4))) * 2.;
-    let head = f32::from(look.length(token::SPACE_4)) + f32::from(look.length(token::LEADING_BASE)) + f32::from(look.length(token::SPACE_3));
-    let scale = ((f32::from(room.width) - inset) / w).min((f32::from(room.height) - inset - head) / h).clamp(0.1, 1.);
+    let head = f32::from(look.length(token::SPACE_3)) + f32::from(look.length(token::SPACE_4)) + f32::from(look.length(token::LEADING_BASE)).max(f32::from(look.length(token::H_CONTROL_SM)));
+    let across = ((f32::from(room.width) - inset) / w).max(0.01);
+    let down = ((f32::from(room.height) - inset - head) / h).max(0.01);
+    let fit = across.min(down);
+    let scale = if w * fit < READABLE.min(w * across) { (READABLE / w).min(across) } else { fit };
+    let scale = scale.min(1.);
     (w * scale, h * scale)
 }
 
-/// The still over the window at its own size, every part named; Esc or a press beside it closes it.
-#[allow(clippy::too_many_arguments)]
-fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, label: &str, focus: &FocusHandle, hue: Hsla, look: &Look) -> AnyElement {
+/// The narrowest a tall still is drawn full size before it scrolls rather than shrinks further.
+const READABLE: f32 = 480.;
+
+/// The still over the window at its own size, every part named; ← and → move to the still beside it, and Esc
+/// or a press beside it closes it. Nothing here picks.
+fn full_size(shown: &Shown, focus: &FocusHandle, many: bool, within: gpui::Bounds<gpui::Pixels>, look: &Look) -> AnyElement {
+    let room = within.size;
+    let Shown { key, picture, source, label, hue } = shown;
+    let hue = *hue;
     let id = SharedString::from(format!("{key}:full"));
-    let room = ROOM.with(|room| room.get());
+    let inside = look.length(token::SPACE_8) * 2.;
     let body = div()
         .id(SharedString::from(format!("{key}:full-body")))
         .flex()
         .flex_col()
         .gap(look.length(token::SPACE_3))
         .p(look.length(token::SPACE_4))
-        .max_w_full()
-        .max_h_full()
+        // In pixels, not a share of the dim: inside Needs you a share came out as the panel's height.
+        .max_w(room.width - inside)
+        .max_h(room.height - inside)
         .overflow_scroll()
         .rounded(look.length(token::RADIUS_LG))
         .bg(look.color(token::BG_OVERLAY))
@@ -297,11 +357,12 @@ fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, labe
                 .items_center()
                 .gap(look.length(token::SPACE_3))
                 .child(div().flex_1().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(label.to_string())))
+                .when(many, |head| head.child(crate::titlebar::parts::kbd("\u{2190}", look)).child(crate::titlebar::parts::kbd("\u{2192}", look)))
                 .child(crate::titlebar::parts::kbd("Esc", look)),
         )
         .child(still(&id, picture, source, natural_in(picture, room, look), true, hue, look).mt(look.length(token::SPACE_4)));
     deferred(
-        anchored().position(point(px(0.), px(0.))).child(
+        anchored().position(within.origin).child(
             labelled(
                 div()
                     .id(id.clone())
@@ -315,11 +376,20 @@ fn full_size(key: &SharedString, picture: &OptionPicture, source: &StillAt, labe
                     .p(look.length(token::SPACE_8))
                     .bg(gpui::black().opacity(0.6))
                     .on_click(|_, window, cx| shrink(window, cx))
-                    .on_key_down(|event: &gpui::KeyDownEvent, window, cx| {
-                        if matches!(event.keystroke.key.as_str(), "escape" | "space") {
+                    .on_key_down(|event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
+                        "escape" | "space" => {
                             cx.stop_propagation();
                             shrink(window, cx);
                         }
+                        "left" => {
+                            cx.stop_propagation();
+                            step_to(-1, window, cx);
+                        }
+                        "right" => {
+                            cx.stop_propagation();
+                            step_to(1, window, cx);
+                        }
+                        _ => {}
                     })
                     .child(body),
                 Role::Dialog,
@@ -351,6 +421,28 @@ mod tests {
         let [x, _, w, h] = part_box(&still, &part(900, 880, 300, 100));
         assert!((x + w - 1.).abs() < 1e-4, "a box past the right edge stops at it");
         assert!(h <= 20. / 900. + 1e-4, "a box past the foot stops at it");
+    }
+
+    #[test]
+    fn a_still_opened_full_size_fits_the_room_whole_unless_fitting_would_leave_it_too_narrow() {
+        let look = crate::look::Look::dark();
+        let room = |w: f32, h: f32| gpui::size(px(w), px(h));
+        let small = OptionPicture { width: 300, height: 120, ..picture(vec![]) };
+        assert_eq!(natural_in(&small, room(1400., 820.), &look), (300., 120.), "a small still keeps its own size");
+        let wide = OptionPicture { width: 1520, height: 1080, ..picture(vec![]) };
+        let (w, h) = natural_in(&wide, room(820., 730.), &look);
+        assert!(h <= 730. - 96. - 30. && w < 820., "a big still shrinks until its whole height fits: {w} by {h}");
+        assert!(((w / h) - 1520. / 1080.).abs() < 1e-3, "and keeps its shape");
+        let tall = OptionPicture { width: 760, height: 2400, ..picture(vec![]) };
+        let (w, h) = natural_in(&tall, room(1400., 820.), &look);
+        assert!((w - READABLE).abs() < 1e-3 && h > 820., "a tall still keeps a readable width and scrolls: {w} by {h}");
+    }
+
+    #[test]
+    fn labels_of_boxes_that_end_side_by_side_stack_rather_than_cover_each_other() {
+        let part = |name: &str, x: u32, w: u32| PicturePart { name: name.into(), label: name.into(), x, y: 134, w, h: 24 };
+        let tiers = label_tiers(&OptionPicture { width: 760, height: 540, ..picture(vec![part("Main act", 623, 80), part("More menu", 707, 24), part("Row note", 29, 100)]) }, 760.);
+        assert_eq!(tiers, vec![0, 1, 0], "the second label drops a line; one far off keeps its place");
     }
 
     #[test]
