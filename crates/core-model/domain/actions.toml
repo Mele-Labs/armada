@@ -299,6 +299,42 @@ destructive = false
 confirms = false
 notes = "Moves the focus to the pane beside the focused one, in the direction of the arrow, in the open Job's area. A Motion: it acts on nothing and appears in no palette. Added 30 Oct 2026 with the Job's arrangeable panes."
 
+[actions.move_tab_next_pane]
+kind = "Action"
+tier = "Global"
+verb = "Move tab to the next pane"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌃⌘]"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Moves the tab the keys are on to the pane after the focused one in the open Job's area, to the front of it, wrapping round. A pane left with no tab goes. Added 13 Nov 2026 with the Job's panes drawn natively."
+
+[actions.pane_grow]
+kind = "Action"
+tier = "Global"
+verb = "Grow pane"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌃⌘="
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Widens the focused pane in the open Job's area by one step toward its neighbour, or heightens it where it is stacked, keeping each pane its least size. A run of presses is one step for undo. Added 13 Nov 2026 with the Job's panes drawn natively."
+
+[actions.pane_shrink]
+kind = "Action"
+tier = "Global"
+verb = "Shrink pane"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌃⌘-"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "The reverse of Grow pane: the focused pane gives one step to its neighbour. Added 13 Nov 2026 with the Job's panes drawn natively."
+
 [actions.close]
 kind = "Action"
 tier = "Global"

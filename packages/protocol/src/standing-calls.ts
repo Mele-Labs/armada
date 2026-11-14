@@ -48,6 +48,8 @@ export type CallArrival = {
   text: string;
   tone: CallTone;
   kind: CallArrivalKind;
+  /** The call's key, as `StandingCall.key`. Set on `mac_pairing`, where `session_id` carries it too for readers that do not read this yet. */
+  key?: string;
 };
 
 /** What `calls.changed` carries: the calls whole, and the news. `arrived` is absent where only openedness or the list moved. */

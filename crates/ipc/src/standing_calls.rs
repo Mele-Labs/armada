@@ -104,6 +104,10 @@ pub struct CallArrival {
     pub text: String,
     pub tone: CallTone,
     pub kind: CallArrivalKind,
+    /// The call's key, as `StandingCall.key`. Set on `mac_pairing`, where `session_id` carries it too for
+    /// readers that do not read this yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 /// What `calls.changed` carries: the calls whole, and the news since the last publish.
