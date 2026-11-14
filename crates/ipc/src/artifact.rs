@@ -1,6 +1,8 @@
 //! A Job's sketches, drafts and pages as one record: `get_job_artifacts`.
 //! `crates/ipc/operations/get_job_artifacts.toml` is the contract, `docs/concepts/artifact.md` the rules.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Instant, SessionId};
@@ -39,6 +41,10 @@ pub struct JobArtifact {
     /// Every press of a page's action, oldest first. Empty for a sketch, a draft, and a page never pressed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub presses: Vec<PagePress>,
+    /// The newest cast of each vote a page declares, in the order first cast. Empty for every form but a page,
+    /// and for a page never voted on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub votes: Vec<VoteCast>,
 }
 
 /// `press_page_action`: his press of an action a page declares with `<armada-action>`.
@@ -111,6 +117,110 @@ pub enum PressDid {
     Started { job: SessionId },
     /// The Job's ask, by its waiting id, was answered with the action's option.
     Answered { item: String },
+}
+
+/// `cast_page_vote`: his vote on an `<armada-vote>` a page declares. `crates/ipc/operations/cast_page_vote.toml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CastPageVote {
+    pub session_id: SessionId,
+    /// The page's artifact id: its path.
+    pub artifact: String,
+    /// The kept revision whose vote he cast. The vote is read off it, never off the page as it is now.
+    pub revision: u32,
+    /// The vote's `id` attribute.
+    pub vote: String,
+    pub result: VoteResult,
+}
+
+/// The forms a vote takes, its `form` attribute.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VoteForm {
+    /// One take picked, with a note on any of the rest.
+    Pick,
+    /// Every take in an order.
+    Rank,
+    /// A keep or a drop on each named part of each take.
+    Score,
+}
+
+impl VoteForm {
+    /// The form a page's `form` attribute names, where it is one.
+    pub fn named(word: &str) -> Option<VoteForm> {
+        match word.trim().to_ascii_lowercase().as_str() {
+            "pick" => Some(VoteForm::Pick),
+            "rank" => Some(VoteForm::Rank),
+            "score" => Some(VoteForm::Score),
+            _ => None,
+        }
+    }
+
+    pub fn word(self) -> &'static str {
+        match self {
+            VoteForm::Pick => "pick",
+            VoteForm::Rank => "rank",
+            VoteForm::Score => "score",
+        }
+    }
+}
+
+/// What he voted, tagged by `form`. `notes` are his words on a take, by the take's id.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "form", rename_all = "snake_case")]
+pub enum VoteResult {
+    /// The take he picked.
+    Pick {
+        take: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+    /// Every take once, first place first.
+    Rank {
+        order: Vec<String>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+    /// A keep or a drop on a take's part. A part left out is no vote.
+    Score {
+        marks: Vec<VoteMark>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        notes: BTreeMap<String, String>,
+    },
+}
+
+impl VoteResult {
+    pub fn form(&self) -> VoteForm {
+        match self {
+            VoteResult::Pick { .. } => VoteForm::Pick,
+            VoteResult::Rank { .. } => VoteForm::Rank,
+            VoteResult::Score { .. } => VoteForm::Score,
+        }
+    }
+
+    pub fn notes(&self) -> &BTreeMap<String, String> {
+        match self {
+            VoteResult::Pick { notes, .. } | VoteResult::Rank { notes, .. } | VoteResult::Score { notes, .. } => notes,
+        }
+    }
+}
+
+/// One keep or drop on one named part of one take.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoteMark {
+    pub take: String,
+    pub part: String,
+    pub keep: bool,
+}
+
+/// One cast of a page's vote, as Fleet kept it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoteCast {
+    pub revision: u32,
+    /// The vote's `id`.
+    pub vote: String,
+    pub form: VoteForm,
+    pub result: VoteResult,
+    pub at: Instant,
 }
 
 /// An artifact the agent or he archived as stale. `archive_artifact`.

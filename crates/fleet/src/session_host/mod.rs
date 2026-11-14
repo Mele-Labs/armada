@@ -39,6 +39,7 @@ mod answering_items;
 mod artifact_editing;
 mod page_words;
 mod page_actions;
+mod page_votes;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

@@ -226,6 +226,7 @@ WebSocket event stream, read this first.
 | [A plan carries its sketches: `sketches` on `record_plan` and `SessionPlan`, and `in_plan` on `JobArtifact`](protocol/a-plan-carries-its-sketches.md) |
 | [Approve all and Dismiss all: `answer_items` and `dismiss_items`](protocol/approve-all-and-dismiss-all.md) |
 | [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
+| [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
