@@ -37,10 +37,11 @@ pub(super) enum Zone {
     Bays,
     Spine,
     Judge,
+    Artifacts,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 17] = [
+    pub(super) const ALL: [Zone; 18] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -58,6 +59,7 @@ impl Zone {
         Zone::Bays,
         Zone::Spine,
         Zone::Judge,
+        Zone::Artifacts,
     ];
 
     pub(super) fn id(self) -> &'static str {
@@ -79,6 +81,7 @@ impl Zone {
             Zone::Bays => "bays",
             Zone::Spine => "spine",
             Zone::Judge => "judge",
+            Zone::Artifacts => "artifacts",
         }
     }
 
@@ -101,6 +104,7 @@ impl Zone {
             Zone::Bays => ("layout-grid", "Bays"),
             Zone::Spine => ("waypoints", "Spine"),
             Zone::Judge => ("scale", "Judge"),
+            Zone::Artifacts => ("shapes", "Artifacts"),
         }
     }
 }

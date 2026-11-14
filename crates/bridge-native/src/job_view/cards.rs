@@ -8,13 +8,14 @@
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, MouseButton, Role, SharedString};
 use ipc::{
-    AnswerDocument, AnswerSketch, AnswerWaiting, CardSettled, DismissWaiting, DocumentHow, DraftHow, DraftSettled, Instant,
-    SessionId, SketchHow, ThreadDocument, ThreadSketch,
+    AnswerSketch, AnswerWaiting, CardSettled, DismissWaiting, DraftHow, DraftSettled, Instant,
+    SessionId, SessionRow, SketchHow, ThreadDocument, ThreadSketch,
 };
 
 use std::rc::Rc;
 
-use super::acts::{button, refusal, Answer, Mode, Tone};
+use super::acts::{button, refusal, Answer, Mode, Tone, SHEET};
+use super::band_card::{band, foot_box, frame as band_frame, key_act, well, Act, Do, Foot, Head, Stand};
 use super::menus::teach_entries;
 use super::pop::NUMBERED;
 use super::rows::{glyph, mono, tip, Size};
@@ -33,21 +34,6 @@ pub(super) enum Said {
 
 fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
     ipc::encode(body).map_err(|why| format!("{why:?}"))
-}
-
-/// The card's frame in the spacious take: a quiet fill and a hairline edge, reaching a little past
-/// the words (`--spacious-bleed`).
-fn frame(look: &Look, bleed: bool) -> gpui::Div {
-    div()
-        .flex()
-        .flex_col()
-        .min_w_0()
-        .overflow_hidden()
-        .rounded(look.length(token::RADIUS_LG))
-        .bg(look.color(token::FG_DEFAULT).opacity(0.04))
-        .border(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::FG_DEFAULT).opacity(0.07))
-        .when(bleed, |frame| frame.mx(-(look.length(token::SPACE_4) + look.length(token::SPACE_1))))
 }
 
 /// What a settled card says, and its mark.
@@ -92,10 +78,9 @@ pub(super) fn quote(look: &Look, words: &str) -> AnyElement {
         .into_any_element()
 }
 
-/// The sketch or document an approval is for.
+/// The sketch an approval is for.
 pub(super) enum Subject {
     Sketch { sketch: String, drawn: Option<String> },
-    Document { page: String, revision: u32 },
 }
 
 impl JobView {
@@ -134,26 +119,13 @@ impl JobView {
         }
         if open {
             let answer = {
-                let (key, subject, session_id) = (key.to_string(), subject.clone(), session_id.clone());
+                let (subject, session_id) = (subject.clone(), session_id.clone());
                 move |how: SketchHow, words: Option<String>| -> (&'static str, Result<String, String>) {
                     match &*subject {
                         Subject::Sketch { sketch, drawn } => (
                             "/sessions/sketch/answer",
                             encoded(&AnswerSketch { session_id: session_id.clone(), sketch: sketch.clone(), drawn: drawn.clone().unwrap_or_default(), how, words }),
                         ),
-                        Subject::Document { page, revision } => {
-                            let _ = &key;
-                            (
-                                "/sessions/document/answer",
-                                encoded(&AnswerDocument {
-                                    session_id: session_id.clone(),
-                                    document: format!("document:{page}"),
-                                    revision: revision.to_string(),
-                                    how: if how == SketchHow::Approved { DocumentHow::Approved } else { DocumentHow::SentBack },
-                                    words,
-                                }),
-                            )
-                        }
                     }
                 }
             };
@@ -194,10 +166,8 @@ impl JobView {
                     ))
             } else {
                 let (approve_key, note_key, withdraw_key) = (key.to_string(), key.to_string(), key.to_string());
-                let title_id = match &*subject {
-                    Subject::Sketch { sketch, .. } => sketch.clone(),
-                    Subject::Document { page, .. } => format!("document:{page}"),
-                };
+                let Subject::Sketch { sketch: title_id, .. } = &*subject;
+                let title_id = title_id.clone();
                 let answer = answer.clone();
                 let on_target = self.is_target(key);
                 footer
@@ -421,47 +391,9 @@ impl JobView {
 .into_any_element()
     }
 
-    /// A document revision the Job kept (B1.5).
-    pub(super) fn document(&self, ix: usize, card: &ThreadDocument, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let key = card.id.clone();
-        let optimistic = page.cards.answers.get(&key);
-        let settled = settled_of(card.settled.as_ref(), optimistic);
-        let open = card.asked && settled.is_none();
-        // The approval row's own top padding makes up the tighter bottom.
-        let follows = open || settled.is_some() || page.cards.said.contains_key(&key);
-        let band = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .pb(look.length(if follows { token::SPACE_1 } else { token::SPACE_3 }))
-            .child(glyph(look, "file-text", Size::Small, look.color(token::FG_MUTED)))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .text_size(look.length(token::TEXT_BASE))
-                    .line_height(look.length(token::LEADING_BASE))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(card.title.clone())),
-            )
-            .child(
-                div()
-                    .id(SharedString::from(format!("revision-tag:{key}")))
-                    .flex_none()
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .tooltip(tip(format!("Revision {}", card.revision)))
-                    .child(format!("r{}", card.revision)),
-            )
-            .child(self.stamp(&card.at, look, now, true, cx));
-        let body = frame(look, true).child(band).when(follows, |frame| {
-            frame.child(self.approval(ix, &key, Subject::Document { page: card.page.clone(), revision: card.revision }, open, false, settled, true, page, look, cx))
-        });
-        labelled(body.id(SharedString::from(format!("document:{key}"))), Role::Article, format!("Document: {}, Revision {}", card.title, card.revision)).into_any_element()
+    /// A document revision the Job kept (B1.5), as its page's card in the Band look (`band_card.rs`).
+    pub(super) fn document(&self, ix: usize, card: &ThreadDocument, page: &Page, look: &Look, _now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        self.document_card(ix, card, page, look, cx)
     }
 
     /// A file, a window or a judged reading the Job showed: a quiet card with a glyph and a name.
@@ -696,6 +628,10 @@ impl JobView {
             page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open));
         }
         let target = self.is_target(&key);
+        // A draft is a card in the Band look; a proposed workflow change keeps its own card.
+        if kind == DraftKind::Draft {
+            return self.draft_in_band(ix, id, &key, at, title, text, before, how, mode, target, headed, page, look, cx);
+        }
         let proposed = self.workflow_proposal(change, text, cx);
         let eyebrow_word = proposed.unwrap_or(if kind == DraftKind::Workflow { "Workflow" } else { "Draft" });
         // An open draft that proposes no change can become a page he reads; a paused Job keeps its turn
@@ -727,32 +663,7 @@ impl JobView {
             Some((DraftHow::Fixed, Some(words))) => words.clone(),
             _ => text.to_string(),
         };
-        let more_before = before.map(|before| {
-            let opened = self.open_in_card(&format!("{key}:before"));
-            let key_before = format!("{key}:before");
-            div()
-                .flex()
-                .flex_col()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .child(labelled(
-                    button(look, SharedString::from(format!("before:{key}")), "Text it replaces", Tone::Ghost, false, None, true)
-                        .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &key_before, cx))),
-                    Role::Button,
-                    "Text it replaces",
-                ))
-                .children(opened.then(|| {
-                    div()
-                        .w_full()
-                        .px(look.length(token::SPACE_3))
-                        .py(look.length(token::SPACE_2))
-                        .rounded(look.length(token::RADIUS_SM))
-                        .bg(look.color(token::BG_SUNKEN))
-                        .text_size(look.length(token::TEXT_SM))
-                        .text_color(look.color(token::FG_MUTED))
-                        .child(SharedString::from(before.to_string()))
-                }))
-        });
+        let more_before = self.text_it_replaces(ix, &key, before, look, cx);
         let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).when(proposed.is_none(), |body| body.child(
             div()
                 .text_size(look.length(token::TEXT_SM))
@@ -800,7 +711,7 @@ impl JobView {
             body = body.child(refusal(look, &key, why.clone()));
         }
         if open {
-            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, headed, page, look, cx));
+            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, headed, false, page, look, cx));
         } else if !headed {
             page.keys.set(&key, None);
         }
@@ -832,6 +743,184 @@ impl JobView {
         labelled(card, Role::Article, name).into_any_element()
     }
 
+    /// The toggle that opens the text a draft replaces, and the text under it once open.
+    fn text_it_replaces(&self, ix: usize, key: &str, before: Option<&str>, look: &Look, cx: &Context<Self>) -> Option<gpui::Div> {
+        before.map(|before| {
+
+            let opened = self.open_in_card(&format!("{key}:before"));
+            let key_before = format!("{key}:before");
+            div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .child(labelled(
+                    button(look, SharedString::from(format!("before:{key}")), "Text it replaces", Tone::Ghost, false, None, true)
+                        .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &key_before, cx))),
+                    Role::Button,
+                    "Text it replaces",
+                ))
+                .children(opened.then(|| {
+                    div()
+                        .w_full()
+                        .px(look.length(token::SPACE_3))
+                        .py(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .bg(look.color(token::BG_SUNKEN))
+                        .text_size(look.length(token::TEXT_SM))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(SharedString::from(before.to_string()))
+                }))
+        })
+    }
+
+    /// A draft as a card in the Band look (`band_card.rs`): its text in a well cropped at 240, and the acts in a footer.
+    /// What it does is what it did: Approve, Edit and Make it a Document stay, and Ask for changes sends the note the
+    /// Note box sent. The card's keys A, C, D, E and Enter work while it holds the focus and no box is open.
+    #[allow(clippy::too_many_arguments)]
+    fn draft_in_band(
+        &self,
+        ix: usize,
+        id: &str,
+        key: &str,
+        at: &Instant,
+        title: &str,
+        text: &str,
+        before: Option<&str>,
+        how: Option<(DraftHow, Option<String>)>,
+        mode: Mode,
+        target: bool,
+        headed: bool,
+        page: &Page,
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let job = self.shown.clone().unwrap_or_default();
+        let (open, here) = (how.is_none(), ix == SHEET);
+        let editing = open && mode == Mode::Edit;
+        let stand = match &how {
+            None => Stand::Asking,
+            Some((DraftHow::Approved | DraftHow::Fixed, _)) => Stand::Approved,
+            Some((DraftHow::SentBack, _)) => Stand::SentBack,
+            Some((DraftHow::Withdrawn, _)) => Stand::Dismissed,
+        };
+        let artifact = format!("draft:{title}");
+        let kept = self.artifact_of(&job, &artifact);
+        let archived = kept.is_some_and(|one| one.archived.is_some());
+        let last = kept.and_then(|one| one.revisions.last());
+        let revision = last.map(|last| (last.number, super::band_card::revision_said(last.number, last.by, last.at.as_str())));
+        let fixed = matches!(how, Some((DraftHow::Fixed, _)));
+        let yours = match last {
+            Some(last) if last.by == ipc::ArtifactBy::Owner => Some(format!("r{} is your edit", last.number)),
+            _ if fixed => Some("Approved with your fixes".to_string()),
+            _ => None,
+        };
+        let for_line = self.thread(&job, cx).and_then(|held| super::review::draft_row(&held.items, id)).and_then(|row| match row {
+            SessionRow::Draft { for_line, .. } => for_line.as_ref(),
+            _ => None,
+        });
+        let words_said = how.as_ref().and_then(|(how, words)| matches!(how, DraftHow::SentBack | DraftHow::Withdrawn).then_some(words.as_deref()).flatten());
+        let head = band(look, Head { key, title, form: ipc::ArtifactForm::Draft, stand, words: kept.and_then(|one| one.words.as_deref()), revision, yours, for_line, named: fixed.then_some("Approved with your fixes") });
+        let shown_text = match &how {
+            Some((DraftHow::Fixed, Some(words))) => words.clone(),
+            _ => text.to_string(),
+        };
+        let screen = if editing {
+            div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).children(self.box_of(key, Mode::Edit, "Draft text", look, cx)).into_any_element()
+        } else {
+            let prose = div().min_w_0().child(self.prose(format!("{key}:text"), &shown_text, look, cx)).into_any_element();
+            // Words selected in an open draft take their own menu, Edit and Add note, in place of the selection bar.
+            let prose = if open { self.block(page, key, prose, cx) } else { prose };
+            well(look, shown_text.len() > 480 || shown_text.lines().count() > 8, prose)
+        };
+        let run = self.draft_run(ix, id, key, title, text);
+        let inner = if open {
+            self.draft_footer(ix, key, id, DraftKind::Draft, mode, text, title, target, headed, true, page, look, cx)
+        } else {
+            if !headed {
+                page.keys.set(key, None);
+            }
+            let foot = Foot { ix, key: key.to_string(), asking: false, archivable: !archived, openable: !here, editable: false, commit: false, route: "/sessions/waiting/answer", run: run.clone() };
+            self.band_footer(&foot, Vec::new(), page, look, cx)
+        };
+        let inner = match (editing, page.cards.said.get(key)) {
+            (true, Some(why)) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(refusal(look, key, why.clone())).child(inner).into_any_element(),
+            _ => inner,
+        };
+        let spot = self.spot(page, &format!("card:{key}"), cx);
+        let (aim, name) = (key.to_string(), format!("Draft: {title}"));
+        let (opens, keyed, key_of) = (run.clone(), run, key.to_string());
+        let asking = open && mode == Mode::Read;
+        let press = div()
+            .id(SharedString::from(format!("draft-press:{key}")))
+            .when(!here, |press| press.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| opens(this, Act::Open, window, cx))))
+            .child(head);
+        let card = band_frame(look, self.band_narrow(look))
+            .id(SharedString::from(format!("card:{key}")))
+            .track_focus(&spot.focus)
+            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .when(target && open, |card| card.border_color(look.color(token::ACCENT)))
+            .on_mouse_down(MouseButton::Left, cx.listener({
+                let focus = spot.focus.clone();
+                move |this, _, window, cx| {
+                    this.aim(&aim);
+                    // A box inside the card takes the press first; the card takes it when nothing in it did.
+                    if !focus.contains_focused(window, cx) {
+                        window.focus(&focus, cx);
+                    }
+                    cx.notify();
+                }
+            }))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                if event.keystroke.modifiers.modified() {
+                    return;
+                }
+                let boxed = this.shown.as_ref().and_then(|job| this.pages.get(job)).is_some_and(|page| page.cards.modes.contains_key(&key_of));
+                if boxed {
+                    return;
+                }
+                if let Some(act) = key_act(event.keystroke.key.as_str(), asking, true, !here) {
+                    cx.stop_propagation();
+                    keyed(this, act, window, cx);
+                }
+            }))
+            .child(press)
+            .child(screen)
+            .children(self.text_it_replaces(ix, key, before, look, cx).map(|more| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(more)))
+            .children(words_said.map(|words| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(quote(look, words))))
+            .child(foot_box(look).child(inner));
+        let card = self.menu_on(card, &spot, "Draft", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("words", text.to_string(), Some(at.clone())), cx);
+        labelled(card, Role::Article, name).into_any_element()
+    }
+
+    /// What each act on a draft's card does: the answers it has always sent, now for the Band footer and its keys.
+    fn draft_run(&self, ix: usize, id: &str, key: &str, title: &str, text: &str) -> Do {
+        let (id, key, title, text) = (id.to_string(), key.to_string(), title.to_string(), text.to_string());
+        Rc::new(move |this, act, window, cx| {
+            let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
+            let item = format!("draft:{id}");
+            let answer = |words: Option<String>| encoded(&AnswerWaiting { session_id: session.clone(), item_id: item.clone(), choice: words.is_none().then_some(0), text: words, mode: None, fixed: None });
+            match act {
+                Act::Approve => this.settle(ix, key.clone(), Answer::Approved, "/sessions/waiting/answer", answer(None), window, cx),
+                Act::Ask => this.ask_for_changes(ix, &key, window, cx),
+                Act::Send => {
+                    let note = this.typed_in(&key, Mode::Note, cx).trim().to_string();
+                    if !note.is_empty() {
+                        this.settle(ix, key.clone(), Answer::SentBack(note.clone()), "/sessions/waiting/answer", answer(Some(note)), window, cx);
+                    }
+                }
+                Act::Cancel => this.shut_note(ix, &key, window, cx),
+                Act::Dismiss => {
+                    let body = encoded(&DismissWaiting { session_id: session.clone(), item_id: item.clone(), reason: None, misread: false });
+                    this.settle(ix, key.clone(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
+                }
+                Act::Archive => this.archive_card(ix, &key, &format!("draft:{title}"), window, cx),
+                Act::Open => this.open_draft_tab(&id, window, cx),
+                Act::Edit => this.open_box(ix, &key, Mode::Edit, &text, window, cx),
+            }
+        })
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draft_footer(
         &self,
@@ -844,6 +933,7 @@ impl JobView {
         title: &str,
         target: bool,
         headed: bool,
+        banded: bool,
         page: &Page,
         look: &Look,
         cx: &Context<Self>,
@@ -937,6 +1027,23 @@ impl JobView {
             if !headed {
                 page.keys.set(key, Some(super::keys::Card { at: ix, kind: kind_word.into(), title: title.to_string(), yes, change, send_back, no }));
             }
+        }
+        // In the Band look the footer is the card's own, except the Edit box's row, which keeps Approve with fixes.
+        if banded && mode != Mode::Edit {
+            let paused = self.shown.as_ref().is_some_and(|job| self.paused(job, cx));
+            let (page_key, draft_id, draft_title) = (key.to_string(), id.to_string(), title.to_string());
+            let to_page = (mode == Mode::Read).then(|| {
+                labelled(
+                    button(look, SharedString::from(format!("to-page:{key}")), "Make it a Document", Tone::Ghost, false, None, !paused)
+                        .when(paused, |button| button.tooltip(tip("Resume the Job first")))
+                        .when(!paused, |button| button.on_click(cx.listener(move |this, _, window, cx| this.make_document(ix, page_key.clone(), &draft_id, &draft_title, window, cx)))),
+                    Role::Button,
+                    "Make it a Document",
+                )
+                .into_any_element()
+            });
+            let foot = Foot { ix, key: key.to_string(), asking: true, archivable: false, openable: ix != SHEET, editable: true, commit: false, route: "/sessions/waiting/answer", run: self.draft_run(ix, id, key, title, text) };
+            return self.band_footer(&foot, to_page.into_iter().collect(), page, look, cx);
         }
         let key_s = key.to_string();
         let row = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));

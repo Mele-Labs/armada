@@ -75,7 +75,7 @@ impl Standing {
 }
 
 /// `color-mix(in srgb, <ink> pct, --bg-raised)`.
-fn mixed(look: &Look, ink: Token, pct: f32) -> Hsla {
+pub(super) fn mixed(look: &Look, ink: Token, pct: f32) -> Hsla {
     let (base, ink) = (Rgba::from(look.color(token::BG_RAISED)), Rgba::from(look.color(ink)));
     let at = |from: f32, to: f32| from + (to - from) * pct;
     Rgba { r: at(base.r, ink.r), g: at(base.g, ink.g), b: at(base.b, ink.b), a: 1. }.into()
@@ -92,7 +92,7 @@ struct Acts {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
+pub(super) enum Kind {
     Approve,
     Secondary,
     Primary,
@@ -118,7 +118,7 @@ fn cap_on(look: &Look, text: &str, ink: Hsla) -> gpui::Div {
 }
 
 /// One of the footer's buttons: 28 px tall, its key cap at the right. The caller adds `on_click`.
-fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: bool) -> Stateful<gpui::Div> {
+pub(super) fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: bool) -> Stateful<gpui::Div> {
     let base = div()
         .id(SharedString::from(id))
         .flex_none()
@@ -170,7 +170,7 @@ fn link_icon(kind: ArtifactLinkKind) -> &'static str {
     }
 }
 
-fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
+pub(super) fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
     let ink = look.color(token::ACCENT);
     labelled(
         div()

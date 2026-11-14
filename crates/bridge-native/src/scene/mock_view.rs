@@ -208,6 +208,11 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
     );
 }
 
+/// The web view the app draws pages with, for a page drawn outside a scene, as a card's first screen is.
+pub(crate) fn painter(cx: &App) -> Option<Painter> {
+    cx.try_global::<Pictures>()?.painter.clone()
+}
+
 /// How tall a page's content stands at this width, once any picture of it has come.
 pub(super) fn height(mock: &Mock, width: f32, dark: bool, cx: &App) -> Option<f32> {
     cx.try_global::<Pictures>()?.pages.get(&page_key(mock, width, dark)).map(|drawn| drawn.height)
