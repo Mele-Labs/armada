@@ -45,6 +45,7 @@ where
                 at: ipc::Instant::carried(at),
                 resuming: hosting.paused_resuming,
             }),
+            moving_to_mac: state.to_mac.clone(),
             start,
             start_failed: state.start_failed.as_ref().map(|failed| ipc::StartFailed {
                 cause: failed.cause.clone(),

@@ -143,6 +143,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         running: true,
         commands: Vec::new(),
         paused: None,
+        moving_to_mac: None,
         start: None,
         start_failed: None,
     };
