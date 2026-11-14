@@ -89,8 +89,9 @@ pub fn is_stepped(one: &Setting) -> bool {
     control_of(one) == Control::Stepper
 }
 
-/// What settings.json holds for it, else what is in force: the value a press steps from.
-fn current(one: &Setting) -> &SettingValue {
+/// What settings.json holds for it, else what is in force: the value a press steps from, and the one a row shows, so
+/// a setting waiting on a restart reads what he chose.
+pub(super) fn current(one: &Setting) -> &SettingValue {
     one.saved.as_ref().unwrap_or(&one.value)
 }
 
@@ -649,6 +650,21 @@ mod tests {
         assert!(!changed(&one));
         one.saved = Some(SettingValue::Integer(3));
         assert!(changed(&one));
+    }
+
+    #[test]
+    fn a_setting_waiting_on_a_restart_shows_what_he_saved_and_resets_to_what_ships() {
+        let mut one = setting("timeouts.commandSeconds");
+        one.kind = SettingKind::Seconds { min: 5, max: 300 };
+        one.default = SettingValue::Integer(15);
+        one.value = SettingValue::Integer(15);
+        one.saved = Some(SettingValue::Integer(30));
+        one.pending_restart = true;
+        assert_eq!(*current(&one), SettingValue::Integer(30), "the field reads the saved value, not the one in force");
+        assert!(changed(&one));
+        assert_eq!(super::super::rows::default_words(&one), "15 seconds", "Reset goes back to what ships");
+        one.saved = None;
+        assert_eq!(*current(&one), SettingValue::Integer(15), "nothing saved: what is in force");
     }
 
     #[test]

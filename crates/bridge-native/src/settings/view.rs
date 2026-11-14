@@ -439,7 +439,7 @@ impl SettingsOverlay {
     fn render_segments(&self, one: &Setting, options: &[String], off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let Some(stops) = self.stops.get(&one.key) else { return div().into_any_element() };
         let key = one.key.clone();
-        let now = held_text(&one.value);
+        let now = held_text(super::limits::current(one));
         let mut track = segment_track(look, SharedString::from(format!("choice-{key}"))).track_focus(&stops.control);
         for (n, word) in options.iter().enumerate() {
             let on = *word == now;
@@ -518,7 +518,7 @@ impl SettingsOverlay {
         let tip_said: SharedString = one.key.clone().into();
 
         if let SettingKind::Boolean = one.kind {
-            let on = one.value == SettingValue::Bool(true);
+            let on = *super::limits::current(one) == SettingValue::Bool(true);
             let flip_key = key.clone();
             let control = ringed(
                 look,
@@ -550,7 +550,7 @@ impl SettingsOverlay {
             (SettingKind::Choice { options }, _) if options.len() <= SEGMENTS_MAX => self.render_segments(one, options, off, look, window, cx),
             (SettingKind::Choice { options }, _) => {
                 let key = key.clone();
-                let now = held_text(&one.value);
+                let now = held_text(super::limits::current(one));
                 let name = one.title.clone();
                 let options = options.clone();
                 let trigger = ringed(
@@ -708,7 +708,7 @@ impl SettingsOverlay {
     fn render_slider(&self, one: &Setting, typed: &str, in_range: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let (SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max }) = one.kind else { return div().into_any_element() };
         let Some(stops) = self.stops.get(&one.key) else { return div().into_any_element() };
-        let held = if let SettingValue::Integer(n) = one.value { n } else { min };
+        let held = if let SettingValue::Integer(n) = *super::limits::current(one) { n } else { min };
         let at = if in_range { typed.trim().parse::<i64>().unwrap_or(held) } else { held };
         let fill = if max > min { (at - min) as f32 / (max - min) as f32 } else { 0. };
         let steps = max - min + 1;

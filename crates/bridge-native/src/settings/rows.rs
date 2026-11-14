@@ -243,6 +243,9 @@ pub fn default_words(one: &Setting) -> String {
 /// A unit as it is written inside a field: `%` for percent, nothing for a port.
 pub fn unit_in_words(unit: &str) -> &str {
     match unit {
+        "ms" => "milliseconds",
+        "s" => "seconds",
+        "min" => "minutes",
         "percent" => "%",
         "port" => "",
         other => other,
@@ -386,5 +389,22 @@ impl SettingsOverlay {
             labelled(div().id(SharedString::from(format!("settings-bone-{n}"))).child(split_row(look, spread, row, n == 0)), Role::Image, "Loading").into_any_element()
         });
         rows_card(look, "settings-bones", rows.collect()).into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn units_are_written_out_in_full_inside_a_field() {
+        assert_eq!(unit_in_words("ms"), "milliseconds");
+        assert_eq!(unit_in_words("s"), "seconds");
+        assert_eq!(unit_in_words("min"), "minutes");
+        assert_eq!(unit_in_words("percent"), "%");
+        assert_eq!(unit_in_words("port"), "");
+        for whole in ["GiB", "KiB", "days", "minutes", "thousand tokens", "Drones"] {
+            assert_eq!(unit_in_words(whole), whole);
+        }
     }
 }
