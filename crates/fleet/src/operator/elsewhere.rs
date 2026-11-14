@@ -146,6 +146,8 @@ fn weighed(record: &SessionRecord) -> LiveJob {
         issues: issues.into_iter().collect(),
         running: Vec::new(),
         started_by: Vec::new(),
+        // Another Mac sends only what it shares.
+        shared: true,
     }
 }
 

@@ -356,6 +356,12 @@ where
         let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
         let mut made = Sourced::default();
         let undone = |what: &str| Err(what.to_string());
+        // Read again as it is carried out, so a project turned off while the call ran is not reached.
+        if let Some(into) = ruling.other.as_deref().filter(|_| arrival.reaches_only_shared()) {
+            if !self.job_shared(into).await {
+                return undone("the Job it named is not in a shared project");
+            }
+        }
         match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
             (Arrived::Report, Way::Link, _, Some(issue)) => {
                 if self.store().lock().await.link_bug_report(last, issue).is_err() {

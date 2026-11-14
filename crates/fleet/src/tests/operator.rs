@@ -117,6 +117,7 @@ impl Held {
                 issues: Vec::new(),
                 running: Vec::new(),
                 started_by: Vec::new(),
+                shared: false,
             })
             .collect();
         Arc::new(Held { paused: None, live, log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
