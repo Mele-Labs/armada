@@ -748,6 +748,18 @@ fn assemble(
         ),
         // A claim on a red main reaches the store the same way, and a take waits on it.
         reaching: Arc::new(fleet::red_claim::OverTheWire::within(fleet::red_claim::STORE_TIMEOUT)),
+        // A store's deploy tries the tunnel's Cloudflare sign-in first, and keeps a token he pasted in
+        // his own keychain.
+        deploying: {
+            let tunnel_machine = machine.clone();
+            fleet::store_deploy::Deploying {
+                cloudflare: Arc::new(adapters::HttpCloudflare::new(fleet::store_deploy::CLOUDFLARE_TIMEOUT)?),
+                tokens: Arc::new(adapters::KeychainCloudflareTokens::new()),
+                tunnel: Arc::new(move || pocket::tunnel_sign_in(&tunnel_machine)),
+                script: Arc::from(adapters::STORE_WORKER),
+                token_page: adapters::CLOUDFLARE_TOKEN_PAGE.to_string(),
+            }
+        },
         settings,
         // Requests' secret variables are kept in the person's own keychain: never in a file,
         // which a commit or a package could carry.

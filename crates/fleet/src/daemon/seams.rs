@@ -146,6 +146,10 @@ where
     pub(crate) fn signing_in(&self) -> &crate::signing_in::SigningIn {
         &self.signing_in
     }
+    /// What a project's store deploy reaches. See [`crate::store_deploy`].
+    pub(crate) fn deploying(&self) -> &crate::store_deploy::Deploying {
+        &self.deploying
+    }
     /// How a claim on a red main reaches the store. See [`crate::red_claim`].
     pub(crate) fn reaching(&self) -> &Arc<dyn crate::red_claim::Reaching> {
         &self.reaching

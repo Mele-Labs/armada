@@ -28,7 +28,7 @@ use crate::piece::named;
 use crate::yaml::{self, Table};
 
 const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values", "shared_with_macs", "store"];
-const STORE: &[&str] = &["address", "team", "worker", "deployed"];
+const STORE: &[&str] = &["address", "team", "worker", "deployed", "joins_unlimited"];
 const MEMBER: &[&str] = &["repository", "folder"];
 const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
@@ -193,6 +193,8 @@ fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore
     };
     let (address, team, worker, deployed) =
         (read("address", true, out), read("team", false, out), read("worker", false, out), read("deployed", false, out));
+    let unlimited_at = format!("{at}.joins_unlimited");
+    let joins_unlimited = table.optional("joins_unlimited").and_then(|value| yaml::flag(&unlimited_at, value, out)).unwrap_or(false);
     table.close(STORE, out);
     let address = store_part(address, StoreAddress::new, out);
     let team = store_part(team, StoreTeam::new, out);
@@ -201,7 +203,7 @@ fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore
         let at = Timestamp::from_rfc3339(written);
         at.epoch_millis().map(|_| at).ok_or_else(|| MalformedStore::Deployed(written.to_string()))
     }, out);
-    Some(ProjectStore { address: address.ok()??, team: team.ok()?, worker: worker.ok()?, deployed: deployed.ok()? })
+    Some(ProjectStore { address: address.ok()??, team: team.ok()?, worker: worker.ok()?, deployed: deployed.ok()?, joins_unlimited })
 }
 
 /// One part of `store:` made from its text, or `Err` with the fault pushed where it is not one.
@@ -252,6 +254,9 @@ pub fn project_text(project: &Project) -> Result<String, String> {
         }
         if let Some(deployed) = &store.deployed {
             block.insert(text("deployed"), text(deployed.as_str()));
+        }
+        if store.joins_unlimited {
+            block.insert(text("joins_unlimited"), Value::Bool(true));
         }
         top.insert(text("store"), Value::Mapping(block));
     }

@@ -229,6 +229,10 @@ The store is the default for every Armada user, so no one account may run up the
 **Rule.** `enrol` counts the client address, from `CF-Connecting-IP`, before it asks the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
 Why: every enrolment that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
 
+**Rule.** A Worker deployed without `ENROL_LIMIT` admits every enrolment and counts none.
+A deploy goes without it only where Cloudflare refused it, and the project's file then says `joins_unlimited: true`.
+Why: the owner chose to try the limit and go without it, 14 Nov 2026, since Cloudflare's pages do not say whether the account's plan has it.
+
 **Rule.** A request counts toward a device's minute only once its signature verifies, and the nonces of the last minute are the count.
 Why: a stranger who knows a device id must not be able to use up that device's requests, and no second table is needed.
 
@@ -270,7 +274,7 @@ The 2,880 is arithmetic, not a measurement of a day of Jobs.
 A Worker over its daily requests answers Cloudflare's error 1027, and a Durable Object over an allowance fails the operation with an error.
 Fleet reads either as the store not answering ([Failure](#failure)).
 The Workers Paid plan is at least $5 a month, with 10 million Worker requests, 1 million Durable Object requests and 50 million rows written a month included.
-The pages do not say whether the Rate Limiting binding `enrol` uses is on the Free plan, so that is checked at the first deploy.
+The pages do not say whether the Rate Limiting binding `enrol` uses is on the Free plan, so each deploy tries it, and goes again without it where Cloudflare refuses it ([Limits](#limits)).
 
 ## A store per project
 
@@ -285,6 +289,37 @@ Why: nothing says which store the person meant, and a claim sent to the wrong on
 
 **Rule.** A profile keeps a key and a device id for each store it enrolled with, in `stores/<the first 16 hex of the address's sha256>` under the profile's folder.
 Why: one account enrolled with his own store and his team's is two devices, one in each.
+
+## Deploying a store
+
+A store is deployed from a project's store setting in Bridge, onto his own Cloudflare account.
+Fleet uploads the Worker bundled in `apps/store/dist/worker.js`, turns on its `workers.dev` address and writes the store into the project's file, then joins this Mac to it.
+`pnpm --dir apps/store bundle` makes the bundle, and the Check `apps/store:bundle_current` refuses one older than its source.
+
+| Store | Worker | Durable Object |
+|---|---|---|
+| His own | `armada-store` | One per account |
+| A team's | `armada-store-<org>[-<team>]`, with `TEAM` set to `org` or `org/team` | One for the team |
+
+**Rule.** A deploy signs in to Cloudflare in this order: a token he pasted before for the tunnel's account, then the tunnel's own sign-in.
+Where Cloudflare refuses every one, the deploy changes nothing and answers `needs_token` with Cloudflare's page that makes a token with the rights it needs.
+A token he pastes is the only one tried, and is kept in the Keychain under `armada-cloudflare-token` for the account once a deploy with it works.
+Why: the owner wanted the tunnel's sign-in reused and a second sign-in only as the fallback, 13 Nov 2026.
+On 14 Nov 2026 the tunnel's sign-in was refused on every Workers endpoint, so the first deploy on a Mac asks for a token.
+
+**Rule.** No token is written to a file, a log or an answer.
+The tunnel's is read from `cloudflared`'s certificate when a deploy runs, and a pasted one lives in the Keychain alone.
+
+**Rule.** A deploy of a Worker that is already up replaces its script and keeps its Durable Objects and their rows.
+
+**Rule.** Joining a store enrols each profile the project's repositories are bound to, with `gh`'s token for the profile's login, read once and dropped.
+A profile already enrolled there is left as it is.
+A join that is refused writes nothing, and a deploy whose join is refused still names the store and says why.
+Why: the owner chose `gh`'s sign-in for joins, 14 Nov 2026, since `gh`'s token carries `read:org` for a team store's check.
+An org that restricts OAuth apps keeps that check from reading the membership, and the store refuses `org_restricted`.
+
+**Rule.** Signing in to GitHub makes a profile and enrols with no store.
+Signing out deletes the profile's device from every store it joined.
 
 ## Failure
 
@@ -307,6 +342,6 @@ Why: runs are a note of how a repository runs, not a lock, so a store that is do
 
 ## Not deployed by this repository
 
-The owner deploys the Worker with his own Cloudflare account and registers the forge's OAuth app.
+Nothing in this repository deploys the Worker to a shared account: each person deploys his own from Bridge, [Deploying a store](#deploying-a-store).
 A self-hosted store keeps the limits above and may change the numbers in `apps/store/src/rows.ts` and the `ratelimits` entry of `wrangler.jsonc`.
 `FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.

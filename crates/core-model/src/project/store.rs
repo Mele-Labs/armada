@@ -103,12 +103,14 @@ pub struct ProjectStore {
     pub team: Option<StoreTeam>,
     pub worker: Option<WorkerName>,
     pub deployed: Option<Timestamp>,
+    /// Deployed without the rate limit on joins, because Cloudflare refused it on the account's plan.
+    pub joins_unlimited: bool,
 }
 
 impl ProjectStore {
     /// A store joined by its address, personal or a team's.
     pub fn joined(address: StoreAddress, team: Option<StoreTeam>) -> ProjectStore {
-        ProjectStore { address, team, worker: None, deployed: None }
+        ProjectStore { address, team, worker: None, deployed: None, joins_unlimited: false }
     }
 }
 

@@ -71,6 +71,10 @@ pub struct ProjectStore {
     /// When it was last deployed, RFC 3339. Absent where no Mac of his deployed it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deployed: Option<String>,
+    /// True where it was deployed without the rate limit on joins, because Cloudflare refused it on the
+    /// account's plan. Absent while false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub joins_unlimited: bool,
 }
 
 /// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.

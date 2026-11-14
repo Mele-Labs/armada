@@ -10,6 +10,19 @@ use super::FakeDaemon;
 use crate::{Projects, Refusal};
 
 /// The answer to every call: one project, `project`, named `said`, with a task and an issue row, and a loose task.
+fn store_state(project: &str, store: Option<ipc::ProjectStore>) -> ipc::ProjectStoreState {
+    ipc::ProjectStoreState {
+        project: project.to_string(),
+        store,
+        macs: Vec::new(),
+        macs_unread: None,
+        joined_here: false,
+        deploy: ipc::StoreDeploy::TryTunnel,
+        join: ipc::StoreJoin::Ready,
+        token_page: "https://dash.example/tokens".to_string(),
+    }
+}
+
 fn echoed(project: &str, said: String) -> ipc::Projects {
     let task = |id: &str, title: &str| ProjectRow::Task {
         id: id.to_string(),
@@ -131,6 +144,32 @@ impl Projects for FakeDaemon {
     async fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> Result<ipc::Projects, Refusal> {
         held(&project)?;
         Ok(echoed(&project, format!("set_project_workflow {} {}", set.workflow, if set.on { "on" } else { "off" })))
+    }
+
+    async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
+        held(&project)?;
+        Ok(store_state(&project, None))
+    }
+
+    async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
+        held(&project)?;
+        let store = set.store.map(|join| ipc::ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false });
+        Ok(store_state(&project, store))
+    }
+
+    async fn deploy_project_store(&self, project: String, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refusal> {
+        held(&project)?;
+        if deploy.cloudflare_token.is_none() {
+            return Ok(ipc::StoreDeployed::NeedsToken { page: "https://dash.example/tokens".to_string(), said: "refused".to_string() });
+        }
+        let store = ipc::ProjectStore {
+            address: "https://armada-store.person.workers.dev".to_string(),
+            team: deploy.team,
+            worker: Some("armada-store".to_string()),
+            deployed: Some("2026-11-14T10:00:00.000Z".to_string()),
+            joins_unlimited: false,
+        };
+        Ok(ipc::StoreDeployed::Deployed { state: store_state(&project, Some(store)), join_said: None })
     }
 
     async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {

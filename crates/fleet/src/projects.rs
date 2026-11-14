@@ -740,6 +740,18 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
+        self.project_store_state(&project).await
+    }
+
+    async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
+        self.project_store_set(&project, set).await
+    }
+
+    async fn deploy_project_store(&self, project: String, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refusal> {
+        self.project_store_deployed(&project, deploy).await
+    }
+
     async fn list_projects(&self) -> Result<ipc::Projects, Refusal> {
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         Ok(self.projects_on_the_wire(kept).await)

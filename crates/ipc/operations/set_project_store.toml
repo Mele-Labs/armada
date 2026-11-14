@@ -1,0 +1,10 @@
+[operations.set_project_store]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Join a project to a claims store by its address, his own or a team's, or set it to none"
+notes = """
+`POST /projects/project/:project/store`, body `SetProjectStore { store? }`, `store` being `JoinStore { address, team? }`. Absent is none: the project's file names no store and its Jobs send nothing from then on, what was still to send included, and no store is called. Present enrols every profile the project's repositories are bound to with that store, each with `gh`'s token for its login read once and dropped, and only then writes the store into the project's file. A profile already enrolled there is not asked again. Answers `ProjectStoreState` as `get_project_store` does and publishes `projects.changed`. `docs/contracts/central-store.md`, *A store per project*.
+
+A 404 `fleet.no_such_project` for a `project` he has none of. A 422 `fleet.store_malformed` for an address that is not `https://` and a host, or a team that is not `org` or `org/team`. A 422 `fleet.store_no_profile` where no repository of the project is bound to a profile on this Mac. A 422 `fleet.store_needs_github` where `gh` holds no token for the profile's login. A 422 `fleet.store_not_a_member` where a team store says the account is not in its org or team, and `fleet.store_org_restricted` where the org's OAuth app restrictions keep the store from reading the membership. A 500 `fleet.store_unreachable` where the store did not answer, and a 422 `fleet.store_refused` for any other refusal, in the store's words. Nothing is written on a refusal.
+"""

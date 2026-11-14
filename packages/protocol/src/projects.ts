@@ -94,6 +94,8 @@ export type ProjectStore = {
   worker?: string;
   /** When it was last deployed, RFC 3339. Absent where no Mac of his deployed it. */
   deployed?: string;
+  /** True where it was deployed without the rate limit on joins, because Cloudflare refused it on the account's plan. Absent while false. */
+  joins_unlimited?: boolean;
 };
 
 export type Project = {

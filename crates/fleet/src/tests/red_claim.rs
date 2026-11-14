@@ -172,6 +172,18 @@ pub(super) async fn machine_hosting(
 }
 
 /// Every repository `fleet` serves, in one new project that names the store at `address`. Its id.
+/// A project holding every repository the Fleet serves, naming no store. Its id.
+pub(crate) async fn a_project_of_every_repository(fleet: &Fixture) -> String {
+    let members = fleet
+        .repositories()
+        .served()
+        .into_iter()
+        .map(|one| ipc::ProjectMember { manifest_id: ipc::ManifestId::carried(one.manifest().id().as_str()), folder: None })
+        .collect();
+    let new = ipc::NewProject { name: "Every repository".into(), members: Some(members), place: None, values: None };
+    api::Projects::add_project(fleet, new).await.expect("added").projects.last().expect("the project").id.clone()
+}
+
 pub(crate) async fn in_a_project_storing_at(fleet: &Fixture, address: &str) -> String {
     let members = fleet
         .repositories()

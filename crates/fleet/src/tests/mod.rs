@@ -118,6 +118,7 @@ mod piece_places;
 mod built_in_project;
 mod project_migration;
 mod project_stores;
+mod store_deploy;
 mod projects_kept;
 mod ports;
 mod preferences;

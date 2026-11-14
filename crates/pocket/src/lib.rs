@@ -56,6 +56,7 @@ use tokio::net::TcpListener;
 
 pub use fleet_client::{Answer, Unreachable};
 pub use door::{bind_door, Door, DoorCert, CERT_FILE};
+pub use cloudflared::tunnel_sign_in;
 pub use mac_keys::{MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
 pub use mac_pages::{open_other_mac_page, PageOpen};
