@@ -52,6 +52,10 @@ pub trait Projects: Send + Sync + 'static {
     /// deploy or a join can run now. [`Refusal::NotFound`] for a project he has none of.
     fn get_project_store(&self, project: String) -> impl Future<Output = Result<ipc::ProjectStoreState, Refusal>> + Send;
 
+    /// `get_project_claims` — every live claim in the store project `project` names, grouped by who holds it,
+    /// named where this Mac can match the hash. [`Refusal::NotFound`] for a project he has none of.
+    fn get_project_claims(&self, project: String) -> impl Future<Output = Result<ipc::ProjectClaims, Refusal>> + Send;
+
     /// `set_project_store` — join the project to a store by its address, or set it to none. Joining enrols every
     /// profile its repositories are bound to before the file names the store. [`Refusal::NotFound`] for a project he
     /// has none of, [`Refusal::Unacceptable`] for an address, a team or a profile that will not do, or a store that

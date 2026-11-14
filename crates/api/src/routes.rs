@@ -894,6 +894,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),
         )
         .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
+        .route("/projects/project/:project/claims", get(crate::projects::get_project_claims::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))
