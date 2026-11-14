@@ -438,6 +438,10 @@ mod worktrees_kept;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
+/// A pull request that changes a wire type, told to the Jobs whose branches read it.
+mod wire_notices;
+/// Which public wire types a pull request's patches change.
+mod wire_types;
 mod workflow_lifecycles;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
@@ -463,6 +467,7 @@ pub use adrift::Adrift;
 pub use budget::CheckBudget;
 pub use clock::{Clock, SystemClock};
 pub use daemon::{Fittings, Fleet, Host, Reconciled, StartingIn};
+pub use project_store::JoinedStore;
 pub use detach::Detached;
 pub use drone::{environment, HostPaths};
 pub use headroom::{Bytes, Headroom, InUse, Machine, Polling, Reading, Short, Spare, TheMachine};

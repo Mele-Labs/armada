@@ -217,6 +217,29 @@ fn new_file(worktree: &Path, path: &str) -> Result<String, NotChecked> {
     }
 }
 
+/// Where `name` is written as a whole word under `under` in the worktree as it stands, tracked or
+/// not, as `path:line`, at most `limit`. **No match is an empty answer.**
+pub fn named_in(worktree: &Path, name: &str, under: &[&str], limit: usize) -> Result<Vec<String>, NotChecked> {
+    if name.is_empty() || name.starts_with('-') {
+        return Err(NotChecked(format!("`{name}` is not a name")));
+    }
+    let mut args = vec!["--no-optional-locks", "grep", "-n", "-w", "-F", "-I", "--untracked", "--no-color", "-e", name, "--"];
+    args.extend(under);
+    let ran = read_in(&worktree.to_string_lossy(), "git", &args)
+        .map_err(|why| NotChecked(format!("git grep could not run: {why}")))?;
+    match ran.status.code() {
+        Some(0 | 1) => Ok(String::from_utf8_lossy(&ran.stdout)
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.splitn(3, ':');
+                Some(format!("{}:{}", parts.next()?, parts.next()?))
+            })
+            .take(limit)
+            .collect()),
+        _ => Err(NotChecked(format!("git grep: {}", said(&ran)))),
+    }
+}
+
 /// Whether the repository `worktree` is in holds this commit.
 pub fn holds(worktree: &Path, commit: &str) -> bool {
     rev_parse(worktree, &format!("{commit}^{{commit}}")).is_ok()

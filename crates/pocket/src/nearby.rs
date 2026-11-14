@@ -1,5 +1,5 @@
 //! His other Macs on the same network, over Bonjour: each Gateway advertises `_armada._tcp` with its id,
-//! name, colour and build at its Wi-Fi door's port, and browses for the others. **What Bonjour says is
+//! name, colour, build, wire and build time at its Wi-Fi door's port, and browses for the others. **What Bonjour says is
 //! unchecked**: it only says where to knock. Pairing checks who answers with the four digits, and a
 //! paired Mac's door with its pin. `docs/concepts/pocket.md`, *Macs nearby*.
 
@@ -24,6 +24,9 @@ pub(crate) struct NearbyMac {
     pub name: String,
     pub colour: Option<MacColour>,
     pub build: Option<String>,
+    /// The protocol ID and build time it advertises. A build from before Macs compared them says neither.
+    pub wire: Option<String>,
+    pub built_at: Option<String>,
     /// `https://<ip>:<port>`.
     pub address: String,
 }
@@ -106,6 +109,12 @@ pub(crate) fn advertise_and_browse(gateway: &Gateway, port: u16) -> Result<Bonjo
     if let Some(build) = me.build.clone() {
         said.insert("build".to_string(), build);
     }
+    if let Some(wire) = me.wire.clone() {
+        said.insert("wire".to_string(), wire);
+    }
+    if let Some(built_at) = me.built_at.clone() {
+        said.insert("built_at".to_string(), built_at);
+    }
     let info = ServiceInfo::new(SERVICE, &instance, &format!("{instance}.local."), "", port, said)
         .map_err(|why| why.to_string())?
         .enable_addr_auto();
@@ -157,6 +166,8 @@ pub(crate) fn read_mac(read: impl Fn(&str) -> Option<String>, addresses: &HashSe
         name,
         colour: read("colour").as_deref().and_then(MacColour::named),
         build: read("build").filter(|build| !build.is_empty()),
+        wire: read("wire").filter(|wire| !wire.is_empty()),
+        built_at: read("built_at").filter(|built_at| !built_at.is_empty()),
         address,
     })
 }

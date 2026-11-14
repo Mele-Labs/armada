@@ -128,6 +128,13 @@ fn threads(id: &str) -> Option<String> {
     })
 }
 
+/// One project of this Mac, shared, holding both repositories: where a Job the phone starts goes.
+fn shared_projects() -> String {
+    let members = ipc::decode::<Vec<ipc::ProjectMember>>("members", br#"[{"manifest_id":"m1"},{"manifest_id":"m2"}]"#).unwrap();
+    let shop = ipc::Project { id: "shop".into(), name: "Shop".into(), members, shared_with_macs: true, ..Default::default() };
+    ipc::encode(&ipc::Projects { projects: vec![shop], loose: Vec::new(), left_out: Vec::new() }).unwrap()
+}
+
 async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, rows: String) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
@@ -137,6 +144,7 @@ async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, row
     let app = Router::new()
         .route("/sessions", get(move || async move { rows }))
         .route("/manifests", get(move || async move { manifests }))
+        .route("/projects", get(|| async { shared_projects() }))
         .route("/events", get(events))
         .route(
             "/sessions/one",
@@ -425,7 +433,7 @@ async fn dispatch_starts_a_session_on_the_manifest_the_label_maps_to() {
     // The words name the Job, then reach the agent as its first message, to the Job just started.
     let seen = seen.lock().unwrap();
     assert_eq!(seen.len(), 2, "{seen:?}");
-    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string()));
+    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing","project":"shop"}"#.to_string()));
     assert_eq!(seen[1], ("/sessions/message".to_string(), r#"{"session_id":"s9","text":"Fix the thing"}"#.to_string()));
 }
 
@@ -475,6 +483,7 @@ async fn an_operator_dispatch_reaches_fleet_as_a_dispatch_with_its_kind_and_no_m
     assert_eq!(path, "/sessions/dispatch");
     assert!(sent.contains(r#""manifest_id":"m2""#) && sent.contains(r#""request":"Fix the thing""#) && sent.contains(r#""kind":"bug""#), "{sent}");
     assert!(!sent.contains(r#""mac""#) && !sent.contains("on_your_words"), "{sent}");
+    assert!(sent.contains(r#""project":"shop""#), "a Job the phone starts here goes into the shared project: {sent}");
 }
 
 #[tokio::test]
@@ -559,7 +568,7 @@ async fn a_live_job_is_forked_at_its_agents_last_message_and_not_at_the_last_row
     let seen = seen.lock().unwrap();
     assert_eq!(
         *seen,
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"}}"#.to_string())],
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"},"project":"shop"}"#.to_string())],
         "one start, with no message after it"
     );
 }
@@ -571,7 +580,7 @@ async fn an_ended_job_is_forked_whole() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(
         *seen.lock().unwrap(),
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"}}"#.to_string())]
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"},"project":"shop"}"#.to_string())]
     );
 }
 

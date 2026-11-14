@@ -50,7 +50,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch, from every surface and from a field
-⌥1–⌥9    choose a repository to dispatch to
+⌥1–⌥9    choose a repository to dispatch to; in the native Bridge, a project and its repository
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌥M       message the Job: put the caret in the open Job's message box
 ⌥↵       yes to a card waiting in the Job's thread: Approve, Allow once, Answer  (confirms)
@@ -114,6 +114,7 @@ j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
 c              copy debug info   (list and detail)
+M              move to another Mac. The focused Job goes to his other Mac, or comes here from it   (list only)
 N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)

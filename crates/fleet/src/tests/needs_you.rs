@@ -81,6 +81,8 @@ fn cases() -> Vec<Case> {
         case(item("browser_ask:t", Source::BrowserAsk, Some((Act::Answer, "browser_ask:t")), &["Allow", "Block"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("gate:g", Source::Gate, Some((Act::Answer, JOB)), &["Approve", "Skip this group"], &[]), Section::Questions, Dismiss::None, false),
         case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
+        case(item("conflict:s-a:s-b", Source::JobConflict, Some((Act::Answer, "conflict:s-a:s-b")), &["Tell A to change", "Tell B", "Hold both"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("held:armada:12", Source::JobHeld, Some((Act::Answer, "held:armada:12")), &["Land it", "Hold it"], &[]), Section::Questions, Dismiss::None, false),
     ]
 }
 
@@ -113,6 +115,8 @@ fn counted(source: Source) -> usize {
         Source::Gate => 23,
         Source::Handoff => 24,
         Source::OperatorUndone => 25,
+        Source::JobConflict => 26,
+        Source::JobHeld => 27,
     }
 }
 
@@ -159,7 +163,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..26).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..28).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);
@@ -207,7 +211,7 @@ fn needs_you_offers_no_dismissal_where_fleet_refuses_it() {
             assert_eq!(row.dismiss, Dismiss::None, "{:?} is answered, not dismissed", item.source);
         }
     }
-    assert_eq!(refused, 5, "delivery, slot_choice, task_done, held_child and gate");
+    assert_eq!(refused, 7, "delivery, slot_choice, task_done, held_child, gate, job_conflict and job_held");
 }
 
 #[test]

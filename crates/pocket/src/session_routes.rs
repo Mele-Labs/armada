@@ -29,6 +29,18 @@ const NOTHING_TO_FORK_YET: &str = "That Job has not answered yet, so there is no
 const NO_SUCH_MAC: &str = "Armada does not know that Mac. Pair it, then try again.";
 const NOT_SHARED: &str = "That repository is not in a project shared between your Macs, so a Job cannot start there from here.";
 const NO_REPOSITORY_TO_FORK: &str = "That Job has no repository, so Armada cannot copy it. Fork it in Armada on your Mac.";
+const NOT_SHARED_HERE: &str = "That repository is in no project shared from this Mac, so a Job cannot start there from your phone.";
+
+/// The project a Job the phone starts on this Mac goes into: the first of this Mac's shared projects holding
+/// `manifest`. Fleet starts the phone's Jobs only there, so the phone sees what it started.
+async fn shared_project(gateway: &Gateway, manifest: &ManifestId) -> Result<String, Response> {
+    let projects = required::<ipc::Projects>(gateway, "/projects", "a project list").await?.projects;
+    projects
+        .into_iter()
+        .find(|one| one.mac.is_none() && one.members.iter().any(|member| member.manifest_id.as_str() == manifest.as_str()))
+        .map(|one| one.id)
+        .ok_or_else(|| refusal(StatusCode::CONFLICT, NOT_SHARED_HERE))
+}
 
 /// The live Sessions. The phone has no list of ended ones.
 pub async fn sessions(State(gateway): State<Gateway>) -> Response {
@@ -211,10 +223,15 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
         Ok(one) => one,
         Err(refused) => return refused,
     };
+    let project = match shared_project(&gateway, &manifest.id).await {
+        Ok(project) => project,
+        Err(refused) => return refused,
+    };
     // `request` only names the Job and picks its workflow; the words reach the agent as its
     // first message, which Fleet holds while the proposal is read. Bridge starts the same way.
     let start = StartSession {
         request: Some(dispatching.text.clone()),
+        project: Some(project),
         ..starting(manifest.id.clone())
     };
     let record = match started(&gateway, &start).await {
@@ -267,8 +284,8 @@ struct Handled {
 
 /// `POST /api/sessions/dispatch`: the words go to Fleet's `/sessions/dispatch` as Bridge's composer sends them,
 /// on the Mac `mac` names where it names another. 200 with what the dispatch came to; 202 with the `Queued`
-/// act where that Mac is asleep and the send waits for it. A Job started on another Mac needs a project shared
-/// between the two, which the Gateway finds, since the phone knows no project.
+/// act where that Mac is asleep and the send waits for it. A Job needs a shared project, this Mac's own or the copy
+/// held from another, which the Gateway finds, since the phone knows no project.
 pub async fn operator_dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
     let Ok(operating) = ipc::decode::<Operating>("a dispatch", &body) else {
         return refusal(StatusCode::BAD_REQUEST, UNREADABLE_REQUEST);
@@ -300,7 +317,10 @@ pub async fn operator_dispatch(State(gateway): State<Gateway>, body: Bytes) -> R
         }
     };
     let project = match &mac {
-        None => None,
+        None => match shared_project(&gateway, &manifest.id).await {
+            Ok(project) => Some(project),
+            Err(refused) => return refused,
+        },
         Some(id) => {
             let projects = match required::<ipc::Projects>(&gateway, "/projects", "a project list").await {
                 Ok(projects) => projects.projects,
@@ -431,8 +451,13 @@ pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
     } else {
         None
     };
+    let project = match shared_project(&gateway, &manifest_id).await {
+        Ok(project) => project,
+        Err(refused) => return refused,
+    };
     let start = StartSession {
         fork: Some(ForkFrom { session_id: old.id.clone(), at }),
+        project: Some(project),
         ..starting(manifest_id)
     };
     let record = match started(&gateway, &start).await {

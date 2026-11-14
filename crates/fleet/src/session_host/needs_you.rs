@@ -62,6 +62,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
 /// | `operator_undone` | by act: a question | plain; nothing is told the agent |
+/// | `job_conflict`, `job_held` | questions | none: Fleet refuses it |
 fn rule_of(source: WaitingSource) -> Rule {
     use Place::{ByAct, Done, Questions, Review, Walks};
     match source {
@@ -91,6 +92,8 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::BrowserAsk => rule(Questions, Dismiss::Plain),
         WaitingSource::OperatorUndone => rule(ByAct, Dismiss::Plain),
         WaitingSource::Gate => rule(Questions, Dismiss::None),
+        WaitingSource::JobConflict => rule(Questions, Dismiss::None),
+        WaitingSource::JobHeld => rule(Questions, Dismiss::None),
     }
 }
 
@@ -103,6 +106,8 @@ pub(crate) fn refused_dismissal(source: WaitingSource) -> Option<&'static str> {
         WaitingSource::TaskDone => Some("whether the tasks are done is answered, not dismissed"),
         WaitingSource::HeldChild => Some(HELD_CHILD_SETTLED_BY),
         WaitingSource::Gate => Some("a gate is approved or its group skipped, not dismissed"),
+        WaitingSource::JobConflict => Some("a conflict is answered by telling a Job to change or holding both, not dismissed"),
+        WaitingSource::JobHeld => Some("whether work lands is answered, not dismissed"),
         _ => None,
     }
 }
@@ -135,7 +140,7 @@ fn restart_of(command: &str) -> Option<(&'static str, BuildSource, bool)> {
 /// Whether words go as an answer besides the choices. Fleet refuses them on a slot call and a page's ask has
 /// no use for them, nor does what the Operator would do.
 fn takes_words(source: WaitingSource) -> bool {
-    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff)
+    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff | WaitingSource::JobConflict | WaitingSource::JobHeld)
 }
 
 /// What pressing the item does. **An agent's item that asks nothing and runs nothing is something he does**, so

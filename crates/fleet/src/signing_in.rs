@@ -336,6 +336,17 @@ impl SigningIn {
         joined
     }
 
+    /// The folder of the first profile, in the order they joined this Mac, enrolled with the store at `address`.
+    pub(crate) fn joined_directory(&self, address: &core_model::StoreAddress) -> Option<PathBuf> {
+        let profiles = &self.inner.profiles;
+        profiles
+            .list()
+            .ok()?
+            .iter()
+            .map(|profile| crate::project_store::store_directory(&profiles.directory_of(profile.account_id), address))
+            .find(|directory| matches!(adapters::device_id(directory), Ok(Some(_))))
+    }
+
     /// Enrol profile `account_id` with the store at `address` as `machine`, with
     /// `gh`'s token for the profile's login read once and dropped. **A profile
     /// already enrolled there is left as it is** and answers its device. Blocking.

@@ -23,6 +23,7 @@ pub(crate) mod compacting;
 mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;
+pub(crate) mod job_asks;
 pub(crate) mod document_answers;
 pub(crate) mod document_page;
 pub(crate) mod documents;

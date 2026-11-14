@@ -54,6 +54,7 @@ fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -
         issues: issues.iter().map(|one| one.to_string()).collect(),
         running: Vec::new(),
         started_by: Vec::new(),
+        shared: false,
     }
 }
 

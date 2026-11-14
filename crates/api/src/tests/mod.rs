@@ -27,6 +27,7 @@ mod other_macs;
 mod hosted_sessions;
 mod started_jobs;
 mod bug_reports;
+mod job_asks;
 mod lifecycle_routes;
 mod draft_routes;
 mod time_routes;

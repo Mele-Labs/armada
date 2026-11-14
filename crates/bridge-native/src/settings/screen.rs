@@ -91,6 +91,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of the Macs found on this network and on his account.
+    pub fn nearby_macs(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::nearby();
+            }
+        });
+    }
+
     /// For the walk of Macs on other builds: one older, one newer.
     pub fn builds_differ(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

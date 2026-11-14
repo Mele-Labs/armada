@@ -188,6 +188,24 @@ fn fold_commands(list: &JobsList) -> Vec<Entry> {
     ]
 }
 
+/// Move the open Job to the other Mac, or bring it here: offered while another Mac is linked and the Job can move.
+/// One left off, as while the Mac it would go to sleeps, is not listed; the Job's own panel lists it, off.
+fn move_command(list: &JobsList, cx: &App) -> Option<Entry> {
+    let job = list.opened_id().and_then(|id| list.record(&id))?;
+    let offer = crate::move_to_mac::offer(job, crate::pairing::macs(cx)).filter(|offer| offer.off.is_none())?;
+    Some(Entry {
+        id: "cmd:move-mac".into(),
+        section: Section::Commands,
+        label: offer.label,
+        icon: None,
+        shortcut: None,
+        aliases: Vec::new(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
     held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
@@ -599,6 +617,16 @@ pub struct Palette {
     keys: Option<Subscription>,
 }
 
+/// The palette last opened, so an overlay under it that hears keys first, such as Settings, leaves them to it.
+struct Up(gpui::WeakEntity<Palette>);
+
+impl gpui::Global for Up {}
+
+/// Whether a palette is up: while it is, every key is its own.
+pub fn is_up(cx: &App) -> bool {
+    cx.try_global::<Up>().and_then(|up| up.0.upgrade()).is_some_and(|palette| palette.read(cx).is_open())
+}
+
 /// The acts the panel's field narrows to.
 fn panel_acts(panel: &Panel, cx: &App) -> Vec<RowAct> {
     let typed = panel.field.read(cx).value().to_lowercase();
@@ -643,6 +671,7 @@ impl Palette {
         // New Side Job only where a Side Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(fold_commands(list));
+        entries.extend(move_command(list, cx));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -671,6 +700,7 @@ impl Palette {
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
         self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false });
         query.update(cx, |query, cx| query.focus(window, cx));
+        cx.set_global(Up(cx.entity().downgrade()));
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
             if window.window_handle().window_id() != here {
@@ -776,6 +806,11 @@ impl Palette {
                         _ => continue,
                     };
                     one.off = crate::pairing::refusal_to(job, route, cx).or(one.off.take());
+                }
+                // Move to the other Mac, or bring the Job here, after Snooze: ⌥⌘M, since the bare M a row answers is typing in here.
+                if let Some(offer) = crate::move_to_mac::offer(job, crate::pairing::macs(cx)) {
+                    let at = acts.iter().position(|one| matches!(one.id, "snooze" | "wake")).map_or(acts.len(), |at| at + 1);
+                    acts.insert(at, RowAct { off: offer.off, ..act("move-mac", &offer.label, None, Some("\u{2325}\u{2318}M")) });
                 }
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
@@ -920,7 +955,17 @@ impl Palette {
                 self.memory.used(&entry.id);
                 self.keep(cx);
                 self.close(window, cx);
-                self.list.update(cx, |list, cx| list.open(job.into(), cx));
+                self.open_job(job, cx);
+            }
+            ("run", None) if entry.id == "cmd:move-mac" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| {
+                    if let Some(id) = list.opened_id() {
+                        list.move_to_mac(&id, cx);
+                    }
+                });
             }
             ("run", None) if entry.id.starts_with("cmd:") => {
                 self.memory.used(&entry.id);
@@ -975,6 +1020,12 @@ impl Palette {
             }
             (id @ ("pause" | "fork" | "open-pull" | "merge-pull"), Some(job)) => self.go(id, job, window, cx),
             // Snooze asks for its presets and Wake now posts at once: neither waits on the palette, which shuts.
+            ("move-mac", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| list.move_to_mac(&job, cx));
+            }
             ("snooze", Some(job)) => {
                 self.memory.used(&entry.id);
                 self.keep(cx);
@@ -1147,7 +1198,7 @@ impl Palette {
                     if id == "fork" {
                         if let Ok(forked) = ipc::decode::<SessionRecord>("SessionRecord", &bytes) {
                             let forked = forked.id.as_str().to_string();
-                            this.list.update(cx, |list, cx| list.open(forked.into(), cx));
+                            this.open_job(forked, cx);
                         }
                     }
                 }
@@ -1155,6 +1206,14 @@ impl Palette {
             });
         })
         .detach();
+    }
+
+    /// A Job opens on the Jobs screen, which comes to the front if another place is there, as Electron's `openSession`.
+    fn open_job(&self, job: String, cx: &mut Context<Self>) {
+        self.list.update(cx, |list, cx| list.open(job.into(), cx));
+        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+            (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
+        }
     }
 
     fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {

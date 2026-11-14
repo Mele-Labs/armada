@@ -55,6 +55,8 @@ pub struct DispatchScreen {
 struct Begin {
     words: String,
     repository: String,
+    /// The project of the row picked, by Fleet's id.
+    project: Option<String>,
     model: Option<String>,
     effort: Option<String>,
     held: bool,
@@ -74,8 +76,11 @@ const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
 pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
-    let bar = titlebar::live(cx)?;
-    let face = &bar.read(cx).face;
+    scope_of(&titlebar::live(cx)?.read(cx).face)
+}
+
+/// [`scope`] of a bar's face.
+fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
         return face.chosen.and_then(|at| face.repositories.get(at)).map(|one| (None, vec![one.name.clone()]));
     };
@@ -88,6 +93,24 @@ pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>
         }
     }
     Some((Some(project.id.clone()), names))
+}
+
+/// His projects as the title bar holds them, each with its repositories, for the sheet's picker.
+fn projects(cx: &App) -> Vec<live::ProjectRepositories> {
+    titlebar::live(cx).map_or_else(Vec::new, |bar| {
+        let face = &bar.read(cx).face;
+        live::projects_of(&face.projects, &face.repositories)
+    })
+}
+
+/// Where ⌘T starts a Job and the project it starts for, from the repository the sheet's picker named and what the
+/// window is scoped to. A project's Job is sent with the project's id, so it stands under it; none where the window is
+/// on All or one repository. A project that holds several repositories starts in its first, none having been picked.
+fn terminal_place(picked: Option<String>, scoped: Option<(Option<SharedString>, Vec<SharedString>)>) -> Option<(Place, Option<String>)> {
+    let (project, names) = scoped.unwrap_or_default();
+    // A project of several repositories, none picked: the first, as ⌘T has always started it.
+    let place = picked.or_else(|| names.first().map(|name| name.to_string()))?;
+    Some((Place::Repository(place), project.map(|id| id.to_string())))
 }
 
 /// Where ⌘T would start a Job, as the card under the sheet names it: the project the title bar is scoped
@@ -130,7 +153,7 @@ pub fn bind(cx: &mut App) {
                 return;
             }
             return reach(cx, |this, window, cx| {
-                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_repository()).flatten();
+                let picked = this.sheet.read(cx).is_open().then(|| this.sheet.read(cx).named_row()).flatten();
                 this.new_terminal(picked, window, cx)
             });
         }
@@ -292,11 +315,14 @@ impl DispatchScreen {
         let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &BarAsked, cx: &mut App| {
             if matches!(asked, BarAsked::Dispatch) {
+                // Deferred: the bar asks from inside its own update, and opening the sheet reads the bar.
                 let me = me.clone();
-                let _ = handle.update(cx, move |_, window, cx| {
-                    if let Some(me) = me.upgrade() {
-                        me.update(cx, |this, cx| this.open_sheet("", window, cx));
-                    }
+                cx.defer(move |cx| {
+                    let _ = handle.update(cx, move |_, window, cx| {
+                        if let Some(me) = me.upgrade() {
+                            me.update(cx, |this, cx| this.open_sheet("", window, cx));
+                        }
+                    });
                 });
             } else if let Some(behind) = &behind {
                 (behind.0)(asked, cx);
@@ -329,8 +355,8 @@ impl DispatchScreen {
             return;
         }
         // Queue for later is kept here, on a live Fleet or not.
-        if let Asked::Queue { words, repository, model, effort } = asked {
-            self.queue_idea(words, repository, model.clone(), effort.clone(), window, cx);
+        if let Asked::Queue { words, repository, project, model, effort } = asked {
+            self.queue_idea(words, repository, project.clone(), model.clone(), effort.clone(), window, cx);
             cx.notify();
             return;
         }
@@ -338,8 +364,8 @@ impl DispatchScreen {
             match asked {
                 Asked::ReadRepository(words) => self.read_repository(words.clone(), window, cx),
                 Asked::ReadWait { job, words } => self.read_wait(job.clone(), words.clone(), window, cx),
-                Asked::Start { words, repository, model, effort, held } => {
-                    let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
+                Asked::Start { words, repository, project, model, effort, held } => {
+                    let begin = Begin { words: words.clone(), repository: repository.clone(), project: project.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
                 Asked::Queue { .. } | Asked::JobHere(_) | Asked::Closed => {}
@@ -350,15 +376,19 @@ impl DispatchScreen {
 
     /// ⌘T, New Side Job: a Job where the window is, else where the last one started, with no sheet. With
     /// neither, the sheet opens to be told where.
-    /// A repository the sheet's picker named starts it there; none, where the title bar is.
-    fn new_terminal(&mut self, picked: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    /// A row the sheet's picker named starts it in that repository, for that row's project; none, where the title bar is.
+    fn new_terminal(&mut self, picked: Option<super::sheet::PickedRow>, window: &mut Window, cx: &mut Context<Self>) {
         // ⌘T over the sheet does what its card does: the sheet shuts first.
         if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
             self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
         }
-        let here = picked.map(Place::Repository).or_else(|| scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string()))));
-        match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx), project: None }, None, window, cx),
+        let here = match picked {
+            Some(row) => Some((Place::Repository(row.repository), row.project)),
+            None => terminal_place(None, scope(cx)),
+        };
+        let size = crate::terminal::start::size(cx);
+        match here.map(|(place, project)| Start { place, size, project }).or_else(|| crate::terminal::start::kept_place(cx).map(|place| Start { place, size, project: None })) {
+            Some(start) => self.start_terminal(start, None, window, cx),
             None => self.open_sheet("", window, cx),
         }
     }
@@ -415,8 +445,8 @@ impl DispatchScreen {
         self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().port())
     }
 
-    /// The sheet's face from what Fleet serves, each time it opens: the repositories, narrowed to the
-    /// project the window is scoped to, and the Jobs the `@` menu offers.
+    /// The sheet's face from what Fleet serves, each time it opens: his projects and the repositories,
+    /// narrowed to what the window is scoped to, and the Jobs the `@` menu offers.
     fn refresh_face(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(fleet) = self.jobs.read(cx).list.read(cx).fleet() else { return };
         if self.sheet.read(cx).is_open() {
@@ -425,9 +455,10 @@ impl DispatchScreen {
         let repositories = fleet.read(cx).held().repositories.clone().unwrap_or_default();
         let port = fleet.read(cx).held().port();
         self.served = live::served(&repositories);
-        let keep = scope(cx).map(|(_, names)| names);
+        let keep = scope(cx);
         let jobs = scenes::live(self.jobs.read(cx).list.read(cx).records());
-        let face = live::face_of(&self.served, keep.as_deref(), jobs, port.is_some(), live::tuning(self.models.as_ref()));
+        let keep = keep.as_ref().map(|(project, names)| (project.as_ref(), names.as_slice()));
+        let face = live::face_of(&self.served, &projects(cx), keep, jobs, port.is_some(), live::tuning(self.models.as_ref()));
         self.sheet.update(cx, |sheet, cx| {
             // What was picked by hand last time does not stand over a face read again.
             sheet.face.reading = super::face::Reading::Idle;
@@ -527,8 +558,8 @@ impl DispatchScreen {
         cx.notify();
     }
 
-    /// Start: the words go to Fleet with the repository's Manifest id, the model and effort picked, the project the
-    /// window is scoped to, and the wait the words name. A Job started opens; a refusal is Fleet's sentence on the
+    /// Start: the words go to Fleet with the repository's Manifest id, the model and effort picked, the project of
+    /// the row picked, and the wait the words name. A Job started opens; a refusal is Fleet's sentence on the
     /// sheet, which keeps its words.
     fn start_job(&mut self, begin: Begin, window: &mut Window, cx: &mut Context<Self>) {
         let Some(port) = self.fleet_port(cx) else {
@@ -567,7 +598,7 @@ impl DispatchScreen {
             after,
             project_rows: Vec::new(),
             on_your_words: None,
-            project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
+            project: begin.project,
         };
         // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
         // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.
@@ -595,15 +626,15 @@ impl DispatchScreen {
         }
     }
 
-    /// Queue for later (`queueSession`): the words, the repository's root and name, the model and effort picked,
-    /// saved on this machine; the sheet clears and goes, and nothing starts.
-    fn queue_idea(&mut self, words: &str, repository: &str, model: Option<String>, effort: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    /// Queue for later (`queueSession`): the words, the repository's root and name, the project of the row picked,
+    /// the model and effort picked, saved on this machine; the sheet clears and goes, and nothing starts.
+    fn queue_idea(&mut self, words: &str, repository: &str, project: Option<String>, model: Option<String>, effort: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.served_now(cx).into_iter().find(|one| one.name == repository).map(|one| one.root) else {
             let said = format!("Fleet serves no repository named {repository}");
             self.sheet.update(cx, |sheet, cx| sheet.refused(said.into(), cx));
             return;
         };
-        let idea = crate::queued::QueuedIdea { id: crate::queued::new_id(), text: words.to_string(), root, repository: repository.to_string(), model, effort };
+        let idea = crate::queued::QueuedIdea { id: crate::queued::new_id(), text: words.to_string(), root, repository: repository.to_string(), model, effort, project };
         crate::queued::add(idea, cx);
         self.sheet.update(cx, |sheet, cx| {
             sheet.answered(window, cx);
@@ -639,7 +670,8 @@ impl DispatchScreen {
             after: None,
             project_rows: Vec::new(),
             on_your_words: None,
-            project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
+            // The project of the row it was saved from, whatever the window is on now.
+            project: idea.project.clone(),
         };
         // His idea is his work: it goes as a dispatch, unheld, its words the first message, answered as the sheet's Start is.
         let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
@@ -882,8 +914,8 @@ impl DispatchScreen {
                         cx.notify();
                     });
                 }
-                let keep = scope(cx).map(|(_, names)| names).ok_or("the title bar holds no project to scope to")?;
-                let mut face = live::narrowed(face, &keep);
+                let (project, keep) = scope(cx).ok_or("the title bar holds no project to scope to")?;
+                let mut face = live::narrowed(face, project.as_ref(), &keep);
                 face.refused = None;
                 self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
             }
@@ -1021,5 +1053,37 @@ impl Render for DispatchScreen {
             .child(self.snooze.clone())
             // Over every overlay the screen draws, Settings among them, so a note can be made on it.
             .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::titlebar::scenes;
+
+    fn storefront() -> titlebar::Face {
+        let mut face = scenes::rest();
+        face.scoped = Some(1);
+        face
+    }
+
+    #[test]
+    fn a_job_started_with_a_project_picked_is_sent_for_that_project_in_its_first_repository() {
+        let (place, project) = terminal_place(None, scope_of(&storefront())).expect("a place");
+        assert_eq!(place, Place::Repository("sample-web".into()));
+        assert_eq!(project.as_deref(), Some("storefront"));
+        // One the sheet's picker named stays in the project it is a member of.
+        let (place, project) = terminal_place(Some("sample-api".into()), scope_of(&storefront())).expect("a place");
+        assert_eq!((place, project.as_deref()), (Place::Repository("sample-api".into()), Some("storefront")));
+    }
+
+    #[test]
+    fn a_job_started_on_all_or_in_one_repository_is_sent_for_no_project() {
+        let mut all = scenes::rest();
+        all.scoped = None;
+        assert_eq!(terminal_place(None, scope_of(&all)), None, "the place last started in is used, with no project");
+        assert_eq!(terminal_place(Some("sample-api".into()), scope_of(&all)), Some((Place::Repository("sample-api".into()), None)));
+        all.chosen = Some(1);
+        assert_eq!(terminal_place(None, scope_of(&all)), Some((Place::Repository("sample-web".into()), None)));
     }
 }

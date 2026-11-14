@@ -115,7 +115,7 @@ pub fn kind_of(arrived: Arrived) -> OperatorBoardKind {
         Arrived::Question => OperatorBoardKind::Question,
         Arrived::Card => OperatorBoardKind::Card,
         Arrived::Stopped | Arrived::Red => OperatorBoardKind::Stall,
-        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error => OperatorBoardKind::Report,
+        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error | Arrived::Conflict | Arrived::Held => OperatorBoardKind::Report,
     }
 }
 
@@ -153,6 +153,7 @@ pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, su
     match row.outcome.as_str() {
         "answer" => said("Answered", row.answer.clone().unwrap_or_default()),
         "raise" => said("Raised", row.because.clone()),
+        "tell" => said("Told", row.because.clone()),
         "new_job" if matches!(Arrived::from_word(&row.arrived), Some(Arrived::Stopped | Arrived::Red)) => said("Started", "the rest as a new Job".to_string()),
         "new_job" => said("Started", other()),
         "existing_job" => said("Handed over", format!("to {}", other())),

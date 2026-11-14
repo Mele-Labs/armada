@@ -1,0 +1,18 @@
+[operations.ask_held]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Ask whether a pull request or a branch should land. Give exactly one of pull (the number) or branch. Fleet answers at once where it already knows, such as a pull request that merged or closed; otherwise the Operator reads it, or the person does while the Operator is off, and the answer comes to this job as a message. Use it only to ask whether work should land; never message the Operator for anything else"
+notes = """
+`POST /sessions/ask_held`, body `AskHeld`: `pull` or `branch`, and an optional `session_id`. Answered with `HeldAsked`: `id`, `held:<repository>:<pull or branch>`, and `answer` where Fleet answered it from what it keeps.
+
+**The job is the one whose process holds the connection**, as `all_done`'s is. Only a job Fleet hosts is served, and an ended one is refused.
+
+**Fleet refuses, with `fleet.held_refused` and a sentence naming the part,** where neither or both of `pull` and `branch` are given, and where the Job's repository has no such pull request (the forge would not say what it is) or no such local branch.
+
+**Fleet answers without the Operator where the pull request merged or closed**, as the forge shows it. The Job is sent `held? #N: merged at HH:MM.` or `held? #N: closed.` as a Fleet message, the same words are `answer`, and nothing is kept. A branch has no such fact, so a branch always goes on.
+
+**Otherwise the Operator reads it** and either tells the asking Job or raises it to Your turn, as `OperatorTurnItem::held`, or while it is off it is a `job_held` item in the asking Job's Needs you with `Land it` and `Hold it`. The asking Job is sent his answer as a Fleet message. Fleet writes nothing to a forge. The same question asked again while one is open is folded into it.
+
+`agent_access` is `Yes`: the agent is the one holding work it is unsure it should land.
+"""

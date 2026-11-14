@@ -492,6 +492,12 @@ Rules that follow:
   It jumps the wait and never a holder: a running Check keeps its slots.
   Decided 2 Oct 2026, because a turn holds every branch queued behind it.
   Priority on the CPU is the next section's.
+- **A loaded machine runs one Check at a time.**
+  While the fifteen-minute load is 24 or more, an ask takes slots only where no other Check holds one, and says why on stderr: `waiting for a Check slot: the fifteen-minute load is 31, at or over 24, so Checks run one at a time`.
+  The first Check always starts, since load from outside Checks would otherwise hold every one back, and the merge line's ask is never held.
+  The load is read off `sysctl -n vm.loadavg` at most every ten seconds; a machine that will not say it gates nothing.
+  Decided 14 Nov 2026, after every Job's brief carried a hand-written wait on the load: the owner's ruling was that Fleet deals with load and no agent does.
+  Every Check already runs at utility priority (next section), so an agent needs no `taskpolicy` of its own.
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 

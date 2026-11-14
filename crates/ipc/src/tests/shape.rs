@@ -50,6 +50,8 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("move_session", shape::of::<crate::MoveSession>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
         ("report_bug", shape::of::<crate::ReportBug>()),
+        ("raise_conflict", shape::of::<crate::RaiseConflict>()),
+        ("ask_held", shape::of::<crate::AskHeld>()),
         ("restore_artifact", shape::of::<crate::ArtifactRef>()),
         ("save_kit_manifest", shape::of::<crate::SaveKitManifest>()),
         ("save_request_to_collection", shape::of::<crate::SaveRequestToCollection>()),

@@ -104,10 +104,24 @@ struct Record {
     jobs: Vec<JobRow>,
 }
 
-/// One `[[job]]` row of `build.toml`. Its `tip` is not read.
+/// One `[[job]]` row of `build.toml`: the branch, and the tip the build took of it.
 #[derive(Deserialize)]
 struct JobRow {
     branch: String,
+    tip: Option<String>,
+}
+
+/// The branches the running build holds, each with the tip it took, whatever Keep or a pick said.
+/// Empty where no build is kept.
+pub fn held_in(support: &Path) -> Vec<(String, Option<String>)> {
+    let builds = support.join(BUILDS);
+    let read = || -> Option<Vec<(String, Option<String>)>> {
+        let name = std::fs::read_link(builds.join(CURRENT)).ok()?;
+        let text = std::fs::read_to_string(builds.join(name.file_name()?).join(RECORD)).ok()?;
+        let record: Record = toml::from_str(&text).ok()?;
+        Some(record.jobs.into_iter().map(|row| (row.branch, row.tip)).collect())
+    };
+    read().unwrap_or_default()
 }
 
 /// The build `link` names under `builds`, or none where the link or its record is missing.

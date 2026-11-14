@@ -22,13 +22,13 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use futures_util::future::join_all;
-use ipc::{AskMacPair, FoundMac, FoundMacs, MacColour};
+use ipc::{AskMacPair, FoundMac, MacColour, VouchedMac, VouchedMacs};
 
 use crate::mac_client::{encoded, hello_now, post_with, Came};
 use crate::mac_keys::{fresh_key, spki_hex};
 use crate::mac_pair_routes::{claims_told, fault, keep_waiting, said_why};
 use crate::machine::short_name;
-use crate::macs::{asked, digits, hashed, reachable, sane, Asking, HeldClaim, MacAsk, MacAsked, MacGreeting, MacHello, MacReveal};
+use crate::macs::{asked, digits, hashed, older_build, reachable, sane, Asking, HeldClaim, MacAsk, MacAsked, MacGreeting, MacHello, MacReveal};
 use crate::pairing::{from_hex, random_hex, CODE_TTL};
 use crate::reads::json;
 use crate::tunnel::{tunnel_name, AccountTunnel, TUNNEL_PREFIX};
@@ -39,22 +39,23 @@ const FRESH: Duration = Duration::from_secs(4);
 /// How long each other Mac has to say who it is.
 const GREETING_WAIT: Duration = Duration::from_secs(3);
 
-/// `GET /pair/mac/hello`, unsigned: this Mac's name, colour and build, and nothing else.
+/// `GET /pair/mac/hello`, unsigned: this Mac's name, colour, build, wire, build time and tunnel name, and nothing else.
 pub async fn hello(State(gateway): State<Gateway>) -> Response {
     match hello_now(&gateway).await {
-        Ok(me) => json(&MacGreeting { name: me.name, colour: me.colour, build: me.build }),
+        Ok(me) => json(&MacGreeting { tunnel: Some(tunnel_name(&me.id)), name: me.name, colour: me.colour, build: me.build, wire: me.wire, built_at: me.built_at }),
         Err(why) => fault(why),
     }
 }
 
-/// `GET /admin/macs/found`: the other Macs on the account this Mac signed in with, and those seen nearby.
+/// `GET /admin/macs/found`: the other Macs on the account this Mac signed in with, those seen nearby, and those his
+/// stores list.
 pub async fn found(State(gateway): State<Gateway>) -> Response {
     json(&found_now(&gateway, false).await)
 }
 
 /// The account's other Macs, read again where the last read is older than [`FRESH`] or `again`, with each
-/// Mac Bonjour sees. Whether each is paired is read here at each ask.
-pub(crate) async fn found_now(gateway: &Gateway, again: bool) -> FoundMacs {
+/// Mac Bonjour sees and each his stores list. Whether each is paired is read here at each ask.
+pub(crate) async fn found_now(gateway: &Gateway, again: bool) -> VouchedMacs {
     let kept = {
         let kept = gateway.macs.found.lock().unwrap();
         let fresh = !again && kept.at.is_some_and(|at| at.elapsed() < FRESH);
@@ -64,7 +65,9 @@ pub(crate) async fn found_now(gateway: &Gateway, again: bool) -> FoundMacs {
         Some(kept) => kept,
         None => read_account(gateway).await,
     };
-    FoundMacs { macs: with_paired(gateway, with_nearby(gateway, macs)), why }
+    let (theirs, store_why) = crate::vouched_found::store_macs(gateway, again).await;
+    let macs = crate::vouched_found::with_vouched(with_nearby(gateway, macs), theirs);
+    VouchedMacs { macs: with_paired(gateway, macs), why: why.or(store_why) }
 }
 
 /// Mark each Mac on the account that Bonjour sees as nearby, and add each one seen that is not on it.
@@ -76,6 +79,7 @@ fn with_nearby(gateway: &Gateway, mut macs: Vec<FoundMac>) -> Vec<FoundMac> {
             Some(mac) => {
                 mac.nearby = true;
                 mac.online = true;
+                mac.older_build |= older_build(near.wire.as_deref(), near.built_at.as_deref(), &gateway.way_in);
             }
             None => macs.push(FoundMac {
                 tunnel,
@@ -84,6 +88,7 @@ fn with_nearby(gateway: &Gateway, mut macs: Vec<FoundMac>) -> Vec<FoundMac> {
                 address: None,
                 online: true,
                 paired: false,
+                older_build: older_build(near.wire.as_deref(), near.built_at.as_deref(), &gateway.way_in),
                 build: near.build,
                 nearby: true,
             }),
@@ -92,12 +97,19 @@ fn with_nearby(gateway: &Gateway, mut macs: Vec<FoundMac>) -> Vec<FoundMac> {
     macs
 }
 
-/// Mark each Mac paired where a row or a claim here is its tunnel's.
-fn with_paired(gateway: &Gateway, macs: Vec<FoundMac>) -> Vec<FoundMac> {
+/// Mark each Mac paired where a row or a claim here is its tunnel's, or a row here is at its address.
+fn with_paired(gateway: &Gateway, macs: Vec<VouchedMac>) -> Vec<VouchedMac> {
     let rows = gateway.pairing.store.lock().unwrap().paired_macs().unwrap_or_default();
     let claims = gateway.macs.claims(gateway.pairing.now());
+    let addresses: Vec<String> = rows.iter().map(|row| row.address.clone()).filter(|address| !address.is_empty()).collect();
     let ids: Vec<String> = rows.into_iter().map(|row| row.id).chain(claims.into_iter().map(|claim| claim.mac.id)).collect();
-    macs.into_iter().map(|mac| FoundMac { paired: ids.iter().any(|id| tunnel_name(id) == mac.tunnel), ..mac }).collect()
+    macs.into_iter()
+        .map(|mut row| {
+            let at = row.mac.address.as_ref().is_some_and(|address| addresses.contains(address));
+            row.mac.paired = at || ids.iter().any(|id| tunnel_name(id) == row.mac.tunnel);
+            row
+        })
+        .collect()
 }
 
 async fn read_account(gateway: &Gateway) -> (Vec<FoundMac>, Option<String>) {
@@ -136,11 +148,17 @@ async fn read_account(gateway: &Gateway) -> (Vec<FoundMac>, Option<String>) {
                 .map(|g| g.colour)
                 .or_else(|| row.and_then(|row| MacColour::named(&row.colour)))
                 .or_else(|| before.and_then(|mac| mac.colour));
+            // Heard from at the hello, else at its pairing; a Mac heard from at neither keeps what was last said.
+            let older = match (greeting.as_ref(), row) {
+                (Some(g), _) => older_build(g.wire.as_deref(), g.built_at.as_deref(), &gateway.way_in),
+                (None, Some(row)) => older_build(row.wire.as_deref(), row.built_at.as_deref(), &gateway.way_in),
+                (None, None) => before.is_some_and(|mac| mac.older_build),
+            };
             let build = greeting
                 .and_then(|g| g.build)
                 .or_else(|| row.and_then(|row| row.build.clone()))
                 .or_else(|| before.and_then(|mac| mac.build.clone()));
-            FoundMac { tunnel: t.name, name, colour, address: t.address, online: t.connected, paired: false, build, nearby: false }
+            FoundMac { tunnel: t.name, name, colour, address: t.address, online: t.connected, paired: false, build, nearby: false, older_build: older }
         })
         .collect();
     let mut kept = gateway.macs.found.lock().unwrap();
@@ -166,10 +184,12 @@ async fn greet(gateway: &Gateway, tunnel: &AccountTunnel) -> Option<MacGreeting>
 /// both show.
 pub async fn ask(State(gateway): State<Gateway>, Json(body): Json<AskMacPair>) -> Response {
     let mut found = found_now(&gateway, false).await;
-    if !found.macs.iter().any(|mac| mac.tunnel == body.tunnel) {
+    if !found.macs.iter().any(|row| row.mac.tunnel == body.tunnel) {
         found = found_now(&gateway, true).await;
     }
-    let Some(other) = found.macs.into_iter().find(|mac| mac.tunnel == body.tunnel) else {
+    // A Mac only his store found, whose Gateway did not answer, has no tunnel to ask by.
+    let other = found.macs.into_iter().map(|row| row.mac).find(|mac| !body.tunnel.is_empty() && mac.tunnel == body.tunnel);
+    let Some(other) = other else {
         let why = found.why.unwrap_or_else(|| "That Mac is not on your Cloudflare account or on this network any more.".to_string());
         return said_why(StatusCode::NOT_FOUND, why);
     };

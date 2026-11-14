@@ -10,10 +10,10 @@
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::Response;
-use ipc::{Missed, ProtocolId, Resync, StreamMessage};
+use ipc::{Delivered, Missed, ProtocolId, Resync, StreamMessage};
 
 use crate::answers::refused;
-use crate::daemon::Queries;
+use crate::daemon::{OtherMacs, Queries};
 use crate::served::Served;
 use crate::stream::Next;
 
@@ -51,14 +51,18 @@ pub(crate) async fn observe_land_check<D: Queries>(
 /// Nothing is read from the socket. The stream is one-directional by design:
 /// there is no subscribe message to read, and a connection that carried state
 /// would be a connection that is expensive to drop and remake.
-pub(crate) async fn events<D: Queries>(
+///
+/// **Asked as the phone, each event passes the share filter** (`crate::phone_share`), read here since the door
+/// is known only while the upgrade is answered.
+pub(crate) async fn events<D: Queries + OtherMacs>(
     State(served): State<Served<D>>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
-    upgrade.on_upgrade(move |socket| watch(socket, served))
+    let phone = crate::acting::via().is_some_and(|via| via.as_wire() == crate::acting::PHONE);
+    upgrade.on_upgrade(move |socket| watch(socket, served, phone))
 }
 
-async fn watch<D: Queries>(mut socket: WebSocket, served: Served<D>) {
+async fn watch<D: Queries + OtherMacs>(mut socket: WebSocket, served: Served<D>, phone: bool) {
     // Subscribe first, then snapshot. The other order drops whatever lands in
     // between; this order can only repeat, and a repeat is detectable.
     let mut subscription = served.events().subscribe();
@@ -67,6 +71,10 @@ async fn watch<D: Queries>(mut socket: WebSocket, served: Served<D>) {
     }
     while let Some(next) = subscription.next().await {
         let delivered = match next {
+            Next::Send(Delivered { cursor, event }) if phone => match served.daemon().event_for_phone(event).await {
+                Some(event) => send(&mut socket, &StreamMessage::Event(Delivered { cursor, event })).await,
+                None => true,
+            },
             Next::Send(delivered) => send(&mut socket, &StreamMessage::Event(delivered)).await,
             // The count alone cannot repair what the client holds, so the drop
             // is always followed by current state.

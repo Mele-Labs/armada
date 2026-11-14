@@ -167,6 +167,8 @@ pub(crate) struct WaitingReads {
     held_children: Vec<super::agent_starting::HeldChild>,
     /// The acts its rules planned that wait on the owner.
     rule_acts: Vec<store::KeptRuleAct>,
+    /// The asks it made the Operator that stand on its Needs you, or in Your turn.
+    job_asks: Vec<store::KeptJobAsk>,
 }
 
 impl WaitingReads {
@@ -239,6 +241,7 @@ pub(crate) fn waiting_reads(
         ready_changes: store.ready_workflow_change_ids()?,
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
+        job_asks: store.raised_job_asks_of(&session.id)?,
     })
 }
 
@@ -529,7 +532,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, undone, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, undone, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -757,6 +760,8 @@ where
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
             if !ended {
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
+                // What it asked the Operator, once it is on his Needs you or in Your turn.
+                items.extend(super::job_asks::job_ask_items(&job_asks));
             }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
@@ -1371,6 +1376,8 @@ where
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
+            // Fleet's, so his press is the whole answer: the Jobs it names are told, and words alone are refused.
+            WaitingSource::JobConflict | WaitingSource::JobHeld => self.job_ask_chosen(&id, &item.id, said.choice).await,
             // Words with no choice are talk to the Operator about it, and the row stays.
             WaitingSource::OperatorSuggestion => match (said.choice, words) {
                 (None, Some(words)) => self.suggestion_talked(&id, &item.id, words).await,

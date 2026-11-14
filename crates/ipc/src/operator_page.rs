@@ -163,6 +163,12 @@ pub struct OperatorTurnItem {
     /// the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follows: Option<OperatorFollows>,
+    /// On a `job_conflict` item: the two Jobs, what each does and what breaks, which the card draws.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conflict: Option<crate::OperatorConflict>,
+    /// On a `job_held` item: the pull request or branch asked about, and the Job that asked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<crate::OperatorHeld>,
 }
 
 /// What the Operator is reading now.

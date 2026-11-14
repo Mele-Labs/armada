@@ -55,6 +55,62 @@ impl Report {
     }
 }
 
+/// What a Job asked with `raise_conflict` or `ask_held`, as the Operator is handed it. **Its words are what the
+/// Job wrote**, so the call may tell the Job or raise it and does nothing else with them.
+pub fn ask_arrival(ask: &store::KeptJobAsk) -> Arrival {
+    let job = |title: &str, session: &str| format!("Job {session} \"{title}\" ({})", crate::session_host::address_of(session));
+    let (arrived, subject, words) = match (ask.kind.as_str(), ask.pull, ask.branch.as_deref()) {
+        ("conflict", _, _) => {
+            let other = ask.other_session_id.clone().unwrap_or_default();
+            let mut words = format!(
+                "{} does: {}\n{} does: {}\nIf both land: {}",
+                job(&ask.job_title, &ask.session_id),
+                ask.mine,
+                job(ask.other_title.as_deref().unwrap_or_default(), &other),
+                ask.theirs,
+                ask.breaks
+            );
+            if !ask.wire.is_empty() {
+                words.push_str(&format!("\nWire types: {}", ask.wire.join(", ")));
+            }
+            (Arrived::Conflict, ask.breaks.clone(), words)
+        }
+        (_, Some(pull), _) => {
+            let checks = ask.checks.as_deref().map(|checks| format!(", its checks {checks}")).unwrap_or_default();
+            let title = ask.title.as_deref().map(|title| format!(" \"{title}\"")).unwrap_or_default();
+            (Arrived::Held, format!("Should #{pull} land?"), format!("{} asks whether #{pull}{title} should land{checks}.", job(&ask.job_title, &ask.session_id)))
+        }
+        (_, None, branch) => {
+            let branch = branch.unwrap_or_default();
+            (Arrived::Held, format!("Should {branch} land?"), format!("{} asks whether branch {branch} should land.", job(&ask.job_title, &ask.session_id)))
+        }
+    };
+    Arrival {
+        id: match ask.round {
+            0 => ask.id.clone(),
+            round => format!("{}#{round}", ask.id),
+        },
+        arrived,
+        source: Source::Agent,
+        session_id: ask.session_id.clone(),
+        manifest_id: ask.manifest_id.clone(),
+        subject,
+        words,
+        paths: ask.files.clone(),
+        issues: Vec::new(),
+        ways: vec![Way::Tell, Way::Raise],
+        open: Vec::new(),
+    }
+}
+
+/// The id of the ask an arrival of [`ask_arrival`] was made from.
+pub(super) fn ask_id_of(arrival: &str) -> &str {
+    match arrival.rsplit_once('#') {
+        Some((id, round)) if round.chars().all(|one| one.is_ascii_digit()) => id,
+        _ => arrival,
+    }
+}
+
 /// An issue new to a repository's tracker since Fleet last read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NewIssue {

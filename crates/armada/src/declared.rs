@@ -267,10 +267,11 @@ pub async fn execute_told(
             let places = manifest
                 .check(name)
                 .map_or(1, |check| check.places().get() as usize);
-            // Said once, so a pause reads as a queue rather than a hang.
-            let mut said = false;
+            // Said once for each reason, so a pause reads as a queue rather than a hang.
+            let mut said = None;
             let waiting = |in_use: checks_runner::InUse| {
-                if !std::mem::replace(&mut said, true) {
+                let why = Some((in_use.behind_the_line, in_use.loaded.is_some()));
+                if std::mem::replace(&mut said, why) != why {
                     eprintln!("{in_use}");
                 }
             };
@@ -335,7 +336,8 @@ pub(crate) fn say_nextest_missing(command: &str, attempt: &mut Attempt) {
 }
 
 /// The machine's Check slots, as many as `fleet::ChecksAtOnce`'s machine
-/// number, beside `fleet.json` so every clone and worktree shares them.
+/// number, beside `fleet.json` so every clone and worktree shares them, and
+/// one at a time while the machine is loaded: `CheckSlots::under_load`.
 ///
 /// **`None` inside a Check that already holds them**, for
 /// [`checks_runner::HELD_ENV`]'s reason, and where `HOME` is unset.
@@ -347,7 +349,8 @@ pub fn machine_slots() -> Option<CheckSlots> {
     let slots = CheckSlots::at(
         runtime_file.parent()?.join("check-slots"),
         usize::try_from(crate::settings::now_or_shipped().get(config::settings::CHECKS_AT_ONCE)).unwrap_or(1),
-    );
+    )
+    .under_load(checks_runner::LOAD_LIMIT, checks_runner::fifteen_minute_load);
     // The merge line sets it on its own Checks, and nothing else does.
     match std::env::var_os(AHEAD_ENV) {
         Some(_) => Some(slots.ahead()),

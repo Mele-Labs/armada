@@ -711,7 +711,7 @@ impl JobView {
         let key = format!("ledger:{}", line.key);
         // A pull request's notes stand in its panel's Files tab, by the lines they name.
         let under_row = artifact.kind != JudgeKind::PullRequest;
-        let press = self.judge_press(super::acts::SHEET, &key, artifact, reading, page, look, cx);
+        let press = self.judge_press(super::acts::SHEET, &key, artifact, reading, &[], page, look, cx);
         let notes = reading
             .filter(|_| under_row)
             .and_then(|reading| super::judge::Pinned::whole_job(super::acts::SHEET, &key, reading))

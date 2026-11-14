@@ -277,7 +277,7 @@ describe("homeOf", () => {
       ),
     }));
 
-  it("lists every live Job once, in Fleet's order, each with the state its fields read as", () => {
+  it("lists every live Job once, in its project's standing order, each with the state its fields read as", () => {
     const { live } = everyState(Date.parse("2026-10-08T12:00:00Z"));
     const home = homeOf({
       macs: [
@@ -286,11 +286,29 @@ describe("homeOf", () => {
         }),
       ],
     });
+    // The Gateway names Armada's Jobs under their project, which groups them in place of their repository.
     expect(home.repositories.map((one) => one.name)).toEqual([
-      "armada",
+      "Armada",
     ]);
     const lines = home.repositories[0]!.lines;
-    expect(lines.map((one) => one.item.session.id)).toEqual(live.map((one) => one.id));
+    // Failed first, then those that need him, then working, then held and paused, then the draft.
+    expect(lines.map((one) => one.item.session.id)).toEqual([
+      "x-failing",
+      "x-unstarted",
+      "x-stuck",
+      "x-gave-up",
+      "x-reading",
+      "x-queue",
+      "x-checks",
+      "x-watch",
+      "x-job",
+      "x-limited",
+      "x-restarting",
+      "x-quit",
+      "x-paused",
+      "x-blank",
+    ]);
+    expect(lines).toHaveLength(live.length);
     expect(lines.every((one) => one.depth === 0)).toBe(true);
     const state = (id: string) => lines.find((one) => one.item.session.id === id)!.item.state;
     expect(state("x-blank")).toBe("blank");
@@ -615,7 +633,7 @@ describe("homeOf", () => {
     expect(home.several).toBe(false);
   });
 
-  it("lists a draft once, a Job waiting while it works as waiting, and an open Job with no turn running as idle", () => {
+  it("lists a draft once, a Job waiting while it works as waiting, and an open Job with no turn running as idle, in standing order", () => {
     const home = homeOf({
       macs: [
         mac("https://a", {
@@ -652,20 +670,20 @@ describe("homeOf", () => {
       ]),
     ).toEqual([
       [
-        "d1",
-        "draft",
-      ],
-      [
-        "d2",
-        "draft",
-      ],
-      [
         "a1",
         "waiting",
       ],
       [
         "a2",
         "working",
+      ],
+      [
+        "d1",
+        "draft",
+      ],
+      [
+        "d2",
+        "draft",
       ],
       [
         "a3",

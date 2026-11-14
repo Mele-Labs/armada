@@ -1,0 +1,18 @@
+[operations.raise_conflict]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Say that this job's work and another job's cannot both stand. Give with, the other job's address (s- and eight characters), the files and the wire type names the clash is in (at least one of the two), mine and theirs, one sentence each on what each job's work does, and breaks, one sentence on what fails if both land. Fleet checks every part, answers what it already knows and hands the rest to the Operator, or to the person while the Operator is off. Use it only where two jobs' work cannot both stand; never message the Operator for anything else"
+notes = """
+`POST /sessions/raise_conflict`, body `RaiseConflict`: `with`, `files`, `wire`, `mine`, `theirs`, `breaks` and an optional `session_id`. Answered with `ConflictRaised`: `id`, `conflict:<a>:<b>` with the two addresses sorted, and `folded` where an open conflict between the same two Jobs took it.
+
+**The job is the one whose process holds the connection**, as `all_done`'s is. Only a job Fleet hosts is served, and an ended one is refused.
+
+**Fleet refuses, with `fleet.conflict_refused` and a sentence naming the part,** where `with` is the sender, is not a Job address, has ended or no Job has it (the check `message_reach` makes), where `files` and `wire` are both empty, and where `mine`, `theirs` or `breaks` is empty.
+
+**An open conflict between the same two Jobs takes a second one as `also raised by`** and shows nothing new, whichever of the two raised it. The item stays the first one's.
+
+**While the Operator is on, it reads the conflict** and either tells a Job (`tell`, naming the Job whose side changes, or none to hold both) or raises it to Your turn, as `OperatorTurnItem::conflict`. **While it is off,** the conflict is a `job_conflict` item in the sending Job's Needs you with the same three options. An answer sends the Job or Jobs it names a Fleet message stating his answer, and Fleet writes nothing to a forge.
+
+`agent_access` is `Yes`: the agent is the one that sees the two pieces of work clash.
+"""

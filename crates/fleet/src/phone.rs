@@ -33,6 +33,9 @@ pub trait PhoneSwitch: Send + Sync + 'static {
         self.setup()
     }
 
+    /// This Mac joined a store: the Gateway puts its presence there. Quick: it only wakes the Gateway's task.
+    fn stores_joined(&self) {}
+
     /// Read `path`, one of the other Mac's `/other_mac/*` Fleet paths with its query, from paired Mac `mac`
     /// through the link: the status its Fleet answered and the bytes. A Gateway with no link to it says why.
     fn read_other_mac(&self, mac: &str, path: &str) -> OtherMacRead {
