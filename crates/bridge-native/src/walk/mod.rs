@@ -1272,12 +1272,12 @@ pub static WALKS: &[Walk] = &[
         scenario: "sketch-band",
         steps: &[
             press_on("A Job's sketches stand in its thread, each card's band tinted by where it stands: this one the Job took back", "row", "Edit the merge line", "article", "Sketch: Crossing arrows"),
-            step("Shown to him with no answer asked: Reading", Verb::Wheel("region", "Thread", -380), "article", "Sketch: Pinned clock"),
-            step("Sent back: his words stand under the drawing", Verb::Wheel("region", "Thread", -380), "article", "Sketch: Store clock reads"),
+            step("Shown to him with no answer asked: Reading", Verb::Wheel("region", "Thread", -340), "article", "Sketch: Pinned clock"),
+            step("Sent back: his words stand under the drawing", Verb::Wheel("region", "Thread", -310), "article", "Sketch: Store clock reads"),
             step("Approved", Verb::Wheel("region", "Thread", -380), "article", "Sketch: Merge line flow"),
-            step("Asking: its For line names what it is for and the links it touches, its revision beside the state, Approve and Ask for changes under the drawing", Verb::Wheel("region", "Thread", -420), "article", "Sketch: Freshness chip"),
+            step("Asking: its For line names what it is for and the links it touches, its revision beside the state, Approve and Ask for changes under the drawing", Verb::Wheel("region", "Thread", -250), "article", "Sketch: Freshness chip"),
             press_on("Ask for changes opens a note in the footer: Cancel on Esc, Send on \u{2318}\u{21b5}", "button", "Ask for changes", "textbox", "What should change?"),
-            step("Cancel and Send stand under it", Verb::Wheel("region", "Thread", 160), "button", "Send"),
+            step("Cancel and Send stand under it", Verb::Look, "button", "Send"),
         ],
     },
     Walk {

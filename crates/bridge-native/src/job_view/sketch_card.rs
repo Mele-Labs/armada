@@ -120,9 +120,9 @@ fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: b
         .flex()
         .items_center()
         .justify_center()
-        .gap(look.length(token::SPACE_2))
+        .gap(look.length(token::SPACE_1) + look.length(token::BORDER_WIDTH) * 2.)
         .h(look.length(token::H_CONTROL))
-        .px(look.length(token::SPACE_3))
+        .px(look.length(token::SPACE_2))
         .rounded(look.length(token::RADIUS_MD))
         .border(look.length(token::BORDER_WIDTH))
         .border_color(gpui::transparent_black())
@@ -213,10 +213,13 @@ impl JobView {
         let band = self.band(ix, card, standing, picked, shown_earlier, look, cx);
         let press = self.sketch_press(&acts, &card.title, band, drawing, plays, page, cx);
         let words = settled.as_ref().and_then(|(said, words)| (*said == Said::SentBack).then_some(words.as_deref()).flatten());
+        // A narrow thread lets the card reach a little past the words, as the old frame did (`--spacious-bleed`), so Approve and Ask for changes fit one row.
+        let bleed = self.narrow(look);
         let body = div()
             .flex()
             .flex_col()
             .min_w_0()
+            .when(bleed, |body| body.mx(-(look.length(token::SPACE_4) + look.length(token::SPACE_1))))
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG) * 1.5)
             .bg(look.color(token::BG_RAISED))
@@ -350,7 +353,8 @@ impl JobView {
         }
         // The card's edge to the drawing: the frame's inset and the well's padding, each side, and the well's edge.
         let around = look.length(token::SPACE_4) * 4. + look.length(token::BORDER_WIDTH) * 2.;
-        let across = f32::from(self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2. - around).max(1.);
+        let bleed = if self.narrow(look) { (look.length(token::SPACE_4) + look.length(token::SPACE_1)) * 2. } else { px(0.) };
+        let across = f32::from(self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2. + bleed - around).max(1.);
         let scale = (across / (x1 - x0) as f32).min(1.);
         // The fit keeps four in a hundred clear on each side.
         px((y1 - y0) as f32 * scale * 1.08).max(floor)
@@ -484,29 +488,37 @@ impl JobView {
             )
         };
         let (a1, a2, a3, a4) = (acts.clone(), acts.clone(), acts.clone(), acts.clone());
+        // Approve and Ask for changes stay together on the first row; Dismiss (or Archive) and Open wrap as one group, right-aligned.
+        let group = || div().flex().flex_none().items_center().gap(look.length(token::SPACE_2));
         let row = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
         let row = if acts.asking {
-            row.child(labelled(
-                act(look, format!("approve:{key}"), "Approve", Kind::Approve, "A", true)
-                    .tooltip(tip("Approve the sketch"))
-                    .on_click(cx.listener(move |this, _, window, cx| this.approve_sketch(&a1, window, cx))),
-                Role::Button,
-                "Approve",
-            ))
-            .child(labelled(
-                act(look, format!("ask:{key}"), "Ask for changes", Kind::Secondary, "C", true)
-                    .tooltip(tip("Send it back with a note"))
-                    .on_click(cx.listener(move |this, _, window, cx| this.ask_changes(&a2, window, cx))),
-                Role::Button,
-                "Ask for changes",
-            ))
-            .child(div().flex_1())
-            .child(tail("Dismiss", "D", "Put it away with no answer", Box::new(move |this, window, cx| this.dismiss_sketch(&a3, window, cx)), "dismiss", cx))
+            row.child(
+                group()
+                    .child(labelled(
+                        act(look, format!("approve:{key}"), "Approve", Kind::Approve, "A", true)
+                            .tooltip(tip("Approve the sketch"))
+                            .on_click(cx.listener(move |this, _, window, cx| this.approve_sketch(&a1, window, cx))),
+                        Role::Button,
+                        "Approve",
+                    ))
+                    .child(labelled(
+                        act(look, format!("ask:{key}"), "Ask for changes", Kind::Secondary, "C", true)
+                            .tooltip(tip("Send it back with a note"))
+                            .on_click(cx.listener(move |this, _, window, cx| this.ask_changes(&a2, window, cx))),
+                        Role::Button,
+                        "Ask for changes",
+                    )),
+            )
         } else {
-            row.child(div().flex_1()).child(tail("Archive", "D", "Fold it away from your list", Box::new(move |this, window, cx| this.archive_sketch(&a3, window, cx)), "archive", cx))
+            row
+        };
+        let put_away = if acts.asking {
+            tail("Dismiss", "D", "Put it away with no answer", Box::new(move |this, window, cx| this.dismiss_sketch(&a3, window, cx)), "dismiss", cx)
+        } else {
+            tail("Archive", "D", "Fold it away from your list", Box::new(move |this, window, cx| this.archive_sketch(&a3, window, cx)), "archive", cx)
         };
         let open = tail("Open", "\u{21b5}", "Read it on its own", Box::new(move |this, window, cx| this.read_sketch(&a4.key, &a4.key, window, cx)), "open", cx);
-        let row = row.child(open);
+        let row = row.child(group().ml_auto().child(put_away).child(open));
         footer
             .child(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/sketch/answer", cx)))
             .into_any_element()
@@ -528,10 +540,30 @@ impl JobView {
             })),
         );
         let send_key = key.to_string();
+        let reveal = page.cards.reveal.get(key).cloned().map(|flag| {
+            let (me, ix) = (cx.entity().downgrade(), acts.ix);
+            gpui::canvas(
+                move |_, _, cx| {
+                    if flag.replace(false) {
+                        let me = me.clone();
+                        cx.defer(move |cx| {
+                            let _ = me.update(cx, |this, cx| this.reveal_sketch(ix, cx));
+                        });
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        });
         div()
+            .relative()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_2))
+            .children(reveal)
             .capture_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
                     cx.stop_propagation();
@@ -574,6 +606,10 @@ impl JobView {
             .into_any_element()
     }
 
+    fn narrow(&self, look: &Look) -> bool {
+        self.pane.is_some_and(|width| width < look.length(token::SPACE_12) * 10.)
+    }
+
     fn sketch_session(&self) -> SessionId {
         SessionId::carried(self.shown.clone().unwrap_or_default().to_string())
     }
@@ -597,6 +633,18 @@ impl JobView {
 
     fn ask_changes(&mut self, acts: &Acts, window: &mut Window, cx: &mut Context<Self>) {
         self.open_box(acts.ix, &acts.key, Mode::Note, "", window, cx);
+        // `open_box` reveals the card at the height it had; the note makes it taller, so it is revealed again once drawn.
+        if let Some(cards) = self.cards_mut() {
+            cards.reveal.insert(acts.key.clone(), std::rc::Rc::new(std::cell::Cell::new(true)));
+        }
+    }
+
+    /// The card is whole in the thread again, now that it has its new height.
+    fn reveal_sketch(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
+            page.list.scroll_to_reveal_item(page.entry(ix));
+        }
+        cx.notify();
     }
 
     /// The note shuts and the keys go back to the card.
