@@ -123,6 +123,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // tie between Workspaces, Smoke tests' lifecycle waiting on a removal, and a proposed rule from #88's Merged.
         "job-lanes-marks" => include_bytes!("../fixtures/jobs-workflow.json"),
         "job-view-composer" | "owner-fixes" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
+        // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
+        "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
@@ -305,6 +308,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
         }
     }
+    if scenario == "claim-waits" {
+        claim_waits(&mut sessions)?;
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -314,6 +320,26 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
+fn claim_waits(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    #[derive(Deserialize)]
+    struct Held {
+        session_id: String,
+        #[serde(default)]
+        claim_waits: Vec<ipc::ClaimWait>,
+        #[serde(default)]
+        claims_unsent: bool,
+    }
+    let read: Vec<Held> = serde_json::from_slice(include_bytes!("../fixtures/claim-waits.json")).map_err(|why| why.to_string())?;
+    for held in read {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == held.session_id) {
+            one.claim_waits = held.claim_waits.into_iter().map(|wait| ipc::ClaimWait { since: shifted(NOW_ANCHOR, &wait.since), ..wait }).collect();
+            one.claims_unsent = held.claims_unsent;
+        }
+    }
+    Ok(())
 }
 
 /// The moment `jobs-snoozed` counts from, so the times a snooze names read the same on every run and in every
@@ -443,7 +469,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
