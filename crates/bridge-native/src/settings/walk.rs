@@ -112,6 +112,18 @@ pub static MACS_BUILD_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-models`: Macs and Models laid out across the overlay's width.
+pub const MACS_MODELS: &str = "native-settings-macs-models";
+
+pub static MACS_MODELS_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: This Mac and Tunnel are on the left and Devices on the right", "button", "Macs", "list", "Devices"),
+    press_on("Models: each row is a name, its version and a plain switch", "button", "Models", "region", "Default models"),
+    press_on("A press on a row picks it and gives the list the keys", "button", "Fable", "article", "Fable"),
+    step("↓ picks Sonnet: its detail and the default models fill the right side", Verb::Key("down"), "article", "Sonnet"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-layout-time`: what Layout and Time set, read on the app behind Settings.
 pub const LAYOUT_TIME: &str = "native-layout-time";
 
