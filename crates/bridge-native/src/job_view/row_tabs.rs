@@ -17,11 +17,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use gpui::{div, prelude::*, AnimationExt, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, SharedString, Subscription, Window};
 use ipc::{SessionRecord, SessionRow, WaitingActKind, WaitingSource};
 
 use super::acts::{button, Tone, SHEET};
-use super::rows::{glyph, Size};
 use super::web_walk::{WebWalkEvent, WebWalkTab};
 use super::JobView;
 use crate::labels::labelled;
@@ -51,7 +50,7 @@ pub(super) fn kind_id(kind: RowKind) -> Option<&'static str> {
 
 impl RowKind {
     /// The kind's glyph and the word a tab with no name of its own reads (`KINDS`).
-    fn look(self) -> (&'static str, &'static str) {
+    pub(super) fn look(self) -> (&'static str, &'static str) {
         match self {
             RowKind::Draft => ("notebook-pen", "Draft"),
             RowKind::Document => ("file-text", "Document"),
@@ -213,10 +212,43 @@ impl JobView {
         self.row_tabs.get(job).is_some_and(|tabs| tabs.at(RowKind::Subagent, subagent).is_some())
     }
 
-    /// The tab in front of the thread's pane, where it is not the thread.
-    pub(super) fn row_front(&self, id: &str) -> Option<&RowTab> {
+    /// The tab Job `id` holds for this thing.
+    pub(super) fn row_tab_of(&self, id: &str, kind: RowKind, key: &str) -> Option<&RowTab> {
         let tabs = self.row_tabs.get(id)?;
-        tabs.front.and_then(|at| tabs.tabs.get(at))
+        tabs.at(kind, key).and_then(|at| tabs.tabs.get(at))
+    }
+
+    /// Every tab Job `id` holds beside its thread, in the order they were opened.
+    pub(super) fn row_tab_list(&self, id: &str) -> Vec<RowTab> {
+        self.row_tabs.get(id).map(|tabs| tabs.tabs.clone()).unwrap_or_default()
+    }
+
+    /// A tab has been in front of him: a walk's stops pulsing.
+    pub(super) fn row_tab_seen(&mut self, id: &SharedString, kind: RowKind, key: &str) {
+        let tabs = self.row_tabs_of(id);
+        if let Some(tab) = tabs.at(kind, key).and_then(|at| tabs.tabs.get_mut(at)) {
+            tab.seen = true;
+        }
+    }
+
+    /// A tab that closed lets go of what it held, so it is not opened again of itself (a walk's stays shut).
+    pub(super) fn row_tab_let_go(&mut self, id: &SharedString, kind: RowKind, key: &str) {
+        let tabs = self.row_tabs_of(id);
+        if let Some(at) = tabs.at(kind, key) {
+            tabs.close(at);
+        }
+    }
+
+    /// A tab Job `id` held comes to the front of its pane, which takes the keys.
+    fn row_tab_front(&mut self, id: &SharedString, kind: RowKind, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.sync_row_tabs_into_panes(id, cx);
+        let (kind_name, key) = (super::panes_place::row_kind_name(kind), key.to_string());
+        let arrangement = self.arrangement_of(id).cloned();
+        let found = arrangement.as_ref().and_then(|arrangement| super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind_name && tab.row.as_deref() == Some(key.as_str())).map(|tab| tab.id.clone()));
+        if let Some(tab) = found {
+            self.look_in(id, move |arrangement| super::pane_tree::activate(arrangement, &tab), cx);
+        }
+        self.keys_to_front(window, cx);
     }
 
     /// A draft's card as a tab named for the draft (`openDraftCard`). A draft whose row has gone
@@ -230,7 +262,7 @@ impl JobView {
             return;
         };
         self.row_tabs_of(&id).focus(RowKind::Draft, row, title);
-        self.keys_to_front(window, cx);
+        self.row_tab_front(&id, RowKind::Draft, row, window, cx);
     }
 
     /// The page a Job owes him alone, read in its own tab (`soleDocument`).
@@ -246,7 +278,7 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         let Some(title) = self.thread(&id, cx).and_then(|held| super::review::document_card(&held.items, page)).map(|card| card.title.clone()) else { return };
         self.row_tabs_of(&id).focus(RowKind::Document, page, title);
-        self.keys_to_front(window, cx);
+        self.row_tab_front(&id, RowKind::Document, page, window, cx);
     }
 
     /// A subagent's thread as a tab named for its task (`focusSubagent`), from a drone on its group.
@@ -256,7 +288,7 @@ impl JobView {
         let Some(one) = self.record(&id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of) else { return };
         self.watch_subagent(&one, cx);
         self.row_tabs_of(&id).focus(RowKind::Subagent, subagent, one.task);
-        self.keys_to_front(window, cx);
+        self.row_tab_front(&id, RowKind::Subagent, subagent, window, cx);
     }
 
     /// A press on a walk he is owed (`openJobWalk`): a native walk starts its window at once, and its
@@ -277,24 +309,27 @@ impl JobView {
         let tabs = self.row_tabs_of(&id);
         tabs.arrived.insert(url.to_string());
         tabs.focus(RowKind::Walk, url, title);
-        self.keys_to_front(window, cx);
+        self.row_tab_front(&id, RowKind::Walk, url, window, cx);
     }
 
-    /// The keys go to what is in front of the thread's pane: the tab's body, else the thread's message box.
+    /// The keys go to what is in front of the pane that has the focus: a row's tab body, the thread's message box.
     fn keys_to_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let front = self.shown.as_ref().and_then(|id| self.row_tabs.get(id)).and_then(|tabs| tabs.front);
-        if let Some(at) = front {
-            // The thread's own tab stands first in the strip while it is open.
-            self.row_strip.scroll_to_item(at + usize::from(!self.tab_closed("thread")));
-        }
-        let web = self.shown.as_ref().and_then(|id| self.row_front(id)).and_then(|tab| self.row_tabs.get(self.shown.as_ref()?)?.web.get(&tab.key)).map(|(web, _)| web.read(cx).focus.clone());
+        let arrangement = self.arrangement().into_owned();
+        let front = super::pane_tree::pane_by_id(&arrangement, &arrangement.focus).and_then(super::panes_place::front_of);
+        // A web page's walk takes its own keys: ⌥⌘→, ⌥⌘←, ⌘R and ⌘↵ are the walk bar's.
+        let web = front
+            .and_then(|tab| tab.row.as_deref())
+            .and_then(|key| self.shown.as_ref().and_then(|id| self.row_tabs.get(id)).and_then(|tabs| tabs.web.get(key)))
+            .map(|(web, _)| web.read(cx).focus.clone());
         if let Some(focus) = web {
-            // A web page's walk takes its own keys: ⌥⌘→, ⌥⌘←, ⌘R and ⌘↵ are the walk bar's.
             window.focus(&focus, cx);
-        } else if front.is_some() {
-            window.focus(&self.row_focus, cx);
-        } else {
-            self.to_composer(window, cx);
+            cx.notify();
+            return;
+        }
+        match front.map(|tab| tab.kind.as_str()) {
+            Some("thread") => self.to_composer(window, cx),
+            Some(kind) if super::panes_place::row_kind_of(kind).is_some() => window.focus(&self.row_focus, cx),
+            _ => {}
         }
         cx.notify();
     }
@@ -356,8 +391,54 @@ impl JobView {
         let Some(owed) = self.record(id, cx).map(owed_walks) else { return };
         self.sync_web_walks(id, &owed, window, cx);
         if self.row_tabs_of(id).sync_walks(&owed) {
-            self.reopen_thread(id);
+            self.reopen_thread(id, cx);
         }
+        self.sync_row_tabs_into_panes(id, cx);
+    }
+
+    /// The panes hold a tab for each thing Job `id` holds one for, and none for what it let go of. A tab that arrives joins
+    /// the thread's pane behind the one in front; one that goes is closed as its × would close it. Neither is a step back.
+    pub(super) fn sync_row_tabs_into_panes(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        self.ensure_placed(id, cx);
+        let held = self.row_tab_list(id);
+        let Some(arrangement) = self.arrangement_of(id) else { return };
+        let in_panes: Vec<(String, String, String)> = super::pane_tree::panes_of(&arrangement.root)
+            .into_iter()
+            .flat_map(|pane| pane.tabs.iter())
+            .filter(|tab| super::panes_place::row_kind_of(&tab.kind).is_some())
+            .filter_map(|tab| Some((tab.id.clone(), tab.kind.clone(), tab.row.clone()?)))
+            .collect();
+        let missing: Vec<(&'static str, String, String)> = held
+            .iter()
+            .filter(|one| !in_panes.iter().any(|(_, kind, key)| *kind == super::panes_place::row_kind_name(one.kind) && *key == one.key))
+            .map(|one| (super::panes_place::row_kind_name(one.kind), one.key.clone(), one.title.clone()))
+            .collect();
+        let gone: Vec<String> = in_panes.iter().filter(|(_, kind, key)| !held.iter().any(|one| super::panes_place::row_kind_name(one.kind) == kind && one.key == *key)).map(|(tab, _, _)| tab.clone()).collect();
+        if missing.is_empty() && gone.is_empty() {
+            return;
+        }
+        self.look_in(
+            id,
+            move |was| {
+                let mut next = was.clone();
+                for (kind, key, title) in &missing {
+                    let extras = super::pane_tree::Extras { label: Some(title.clone()), row: Some(key.clone()), ..Default::default() };
+                    let focus = next.focus.clone();
+                    let holder = super::pane_tree::holder_of(&next, "thread").map(|pane| (pane.id.clone(), pane.active.clone()));
+                    let pane = holder.as_ref().map_or_else(|| focus.clone(), |(pane, _)| pane.clone());
+                    next = super::pane_tree::add_tab(&next, &pane, kind, extras).into_owned();
+                    if let Some((_, Some(active))) = &holder {
+                        next = super::pane_tree::activate(&next, active).into_owned();
+                    }
+                    next.focus = focus;
+                }
+                for tab in &gone {
+                    next = super::pane_tree::close_tab(&next, tab).into_owned();
+                }
+                std::borrow::Cow::Owned(next)
+            },
+            cx,
+        );
     }
 
     /// Each walk of a web page the Job owes gets its page and bar once, where its tab first arrives; a settled one takes
@@ -425,93 +506,19 @@ impl JobView {
             _ => return,
         };
         self.row_tabs_of(id).focus(kind, &key, title);
+        // The tab joins the thread's pane as any other does and comes to the front of the pane that holds it.
+        self.sync_row_tabs_into_panes(id, cx);
+        let (kind_name, key) = (super::panes_place::row_kind_name(kind), key.to_string());
+        self.restore_in(id, move |was| {
+            let found = super::pane_tree::panes_of(&was.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind_name && tab.row.as_deref() == Some(key.as_str()));
+            match found {
+                Some(tab) => super::pane_tree::activate(was, &tab.id),
+                None => std::borrow::Cow::Borrowed(was),
+            }
+        });
     }
 
     // ---- drawing -----------------------------------------------------------------------
-
-    /// The strip's tabs after the thread's.
-    pub(super) fn row_tab_strip(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
-        let Some(tabs) = self.row_tabs.get(id) else { return Vec::new() };
-        tabs.tabs
-            .iter()
-            .enumerate()
-            .map(|(at, tab)| {
-                let front = tabs.front == Some(at);
-                let (icon, _) = tab.kind.look();
-                let group = SharedString::from(format!("row-tab:{at}"));
-                let pulses = tab.kind == RowKind::Walk && !tab.seen;
-                let ink = look.color(if front { token::FG_DEFAULT } else { token::FG_MUTED });
-                let tint = look.color(token::STATUS_AWAITING_REVIEW);
-                let close = labelled(
-                    super::tabs::frame(look, SharedString::from(format!("row-tab-close:{at}")), "x")
-                        .mr(look.length(token::SPACE_1))
-                        .when(!front, |close| close.opacity(0.).group_hover(group.clone(), |style| style.opacity(1.)))
-                        .tooltip(super::head::tip("Close".into()))
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            cx.stop_propagation();
-                            if let Some(id) = this.shown.clone() {
-                                this.row_tabs_of(&id).close(at);
-                            }
-                            this.keys_to_front(window, cx);
-                        })),
-                    Role::Button,
-                    format!("Close {}", tab.title),
-                );
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("row-tab:{}:{}", tab.kind.look().1, tab.key)))
-                        .group(group.clone())
-                        .relative()
-                        .flex_none()
-                        .max_w(look.length(token::SPACE_12) * 5.)
-                        .h_full()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_2))
-                        .pl(look.length(token::SPACE_3))
-                        .border_r(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_GLASS))
-                        .text_size(look.length(token::TEXT_XS))
-                        .font_weight(FontWeight(look.number(if front { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
-                        .text_color(ink)
-                        .when(front, |one| one.bg(look.color(token::BG_RAISED)))
-                        .when(!front, |one| one.cursor_pointer().hover(|style| style.text_color(look.color(token::FG_DEFAULT))))
-                        .when(pulses, |one| {
-                            one.child(div().absolute().inset_0().with_animation(
-                                SharedString::from(format!("row-tab-owes:{}", tab.key)),
-                                gpui::Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.06, 0.14)),
-                                move |tinted, at| tinted.bg(tint.opacity(at)),
-                            ))
-                        })
-                        .child(glyph(look, icon, Size::Small, ink))
-                        .child(div().min_w_0().truncate().child(SharedString::from(tab.title.clone())))
-                        .child(close)
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            if let Some(id) = this.shown.clone() {
-                                this.row_tabs_of(&id).show(Some(at));
-                            }
-                            this.keys_to_front(window, cx);
-                        })),
-                    Role::Tab,
-                    format!("Job tab: {}", tab.title),
-                )
-                .into_any_element()
-            })
-            .collect()
-    }
-
-    /// No row's tab stands in front of Job `id`'s thread pane, so a view tab opened there shows.
-    pub(super) fn rows_back(&mut self, id: &SharedString) {
-        self.row_tabs_of(id).show(None);
-    }
-
-    /// The thread comes to the front of its pane.
-    pub(super) fn front_thread(&mut self) {
-        if let Some(id) = self.shown.clone() {
-            self.row_tabs_of(&id).show(None);
-        }
-        self.view_tab_back(super::ViewPane::Thread);
-    }
 
     /// The body of the tab in front, where it is not the thread. **What has gone draws nothing**: a
     /// draft's row or a document's card no longer in the thread, a walk the Job never showed, or a
@@ -680,12 +687,5 @@ mod tests {
     fn a_page_with_no_name_is_named_by_the_end_of_its_path() {
         assert_eq!(name_of_page("armada://walk/mergeLine"), "mergeLine");
         assert_eq!(name_of_page("armada://walk/tabs/"), "tabs");
-    }
-}
-
-impl JobView {
-    /// Whether no tab stands beside a Job's thread.
-    pub(super) fn row_tabs_empty(&self, id: &str) -> bool {
-        self.row_tabs.get(id).is_none_or(|tabs| tabs.tabs.is_empty())
     }
 }

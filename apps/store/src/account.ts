@@ -15,6 +15,7 @@ import {
 } from "./signing";
 import {
   HASH,
+  LAPSE_SECONDS,
   MAX_BODY_BYTES,
   MAX_RUNS,
   MAX_RUNS_BODY_BYTES,
@@ -24,10 +25,15 @@ import {
   MAX_OWNERS,
   RATE_WINDOW_SECONDS,
   REQUESTS_PER_MINUTE,
+  claimHolderOf,
+  claimKindOf,
   exactly,
   factsOf,
   holderOf,
   parseJson,
+  renewingOf,
+  type ClaimHolder,
+  type ClaimKind,
   type Holder,
 } from "./rows";
 
@@ -60,6 +66,23 @@ const holderFrom = (row: HolderRow): Holder => ({
   since: row.since,
 });
 
+type ClaimRow = HolderRow & {
+  name: string;
+  title: string;
+  renewed: number;
+};
+/** A claim as it is answered: who holds it, and when its holder last renewed. */
+const claimFrom = (row: ClaimRow) => ({
+  holder: {
+    ...holderFrom(row),
+    name: row.name,
+    title: row.title,
+  },
+  renewed: row.renewed,
+});
+
+const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
 /** One account's devices, claims, owners and the runs of its repositories. A Durable Object runs one request at a time. */
 export class Account extends DurableObject<Env> {
   private readonly sql = this.ctx.storage.sql;
@@ -67,8 +90,9 @@ export class Account extends DurableObject<Env> {
   /** Whether the tables exist. They are made by the first enrolment and by nothing a stranger can send. */
   private made = false;
 
-  /** Whether `runs` exists. It came after the others, so an account enrolled before it has it from its first verified request. */
-  private runsMade = false;
+  /** Whether the tables that came after enrolment, `runs` and the claims of every kind, are made. An account enrolled
+   * before them has them from its first verified request. */
+  private upgraded = false;
 
   /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has its devices. */
   register(device: string, publicKey: string, machine: string): "ok" | "full" {
@@ -88,16 +112,33 @@ export class Account extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
       CREATE INDEX IF NOT EXISTS nonces_seen ON nonces (seen);
-      CREATE TABLE IF NOT EXISTS claims (repo TEXT NOT NULL, red TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, red));
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
     `);
-    this.makeRunsTable();
+    this.upgrade();
     this.made = true;
   }
 
-  private makeRunsTable(): void {
-    this.sql.exec("CREATE TABLE IF NOT EXISTS runs (repo TEXT PRIMARY KEY, facts TEXT NOT NULL)");
-    this.runsMade = true;
+  /**
+   * Makes the tables that came after the first. **The claims table was keyed `(repo, red)`** and held red main only,
+   * with no name, title or renewal. Its rows are dropped with it: no Job renews them, so the lapse would drop them
+   * anyway, and the Mac that held one claims it again under the new key.
+   *
+   * A renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written.
+   */
+  private upgrade(): void {
+    const claims = this.sql
+      .exec<{
+        sql: string;
+      }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'claims'")
+      .toArray()[0];
+    if (claims && !claims.sql.includes("holder_kind")) this.sql.exec("DROP TABLE claims");
+    this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS claims (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, holder_kind TEXT NOT NULL, holder_id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, kind, key));
+      CREATE INDEX IF NOT EXISTS claims_holder ON claims (holder_kind, holder_id, machine);
+      CREATE TABLE IF NOT EXISTS holders (kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, renewed INTEGER NOT NULL, PRIMARY KEY (kind, id, machine));
+      CREATE TABLE IF NOT EXISTS runs (repo TEXT PRIMARY KEY, facts TEXT NOT NULL);
+    `);
+    this.upgraded = true;
   }
 
   private hasTables(): boolean {
@@ -123,8 +164,52 @@ export class Account extends DurableObject<Env> {
     if (body.length > most) return refuse(413, "too_large");
     const refused = await this.authenticate(request, url.pathname + url.search, body);
     if (refused) return refused;
-    // Nothing below awaits, so a read and the write after it cannot be split by another request.
-    return this.route(request.method, url, new TextDecoder().decode(body));
+    // Only a verified request gets here, so a stranger still cannot make a table.
+    if (!this.upgraded) this.upgrade();
+    // Nothing in `route` awaits, so a read and the write after it cannot be split by another request.
+    const answer = this.route(request.method, url, new TextDecoder().decode(body));
+    if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals")
+      await this.keepAlarm();
+    return answer;
+  }
+
+  /** Drops every claim of each holder that has not renewed for `LAPSE_SECONDS`, and the holder. */
+  private lapse(now: number): void {
+    const cutoff = now - LAPSE_SECONDS;
+    this.sql.exec(
+      "DELETE FROM claims WHERE (holder_kind, holder_id, machine) IN (SELECT kind, id, machine FROM holders WHERE renewed <= ?)",
+      cutoff,
+    );
+    this.sql.exec("DELETE FROM holders WHERE renewed <= ?", cutoff);
+  }
+
+  /** When the holder that renewed longest ago lapses, or `null` with no holder. */
+  private nextLapse(): number | null {
+    const at = this.sql
+      .exec<{
+        at: number | null;
+      }>("SELECT MIN(renewed) AS at FROM holders")
+      .one().at;
+    return at === null ? null : at + LAPSE_SECONDS;
+  }
+
+  /** One alarm at a time, set for the next lapse. A renewal does not move it; it fires early and sets the next. */
+  private async keepAlarm(): Promise<void> {
+    if ((await this.ctx.storage.getAlarm()) !== null) return;
+    const next = this.nextLapse();
+    if (next !== null) await this.ctx.storage.setAlarm(next * 1000);
+  }
+
+  /** The lapse, for a store nobody calls. A holder left holding nothing goes too. */
+  async alarm(): Promise<void> {
+    if (!this.hasTables()) return;
+    if (!this.upgraded) this.upgrade();
+    this.lapse(nowSeconds());
+    this.sql.exec(
+      "DELETE FROM holders WHERE NOT EXISTS (SELECT 1 FROM claims WHERE holder_kind = holders.kind AND holder_id = holders.id AND claims.machine = holders.machine)",
+    );
+    const next = this.nextLapse();
+    if (next !== null) await this.ctx.storage.setAlarm(next * 1000);
   }
 
   private async authenticate(
@@ -192,21 +277,27 @@ export class Account extends DurableObject<Env> {
 
   private route(method: string, url: URL, text: string): Response {
     const parts = url.pathname.split("/").slice(1);
-    const [v1, area, first, second] = parts;
-    if (v1 !== "v1" || parts.length > 4) return refuse(404, "no_route");
+    const [v1, area, first, second, third] = parts;
+    if (v1 !== "v1" || parts.length > 5) return refuse(404, "no_route");
 
     if (area === "devices" && parts.length === 3) {
       return method === "DELETE" ? this.signOut(first!) : refuse(405, "bad_method");
     }
+    if (area === "renewals" && parts.length === 2) {
+      return method === "POST" ? this.renew(text) : refuse(405, "bad_method");
+    }
     if (area === "claims") {
+      // A claim that lapsed reads as gone before its alarm has run.
+      this.lapse(nowSeconds());
       if (parts.length === 2)
         return method === "POST" ? this.claim(text) : refuse(405, "bad_method");
-      if (!HASH.test(first ?? "") || (second !== undefined && !HASH.test(second)))
-        return refuse(400, "invalid_key");
-      if (second === undefined)
-        return method === "DELETE" ? this.clearRepository(first!) : refuse(405, "bad_method");
-      if (method === "GET") return this.readClaim(first!, second);
-      return method === "DELETE" ? this.giveBack(first!, second) : refuse(405, "bad_method");
+      const kind = claimKindOf(second);
+      if (!HASH.test(first ?? "") || parts.length === 3 || !kind) return refuse(400, "invalid_key");
+      if (third === undefined)
+        return method === "DELETE" ? this.clearKind(first!, kind) : refuse(405, "bad_method");
+      if (!HASH.test(third)) return refuse(400, "invalid_key");
+      if (method === "GET") return this.readClaim(first!, kind, third);
+      return method === "DELETE" ? this.giveBack(first!, kind, third) : refuse(405, "bad_method");
     }
     if (area === "owners") {
       if (parts.length === 2)
@@ -217,8 +308,6 @@ export class Account extends DurableObject<Env> {
     }
     if (area === "runs") {
       if (!HASH.test(first ?? "") || parts.length !== 3) return refuse(400, "invalid_key");
-      // Only a verified request gets here, so a stranger still cannot make a table.
-      if (!this.runsMade) this.makeRunsTable();
       if (method === "PUT") return this.putRuns(first!, text);
       return method === "GET" ? this.readRuns(first!) : refuse(405, "bad_method");
     }
@@ -231,67 +320,111 @@ export class Account extends DurableObject<Env> {
     return gone.rowsWritten === 0 ? refuse(404, "no_device") : reply(204);
   }
 
-  /** Claim if free: one INSERT that does nothing when the red is held. */
+  /** Claim if free: one INSERT that does nothing when the key is held. A win renews its holder. */
   private claim(text: string): Response {
     const body = exactly(parseJson(text), [
       "repo",
-      "red",
+      "kind",
+      "key",
       "holder",
     ]);
-    const holder = holderOf(body?.holder);
-    if (!body || !holder || !HASH.test(String(body.repo)) || !HASH.test(String(body.red)))
+    const holder = claimHolderOf(body?.holder);
+    const kind = claimKindOf(body?.kind);
+    if (!body || !holder || !kind || !HASH.test(String(body.repo)) || !HASH.test(String(body.key)))
       return refuse(400, "invalid_body");
     const repo = String(body.repo);
-    const red = String(body.red);
-    if (this.count("claims") >= MAX_CLAIMS && !this.claimHolder(repo, red))
+    const key = String(body.key);
+    if (this.count("claims") >= MAX_CLAIMS && !this.claimed(repo, kind, key))
       return refuse(413, "claims_full");
     const won = this.sql.exec(
-      "INSERT OR IGNORE INTO claims (repo, red, kind, id, machine, since) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT OR IGNORE INTO claims (repo, kind, key, holder_kind, holder_id, machine, since) VALUES (?, ?, ?, ?, ?, ?, ?)",
       repo,
-      red,
+      kind,
+      key,
       holder.kind,
       holder.id,
       holder.machine,
       holder.since,
     );
-    if (won.rowsWritten > 0)
-      return reply(200, {
-        holder,
-      });
-    return reply(409, {
-      holder: this.claimHolder(repo, red),
-    });
+    if (won.rowsWritten > 0) this.putHolder(holder);
+    const held = this.claimed(repo, kind, key);
+    return reply(won.rowsWritten > 0 ? 200 : 409, held);
   }
 
-  private claimHolder(repo: string, red: string): Holder | null {
+  /** The holder's row: the name and title it last sent, renewed now. */
+  private putHolder(holder: ClaimHolder): void {
+    this.sql.exec(
+      `INSERT INTO holders (kind, id, machine, name, title, renewed) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (kind, id, machine) DO UPDATE SET name = excluded.name, title = excluded.title, renewed = excluded.renewed`,
+      holder.kind,
+      holder.id,
+      holder.machine,
+      holder.name,
+      holder.title,
+      nowSeconds(),
+    );
+  }
+
+  private claimed(repo: string, kind: ClaimKind, key: string): ReturnType<typeof claimFrom> | null {
     const row = this.sql
-      .exec<HolderRow>(
-        "SELECT kind, id, machine, since FROM claims WHERE repo = ? AND red = ?",
+      .exec<ClaimRow>(
+        `SELECT claims.holder_kind AS kind, claims.holder_id AS id, claims.machine, claims.since, holders.name, holders.title, holders.renewed
+         FROM claims JOIN holders ON holders.kind = claims.holder_kind AND holders.id = claims.holder_id AND holders.machine = claims.machine
+         WHERE claims.repo = ? AND claims.kind = ? AND claims.key = ?`,
         repo,
-        red,
+        kind,
+        key,
       )
       .toArray()[0];
-    return row ? holderFrom(row) : null;
+    return row ? claimFrom(row) : null;
   }
 
-  private readClaim(repo: string, red: string): Response {
-    const holder = this.claimHolder(repo, red);
-    return holder
-      ? reply(200, {
-          holder,
-        })
-      : refuse(404, "no_claim");
+  private readClaim(repo: string, kind: ClaimKind, key: string): Response {
+    const held = this.claimed(repo, kind, key);
+    return held ? reply(200, held) : refuse(404, "no_claim");
   }
 
   /** Give back and take over are the same delete; a take over then claims. */
-  private giveBack(repo: string, red: string): Response {
-    this.sql.exec("DELETE FROM claims WHERE repo = ? AND red = ?", repo, red);
+  private giveBack(repo: string, kind: ClaimKind, key: string): Response {
+    this.sql.exec("DELETE FROM claims WHERE repo = ? AND kind = ? AND key = ?", repo, kind, key);
     return reply(204);
   }
 
-  private clearRepository(repo: string): Response {
-    this.sql.exec("DELETE FROM claims WHERE repo = ?", repo);
+  /** Every claim of one kind under a repository: main went green, and its reds end. */
+  private clearKind(repo: string, kind: ClaimKind): Response {
+    this.sql.exec("DELETE FROM claims WHERE repo = ? AND kind = ?", repo, kind);
     return reply(204);
+  }
+
+  /** One call renews every claim the holder has, by writing its one row. Answers how many claims it holds, so a
+   * holder whose claims lapsed reads `0` and claims again. */
+  private renew(text: string): Response {
+    const body = exactly(parseJson(text), [
+      "holder",
+    ]);
+    const who = renewingOf(body?.holder);
+    if (!who) return refuse(400, "invalid_body");
+    this.lapse(nowSeconds());
+    this.sql.exec(
+      "UPDATE holders SET renewed = ? WHERE kind = ? AND id = ? AND machine = ?",
+      nowSeconds(),
+      who.kind,
+      who.id,
+      who.machine,
+    );
+    const claims = this.sql
+      .exec<{
+        n: number;
+      }>(
+        "SELECT COUNT(*) AS n FROM claims WHERE holder_kind = ? AND holder_id = ? AND machine = ?",
+        who.kind,
+        who.id,
+        who.machine,
+      )
+      .one().n;
+    return reply(200, {
+      claims,
+    });
   }
 
   private putOwner(key: string, text: string): Response {
