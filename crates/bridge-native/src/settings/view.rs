@@ -5,13 +5,14 @@ use std::collections::BTreeMap;
 
 use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, svg, AnyElement, App, Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, Stateful, Div, Window,
+    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, Stateful, Div, Toggled, Window,
 };
 use gpui_component::input::{Input, Textarea};
 use ipc::{Setting, SettingKind, SettingValue};
 
 use super::entries::{self, Body, Entry, Side};
 use super::overlay::{held_text, Picking, SettingsOverlay, Typed};
+use super::rows::{self, changed_chip, default_words, reset_press, restart_chip, says, segment, segment_track, split_row, rows_card, Pick, Row, Spread, FIELD_W, SEGMENTS_MAX, SELECT_W};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -53,27 +54,6 @@ pub fn in_words(seconds: i64) -> String {
     }
 }
 
-/// `2`, `15%`, `10 GiB`, `$10`.
-fn figure(value: i64, unit: Option<&str>) -> String {
-    match unit {
-        None | Some("") => value.to_string(),
-        Some("%") => format!("{value}%"),
-        Some("$") => format!("${value}"),
-        Some(unit) => format!("{value} {unit}"),
-    }
-}
-
-/// The shipped value as a person reads it, or `None` for a kind that draws no line (`controlOf`).
-fn shipped(one: &Setting) -> Option<String> {
-    let number = |value: &SettingValue, fallback: i64| if let SettingValue::Integer(n) = value { *n } else { fallback };
-    match &one.kind {
-        SettingKind::Integer { min, unit, .. } => Some(figure(number(&one.default, *min), unit.as_deref())),
-        SettingKind::Seconds { min, .. } => Some(in_words(number(&one.default, *min))),
-        SettingKind::Boolean => Some(if one.default == SettingValue::Bool(true) { "on".into() } else { "off".into() }),
-        _ => None,
-    }
-}
-
 /// The folders a Job always reaches and never reaches, as settings.json holds them (`reachFoldersOf`).
 pub fn reach_folders(value: Option<&SettingValue>) -> (Vec<String>, Vec<String>) {
     let list = |name: &str| match value {
@@ -105,6 +85,12 @@ pub fn pane_stops(this: &SettingsOverlay, shown: &Entry, _cx: &App) -> Vec<Focus
     this.panes.iter().filter(|(key, _)| key.starts_with(prefix)).map(|(_, handle)| handle.clone()).collect()
 }
 
+/// A registry word as a sentence starts: `carry on automatically` is `Carry on automatically`.
+fn sentence(word: &str) -> String {
+    let mut letters = word.chars();
+    letters.next().map_or_else(String::new, |first| first.to_uppercase().chain(letters).collect())
+}
+
 pub fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView {
     let said: SharedString = said.into();
     move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
@@ -112,20 +98,6 @@ pub fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut App) -> g
 
 pub fn mono(look: &Look) -> SharedString {
     look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()
-}
-
-/// The key, read in mono at the right of its row (`Readout`).
-fn readout(look: &Look, text: &str) -> Div {
-    div()
-        .flex_none()
-        .px(look.length(token::SPACE_2) - look.length(token::BORDER_WIDTH) * 2.)
-        .rounded(look.length(token::RADIUS_SM))
-        .bg(look.color(token::BG_SUNKEN))
-        .font_family(mono(look))
-        .text_size(look.length(token::TEXT_XS))
-        .line_height(look.length(token::LEADING_XS))
-        .text_color(look.color(token::FG_MUTED))
-        .child(SharedString::from(text.to_string()))
 }
 
 /// The focus colour, from the theme's focus edge, as every native ring takes it.
@@ -189,7 +161,6 @@ pub fn switch_said(look: &Look, on: bool, off: bool, (on_word, off_word): (&'sta
         .w(look.length(token::SPACE_4) + look.length(token::SPACE_2))
         .flex()
         .justify_center()
-        .font_family(mono(look))
         .text_size(look.length(token::TEXT_2XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
         .text_color(if lit { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
@@ -320,7 +291,7 @@ impl SettingsOverlay {
                 (Part::Under(under), _) => under.to_string(),
             };
             // The new look's band (`depth.css`, `.armada-system-side__head`), which Classic always runs: the foreground at
-            // 8% under mono words. The words are muted, so only the entries read as pickable. Mods and Bridge are
+            // 8% under its words. The words are muted, so only the entries read as pickable. Mods and Bridge are
             // parts of This Mac, named in quiet words under it.
             let caption = match part {
                 Part::Under(_) => div()
@@ -328,7 +299,6 @@ impl SettingsOverlay {
                     .items_center()
                     .min_h(look.length(token::H_CONTROL_SM))
                     .pl(look.length(token::SPACE_3))
-                    .font_family(mono(look))
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::FG_SUBTLE))
@@ -341,7 +311,6 @@ impl SettingsOverlay {
                     .pr(look.length(token::SPACE_1))
                     .rounded(look.length(token::RADIUS_MD))
                     .bg(look.color(token::FG_DEFAULT).opacity(0.08))
-                    .font_family(mono(look))
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
@@ -459,28 +428,61 @@ impl SettingsOverlay {
 
     // ---- a schema setting ---------------------------------------------------------------------
 
+    /// One setting as a split row. Where a card of its own is wanted, `render_field` stands it in one.
     pub(super) fn render_field(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let spread = self.spread(look, window, cx);
+        self.field_row(one, spread, true, look, window, cx)
+    }
+
+    /// A choice of up to three options as segments, one stop for the keys: ← and → move the pick and save it, and
+    /// Enter, Space and ↓ open the list as they do on a dropdown.
+    fn render_segments(&self, one: &Setting, options: &[String], off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let Some(stops) = self.stops.get(&one.key) else { return div().into_any_element() };
+        let key = one.key.clone();
+        let now = held_text(super::limits::current(one));
+        let mut track = segment_track(look, SharedString::from(format!("choice-{key}"))).track_focus(&stops.control);
+        for (n, word) in options.iter().enumerate() {
+            let on = *word == now;
+            let (press_key, press_word) = (key.clone(), word.clone());
+            let said = sentence(word);
+            let segment = segment(look, SharedString::from(format!("choice-{key}-{n}")), said.clone().into(), if on { Pick::Set } else { Pick::No }, off)
+                .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                .when(!off, |segment| {
+                    segment.on_click(cx.listener(move |this, _, window, cx| {
+                        if let Some(stops) = this.stops.get(&press_key) {
+                            window.focus(&stops.control, cx);
+                        }
+                        this.save(press_key.clone(), Some(SettingValue::Text(press_word.clone())), window, cx);
+                    }))
+                });
+            track = track.child(labelled(segment, Role::RadioButton, said));
+        }
+        let track = ringed(look, track, &stops.control, window).when(!off, |track| {
+            let (name, options, now, key) = (one.title.clone(), options.to_vec(), now.clone(), key.clone());
+            track.on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                if matches!(event.keystroke.key.as_str(), "enter" | "space" | "down") {
+                    let at = bounds_of(window, cx, Role::RadioGroup, &name).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+                    let options = options.iter().map(|word| (SharedString::from(word.clone()), *word == now)).collect();
+                    this.open_choice(Picking::Setting(key.clone()), name.clone().into(), options, at, true, window, cx);
+                    cx.stop_propagation();
+                }
+            }))
+        });
+        labelled(track, Role::RadioGroup, one.title.clone()).into_any_element()
+    }
+
+    pub(super) fn field_row(&self, one: &Setting, spread: Spread, first: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(stops) = self.stops.get(&key) else { return div().into_any_element() };
         let saving = self.saving.as_deref() == Some(key.as_str());
         let off = !self.live || self.saving.as_ref().is_some_and(|other| other != &key) || saving;
-        let modified = one.saved.is_some();
+        let changed = super::limits::changed(one);
         let refused = self.refused.get(&key).cloned();
         let title: SharedString = one.title.clone().into();
-        let keyed = readout(look, &one.key);
-        let reset_said = if matches!(one.kind, SettingKind::Prompt) { "Reset to shipped" } else { "Reset" };
-        let marks = modified.then(|| {
-            let chip = div()
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_SM))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::SETTING_MODIFIED))
-                .text_size(look.length(token::TEXT_2XS))
-                .line_height(look.length(token::LEADING_2XS))
-                .text_color(look.color(token::SETTING_MODIFIED))
-                .child("Modified");
+        let reset_said = format!("Reset to {}", default_words(one));
+        let reset = changed.then(|| {
             let reset_key = key.clone();
-            let reset = ringed(look, ghost(look, SharedString::from(format!("reset-{key}")), reset_said, off), &stops.reset, window)
+            let press = ringed(look, reset_press(look, SharedString::from(format!("reset-{key}")), &reset_said, off), &stops.reset, window)
                 .track_focus(&stops.reset)
                 .when(!off, |button| {
                     button
@@ -494,42 +496,38 @@ impl SettingsOverlay {
                             }
                         }))
                 });
-            div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(chip.id(SharedString::from(format!("modified-{key}"))), Role::Status, "Modified")).child(labelled(reset, Role::Button, format!("{reset_said}: {}", one.title)))
+            labelled(press, Role::Button, format!("{reset_said}: {}", one.title)).into_any_element()
         });
-        let mut notes: Vec<AnyElement> = Vec::new();
+        let mut chips: Vec<AnyElement> = Vec::new();
+        if changed {
+            chips.push(changed_chip(look, &key));
+        }
         if one.pending_restart {
-            notes.push(labelled(small(look, "Restart Fleet to apply.", look.color(token::FG_DEFAULT)).id(SharedString::from(format!("restart-{key}"))), Role::Status, "Restart Fleet to apply.").into_any_element());
+            chips.push(restart_chip(look, &key));
+        }
+        let mut words: Vec<AnyElement> = Vec::new();
+        if !one.description.is_empty() {
+            words.push(says(look, one.description.clone()).into_any_element());
         }
         if let Some(env) = &one.overridden_by_env {
             let said = format!("Overridden by ${env} where Fleet runs, so the value here is not the one in force.");
-            notes.push(labelled(small(look, said.clone(), look.color(token::FG_DEFAULT)).id(SharedString::from(format!("env-{key}"))), Role::Status, said).into_any_element());
+            words.push(labelled(small(look, said.clone(), look.color(token::FG_DEFAULT)).id(SharedString::from(format!("env-{key}"))), Role::Status, said).into_any_element());
         }
-        let refused_line = |look: &Look| refused.clone().map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said));
-        let ships = shipped(one);
+        let refused_line = refused.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("refused-{}", one.key))), Role::Alert, said).into_any_element());
+        let line = |look: &Look| div().flex().flex_wrap().items_center().gap_x(look.length(token::SPACE_3)).gap_y(look.length(token::SPACE_2));
+        let tip_said: SharedString = one.key.clone().into();
 
         if let SettingKind::Boolean = one.kind {
-            let on = one.value == SettingValue::Bool(true);
+            let on = *super::limits::current(one) == SettingValue::Bool(true);
             let flip_key = key.clone();
             let control = ringed(
                 look,
                 div()
                     .id(SharedString::from(format!("switch-{key}")))
-                    .flex()
-                    .items_start()
-                    .justify_between()
-                    .gap(look.length(token::SPACE_3))
+                    .flex_none()
                     .rounded(look.length(token::RADIUS_MD))
                     .track_focus(&stops.control)
                     .when(!off, |row| row.cursor_pointer())
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap(look.length(token::SPACE_1))
-                            .min_w_0()
-                            .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(title.clone()))
-                            .when(!one.description.is_empty(), |words| words.child(small(look, one.description.clone(), look.color(token::FG_MUTED)))),
-                    )
                     .child(switch_track(look, on, off))
                     .when(!off, |row| {
                         row.on_click(cx.listener(move |this, _, window, cx| this.save(flip_key.clone(), Some(SettingValue::Bool(!on)), window, cx))).on_key_down(cx.listener({
@@ -544,22 +542,15 @@ impl SettingsOverlay {
                 &stops.control,
                 window,
             );
-            return div()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .child(labelled(control, Role::Switch, one.title.clone()))
-                .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_h(look.length(token::SPACE_6)).children(marks).child(keyed))
-                .children(ships.map(|ships| small(look, format!("Ships {ships}."), look.color(token::FG_MUTED))))
-                .children(notes)
-                .children(refused_line(look))
-                .into_any_element();
+            let control = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(line(look).child(labelled(control, Role::Switch, one.title.clone())).children(reset)).children(refused_line);
+            return split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, control: control.into_any_element() }, first).into_any_element();
         }
 
         let typed_field: AnyElement = match (&one.kind, self.typed.get(&key)) {
+            (SettingKind::Choice { options }, _) if options.len() <= SEGMENTS_MAX => self.render_segments(one, options, off, look, window, cx),
             (SettingKind::Choice { options }, _) => {
                 let key = key.clone();
-                let now = held_text(&one.value);
+                let now = held_text(super::limits::current(one));
                 let name = one.title.clone();
                 let options = options.clone();
                 let trigger = ringed(
@@ -567,6 +558,8 @@ impl SettingsOverlay {
                     div()
                         .id(SharedString::from(format!("choice-{key}")))
                         .track_focus(&stops.control)
+                        .flex_none()
+                        .w(px(SELECT_W))
                         .flex()
                         .items_center()
                         .justify_between()
@@ -580,7 +573,6 @@ impl SettingsOverlay {
                         .text_size(look.length(token::TEXT_SM))
                         .text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) })
                         .when(!off, |trigger| trigger.cursor_pointer())
-                        .when(one.description.is_empty(), |trigger| trigger.tooltip(tip(one.tip.clone().unwrap_or_else(|| one.title.clone()))))
                         .child(SharedString::from(now.clone()))
                         .child(svg().path(icon_path("chevron-down")).flex_none().size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))),
                     &stops.control,
@@ -605,34 +597,43 @@ impl SettingsOverlay {
                 });
                 labelled(trigger, Role::ComboBox, one.title.clone()).into_any_element()
             }
-            (_, Some(Typed::Lines(state))) => labelled(
-                div()
+            (_, Some(typed @ Typed::Lines(state))) => {
+                let focus = typed.focus(cx);
+                let frame = div()
                     .id(SharedString::from(format!("lines-{key}")))
                     .key_context(crate::keymap::TEXT_BOX)
                     .w_full()
-                    .font_family(mono(look))
+                    .px(look.length(token::SPACE_2))
+                    .py(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
                     .text_size(look.length(token::TEXT_SM))
-                    .child(Textarea::new(state).disabled(off)),
-                Role::TextInput,
-                one.title.clone(),
-            )
-            .into_any_element(),
-            (_, Some(Typed::Line(state))) => {
-                let unit = match &one.kind {
-                    SettingKind::Seconds { .. } => Some("s".to_string()),
-                    SettingKind::Integer { unit, .. } => unit.clone(),
-                    _ => None,
-                };
+                    .child(Textarea::new(state).appearance(false).bordered(false).disabled(off));
+                labelled(ringed(look, frame, &focus, window), Role::TextInput, one.title.clone()).into_any_element()
+            }
+            (_, Some(Typed::Line(state))) if matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. }) => {
+                let _ = state;
+                self.number_field(one, changed, off, saving, px(FIELD_W), true, look, window, cx)
+            }
+            (_, Some(typed @ Typed::Line(state))) => {
+                let focus = typed.focus(cx);
                 let field = div()
                     .id(SharedString::from(format!("line-{key}")))
                     .key_context(crate::keymap::TEXT_BOX)
-                    .flex_1()
-                    .min_w_0()
-                    .font_family(mono(look))
+                    .w_full()
+                    .flex()
+                    .items_center()
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
                     .text_size(look.length(token::TEXT_SM))
-                    .child(Input::new(state).disabled(off).when_some(unit, |input, unit| input.suffix(small(look, unit, look.color(token::FG_MUTED))))
-                        .when(self.dirty(&key, cx) || saving, |input| input.suffix(self.save_button(one, look, window, cx))));
-                labelled(field, Role::TextInput, one.title.clone()).into_any_element()
+                    .child(Input::new(state).appearance(false).bordered(false).disabled(off).when(self.dirty(&key, cx) || saving, |input| input.suffix(self.save_button(one, look, window, cx))));
+                labelled(ringed(look, field, &focus, window), Role::TextInput, one.title.clone()).into_any_element()
             }
             _ => div().into_any_element(),
         };
@@ -646,69 +647,41 @@ impl SettingsOverlay {
             SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max } if dirty && !in_range => Some(format!("Between {min} and {max}.")),
             _ => None,
         };
-        // Where a figure or a word is picked, what ships stands right after the control rather than on a line of its own.
-        let ships_said = ships.map(|ships| format!("Ships at {ships}."));
+        let seconds_said = match one.kind {
+            SettingKind::Seconds { .. } if in_range => typed_text.trim().parse::<i64>().ok().map(in_words).filter(|said| !said.ends_with(" seconds") && !said.ends_with(" second")),
+            _ => None,
+        };
         let figure = matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. });
-        let beside = slides(one) || figure || matches!(one.kind, SettingKind::Choice { .. });
-        let row: AnyElement = if slides(one) {
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .gap_x(look.length(token::SPACE_4))
-                .gap_y(look.length(token::SPACE_1))
-                .child(div().flex().items_center().gap(look.length(token::SPACE_4)).w(px(CONTROL_W) + px(144.) + look.length(token::SPACE_4)).max_w_full().child(self.render_slider(one, &typed_text, in_range, off, look, window, cx)).child(div().flex_none().w(px(144.)).child(typed_field)))
-                .children(ships_said.clone().map(|said| small(look, said, look.color(token::FG_MUTED))))
-                .into_any_element()
-        } else if beside {
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .gap_x(look.length(token::SPACE_4))
-                .gap_y(look.length(token::SPACE_1))
-                .child(div().w(if figure { px(144.) } else { px(CONTROL_W) }).max_w_full().child(typed_field))
-                .children(ships_said.clone().map(|said| small(look, said, look.color(token::FG_MUTED))))
+        let control: AnyElement = if figure {
+            let across = if slides(one) { Some(self.render_slider(one, &typed_text, in_range, off, look, window, cx)) } else { None };
+            line(look)
+                .child(typed_field)
+                .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
+                .children(reset)
+                .children(across.map(|slider| div().flex_none().w(px(CONTROL_W)).max_w_full().child(slider)))
                 .into_any_element()
         } else if matches!(one.kind, SettingKind::Prompt | SettingKind::TextList) {
+            let below = dirty || saving || reset.is_some();
             div()
                 .flex()
                 .flex_col()
-                .items_end()
                 .gap(look.length(token::SPACE_2))
                 .child(typed_field)
-                .when(dirty || saving, |row| row.child(self.save_button(one, look, window, cx)))
+                .when(below, |col| col.child(div().flex().items_center().justify_between().gap(look.length(token::SPACE_3)).child(div().children(reset)).child(div().when(dirty || saving, |save| save.child(self.save_button(one, look, window, cx))))))
                 .into_any_element()
+        } else if matches!(one.kind, SettingKind::Text) {
+            div().flex().flex_col().gap(look.length(token::SPACE_2)).child(typed_field).children(reset.map(|reset| div().child(reset))).into_any_element()
         } else {
-            typed_field
+            line(look).child(typed_field).children(reset).into_any_element()
         };
-        let seconds_said = match one.kind {
-            SettingKind::Seconds { .. } if in_range => typed_text.trim().parse::<i64>().ok().map(in_words),
-            _ => None,
-        };
-        div()
+        let control = div()
             .flex()
             .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap_x(look.length(token::SPACE_3))
-                    .gap_y(look.length(token::SPACE_1))
-                    .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(title))
-                    .child(keyed),
-            )
-            .children(marks)
-            .when(!one.description.is_empty(), |field| field.child(small(look, one.description.clone(), look.color(token::FG_MUTED))))
-            .child(row)
+            .gap(look.length(token::SPACE_2))
+            .child(control)
             .children(range_said.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
-            .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
-            .children(ships_said.filter(|_| !beside).map(|said| small(look, said, look.color(token::FG_MUTED))))
-            .children(notes)
-            .children(refused_line(look))
-            .into_any_element()
+            .children(refused_line);
+        split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, control: control.into_any_element() }, first).into_any_element()
     }
 
     pub(super) fn save_button(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -735,7 +708,7 @@ impl SettingsOverlay {
     fn render_slider(&self, one: &Setting, typed: &str, in_range: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let (SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max }) = one.kind else { return div().into_any_element() };
         let Some(stops) = self.stops.get(&one.key) else { return div().into_any_element() };
-        let held = if let SettingValue::Integer(n) = one.value { n } else { min };
+        let held = if let SettingValue::Integer(n) = *super::limits::current(one) { n } else { min };
         let at = if in_range { typed.trim().parse::<i64>().unwrap_or(held) } else { held };
         let fill = if max > min { (at - min) as f32 / (max - min) as f32 } else { 0. };
         let steps = max - min + 1;
@@ -812,44 +785,6 @@ impl SettingsOverlay {
 
     // ---- a page -------------------------------------------------------------------------------
 
-    /// settings.json's path and its open press, drawn in the strip of a page's first schema card.
-    fn file_strip(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let path = self.list.as_ref().map_or_else(|| "settings.json".to_string(), |list| list.path.clone());
-        let off = self.list.is_none();
-        let press = ringed(
-            look,
-            div()
-                .id("settings-open-file")
-                .track_focus(&self.file_stop)
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_SM))
-                .rounded(look.length(token::RADIUS_MD))
-                .when(!off, |press| press.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-                .tooltip(tip("Open settings.json"))
-                .child(svg().path(icon_path("file-text")).size(look.length(token::SPACE_4)).text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_MUTED) }))
-                .when(!off, |press| {
-                    press.on_click(cx.listener(|this, _, _, cx| this.open_file(cx))).on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                            this.open_file(cx);
-                        }
-                    }))
-                }),
-            &self.file_stop,
-            window,
-        );
-        div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .min_w_0()
-            .child(div().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(path)))
-            .child(labelled(press, Role::Button, "Open settings.json"))
-            .into_any_element()
-    }
-
     /// What sits at the top of the first card: Fleet's refusal of the file, or why it did not open.
     pub(super) fn file_note(&self, look: &Look) -> Vec<AnyElement> {
         let mut notes = Vec::new();
@@ -866,7 +801,7 @@ impl SettingsOverlay {
                         .rounded(look.length(token::RADIUS_MD))
                         .bg(look.color(token::NOTICE_CAUTION_BG))
                         .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::NOTICE_CAUTION)).child("Fleet refused settings.json"))
-                        .children(refused.key.clone().map(|key| small(look, key, look.color(token::FG_DEFAULT)).font_family(mono(look))))
+                        .children(refused.key.clone().map(|key| small(look, key, look.color(token::FG_DEFAULT))))
                         .child(small(look, said, look.color(token::FG_DEFAULT))),
                     Role::Alert,
                     "Fleet refused settings.json",
@@ -880,49 +815,36 @@ impl SettingsOverlay {
         notes
     }
 
-    /// One settings.json section as a card, or bones in its place while Fleet has not answered.
-    fn schema_card(&self, id: &str, first: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let label = entries::SECTIONS.iter().find(|one| one.id == id).map_or(id, |one| one.label);
-        let strip = first.then(|| self.file_strip(look, window, cx));
-        let mut body: Vec<AnyElement> = Vec::new();
-        if first {
-            body.extend(self.file_note(look));
+    /// A schema page: its band, then its section as a card of rows, or bones while Fleet has not answered. Features
+    /// goes on to the folders a Job reaches.
+    fn schema_page(&self, entry: &'static Entry, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let spread = self.spread(look, window, cx);
+        let mut notes = self.file_note(look);
+        if self.list.is_some() && !self.live {
+            notes.push(labelled(small(look, NOT_LIVE, look.color(token::FG_MUTED)).id("settings-not-live"), Role::Status, NOT_LIVE).into_any_element());
         }
-        match &self.list {
-            None => {
-                for n in 0..3 {
-                    body.push(
-                        labelled(
-                            div()
-                                .id(SharedString::from(format!("settings-bone-{n}")))
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_2))
-                                .child(div().flex().justify_between().child(bone(look, px(160.), look.length(token::LEADING_SM))).child(bone(look, px(120.), look.length(token::LEADING_XS))))
-                                .child(bone(look, px(360.), look.length(token::LEADING_XS)))
-                                .child(bone(look, px(480.), look.length(token::H_CONTROL))),
-                            Role::Image,
-                            "Loading",
-                        )
-                        .into_any_element(),
-                    );
-                }
-            }
-            Some(list) => {
-                if !self.live {
-                    body.push(labelled(small(look, NOT_LIVE, look.color(token::FG_MUTED)).id("settings-not-live"), Role::Status, NOT_LIVE).into_any_element());
-                }
-                // The card's own gap stands between rows, about half what a row and its padding took before.
-                for one in entries::settings_in(list, id) {
-                    body.push(self.render_field(one, look, window, cx));
+        let ids: Vec<&str> = match entry.body {
+            Body::Schema(ids) => ids.to_vec(),
+            _ => vec!["features"],
+        };
+        let mut cards: Vec<AnyElement> = Vec::new();
+        for id in ids {
+            match &self.list {
+                None => cards.push(self.row_bones(look, spread)),
+                Some(list) => {
+                    let rows = entries::settings_in(list, id).into_iter().enumerate().map(|(n, one)| self.field_row(one, spread, n == 0, look, window, cx)).collect();
+                    cards.push(rows_card(look, SharedString::from(format!("settings-card-{id}")), rows).into_any_element());
                 }
             }
         }
-        labelled(card(look, SharedString::from(format!("settings-card-{id}")), label, strip, body), Role::Region, label).into_any_element()
+        if entry.body == Body::Features {
+            cards.extend(self.reach_card(spread, look, window, cx));
+        }
+        self.rows_page(entry, rows::purpose_of(entry).into(), true, notes, cards, look, window, cx)
     }
 
     /// The folders a Job's card always allows or blocks, each with Remove (`ReachFoldersSettings`).
-    fn reach_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    fn reach_card(&self, spread: Spread, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let one = self.setting(REACH_FOLDERS)?;
         let (allow, block) = reach_folders(Some(&one.value));
         let off = !self.live || self.saving.is_some();
@@ -955,7 +877,7 @@ impl SettingsOverlay {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .child(labelled(div().id(SharedString::from(format!("mark-{folder}"))).tooltip(tip(said)).child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))), Role::Image, said))
-                    .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(folder.clone())))
+                    .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(folder.clone())))
                     .child(labelled(remove, Role::Button, format!("Remove {folder}"))),
             );
         }
@@ -963,7 +885,10 @@ impl SettingsOverlay {
         if let Some(said) = self.refused.get(REACH_FOLDERS) {
             body.push(labelled(refusal(look, said.clone()).id("reach-refused"), Role::Alert, said.clone()).into_any_element());
         }
-        Some(labelled(card(look, "settings-card-reach", "Folders jobs reach", None, body), Role::Region, "Folders jobs reach").into_any_element())
+        let words = (!one.description.is_empty()).then(|| says(look, one.description.clone()).into_any_element()).into_iter().collect();
+        let control = div().flex().flex_col().gap(look.length(token::SPACE_2)).children(body);
+        let row = split_row(look, spread, Row { id: "row-reach".into(), title: "Folders jobs reach".into(), tip: Some(REACH_FOLDERS.into()), chips: Vec::new(), says: words, changed: false, control: control.into_any_element() }, true);
+        Some(labelled(rows_card(look, "settings-card-reach", vec![row.into_any_element()]), Role::Region, "Folders jobs reach").into_any_element())
     }
 
     /// One switch per repository for the connectors on his account (`RepositorySwitches`).
@@ -1017,19 +942,18 @@ impl SettingsOverlay {
         if let Some(entry) = shown.filter(|one| matches!(one.body, Body::Schema(["limits"]))) {
             return self.render_limits(entry, look, window, cx);
         }
+        if let Some(entry) = shown.filter(|one| matches!(one.body, Body::Schema(_) | Body::Features)) {
+            return self.schema_page(entry, look, window, cx);
+        }
+        if let Some(entry) = shown.filter(|one| one.body == Body::Time) {
+            return self.render_time(entry, look, window, cx);
+        }
+        if let Some((entry, Body::Values(page))) = shown.map(|one| (one, one.body)) {
+            return super::project::page(self, entry, page, look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
-            Some(Body::Schema(ids)) => {
-                for (n, id) in ids.iter().enumerate() {
-                    cards.push(self.schema_card(id, n == 0, look, window, cx));
-                }
-            }
-            Some(Body::Features) => {
-                cards.push(self.schema_card("features", true, look, window, cx));
-                cards.extend(self.reach_card(look, window, cx));
-            }
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
-            Some(Body::Values(page)) => cards.extend(super::project::render(self, page, shown.map_or("", |one| one.label), look, window, cx)),
             Some(Body::Keyboard) => cards.push(self.render_keyboard(look, window, cx)),
             Some(Body::Theme) => {
                 cards.push(self.render_theme(look, window, cx));
@@ -1038,14 +962,13 @@ impl SettingsOverlay {
             Some(Body::Macs) => {
                 // The share switch is the project's, over this Mac's own.
                 if self.scope.project.is_some() {
-                    cards.push(super::project::grid(self, "Shared with your other Macs", None, super::project::keys_of(Body::Macs), look, window, cx));
+                    cards.push(super::project::grid(self, "Shared with your other Macs", super::project::keys_of(Body::Macs), look, window, cx));
                 }
                 cards.extend(self.render_macs(look, window, cx));
             }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
-            Some(Body::Time) => cards.push(self.render_time(look, window, cx)),
             Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
-            Some(Body::Models | Body::Workflows) => {}
+            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Time) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
