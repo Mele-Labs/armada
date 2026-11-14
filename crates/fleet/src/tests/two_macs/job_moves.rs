@@ -23,6 +23,30 @@ fn conversation_kept(home: &str, id: &SessionId, bytes: &[u8]) {
     adapters::terminal_thread::keep_conversation(home, id.as_str(), "/work/slot-1", bytes).expect("the conversation");
 }
 
+/// Mac `other` as `mac`'s Fleet knows it. On a Mac the Gateway and Fleet share one store, so Fleet reads the
+/// names the Gateway paired; here each has its own, so the pairing is copied across.
+async fn known_to(mac: &OneMac, other: &OneMac, name: &str) {
+    let paired = store::PairedMac {
+        id: other.id.clone(),
+        name: name.into(),
+        colour: "teal".into(),
+        address: "http://127.0.0.1".into(),
+        public_key: Some(vec![1]),
+        build: None,
+        paired_at: 1,
+        state: store::MacState::Linked,
+        back_code: None,
+        last_heard_at: None,
+        asleep_since: None,
+        why: None,
+        wire: None,
+        built_at: None,
+        source: None,
+        pin: None,
+    };
+    mac.rig.fleet.store().lock().await.keep_mac(&paired).expect("paired");
+}
+
 fn move_to(job: &SessionId, mac: Option<&str>) -> MoveJobToMac {
     MoveJobToMac { session_id: job.clone(), mac: mac.map(str::to_string) }
 }
@@ -50,8 +74,11 @@ async fn a_running_job_finishes_its_turn_and_home_resumes_its_conversation_in_a_
     until("Home holds Work's project", || async { home.projects().await.1.projects.iter().any(|one| one.id == shop) }).await;
     until("Work holds Home's project", || async { work.projects().await.1.projects.iter().any(|one| one.id == garden) }).await;
 
+    known_to(&work, &home, "Home").await;
     let moving = Arc::clone(&work.rig.fleet).move_job_to_mac(move_to(&job, Some(&home.id))).await.expect("a move begun");
     assert_eq!(moving.hosted.as_ref().and_then(|one| one.moving_to_mac.clone()), Some(home.id.clone()));
+    let again = Arc::clone(&work.rig.fleet).move_job_to_mac(move_to(&job, Some(&home.id))).await.expect_err("moving already");
+    assert_eq!(again.error().message, "This Job is already moving to Home.", "named by the Mac's name, never its id");
     // The turn is still running, so nothing is handed over yet.
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     assert!(home.rig.stand_in.starts().is_empty(), "Home started the Job before Work's turn ended");
