@@ -33,6 +33,7 @@ mod answer_items;
 mod asking_in_window;
 mod draft_documents;
 mod artifacts;
+mod page_actions;
 mod drafts;
 mod pull_request_drafts;
 mod phone;

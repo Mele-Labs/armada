@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "One Job's sketches, drafts and pages as one list, each with its revisions and where its newest stands"
 notes = """
-`GET /sessions/artifacts?session_id=`. Answered with a list of `JobArtifact`, newest first by when its newest revision was kept: `id`, `title`, `form`, `revisions`, `state`, `words?`, `item?` and `in_plan?`.
+`GET /sessions/artifacts?session_id=`. Answered with a list of `JobArtifact`, newest first by when its newest revision was kept: `id`, `title`, `form`, `revisions`, `state`, `words?`, `item?`, `in_plan?` and `presses?`.
 
 **`id`** is the ledger target the artifact is kept under and stays the same across revisions: `sketch:<title>`, the page's path, or `draft:<title>`. **`form`** is `sketch`, `draft` or `page`. **`revisions`**, oldest first, are `ArtifactRevision`: `number` from 1, `at`, `by` (`owner` for one he saved with `save_artifact_edit`, read off `artifact_owner_revisions`, else `agent`) and `form`. A revision's `at` is when he saved it where it is his, else when the attachment's `revisions` list first held it, read off the attachment's history (`get_attachment_history`); one kept before that history began reads its row's `since` for the first revision and `changed_at` for any other.
 
@@ -15,6 +15,8 @@ notes = """
 **`item`** is the Needs you id that answers it now, the one Classic answers: `sketch:<title>`, `document:<path>`, or `draft:<row id>` of the newest draft row. Absent unless `state` is `asking`, and for a page also absent where Needs you leaves it out. **A sketch the pending plan names is `plan:<version>`**, the plan's item, since that plan's Approve settles it; while a walk still holds the plan, Needs you lists neither.
 
 **`in_plan`** is the plan version a sketch goes with: the pending one naming it while it asks, or the one whose Approve settled it, read off its `in_plan` detail. Absent for every other artifact, and for a sketch drawn again after that Approve, since a new drawing does not carry it.
+
+**`presses`** is every press of an action a page declares, oldest first, each a `PagePress` (`press_page_action`), read off `page_presses`. Absent where there is none, and for every form but a page.
 
 Only artifacts of form `sketch`, `document` and `draft` are listed; a file, an image, a window or a note shown to him is not. Read on demand and never carried on a `SessionRecord`; a `session.changed` is when to read it again.
 

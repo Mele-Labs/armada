@@ -316,6 +316,10 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", edit.artifact), run_id())))
     }
 
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", press.artifact), run_id())))
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),

@@ -724,7 +724,7 @@ pub use document_answer::{
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use artifact::{
-    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, PageAct, PagePress, PressDid, PressPageAction, SaveArtifactEdit,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
 pub use sketch::{

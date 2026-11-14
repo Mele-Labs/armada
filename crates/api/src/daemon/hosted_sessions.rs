@@ -458,6 +458,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         edit: ipc::SaveArtifactEdit,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
 
+    /// `press_page_action`: his press of an action a page's kept revision declares, run as a message, a start or an
+    /// answer, and kept. Answers with the press. [`Refusal::Unacceptable`] for an action the revision does not hold,
+    /// an act off the list, an ask no longer open, or a page archived or not held.
+    fn press_page_action(
+        self: Arc<Self>,
+        press: ipc::PressPageAction,
+    ) -> impl Future<Output = Result<ipc::PagePress, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(

@@ -939,6 +939,19 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
     }
 }
 
+/// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
+/// list, an ask no longer open, or a page archived or not held.
+pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().press_page_action(press).await {
+        Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
