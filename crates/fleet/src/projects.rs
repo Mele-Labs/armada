@@ -744,6 +744,10 @@ where
         self.project_store_state(&project).await
     }
 
+    async fn get_project_claims(&self, project: String) -> Result<ipc::ProjectClaims, Refusal> {
+        self.project_claims(&project).await
+    }
+
     async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
         self.project_store_set(&project, set).await
     }

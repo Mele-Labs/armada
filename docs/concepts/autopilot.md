@@ -26,7 +26,7 @@ What the Operator does take is `operator.md`.
 | Jobs started | How many Jobs it may start. Optional. The store calls it `job_cap` and the wire `session_cap` |
 | Weekly usage | A percent of the account's weekly window. Optional. The wire and the store call it `weekly_cap_percent`. **A reading, never a budget**: see the rules below |
 | On autopilot | `backlog`, `running` and `reports`, three booleans: whether it works the backlog, whether it works Jobs already running, and whether it works the bugs agents reported. Kept as checked at start. A start without them, and a record from before them, read as `backlog` true, `running` false and `reports` false |
-| Decisions | The kinds of decision a helper may answer: `recommended` (a question with a recommended answer), `open` (a question with none), `plan`, `draft`, `walk`, `land` (a green pull request), `unsure` (an issue Autopilot was unsure of), `red` (a fix for a red main), `reads` and `writes`. There is no destructive kind: it always waits for a person, and a body naming it is refused. A kind not checked waits for a person. Kept as checked at start, and a change of settings leaves them |
+| Decisions | The kinds of decision a helper may answer: `recommended` (a question with a recommended answer), `open` (a question with none), `plan`, `draft`, `walk`, `land` (a green pull request), `unsure` (an issue Autopilot was unsure of), `red` (kept on the wire, and answers nothing: a red main's fix starts whatever Autopilot says, [Fleet](fleet.md), *What Fleet knows about main's CI*), `reads` and `writes`. There is no destructive kind: it always waits for a person, and a body naming it is refused. A kind not checked waits for a person. Kept as checked at start, and a change of settings leaves them |
 | State | `running`, `paused` or `stopped`, with when it started and ended |
 | Capped by | `until`, `spend`, `sessions` or `weekly`, where a cap rather than a person paused it. A Resume clears it |
 | Picks | Each issue it picked, the workflow, the Job it started, the picker's reason, and `started`, `set_aside`, `withdrawn` or `dismissed` |
@@ -94,7 +94,7 @@ A call that fails rests as the picker's does.
 | `walk` | A walk not yet approved | Approves it |
 | `land` | A Job's pull request, once every deciding check has passed and nothing conflicts or already merges it | Asks the forge to merge when its checks pass, as Auto land does. A Job with Auto land on is left to it, and a commit pushed since is decided again |
 | `unsure` | An issue the picker set aside | Starts it, as dispatching it from the pile does |
-| `red` | A red main | Starts one Job, once for each red commit, with no call. The Job holds the red's claim before it is briefed, so a Fleet that holds it refuses this one |
+| `red` | A red main | Nothing. Fleet starts the red's fix Job itself, Autopilot running or not, owner's ruling of 13 Nov 2026 |
 | `reads` | A permission card for a tool that only reads | Allows it once |
 | `writes` | A permission card for an edit, or for a run command Fleet can read whole | Allows it once |
 

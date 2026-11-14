@@ -595,6 +595,14 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     crate::pairing::scene(name, cx).map_err(Missed)?;
                     JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
                 }
+                // How a move ends: the Mac the Job left ends it, then the other Mac's row of the same id stands in its place.
+                "move-ended" => JobsList::mock_move_settled(false, cx).map_err(Missed),
+                "move-landed" => JobsList::mock_move_settled(true, cx).map_err(Missed),
+                // Another window asked first: Fleet refuses the next move.
+                "move-refused" => {
+                    crate::move_to_mac::refuse_next(true);
+                    Ok(())
+                }
                 // The link to Air for its Jobs' shells: carrying, refusing keys and opens, or its streams dropping.
                 "link-up" | "link-down" | "link-drops" => crate::terminal::shells::walk_link(&name["link-".len()..], cx).map_err(Missed),
                 other => crate::pairing::scene(other, cx).map_err(Missed),

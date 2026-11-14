@@ -42,7 +42,7 @@ pub(crate) const MOVED_TO_MAC: &str = "moved_to_mac";
 /// What a moved Job is told when it is resumed on the Mac it went to.
 fn moved_note(from: &str) -> String {
     format!(
-        "You were moved here from Mac {from} and resumed in a fresh slot on your branch, as it was pushed. \
+        "You were moved here from {from} and resumed in a fresh slot on your branch, as it was pushed. \
          Servers, terminals, watches and walks you had there are closed. Open again what you still need, and \
          carry on with what you were doing."
     )
@@ -50,7 +50,7 @@ fn moved_note(from: &str) -> String {
 
 /// What a Job whose move failed is told when it is resumed where it was.
 fn stayed_note(to: &str, why: &str) -> String {
-    format!("You were to move to Mac {to}, and stay here: {why}. Carry on with what you were doing.")
+    format!("You were to move to {to}, and stay here. {why} Carry on with what you were doing.")
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -67,6 +67,12 @@ where
         Refusal::IllegalMove(WireError::raised(SESSION_NOT_MOVABLE, said, self.run_id()))
     }
 
+    /// Mac `mac` as he named it when they paired, for a sentence he reads. "the other Mac" before it said.
+    async fn mac_called(&self, mac: &str) -> String {
+        let paired = self.store().lock().await.paired_macs().unwrap_or_default();
+        paired.into_iter().find(|one| one.id == mac).map(|one| one.name).filter(|name| !name.trim().is_empty()).unwrap_or_else(|| "the other Mac".to_string())
+    }
+
     fn not_here(&self, job: &str) -> Refusal {
         Refusal::NotFound(WireError::raised(NO_SUCH_SESSION, format!("No Job has the id {job}."), self.run_id()))
     }
@@ -80,7 +86,7 @@ where
             return self.move_asked_of(holder, asked.session_id).await;
         }
         let Some(mac) = asked.mac else {
-            return Err(Refusal::Unacceptable(WireError::raised(MOVE_UNNAMED, "A Job of this Mac moves to a Mac the move names.", self.run_id())));
+            return Err(Refusal::Unacceptable(WireError::raised(MOVE_UNNAMED, "This move names no Mac to go to.", self.run_id())));
         };
         self.move_begun(&id, mac).await
     }
@@ -118,26 +124,32 @@ where
         // Only a Job the other Mac may see may go there, and one that may not is answered as one that is not here.
         self.act_from_other_mac(&SessionId::carried(id)).await?;
         if !self.mac_known(&mac).await {
-            return Err(Refusal::NotFound(WireError::raised(MAC_NOT_LINKED, format!("This Mac is not linked to Mac {mac}."), self.run_id())));
+            let name = self.mac_called(&mac).await;
+            return Err(Refusal::NotFound(WireError::raised(MAC_NOT_LINKED, format!("This Mac is not linked to {name}."), self.run_id())));
         }
         if session.state == store::SessionState::Ended {
-            return Err(self.not_movable(format!("job {id} has ended")));
+            return Err(self.not_movable("This Job has ended.".to_string()));
         }
         if hosting.paused_at.is_some() {
-            return Err(self.not_movable(format!("job {id} is paused; resume it first")));
+            return Err(self.not_movable("This Job is paused, and moves once it is resumed.".to_string()));
         }
         if hosting.on_your_words {
-            return Err(self.not_movable(format!("job {id} acts on your words, which stay on this Mac")));
+            return Err(self.not_movable("This Job acts on your words, which stay on this Mac.".to_string()));
         }
         self.live_things_let_go(id).await?;
         let runtime = self.hosts().of(id);
-        {
+        let going = {
             let mut state = runtime.state();
-            if state.to_mac.is_some() {
-                return Err(self.not_movable(format!("job {id} is moving already")));
+            let going = state.to_mac.clone();
+            if going.is_none() {
+                state.to_mac = Some(mac);
+                state.carrying_to_mac = false;
             }
-            state.to_mac = Some(mac);
-            state.carrying_to_mac = false;
+            going
+        };
+        if let Some(going) = going {
+            let name = self.mac_called(&going).await;
+            return Err(self.not_movable(format!("This Job is already moving to {name}.")));
         }
         let record = self.published_hosted(id).await?;
         // A Job between turns, or with no process, moves now; one mid-turn moves where the turn ends.
@@ -181,8 +193,8 @@ where
             let pushed = tokio::task::spawn_blocking(move || vcs.push(&worktree)).await.map_err(|why| why.to_string())?;
             match pushed {
                 Ok(Pushed::ToTheRemote { .. }) => {}
-                Ok(Pushed::NoRemote) => return Err(format!("the repository has no remote to push {branch} to")),
-                Err(why) => return Err(format!("{branch} was not pushed: {}", why.said())),
+                Ok(Pushed::NoRemote) => return Err(format!("The repository has no remote to push the branch {branch} to.")),
+                Err(why) => return Err(format!("The branch {branch} was not pushed: {}.", why.said().trim_end_matches('.'))),
             }
         }
         let conversation = self.conversation_measured(id).await?;
@@ -193,7 +205,7 @@ where
         match self.send_job_act(mac, &sent).await.map_err(said)? {
             JobSent::Answered(answered) if (200..300).contains(&answered.status) => Ok(()),
             JobSent::Answered(answered) => Err(self.refusal_passed_on(mac, answered.status, &answered.body).error().message.clone()),
-            JobSent::Unreachable => Err(format!("Mac {mac} could not be reached")),
+            JobSent::Unreachable => Err(format!("{} could not be reached.", self.mac_called(mac).await)),
         }
     }
 
@@ -218,7 +230,8 @@ where
 
     /// A move that did not happen: the mark comes off and a Job it paused is resumed here, told why.
     async fn move_undone(self: &Arc<Self>, id: &str, mac: &str, why: &str) {
-        self.session_warned(id, "the Job did not move to another Mac", format!("{mac}: {why}"));
+        let name = self.mac_called(mac).await;
+        self.session_warned(id, "the Job did not move to another Mac", format!("{name}: {why}"));
         {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();
@@ -228,7 +241,7 @@ where
         let paused = self.session_and_hosting(id).await.is_ok_and(|(_, hosting)| hosting.paused_at.is_some());
         if paused {
             let asked = ResumeSession { session_id: SessionId::carried(id) };
-            if let Err(refused) = self.session_resumed_telling(asked, &stayed_note(mac, why)).await {
+            if let Err(refused) = self.session_resumed_telling(asked, &stayed_note(&name, why)).await {
                 self.session_warned(id, "a Job whose move failed was not resumed", refused.error().message.clone());
             }
         }
@@ -320,7 +333,7 @@ where
         let id = job.record.id.as_str().to_string();
         let live = self.store().lock().await.session(&id).map_err(|why| self.ledger_fault(why))?;
         if live.is_some_and(|one| one.state != store::SessionState::Ended) {
-            return Err(Refusal::IllegalMove(WireError::raised(ALREADY_HERE, format!("job {id} is on this Mac already"), self.run_id())));
+            return Err(Refusal::IllegalMove(WireError::raised(ALREADY_HERE, "This Job is already running on the Mac it would move to.".to_string(), self.run_id())));
         }
         let manifest = job.record.manifest_id.clone().ok_or_else(|| self.not_here(&id))?;
         self.served_named(Some(&manifest))?;
@@ -345,17 +358,17 @@ where
         let id = job.record.id.as_str().to_string();
         let said = |refusal: Refusal| refusal.error().message.clone();
         let conversation = self.conversation_read_from(mac, &id, &job.conversation).await?;
-        let manifest = job.record.manifest_id.clone().ok_or_else(|| format!("job {id} names no repository"))?;
+        let manifest = job.record.manifest_id.clone().ok_or_else(|| "The Job names no repository.".to_string())?;
         let served = self.served_named(Some(&manifest)).map_err(said)?;
         if !conversation.is_empty() {
             let (home, root, id) = (self.host().home.clone(), served.root().to_string(), id.clone());
             tokio::task::spawn_blocking(move || adapters::terminal_thread::keep_conversation(&home, &id, &root, &conversation))
                 .await
                 .map_err(|why| why.to_string())?
-                .map_err(|why| format!("the conversation was not kept: {why}"))?;
+                .map_err(|why| format!("The conversation was not kept: {why}."))?;
         }
         self.arrived_kept(&job, served.root(), !job.conversation.bytes.eq(&0)).await.map_err(said)?;
-        self.session_resumed_telling(ResumeSession { session_id: job.record.id.clone() }, &moved_note(mac)).await.map_err(said)?;
+        self.session_resumed_telling(ResumeSession { session_id: job.record.id.clone() }, &moved_note(&self.mac_called(mac).await)).await.map_err(said)?;
         Ok(())
     }
 
@@ -377,7 +390,7 @@ where
         let whole = bytes.len() as u64 == carried.bytes && hex(&Sha256::digest(&bytes)) == carried.sha256;
         match whole {
             true => Ok(bytes),
-            false => Err(format!("the conversation did not arrive whole: {} of {} bytes", bytes.len(), carried.bytes)),
+            false => Err(format!("The conversation did not arrive whole: {} of {} bytes.", bytes.len(), carried.bytes)),
         }
     }
 
