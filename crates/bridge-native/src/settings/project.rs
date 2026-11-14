@@ -1127,4 +1127,30 @@ mod tests {
         cx.run_until_parked();
         cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "every project has none"));
     }
+
+    #[gpui::test]
+    fn a_line_in_the_thread_that_asks_the_app_for_settings_at_delivery_opens_it_on_its_project_with_its_row_focused(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let armada = crate::mock::projects().projects.first().map(|one| (one.id.clone(), one.name.clone())).expect("the mock Fleet's first project");
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let under = cx.new(|_| gpui::Empty);
+            crate::settings::SettingsScreen::mock(under.into(), window, cx)
+        });
+        cx.update(|_, cx| {
+            let sink = cx.try_global::<crate::titlebar::AskedSink>().cloned().expect("Settings listens for what a line asks");
+            (sink.0)(&crate::titlebar::Asked::SettingsAt(SettingsAt::delivery(Some(armada.clone()))), cx);
+        });
+        cx.run_until_parked();
+        let overlay = screen.read_with(cx, |screen, _| screen.overlay.clone());
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert!(this.open, "Settings opened");
+            assert_eq!((this.scope.project.as_ref(), this.picked), (Some(&armada), "values:pull-requests"));
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)));
+        });
+    }
 }

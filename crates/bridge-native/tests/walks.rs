@@ -35,3 +35,16 @@ fn needs_you_with_only_a_plan_opens_the_plan() {
 fn switching_jobs_keeps_each_place() {
     plays("jobs-switching");
 }
+
+/// A value Fleet learned shows a Learned chip that takes the keys to its setting, and Fleet's line in a Job's thread
+/// about how its work lands has a link that opens Settings on that project's How work lands.
+#[test]
+fn a_learned_value_and_the_thread_line_about_it_link_to_the_setting() {
+    plays("native-learned-links");
+}
+
+/// Every Settings page, its project picker and each control, on the mock Fleet.
+#[test]
+fn settings_plays_every_page_to_its_end() {
+    plays("native-settings");
+}
