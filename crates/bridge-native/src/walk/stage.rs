@@ -570,6 +570,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     crate::pairing::scene(name, cx).map_err(Missed)?;
                     JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
                 }
+                // The link to Air for its Jobs' shells: carrying, refusing keys and opens, or its streams dropping.
+                "link-up" | "link-down" | "link-drops" => crate::terminal::shells::walk_link(&name["link-".len()..], cx).map_err(Missed),
                 other => crate::pairing::scene(other, cx).map_err(Missed),
             }
         }

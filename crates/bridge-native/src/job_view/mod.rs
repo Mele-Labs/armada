@@ -625,6 +625,11 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
+    /// The paired Mac that holds Job `id`, by id, where it is another Mac.
+    pub fn mac_of(&self, id: &str, cx: &App) -> Option<String> {
+        self.record(id, cx).and_then(|job| job.mac.clone())
+    }
+
     /// The shown Job's thread in front of its pane, and the keys in its message box: a Job ⌘T started.
     pub fn onto_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.view_tab_back(ViewPane::Thread);

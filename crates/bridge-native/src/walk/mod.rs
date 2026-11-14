@@ -2865,6 +2865,32 @@ pub static WALKS: &[Walk] = &[
             step("Space shuts it", Verb::Key("space"), "button", "Fleet turn"),
         ],
     },
+    Walk {
+        name: "native-other-mac-terminal",
+        title: "A terminal of a Job on the other Mac",
+        screen: Screen::Jobs,
+        scenario: "jobs-pairing",
+        steps: &[
+            pairing("Air is awake and linked", "air-awake", "row", "Fix the merge line freshness chip"),
+            press_on("A Job held on Air", "row", "Fix the merge line freshness chip", "button", "Add tab: Done"),
+            press_on("The top pane's + offers the shell Air keeps for it", "button", "Add tab: Done", "menuitem", "Open Terminal 1"),
+            step("It opens as a tab in front, as a shell here does", Verb::Gone, "menuitem", "Open Terminal 1"),
+            step("Its head carries Air's chip", Verb::Look, "group", "Runs on Air"),
+            step("Typing goes to the shell on Air", Verb::Typed("ls"), "textbox", "Terminal 1"),
+            step("Enter runs it there, and what it prints comes back", Verb::Key("enter"), "textbox", "Terminal 1"),
+            pairing("The link to Air stops carrying", "link-down", "textbox", "Terminal 1"),
+            step("A press gives the shell the keys again", Verb::Press, "textbox", "Terminal 1"),
+            step("A key the link cannot carry is refused: the head says why, and it is never typed later", Verb::Typed("x"), "status", crate::terminal::shells::UNREACHED),
+            pairing("The link's stream drops: the shell ends here, with Open again", "link-drops", "button", "Open again"),
+            step("Open again while the link is down prints the refusal and ends again", Verb::Press, "button", "Open again"),
+            pairing("The link carries again", "link-up", "button", "Open again"),
+            press_on("Open again reconnects to the same shell, still running on Air", "button", "Open again", "button", "End shell"),
+            step("Its earlier lines are there: ls and what it printed", Verb::Look, "textbox", "Terminal 1"),
+            step("A right press on the tab opens its acts", Verb::RightOpen("tab", "Job column: Terminal 1"), "menuitem", "Copy terminal ID"),
+            step("Rename is left out, since Fleet refuses it on another Mac's Job", Verb::Absent("menuitem", "Rename"), "menuitem", "Close"),
+            step("Esc shuts the menu", Verb::Key("escape"), "tab", "Job column: Terminal 1"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
