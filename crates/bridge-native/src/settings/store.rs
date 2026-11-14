@@ -679,3 +679,150 @@ fn noted_line(look: &Look, id: &'static str, said: &str) -> AnyElement {
         .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.to_string())));
     labelled(line, Role::Status, said.to_string()).into_any_element()
 }
+
+#[cfg(test)]
+mod tests {
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::mock_store::{StoreCall, NOT_A_MEMBER};
+    use super::super::wire::Wire;
+    use super::*;
+
+    fn opened<'a>(cx: &'a mut TestAppContext, project: Option<(&str, &str)>) -> (Entity<SettingsOverlay>, &'a mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.open = true;
+                this.picked = "project:claims-store";
+                this.scope.project = project.map(|(id, name)| (id.to_string(), name.to_string()));
+                this.store_keys(cx);
+                this.read_store(window, cx);
+            })
+        });
+        cx.run_until_parked();
+        (overlay, cx)
+    }
+
+    fn press(overlay: &Entity<SettingsOverlay>, name: &str, cx: &mut VisualTestContext) {
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.press_store(name, window, cx)));
+        cx.run_until_parked();
+    }
+
+    fn type_into(overlay: &Entity<SettingsOverlay>, field: &'static str, words: &str, cx: &mut VisualTestContext) {
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                let input = match field {
+                    "token" => this.store.token.clone(),
+                    "address" => this.store.address.clone(),
+                    _ => this.store.team.clone(),
+                };
+                input.update(cx, |state, cx| state.set_value(words.to_string(), window, cx));
+            })
+        });
+        cx.run_until_parked();
+    }
+
+    fn calls(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<StoreCall> {
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.stores.calls.clone(),
+            Wire::Live(_) => Vec::new(),
+        })
+    }
+
+    /// Draws Settings and says whether a labelled element is on the page.
+    fn on_page(overlay: &Entity<SettingsOverlay>, role: Role, name: &str, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let _ = overlay;
+            window.draw(cx).clear(cx);
+            cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some())
+        })
+    }
+
+    #[gpui::test]
+    fn deploy_sends_the_token_only_when_one_is_typed(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        // Typed before the ask is open, a token is not sent: the first press carries none.
+        type_into(&overlay, "token", "cfut_early", cx);
+        press(&overlay, "deploy", cx);
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_some()), "Fleet asked for a token");
+        // Deploy again with the field empty sends none either.
+        type_into(&overlay, "token", "", cx);
+        press(&overlay, "deploy-again", cx);
+        type_into(&overlay, "token", "cfut_typed", cx);
+        press(&overlay, "deploy-again", cx);
+        let tokens: Vec<Option<String>> = calls(&overlay, cx)
+            .into_iter()
+            .filter_map(|call| if let StoreCall::Deploy { deploy, .. } = call { Some(deploy.cloudflare_token) } else { None })
+            .collect();
+        assert_eq!(tokens, [None, None, Some("cfut_typed".to_string())]);
+        overlay.read_with(cx, |this, cx| {
+            assert!(this.store.ask.is_none(), "a deploy that works closes the ask");
+            assert!(this.store.token.read(cx).value().is_empty(), "and the token is dropped");
+            assert!(this.store.state().is_some_and(|state| state.store.is_some() && state.macs.len() == 3));
+        });
+    }
+
+    #[gpui::test]
+    fn a_refusal_shows_fleets_sentence_and_gives_the_press_back(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        type_into(&overlay, "address", "https://armada-store-acme-platform.mele.workers.dev", cx);
+        type_into(&overlay, "team", NOT_A_MEMBER, cx);
+        press(&overlay, "join", cx);
+        overlay.read_with(cx, |this, cx| {
+            assert_eq!(this.store.refused.get("join").map(String::as_str), Some("GitHub says you are not a member of acme/platform."));
+            assert!(this.store.out.is_none(), "the press is back");
+            assert_eq!(this.store.address.read(cx).value().as_ref(), "https://armada-store-acme-platform.mele.workers.dev", "what was typed is kept");
+        });
+        assert!(on_page(&overlay, Role::Alert, "GitHub says you are not a member of acme/platform.", cx), "drawn under the press");
+        let said = "The Cloudflare account has no workers.dev subdomain yet.";
+        overlay.update(cx, |this, _| {
+            if let Wire::Mock(mock) = &mut this.wire {
+                mock.stores.deploy_refusal = Some(said.into());
+            }
+        });
+        press(&overlay, "deploy", cx);
+        overlay.read_with(cx, |this, _| {
+            assert_eq!(this.store.refused.get("deploy").map(String::as_str), Some(said));
+            assert!(this.store.out.is_none());
+        });
+    }
+
+    #[gpui::test]
+    fn use_none_posts_an_absent_store(cx: &mut TestAppContext) {
+        assert_eq!(serde_json::to_string(&ipc::SetProjectStore { store: None }).as_deref().ok(), Some("{}"), "absent is none on the wire");
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        assert!(overlay.read_with(cx, |this, _| this.store.state().is_some_and(|state| state.store.is_some())), "Armada names a store");
+        press(&overlay, "use-none", cx);
+        assert_eq!(calls(&overlay, cx), [StoreCall::Set { project: "armada".into(), store: None }]);
+        overlay.read_with(cx, |this, _| assert!(this.store.state().is_some_and(|state| state.store.is_none() && state.macs.is_empty())));
+    }
+
+    #[gpui::test]
+    fn the_page_asks_for_a_project_under_every_project(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, None);
+        assert!(on_page(&overlay, Role::Button, "Pick a project", cx));
+        assert!(!on_page(&overlay, Role::Button, "Deploy", cx), "no store acts without a project");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), 1, "the press is the page's one stop");
+        assert!(calls(&overlay, cx).is_empty(), "nothing is read or sent for every project");
+    }
+
+    #[gpui::test]
+    fn escape_shuts_the_token_ask_and_the_press_is_drawn_again(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        press(&overlay, "deploy", cx);
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_some()));
+        let taken = cx.update(|window, cx| overlay.update(cx, |this, cx| this.store_key(&Keystroke::parse("escape").expect("a key"), window, cx)));
+        assert!(taken, "Esc is the ask's while it is open");
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_none()));
+        let taken = cx.update(|window, cx| overlay.update(cx, |this, cx| this.store_key(&Keystroke::parse("escape").expect("a key"), window, cx)));
+        assert!(!taken, "with no ask, Esc is Settings'");
+    }
+}
