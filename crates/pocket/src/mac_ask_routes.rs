@@ -39,7 +39,7 @@ const FRESH: Duration = Duration::from_secs(4);
 /// How long each other Mac has to say who it is.
 const GREETING_WAIT: Duration = Duration::from_secs(3);
 
-/// `GET /pair/mac/hello`, unsigned: this Mac's name, colour and build, and nothing else.
+/// `GET /pair/mac/hello`, unsigned: this Mac's name, colour, build, wire and build time, and nothing else.
 pub async fn hello(State(gateway): State<Gateway>) -> Response {
     match hello_now(&gateway).await {
         Ok(me) => json(&MacGreeting { name: me.name, colour: me.colour, build: me.build, wire: me.wire, built_at: me.built_at }),

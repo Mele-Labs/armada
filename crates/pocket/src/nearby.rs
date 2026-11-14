@@ -1,5 +1,5 @@
 //! His other Macs on the same network, over Bonjour: each Gateway advertises `_armada._tcp` with its id,
-//! name, colour and build at its Wi-Fi door's port, and browses for the others. **What Bonjour says is
+//! name, colour, build, wire and build time at its Wi-Fi door's port, and browses for the others. **What Bonjour says is
 //! unchecked**: it only says where to knock. Pairing checks who answers with the four digits, and a
 //! paired Mac's door with its pin. `docs/concepts/pocket.md`, *Macs nearby*.
 

@@ -163,11 +163,12 @@ async fn a_public_address_holds_three_asks_and_the_minutes_share_of_tries() {
 }
 
 #[tokio::test]
-async fn the_unsigned_hello_says_only_name_colour_and_build() {
+async fn the_unsigned_hello_says_only_name_colour_build_and_wire() {
     let home = Side::new("Home", &[]).await;
     let answer = reqwest::get(format!("{}/pair/mac/hello", home.address)).await.unwrap();
     assert_eq!(answer.status().as_u16(), 200);
-    assert_eq!(answer.text().await.unwrap(), r#"{"name":"Home","colour":"teal"}"#);
+    let wire = &home.gateway.way_in.wire;
+    assert_eq!(answer.text().await.unwrap(), format!(r#"{{"name":"Home","colour":"teal","wire":"{wire}"}}"#));
 }
 
 #[tokio::test]
