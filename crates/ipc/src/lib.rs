@@ -761,7 +761,7 @@ pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
-    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
+    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,

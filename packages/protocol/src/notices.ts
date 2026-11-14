@@ -43,6 +43,7 @@ export const NOTICES = [
   "started_job_ended",
   "gate_closed",
   "gate_hold",
+  "claims",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

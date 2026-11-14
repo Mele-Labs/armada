@@ -152,6 +152,11 @@ where
             taken
         };
         taken.extend(gathered.picks.iter().map(|one| one.issue_url.clone()));
+        // A beads item a person is assigned is their held work, and no Job of Autopilot's takes it.
+        let open = match self.backlog_for_job(&served, None) {
+            Some(_) => open.into_iter().filter(crate::job_claims::no_person_holds).collect(),
+            None => open,
+        };
         let mut offered = candidates(&open, &taken);
         if reports {
             offered.extend(self.reports_offered(&manifest_id, &taken).await?);

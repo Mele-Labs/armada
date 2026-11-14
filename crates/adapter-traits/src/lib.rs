@@ -123,7 +123,7 @@ pub use shared_home::{
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
-pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Store, StoreDevice, StoreError};
+pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError};
 pub use tracker::{
     IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool, ToolInstalled,
     Tracker, TrackerChoice, Trackers,

@@ -394,6 +394,7 @@ where
             kept: crate::worktrees_kept::Kept::default(),
             sweeping: Mutex::new(crate::noticing::Sweep::default()),
             writes: Arc::default(),
+            job_claims: Default::default(),
             feed: Arc::default(),
             base_moves: Default::default(),
             gate_runs: Default::default(),

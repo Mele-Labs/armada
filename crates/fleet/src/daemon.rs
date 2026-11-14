@@ -132,6 +132,9 @@ pub struct Fleet<H, V, W> {
     /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
     /// `crate::clashing`.
     writes: Arc<crate::clashing::Writes>,
+    /// What each live Job holds in its project's store, and what it waits on. Never written down, for
+    /// `sweeping`'s reason: a pass claims again after a restart — `crate::job_claims`.
+    job_claims: crate::job_claims::JobClaims,
     /// Main's moves not yet fed to the test map. Never written down, for `sweeping`'s reason —
     /// `crate::test_map_feed`.
     feed: Arc<crate::test_map_feed::Feed>,
