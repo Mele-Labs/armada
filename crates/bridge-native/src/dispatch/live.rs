@@ -1,10 +1,11 @@
-//! The sheet on a live Fleet: its repositories are the ones Fleet serves, narrowed to the project the
-//! window is scoped to, and Fleet's answers reach it as data. What the sheet draws stays `face.rs`.
+//! The sheet on a live Fleet: its picker lists his projects with their repositories, then the repositories
+//! Fleet serves in no project, narrowed to what the window is scoped to, and Fleet's answers reach it as
+//! data. What the sheet draws stays `face.rs`.
 
 use gpui::SharedString;
 use ipc::{ManifestId, RepositorySummary, StartAfter, StartBase, StartCondition, WaitReading};
 
-use super::face::{Chip, Cycle, Face, Mark, Mentions, Offered, Part, Reading, Tuning, Wait};
+use super::face::{Chip, Cycle, Face, InProject, Mark, Mentions, Offered, Part, Reading, Tuning, Wait};
 
 /// A repository Fleet serves: the name its chip carries and the id a Job there starts with.
 #[derive(Clone, Debug, PartialEq)]
@@ -30,33 +31,71 @@ pub(crate) fn served(repositories: &[RepositorySummary]) -> Vec<Served> {
         .collect()
 }
 
-/// Chips for `names`, in order: the first nine carry a key, the rest go under More.
-pub(super) fn chips(names: &[SharedString]) -> (Vec<Chip>, Vec<Chip>) {
-    let chip = |at: usize, name: &SharedString| Chip { name: name.clone(), key: (at < 9).then(|| at as u8 + 1), mark: Mark::Plain };
-    let shown = names.iter().take(9).enumerate().map(|(at, name)| chip(at, name)).collect();
-    let more = names.iter().enumerate().skip(9).map(|(at, name)| chip(at, name)).collect();
+/// A project and its repositories by the names the picker gives them, in its members' order.
+pub(crate) type ProjectRepositories = (InProject, Vec<SharedString>);
+
+/// His projects as the title bar holds them, each with the repositories of its members once, in their order.
+pub(crate) fn projects_of(projects: &[crate::titlebar::Project], repositories: &[crate::titlebar::Repository]) -> Vec<ProjectRepositories> {
+    projects
+        .iter()
+        .map(|project| {
+            let mut names: Vec<SharedString> = Vec::new();
+            for member in &project.members {
+                if let Some(one) = repositories.get(member.repository).filter(|one| !names.contains(&one.name)) {
+                    names.push(one.name.clone());
+                }
+            }
+            (InProject { id: project.id.clone(), name: project.name.clone() }, names)
+        })
+        .collect()
+}
+
+/// The picker's rows in order: each project with each repository of it that Fleet serves, then every served
+/// repository in no project, which is also where any folder Fleet serves stands.
+pub(super) fn rows_of(served: &[Served], projects: &[ProjectRepositories]) -> Vec<(Option<InProject>, SharedString)> {
+    let serves = |name: &SharedString| served.iter().any(|one| one.name == *name);
+    let mut rows: Vec<(Option<InProject>, SharedString)> = Vec::new();
+    for (project, names) in projects {
+        rows.extend(names.iter().filter(|name| serves(name)).map(|name| (Some(project.clone()), name.clone())));
+    }
+    rows.extend(served.iter().map(|one| (None, one.name.clone())));
+    rows
+}
+
+/// Chips for `rows`, in order: the first nine carry a key, the rest go under More.
+pub(super) fn chips(rows: &[(Option<InProject>, SharedString)]) -> (Vec<Chip>, Vec<Chip>) {
+    let chip = |at: usize, (project, name): &(Option<InProject>, SharedString)| Chip { name: name.clone(), project: project.clone(), key: (at < 9).then(|| at as u8 + 1), mark: Mark::Plain };
+    let shown = rows.iter().take(9).enumerate().map(|(at, row)| chip(at, row)).collect();
+    let more = rows.iter().enumerate().skip(9).map(|(at, row)| chip(at, row)).collect();
     (shown, more)
 }
 
-/// The picker offers only `keep`, where the window is scoped to a project: its member repositories. One
-/// member is the repository the sheet is for, as the rail's repository is; several leave the words to choose.
-pub(super) fn narrowed(mut face: Face, keep: &[SharedString]) -> Face {
-    let names: Vec<SharedString> = face.chips.iter().chain(&face.more).map(|chip| chip.name.clone()).filter(|name| keep.contains(name)).collect();
-    let (shown, more) = chips(&names);
+/// The picker offers only what the window is scoped to: the rows of `project` among `keep`, or with no
+/// project, the repository in `keep` on its own. One row is the one the sheet is for, as the rail's
+/// repository is; several leave the words to choose.
+pub(super) fn narrowed(mut face: Face, project: Option<&SharedString>, keep: &[SharedString]) -> Face {
+    let rows: Vec<(Option<InProject>, SharedString)> = face
+        .chips
+        .iter()
+        .chain(&face.more)
+        .filter(|chip| keep.contains(&chip.name) && chip.project.as_ref().map(|one| &one.id) == project)
+        .map(|chip| (chip.project.clone(), chip.name.clone()))
+        .collect();
+    let (shown, more) = chips(&rows);
     face.chips = shown;
     face.more = more;
     face.reading = Reading::Idle;
-    if let [only] = names.as_slice() {
+    if let [(_, only)] = rows.as_slice() {
         face = read(face, Some(only));
         face.reading = Reading::Scoped;
     }
     face
 }
 
-/// The face on a live Fleet. `keep` is the project's member repositories where the window is scoped to one.
-pub(super) fn face_of(served: &[Served], keep: Option<&[SharedString]>, jobs: Vec<Offered>, connected: bool, tuning: Tuning) -> Face {
-    let names: Vec<SharedString> = served.iter().map(|one| one.name.clone()).collect();
-    let (chips, more) = chips(&names);
+/// The face on a live Fleet. `keep` is what the window is scoped to: a project by its id with its
+/// repositories, or one repository in no project.
+pub(super) fn face_of(served: &[Served], projects: &[ProjectRepositories], keep: Option<(Option<&SharedString>, &[SharedString])>, jobs: Vec<Offered>, connected: bool, tuning: Tuning) -> Face {
+    let (chips, more) = chips(&rows_of(served, projects));
     let face = Face {
         connected,
         chips,
@@ -70,15 +109,19 @@ pub(super) fn face_of(served: &[Served], keep: Option<&[SharedString]>, jobs: Ve
         refused: None,
     };
     match keep {
-        Some(keep) => narrowed(face, keep),
+        Some((project, keep)) => narrowed(face, project, keep),
         None => face,
     }
 }
 
-/// What Fleet read of the words: the repository they name is chosen, or none is.
+/// What Fleet read of the words: the first row of the repository they name is chosen, a project's
+/// before none, or no row is.
 pub(super) fn read(mut face: Face, named: Option<&SharedString>) -> Face {
+    let mut found = false;
     for chip in face.chips.iter_mut().chain(face.more.iter_mut()) {
-        chip.mark = if Some(&chip.name) == named { Mark::Chosen } else { Mark::Plain };
+        let first = !found && Some(&chip.name) == named;
+        found |= first;
+        chip.mark = if first { Mark::Chosen } else { Mark::Plain };
     }
     face.reading = if named.is_some() { Reading::Detected } else { Reading::Unresolved };
     face
@@ -232,5 +275,72 @@ pub(super) fn after_of(wait: &Wait) -> StartAfter {
         condition: condition_of(&wait.when.value),
         base: if wait.base.value == "branch" { StartBase::Branch } else { StartBase::Main },
         needs: wait.needs.as_ref().map(|needs| needs.value.to_string()).unwrap_or_default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The mock Mac's picker at rest: his projects as the walks' fixture has them, then every repository.
+    fn rest() -> Face {
+        crate::dispatch::scenes::rest(&[])
+    }
+
+    fn rows(face: &Face) -> Vec<(Option<&str>, &str)> {
+        face.chips.iter().chain(&face.more).map(|chip| (chip.project.as_ref().map(|one| one.name.as_ref()), chip.name.as_ref())).collect()
+    }
+
+    #[test]
+    fn the_picker_lists_each_project_with_its_repositories_then_every_repository_in_none() {
+        let face = rest();
+        assert_eq!(
+            rows(&face),
+            [
+                (Some("Armada"), "armada"),
+                (Some("Storefront"), "sample-web"),
+                (Some("Storefront"), "sample-api"),
+                (None, "armada"),
+                (None, "sample-web"),
+                (None, "sample-api"),
+                (None, "sample-docs"),
+            ],
+            "a project whose file did not read is left out, and a folder Fleet serves stands in no project"
+        );
+        assert_eq!(face.chips.iter().map(|chip| chip.key).collect::<Vec<_>>(), (1..=7).map(Some).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_window_on_a_project_offers_its_rows_alone() {
+        let face = narrowed(rest(), Some(&"storefront".into()), &["sample-web".into(), "sample-api".into()]);
+        assert_eq!(rows(&face), [(Some("Storefront"), "sample-web"), (Some("Storefront"), "sample-api")]);
+        assert_eq!(face.reading, Reading::Idle, "two rows leave the words to choose");
+        assert_eq!(face.chips.iter().map(|chip| chip.key).collect::<Vec<_>>(), [Some(1), Some(2)]);
+    }
+
+    #[test]
+    fn a_window_on_a_repository_in_no_project_starts_there() {
+        let face = narrowed(rest(), None, &["armada".into()]);
+        assert_eq!(rows(&face), [(None, "armada")]);
+        assert_eq!(face.reading, Reading::Scoped);
+        assert!(face.chosen().is_some_and(|chip| chip.project.is_none()));
+    }
+
+    #[test]
+    fn the_words_choose_the_first_row_of_their_repository() {
+        let face = read(rest(), Some(&"sample-api".into()));
+        let chosen = face.chosen().expect("a row is chosen");
+        assert_eq!((chosen.project.as_ref().map(|one| one.id.as_ref()), chosen.name.as_ref()), (Some("storefront"), "sample-api"));
+        assert_eq!(face.chips.iter().chain(&face.more).filter(|chip| chip.mark == Mark::Chosen).count(), 1, "one row stands, not each of the repository's");
+    }
+
+    #[test]
+    fn a_pick_by_hand_is_the_row_and_not_its_repository() {
+        let mut face = rest();
+        let loose = face.chips.iter().find(|chip| chip.project.is_none() && chip.name == "armada").expect("armada in no project").id();
+        face.pick(&loose);
+        let chosen = face.chosen().expect("a row is chosen");
+        assert!(chosen.project.is_none(), "armada in no project, not in Armada");
+        assert_eq!(chosen.label().as_ref(), "armada");
     }
 }

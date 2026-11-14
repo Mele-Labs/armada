@@ -47,6 +47,20 @@ pub(super) fn plan_reading(record: &SessionRecord, version: u32) -> Option<&Judg
     reading_of(record, JudgeKind::Plan, &version.to_string())
 }
 
+/// The readings of earlier plan versions that still hold a note nobody has sent or dismissed, oldest first.
+/// Fleet keeps each version's reading, so a new version leaves these where they are; the card of the
+/// current version carries their open notes.
+pub(super) fn earlier_plan_readings(record: &SessionRecord, version: u32) -> Vec<&JudgeReading> {
+    let mut found: Vec<(u32, &JudgeReading)> = record
+        .judge_readings
+        .iter()
+        .filter(|one| one.artifact.kind == JudgeKind::Plan && one.state == JudgeState::Done && one.notes.iter().any(|note| note.settled.is_none()))
+        .filter_map(|one| Some((one.artifact.id.parse::<u32>().ok().filter(|raised| *raised < version)?, one)))
+        .collect();
+    found.sort_by_key(|(raised, _)| *raised);
+    found.into_iter().map(|(_, one)| one).collect()
+}
+
 /// The plan at `version`, as a judge is asked to read it.
 pub(super) fn plan_artifact(version: u32) -> JudgeArtifact {
     JudgeArtifact { kind: JudgeKind::Plan, id: version.to_string(), title: format!("Plan v{version}") }
@@ -62,6 +76,15 @@ pub(super) enum Press {
     /// Done, with nothing to say.
     Clean,
     Failed,
+}
+
+/// The press with the open notes of earlier plan versions counted as waiting: `Some(unread)` when any are open.
+pub(super) fn with_earlier(state: Press, earlier: Option<bool>) -> Press {
+    match (state, earlier) {
+        (Press::Idle | Press::Clean | Press::Unread, Some(true)) => Press::Unread,
+        (Press::Clean, Some(false)) => Press::Idle,
+        (state, _) => state,
+    }
 }
 
 pub(super) fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&JudgeNote) -> bool) -> Press {
@@ -98,23 +121,45 @@ pub(super) struct Pinned<'a> {
     key: &'a str,
     reading: &'a JudgeReading,
     known: HashSet<&'a str>,
+    /// The reading is of an earlier plan version: only its notes still waiting stand, each marked with its version.
+    carried: bool,
 }
 
 impl<'a> Pinned<'a> {
     pub fn new(ix: usize, key: &'a str, reading: Option<&'a JudgeReading>, plan: &'a SessionPlan) -> Option<Self> {
         let reading = reading.filter(|one| one.state == JudgeState::Done)?;
-        let known = plan.groups.iter().flat_map(|group| std::iter::once(group.id.as_str()).chain(group.tasks.iter().map(|task| task.id.as_str()))).collect();
-        Some(Self { ix, key, reading, known })
+        Some(Self { ix, key, reading, known: Self::parts_of(plan), carried: false })
+    }
+
+    fn parts_of(plan: &'a SessionPlan) -> HashSet<&'a str> {
+        plan.groups.iter().flat_map(|group| std::iter::once(group.id.as_str()).chain(group.tasks.iter().map(|task| task.id.as_str()))).collect()
+    }
+
+    /// Everything the plan card draws notes from: the current version's reading, then the earlier versions' open notes.
+    /// A note about a part the current plan still holds stands at that part; any other stands with the plan's own.
+    pub fn on_card(ix: usize, key: &'a str, reading: Option<&'a JudgeReading>, earlier: &[&'a JudgeReading], plan: &'a SessionPlan) -> Vec<Self> {
+        let carried = earlier.iter().map(|one| Self { ix, key, reading: *one, known: Self::parts_of(plan), carried: true });
+        Self::new(ix, key, reading, plan).into_iter().chain(carried).collect()
     }
 
     /// The notes of a reading of the whole Job: every one stands as a note on the whole.
     pub fn whole_job(ix: usize, key: &'a str, reading: &'a JudgeReading) -> Option<Self> {
-        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new() })
+        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new(), carried: false })
+    }
+
+    /// The plan version a carried note was raised on, as the card's band writes it.
+    fn raised_on(&self) -> Option<String> {
+        self.carried.then(|| format!("v{}", self.reading.artifact.id))
+    }
+
+    /// Whether the card draws the note: an earlier version's only while it waits.
+    fn shows(&self, note: &JudgeNote) -> bool {
+        !self.carried || note.settled.is_none()
     }
 
     /// Notes about the plan as a whole, or about a part the plan no longer holds.
     pub fn whole(&self) -> Vec<&'a JudgeNote> {
-        self.reading.notes.iter().filter(|note| note.about.as_deref().is_none_or(|about| !self.known.contains(about))).collect()
+        self.reading.notes.iter().filter(|note| self.shows(note) && note.about.as_deref().is_none_or(|about| !self.known.contains(about))).collect()
     }
 
     /// Whether a note's place is the very pull request these notes stand under, which the panel's title already names.
@@ -124,7 +169,7 @@ impl<'a> Pinned<'a> {
 
     /// Notes about one group or task.
     pub fn at(&self, id: &str) -> Vec<&'a JudgeNote> {
-        self.reading.notes.iter().filter(|note| note.about.as_deref() == Some(id)).collect()
+        self.reading.notes.iter().filter(|note| self.shows(note) && note.about.as_deref() == Some(id)).collect()
     }
 }
 
@@ -138,13 +183,17 @@ impl JobView {
 
     /// The Judge's press, and the box it opens under it: on the plan card, or smaller in a row of the Job's lists.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn judge_press(&self, ix: usize, key: &str, artifact: JudgeArtifact, reading: Option<&JudgeReading>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn judge_press(&self, ix: usize, key: &str, artifact: JudgeArtifact, reading: Option<&JudgeReading>, earlier: &[&JudgeReading], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         let plan = artifact.kind == JudgeKind::Plan;
         let (side, size) = if plan { (look.length(token::H_CONTROL), Size::Mark) } else { (look.length(token::H_CONTROL_SM), Size::Small) };
         let judging = matches!(page.cards.answers.get(&format!("judge:{key}")), Some(Answer::Judging(held)) if *held == reading.map(|one| one.id.clone()));
         let waiting = |note: &JudgeNote| reading.is_none_or(|one| how_of(page, one, note).is_none());
-        let state = press_of(reading, judging, waiting);
+        // Notes of earlier plan versions still waiting count as notes waiting.
+        let open_earlier = |one: &JudgeReading| one.notes.iter().any(|note| how_of(page, one, note).is_none());
+        let earlier_waiting = earlier.iter().any(|one| open_earlier(one));
+        let earlier_unread = earlier.iter().any(|one| !one.read && open_earlier(one));
+        let state = with_earlier(press_of(reading, judging, waiting), earlier_waiting.then_some(earlier_unread));
         let said = match state {
             Press::Reading => "Judge reading".to_string(),
             Press::Unread => "Notes to read".to_string(),
@@ -155,7 +204,7 @@ impl JobView {
         let spot = page.keys.spot(&format!("judge-press:{key}"), cx);
         let edges = spot.bounds.clone();
         let open = self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key);
-        let noted = reading.is_some_and(|one| one.state == JudgeState::Done && !one.notes.is_empty());
+        let noted = earlier_waiting || reading.is_some_and(|one| one.state == JudgeState::Done && !one.notes.is_empty());
         let mark = match state {
             Press::Reading => glyph(look, "circle-dot", size, look.color(token::STEP_RUNNING))
                 .with_animation(SharedString::from(format!("judge-reading:{key}")), Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)), |mark, delta| mark.opacity(delta))
@@ -537,9 +586,10 @@ impl JobView {
         let Some(record) = self.record(job, cx) else { return };
         let whole = self.pages.get(job).is_some_and(|page| page.judge.is_some()).then(|| super::judge_tab::whole_reading(record, job)).flatten();
         let plan = record.plan.as_ref().and_then(|plan| plan_reading(record, plan.version));
+        let earlier = record.plan.as_ref().map(|plan| earlier_plan_readings(record, plan.version)).unwrap_or_default();
         let rows_drawn = matches!(self.zone_shown(), Some(super::side::Zone::Ledger | super::side::Zone::Pulls | super::side::Zone::Subagents));
         let rows = record.judge_readings.iter().filter(|one| rows_drawn && !matches!(one.artifact.kind, JudgeKind::Job | JudgeKind::Plan));
-        let unread: Vec<String> = whole.into_iter().chain(plan).chain(rows).filter(|one| one.state == JudgeState::Done && !one.read && !one.notes.is_empty()).map(|one| one.id.clone()).collect();
+        let unread: Vec<String> = whole.into_iter().chain(plan).chain(earlier).chain(rows).filter(|one| one.state == JudgeState::Done && !one.read && !one.notes.is_empty()).map(|one| one.id.clone()).collect();
         let port = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
         let Some(page) = self.pages.get_mut(job) else { return };
         for reading in unread {
@@ -560,11 +610,21 @@ impl JobView {
 
     // ---- The notes -------------------------------------------------------------------------
 
+    /// The notes about the plan as a whole: this version's, then each earlier version's still waiting.
+    pub(super) fn plan_notes(&self, at: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let lists: Vec<AnyElement> = at.iter().filter_map(|one| self.notes_list(one, one.whole(), "Findings on the plan".to_string(), page, look, cx)).collect();
+        (!lists.is_empty()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).children(lists).into_any_element())
+    }
+
     /// A list of notes under one part of the plan: each a claim with its acts, or, acted on, one muted line.
     pub(super) fn notes_list(&self, at: &Pinned, notes: Vec<&JudgeNote>, label: String, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if notes.is_empty() {
             return None;
         }
+        let label = match at.raised_on() {
+            Some(raised) => format!("{label} from plan {raised}"),
+            None => label,
+        };
         let rows = notes.into_iter().map(|note| match how_of(page, at.reading, note) {
             None => self.finding_row(at, note, page, look, cx),
             Some(how) => self.settled_row(at, note, how, look),
@@ -613,7 +673,11 @@ impl JobView {
                 said,
             )
         };
-        let name = format!("Finding: {}", note.claim);
+        let raised = at.raised_on();
+        let name = match &raised {
+            Some(raised) => format!("Finding raised on plan {raised}: {}", note.claim),
+            None => format!("Finding: {}", note.claim),
+        };
         labelled(
             div()
                 .id(SharedString::from(found.key.clone()))
@@ -641,7 +705,28 @@ impl JobView {
                         .flex_col()
                         .gap(look.length(token::SPACE_2))
                         .min_w_0()
-                        .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_MUTED)).child("You should know"))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_between()
+                                .gap(look.length(token::SPACE_2))
+                                .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_MUTED)).child("You should know"))
+                                .children(raised.map(|raised| {
+                                    labelled(
+                                        div()
+                                            .id(SharedString::from(format!("raised:{}", found.key)))
+                                            .flex_none()
+                                            .font_family(mono(look))
+                                            .text_size(look.length(token::TEXT_2XS))
+                                            .text_color(look.color(token::FG_SUBTLE))
+                                            .tooltip(tip(format!("Raised on plan {raised}")))
+                                            .child(SharedString::from(raised.clone())),
+                                        Role::Group,
+                                        format!("Raised on plan {raised}"),
+                                    )
+                                })),
+                        )
                         .child(
                             div()
                                 .flex()
@@ -730,13 +815,17 @@ impl JobView {
     }
 
     /// What a group holds: notes about the group itself, then each task a note names, in the plan's order, by its words.
-    pub(super) fn group_findings(&self, at: &Pinned, group: &SessionPlanGroup, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let own = at.at(&group.id);
-        let tasks: Vec<_> = group.tasks.iter().map(|task| (task, at.at(&task.id))).filter(|(_, found)| !found.is_empty()).collect();
+    pub(super) fn group_findings(&self, at: &[Pinned], group: &SessionPlanGroup, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let own: Vec<AnyElement> = at.iter().filter_map(|one| self.notes_list(one, one.at(&group.id), format!("Findings on {}", group.title), page, look, cx)).collect();
+        let tasks: Vec<_> = group
+            .tasks
+            .iter()
+            .map(|task| (task, at.iter().map(|one| (one, one.at(&task.id))).filter(|(_, found)| !found.is_empty()).collect::<Vec<_>>()))
+            .filter(|(_, found)| !found.is_empty())
+            .collect();
         if own.is_empty() && tasks.is_empty() {
             return None;
         }
-        let own = self.notes_list(at, own, format!("Findings on {}", group.title), page, look, cx);
         let tasks: Vec<AnyElement> = tasks
             .into_iter()
             .map(|(task, found)| {
@@ -754,13 +843,13 @@ impl JobView {
                             .child(glyph(look, "circle-dashed", Size::Small, look.color(token::FG_SUBTLE)))
                             .child(div().min_w_0().child(SharedString::from(task.text.clone()))),
                     )
-                    .children(self.notes_list(at, found, format!("Findings on {}", task.text), page, look, cx))
+                    .children(found.into_iter().filter_map(|(one, notes)| self.notes_list(one, notes, format!("Findings on {}", task.text), page, look, cx)))
                     .into_any_element()
             })
             .collect();
         Some(
             div()
-                .id(SharedString::from(format!("anchored:{}:{}", at.key, group.id)))
+                .id(SharedString::from(format!("anchored:{}:{}", at.first().map_or("", |one| one.key), group.id)))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
@@ -776,16 +865,13 @@ impl JobView {
     /// One line of the plain view, what a group gives, and the notes it holds. A group with none is its line alone;
     /// one with some has a mark at the line's end, in a column of its own, that shuts them.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn gives_row(&self, text: String, group: &SessionPlanGroup, at: Option<&Pinned>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let Some(at) = at else { return div().child(SharedString::from(text)).into_any_element() };
-        let held: Vec<&JudgeNote> = std::iter::once(at.at(&group.id)).chain(group.tasks.iter().map(|task| at.at(&task.id))).flatten().collect();
-        if held.is_empty() {
-            return div().child(SharedString::from(text)).into_any_element();
-        }
-        let live = held.iter().any(|note| how_of(page, at.reading, note).is_none());
-        let shut_key = format!("{}:gives-shut:{}", at.key, group.id);
+    pub(super) fn gives_row(&self, text: String, group: &SessionPlanGroup, at: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let held: Vec<(&Pinned, &JudgeNote)> = at.iter().flat_map(|one| std::iter::once(one.at(&group.id)).chain(group.tasks.iter().map(move |task| one.at(&task.id))).flatten().map(move |note| (one, note))).collect();
+        let Some(first) = at.first().filter(|_| !held.is_empty()) else { return div().child(SharedString::from(text)).into_any_element() };
+        let live = held.iter().any(|(one, note)| how_of(page, one.reading, note).is_none());
+        let shut_key = format!("{}:gives-shut:{}", first.key, group.id);
         let shut = page.cards.opened.contains(&shut_key);
-        let ix = at.ix;
+        let ix = first.ix;
         let mark = live.then(|| {
             labelled(
                 div()
@@ -877,6 +963,81 @@ mod tests {
     fn a_reading_still_going_pins_nothing() {
         let going = reading(&DONE.replace(r#""state":"done""#, r#""state":"reading""#));
         assert!(Pinned::new(0, "plan:v2", Some(&going), &plan("")).is_none());
+    }
+
+    /// A reading of plan `version`, its notes given as `id:about` with `!` before the id of one already settled.
+    fn plan_reading_of(version: u32, notes: &[&str]) -> JudgeReading {
+        let notes: Vec<String> = notes
+            .iter()
+            .map(|note| {
+                let (settled, note) = note.strip_prefix('!').map_or((false, *note), |rest| (true, rest));
+                let (id, about) = note.split_once(':').map_or((note, None), |(id, about)| (id, Some(about)));
+                let about = about.map(|about| format!(r#""about":"{about}","#)).unwrap_or_default();
+                let settled = if settled { r#","settled":{"how":"sent","at":"2026-11-09T11:00:00Z"}"# } else { "" };
+                format!(r#"{{"id":"{id}",{about}"claim":"Claim {id}"{settled}}}"#)
+            })
+            .collect();
+        reading(
+            &DONE
+                .replace(r#""id":"r1""#, &format!(r#""id":"r{version}""#))
+                .replace(r#""id":"2","title":"Plan v2""#, &format!(r#""id":"{version}","title":"Plan v{version}""#))
+                .replace(r#"[{"id":"n1","claim":"No rollback"},{"id":"n2","about":"g1","claim":"Slow"},{"id":"n3","about":"gone","claim":"Stale"}]"#, &format!("[{}]", notes.join(","))),
+        )
+    }
+
+    fn record_of(readings: Vec<JudgeReading>) -> SessionRecord {
+        let mut record = crate::mock::jobs("jobs-screens").expect("the fixture decodes").into_iter().next().expect("a Job");
+        record.judge_readings = readings;
+        record
+    }
+
+    #[test]
+    fn a_new_plan_version_keeps_the_open_notes_of_earlier_readings() {
+        let mut failed = plan_reading_of(1, &["f1"]);
+        failed.state = JudgeState::Failed;
+        let mut whole = plan_reading_of(1, &["j1"]);
+        whole.artifact.kind = JudgeKind::Job;
+        let record = record_of(vec![plan_reading_of(2, &["a1", "!a2"]), plan_reading_of(1, &["!b1", "b2"]), plan_reading_of(3, &["c1"]), plan_reading_of(4, &["!d1"]), failed, whole]);
+        let ids = |version| earlier_plan_readings(&record, version).iter().map(|one| one.id.clone()).collect::<Vec<_>>();
+        // Oldest first; the current version's own reading, a later one, a failed one and the whole Job's are not carried.
+        assert_eq!(ids(3), ["r1", "r2"]);
+        assert_eq!(ids(2), ["r1"]);
+        assert!(ids(1).is_empty());
+        // A version whose every note is settled carries nothing.
+        assert_eq!(ids(5), ["r1", "r2", "r3"]);
+        assert!(earlier_plan_readings(&record_of(vec![plan_reading_of(2, &["!a1", "!a2"])]), 3).is_empty());
+    }
+
+    #[test]
+    fn an_earlier_versions_notes_stand_on_the_card_while_they_wait_and_send_by_their_own_reading() {
+        let earlier = plan_reading_of(2, &["n1", "n2:g1", "n3:gone", "!n4"]);
+        let plan = plan(r#"{"id":"g1","agent":"a","title":"G","paths":[],"tasks":[{"id":"t1","text":"T","state":"open"}]}"#);
+        // The current version has no reading at all: its earlier notes still stand.
+        let on_card = Pinned::on_card(0, "plan:v3", None, &[&earlier], &plan);
+        assert_eq!(on_card.len(), 1);
+        let carried = &on_card[0];
+        assert_eq!(carried.raised_on().as_deref(), Some("v2"));
+        assert_eq!(carried.whole().iter().map(|note| note.id.as_str()).collect::<Vec<_>>(), ["n1", "n3"], "a part the plan lost is listed with the plan's own, and a settled note is not drawn");
+        assert_eq!(carried.at("g1").iter().map(|note| note.id.as_str()).collect::<Vec<_>>(), ["n2"], "a part the plan still holds keeps it");
+        assert_eq!(carried.reading.id, "r2");
+        // The current reading comes first and is never marked.
+        let current = plan_reading_of(3, &["!c1", "c2"]);
+        let on_card = Pinned::on_card(0, "plan:v3", Some(&current), &[&earlier], &plan);
+        assert_eq!(on_card.len(), 2);
+        assert_eq!(on_card[0].raised_on(), None);
+        assert_eq!(on_card[0].whole().len(), 2, "this version's own settled note stays as a muted line");
+        assert_eq!(on_card[1].raised_on().as_deref(), Some("v2"));
+    }
+
+    #[test]
+    fn open_notes_of_earlier_versions_count_as_waiting_on_the_press() {
+        assert_eq!(with_earlier(Press::Idle, Some(true)), Press::Unread);
+        assert_eq!(with_earlier(Press::Clean, Some(true)), Press::Unread);
+        assert_eq!(with_earlier(Press::Idle, Some(false)), Press::Idle, "read already: no dot");
+        assert_eq!(with_earlier(Press::Clean, Some(false)), Press::Idle, "nothing missed would be untrue");
+        assert_eq!(with_earlier(Press::Clean, None), Press::Clean);
+        assert_eq!(with_earlier(Press::Reading, Some(true)), Press::Reading);
+        assert_eq!(with_earlier(Press::Failed, Some(true)), Press::Failed);
     }
 
     #[test]

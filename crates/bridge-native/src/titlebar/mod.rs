@@ -38,7 +38,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ModelDownshift};
 
-pub use face::{repositories_of, Connection, Face, LiveLink, Remedy, RestartWhy, Restarting};
+pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;

@@ -213,10 +213,10 @@ pub fn section_id(section: &str) -> String {
     id.trim_matches('-').to_string()
 }
 
-/// A setting the generic form draws: a Json value is drawn by a pane of its own, and the Operator's are drawn on
-/// its page (`drawn`, `sections.ts`).
+/// A setting the generic form draws: a Json value is drawn by a pane of its own, and the Operator's models and
+/// pause are drawn on their own pages (`drawn`, `sections.ts`). The Operator's switch is a plain Features switch.
 pub fn drawn(setting: &Setting) -> bool {
-    let operators = setting.key.split_once('.').is_some_and(|(_, rest)| rest.starts_with("operator"));
+    let operators = setting.key != "features.operator" && setting.key.split_once('.').is_some_and(|(_, rest)| rest.starts_with("operator"));
     !matches!(setting.kind, SettingKind::Json) && !operators
 }
 
@@ -361,5 +361,16 @@ mod tests {
         let list = list();
         assert!(list.settings.iter().any(|one| !drawn(one)), "the mock holds one the form leaves out");
         assert!(settings_in(&list, "limits").iter().all(|one| drawn(one)));
+    }
+
+    #[test]
+    fn features_lists_the_operator_switch_with_fleets_own_words() {
+        let list = list();
+        let features = settings_in(&list, "features");
+        let operator = features.iter().find(|one| one.key == "features.operator").expect("Features lists the Operator");
+        assert_eq!(operator.title, "Operator");
+        assert!(matches!(operator.kind, SettingKind::Boolean));
+        assert!(operator.description.starts_with("The Operator rules on the work that arrives"));
+        assert!(drawn(operator));
     }
 }

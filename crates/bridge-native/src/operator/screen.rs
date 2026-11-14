@@ -261,6 +261,84 @@ impl Render for OperatorScreen {
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(reviews)).into_any_element()
             }
         };
-        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone())
+        // ⌘K and the bar's search open the Jobs screen's palette over whichever place is in front; the Jobs screen
+        // draws it itself.
+        let palette = (self.front != Front::Jobs).then(|| self.jobs.read(cx).palette().clone());
+        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone()).children(palette)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Role, TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::jobs::JobsList;
+    use crate::labels::LabelBook;
+
+    fn ready(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            crate::titlebar::bind(cx);
+        });
+    }
+
+    fn jobs_screen(window: &mut Window, cx: &mut App) -> Entity<JobsScreen> {
+        let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&records, cx));
+        cx.new(|cx| JobsScreen::new(list, None, window, cx))
+    }
+
+    /// Whether the palette's box was drawn in this window.
+    fn palette_drawn(cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| cx.default_global::<LabelBook>().find(window.window_handle().window_id(), Role::Dialog, "Command palette").is_some())
+    }
+
+    #[gpui::test]
+    fn the_palette_opens_over_the_operator_page_and_esc_gives_the_page_its_keys_back(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            OperatorScreen::mock(jobs, window, cx)
+        });
+        cx.run_until_parked();
+        let (page_keys, palette) = screen.read_with(cx, |screen, cx| (screen.page.read(cx).focus.clone(), screen.jobs.read(cx).palette().clone()));
+        assert!(!palette_drawn(cx));
+        cx.simulate_keystrokes("cmd-k");
+        cx.run_until_parked();
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the page stays in front");
+        assert!(palette.read_with(cx, |palette, _| palette.is_open()));
+        assert!(palette_drawn(cx), "the palette is drawn over the page");
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(!palette.read_with(cx, |palette, _| palette.is_open()));
+        assert!(cx.update(|window, _| page_keys.is_focused(window)), "the keys go back to the page");
+    }
+
+    #[gpui::test]
+    fn the_palette_opens_over_settings_and_esc_shuts_the_palette_alone(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            let held = cx.new(|cx| OperatorScreen::mock(jobs, window, cx));
+            crate::settings::SettingsScreen::mock(held.into(), window, cx)
+        });
+        cx.run_until_parked();
+        let settings = screen.read_with(cx, |screen, _| screen.overlay.clone());
+        cx.simulate_keystrokes("cmd-,");
+        cx.run_until_parked();
+        assert!(settings.read_with(cx, |settings, _| settings.open), "⌘, opens Settings");
+        let keys = cx.update(|window, cx| window.focused(cx)).expect("Settings holds the keys");
+        cx.simulate_keystrokes("cmd-k");
+        cx.run_until_parked();
+        assert!(cx.update(|_, cx| crate::palette::is_up(cx)), "⌘K opens the palette over Settings");
+        assert!(palette_drawn(cx), "the palette is drawn over Settings");
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(!cx.update(|_, cx| crate::palette::is_up(cx)));
+        assert!(settings.read_with(cx, |settings, _| settings.open), "Esc on the palette leaves Settings open");
+        assert!(cx.update(|window, _| keys.is_focused(window)), "the keys go back into Settings");
     }
 }

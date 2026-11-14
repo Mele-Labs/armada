@@ -52,6 +52,7 @@ mod started_jobs;
 mod step_waits;
 mod documents;
 mod building;
+mod build_holds;
 mod title_bar_views;
 mod builds_run;
 mod retro_timing;
