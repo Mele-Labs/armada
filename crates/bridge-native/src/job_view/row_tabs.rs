@@ -13,7 +13,9 @@
 //! A walk of a native screen (`armada://walk/`) is a name, a brief and Open. **A walk of a web page draws the
 //! page in its tab with the walk's bar above it** (`web_walk.rs`), as Classic's live walk tab does, in a
 //! WKWebView placed over the frame the tab reports (`crate::web`). It has a tab as a native walk has, and a
-//! press on the walk he is owed brings it forward.
+//! press on the walk he is owed brings it forward. The Job's live page, once he opens it from Now, takes a tab the
+//! same way. Where another Mac holds the Job, its pages draw once Fleet answers an address for them
+//! (`web_pages.rs`); until then, and where Fleet refuses, the tab says so in the page's place.
 
 use std::collections::{HashMap, HashSet};
 
@@ -21,7 +23,7 @@ use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, Role, Share
 use ipc::{SessionRecord, SessionRow, WaitingActKind, WaitingSource};
 
 use super::acts::{button, Tone, SHEET};
-use super::web_walk::{WebWalkEvent, WebWalkTab};
+use super::web_walk::{Shown, WebWalkEvent, WebWalkTab};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -91,6 +93,8 @@ pub(super) struct RowTabs {
     /// The web page of each walk of a web page that has a tab, by address: kept while the walk is owed, so its page, scroll and
     /// step stay while its tab is behind another or closed (Classic parks the view hidden).
     web: HashMap<String, (Entity<WebWalkTab>, Subscription)>,
+    /// The Job's live page (its address and name) once he has opened it: it has a tab as a walk has, while the Job still serves it.
+    live: Option<(String, String)>,
     /// The sealed page under each document tab, by its page: let go as its tab closes, so a page opened again is read
     /// again from Fleet, with what he pressed and voted on it (`page_tab.rs`).
     pub(super) pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
@@ -175,6 +179,8 @@ struct ShownWalk {
     brief: Option<String>,
     /// The scripted steps of a web page's walk (`show_window`'s `steps`), as the ledger keeps them.
     steps: Vec<ipc::WalkStep>,
+    /// The Job's live page, not a walk it showed: drawn with its name and Reload alone.
+    live: bool,
 }
 
 /// Whether a walk is of a native screen, which Fleet starts in a window of its own, and not of a web page.
@@ -192,7 +198,15 @@ fn shown_walk(record: &SessionRecord, url: &str) -> Option<ShownWalk> {
     let title = one.detail.get("title").filter(|title| title.as_str() != url && !title.is_empty()).cloned().unwrap_or_else(|| name_of_page(url));
     let brief = one.detail.get("brief").map(|brief| brief.trim().to_string()).filter(|brief| !brief.is_empty());
     let steps = one.detail.get("steps").and_then(|steps| ipc::decode::<Vec<ipc::WalkStep>>("walk steps", steps.as_bytes()).ok()).unwrap_or_default();
-    Some(ShownWalk { title, brief, steps })
+    Some(ShownWalk { title, brief, steps, live: false })
+}
+
+/// What a tab of a web page shows: the walk the Job showed at this address, else the page it serves there.
+fn shown_page(record: &SessionRecord, url: &str) -> Option<ShownWalk> {
+    shown_walk(record, url).or_else(|| {
+        let live = record.activity.as_ref()?.live.as_ref().filter(|live| live.url == url)?;
+        Some(ShownWalk { title: live.title.clone(), brief: None, steps: Vec::new(), live: true })
+    })
 }
 
 /// The walks the Job owes him, each with its tab's name: a walk is owed while Fleet's waiting
@@ -309,14 +323,26 @@ impl JobView {
         if is_native(&url) {
             self.open_walk(&url, false, window, cx);
         } else {
-            // A web page's walk is drawn in its own tab, so a press brings the tab forward (`focusWalk`).
+            // A web page's walk is drawn in its own tab, so a press brings the tab forward (`focusWalk`). Where another Mac
+            // holds the Job, the press asks Fleet for the page and the tab says how that went.
             self.bring_walk_forward(&url, window, cx);
+            if let Some(id) = self.shown.clone() {
+                self.open_page(&id, &url, window, cx);
+            }
         }
+    }
+
+    /// A press on the Job's live page: its dev server or the page it showed last opens in a tab, as a walk's does.
+    pub(super) fn press_live(&mut self, live: &ipc::SessionLive, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        self.row_tabs_of(&id).live = Some((live.url.clone(), live.title.clone()));
+        self.bring_walk_forward(&live.url, window, cx);
+        self.open_page(&id, &live.url, window, cx);
     }
 
     fn bring_walk_forward(&mut self, url: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let Some(title) = self.record(&id, cx).and_then(|record| shown_walk(record, url)).map(|walk| walk.title) else { return };
+        let Some(title) = self.record(&id, cx).and_then(|record| shown_page(record, url)).map(|walk| walk.title) else { return };
         let tabs = self.row_tabs_of(&id);
         tabs.arrived.insert(url.to_string());
         tabs.focus(RowKind::Walk, url, title);
@@ -390,7 +416,8 @@ impl JobView {
             self.row_tabs_of(id).keep(|tab| rows.contains(&(tab.kind, tab.key.clone())));
         }
         self.restore_row_front(id, cx);
-        if let Some(owed) = self.record(id, cx).map(owed_walks) {
+        if self.record(id, cx).is_some() {
+            let owed = self.pages_of(id, cx);
             if self.row_tabs_of(id).sync_walks(&owed) {
                 self.reopen_thread(id, cx);
             }
@@ -443,26 +470,49 @@ impl JobView {
         );
     }
 
-    /// Each walk of a web page the Job owes gets its page and bar once, where its tab first arrives; a settled one takes
-    /// its page with it (Classic disposes the view as the walk leaves).
+    /// The pages Job `id` holds a tab for: the walks it owes him, and its live page once he has opened it and while it serves it.
+    fn pages_of(&self, id: &SharedString, cx: &gpui::App) -> Vec<(String, String)> {
+        let Some(record) = self.record(id, cx) else { return Vec::new() };
+        let mut pages = owed_walks(record);
+        let serving = record.activity.as_ref().and_then(|activity| activity.live.as_ref());
+        pages.extend(self.row_tabs.get(id).and_then(|tabs| tabs.live.clone()).filter(|(url, _)| serving.is_some_and(|live| live.url == *url)));
+        pages
+    }
+
+    /// Whether Job `id`'s page `url` is drawn in a tab already.
+    pub(super) fn web_page_drawn(&self, id: &str, url: &str) -> bool {
+        self.row_tabs.get(id).is_some_and(|tabs| tabs.web.contains_key(url))
+    }
+
+    /// Each page of a Job of this Mac gets its view and bar once, where its tab first arrives; a settled one takes its page
+    /// with it (Classic disposes the view as the walk leaves). A Job another Mac holds waits for Fleet's answer to its Open.
     pub(super) fn sync_web_walks(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let owed = self.record(id, cx).map(owed_walks).unwrap_or_default();
+        let owed = self.pages_of(id, cx);
         self.row_tabs_of(id).web.retain(|url, _| owed.iter().any(|(owed, _)| owed == url));
-        let manifest = self.record(id, cx).and_then(|record| record.manifest_id.as_ref().map(|manifest| manifest.as_str().to_string()));
-        for (url, title) in owed.iter().filter(|(url, _)| !is_native(url)) {
-            if self.row_tabs_of(id).web.contains_key(url) {
-                continue;
-            }
-            let Some(walk) = self.record(id, cx).and_then(|record| shown_walk(record, url)) else { continue };
-            let (job, address, title) = (id.clone(), url.clone(), title.clone());
-            let keys = self.row_focus.clone();
-            let tab = cx.new(|cx| WebWalkTab::new(job, address, title, walk.steps, manifest.as_deref(), keys, cx));
-            let approving = cx.subscribe_in(&tab, window, |this, tab, _: &WebWalkEvent, window, cx| {
-                let (job, url) = (tab.read(cx).job().clone(), tab.read(cx).url().to_string());
-                this.approve_web_walk(&job, &url, window, cx);
-            });
-            self.row_tabs_of(id).web.insert(url.clone(), (tab, approving));
+        if self.mac_of(id, cx).is_some() {
+            return;
         }
+        for (url, _) in owed.iter().filter(|(url, _)| !is_native(url)) {
+            self.show_web_page(id, url, url, window, cx);
+        }
+    }
+
+    /// Job `id`'s page `url` drawn from the address `here`, in a tab of its own once.
+    pub(super) fn show_web_page(&mut self, id: &SharedString, url: &str, here: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.web_page_drawn(id, url) {
+            return;
+        }
+        let Some(walk) = self.record(id, cx).and_then(|record| shown_page(record, url)) else { return };
+        let manifest = self.record(id, cx).and_then(|record| record.manifest_id.as_ref().map(|manifest| manifest.as_str().to_string()));
+        let shown = Shown { job: id.clone(), url: url.to_string(), here: here.to_string(), title: walk.title, steps: walk.steps, live: walk.live, manifest };
+        let keys = self.row_focus.clone();
+        let tab = cx.new(|cx| WebWalkTab::new(shown, keys, cx));
+        let approving = cx.subscribe_in(&tab, window, |this, tab, _: &WebWalkEvent, window, cx| {
+            let (job, url) = (tab.read(cx).job().clone(), tab.read(cx).url().to_string());
+            this.approve_web_walk(&job, &url, window, cx);
+        });
+        self.row_tabs_of(id).web.insert(url.to_string(), (tab, approving));
+        cx.notify();
     }
 
     /// Approve on a web page's walk, as the walk bar sends it: the line Fleet's `walk_approval` reads, to the Job. A Job
@@ -565,6 +615,10 @@ impl JobView {
             // A web page's walk is its bar over its page, edge to edge; a native walk's is its name, brief and Open.
             RowKind::Walk if !is_native(&tab.key) => {
                 let web = self.row_tabs.get(id).and_then(|tabs| tabs.web.get(&tab.key)).map(|(web, _)| web.clone());
+                // Until Fleet answers an Open of a page another Mac holds, or where it refuses, the tab says so in the page's place.
+                if web.is_none() {
+                    return self.web_page_body(id, &tab.key, look, cx);
+                }
                 return div().id("row-tab-body").size_full().children(web).into_any_element();
             }
             RowKind::Walk => self.record(id, cx).and_then(|record| shown_walk(record, &tab.key)).map(|walk| self.walk_body(id, &tab.key, walk, look, cx)),
@@ -595,6 +649,73 @@ impl JobView {
             Some(card) => div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(card).into_any_element(),
             None => div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element(),
         }
+    }
+
+    /// A web page whose view is not drawn yet: its name, its brief, its address with the chip of the Mac that serves it
+    /// where that is another, Open, and what the last Open came to. Open tries again after a refusal.
+    fn web_page_body(&self, id: &SharedString, url: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let Some(walk) = self.record(id, cx).and_then(|record| shown_page(record, url)) else {
+            return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element();
+        };
+        let opening = self.page_open(id, url) == Some(&super::web_pages::PageOpen::Opening);
+        let (job, key) = (id.to_string(), url.to_string());
+        let open = labelled(
+            button(look, "walk-open", "Open", Tone::Primary, false, None, !opening).when(!opening, |button| {
+                button.tooltip(super::rows::tip("Open the page in this tab")).on_click(cx.listener(move |this, _, window, cx| this.open_page(&job, &key, window, cx)))
+            }),
+            Role::Button,
+            "Open",
+        );
+        let chip = self.mac_of(id, cx).and_then(|mac| crate::pairing::chip(Some(&mac), cx)).map(|chip| crate::pairing::pill(look, "walk-mac".into(), &chip));
+        let address = div().flex().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(
+            labelled(
+                div()
+                    .id("walk-address")
+                    .min_w_0()
+                    .truncate()
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(url.to_string())),
+                Role::Label,
+                url.to_string(),
+            ),
+        );
+        let card = labelled(
+            div()
+                .id("walk-body")
+                .flex()
+                .flex_col()
+                .p(look.length(token::SPACE_2))
+                .max_w(look.length(token::SPACE_8) * 20.)
+                .gap(look.length(token::SPACE_3))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .child(
+                            div()
+                                .min_w_0()
+                                .text_size(look.length(token::TEXT_LG))
+                                .line_height(look.length(token::LEADING_LG))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::FG_DEFAULT))
+                                .child(SharedString::from(walk.title.clone())),
+                        )
+                        .children(chip),
+                )
+                .children(walk.brief.map(|brief| {
+                    div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(brief))
+                }))
+                .child(address)
+                .child(div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_SM)).child(open).children(self.page_said(id, url, look))),
+            Role::Region,
+            walk.title,
+        )
+        .into_any_element();
+        div().id("row-tab-body").track_focus(&self.row_focus).size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(card).into_any_element()
     }
 
     /// A walk of a native screen (`NativeWalk`): its name, its brief, Open, and what Fleet answered.
