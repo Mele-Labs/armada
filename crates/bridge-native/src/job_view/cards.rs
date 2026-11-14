@@ -252,11 +252,11 @@ impl JobView {
     /// The newest sketch put to the person, pinned after the plan (`SketchPin`, B1.4).
     pub(super) fn sketch_pin(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = format!("pin:{}", card.id);
-        let optimistic = page.cards.answers.get(&key);
+        let optimistic = page.cards.pressed(&key, card);
         let settled = settled_of(card.settled.as_ref(), optimistic);
         let folded = self.folded(&key, false);
         let revisions = card.revisions.len();
-        let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
+        let picked = picked_revision(&page.cards.revision, &key, revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
         let drawn = self.drawn_of(&card.sketch, cx);
         let (scene_key, scene) = shown_scene(card, picked);
@@ -405,7 +405,7 @@ impl JobView {
                                             if n >= revisions {
                                                 page.cards.revision.remove(&key);
                                             } else {
-                                                page.cards.revision.insert(key.clone(), n - 1);
+                                                page.cards.revision.insert(key.clone(), (n - 1, revisions));
                                             }
                                         }
                                         this.card_changed(ix, cx);
@@ -561,10 +561,22 @@ pub(super) fn settled_of(data: Option<&CardSettled>, pressed: Option<&Answer>) -
     data.map(|settled| (if settled.how == SketchHow::Approved { Said::Approved } else { Said::SentBack }, settled.words.clone()))
 }
 
+/// The revision he picked by hand, while no newer one has arrived: one that has takes its place, so a redraw is read.
+pub(super) fn picked_revision(picks: &std::collections::HashMap<String, (usize, usize)>, key: &str, revisions: usize) -> Option<usize> {
+    picks.get(key).copied().filter(|(at, of)| *of == revisions && *at < revisions).map(|(at, _)| at)
+}
+
+/// What names the newest drawing of a card. **A pinned card's id is its sketch's ledger id, the same under every redraw**, so the
+/// time it was last drawn and how many revisions are kept ride in the key a scene is read and laid out by.
+pub(super) fn newest_of(card: &ThreadSketch) -> String {
+    format!("{}@{}#{}", card.id, card.at.as_str(), card.revisions.len())
+}
+
 /// The drawing a card shows, the revision picked or else the newest, and the key it is read and laid out by.
 pub(super) fn shown_scene(card: &ThreadSketch, picked: Option<usize>) -> (String, Option<Rc<ipc::Scene>>) {
     let raw = picked.and_then(|at| card.revisions.get(at)).unwrap_or(&card.drawing);
     let key = format!("{}:{}", card.id, picked.map_or_else(|| "now".to_string(), |at| at.to_string()));
+    let key = if picked.is_some() { key } else { format!("{}:now", newest_of(card)) };
     let scene = crate::scene::read(&key, raw);
     (key, scene)
 }
@@ -581,7 +593,7 @@ pub(super) fn shown_against(card: &ThreadSketch, picked: Option<usize>) -> Optio
     };
     if picked.is_none_or(|at| at + 1 >= count) {
         return match &card.against {
-            Some(title) => card.against_drawing.as_ref().and_then(|raw| crate::scene::read(&format!("{}:against", card.id), raw)).map(|scene| (title.clone(), scene)),
+            Some(title) => card.against_drawing.as_ref().and_then(|raw| crate::scene::read(&format!("{}:against", newest_of(card)), raw)).map(|scene| (title.clone(), scene)),
             None => before(count.checked_sub(1)?),
         };
     }
