@@ -45,6 +45,11 @@ pub(crate) const TEST_WAIT: &str = "test_wait";
 pub(crate) const TEST_ASKED: &str = "test_asked";
 
 const PULL: &str = "pull";
+
+/// `call_test_flaky` from no Job, or with no log line.
+const NOT_CALLABLE: &str = "fleet.test_not_callable";
+/// `call_test_flaky` about a test Fleet did not ask the Job about.
+const NOT_ASKED: &str = "fleet.test_not_asked";
 /// The red commit a wait on main's own fix is on.
 const RED: &str = "red";
 
@@ -542,6 +547,36 @@ where
     pub(crate) async fn waits_on_a_fix(&self, job: &str, number: u64) -> bool {
         let rows = self.store().lock().await.attachments_of(&store::Holder::session(job)).unwrap_or_default();
         rows.iter().any(|row| row.kind == TEST_WAIT && row.state == AttachmentState::Standing && row.detail.get(PULL) == Some(&number.to_string()))
+    }
+
+    /// `call_test_flaky`: the Job Fleet asked about `test` says it is flaky. **Only then is the test
+    /// claimed**, so a Job's own fix of a test its change broke is never blocked by a claim.
+    pub(crate) async fn test_called_flaky(self: &Arc<Self>, caller: Option<api::Caller>, call: ipc::CallTestFlaky) -> Result<ipc::TestCalledFlaky, api::Refusal> {
+        let refuse = |why: &str| self.hosted_refusal(NOT_CALLABLE, why);
+        let id = caller
+            .as_ref()
+            .and_then(|caller| self.session_holding(caller))
+            .or_else(|| {
+                let named = call.session_id.as_ref()?.as_str().trim().to_string();
+                (!named.is_empty()).then_some(named)
+            })
+            .ok_or_else(|| refuse("a test is called flaky by the Job Fleet asked, and this call is not from one"))?;
+        let (test, line) = (call.test.trim().to_string(), call.log_line.trim().to_string());
+        if line.is_empty() {
+            return Err(refuse("name the line of the failing run's log that shows the test is flaky"));
+        }
+        let Some((manifest, pull)) = self.test_asked_of(&id, &test).await else {
+            let why = format!("Fleet did not ask job {id} about {test}");
+            return Err(api::Refusal::IllegalMove(ipc::WireError::raised(NOT_ASKED, &why, self.run_id())));
+        };
+        let served = self.served_named(Some(&ManifestId::carried(&manifest)))?;
+        let because = format!("the Job that owns #{pull} says so, citing \"{line}\"");
+        let judged = self.flake_claimed(&served, pull, std::slice::from_ref(&id), &test, &because, &line).await;
+        if matches!(judged, Judged::NotClaimed(_)) {
+            self.ledger_row_settled(&id, TEST_ASKED, &manifest, &test).await;
+        }
+        let base = served.manifest().base().unwrap_or("main").to_string();
+        Ok(ipc::TestCalledFlaky { pull, said: judged_words(pull, &base, &test, &judged) })
     }
 
     /// The pull request a Job was asked about for `test`, where it was and has not answered.

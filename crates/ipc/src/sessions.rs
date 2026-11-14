@@ -1815,6 +1815,30 @@ pub struct MainRedTaken {
     pub claimed: bool,
 }
 
+/// `call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of
+/// the merge queue says the test is flaky instead, with the log line that shows it. Fleet then claims
+/// the test, starts the one Job that fixes it, and queues the pull request again when that fix
+/// merges. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallTestFlaky {
+    /// Which session calls it. **Read only where the connection places no hosted session**, as
+    /// `TakeMainRed::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The test, as Fleet named it when it asked.
+    pub test: String,
+    /// The line of the failing run's log that shows the test is flaky and not broken by the change.
+    pub log_line: String,
+}
+
+/// What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it
+/// tells the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestCalledFlaky {
+    pub pull: u64,
+    pub said: String,
+}
+
 /// What `claim_pull_request` answers: the pull request now held, and by whom.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestClaimed {

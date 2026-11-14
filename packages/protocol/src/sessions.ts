@@ -984,6 +984,25 @@ export type TakeMainRed = {
   take_over?: boolean;
 };
 
+/**
+ * `POST /sessions/call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of the
+ * merge queue says the test is flaky, with `log_line`, the line of the failing run's log that shows it. Fleet claims the
+ * test, starts the one Job that fixes it, and queues the pull request again when that fix merges. `session_id` names the
+ * Session where the connection places none. Fleet refuses 409 `fleet.test_not_asked` where it did not ask this Job about
+ * the test, and 422 `fleet.test_not_callable` for a call that places no Session or names no log line. Since 14 Nov 2026.
+ */
+export type CallTestFlaky = {
+  session_id?: string;
+  test: string;
+  log_line: string;
+};
+
+/** What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it tells the Job. */
+export type TestCalledFlaky = {
+  pull: number;
+  said: string;
+};
+
 /** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */
 export type MainRedTaken = {
   root: string;

@@ -551,6 +551,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::take_main_red::<D>),
         )
         .route(
+            "/sessions/call_test_flaky",
+            post(crate::sessions::call_test_flaky::<D>),
+        )
+        .route(
             "/sessions/start_another",
             post(crate::sessions::start_another_session::<D>),
         )
