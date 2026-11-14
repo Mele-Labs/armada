@@ -82,6 +82,11 @@ A sketch holds no plan, so none is lifted.
 A title the job showed no sketch under is refused.
 A new drawing of the title does not carry the mark.
 A plan's sketch raises none, since it is approved with the plan.
+**The sketch a result leads with rides on the done card and never waits on its own.**
+`all_done` writes the dismissal `dismiss_waiting` writes for the lead picture where it is a sketch still put to him, with no verdict and no mark, so the done card is the one place he sees it and his End the one press (`result_sketch` in `picture_shown.rs`).
+A sketch the pending plan names, and one beside a question of the job's own still open, still wait, and so does every sketch while a gate holds the call.
+**A sketch drawn in the turn still running waits only once that turn ends**, so a result sketch `all_done` settles in the same turn never shows and goes.
+The thread's pinned sketch reads the same way.
 A job moved into a slot keeps the same id, so its sketches and their items stay.
 **Every revision Fleet keeps of a page a job wrote under `.armada/documents/` waits until the person answers it.** One item per page, `document:<path>`, source `document`, its text the page's title and its act `message` on the job, while the newest revision's `detail.asked` is `true` and `detail.settled` is unset.
 It is read off the page Fleet kept, never off the tool call ([Document](../document.md)).

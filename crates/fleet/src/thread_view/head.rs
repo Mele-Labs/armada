@@ -38,7 +38,11 @@ pub(super) fn pinned_of(record: &SessionRecord, revisions: &Revisions) -> Option
         .filter(|plan| !plan.approved && plan.set_aside_at.is_none())
         .map(|plan| plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())).map(|one| one.title.clone()).collect())
         .unwrap_or_default();
-    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan).next()?;
+    // Not one drawn in the turn still running, nor, once the Job is done, the result sketch `all_done` settled.
+    let began = record.turn_since.as_ref().map(|at| at.as_str());
+    let waits = |id: &str| record.done_since.is_none() || record.waiting_for.iter().any(|one| one.id == id);
+    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan)
+        .find(|item| waits(&item.id) && !crate::session_host::sketching::drawn_in_turn(&record.attachments, &item.id, began))?;
     let held = record.attachments.iter().find(|one| form_of(one) == Some("sketch") && one.target == item.id)?;
     // Fleet refuses a sketch whose scene will not draw, so a kept one always reads.
     let drawing = held.detail.get("scene").and_then(|scene| ipc::scene_of_detail(scene))?;

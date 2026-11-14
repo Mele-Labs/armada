@@ -731,9 +731,21 @@ where
             // A ruling he took back is a question of his again, until he answers it or drops it.
             items.extend(crate::operator::undone_items(&undone).filter(|one| !dismissed.contains(&one.id)));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
-            // pending plan names waits with the plan instead, and its Approve settles it.
+            // pending plan names waits with the plan instead, and its Approve settles it. One drawn in the turn still
+            // running waits once it ends, so the result sketch `all_done` settles never shows and goes.
             let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
-            items.extend(super::sketching::sketch_items(attachments, &session.id, in_plan).filter(|one| !dismissed.contains(&one.id)));
+            let turn_began = (session.origin == "bridge")
+                .then(|| {
+                    let runtime = self.hosts().of(&session.id);
+                    let state = runtime.state();
+                    matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
+                })
+                .flatten();
+            items.extend(
+                super::sketching::sketch_items(attachments, &session.id, in_plan)
+                    .filter(|one| !dismissed.contains(&one.id))
+                    .filter(|one| !super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref())),
+            );
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -1029,6 +1041,10 @@ where
                 return Err(self.closed(&id));
             }
             let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
+            // The sketch the result leads with rides on the done card, so it stops asking on its own.
+            if let Some(result) = super::picture_shown::result_sketch(&store, &id).map_err(|why| self.ledger_fault(why))? {
+                store.dismiss_waiting(&id, &result).map_err(|why| self.ledger_fault(why))?;
+            }
             store
                 .keep_done(&id, &now, summary)
                 .map_err(|why| self.ledger_fault(why))?;

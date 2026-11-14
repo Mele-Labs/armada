@@ -368,6 +368,15 @@ pub(super) fn drawn_in(detail: &std::collections::BTreeMap<String, String>, chan
     drawn.unwrap_or_else(|| (changed_at.replace([':', '-', '.'], ""), 0))
 }
 
+/// Whether the sketch `target` was drawn at or after `began`, when the turn still running began. **Such a
+/// sketch waits only once the turn ends**, so the one `all_done` settles in the same turn never shows and goes.
+pub(crate) fn drawn_in_turn(attachments: &[ipc::Attachment], target: &str, began: Option<&str>) -> bool {
+    let Some(began) = began else { return false };
+    let digits = |instant: &str| instant.chars().filter(char::is_ascii_digit).collect::<String>();
+    let began = digits(began);
+    attachments.iter().filter(|one| one.target == target).any(|one| digits(&drawn_at(one).0) >= began)
+}
+
 /// Every sketch put to the person, answered or not.
 fn asked_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     attachments
