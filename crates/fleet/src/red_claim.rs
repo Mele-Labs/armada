@@ -151,7 +151,9 @@ where
 {
     /// Run `work` against the store for `root`'s red at `red_commit`. `Ok(None)`
     /// is **no store applies** and nothing was asked; an `Err` is a store that
-    /// would not answer.
+    /// would not answer. **Naming a store in the project is the switch**, as for a
+    /// Job's own claims: a red's fix always starts, so two Macs that skipped the
+    /// claim would both fix it.
     async fn at_the_store<T: Send + 'static>(
         &self,
         root: &str,
@@ -159,7 +161,7 @@ where
         work: impl FnOnce(&Reach) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
         let red_commit = red_commit.to_string();
-        self.at_the_store_of(root, move |opened| {
+        self.at_the_store_switched(root, true, move |opened| {
             let Opened { store, slug, machine, login } = opened;
             let Some((repository, red)) = keys_of(&slug, &red_commit) else { return Ok(None) };
             work(&Reach { store, repository, red, machine, login }).map(Some)

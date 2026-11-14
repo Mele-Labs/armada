@@ -1648,7 +1648,8 @@ pub struct SessionRecord {
 }
 
 /// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is
-/// its assignee in beads. The Job's wait line. Since 14 Nov 2026.
+/// its assignee in beads. Or a failing test another Job is fixing, which threw its pull request out
+/// of the merge queue. The Job's wait line. Since 14 Nov 2026.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimWait {
     /// The item as its tracker names it: `armada-zasx.3`, `12`.
@@ -1676,6 +1677,9 @@ pub enum ClaimWaitEnds {
     ClaimEnds,
     /// The person is no longer the item's assignee in beads.
     Unassigned,
+    /// A failing test's fix merges and main is green, or main's own red is fixed: the pull request the
+    /// merge queue threw out is queued again. `item` is the test, and `holder` is empty while main is red.
+    FixMerges,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.
@@ -1809,6 +1813,30 @@ pub struct MainRedTaken {
     /// *Pull request owners* switch is off or the machine is signed out: nothing was written
     /// and no other machine will be told.
     pub claimed: bool,
+}
+
+/// `call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of
+/// the merge queue says the test is flaky instead, with the log line that shows it. Fleet then claims
+/// the test, starts the one Job that fixes it, and queues the pull request again when that fix
+/// merges. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallTestFlaky {
+    /// Which session calls it. **Read only where the connection places no hosted session**, as
+    /// `TakeMainRed::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The test, as Fleet named it when it asked.
+    pub test: String,
+    /// The line of the failing run's log that shows the test is flaky and not broken by the change.
+    pub log_line: String,
+}
+
+/// What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it
+/// tells the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestCalledFlaky {
+    pub pull: u64,
+    pub said: String,
 }
 
 /// What `claim_pull_request` answers: the pull request now held, and by whom.

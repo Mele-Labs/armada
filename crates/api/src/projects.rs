@@ -117,6 +117,13 @@ pub(crate) async fn get_project_store<D: Projects>(State(served): State<Served<D
     }
 }
 
+pub(crate) async fn get_project_claims<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().get_project_claims(project).await {
+        Ok(claims) => answer(StatusCode::OK, &claims, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn set_project_store<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
     let set: ipc::SetProjectStore = match decoded(&served, "a project's store", &body) {
         Ok(set) => set,

@@ -1,7 +1,7 @@
 //! The phone's Session routes and one-line dispatch: each a Fleet call whose
 //! body is built here field by field from a body that denies unknown fields.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use axum::body::Bytes;
 use axum::extract::State;
@@ -15,7 +15,7 @@ use ipc::{
 use serde::{Deserialize, Serialize};
 
 use crate::phone_sessions::{held_ask, PhoneSession};
-use crate::reads::{json, port, read, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
+use crate::reads::{json, port, projects, read, refusal, repositories, required, NOT_ANSWERING, NOT_READABLE};
 use crate::{fleet_client, Gateway};
 
 const NO_SUCH_SESSION: &str = "That Job is not here.";
@@ -49,6 +49,7 @@ pub async fn sessions(State(gateway): State<Gateway>) -> Response {
         Err(refused) => return refused,
     };
     let labels = repositories(&gateway).await;
+    let named = projects(&gateway).await;
     let rows: Vec<PhoneSession> = list
         .iter()
         .filter(|record| record.state == SessionState::Live)
@@ -58,7 +59,7 @@ pub async fn sessions(State(gateway): State<Gateway>) -> Response {
                 .as_ref()
                 .and_then(|id| labels.get(id.as_str()))
                 .map(String::as_str);
-            PhoneSession::of(record, repository, gateway.pairing.now())
+            PhoneSession::of(record, repository, &named, gateway.pairing.now())
         })
         .collect();
     json(&Sessions { sessions: rows })
@@ -249,7 +250,7 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
     };
     let (status, why) = match post(&gateway, "/sessions/message", sent).await {
         Ok(answer) if (200..300).contains(&answer.status) => {
-            return made(&record, Some(manifest.repository.as_str()), &gateway);
+            return made(&record, Some(manifest.repository.as_str()), &projects(&gateway).await, &gateway);
         }
         Ok(answer) => said(&answer),
         Err(_) => (StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING.to_string()),
@@ -349,10 +350,11 @@ pub async fn operator_dispatch(State(gateway): State<Gateway>, body: Bytes) -> R
         Ok(answer) => answer,
         Err(refused) => return refused,
     };
+    let named = projects(&gateway).await;
     match answer.status {
         200 => match ipc::decode::<JobDispatched>("a dispatch answer", &answer.body) {
             Ok(done) => json(&Handled {
-                session: done.session.map(|record| PhoneSession::of(&record, Some(manifest.repository.as_str()), gateway.pairing.now())),
+                session: done.session.map(|record| PhoneSession::of(&record, Some(manifest.repository.as_str()), &named, gateway.pairing.now())),
                 operator: done.operator,
                 parked: done.parked,
             }),
@@ -402,8 +404,8 @@ async fn started(gateway: &Gateway, start: &StartSession) -> Result<SessionRecor
 }
 
 /// 201 with the new Job as the phone sees it.
-fn made(record: &SessionRecord, repository: Option<&str>, gateway: &Gateway) -> Response {
-    let session = PhoneSession::of(record, repository, gateway.pairing.now());
+fn made(record: &SessionRecord, repository: Option<&str>, projects: &BTreeMap<String, String>, gateway: &Gateway) -> Response {
+    let session = PhoneSession::of(record, repository, projects, gateway.pairing.now());
     let mut made = json(&Dispatched { session });
     *made.status_mut() = StatusCode::CREATED;
     made
@@ -464,7 +466,7 @@ pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
     };
     let labels = repositories(&gateway).await;
     let repository = record.manifest_id.as_ref().and_then(|id| labels.get(id.as_str())).map(String::as_str);
-    made(&record, repository, &gateway)
+    made(&record, repository, &projects(&gateway).await, &gateway)
 }
 
 #[derive(Serialize)]
