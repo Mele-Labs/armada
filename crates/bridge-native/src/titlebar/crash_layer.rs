@@ -134,11 +134,18 @@ pub fn offer_crash(fleet: &Entity<FleetConnection>, cx: &mut gpui::App) {
     let fleet = fleet.clone();
     cx.spawn(async move |cx| {
         let Some(offer) = read.await else { return };
-        let _ = cx.update(|cx| {
-            if let Some(bar) = super::live(cx) {
-                bar.update(cx, |bar, cx| bar.crash_offered(Some(offer), Some(fleet), cx));
+        // The bar is drawn with the window, a moment after this was asked for.
+        for _ in 0..40 {
+            let offered = cx.update(|cx| {
+                let bar = super::live(cx)?;
+                bar.update(cx, |bar, cx| bar.crash_offered(Some(offer.clone()), Some(fleet.clone()), cx));
+                Some(())
+            });
+            if offered.is_some() {
+                return;
             }
-        });
+            cx.background_executor().timer(std::time::Duration::from_millis(250)).await;
+        }
     })
     .detach();
 }
@@ -593,5 +600,93 @@ impl TitleBar {
             "Armada quit",
         );
         Some(self.dim_over("crash-panel-scrim", look, room, card.into_any_element()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::titlebar::{scenes, AskedSink};
+    use gpui::{TestAppContext, VisualTestContext};
+
+    /// A bar with the crash panel standing from the scene's stand-in, and what the bar asked and the stand-in did.
+    fn stood(cx: &mut TestAppContext) -> (Entity<TitleBar>, &mut VisualTestContext, Rc<RefCell<Vec<Pressed>>>, Rc<RefCell<Vec<Asked>>>) {
+        cx.update(crate::init_app);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let heard = Rc::clone(&asked);
+        cx.update(|cx| cx.set_global(AskedSink(Rc::new(move |one: &Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        let (offer, stand_in) = scenes::crash_scene("crash-panel", "mock-02").expect("the scene");
+        let done = Rc::clone(&stand_in.done);
+        cx.update(|_, cx| cx.set_global(stand_in));
+        bar.update(cx, |bar, cx| bar.crash_offered(Some(offer), None, cx));
+        cx.run_until_parked();
+        (bar, cx, done, asked)
+    }
+
+    #[gpui::test]
+    fn return_sends_one_dispatch_with_both_files_marks_the_crash_seen_and_opens_the_job(cx: &mut TestAppContext) {
+        let (bar, cx, done, asked) = stood(cx);
+        assert!(bar.read_with(cx, |bar, _| bar.crash_state().0), "the panel stands");
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        let done = done.borrow();
+        let sent: Vec<&DispatchJob> = done.iter().filter_map(|one| if let Pressed::Started(job) = one { Some(job.as_ref()) } else { None }).collect();
+        assert_eq!(sent.len(), 1, "one Job is started: {done:?}");
+        let Some(ipc::DispatchThen::Message(message)) = sent[0].then.first() else { panic!("the dispatch carries the first message") };
+        let names: Vec<&str> = message.attachments.iter().map(|one| one.name.as_str()).collect();
+        assert_eq!(names, ["crash-2026-11-14T110102Z.txt", "Armada-2026-11-14-111520.ips"]);
+        assert!(message.attachments.iter().all(|one| one.media_type == "text/plain"));
+        assert_eq!(done.iter().filter(|one| **one == Pressed::Seen).count(), 1, "the crash is marked seen once");
+        assert!(!bar.read_with(cx, |bar, _| bar.crash_state().0), "the panel is gone");
+        assert_eq!(asked.borrow().as_slice(), [Asked::OpenJob("mock-02".into())], "the Job it started opens");
+    }
+
+    #[gpui::test]
+    fn a_refused_start_keeps_the_panel_with_what_fleet_said_and_marks_nothing_seen(cx: &mut TestAppContext) {
+        cx.update(crate::init_app);
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        let (offer, stand_in) = scenes::crash_scene("crash-panel-refused", "mock-02").expect("the scene");
+        let done = Rc::clone(&stand_in.done);
+        cx.update(|_, cx| cx.set_global(stand_in));
+        bar.update(cx, |bar, cx| bar.crash_offered(Some(offer), None, cx));
+        cx.run_until_parked();
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(bar.read_with(cx, |bar, _| bar.crash_state()), (true, Some("Fleet serves no repository named armada".to_string())));
+        assert!(!done.borrow().contains(&Pressed::Seen), "a refusal leaves the crash unseen");
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(done.borrow().iter().filter(|one| matches!(one, Pressed::Started(_))).count(), 2, "Return tries again");
+    }
+
+    #[gpui::test]
+    fn escape_marks_the_crash_seen_and_sends_nothing(cx: &mut TestAppContext) {
+        let (bar, cx, done, asked) = stood(cx);
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert_eq!(done.borrow().as_slice(), [Pressed::Seen]);
+        assert!(!bar.read_with(cx, |bar, _| bar.crash_state().0), "the panel is gone");
+        assert!(asked.borrow().is_empty(), "no Job opens");
+    }
+
+    #[gpui::test]
+    fn no_panel_stands_when_there_is_no_unseen_crash(cx: &mut TestAppContext) {
+        let dir = std::env::temp_dir().join(format!("armada-crash-panel-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(read_offer(&dir, None, &|_| None).is_none(), "an empty folder has no crash");
+        let seen = crash::write_report(&dir, chrono::Utc::now(), "panic: one\n").unwrap();
+        crash::mark_seen(&crash::newest_unseen(&dir).unwrap()).unwrap();
+        assert!(seen.exists() && read_offer(&dir, None, &|_| None).is_none(), "a crash already seen is not offered");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        cx.update(crate::init_app);
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        bar.update(cx, |bar, cx| bar.crash_offered(None, None, cx));
+        cx.run_until_parked();
+        assert_eq!(bar.read_with(cx, |bar, _| bar.crash_state()), (false, None));
+        let drawn = cx.update(|window, cx| crate::labels::role_named("dialog").and_then(|role| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, "Armada quit")).is_some().then_some(role)));
+        assert!(drawn.is_none(), "nothing named Armada quit is drawn");
     }
 }

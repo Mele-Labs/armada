@@ -195,18 +195,30 @@ pub(crate) struct Crash {
     pub at: DateTime<Utc>,
     /// The first line of the panic's message.
     pub panic: String,
+    /// Where it panicked, as `file:line:column`; empty where the report does not say.
+    pub location: String,
 }
 
-/// The time a report's name carries, if it is one.
-fn time_of(name: &str) -> Option<DateTime<Utc>> {
-    let stamp = name.strip_prefix("crash-")?.strip_suffix(".txt")?.get(..18)?;
-    NaiveDateTime::parse_from_str(stamp, "%Y-%m-%dT%H%M%SZ").ok().map(|time| Utc.from_utc_datetime(&time))
+/// The time a report's name carries, and which of that second's it is, if the name is a report's.
+fn time_of(name: &str) -> Option<(DateTime<Utc>, u32)> {
+    let rest = name.strip_prefix("crash-")?.strip_suffix(".txt")?;
+    let time = NaiveDateTime::parse_from_str(rest.get(..18)?, "%Y-%m-%dT%H%M%SZ").ok()?;
+    let nth = match rest.get(18..)? {
+        "" => 1,
+        more => more.strip_prefix('-')?.parse().ok()?,
+    };
+    Some((Utc.from_utc_datetime(&time), nth))
 }
 
 fn seen_mark(file: &Path) -> PathBuf {
     let mut name = file.file_name().map(|name| name.to_os_string()).unwrap_or_default();
     name.push(".seen");
     file.with_file_name(name)
+}
+
+/// Where the report says it panicked.
+pub(crate) fn location_line(text: &str) -> String {
+    text.lines().find_map(|line| line.strip_prefix("at: ")).unwrap_or_default().to_string()
 }
 
 /// The first panic line of a report's text.
@@ -217,13 +229,13 @@ pub(crate) fn panic_line(text: &str) -> String {
 /// The newest report in `dir` not marked seen.
 pub(crate) fn newest_unseen(dir: &Path) -> Option<Crash> {
     let entries = std::fs::read_dir(dir).ok()?;
-    let (at, file) = entries
+    let ((at, _), file) = entries
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| Some((time_of(entry.file_name().to_str()?)?, entry.path())))
         .filter(|(_, file)| !seen_mark(file).exists())
         .max()?;
-    let panic = std::fs::read_to_string(&file).map(|text| panic_line(&text)).unwrap_or_default();
-    Some(Crash { file, at, panic })
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    Some(Crash { file, at, panic: panic_line(&text), location: location_line(&text) })
 }
 
 /// The newest report not yet seen.
@@ -263,6 +275,9 @@ pub(crate) fn macos_report(dir: &Path, crash: &Crash) -> Option<PathBuf> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct KeptDraft {
     pub key: String,
+    /// What the panel names it by: Dispatch sheet, Composer or Note.
+    pub kind: &'static str,
+    /// The kind and the Job it was for, where there is one.
     pub label: String,
     pub first_line: String,
 }
@@ -279,16 +294,16 @@ pub(crate) fn kept_in(drafts: &HashMap<String, String>, by_job: &HashMap<String,
     let mut listed: Vec<KeptDraft> = drafts
         .iter()
         .filter_map(|(key, words)| {
-            let (label, words) = match key.as_str() {
-                "dispatch:request" => ("Dispatch sheet".to_string(), words.clone()),
+            let (kind, label, words) = match key.as_str() {
+                "dispatch:request" => ("Dispatch sheet", "Dispatch sheet", words.clone()),
                 // The Operator's box keeps its words and chips together as one text.
-                "operator:compose" => ("Operator composer".to_string(), ipc::decode::<crate::job_view::composer::Kept>("the Operator's draft", words.as_bytes()).map(|kept| kept.text).unwrap_or_else(|_| words.clone())),
-                "annotate:note" => ("Note".to_string(), words.clone()),
-                key if key.starts_with("walk-note:") => ("Note".to_string(), words.clone()),
+                "operator:compose" => ("Composer", "Operator composer", ipc::decode::<crate::job_view::composer::Kept>("the Operator's draft", words.as_bytes()).map(|kept| kept.text).unwrap_or_else(|_| words.clone())),
+                "annotate:note" => ("Note", "Note", words.clone()),
+                key if key.starts_with("walk-note:") => ("Note", "Note", words.clone()),
                 _ => return None,
             };
             let first_line = first_line(&words);
-            (!first_line.is_empty()).then(|| KeptDraft { key: key.clone(), label, first_line })
+            (!first_line.is_empty()).then(|| KeptDraft { key: key.clone(), kind, label: label.to_string(), first_line })
         })
         .collect();
     listed.extend(by_job.iter().filter_map(|(key, kept)| {
@@ -297,14 +312,14 @@ pub(crate) fn kept_in(drafts: &HashMap<String, String>, by_job: &HashMap<String,
             return None;
         }
         let named = |job: &str| title_of(job).unwrap_or_else(|| job.to_string());
-        let label = match key.split(':').collect::<Vec<_>>().as_slice() {
-            [job] => format!("Composer \u{b7} {}", named(job)),
-            ["teach", job] => format!("Teach \u{b7} {}", named(job)),
-            ["waiting", job, _] => format!("Answer \u{b7} {}", named(job)),
-            [_, job, ..] if title_of(job).is_some() => format!("Note \u{b7} {}", named(job)),
-            _ => "Note".to_string(),
+        let (kind, label) = match key.split(':').collect::<Vec<_>>().as_slice() {
+            [job] => ("Composer", format!("Composer \u{b7} {}", named(job))),
+            ["teach", job] => ("Note", format!("Teach \u{b7} {}", named(job))),
+            ["waiting", job, _] => ("Note", format!("Answer \u{b7} {}", named(job))),
+            [_, job, ..] if title_of(job).is_some() => ("Note", format!("Note \u{b7} {}", named(job))),
+            _ => ("Note", "Note".to_string()),
         };
-        Some(KeptDraft { key: key.clone(), label, first_line })
+        Some(KeptDraft { key: key.clone(), kind, label, first_line })
     }));
     listed.sort_by(|a, b| (&a.label, &a.key).cmp(&(&b.label, &b.key)));
     listed
@@ -391,6 +406,7 @@ mod tests {
             "time: 2026-11-14 12:01:02 +01:00\ntime utc: 2026-11-14T11:01:02Z\nbuild: bridge-native 0.0.0 protocol abc\nthread: main\npanic: already borrowed\nsecond line\nat: src/x.rs:3:9\n\nbacktrace:\n0: frame\n"
         );
         assert_eq!(panic_line(&text), "already borrowed");
+        assert_eq!(location_line(&text), "src/x.rs:3:9");
         assert_eq!(panic_line(&report(&facts("", ""))), "no message");
     }
 
@@ -406,6 +422,7 @@ mod tests {
 
         let newest = newest_unseen(&dir).expect("a report stands");
         assert_eq!((newest.file.as_path(), newest.at, newest.panic.as_str()), (later.as_path(), at("2026-11-14T120000Z"), "three"));
+        assert_eq!(newest.location, "", "a report with no place names none");
 
         mark_seen(&newest).unwrap();
         let next = newest_unseen(&dir).expect("the others stand");
@@ -436,7 +453,7 @@ mod tests {
     #[test]
     fn only_armada_reports_are_looked_at() {
         let reports = dir("macos");
-        let crash = Crash { file: reports.join("crash-2026-11-14T110102Z.txt"), at: Utc::now(), panic: String::new() };
+        let crash = Crash { file: reports.join("crash-2026-11-14T110102Z.txt"), at: Utc::now(), panic: String::new(), location: String::new() };
         std::fs::write(reports.join("git-2026-11-14-160242.ips"), "x").unwrap();
         assert_eq!(macos_report(&reports, &crash), None);
         std::fs::write(reports.join("Armada-2026-11-14-111520.ips"), "x").unwrap();
@@ -463,6 +480,8 @@ mod tests {
             .collect();
         let title = |job: &str| (job == "job-1").then(|| "Fix the toasts".to_string());
 
+        let kinds: Vec<&str> = kept_in(&drafts, &by_job, &title).into_iter().map(|one| one.kind).collect();
+        assert_eq!(kinds, ["Composer", "Dispatch sheet", "Note", "Composer", "Note"], "what the panel's column says");
         let listed: Vec<(String, String)> = kept_in(&drafts, &by_job, &title).into_iter().map(|one| (one.label, one.first_line)).collect();
         let pair = |label: &str, line: &str| (label.to_string(), line.to_string());
         assert_eq!(
@@ -479,7 +498,7 @@ mod tests {
 
     #[test]
     fn start_a_job_to_fix_it_sends_the_words_and_both_reports_as_text() {
-        let crash = Crash { file: PathBuf::from("crash-2026-11-14T110102Z.txt"), at: at("2026-11-14T110102Z"), panic: "already borrowed".into() };
+        let crash = Crash { file: PathBuf::from("crash-2026-11-14T110102Z.txt"), at: at("2026-11-14T110102Z"), panic: "already borrowed".into(), location: "src/x.rs:3:9".into() };
         let job = fix_dispatch(&crash, vec![("crash-2026-11-14T110102Z.txt".into(), b"panic: x".to_vec()), ("Armada-2026-11-14-111520.ips".into(), b"{}".to_vec())], ManifestId::carried("armada-1"));
         assert_eq!(job.start.manifest_id, ManifestId::carried("armada-1"));
         assert_eq!(job.kind, Some(DispatchKind::Bug));
