@@ -71,6 +71,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
             running: true,
             commands: Vec::new(),
             paused: None,
+            moving_to_mac: None,
             start: None,
             start_failed: None,
             project: None,

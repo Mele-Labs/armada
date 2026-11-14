@@ -96,9 +96,10 @@ where
         if sent.id.trim().is_empty() {
             return Err(Refusal::Unacceptable(WireError::raised(ACT_UNNAMED, "An act from another Mac needs an id.", self.run_id())));
         }
-        match sent.act.session_id() {
-            Some(job) => self.act_from_other_mac(job).await?,
-            None => self.start_from_other_mac(sent.act.starts_in())?,
+        match (&sent.act, sent.act.session_id()) {
+            (_, Some(job)) => self.act_from_other_mac(job).await?,
+            (JobAct::Arrive(job), None) => self.arrival_checked(job).await?,
+            (_, None) => self.start_from_other_mac(sent.act.starts_in())?,
         }
         match &sent.act {
             JobAct::Merge { session_id, repository, number } if !self.pull_owned_by(session_id, repository, *number).await => {
@@ -117,6 +118,17 @@ where
             return Ok(ActBegun::Answered(ActAnswered { status: ran.status, body: ran.body.into_bytes() }));
         }
         Ok(ActBegun::Run(ActTurn { mac, id: sent.id.clone(), what: sent.act.name(), held: Box::new(held) }))
+    }
+
+    /// A Job moved here lands in a repository of the project it names: one of this Mac's shared projects, where it
+    /// is coming home, or the sending Mac's, which this Mac holds a copy of. Any other is refused as a start is.
+    async fn arrival_checked(&self, job: &ipc::ArrivingJob) -> Result<(), Refusal> {
+        let project = job.record.hosted.as_ref().and_then(|hosted| hosted.project.as_deref());
+        let manifest = job.record.manifest_id.as_ref().map_or("", |one| one.as_str());
+        match project {
+            Some(id) if (self.project_shared(id) && self.project_holds(id, manifest)) || self.copy_held(id, Some(manifest)).await => Ok(()),
+            other => Err(Refusal::NotFound(WireError::raised(NO_SUCH_PROJECT, format!("there is no project {}", other.unwrap_or_default()), self.run_id()))),
+        }
     }
 
     /// A start from another Mac names no Job, folder or wait of this one, and a repository of the shared project it names.
@@ -194,8 +206,11 @@ where
     }
 
     /// Whether anything is held from Mac `mac`: a Job it shares or a project, which is all a start needs of it.
-    async fn mac_known(&self, mac: &str) -> bool {
+    pub(crate) async fn mac_known(&self, mac: &str) -> bool {
         let store = self.store().lock().await;
+        if store.paired_macs().is_ok_and(|paired| paired.iter().any(|one| one.id == mac && one.state == store::MacState::Linked)) {
+            return true;
+        }
         [FromMac::Sessions, FromMac::Projects]
             .into_iter()
             .any(|list| store.held_from_macs(list).is_ok_and(|held| held.iter().any(|one| one.mac == mac)))

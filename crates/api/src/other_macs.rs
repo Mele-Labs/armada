@@ -24,6 +24,8 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_mac/projects", get(share_projects::<D>))
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
         .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
+        .route("/other_mac/conversation", get(crate::mac_acts::share_job_conversation::<D>))
+        .route("/sessions/move_to_mac", post(crate::mac_acts::move_job_to_mac::<D>))
         .route("/queued", get(crate::mac_acts::list_queued::<D>))
         .route("/queued/take_back", post(crate::mac_acts::take_back_queued::<D>))
         .route("/other_mac/events", get(share_events::<D>))
