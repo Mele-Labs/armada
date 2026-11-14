@@ -198,6 +198,9 @@ pub(crate) struct Waited {
     pub plan_held: Vec<ipc::PlanHold>,
     /// A question that lapsed still stands for him: it is no item, but it waits on him all the same.
     pub lapsed: bool,
+    /// The sketches drawn in the turn still running, read off the one look at the turn the items took: not raised
+    /// until it ends, and answered on their cards meanwhile.
+    pub held: Vec<WaitingItem>,
 }
 
 pub(crate) fn waiting_reads(
@@ -581,6 +584,7 @@ where
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
@@ -731,9 +735,21 @@ where
             // A ruling he took back is a question of his again, until he answers it or drops it.
             items.extend(crate::operator::undone_items(&undone).filter(|one| !dismissed.contains(&one.id)));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
-            // pending plan names waits with the plan instead, and its Approve settles it.
+            // pending plan names waits with the plan instead, and its Approve settles it. One drawn in the turn still
+            // running waits once it ends, so the result sketch `all_done` settles never shows and goes.
             let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
-            items.extend(super::sketching::sketch_items(attachments, &session.id, in_plan).filter(|one| !dismissed.contains(&one.id)));
+            let turn_began = (session.origin == "bridge")
+                .then(|| {
+                    let runtime = self.hosts().of(&session.id);
+                    let state = runtime.state();
+                    matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
+                })
+                .flatten();
+            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan)
+                .filter(|one| !dismissed.contains(&one.id))
+                .partition(|one| super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref()));
+            items.extend(raised);
+            held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -863,7 +879,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open, held }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -1018,6 +1034,8 @@ where
         // A job in a terminal holds no hosting, so there is nothing to give back and the call says so
         // by failing; what stays is named by `finish_up`.
         let _ = self.finished_up(None, ipc::FinishUp { session_id: Some(ipc::SessionId::carried(&id)) }).await;
+        // A step or a gate that waits on his approval of a sketch keeps it his to answer.
+        let sketch_gated = self.approval_gate_waits(&id, ipc::PlanGate::SketchApproved, crate::rail_ends::End::SketchApproved).await;
         let asked;
         let record = {
             let mut store = self.store().lock().await;
@@ -1029,6 +1047,14 @@ where
                 return Err(self.closed(&id));
             }
             let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
+            // The sketch the result leads with rides on the done card, so it stops asking on its own.
+            let result = match sketch_gated {
+                true => None,
+                false => super::picture_shown::result_sketch(&store, &id).map_err(|why| self.ledger_fault(why))?,
+            };
+            if let Some(result) = result {
+                store.dismiss_waiting(&id, &result).map_err(|why| self.ledger_fault(why))?;
+            }
             store
                 .keep_done(&id, &now, summary)
                 .map_err(|why| self.ledger_fault(why))?;
@@ -1513,7 +1539,8 @@ where
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-        Ok(self.ledger_row(&store, &session)?.waiting_for)
+        let (record, held) = self.ledger_parts(&session, self.ledger_reads(&store, &session)?);
+        Ok(super::sketching::answerable(record.waiting_for, held))
     }
 
     /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by
