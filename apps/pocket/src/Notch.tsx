@@ -95,7 +95,14 @@ function Rings({ usage }: { usage: PlanUsageBody | undefined }) {
 /** Native's Fleet dot, read across the paired Macs: every one answering, some not, or none. */
 function FleetDot({ macs }: { macs: readonly Mac[] }) {
   const down = macs.filter((mac) => !mac.paired || mac.error !== undefined);
-  const tone = macs.length === 0 ? "unknown" : down.length === 0 ? "running" : down.length < macs.length ? "some" : "down";
+  const tone =
+    macs.length === 0
+      ? "unknown"
+      : down.length === 0
+        ? "running"
+        : down.length < macs.length
+          ? "some"
+          : "down";
   const name = (mac: Mac) => mac.machine.name || new URL(mac.machine.origin).hostname;
   const said =
     tone === "running"
@@ -134,7 +141,13 @@ function Item({
   onPress: () => void;
 }) {
   return (
-    <button type="button" role="menuitem" className="pk-menu__item" data-on={on || undefined} onClick={onPress}>
+    <button
+      type="button"
+      role="menuitem"
+      className="pk-menu__item"
+      data-on={on || undefined}
+      onClick={onPress}
+    >
       <span className="pk-menu__glyph">{icon}</span>
       <span className="pk-menu__words">{children}</span>
       {end === undefined ? null : <span className="pk-menu__end">{end}</span>}
@@ -166,7 +179,9 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
     const away = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", away);
     return () => window.removeEventListener("keydown", away);
-  }, [open]);
+  }, [
+    open,
+  ]);
   const press = (act: () => void) => () => {
     setOpen(false);
     act();
@@ -185,12 +200,21 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
           aria-label={place === "jobs" ? "Jobs" : "Back to Jobs"}
           onClick={() => go("/")}
         >
-          {place === "jobs" ? <Box size={14} aria-hidden="true" /> : <ChevronLeft size={14} aria-hidden="true" />}
+          {place === "jobs" ? (
+            <Box size={14} aria-hidden="true" />
+          ) : (
+            <ChevronLeft size={14} aria-hidden="true" />
+          )}
           Jobs
         </button>
         {onSearch === undefined ? null : (
           <Tooltip label="Search Jobs">
-            <button type="button" className="pk-notch__search" aria-label="Search Jobs" onClick={onSearch}>
+            <button
+              type="button"
+              className="pk-notch__search"
+              aria-label="Search Jobs"
+              onClick={onSearch}
+            >
               <Search size={16} aria-hidden="true" />
             </button>
           </Tooltip>
@@ -214,7 +238,12 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
       </span>
       {!open ? null : (
         <>
-          <button type="button" className="pk-menu__away" aria-label="Close the menu" onClick={() => setOpen(false)} />
+          <button
+            type="button"
+            className="pk-menu__away"
+            aria-label="Close the menu"
+            onClick={() => setOpen(false)}
+          />
           <div className="pk-menu" role="menu" aria-label="Menu">
             <p className="pk-menu__head">Macs</p>
             {macs.map((mac, at) => {
@@ -230,7 +259,10 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
                 </Item>
               );
             })}
-            <Item icon={<Plus size={16} aria-hidden="true" />} onPress={press(() => go(pairPath()))}>
+            <Item
+              icon={<Plus size={16} aria-hidden="true" />}
+              onPress={press(() => go(pairPath()))}
+            >
               Pair a Mac
             </Item>
             {projects === undefined || projects.names.length < 2 ? null : (
@@ -257,14 +289,23 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
               </>
             )}
             <hr className="pk-menu__rule" />
-            <Item icon={<Plus size={16} aria-hidden="true" />} onPress={press(() => go("/dispatch"))}>
+            <Item
+              icon={<Plus size={16} aria-hidden="true" />}
+              onPress={press(() => go("/dispatch"))}
+            >
               New Job
             </Item>
-            <Item icon={<Bot size={16} aria-hidden="true" />} onPress={press(() => go("/operator"))}>
+            <Item
+              icon={<Bot size={16} aria-hidden="true" />}
+              onPress={press(() => go("/operator"))}
+            >
               Operator
             </Item>
             {projects === undefined ? null : (
-              <Item icon={<FileText size={16} aria-hidden="true" />} onPress={press(projects.onDrafts)}>
+              <Item
+                icon={<FileText size={16} aria-hidden="true" />}
+                onPress={press(projects.onDrafts)}
+              >
                 Drafts
               </Item>
             )}

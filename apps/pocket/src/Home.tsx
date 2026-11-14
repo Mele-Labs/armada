@@ -83,7 +83,12 @@ export function Home() {
   const fold = (item: Item) => {
     const next = new Set(folded);
     if (!next.delete(keyOf(item))) next.add(keyOf(item));
-    localStorage.setItem(FOLDS, JSON.stringify([...next]));
+    localStorage.setItem(
+      FOLDS,
+      JSON.stringify([
+        ...next,
+      ]),
+    );
     setFolded(next);
   };
   /** A search or a narrower scope lists the Jobs it finds on their own, out of their starters' folds. */
@@ -137,7 +142,11 @@ export function Home() {
           />
         </label>
         <label className="pk-scope">
-          <select aria-label="Which Jobs the list holds" value={scope} onChange={(event) => setScope(event.target.value as Scope)}>
+          <select
+            aria-label="Which Jobs the list holds"
+            value={scope}
+            onChange={(event) => setScope(event.target.value as Scope)}
+          >
             {Object.entries(SCOPES).map(([value, name]) => (
               <option key={value} value={value}>
                 {name}
@@ -151,7 +160,11 @@ export function Home() {
         {troubled.length === 0 ? null : (
           <ul className="pk-jobs" aria-label="Macs">
             {troubled.map((mac) => (
-              <MacRow key={mac.machine.origin} mac={mac} onPair={() => go(pairPath(mac.machine.origin))} />
+              <MacRow
+                key={mac.machine.origin}
+                mac={mac}
+                onPair={() => go(pairPath(mac.machine.origin))}
+              />
             ))}
           </ul>
         )}

@@ -155,7 +155,10 @@ export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
 }
 
 /** Where a Job stands in its project, as native's `standing_of`: Needs you first, then the loudest inside it. */
-export function standingOf(item: Pick<Item, "session" | "state">): [number, number] {
+export function standingOf(item: Pick<Item, "session" | "state">): [
+  number,
+  number,
+] {
   const lamp = lampOf(item);
   const group =
     item.session.mark?.group ??

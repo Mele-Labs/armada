@@ -4,7 +4,14 @@
 
 import type { CSSProperties } from "react";
 import { ChevronDown, ChevronRight, Link as Linked, PowerOff, Unplug } from "lucide-react";
-import { bucketOf, Button, sessionGlyphOf, Stamp, Tooltip, type SessionState } from "@armada/components";
+import {
+  bucketOf,
+  Button,
+  sessionGlyphOf,
+  Stamp,
+  Tooltip,
+  type SessionState,
+} from "@armada/components";
 
 import type { Item, Line, Mac } from "./fleet";
 import { lampOf, standingOf } from "./rowState";
@@ -35,12 +42,25 @@ const WORDS: Record<SessionState, string> = {
 };
 
 /** A state's glyph in its bucket's hue, named by its tooltip. */
-export function StateGlyph({ state, said, size = 16 }: { state: SessionState; said?: string; size?: number }) {
+export function StateGlyph({
+  state,
+  said,
+  size = 16,
+}: {
+  state: SessionState;
+  said?: string;
+  size?: number;
+}) {
   const Glyph = sessionGlyphOf(state);
   const words = said ?? WORDS[state];
   return (
     <Tooltip label={words}>
-      <span className="pk-glyph" data-bucket={state === "paused" ? "idle" : bucketOf(state)} role="img" aria-label={words}>
+      <span
+        className="pk-glyph"
+        data-bucket={state === "paused" ? "idle" : bucketOf(state)}
+        role="img"
+        aria-label={words}
+      >
         <Glyph size={size} aria-hidden="true" />
       </span>
     </Tooltip>
@@ -53,13 +73,21 @@ export function MacDot({ mac, macs }: { mac: Mac; macs: readonly Mac[] }) {
   const name = mac.machine.name || new URL(mac.machine.origin).hostname;
   return (
     <Tooltip label={name}>
-      <span className="pk-mac" data-hue={MAC_HUES[at % MAC_HUES.length]} role="img" aria-label={name} />
+      <span
+        className="pk-mac"
+        data-hue={MAC_HUES[at % MAC_HUES.length]}
+        role="img"
+        aria-label={name}
+      />
     </Tooltip>
   );
 }
 
 /** What a row's second line says, where it has one. */
-function secondOf(item: Item): { chips: string[]; says: string } {
+function secondOf(item: Item): {
+  chips: string[];
+  says: string;
+} {
   const { session, state, said } = item;
   if (state === "done")
     return {
@@ -72,19 +100,34 @@ function secondOf(item: Item): { chips: string[]; says: string } {
       says: said,
     };
   const chips = [
-    ...(session.pull === undefined ? [] : [`#${session.pull}`]),
-    ...(session.issue === undefined ? [] : [session.issue.number]),
+    ...(session.pull === undefined
+      ? []
+      : [
+          `#${session.pull}`,
+        ]),
+    ...(session.issue === undefined
+      ? []
+      : [
+          session.issue.number,
+        ]),
   ];
   return {
     chips,
-    says: [session.step, session.now].filter((one) => one !== undefined && one !== "").join(" · "),
+    says: [
+      session.step,
+      session.now,
+    ]
+      .filter((one) => one !== undefined && one !== "")
+      .join(" · "),
   };
 }
 
 /** The glyphs a folded starter carries: one per state its sub-Jobs are in, Needs you first, each naming them. */
 function Strip({ kids }: { kids: readonly Item[] }) {
   const states: SessionState[] = [];
-  for (const kid of [...kids].sort((a, b) => standingOf(a)[0] - standingOf(b)[0]))
+  for (const kid of [
+    ...kids,
+  ].sort((a, b) => standingOf(a)[0] - standingOf(b)[0]))
     if (!states.includes(kid.state)) states.push(kid.state);
   return (
     <span className="pk-strip">
@@ -128,7 +171,8 @@ export function JobRow({
   const lamp = lampOf(item);
   const { chips, says } = secondOf(item);
   const title = session.title ?? "";
-  const glyphSaid = session.mark === undefined && state !== "done" && state !== "idle" ? said : WORDS[state];
+  const glyphSaid =
+    session.mark === undefined && state !== "done" && state !== "idle" ? said : WORDS[state];
   return (
     <li
       className="pk-job"
@@ -144,10 +188,36 @@ export function JobRow({
       {depth === 0 ? null : (
         <span className="pk-job__guides" aria-hidden="true">
           {through.map((runs, at) =>
-            runs ? <span key={at} className="pk-job__guide" style={{ "--pk-column": at } as CSSProperties} /> : null,
+            runs ? (
+              <span
+                key={at}
+                className="pk-job__guide"
+                style={
+                  {
+                    "--pk-column": at,
+                  } as CSSProperties
+                }
+              />
+            ) : null,
           )}
-          {last ? null : <span className="pk-job__guide" style={{ "--pk-column": depth - 1 } as CSSProperties} />}
-          <span className="pk-job__guide pk-job__guide--elbow" style={{ "--pk-column": depth - 1 } as CSSProperties} />
+          {last ? null : (
+            <span
+              className="pk-job__guide"
+              style={
+                {
+                  "--pk-column": depth - 1,
+                } as CSSProperties
+              }
+            />
+          )}
+          <span
+            className="pk-job__guide pk-job__guide--elbow"
+            style={
+              {
+                "--pk-column": depth - 1,
+              } as CSSProperties
+            }
+          />
         </span>
       )}
       <div className="pk-job__card" data-lamp={lamp} data-sub={depth > 0 || undefined}>
@@ -161,7 +231,11 @@ export function JobRow({
                 aria-expanded={!folded}
                 onClick={onFold}
               >
-                {folded ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                {folded ? (
+                  <ChevronRight size={14} aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={14} aria-hidden="true" />
+                )}
               </button>
             </Tooltip>
           )}
@@ -170,7 +244,11 @@ export function JobRow({
           <span className="pk-job__line">
             {depth === 0 || session.from === undefined ? null : (
               <Tooltip label={`Linked Job, started by ${session.from.title}`}>
-                <span className="pk-job__link" role="img" aria-label={`Started by ${session.from.title}`}>
+                <span
+                  className="pk-job__link"
+                  role="img"
+                  aria-label={`Started by ${session.from.title}`}
+                >
                   <Linked size={12} aria-hidden="true" />
                 </span>
               </Tooltip>
