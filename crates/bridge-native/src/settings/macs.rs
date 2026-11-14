@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, px, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac};
 
@@ -16,7 +16,7 @@ use super::entries::Body;
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::gateway::{PhoneClaim, PhoneCode, Tunnel, NOT_RUNNING};
 use super::overlay::SettingsOverlay;
-use super::view::{bone, bounds_of, card, ghost, mono, ringed, tip};
+use super::view::{bone, bounds_of, card, ghost, ringed, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -1061,7 +1061,18 @@ impl SettingsOverlay {
             Part::Cards => vec![capped(self.lead_cards(look, window, cx))],
             Part::Steps => vec![capped(self.steps_card(look, window, cx))],
             Part::Waiting => vec![capped(self.waiting_card(look, window, cx))],
-            Part::Page => vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)],
+            Part::Page => {
+                let room = page_room(look, window, cx);
+                if room < px(TWO_COLUMNS) {
+                    return vec![self.this_mac_card(look), self.tunnel_card(look, window, cx), self.devices_card(look, window, cx)];
+                }
+                // This Mac and its tunnel stack on the left and the list of Devices fills the right. The page's own
+                // stack stops at `PAGE_MAX`, so the pair is as wide as the page and stands out of it.
+                let gap = look.length(token::GAP_PANEL);
+                let left = div().flex_1().min_w_0().flex().flex_col().gap(gap).child(self.this_mac_card(look)).child(self.tunnel_card(look, window, cx));
+                let right = div().flex_1().min_w_0().child(self.devices_card(look, window, cx));
+                vec![div().flex_none().w(room).flex().items_start().gap(gap).child(left).child(right).into_any_element()]
+            }
         }
     }
 
@@ -1190,7 +1201,7 @@ impl SettingsOverlay {
             Some(Ok(setup)) => {
                 body.extend(self.tunnel_rows(setup, look, window, cx));
                 if let Some(version) = &setup.cloudflared {
-                    let line = div().id("macs-cloudflared").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
+                    let line = div().id("macs-cloudflared").flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("cloudflared version".to_string())).child(SharedString::from(format!("cloudflared {version}")));
                     body.push(div().flex().child(labelled(line, Role::Label, "cloudflared version")).into_any_element());
                 }
             }
@@ -1222,7 +1233,7 @@ impl SettingsOverlay {
                 step_row(look, glyph(look, "macs-running-mark", "check", look.color(token::STATUS_COMPLETED_SUCCESS), "Connected"), line.into_any_element(), lines, Some(self.macs_button("copy", "Copy address", Weight::Ghost, false, look, window, cx)), true)
             }
             CloudflareState::Down { address, since, why } => {
-                let name = div().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
+                let name = div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.clone()));
                 let since = format!("Not connected since {}", clock_of(*since));
                 let mut lines = vec![labelled(div().id("macs-down").child(caption(look, &since)), Role::Status, since.clone()).into_any_element(), caption(look, why).into_any_element()];
                 lines.extend(refused);
@@ -1342,8 +1353,8 @@ impl SettingsOverlay {
         }
         let live = page.phone.as_ref().map(|phone| {
             let left = format!("{} left", time_left(phone.code.expires_at - chrono::Utc::now().timestamp()));
-            let link = div().id("macs-phone-link").min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
-            let figure = div().id("macs-phone-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            let link = div().id("macs-phone-link").min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(phone.link.clone()));
+            let figure = div().id("macs-phone-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             let facts = div()
                 .flex_1()
                 .min_w_0()
@@ -1408,8 +1419,8 @@ impl SettingsOverlay {
         let made = page.link.as_ref().map(|made| {
             let left = time_left(made.expires_at - chrono::Utc::now().timestamp());
             // The code is at the link's end, so a narrow page wraps it rather than cutting it off.
-            let link = div().id("macs-pair-link").flex_1().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
-            let figure = div().id("macs-pair-left").flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
+            let link = div().id("macs-pair-link").flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(made.link.clone()));
+            let figure = div().id("macs-pair-left").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip("Time left on this link")).child(SharedString::from(left.clone()));
             div()
                 .flex()
                 .items_center()
@@ -1537,6 +1548,16 @@ fn said_of<T>(read: &Result<T, String>) -> Option<&str> {
     read.as_ref().err().map(String::as_str).filter(|said| *said != NOT_RUNNING)
 }
 
+/// The page is two columns from this wide, and one column under it.
+pub(super) const TWO_COLUMNS: f32 = 840.;
+
+/// How wide the overlay leaves the page: the box is nine tenths of the room, less its padding, its border, the index
+/// and the gap between the index and the page.
+pub(super) fn page_room(look: &Look, window: &Window, cx: &App) -> Pixels {
+    let pad = look.length(token::GAP_PANEL);
+    crate::room::of(window, cx).size.width * 0.9 - pad * 3. - look.length(token::BORDER_WIDTH) * 2. - look.length(token::W_SETTINGS_INDEX)
+}
+
 /// The setup's parts stand in the settings column's width (`view.rs`'s `PAGE_MAX` on the Settings stack).
 fn capped(part: AnyElement) -> AnyElement {
     div().w_full().max_w(gpui::px(720.)).child(part).into_any_element()
@@ -1585,7 +1606,7 @@ fn glyph(look: &Look, id: impl Into<SharedString>, name: &'static str, ink: Hsla
     labelled(div().id(id.into()).flex_none().tooltip(tip(said.to_string())).child(svg().path(icon_path(name)).size(look.length(token::SPACE_4)).text_color(ink)), Role::Image, said.to_string()).into_any_element()
 }
 
-/// A sentence ending on an address, the address in mono.
+/// A sentence ending on an address.
 fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
     div()
         .flex()
@@ -1594,7 +1615,7 @@ fn reach_line(look: &Look, lead: &str, address: &str) -> gpui::Div {
         .text_size(look.length(token::TEXT_SM))
         .text_color(look.color(token::FG_MUTED))
         .child(SharedString::from(format!("{lead}\u{a0}")))
-        .child(div().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.to_string())))
+        .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(address.to_string())))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
@@ -1605,7 +1626,7 @@ fn build_mark(look: &Look, id: impl Into<SharedString>, build: &str) -> AnyEleme
 /// A build's hash in the ink given: amber on a Mac whose build differs.
 fn build_mark_in(look: &Look, id: impl Into<SharedString>, build: &str, ink: Hsla) -> AnyElement {
     let said = format!("Build {build}");
-    let hash = div().id(id.into()).flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
+    let hash = div().id(id.into()).flex_none().text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
     labelled(hash, Role::Label, said).into_any_element()
 }
 

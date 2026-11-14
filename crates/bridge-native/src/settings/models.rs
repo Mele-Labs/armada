@@ -14,7 +14,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{ModelChoices, ModelsRead, SettingValue, SettingsList};
 
 use super::overlay::{Picking, SettingsOverlay};
-use super::view::{bone, bounds_of, mono, ring_colour, ringed, small, switch_track, tip};
+use super::view::{bone, bounds_of, ring_colour, ringed, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -63,19 +63,21 @@ impl Slot {
 /// One block per run: its name, its model, then its effort where it has one (`RUNS`).
 pub struct Run {
     pub label: &'static str,
+    /// What the run is for, under its name.
+    pub says: &'static str,
     pub model: Slot,
     pub effort: Option<Slot>,
 }
 
 pub const RUNS: [Run; 8] = [
-    Run { label: "Jobs", model: Slot::Jobs, effort: None },
-    Run { label: "Drones", model: Slot::Drones, effort: Some(Slot::Effort) },
-    Run { label: "Reviews", model: Slot::Reviews, effort: None },
-    Run { label: "Judge", model: Slot::Judge, effort: Some(Slot::JudgeEffort) },
-    Run { label: "Proposer", model: Slot::Proposer, effort: Some(Slot::ProposerEffort) },
-    Run { label: "Retro", model: Slot::Retro, effort: None },
-    Run { label: "Second opinion", model: Slot::SecondOpinion, effort: None },
-    Run { label: "Step down to", model: Slot::Downshift, effort: None },
+    Run { label: "Jobs", says: "The model a Job's own thread starts on.", model: Slot::Jobs, effort: None },
+    Run { label: "Drones", says: "The model each step's Drone works on, and how hard it thinks.", model: Slot::Drones, effort: Some(Slot::Effort) },
+    Run { label: "Reviews", says: "The model that reviews a pull request.", model: Slot::Reviews, effort: None },
+    Run { label: "Judge", says: "The model that checks a step's work against its intent, and how hard it thinks.", model: Slot::Judge, effort: Some(Slot::JudgeEffort) },
+    Run { label: "Proposer", says: "The model that writes a Job's plan, and how hard it thinks.", model: Slot::Proposer, effort: Some(Slot::ProposerEffort) },
+    Run { label: "Retro", says: "The model that writes a Job's retro.", model: Slot::Retro, effort: None },
+    Run { label: "Second opinion", says: "The model asked for a second read.", model: Slot::SecondOpinion, effort: None },
+    Run { label: "Step down to", says: "The model a run moves to when plan usage runs low.", model: Slot::Downshift, effort: None },
 ];
 
 /// Every setting that names a model, and whether it falls to the first model still on or the last when the one
@@ -547,23 +549,25 @@ impl SettingsOverlay {
 
     // ---- drawn --------------------------------------------------------------------------------
 
-
-    /// The list column and the detail beside it, as Classic's Kit browser lays them out.
+    /// The list of models and the detail beside it, as Classic's Kit browser lays them out. Under `TWO_COLUMNS` the
+    /// detail goes under the list and the page scrolls.
     pub(super) fn render_models(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let read = self.kit_models();
         let (rows, row) = self.filtered(cx);
         let off = !self.live || self.saving.is_some();
+        let wide = super::macs::page_room(look, window, cx) >= px(super::macs::TWO_COLUMNS);
         let filter = labelled(
             div().id("models-filter").flex_none().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_SM)).child(Input::new(&self.models.filter)),
             Role::SearchInput,
             "Filter Models",
         );
-        let mut list = panel(look, "models-list").flex_none().w(look.length(token::W_GUIDE_LIST)).p(look.length(token::SPACE_3)).child(filter);
+        let mut list = panel(look, "models-list").flex_none().h_auto().map(|list| if wide { list.w(look.length(token::W_GUIDE_LIST)) } else { list.w_full() }).p(look.length(token::SPACE_2)).gap(look.length(token::SPACE_2)).child(filter);
+        let mut cards: Vec<AnyElement> = Vec::new();
         match &read {
             Read::Loading => {
                 for n in 0..4 {
                     list = list.child(labelled(
-                        div().id(SharedString::from(format!("models-bone-{n}"))).flex().items_center().justify_between().h(look.length(token::H_CONTROL)).px(look.length(token::SPACE_3)).child(bone(look, px(96.), look.length(token::LEADING_XS))).child(bone(look, px(48.), look.length(token::LEADING_XS))),
+                        div().id(SharedString::from(format!("models-bone-{n}"))).flex().items_center().justify_between().h(look.length(token::H_CONTROL_LG)).px(look.length(token::SPACE_3)).child(bone(look, px(96.), look.length(token::LEADING_XS))).child(bone(look, px(48.), look.length(token::LEADING_XS))),
                         Role::Image,
                         "Loading",
                     ));
@@ -592,10 +596,11 @@ impl SettingsOverlay {
                 if let Some(said) = self.refused.get("models.roster") {
                     list = list.child(labelled(super::view::refusal(look, said.clone()).id("models-refused"), Role::Alert, said.clone()));
                 }
-                list = list.child(self.render_runs(models, off, look, window, cx));
+                cards.extend(row.as_ref().map(|row| self.render_model_detail(row, look)));
+                cards.push(self.render_runs(models, off, look, window, cx));
             }
         }
-        let detail = panel(look, "models-detail").flex_1().p(look.length(token::SPACE_4)).children(row.map(|row| self.render_model_detail(&row, look)));
+        let detail = div().id("models-detail").flex().flex_col().min_w_0().gap(look.length(token::GAP_PANEL)).map(|detail| if wide { detail.flex_1().min_h_0().h_full().overflow_y_scroll() } else { detail.flex_none().w_full() }).children(cards);
         div()
             .id("settings-page")
             .flex_1()
@@ -603,11 +608,14 @@ impl SettingsOverlay {
             .h_full()
             .flex()
             .gap(look.length(token::GAP_PANEL))
+            .map(|page| if wide { page.items_start() } else { page.flex_col().overflow_y_scroll() })
             .child(labelled(list, Role::Region, "Models"))
             .child(labelled(detail, Role::Region, "Detail"))
             .into_any_element()
     }
 
+    /// One model: its name and version, then the switch that lets Jobs use it at the row's end. The picked row is a wash
+    /// in the accent with an edge, as the index's picked page is.
     #[allow(clippy::too_many_arguments)]
     fn render_model_row(&self, one: &Model, ruled: bool, current: bool, last_on: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let Some([row_key, switch_key]) = self.models.rows.get(&one.name).cloned() else { return div().into_any_element() };
@@ -622,22 +630,22 @@ impl SettingsOverlay {
                 .min_w_0()
                 .flex()
                 .items_center()
-                .justify_between()
-                .gap(look.length(token::SPACE_3))
-                .min_h(look.length(token::H_CONTROL))
-                .px(look.length(token::SPACE_3))
+                .gap(look.length(token::SPACE_2))
+                .min_h(look.length(token::H_CONTROL_LG))
+                .pl(look.length(token::SPACE_3))
                 .rounded(look.length(token::RADIUS_MD))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
+                .when(current, |row| row.font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
                 .cursor_pointer()
-                .map(|row| if current { row.bg(look.color(token::SURFACE_ROW_SELECTED)) } else { row.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.1))) })
                 .on_click(cx.listener(move |this, _, window, cx| this.pick_model(&name, window, cx)))
-                .child(div().min_w_0().child(SharedString::from(one.display.clone())))
+                .child(div().id(SharedString::from(format!("model-name-{}", one.name))).min_w_0().truncate().tooltip(tip(one.resolved.clone())).child(SharedString::from(one.display.clone())))
                 .child(
                     div()
                         .id(SharedString::from(format!("model-version-{}", one.name)))
                         .flex_none()
+                        .text_size(look.length(token::TEXT_XS))
                         .text_color(look.color(token::FG_SUBTLE))
                         .tooltip(tip("Version"))
                         .child(SharedString::from(version)),
@@ -655,55 +663,58 @@ impl SettingsOverlay {
                 .flex_none()
                 .rounded_full()
                 .tooltip(tip("Jobs may use it"))
-                .child(switch_track(look, one.on, blocked))
+                .child(plain_switch(look, one.on, blocked))
                 .when(!blocked, |switch| switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.switch_model(&press, !on, window, cx)))),
             &switch_key,
             window,
         );
         div()
+            .id(SharedString::from(format!("model-row-{}", one.name)))
+            .relative()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_1))
+            .gap(look.length(token::SPACE_2))
             .min_w_0()
-            .when(ruled, |item| item.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FG_DEFAULT).opacity(0.1)))
+            .pr(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .when(ruled, |item| item.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+            .map(|item| if current { item.bg(look.color(token::SURFACE_ROW_SELECTED)) } else { item.hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER))) })
+            .when(current, |item| {
+                item.child(div().absolute().left(look.length(token::SPACE_1) / 2.).top(look.length(token::SPACE_2)).bottom(look.length(token::SPACE_2)).w(look.length(token::BORDER_WIDTH) * 3.).rounded_full().bg(look.color(token::ACCENT)))
+            })
             .child(labelled(button, Role::Button, one.display.clone()))
             .child(labelled(switch, Role::Switch, format!("{} may be used", one.display)))
             .into_any_element()
     }
 
+    /// The default models: a card of split rows, each run's name and what it is for at the left, its model and its
+    /// effort at the right.
     fn render_runs(&self, models: &[Model], off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let steps = self.effort_steps(models);
         let caption = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .pt(look.length(token::SPACE_2))
-            .font_family(mono(look))
-            .text_size(look.length(token::TEXT_2XS))
+            .px(look.length(token::PAD_CARD))
+            .pt(look.length(token::SPACE_4))
+            .pb(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-            .text_color(look.color(token::FG_MUTED))
-            .child("Default models")
-            .child(div().flex_1().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE)));
-        let mut section = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(labelled(caption.id("models-caption"), Role::Heading, "Default models"));
+            .text_color(look.color(token::FG_DEFAULT))
+            .child("Default models");
+        let mut section = card_of(look, "models-choose").child(labelled(caption.id("models-caption"), Role::Heading, "Default models"));
         for (at, run) in RUNS.iter().enumerate() {
-            let mut block = div()
-                .id(SharedString::from(format!("run-{at}")))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(run.label))
-                .child(self.render_select(at, models, off, look, window, cx));
+            let mut control = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(self.render_select(at, models, off, look, window, cx));
             if let Some(slot) = run.effort {
-                block = block.child(self.render_effort(at, slot, &steps, off, look, window, cx));
+                control = control.child(self.render_effort(at, slot, &steps, off, look, window, cx));
             }
             for slot in std::iter::once(run.model).chain(run.effort) {
                 if let Some(said) = self.refused.get(slot.key()) {
-                    block = block.child(labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("run-refused-{}", slot.key()))), Role::Alert, said.clone()));
+                    control = control.child(labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("run-refused-{}", slot.key()))), Role::Alert, said.clone()));
                 }
             }
-            section = section.child(labelled(block, Role::Group, run.label));
+            let row = split_row(look, true, run.label, run.says, control.flex_none().w(look.length(token::SPACE_12) * 5.).into_any_element());
+            section = section.child(labelled(row.id(SharedString::from(format!("run-{at}"))), Role::Group, run.label));
         }
-        labelled(section.id("models-choose"), Role::Region, "Default models").into_any_element()
+        labelled(section, Role::Region, "Default models").into_any_element()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -805,41 +816,116 @@ impl SettingsOverlay {
             .into_any_element()
     }
 
+    /// The picked model: its name, its version and what it is for at the left, its effort levels as a segmented row at
+    /// the right. The name's tooltip holds the id a Job runs.
     fn render_model_detail(&self, row: &Model, look: &Look) -> AnyElement {
-        let head = div()
+        let title = div()
             .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
+            .items_baseline()
+            .gap(look.length(token::SPACE_2))
             .min_w_0()
-            .min_h(look.length(token::SPACE_8) + look.length(token::SPACE_1))
-            .mx(-look.length(token::SPACE_4))
-            .mt(-look.length(token::SPACE_4))
-            .px(look.length(token::SPACE_4))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
             .child(labelled(
-                div().id("model-title").min_w_0().truncate().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.display.clone())),
+                div()
+                    .id("model-title")
+                    .min_w_0()
+                    .truncate()
+                    .text_size(look.length(token::TEXT_BASE))
+                    .line_height(look.length(token::LEADING_BASE))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .tooltip(tip(row.resolved.clone()))
+                    .child(SharedString::from(row.display.clone())),
                 Role::Heading,
                 row.display.clone(),
             ))
             .child(div().id("model-version").flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).tooltip(tip("Version")).child(SharedString::from(version_of(&row.resolved))));
-        let efforts = div().id("model-efforts").flex().flex_wrap().gap(look.length(token::SPACE_3)).children(row.efforts.iter().map(|level| small(look, level.clone(), look.color(token::FG_SUBTLE))));
-        labelled(
-            div()
-                .id("model-detail")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .min_w_0()
-                .child(head)
-                .child(div().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(row.resolved.clone())))
-                .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.says.clone())))
-                .child(labelled(efforts, Role::List, "Effort levels")),
-            Role::Article,
-            row.display.clone(),
-        )
-        .into_any_element()
+        let left = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(title).child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(row.says.clone())));
+        let levels = div()
+            .id("model-efforts")
+            .flex()
+            .gap(look.length(token::BORDER_WIDTH) * 2.)
+            .p(look.length(token::SPACE_1) - look.length(token::BORDER_WIDTH))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_SUNKEN))
+            .children(row.efforts.iter().map(|level| {
+                div()
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(level.clone()))
+            }));
+        let right = div().flex().flex_col().items_start().gap(look.length(token::SPACE_2)).when(!row.efforts.is_empty(), |right| {
+            right
+                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child("Effort levels"))
+                .child(labelled(levels, Role::List, "Effort levels"))
+        });
+        let body = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap_x(look.length(token::SPACE_6))
+            .gap_y(look.length(token::SPACE_3))
+            .px(look.length(token::PAD_CARD))
+            .py(look.length(token::SPACE_4))
+            .child(left.flex_1().min_w(look.length(token::SPACE_12) * 4.))
+            .child(right.flex_none());
+        labelled(card_of(look, "model-detail").child(body), Role::Article, row.display.clone()).into_any_element()
     }
+}
+
+/// A card as the split-row pages draw it: raised, hairline edge, its rows one under another.
+fn card_of(look: &Look, id: &'static str) -> gpui::Stateful<gpui::Div> {
+    div().id(id).flex_none().flex().flex_col().min_w_0().rounded(look.length(token::RADIUS_LG)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_RAISED))
+}
+
+/// A split row: the title and what it is for at the left, its control at the right, a hairline over it. The control
+/// goes under the words where the card is too narrow for both.
+fn split_row(look: &Look, ruled: bool, title: &'static str, says: &'static str, control: AnyElement) -> gpui::Div {
+    let left = div()
+        .flex_1()
+        .min_w(look.length(token::SPACE_12) * 4.)
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(title))
+        .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(says));
+    div()
+        .flex()
+        .flex_wrap()
+        .items_start()
+        .gap_x(look.length(token::SPACE_6))
+        .gap_y(look.length(token::SPACE_3))
+        .px(look.length(token::PAD_CARD))
+        .py(look.length(token::SPACE_4))
+        .when(ruled, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+        .child(left)
+        .child(control)
+}
+
+/// A switch with no words in it: a track in the accent when on, and a knob that sits at the end it is set to.
+fn plain_switch(look: &Look, on: bool, off: bool) -> gpui::Div {
+    let edge = look.length(token::BORDER_WIDTH);
+    let tall = look.length(token::H_BADGE);
+    let lit = on && !off;
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .w(look.length(token::SPACE_8))
+        .h(tall)
+        .px(edge * 2.)
+        .rounded_full()
+        .border(edge)
+        .border_color(if lit { look.color(token::ACCENT) } else { look.color(token::BORDER_STRONG) })
+        .bg(if lit { look.color(token::ACCENT) } else { look.color(token::BG_SUNKEN) })
+        .when(on, |track| track.justify_end())
+        .when(off, |track| track.opacity(0.5))
+        .child(div().flex_none().size(tall - edge * 6.).rounded_full().bg(if lit { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) }))
 }
 
 #[cfg(test)]
