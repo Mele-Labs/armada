@@ -171,6 +171,7 @@ mod gate_keeping;
 mod you_approved;
 mod gate_rules;
 mod plan_lands_in;
+mod plan_sketches;
 mod session_plan;
 mod subagent_rows;
 mod tool_descriptions;

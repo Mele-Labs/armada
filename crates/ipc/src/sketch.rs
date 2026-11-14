@@ -124,6 +124,9 @@ pub const SKETCH_SETTLED_AT: &str = "settled_at";
 pub const SKETCH_WITHDRAWN: &str = "withdrawn";
 /// His note on `sent_back`, or his words with an approval. Absent where he gave none.
 pub const SKETCH_WORDS: &str = "words";
+/// The plan version whose Approve settled it, as text, where `approve_plan` settled it with the plan that
+/// named it. A new drawing of the title does not carry it.
+pub const SKETCH_IN_PLAN: &str = "in_plan";
 
 /// How the person answered a sketch put to him.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

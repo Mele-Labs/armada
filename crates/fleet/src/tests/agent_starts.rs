@@ -477,6 +477,7 @@ async fn a_batch_starts_each_job_linked_under_the_caller_in_order_and_a_bad_one_
 
 pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
     let group = |title: &str, tasks: &[&str]| PlanGroupInput {
+        sketches: Vec::new(),
         id: None,
         title: title.into(),
         agent: "rust-engineer".into(),
@@ -489,6 +490,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: (*one).into() }).collect(),
     };
     RecordPlan {
+        sketches: Vec::new(),
         summary: "You get a plan.".into(),
         groups: vec![
             group("Name the migrations", &["Give each migration a name", "Record the name with the version"]),
