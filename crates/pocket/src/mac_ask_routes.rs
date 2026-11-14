@@ -225,8 +225,13 @@ pub async fn ask(State(gateway): State<Gateway>, Json(body): Json<AskMacPair>) -
             return said_why(StatusCode::BAD_GATEWAY, why);
         }
     };
-    let met = seen.as_ref().and_then(|seen| seen.lock().unwrap().clone());
-    let (home, nonce) = match answered(&came, &address, &other, seen.is_some().then_some(met.as_deref()).flatten()) {
+    // At a door the client always notes the certificate it met; none means the answer did not come over it.
+    let met = match seen.as_ref().map(|seen| seen.lock().unwrap().clone()) {
+        Some(None) => return said_why(StatusCode::BAD_GATEWAY, format!("{} did not show a certificate. Press Pair again.", other.name)),
+        Some(Some(met)) => Some(met),
+        None => None,
+    };
+    let (home, nonce) = match answered(&came, &address, &other, met.as_deref()) {
         Ok(answered) => answered,
         Err(refused) => return refused,
     };
