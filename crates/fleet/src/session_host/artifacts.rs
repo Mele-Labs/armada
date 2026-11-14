@@ -1,6 +1,6 @@
 //! `get_job_artifacts`: a Job's sketches, drafts and pages read as one list, each with its revisions and
 //! where its newest stands. Reads only, off the ledger rows the three are kept as, their history, his
-//! dismissals, the archives, the revisions he wrote and, for a draft, its newest row. `docs/concepts/artifact.md`.
+//! dismissals, the archives, the revisions he wrote, the presses of a page's actions and, for a draft, its newest row. `docs/concepts/artifact.md`.
 
 use std::collections::BTreeMap;
 
@@ -30,7 +30,7 @@ where
     /// Every artifact the Job holds, newest first by when its newest revision was kept.
     pub(crate) async fn job_artifacts(&self, id: &str) -> Result<Vec<JobArtifact>, Refusal> {
         let id = id.trim();
-        let (held, versions, dismissed, archives, his, plan) = {
+        let (held, versions, dismissed, archives, his, plan, presses) = {
             let store = self.store().lock().await;
             if store.session(id).map_err(|why| self.ledger_fault(why))?.is_none() {
                 return Err(self.ledger_unnamed("a job Fleet knows"));
@@ -41,7 +41,8 @@ where
             let dismissed = store.dismissed_waiting(id).map_err(|why| self.ledger_fault(why))?;
             let archives = store.artifact_archives(id).map_err(|why| self.ledger_fault(why))?;
             let plan = store.session_plan(id).map_err(|why| self.ledger_fault(why))?;
-            (held, versions, dismissed, archives, store.owner_revisions(id).map_err(|why| self.ledger_fault(why))?, plan)
+            let presses = store.page_presses(id).map_err(|why| self.ledger_fault(why))?;
+            (held, versions, dismissed, archives, store.owner_revisions(id).map_err(|why| self.ledger_fault(why))?, plan, presses)
         };
         let pending = plan.as_ref().map(|plan| (plan.version, crate::plan_record::pending_sketches(plan)));
         let made: Vec<(ArtifactForm, KeptAttachment)> =
@@ -61,6 +62,9 @@ where
         let mut artifacts: Vec<JobArtifact> =
             made.iter().map(|(form, one)| in_plan(archived(*form, one, &versions, &dismissed, &drafts, &archives), one, pending.as_ref())).collect();
         for artifact in &mut artifacts {
+            if artifact.form == ArtifactForm::Page {
+                artifact.presses = super::page_actions::presses_of(&presses, &artifact.id);
+            }
             for revision in &mut artifact.revisions {
                 if let Some(kept) = his.iter().find(|kept| kept.artifact == artifact.id && kept.revision == revision.number) {
                     *revision = ArtifactRevision { by: ArtifactBy::Owner, at: Instant::carried(kept.at.clone()), ..revision.clone() };
@@ -190,7 +194,7 @@ fn whole(form: ArtifactForm, one: &KeptAttachment, versions: &[KeptAttachmentVer
         one.target.strip_prefix(TARGET_PREFIX).or_else(|| one.target.strip_prefix(DRAFT_PREFIX)).unwrap_or(&one.target).to_string()
     });
     let for_line = ipc::ArtifactFor::of_detail(&one.detail);
-    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line, in_plan: None }
+    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line, in_plan: None, presses: Vec::new() }
 }
 
 /// Every revision the row's `revisions` names, oldest first, and one where it names none. The first was

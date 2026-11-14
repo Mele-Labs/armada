@@ -209,6 +209,7 @@ impl TitleBar {
                                     .child(div().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(value))
                             }))
                         }))
+                        .children(fleet.disk.as_ref().filter(|_| fleet.connection.is_live()).map(|disk| super::disk::section(disk, look)))
                         .children(sentence.map(|said| {
                             small(look).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).whitespace_normal().child(said)
                         }))

@@ -8,7 +8,8 @@
 //!
 //! The serde shape is Classic's own JSON: `{ root, focus, next, threadWas? }`, nodes tagged by
 //! `type`, a tab's kind its string name, and an absent field never written as `null`.
-#![allow(dead_code)] // PR 2 draws the panes from this.
+#![allow(dead_code)] // The drag, layout and kept-shape parts are drawn by the pane PRs after this one.
+
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};

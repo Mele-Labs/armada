@@ -17,8 +17,8 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, App, Context, DismissEvent, Entity, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Point,
-    Role, SharedString, Subscription, Task, Window,
+    div, prelude::*, px, App, Context, DismissEvent, Entity, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Point,
+    Role, ScrollHandle, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState, TextareaState};
 use ipc::PullReviewList;
@@ -29,17 +29,18 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
-use model::{Critique, DraftOf, Group, Inbox, Mine, Page, Section, Summary, Tool, ToolRun, Verdict, Viewed};
+use model::{Critique, DraftOf, Explain, Group, Inbox, Mine, Page, Summary, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
-pub const KINDS: [(&str, &str); 7] = [
+pub const KINDS: [(&str, &str); 8] = [
+    ("pr-overview", "Overview"),
+    ("pr-change-set", "Change set"),
     ("pr-changed", "What changed"),
     ("pr-files", "Files"),
     ("pr-conversation", "Conversation"),
     ("pr-checks", "Checks"),
     ("pr-findings", "Review comments"),
     ("pr-comments", "Comments"),
-    ("pr-tools", "Tools"),
 ];
 
 /// A tab kind's name, as its tab and VoiceOver say it.
@@ -50,7 +51,7 @@ pub fn said(kind: &str) -> &'static str {
 /// The three columns he agreed: the inbox beside, the page's main tabs, and a side pane for what a review adds.
 pub fn default_arrangement() -> Arrangement {
     tree::build(
-        &Shape::split(Dir::Row, 0.64, Shape::pane(&["pr-changed", "pr-files", "pr-conversation", "pr-checks"]), Shape::pane(&["pr-findings", "pr-comments", "pr-tools"])),
+        &Shape::split(Dir::Row, 0.6, Shape::pane(&["pr-overview", "pr-changed", "pr-files", "pr-conversation", "pr-checks"]), Shape::pane(&["pr-findings", "pr-comments"])),
         None,
         &[],
     )
@@ -64,8 +65,10 @@ const REFRESH_READ: Duration = Duration::from_millis(4000);
 const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
 /// How long the mock summary of the new commits takes to write.
 const SUMMARY_WRITE: Duration = Duration::from_millis(2500);
-/// How long a mock review tool takes.
-const TOOL_RUN: Duration = Duration::from_millis(2000);
+/// How long a change set's mock How it works or How to test takes.
+const EXPLAIN_RUN: Duration = Duration::from_millis(2000);
+/// The change set tab's lines above its first hunk, so Show in change set can scroll to one.
+pub(super) const HUNKS_AT: usize = 6;
 
 /// A question the screen holds up before it acts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,6 +115,8 @@ pub struct ReviewsScreen {
     control: Entity<LayoutControl>,
     /// The panes' area as last drawn, so a drop that would squeeze a pane is refused.
     area: Rc<Cell<Option<Size>>>,
+    /// Each pane's tab strip width as last drawn, so a crowded strip draws the tabs behind as glyphs.
+    strips: Rc<std::cell::RefCell<HashMap<String, gpui::Pixels>>>,
     /// The pane a tab is dragged over, where on it, and whether it can land there.
     over: Option<(String, tree::Zone, bool)>,
     lifted: Option<String>,
@@ -135,7 +140,13 @@ pub struct ReviewsScreen {
     dismissed: HashSet<(u64, String)>,
     /// Summaries being written, by pull request.
     writing: HashMap<u64, Task<()>>,
-    tool_runs: HashMap<(u64, &'static str), Task<()>>,
+    /// Each change set's How it works and How to test: absent until run, None while it runs.
+    explains: HashMap<(u64, String, Explain), Option<String>>,
+    explain_runs: HashMap<(u64, String, Explain), Task<()>>,
+    /// The change set the Change set tab shows, by pull request.
+    chosen: HashMap<u64, String>,
+    /// The Change set tab's own scroll, which Show in change set moves to a hunk.
+    set_scroll: ScrollHandle,
     asking: Option<Ask>,
     name_box: Entity<InputState>,
     dialog: FocusHandle,
@@ -183,6 +194,7 @@ impl ReviewsScreen {
             arrangement,
             control,
             area: Rc::default(),
+            strips: Rc::default(),
             over: None,
             lifted: None,
             whole: false,
@@ -197,7 +209,10 @@ impl ReviewsScreen {
             suggestions: HashMap::new(),
             dismissed: HashSet::new(),
             writing: HashMap::new(),
-            tool_runs: HashMap::new(),
+            explains: HashMap::new(),
+            explain_runs: HashMap::new(),
+            chosen: HashMap::new(),
+            set_scroll: ScrollHandle::new(),
             asking: None,
             name_box,
             dialog: cx.focus_handle(),
@@ -270,12 +285,12 @@ impl ReviewsScreen {
             return;
         };
         fresh.critique = std::mem::replace(&mut was.critique, Critique::None);
-        fresh.tools = std::mem::take(&mut was.tools);
         *was = fresh;
         if self.open == Some(number) {
             let page = &self.pages[&number];
             self.whole = !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone);
         }
+        self.suggestion_boxes(number, window, cx);
         self.write_summary(number, window, cx);
     }
 
@@ -296,20 +311,19 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// Open a pull request's page: on What changed where it changed since he looked, else on Files.
+    /// Open a pull request's page on its Overview.
     fn show(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         if !self.pages.contains_key(&number) {
             let Some(page) = mock::page(number) else { return };
             self.pages.insert(number, page);
         }
-        // A kept page he had looked at opens on What changed, where the fresh read lands.
         let changed = self.pages[&number].changed() || (self.pages[&number].kept && self.pages[&number].seen.is_some());
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
         self.sheet = false;
         self.whole = !changed || gone;
-        self.bring_kind(if changed { "pr-changed" } else { "pr-files" }, cx);
+        self.bring_kind("pr-overview", cx);
         self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
         let mine: Vec<DraftOf> = self.drafts.iter().filter(|draft| draft.number == number).cloned().collect();
         for draft in mine {
@@ -343,13 +357,18 @@ impl ReviewsScreen {
         self.writing.insert(number, task);
     }
 
-    /// A text box for each suggestion of the page's critique, holding its words until he adds or dismisses it.
+    /// A text box for each suggestion of the page's critique and each finding on its Overview, holding
+    /// its words until he adds or dismisses it.
     fn suggestion_boxes(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Critique::Finished { findings, .. }) = self.pages.get(&number).map(|page| page.critique.clone()) else { return };
-        for finding in findings {
-            let key = (number, finding.id.clone());
+        let Some(page) = self.pages.get(&number) else { return };
+        let mut said: Vec<(String, String)> = page.overview.flags.iter().map(|flag| (flag.id.clone(), flag.comment.clone())).collect();
+        if let Critique::Finished { findings, .. } = &page.critique {
+            said.extend(findings.iter().map(|finding| (finding.id.clone(), finding.comment.clone())));
+        }
+        for (id, comment) in said {
+            let key = (number, id.clone());
             if !self.suggestions.contains_key(&key) {
-                let boxed = self.boxed(&format!("reviews:suggestion:{number}:{}", finding.id), Some(&finding.comment), 2, 6, window, cx);
+                let boxed = self.boxed(&format!("reviews:suggestion:{number}:{id}"), Some(&comment), 2, 6, window, cx);
                 self.suggestions.insert(key, boxed);
             }
         }
@@ -387,44 +406,70 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// Run a review tool. What a find-problems tool finds joins the suggestions in Review comments;
-    /// any other tool's answer reads under its row.
-    fn run_tool(&mut self, tool: Tool, window: &mut Window, cx: &mut Context<Self>) {
+    /// How it works or How to test on the change set in front: its answer reads under the set's foot.
+    fn run_explain(&mut self, set: String, explain: Explain, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
-        let Some(page) = self.pages.get_mut(&number) else { return };
-        page.tools.insert(tool.id, ToolRun::Running);
-        let task = cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(TOOL_RUN).await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                let Some(page) = this.pages.get_mut(&number) else { return };
-                let on = "the latest changes".to_string();
-                if tool.section == Section::FindProblems {
-                    page.tools.insert(tool.id, ToolRun::Ran { on, said: None });
-                    let found = mock::tool_findings(number, tool.id);
-                    let range = page.range();
-                    match &mut page.critique {
-                        Critique::Finished { findings, .. } => {
-                            for one in found {
-                                if !findings.iter().any(|had| had.id == one.id) {
-                                    findings.push(one);
-                                }
-                            }
-                        }
-                        critique => *critique = Critique::Finished { range, findings: found },
+        let key = (number, set.clone(), explain);
+        if self.explain_runs.contains_key(&key) {
+            return;
+        }
+        self.explains.insert(key.clone(), None);
+        let task = cx.spawn_in(window, {
+            let key = key.clone();
+            async move |this, cx| {
+                cx.background_executor().timer(EXPLAIN_RUN).await;
+                let _ = this.update(cx, |this, cx| {
+                    this.explains.insert(key.clone(), Some(mock::explanation(number, &set, explain)));
+                    this.explain_runs.remove(&key);
+                    // The answer reads under the foot, so the set still in view scrolls down to it.
+                    if this.open == Some(number) && this.rail_on().as_deref() == Some(set.as_str()) {
+                        this.set_scroll.scroll_to_bottom();
                     }
-                    this.suggestion_boxes(number, window, cx);
-                    if this.open == Some(number) {
-                        this.bring_kind("pr-findings", cx);
-                    }
-                } else {
-                    page.tools.insert(tool.id, ToolRun::Ran { on, said: Some(mock::explanation(number, tool.id)) });
-                }
-                this.tool_runs.remove(&(number, tool.id));
+                    cx.notify();
+                });
+            }
+        });
+        self.explain_runs.insert(key, task);
+        cx.notify();
+    }
+
+    /// A change set pressed in the rail, or its Review: the Change set tab shows it, from its top.
+    fn choose_set(&mut self, set: &str, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        self.chosen.insert(number, set.to_string());
+        self.set_scroll.set_offset(gpui::point(px(0.), px(0.)));
+        self.bring_kind("pr-change-set", cx);
+    }
+
+    /// Show in change set: the finding's set in front, scrolled to its hunk once the set is drawn.
+    fn show_flag(&mut self, flag: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(found) = self.page().and_then(|page| page.flag(flag)).cloned() else { return };
+        let at = self.page().and_then(|page| page.set(&found.set)).and_then(|set| set.hunks.iter().position(|hunk| hunk.flag.as_deref() == Some(flag)));
+        self.choose_set(&found.set, cx);
+        if let Some(at) = at {
+            cx.on_next_frame(window, move |this, _, cx| {
+                this.set_scroll.scroll_to_top_of_item(HUNKS_AT + at);
                 cx.notify();
             });
+        }
+    }
+
+    /// The Overview row in the rail: the Overview in front again.
+    fn show_overview(&mut self, cx: &mut Context<Self>) {
+        self.bring_kind("pr-overview", cx);
+    }
+
+    /// The rail's filled row: the chosen set while the Change set tab is in front, else the Overview.
+    fn rail_on(&self) -> Option<String> {
+        let number = self.open?;
+        let front = tree::panes_of(&self.arrangement.root).into_iter().any(|pane| {
+            let active = pane.active.clone().or_else(|| pane.tabs.first().map(|tab| tab.id.clone()));
+            pane.tabs.iter().any(|tab| tab.kind == "pr-change-set" && Some(&tab.id) == active.as_ref())
         });
-        self.tool_runs.insert((number, tool.id), task);
-        cx.notify();
+        if !front {
+            return None;
+        }
+        self.chosen.get(&number).cloned().or_else(|| self.pages.get(&number).and_then(|page| page.overview.sets.first()).map(|set| set.id.clone()))
     }
 
     /// A text box that keeps its words under `keep`, starting from what was kept or else `first`.
@@ -447,13 +492,15 @@ impl ReviewsScreen {
         Boxed { state, _changed: changed }
     }
 
-    /// The tab of this kind in front, added to the first pane where no pane holds one.
+    /// The tab of this kind in front, added beside the Overview where no pane holds one, or else to the first pane.
     fn bring_kind(&mut self, kind: &str, cx: &mut Context<Self>) {
         let tab = tree::panes_of(&self.arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == kind).map(|tab| tab.id.clone());
         let next = match tab {
             Some(tab) => tree::rearrange(&self.arrangement, |was| tree::activate(was, &tab), None, true),
             None => {
-                let first = tree::panes_of(&self.arrangement.root).first().map(|pane| pane.id.clone()).unwrap_or_default();
+                let panes = tree::panes_of(&self.arrangement.root);
+                let beside = panes.iter().find(|pane| pane.tabs.iter().any(|tab| tab.kind == "pr-overview")).or(panes.first());
+                let first = beside.map(|pane| pane.id.clone()).unwrap_or_default();
                 tree::rearrange(&self.arrangement, |was| tree::add_tab(was, &first, kind, tree::Extras::default()), None, true)
             }
         };
@@ -548,12 +595,18 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// Add as draft: the finding's comment becomes a draft on its line, to edit before Submit.
+    /// Add as draft: the finding's comment becomes a draft on its line, to edit before Submit. It is a
+    /// critique's suggestion, or a finding on the Overview.
     fn add_draft(&mut self, finding: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
-        let Some(found) = self.page().and_then(|page| match &page.critique {
-            Critique::Finished { findings, .. } => findings.iter().find(|one| one.id == finding).cloned(),
-            _ => None,
+        let Some(found) = self.page().and_then(|page| {
+            let critique = match &page.critique {
+                Critique::Finished { findings, .. } => findings.iter().find(|one| one.id == finding).cloned(),
+                _ => None,
+            };
+            critique.or_else(|| {
+                page.flag(finding).map(|flag| model::Finding { id: flag.id.clone(), title: flag.title.clone(), path: flag.path.clone(), line: flag.line, comment: flag.comment.clone() })
+            })
         }) else {
             return;
         };
@@ -639,10 +692,10 @@ impl ReviewsScreen {
         self.reset_layout(cx);
     }
 
-    /// The page's first tab in front, as opening it puts it.
+    /// The Overview in front, as opening the page puts it.
     fn reshow(&mut self, cx: &mut Context<Self>) {
-        if let Some(changed) = self.page().map(Page::changed) {
-            self.bring_kind(if changed { "pr-changed" } else { "pr-files" }, cx);
+        if self.page().is_some() {
+            self.bring_kind("pr-overview", cx);
         }
     }
 
@@ -860,7 +913,7 @@ impl Render for ReviewsScreen {
             window.defer(cx, move |_, cx| bar.update(cx, |bar, cx| bar.fill_job_slot(Some(control.into()), cx)));
         }
         let inbox = self.render_inbox(&look, window, cx);
-        let page = self.render_page(&look, cx);
+        let page = self.render_page(&look, window, cx);
         let dialog = self.asking.map(|ask| self.render_dialog(ask, &look, cx));
         let menu = self.pop.as_ref().map(|pop| pop.menu.clone());
         div()

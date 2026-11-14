@@ -13,7 +13,7 @@ use axum::Router;
 use tower_http::compression::CompressionLayer;
 
 use crate::{
-    admin, cors, fleet_client, forward, mac_ask_routes, mac_pages, mac_pair_routes, mac_routes, machine, pair_routes, push, reads, session_routes, setup,
+    admin, cors, fleet_client, forward, mac_ask_routes, mac_pages, mac_pair_routes, mac_routes, mac_terminals, machine, pair_routes, push, reads, session_routes, setup,
     shown_address, signing, stat, thread_window,
 };
 
@@ -82,6 +82,7 @@ pub fn router(gateway: Gateway) -> Router {
         // A page of a shared Job, as its server sent it: compressing it again would hide its own encoding.
         .route("/api/mac/page/:job/:port/", any(mac_pages::serve))
         .route("/api/mac/page/:job/:port/*rest", any(mac_pages::serve))
+        .route("/api/mac/terminal/observe", get(mac_terminals::observe))
         .route("/api/push/subscribe", post(push::subscribe))
         .route("/api/push/key", get(push::key))
         .route("/api/push/vapid_private", get(push::vapid_private));
@@ -107,6 +108,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/update", post(mac_routes::update))
         .route("/api/mac/thread", get(mac_routes::read))
         .route("/api/mac/page", get(mac_routes::read))
+        .route("/api/mac/terminal", post(mac_terminals::act))
         .route("/api/mac/forget", post(mac_pair_routes::forgotten))
         .route("/api/needs", get(reads::needs))
         .route("/api/sessions", get(session_routes::sessions).post(session_routes::dispatch))

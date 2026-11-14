@@ -5,10 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::SessionId;
 
-/// `dispute_fleet`: the job's latest Fleet notice was wrong, and why.
+/// `dispute_fleet`: a Fleet notice in the job was wrong, and why.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DisputeFleet {
     pub why: String,
+    /// The opening words of the disputed notice, as the agent read them: the agent sees no row ids.
+    /// The newest Fleet notice holding them is disputed; absent, or matching none, the latest is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notice_words: Option<String>,
     /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,

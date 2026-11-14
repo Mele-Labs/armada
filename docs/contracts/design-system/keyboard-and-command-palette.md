@@ -62,6 +62,15 @@ is the back-fill by hand that this section existed to prevent.
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
+⌘D       split the focused pane of the open Job, the new pane to its right
+⌘⌥D      split the focused pane of the open Job, the new pane below it
+⌥⌘Enter  zoom the focused pane over the Cockpit, or put it back
+⌘L       open the Layout menu in the open Job's header
+⌘Z ⇧⌘Z   undo or redo a change to the open Job's panes, outside a text box
+⌃Tab ⌃⇧Tab  next or previous tab of the focused pane
+⌘⌥←↑→↓   move the focus to the pane beside the focused one
+⌃⌘]      move the tab the keys are on to the next pane
+⌃⌘= ⌃⌘-  grow or shrink the focused pane by one step
 Esc      close an overlay, or return to the list from a detail route
 ⇧⌘R      refresh, re-reading everything Fleet holds
 ⇧⌘D      debug Bridge: shoot the window and start a Session on it  (pnpm dev only)

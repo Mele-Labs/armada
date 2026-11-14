@@ -91,6 +91,14 @@ pub struct TerminalPane {
     marked: Option<String>,
     /// How a run exited: its code, none where it was stopped or ended by a signal, and whether it was stopped.
     exit: Option<(Option<i32>, bool)>,
+    /// The paired Mac that holds the Job, by id, where it is not this one: its shells go through the link.
+    mac: Option<String>,
+    /// The run Fleet answered an open with before the pane was drawn: it is taken, not opened again.
+    given: Option<String>,
+    /// What the link or Fleet said when it refused the last keys. They are not typed later.
+    refused: Option<String>,
+    /// The shell's end was the link's: its stream dropped, or the open was refused, so Open again reconnects.
+    lost: bool,
     _read: Option<Task<()>>,
     _blink: Option<Task<()>>,
 }
@@ -129,9 +137,25 @@ impl TerminalPane {
             blink_on: true,
             marked: None,
             exit: None,
+            mac: None,
+            given: None,
+            refused: None,
+            lost: false,
             _read: None,
             _blink: None,
         }
+    }
+
+    /// The Job is held on Mac `mac`, by id, where it is another Mac: the head carries its chip.
+    pub fn on_mac(mut self, mac: Option<String>) -> Self {
+        self.mac = mac;
+        self
+    }
+
+    /// Fleet already answered an open with run `run`: it is followed as it is drawn, with no second open.
+    pub fn given(mut self, run: Option<String>) -> Self {
+        self.given = run;
+        self
     }
 
     /// A pane on a shell already open, such as a terminal Job's first: it attaches as it is drawn.
@@ -177,7 +201,13 @@ impl TerminalPane {
         super::start::measured(cells, cx);
         if !self.asked && self.phase == Phase::Opening {
             self.asked = true;
-            self.open(cells, cx);
+            match self.given.take() {
+                Some(run) => {
+                    let terminal = self.terminal.clone();
+                    self.adopt(run, terminal, cx);
+                }
+                None => self.open(cells, cx),
+            }
         } else if moved {
             if let Some(run) = self.run.clone() {
                 self.shells.resize(&run, cells, cx);
@@ -196,9 +226,11 @@ impl TerminalPane {
                 Ok(underway) => this.adopt(underway.run_id, underway.terminal, cx),
                 Err(why) => {
                     // A refused open prints the refusal and ends, as Electron's does (`job-shell.ts:470-476`); a refused
-                    // run ends with code 1 (`sessions-wired.tsx:1252-1257`).
+                    // run ends with code 1 (`sessions-wired.tsx:1252-1257`). On another Mac's Job the link refused it.
                     this.screen.feed(format!("{why}\r\n").as_bytes(), true);
                     this.exit = Some((Some(1), false));
+                    this.lost = this.mac.is_some();
+                    this.typed.clear();
                     this.end(cx);
                 }
             });
@@ -223,7 +255,7 @@ impl TerminalPane {
         self.shells.resize(&run, size, cx);
         let typed = std::mem::take(&mut self.typed);
         if !typed.is_empty() {
-            self.shells.write(&run, String::from_utf8_lossy(&typed).into_owned(), cx);
+            self.write(&run, typed, cx);
         }
         self.read(run, cx);
         self.blink(cx);
@@ -268,6 +300,8 @@ impl TerminalPane {
                 }
                 SessionRunMessage::Exited { code, stopped } => {
                     self.exit = Some((code, stopped));
+                    // Fleet ends a shell of another Mac this way when the link's stream drops; the shell may run on there.
+                    self.lost = self.mac.is_some() && code.is_none() && !stopped;
                     self.end(cx);
                 }
                 SessionRunMessage::Opened { .. } => {}
@@ -293,10 +327,26 @@ impl TerminalPane {
         if self.phase == Phase::Ended {
             return;
         }
-        match &self.run {
-            Some(run) => self.shells.write(run, String::from_utf8_lossy(&bytes).into_owned(), cx),
+        match self.run.clone() {
+            Some(run) => self.write(&run, bytes, cx),
             None => self.typed.extend(bytes),
         }
+    }
+
+    /// The keys go to Fleet. A refusal is said in the head and the keys are dropped; the next keys that go clear it.
+    fn write(&mut self, run: &str, bytes: Vec<u8>, cx: &mut Context<Self>) {
+        let writing = self.shells.write(run, String::from_utf8_lossy(&bytes).into_owned(), cx);
+        cx.spawn(async move |this, cx| {
+            let answer = writing.await;
+            let _ = this.update(cx, |this, cx| {
+                let refused = answer.err();
+                if this.refused != refused {
+                    this.refused = refused;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn typed_bytes(&mut self, bytes: Vec<u8>, cx: &mut Context<Self>) {
@@ -322,6 +372,8 @@ impl TerminalPane {
         self.screen = Screen::new(self.screen.size());
         self.phase = Phase::Opening;
         self.exit = None;
+        self.refused = None;
+        self.lost = false;
         self.run = None;
         self.asked = true;
         self.replay_until = None;
@@ -538,6 +590,36 @@ impl TerminalPane {
 
     fn head(&self, look: &Look, cx: &mut Context<Self>) -> impl IntoElement {
         let running = self.phase != Phase::Ended;
+        // A Job on another Mac carries its chip, as its row and head do.
+        let chip = self.mac.as_deref().and_then(|mac| crate::pairing::chip(Some(mac), cx)).map(|chip| {
+            let name = format!("Runs on {}", chip.name);
+            labelled(div().id("terminal-mac").flex_none().child(crate::pairing::pill(look, "terminal-mac-chip".into(), &chip)), Role::Group, name)
+        });
+        let (again, again_tip) = if self.lost { ("Open again", "Reconnect to this shell, as it was if it still runs") } else { ("New shell", "Open a new shell in this tab") };
+        let refused = self.refused.clone().filter(|_| running).map(|said| {
+            labelled(
+                div()
+                    .id("terminal-refused")
+                    .min_w_0()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::ERROR)))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .text_color(look.color(token::ERROR))
+                            .child(SharedString::from(said.clone())),
+                    )
+                    .tooltip(tip(format!("Not typed: {said}"))),
+                Role::Status,
+                said,
+            )
+        });
         div()
             .flex()
             .flex_none()
@@ -549,7 +631,7 @@ impl TerminalPane {
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(
-                div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).when(!running, |line| {
+                div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).children(chip).children(refused).when(!running, |line| {
                     // Shell ended, and New shell beside the words, as a short text button.
                     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
                     let new = div()
@@ -569,23 +651,26 @@ impl TerminalPane {
                         .text_color(look.color(token::FG_DEFAULT))
                         .cursor_pointer()
                         .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                        .child("New shell")
+                        .child(again)
                         .tab_stop(true)
                         .focus_visible(move |style| style.border_color(ring))
-                        .tooltip(|window, cx| {
+                        .tooltip(move |window, cx| {
                             let key = gpui::Keystroke::parse("enter").ok().map(gpui_component::kbd::Kbd::new);
-                            gpui_component::tooltip::Tooltip::new("Open a new shell in this tab").key_binding(key).build(window, cx)
+                            gpui_component::tooltip::Tooltip::new(again_tip).key_binding(key).build(window, cx)
                         })
                         .on_click(cx.listener(|this, _, window, cx| this.new_shell(window, cx)));
                     line.child(
+                        // The words give way before the button in a narrow pane, so the button is always whole.
                         div()
+                            .min_w_0()
+                            .truncate()
                             .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
                             .text_size(look.length(token::TEXT_SM))
                             .line_height(look.length(token::LEADING_SM))
                             .text_color(look.color(token::FG_MUTED))
                             .child("Shell ended"),
                     )
-                    .child(labelled(new, Role::Button, "New shell"))
+                    .child(labelled(new, Role::Button, again))
                 }),
             )
             .when(running, |head| {

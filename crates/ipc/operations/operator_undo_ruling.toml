@@ -1,0 +1,10 @@
+[operations.operator_undo_ruling]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person takes back a ruling the Operator made by following something he said"
+notes = """
+`POST /operator/page/undo`, body `OperatorUndoRuling`: `id`, the `turn:<n>` of an `OperatorRuled` of the digest. **Fleet puts the question back.** The ruling is marked taken back, the Job is told `The Operator's answer to "<question>" is withdrawn. The person will answer it; wait for his answer.`, and the Job's Needs you list holds an `operator_undone` item, id `undone:<n>`, with the question as its text and the options the question had, until he answers or dismisses it. His answer is sent to the Job as `Re: <question>` and his choice, as for the Job's own item, and is kept as his own answer for the Operator to follow. The Operator's own review never answers it. The journal says `Undone: <Job>: <question>`. Answered with the `OperatorPage` as `operator_page` serves it after the press, where the ruling reads `undone_at` and `undo: false`. Publishes `operator.page_changed`, and the Job's record is read again.
+
+**404** `fleet.operator_turn_unknown` where no row has `id` or the row is not a precedent ruling. **422** `fleet.operator_ruling_undone` where it was taken back already, and `fleet.operator_ruling_ended` where its Job has ended, since a question cannot be given back to a Job that is gone. Nothing is changed in either.
+"""
