@@ -23,15 +23,18 @@
 //! `features.operator` changes and when a rule or hold is removed. Each draws its change at once and
 //! reads nothing itself; the walk's mock sends no event, so there each reads the page in its place.
 
-mod chat;
+mod card;
 pub mod composer;
 pub mod face;
+mod feed;
 pub mod page;
 mod pairing;
 mod parked;
 pub mod scenes;
 pub mod screen;
+mod talk;
 pub(crate) mod view;
+mod waiting;
 mod wire;
 
 pub use screen::{live, OperatorScreen};

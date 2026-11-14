@@ -4,8 +4,8 @@
 
 use chrono::{DateTime, Local};
 use gpui::SharedString;
-use ipc::operator_page::{OperatorAnswer, OperatorMain, OperatorThen, OperatorTurnItem, OperatorTurnKind};
-use ipc::{Instant, MainCiState, WaitingActKind, WaitingSource};
+use ipc::operator_page::{OperatorFeedKind, OperatorMain, OperatorThen, OperatorTurnItem, OperatorTurnKind};
+use ipc::{MainCiState, OperatorCardKind, WaitingActKind, WaitingSource};
 
 use crate::look::{token, Token};
 
@@ -54,7 +54,30 @@ pub fn is_red_main(turn: &OperatorTurnItem) -> bool {
     turn.item.id.starts_with("red:")
 }
 
+/// What a card the Operator raised is called on its chip: a thing it raises, or a decision it brings with its read.
+pub fn card_kind(kind: OperatorCardKind) -> Kind {
+    match kind {
+        OperatorCardKind::Raise => self::kind("Raised", "flag", OPERATOR),
+        OperatorCardKind::Deal => self::kind("To deal with", "list-todo", OPERATOR),
+    }
+}
+
+/// One entry of the feed: its glyph, its hue and the word its tooltip says.
+pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) {
+    match kind {
+        OperatorFeedKind::Dispatched => ("rocket", token::STATUS_RUNNING, "Started a Job"),
+        OperatorFeedKind::Merged => ("git-merge", token::STATUS_PILOTED, "Merged"),
+        OperatorFeedKind::Ended => ("circle-check", token::STATUS_COMPLETED_SUCCESS, "A Job ended"),
+        OperatorFeedKind::Asked => ("bot", token::OPERATOR, "A Job asked"),
+        OperatorFeedKind::Told => ("bot", token::OPERATOR, "A Job told the Operator"),
+        OperatorFeedKind::Settled => ("check", token::ACCENT, "Settled"),
+    }
+}
+
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
+    if let Some(card) = &turn.card {
+        return card_kind(card.kind);
+    }
     if is_red_main(turn) {
         return kind("Red main", "circle-x", FAILED);
     }
@@ -100,11 +123,6 @@ pub fn card_title(turn: &OperatorTurnItem) -> SharedString {
 /// What the card says it asks, under the title, where the title is the Job's: the item's words.
 pub fn asks_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.job.as_ref().map(|_| turn.item.text.clone().into())
-}
-
-/// His note, on a go-ahead to file, which the card writes after when he left it: `Your note from 11:52:`.
-pub fn note_of(turn: &OperatorTurnItem) -> Option<(&Instant, String)> {
-    (turn.job.is_none() && files(turn)).then(|| (&turn.item.since, format!("\"{}\"", turn.item.text)))
 }
 
 /// The Operator's pick, where it read one: an empty `pick` is none.
@@ -173,73 +191,9 @@ pub fn back_at(at: DateTime<Local>, now: DateTime<Local>) -> String {
     }
 }
 
-/// What a Later item's mark says: when it comes back, or the rest of today where Fleet gave no time.
-pub fn later_said(turn: &OperatorTurnItem, now: DateTime<Local>) -> String {
-    let at = turn.later_until.as_ref().and_then(|at| DateTime::parse_from_rfc3339(at.as_str()).ok());
-    match at {
-        Some(at) => format!("Later, until {}", back_at(at.with_timezone(&Local), now)),
-        None => "Later today".into(),
-    }
-}
-
 /// Whether the card offers the item's options to choose from: more than one, and no Then in their place.
 pub fn chooses(turn: &OperatorTurnItem) -> bool {
     turn.then.is_empty() && turn.item.options.len() > 1
-}
-
-/// The answers drawn on the open item, in order, as the approved sketch offers them: a go-ahead Fleet can
-/// keep a rule for takes Yes, Always here, Always and No; anything else takes its pick alone.
-pub fn answers_of(turn: &OperatorTurnItem) -> Vec<OperatorAnswer> {
-    // A go-ahead to file is one row of outcomes, Don't file among them; a rule is offered after he answers.
-    if !turn.then.is_empty() {
-        vec![OperatorAnswer::Yes, OperatorAnswer::No]
-    } else if turn.keeps {
-        vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]
-    } else {
-        vec![OperatorAnswer::Yes]
-    }
-}
-
-/// Each answer's key, as the registry binds it in the call scope: none is a digit, which picks a Then.
-pub fn answer_key(answer: OperatorAnswer) -> &'static str {
-    match answer {
-        OperatorAnswer::Yes => "A",
-        OperatorAnswer::AlwaysHere => "H",
-        OperatorAnswer::Always => "⇧A",
-        OperatorAnswer::No => "D",
-    }
-}
-
-/// A plan is approved here, and changes to it are sent from its Job, where it is: Send changes opens that Job.
-pub fn sends_changes(turn: &OperatorTurnItem) -> bool {
-    turn.item.source == WaitingSource::Plan && turn.session_id.is_some()
-}
-
-pub fn answer_word(answer: OperatorAnswer) -> &'static str {
-    match answer {
-        OperatorAnswer::Yes => "Yes",
-        OperatorAnswer::AlwaysHere => "Always here",
-        OperatorAnswer::Always => "Always",
-        OperatorAnswer::No => "No",
-    }
-}
-
-/// A Then offered on a go-ahead to file, in the sketch's words and glyph.
-/// What an answer's tooltip says it does on this item: the act Yes does, by the Then picked or the
-/// Operator's pick, and where Always here and Always keep it as a rule. A decision's says what it asks.
-pub fn answer_tip(turn: &OperatorTurnItem, answer: OperatorAnswer, then: Option<OperatorThen>, option: Option<&str>) -> String {
-    if turn.kind == OperatorTurnKind::Decision {
-        return turn.item.text.clone();
-    }
-    let hand_to = turn.then.iter().find_map(|offer| offer.hand_to.as_ref()).map(|to| to.job.as_str());
-    let act = then.map(|then| then_said(then, hand_to).0.to_string()).or_else(|| option.map(str::to_string)).or_else(|| pick_of(turn).map(|pick| pick.to_string())).unwrap_or_else(|| "Do my pick".into());
-    let here = turn.repository.as_deref().unwrap_or("this project");
-    match answer {
-        OperatorAnswer::Yes => format!("{act}, this once"),
-        OperatorAnswer::AlwaysHere => format!("{act}, and do the same in {here} from now on without asking"),
-        OperatorAnswer::Always => format!("{act}, and do the same in every project from now on without asking"),
-        OperatorAnswer::No => "Do nothing, and it leaves Your turn".into(),
-    }
 }
 
 pub fn then_said(then: OperatorThen, hand_to: Option<&str>) -> (SharedString, &'static str) {
@@ -257,11 +211,6 @@ pub fn then_does(then: OperatorThen, hand_to: Option<&str>) -> String {
         OperatorThen::FileAndStart => "File the note as an issue, and start a Job on it".into(),
         OperatorThen::FileAndHand => format!("File the note as an issue, and hand it to {}", hand_to.unwrap_or("the Job on these files")),
     }
-}
-
-/// `Wednesday 11 November`.
-pub fn day(at: &DateTime<Local>) -> SharedString {
-    at.format("%A %-d %B").to_string().into()
 }
 
 /// A main's pill: what its tooltip says, and its mark and hue where Fleet has read a state that has one.
@@ -301,25 +250,6 @@ mod tests {
     }
 
     #[test]
-    fn a_decision_offers_its_pick_alone_and_a_kept_go_ahead_offers_always_and_no_too() {
-        assert_eq!(answers_of(&turn(PLAN)), vec![OperatorAnswer::Yes]);
-        assert_eq!(answers_of(&turn(RED)), vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]);
-        assert!(sends_changes(&turn(PLAN)));
-        assert!(!sends_changes(&turn(RED)));
-    }
-
-    #[test]
-    fn each_answer_says_what_it_does_on_the_item() {
-        const NOTE: &str = r#"{"id":"turn:3","kind":"go_ahead","repository":"armada","item":{"id":"note","text":"the slot meter flickers","since":"2026-11-11T11:52:00Z","source":"agent"},"read":{"read":"No issue covers it.","pick":"File and hand to Slot pool controls"},"then":[{"then":"just_file"},{"then":"file_and_hand","hand_to":{"session_id":"s-5","job":"Slot pool controls"},"pick":true}],"raised_at":"2026-11-11T12:00:00Z","keeps":true}"#;
-        let note = turn(NOTE);
-        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::FileAndHand), None), "File and hand to Slot pool controls, this once");
-        assert_eq!(answer_tip(&note, OperatorAnswer::Yes, Some(OperatorThen::JustFile), None), "File it, this once");
-        assert_eq!(answer_tip(&note, OperatorAnswer::AlwaysHere, Some(OperatorThen::FileAndHand), None), "File and hand to Slot pool controls, and do the same in armada from now on without asking");
-        assert_eq!(answer_tip(&note, OperatorAnswer::No, None, None), "Do nothing, and it leaves Your turn");
-        assert_eq!(answer_tip(&turn(PLAN), OperatorAnswer::Yes, None, None), "Approve plan version 2");
-    }
-
-    #[test]
     fn each_kind_names_its_chip_and_a_red_main_reads_as_one() {
         assert_eq!(kind_of(&turn(PLAN)).word, "Plan");
         assert_eq!(kind_of(&turn(RED)).word, "Red main");
@@ -337,6 +267,14 @@ mod tests {
         assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada","state":"running"}"#), None).1, Some(("circle-dot", token::STATUS_RUNNING)));
         assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada","state":"nothing_ran"}"#), None), ("Nothing ran on armada main".into(), None));
         assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada"}"#), None), ("armada main is not read yet".into(), None));
+    }
+
+    #[test]
+    fn a_card_names_its_kind_on_its_chip_and_a_feed_entry_its_glyph() {
+        assert_eq!(card_kind(OperatorCardKind::Raise).word, "Raised");
+        assert_eq!(card_kind(OperatorCardKind::Deal).word, "To deal with");
+        assert_eq!(feed_kind(OperatorFeedKind::Merged).0, "git-merge");
+        assert_eq!(feed_kind(OperatorFeedKind::Dispatched).0, "rocket");
     }
 
     #[test]

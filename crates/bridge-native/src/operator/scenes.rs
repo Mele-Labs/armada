@@ -1,19 +1,18 @@
 //! The walk's Fleet: the page the sketch drew at 13:05, answering each press as Fleet would, and the
-//! scenes a step names where Fleet speaks first (the Operator's reply, a new item at 14:02).
+//! scenes a step names where Fleet speaks first (the Operator's reply and a card it raises in the talk,
+//! a new card at 14:02).
 
-use gpui::SharedString;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
-use ipc::operator_talk::{OperatorTalk, OperatorTalkLine};
-use ipc::{Instant, WaitingAct};
+use ipc::{JobThread, OperatorActs, OperatorActsList, WaitingAct};
 
 use super::wire::Failed;
-
 
 /// What a mock Fleet holds, and what it was told.
 #[derive(Clone, Debug)]
 pub struct MockFleet {
     pub page: OperatorPage,
-    pub talk: OperatorTalk,
+    /// The Operator session's thread, the talk's rows.
+    pub thread: JobThread,
     /// How often the window said it came to the front.
     pub fronted: usize,
     /// Words sent to the Operator, waiting on a scene to answer them.
@@ -26,12 +25,12 @@ pub struct MockFleet {
     pub fail_answer: Option<Failed>,
     /// Why the next Later is refused, where a scene wants the time it names to have passed.
     pub refuse_later: Option<String>,
+    /// Why the next change of what the Operator may do unasked is refused.
+    pub refuse_acts: Option<String>,
     /// The Macs waiting for his Confirm to pair, as Fleet's calls carry them.
     pub pairings: Vec<ipc::StandingCall>,
     /// What the Gateway says to the next Confirm or Decline, where a scene wants it refused.
     pub refuse_pairing: Option<String>,
-    /// The week's Log, as Fleet writes it.
-    pub log: String,
     /// The ideas Fleet keeps for later, oldest first.
     pub parked: Vec<ipc::ParkedIdea>,
     /// Every dispatch it was asked for, for a test to read.
@@ -39,27 +38,6 @@ pub struct MockFleet {
     /// How many dispatches it has taken, which numbers what it answers with.
     taken: u32,
 }
-
-/// The week's Log as Fleet's journal writes it: a heading per day, a line per entry at its time.
-const LOG: &str = "# The Operator's journal, 2026-W46
-
-## Tuesday 2026-11-10
-
-- 16:00 Kept a rule for armada: file your notes without asking
-- 17:00 Kept a rule for storefront: a red main gets a fix Job at once
-- 18:12 Linked: the merge strip report to #3401
-
-## Wednesday 2026-11-11
-
-- 11:24 storefront main went red on 9c41e07; raised it
-- 11:31 Started: Fix desktop_unit after #412, for the red main
-- 12:18 Ended: every label in Bridge and Pocket is read from the registry
-- 12:20 Started: Fix desktop_unit after #412
-- 12:33 Passed on: Map legend follow-up, to Rework the Map legend
-- 12:40 Held apps/cockpit for Slot pool controls until it pushes
-- 12:47 Linked: the build switcher report to #3390
-- 13:02 Reading what Store reports its size asks: Review pull request #3415
-";
 
 pub fn page() -> OperatorPage {
     ipc::decode::<OperatorPage>("OperatorPage", include_bytes!("../../fixtures/operator-page.json")).expect("the Operator page fixture decodes")
@@ -70,8 +48,9 @@ pub fn parked() -> Vec<ipc::ParkedIdea> {
     ipc::decode::<ipc::ParkedIdeas>("ParkedIdeas", include_bytes!("../../fixtures/operator-parked.json")).expect("the parked ideas fixture decodes").ideas
 }
 
-pub fn talk() -> OperatorTalk {
-    ipc::decode::<OperatorTalk>("OperatorTalk", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
+/// The Operator session's thread before the walk's talk.
+pub fn thread() -> JobThread {
+    ipc::decode::<JobThread>("JobThread", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
 }
 
 /// 13:05 on the sketch's day, the clock the walk's times are read against.
@@ -79,14 +58,34 @@ pub fn now() -> chrono::DateTime<chrono::Local> {
     chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").map(|at| at.with_timezone(&chrono::Local)).unwrap_or_else(|_| chrono::Local::now())
 }
 
-/// The date he came back, as the sketch has it; he came back at [`now`].
-pub fn day() -> SharedString {
-    "Wednesday 11 November".into()
+/// The Job titles the walk's cards name their Jobs by.
+pub fn titles() -> std::collections::HashMap<String, String> {
+    crate::mock::jobs("jobs-many").unwrap_or_default().into_iter().filter_map(|job| job.title.map(|title| (job.id.as_str().to_string(), title))).collect()
+}
+
+fn row(id: &str, at: &str, from: &str, text: &str) -> ipc::ThreadItem {
+    let wire = serde_json::json!({ "kind": "row", "row": { "kind": "message", "id": id, "at": at, "from": { "kind": from }, "text": text } });
+    ipc::decode::<ipc::ThreadItem>("ThreadItem", wire.to_string().as_bytes()).expect("a talk row decodes")
 }
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None, fail_answer: None, refuse_later: None, pairings: Vec::new(), refuse_pairing: None, log: LOG.to_string(), parked: parked(), dispatched: Vec::new(), taken: 0 }
+        MockFleet {
+            page: page(),
+            thread: thread(),
+            fronted: 0,
+            heard: Vec::new(),
+            pressed: Vec::new(),
+            refuse_switch: None,
+            fail_answer: None,
+            refuse_later: None,
+            refuse_acts: None,
+            pairings: Vec::new(),
+            refuse_pairing: None,
+            parked: parked(),
+            dispatched: Vec::new(),
+            taken: 0,
+        }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -95,7 +94,7 @@ impl MockFleet {
     }
 
     /// What `operator_answer` does: the item settles, and an act Fleet cannot do itself is left to Bridge,
-    /// its item kept on Your turn until he does it, as Fleet keeps it.
+    /// its item kept on Your turn until he does it, as Fleet keeps it. A card settles on the option named.
     pub fn answer(&mut self, press: &OperatorAnswerPress) -> Result<OperatorAnswered, Failed> {
         self.pressed.push(press.clone());
         if let Some(failed) = self.fail_answer.take() {
@@ -103,6 +102,10 @@ impl MockFleet {
         }
         let at = self.page.turn.iter().position(|turn| turn.id == press.id);
         let Some(turn) = self.take(&press.id) else { return Err(Failed::Refused("No open item has that id".into())) };
+        if let Some(option) = press.option.as_deref().filter(|option| !turn.item.options.iter().any(|one| one.label == *option)) {
+            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
+            return Err(Failed::Refused(format!("{option} is not one of the options")));
+        }
         let mut answered = OperatorAnswered::default();
         if press.answer != OperatorAnswer::No {
             let then = press.then.or_else(|| turn.then.iter().find(|offer| offer.pick).map(|offer| offer.then));
@@ -122,13 +125,12 @@ impl MockFleet {
         if answered.open.is_some() {
             self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
         }
-        self.regroup();
         answered.page = self.page.clone();
         Ok(answered)
     }
 
-    /// What `operator_later` does: the item goes last until `until`, or for the rest of the day; a time
-    /// already passed is refused, in Fleet's words.
+    /// What `operator_later` does: the card leaves the queue until `until`, or for the rest of the day, as Fleet leaves a
+    /// Later item out of `turn`; a time already passed is refused, in Fleet's words.
     pub fn later(&mut self, id: &str, until: Option<String>) -> Result<OperatorPage, String> {
         // Fleet's two refusals, word for word (`operator_later_past`).
         let said = until.as_ref().and_then(|until| match chrono::DateTime::parse_from_rfc3339(until) {
@@ -139,49 +141,13 @@ impl MockFleet {
         if let Some(why) = self.refuse_later.take().or_else(|| said.map(String::from)) {
             return Err(why);
         }
-        let Some(mut turn) = self.take(id) else { return Err("No open item has that id".into()) };
-        turn.later_until = Some(Instant::carried(until.unwrap_or_else(|| "2026-11-11T23:59:59-05:00".into())));
-        self.page.turn.push(turn);
-        self.regroup();
+        if self.take(id).is_none() {
+            return Err("No open item has that id".into());
+        }
         Ok(self.page.clone())
     }
 
-    /// What `operator_turn_order` does: the ids it names first, the rest after them as they were, and a
-    /// Job's asks together at the place of the first of them.
-    pub fn order(&mut self, ids: &[String]) -> OperatorPage {
-        let mut rest = std::mem::take(&mut self.page.turn);
-        for id in ids {
-            if let Some(at) = rest.iter().position(|turn| &turn.id == id) {
-                self.page.turn.push(rest.remove(at));
-            }
-        }
-        self.page.turn.append(&mut rest);
-        self.regroup();
-        self.page.clone()
-    }
-
-    /// Fleet's `grouped`: where a Job has two or more asks waiting, or two or more put Later, they share its
-    /// id as `group` and stand at the place of the first, in the order it raised them.
-    fn regroup(&mut self) {
-        let key = |turn: &OperatorTurnItem| turn.session_id.as_ref().map(|id| (turn.later_until.is_some(), id.as_str().to_string()));
-        let turn = std::mem::take(&mut self.page.turn);
-        let mut placed = std::collections::BTreeSet::new();
-        for one in &turn {
-            let Some(group) = key(one) else {
-                self.page.turn.push(OperatorTurnItem { group: None, ..one.clone() });
-                continue;
-            };
-            if !placed.insert(group.clone()) {
-                continue;
-            }
-            let mut asks: Vec<&OperatorTurnItem> = turn.iter().filter(|other| key(other).as_ref() == Some(&group)).collect();
-            asks.sort_by(|a, b| a.raised_at.as_str().cmp(b.raised_at.as_str()));
-            let shared = (asks.len() > 1).then(|| group.1.clone());
-            self.page.turn.extend(asks.into_iter().map(|ask| OperatorTurnItem { group: shared.clone(), ..ask.clone() }));
-        }
-    }
-
-    /// What saving `features.operator` does: off, nothing is queued and nothing is being read.
+    /// What saving `features.operator` does: off, nothing is queued.
     pub fn switch(&mut self, on: bool) {
         self.page.on = on;
         if !on {
@@ -193,36 +159,37 @@ impl MockFleet {
         }
     }
 
-    /// What `remove_operator_order` does: the rule or hold with that id stops standing.
-    pub fn forget(&mut self, id: i64) -> Result<OperatorPage, String> {
-        let digest = &mut self.page.digest;
-        let (rules, holds) = (digest.learned.len(), digest.holds.len());
-        digest.learned.retain(|rule| rule.id != id);
-        digest.holds.retain(|hold| hold.id != id);
-        if digest.learned.len() == rules && digest.holds.len() == holds {
-            return Err("No rule or hold stands with that id".into());
+    /// What `set_operator_acts` does: the project's value is kept, or unset with none; every project's value is answered.
+    pub fn set_acts(&mut self, project: &str, acts: Option<OperatorActs>) -> Result<OperatorActsList, String> {
+        if let Some(why) = self.refuse_acts.take() {
+            return Err(why);
         }
-        Ok(self.page.clone())
+        let Some(one) = self.page.operator_acts.iter_mut().find(|one| one.project == project) else { return Err("No project has that id".into()) };
+        one.acts = acts;
+        Ok(OperatorActsList { projects: self.page.operator_acts.clone() })
     }
 
-    /// The Operator answers the words it was sent last.
-    pub fn said(&mut self) -> Option<OperatorTalkLine> {
+    /// The Operator answers the words it was sent last, in its thread, and where they were about a card raises one that
+    /// carries on from it: the walk's second card, with its own options.
+    pub fn said(&mut self) -> Option<()> {
         let (words, about) = self.heard.pop()?;
-        let at = "2026-11-11T13:09:00-05:00".to_string();
-        self.talk.lines.push(OperatorTalkLine { from_person: true, text: words, at: at.clone(), about: about.clone() });
-        let line = OperatorTalkLine {
-            from_person: false,
-            text: "It holds up the second Job's fix, and the walk can wait an hour.".into(),
-            at,
-            about,
-        };
-        self.talk.lines.push(line.clone());
-        Some(line)
+        let n = self.thread.items.len();
+        self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &words));
+        self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files."));
+        if let Some(about) = about {
+            let wire = format!(
+                r#"{{"id":"turn:36","kind":"decision","manifest_id":"armada","repository":"armada","item":{{"id":"card:0024","text":"Hold Pocket for 20 minutes or move its change","since":"2026-11-11T13:09:30-05:00","source":"agent","act":{{"kind":"answer","target":"card:0024"}},"options":[{{"label":"Hold Pocket for 20 minutes","description":"Pocket waits"}},{{"label":"Move its change into Jobs screens","description":"Pocket ends"}}]}},"read":{{"read":"You asked about the two Jobs on paging.rs. Both ways avoid the conflict.","pick":"Hold Pocket for 20 minutes"}},"raised_at":"2026-11-11T13:09:30-05:00","card":{{"kind":"raise","talk_of":"{about}","sessions":["mock-05"]}}}}"#
+            );
+            if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire.as_bytes()) {
+                self.page.turn.push(turn);
+            }
+        }
+        Some(())
     }
 
-    /// A new item joins the queue at 14:02: a walk Slot pool controls has for him.
+    /// A new card joins the queue at 14:02, at its end.
     pub fn arrives(&mut self) {
-        let wire = br#"{"id":"turn:5","kind":"decision","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"walk:armada://walk/slot-meter","text":"Review the slot meter walk","since":"2026-11-11T14:02:00-05:00","source":"walk","act":{"kind":"walk","target":"armada://walk/slot-meter"}},"read":{"read":"The meter holds still when a Job ends, which is what your note asked for.","pick":"Open it"},"raised_at":"2026-11-11T14:02:00-05:00"}"#;
+        let wire = br#"{"id":"turn:40","kind":"decision","manifest_id":"armada","repository":"armada","item":{"id":"card:0028","text":"Slot pool controls has a walk for you","since":"2026-11-11T14:02:00-05:00","source":"agent","act":{"kind":"answer","target":"card:0028"},"options":[{"label":"Open the walk","description":"About 5 min"},{"label":"Approve without it","description":"Its checks are green"}]},"read":{"read":"The meter holds still when a Job ends, which is what your note asked for.","pick":"Open the walk"},"raised_at":"2026-11-11T14:02:00-05:00","card":{"kind":"deal","sessions":["mock-05"]}}"#;
         if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
             self.page.turn.push(turn);
         }
@@ -243,66 +210,6 @@ impl MockFleet {
                 self.page.turn.push(turn);
             }
         }
-    }
-}
-
-/// When he presses Undo in the walk: the walk's clock.
-const UNDONE_AT: &str = "2026-11-11T13:05:00-05:00";
-
-impl MockFleet {
-    /// The Operator follows what he said before: two go-ahead questions whose pick follows an answer of his or a
-    /// setting, first in Your turn, and four questions it answered that way since he last looked, newest first. One
-    /// is taken back already, and one's Job has ended, so neither offers Undo.
-    pub fn precedent(&mut self) {
-        let asks: [&[u8]; 2] = [
-            br#"{"id":"turn:20","kind":"go_ahead","urgency":"go_ahead","session_id":"mock-07","job":"Store reports its size","manifest_id":"armada","repository":"armada","item":{"id":"agent-20","text":"Run the whole test suite before pushing, or only the tests the change reaches?","since":"2026-11-11T13:01:00-05:00","source":"agent","options":[{"label":"The whole suite"},{"label":"Only the tests it reaches"}]},"read":{"read":"You answered this for Walk window takes on Monday, and nothing about this Job is different.","pick":"Only the tests it reaches"},"raised_at":"2026-11-11T13:01:00-05:00","keeps":true,"follows":{"kind":"answer","session_id":"mock-11","job":"Walk window takes","question":"Run the whole test suite before pushing, or only the tests the change reaches?","said":"Only the tests it reaches: the whole suite is CI's","at":"2026-11-09T16:20:00-05:00"}}"#,
-            br#"{"id":"turn:21","kind":"go_ahead","urgency":"go_ahead","session_id":"mock-05","job":"Slot pool controls","manifest_id":"armada","repository":"armada","item":{"id":"agent-21","text":"Show the meter's times as 24-hour or 12-hour?","since":"2026-11-11T13:03:00-05:00","source":"agent","options":[{"label":"24-hour"},{"label":"12-hour"}]},"read":{"read":"Your saved time format is 24-hour.","pick":"24-hour"},"raised_at":"2026-11-11T13:03:00-05:00","keeps":true,"follows":{"kind":"setting","said":"time_format = 24h"}}"#,
-        ];
-        let asks: Vec<OperatorTurnItem> = asks.into_iter().filter_map(|wire| ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()).collect();
-        self.page.turn.splice(0..0, asks);
-        let ruled = br#"[
-            {"id":"turn:17","session_id":"mock-14","job":"Pocket install banner","question":"Rebase on main before pushing?","pick":"Rebase","follows":{"kind":"answer","session_id":"mock-06","job":"Tail-first thread loading","question":"Rebase on main before pushing?","said":"Rebase","at":"2026-11-10T11:40:00-05:00"},"at":"2026-11-11T12:52:00-05:00","undo":true},
-            {"id":"turn:16","session_id":"mock-05","job":"Slot pool controls","question":"Write the tooltip's times in 24-hour?","pick":"24-hour","follows":{"kind":"setting","said":"time_format = 24h"},"at":"2026-11-11T12:31:00-05:00","undo":true},
-            {"id":"turn:15","session_id":"mock-05","job":"Slot pool controls","question":"Squash the commits before the pull request?","pick":"Keep them","follows":{"kind":"answer","session_id":"mock-13","job":"Merge strip freshness","question":"Squash the commits before the pull request?","said":"Keep them: each says why","at":"2026-11-08T10:05:00-05:00"},"at":"2026-11-11T12:24:00-05:00","undone_at":"2026-11-11T12:40:00-05:00"},
-            {"id":"turn:14","session_id":"mock-10","job":"Sentence case labels","question":"Keep the old label keys for a release?","pick":"No","follows":{"kind":"answer","session_id":"mock-12","job":"Store reports its size","question":"Keep the old setting keys for a release?","said":"No","at":"2026-11-07T15:30:00-05:00"},"at":"2026-11-11T12:15:00-05:00"}
-        ]"#;
-        self.page.digest.ruled = ipc::decode::<Vec<ipc::operator_page::OperatorRuled>>("OperatorRuled", ruled).unwrap_or_default();
-        self.regroup();
-    }
-
-    /// What `operator_undo_ruling` does: the ruling is marked taken back, and the question joins Your turn again from
-    /// the Job's list, as his, with the options it had. Refused in Fleet's words where it cannot be.
-    pub fn undo(&mut self, id: &str) -> Result<OperatorPage, String> {
-        let Some(ruled) = self.page.digest.ruled.iter_mut().find(|ruled| ruled.id == id) else { return Err("No ruling has that id".into()) };
-        if ruled.undone_at.is_some() {
-            return Err("That ruling is taken back already".into());
-        }
-        if !ruled.undo {
-            return Err("That Job has ended, so the question cannot be given back to it".into());
-        }
-        ruled.undone_at = Some(Instant::carried(UNDONE_AT));
-        ruled.undo = false;
-        let n = id.trim_start_matches("turn:");
-        let options = match ruled.pick.as_str() {
-            "Rebase" => ["Rebase", "Merge main in"],
-            "24-hour" => ["24-hour", "12-hour"],
-            _ => [ruled.pick.as_str(), "No"],
-        };
-        let repository = "armada";
-        let wire = format!(
-            r#"{{"id":"turn:{turn}","kind":"decision","urgency":"decision","session_id":"{session}","job":"{job}","manifest_id":"{repository}","repository":"{repository}","item":{{"id":"undone:{n}","text":"{question}","since":"{UNDONE_AT}","source":"operator_undone","act":{{"kind":"answer","target":"undone:{n}"}},"options":[{{"label":"{first}"}},{{"label":"{second}"}}]}},"raised_at":"{UNDONE_AT}"}}"#,
-            turn = 100 + n.parse::<u32>().unwrap_or_default(),
-            session = ruled.session_id.as_str(),
-            job = ruled.job.as_deref().unwrap_or_default(),
-            question = ruled.question,
-            first = options[0],
-            second = options[1],
-        );
-        if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire.as_bytes()) {
-            self.page.turn.push(turn);
-        }
-        self.regroup();
-        Ok(self.page.clone())
     }
 }
 
