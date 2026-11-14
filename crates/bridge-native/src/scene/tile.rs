@@ -63,8 +63,9 @@ pub(super) fn is_tile(node: &SceneNode) -> bool {
 }
 
 /// What a node is, in the one word its head band carries. `leaves` is whether an arrow goes out of it: a pill with none is
-/// where the flow ends.
-pub(super) fn kind_word(node: &SceneNode, leaves: bool) -> &'static str {
+/// where the flow ends. `started` is whether the scene starts at the node, which wears the Start pill and so is never also
+/// called START or END.
+pub(super) fn kind_word(node: &SceneNode, leaves: bool, started: bool) -> &'static str {
     if node.kind == SceneKind::Code {
         return "CODE";
     }
@@ -72,7 +73,7 @@ pub(super) fn kind_word(node: &SceneNode, leaves: bool) -> &'static str {
         SceneShape::Diamond => "DECIDE",
         SceneShape::Cylinder => "STORE",
         SceneShape::Hexagon => "PROCESS",
-        SceneShape::Pill if leaves => "START",
+        SceneShape::Pill if started || leaves => "STEP",
         SceneShape::Pill => "END",
         SceneShape::Circle | SceneShape::Box => "STEP",
     }
@@ -117,7 +118,7 @@ mod tests {
 
     fn word(shape: &str, edges: &str) -> &'static str {
         let scene = scene(&format!(r#"{{"nodes":[{{"id":"a","kind":"box","shape":"{shape}","x":0,"y":0}},{{"id":"b","kind":"box","x":0,"y":0}}],"edges":[{edges}]}}"#));
-        kind_word(&scene.nodes[0], leaves(&scene, &scene.nodes[0]))
+        kind_word(&scene.nodes[0], leaves(&scene, &scene.nodes[0]), false)
     }
 
     #[test]
@@ -128,15 +129,19 @@ mod tests {
         assert_eq!(word("circle", ""), "STEP");
         assert_eq!(word("box", ""), "STEP");
         let plain = scene(r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"c","kind":"code","x":0,"y":0}],"edges":[]}"#);
-        assert_eq!(kind_word(&plain.nodes[0], false), "STEP");
-        assert_eq!(kind_word(&plain.nodes[1], false), "CODE");
+        assert_eq!(kind_word(&plain.nodes[0], false, false), "STEP");
+        assert_eq!(kind_word(&plain.nodes[1], false, false), "CODE");
     }
 
     #[test]
-    fn a_pill_starts_where_an_arrow_leaves_it_and_ends_where_none_does() {
-        assert_eq!(word("pill", r#"{"id":"e","from":"a","to":"b"}"#), "START");
+    fn a_pill_is_a_step_where_an_arrow_leaves_it_and_the_end_where_none_does() {
+        // No pill is called START: the one the scene starts at wears the Start pill, and a second START would read as a second start.
+        assert_eq!(word("pill", r#"{"id":"e","from":"a","to":"b"}"#), "STEP");
         assert_eq!(word("pill", r#"{"id":"e","from":"b","to":"a"}"#), "END");
         assert_eq!(word("pill", ""), "END");
+        // The start itself is a step even where nothing leaves it.
+        let scene = scene(r#"{"nodes":[{"id":"a","kind":"box","shape":"pill","x":0,"y":0}],"edges":[]}"#);
+        assert_eq!(kind_word(&scene.nodes[0], false, true), "STEP");
     }
 
     #[test]

@@ -429,7 +429,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     };
     let limits = (f32::from(look.length(token::W_SKETCH_BOX)), f32::from(look.length(token::W_SKETCH_BOX_MAX)));
     let starts = start::nodes(scene);
-    let facts: Vec<Facts> = scene.nodes.iter().map(|node| Facts { kind: tile::kind_word(node, tile::leaves(scene, node)), started: starts.contains(node.id.as_str()) }).collect();
+    let facts: Vec<Facts> = scene.nodes.iter().map(|node| Facts { kind: tile::kind_word(node, tile::leaves(scene, node), starts.contains(node.id.as_str())), started: starts.contains(node.id.as_str()) }).collect();
     let sizes: Vec<(f32, f32)> =
         scene.nodes.iter().zip(sheets).zip(&facts).map(|((node, sheet), facts)| sheet.unwrap_or_else(|| size_of(node, *facts, &measure, limits))).collect();
     let order = arrange(scene, &sizes);
