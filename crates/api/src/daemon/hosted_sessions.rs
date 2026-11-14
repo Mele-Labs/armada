@@ -23,6 +23,17 @@ pub struct StoredFile {
     pub bytes: Vec<u8>,
 }
 
+/// One kept revision of a page, sealed, as `get_artifact_page` serves it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SealedPage {
+    /// The revision served: the one asked, else the newest.
+    pub revision: u32,
+    /// The whole page, its policy the first child of its `<head>`.
+    pub html: String,
+    /// The same policy, for the `Content-Security-Policy` header.
+    pub policy: String,
+}
+
 pub trait HostedSessions: Send + Sync + 'static {
     /// `start_session`. The row exists and holds no slot and no branch; no
     /// process starts until the first message.
@@ -473,6 +484,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         cast: ipc::CastPageVote,
     ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
+
+    /// `get_artifact_page`: one kept revision of a page, the newest where `revision` is `None`, sealed: no network,
+    /// its own scripts inert, and the kit's script drawing its actions and votes. An archived page still serves.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.

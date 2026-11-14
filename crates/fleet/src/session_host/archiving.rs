@@ -12,7 +12,7 @@ use store::KeptArchive;
 use crate::daemon::Fleet;
 
 const ARTIFACT_UNNAMED: &str = "fleet.artifact_unnamed";
-const ARTIFACT_NOT_HELD: &str = "fleet.artifact_not_held";
+pub(super) const ARTIFACT_NOT_HELD: &str = "fleet.artifact_not_held";
 const ARTIFACT_ARCHIVED_ALREADY: &str = "fleet.artifact_archived_already";
 const ARTIFACT_NOT_ARCHIVED: &str = "fleet.artifact_not_archived";
 /// The most ids a refusal names.

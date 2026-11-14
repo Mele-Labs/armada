@@ -151,7 +151,7 @@ pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
-    ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared,
+    SealedPage, ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

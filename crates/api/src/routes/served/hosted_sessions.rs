@@ -176,6 +176,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts/vote",
     },
     Route {
+        operation: "get_artifact_page",
+        method: "GET",
+        path: "/sessions/artifacts/page",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",
