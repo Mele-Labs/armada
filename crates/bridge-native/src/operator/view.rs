@@ -403,10 +403,11 @@ pub(super) fn side(look: &Look) -> Div {
         .bg(look.color(token::BG_SUNKEN))
 }
 
-/// A time as the page reads it, in his clock: `12:47:30`, with the day when it is not today (`Nov 10 16:00:00`).
+/// A time as the page reads it, in his clock to the minute: `12:47`, with the day when it is not today (`Nov 10 16:00`).
 pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<String> {
     let then = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
-    Some(crate::settings::time::stamp_of(then, crate::settings::time::held(), now))
+    let held = crate::settings::time::held();
+    Some(crate::settings::time::stamp_of(then, ipc::time_format::TimeFormat { seconds: false, ..held }, now))
 }
 
 impl Render for OperatorPageView {
