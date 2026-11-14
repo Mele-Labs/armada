@@ -251,6 +251,10 @@ where
         Fleet::job_for_phone(self, job).await
     }
 
+    async fn run_for_phone(&self, run_id: &str) -> bool {
+        Fleet::run_for_phone(self, run_id).await
+    }
+
     async fn event_for_phone(&self, event: ipc::Event) -> Option<ipc::Event> {
         Fleet::event_for_phone(self, event).await
     }

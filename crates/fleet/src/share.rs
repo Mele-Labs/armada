@@ -175,6 +175,18 @@ where
         self.mac_holding(job).await.is_some() || self.job_shared(job).await
     }
 
+    /// Whether the phone sees terminal run `run_id`: one of a Job it sees. A run of no Job, and one this Fleet does
+    /// not hold, is not.
+    pub async fn run_for_phone(&self, run_id: &str) -> bool {
+        if self.run_held_from_other_mac(run_id) {
+            return true;
+        }
+        match self.session_runs().job_of(run_id) {
+            Some(job) => self.job_for_phone(&job).await,
+            None => false,
+        }
+    }
+
     /// `event`, where the phone is sent it. **Only the kinds the phone reads are ruled on**, and every other kind
     /// stays, so a new kind reaches the phone only once someone names it here.
     pub async fn event_for_phone(&self, event: Event) -> Option<Event> {

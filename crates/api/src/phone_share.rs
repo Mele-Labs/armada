@@ -35,6 +35,10 @@ enum Ruling {
     JobInQuery,
     /// The Job is the body's `session_id`, or `waiting_session`.
     JobInBody,
+    /// A terminal run of a Job, the body's `run_id`.
+    RunInBody,
+    /// A terminal run of a Job, the path's `:run_id`.
+    RunInPath,
     /// The Jobs list, cut to the Jobs it sees.
     Jobs,
     Manifests,
@@ -82,12 +86,20 @@ fn ruling(method: &Method, path: &str) -> Option<Ruling> {
         "/sessions" if get => Some(Ruling::Jobs),
         "/manifests" if get => Some(Ruling::Manifests),
         "/projects" if get => Some(Ruling::Projects),
-        "/sessions/one" | "/sessions/shown" if get => Some(Ruling::JobInQuery),
+        "/sessions/one" | "/sessions/shown" | "/sessions/terminal/list" if get => Some(Ruling::JobInQuery),
+        "/sessions/run/write" if post => Some(Ruling::RunInBody),
+        "/sessions/run/:run_id/observe" if get => Some(Ruling::RunInPath),
         "/sessions/start" if post => Some(Ruling::Start),
         "/sessions/dispatch" if post => Some(Ruling::Dispatch),
         act if post && ACTS.contains(&act) => Some(Ruling::JobInBody),
         _ => None,
     }
+}
+
+/// The field a keystroke names its run in.
+#[derive(Deserialize)]
+struct NamesARun {
+    run_id: String,
 }
 
 /// The fields a phone's act names its Job in.
@@ -142,6 +154,33 @@ pub(crate) async fn to_the_phone<D: OtherMacs>(State(served): State<Served<D>>, 
                         return StatusCode::NOT_FOUND.into_response();
                     }
                     as_no_job(next.run(Request::from_parts(parts, Body::from(asked))).await, &job).await
+                }
+                _ => next.run(Request::from_parts(parts, Body::from(bytes))).await,
+            }
+        }
+        Ruling::RunInPath => {
+            // `/sessions/run/<run>/observe`: the run is the third segment.
+            let run = request.uri().path().split('/').nth(3).unwrap_or_default().to_string();
+            if run.is_empty() || served.daemon().run_for_phone(&run).await {
+                return next.run(request).await;
+            }
+            let (mut parts, body) = request.into_parts();
+            parts.uri = format!("/sessions/run/{NO_JOB}/observe").parse().unwrap_or_else(|_| Uri::from_static("/"));
+            as_no_job(next.run(Request::from_parts(parts, body)).await, &run).await
+        }
+        Ruling::RunInBody => {
+            let (parts, body) = request.into_parts();
+            let Ok(bytes) = to_bytes(body, MOST_READ).await else {
+                return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+            };
+            let run = ipc::decode::<NamesARun>("a keystroke's run", &bytes).ok().map(|named| named.run_id);
+            match run {
+                Some(run) if !served.daemon().run_for_phone(&run).await => {
+                    let asked = String::from_utf8_lossy(&bytes).replace(&format!("\"{run}\""), &format!("\"{NO_JOB}\""));
+                    if ipc::decode::<NamesARun>("a keystroke's run", asked.as_bytes()).ok().map(|named| named.run_id).as_deref() != Some(NO_JOB) {
+                        return StatusCode::NOT_FOUND.into_response();
+                    }
+                    as_no_job(next.run(Request::from_parts(parts, Body::from(asked))).await, &run).await
                 }
                 _ => next.run(Request::from_parts(parts, Body::from(bytes))).await,
             }
@@ -258,6 +297,9 @@ mod tests {
             assert_eq!(ruling(&Method::POST, act), Some(Ruling::JobInBody), "{act}");
         }
         assert_eq!(ruling(&Method::GET, "/sessions/one"), Some(Ruling::JobInQuery));
+        assert_eq!(ruling(&Method::GET, "/sessions/terminal/list"), Some(Ruling::JobInQuery));
+        assert_eq!(ruling(&Method::POST, "/sessions/run/write"), Some(Ruling::RunInBody));
+        assert_eq!(ruling(&Method::GET, "/sessions/run/:run_id/observe"), Some(Ruling::RunInPath));
         assert_eq!(ruling(&Method::GET, "/settings"), None, "a route the phone has no use for is not there");
         assert_eq!(ruling(&Method::POST, "/sessions"), None);
     }

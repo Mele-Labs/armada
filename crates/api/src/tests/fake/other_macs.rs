@@ -31,6 +31,10 @@ impl OtherMacs for FakeDaemon {
         true
     }
 
+    async fn run_for_phone(&self, _run_id: &str) -> bool {
+        true
+    }
+
     async fn event_for_phone(&self, event: Event) -> Option<Event> {
         Some(event)
     }

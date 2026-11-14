@@ -55,6 +55,9 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// Whether the phone sees Job `job`: one of this Mac's in a shared project, or one held from another Mac.
     fn job_for_phone(&self, job: &str) -> impl Future<Output = bool> + Send;
 
+    /// Whether the phone sees terminal run `run_id`: one of a Job it sees.
+    fn run_for_phone(&self, run_id: &str) -> impl Future<Output = bool> + Send;
+
     /// `event`, where the phone is sent it.
     fn event_for_phone(&self, event: Event) -> impl Future<Output = Option<Event>> + Send;
 

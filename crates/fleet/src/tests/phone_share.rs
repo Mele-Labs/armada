@@ -345,3 +345,31 @@ async fn next_frame(body: &mut Body) -> String {
     let frame = tokio::time::timeout(Duration::from_secs(10), body.frame()).await.expect("the stream stalled");
     frame.expect("the stream is open").expect("a frame").into_data().map(|bytes| String::from_utf8_lossy(&bytes).to_string()).unwrap_or_default()
 }
+
+/// A terminal opened on the Mac in Job `job`, by its run.
+async fn terminal_of(phone: &Phone, job: &SessionId) -> String {
+    let open = ipc::OpenTerminal { session_id: job.clone(), terminal: None, new: false, cols: None, rows: None };
+    api::Sessions::open_terminal(Arc::clone(&phone.rig.fleet), open).await.expect("a terminal").run_id
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unshared_jobs_terminals_answer_as_ones_that_do_not_exist() {
+    let phone = Phone::paired().await;
+    let jobs = jobs(&phone).await;
+    let listing = |job: &str| format!("/api/sessions/terminals?session_id={job}");
+    let missing = phone.call("GET", &listing(NOBODY), "", NOBODY).await;
+    assert_eq!(phone.call("GET", &listing(jobs.private.as_str()), "", jobs.private.as_str()).await, missing);
+    assert_ne!(phone.call("GET", &listing(jobs.open.as_str()), "", jobs.open.as_str()).await, missing, "a shared Job's are listed");
+
+    let private = terminal_of(&phone, &jobs.private).await;
+    let open = terminal_of(&phone, &jobs.open).await;
+    let keys = |run: &str| format!(r#"{{"run_id":"{run}","data":"ls\r"}}"#);
+    let missing = phone.call("POST", "/api/sessions/terminal/write", &keys(NOBODY), NOBODY).await;
+    assert_eq!(phone.call("POST", "/api/sessions/terminal/write", &keys(&private), &private).await, missing, "a keystroke reaches nothing");
+    assert_ne!(phone.call("POST", "/api/sessions/terminal/write", &keys(&open), &open).await, missing, "a shared Job's terminal takes it");
+    // Following a shared Job's terminal streams until it ends, so only the refusals are compared.
+    let follow = |run: &str| format!("/api/sessions/terminal/observe?run_id={run}");
+    let missing = phone.call("GET", &follow(NOBODY), "", NOBODY).await;
+    assert_ne!(missing.0, StatusCode::OK, "{missing:?}");
+    assert_eq!(phone.call("GET", &follow(&private), "", &private).await, missing, "nothing of it is followed");
+}
