@@ -632,6 +632,38 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             });
             Ok(())
         }
+        Verb::Carry(role, from, across, down, more_across, more_down) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, from))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{from}\" to carry")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(
+                over.origin.x + over.size.width * (across as f32 / 1000.) + gpui::px(more_across as f32),
+                over.origin.y + over.size.height * (down as f32 / 1000.) + gpui::px(more_down as f32),
+            );
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // The first move past the threshold starts the drag; the panes are drawn again so the next move is read against them.
+            let past = point(start.x + gpui::px(8.), start.y);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                window.defer(cx, move |window, cx| {
+                    window.draw(cx).clear(cx);
+                    window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                });
+            });
+            Ok(())
+        }
         Verb::Fits(role, name) => {
             let inner = find(step, window, cx)?.bounds;
             let outer_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;

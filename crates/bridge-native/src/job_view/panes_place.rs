@@ -12,13 +12,13 @@
 //! the column's top and its foot) reads as it did; a pane he splits off reads as Classic's does.
 
 use std::borrow::Cow;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use gpui::{Context, FocusHandle, Focusable, ScrollHandle, SharedString, Window};
+use gpui::{Bounds, Context, FocusHandle, Focusable, Pixels, ScrollHandle, SharedString, Window};
 
 use super::pane_store;
 use super::pane_tree::{self as tree, Arrangement, Extras, History, Node, Out, Pane, Size, SplitInto, Tab, Toward};
@@ -57,11 +57,26 @@ pub(super) struct Arranged {
     /// The pane a + was pressed in, for the tab its source opens next on that Job, while that is still recent.
     aimed: Option<(String, String, Instant)>,
     started: Instant,
+    /// The tab being dragged and where it is over (`place_drag.rs`).
+    pub drop: Option<super::place_drag::Hover>,
+    /// Each strip, tab, body and gap as last laid out, by `strip:{pane}`, `tab:{tab}`, `body:{pane}`, `gap:{split}`.
+    pub drawn_at: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
 }
 
 impl Default for Arranged {
     fn default() -> Self {
-        Arranged { jobs: HashMap::new(), zoom: None, area: Rc::default(), dragging: None, handles: HashMap::new(), scrolls: HashMap::new(), aimed: None, started: Instant::now() }
+        Arranged {
+            jobs: HashMap::new(),
+            zoom: None,
+            area: Rc::default(),
+            dragging: None,
+            handles: HashMap::new(),
+            scrolls: HashMap::new(),
+            aimed: None,
+            started: Instant::now(),
+            drop: None,
+            drawn_at: Rc::default(),
+        }
     }
 }
 

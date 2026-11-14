@@ -10,6 +10,7 @@
 use gpui::{canvas, AnimationExt, div, prelude::*, px, AnyElement, Context, CursorStyle, DragMoveEvent, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, Role, ScrollHandle, SharedString, Window};
 
 use super::pane_tree::{self as tree, Dir, Node, Pane, Split, Tab};
+use super::place_drag::TabDrag;
 use super::panes_place::{front_of, row_kind_of, slot_of, visible, zone_of, Slot};
 use super::side::{pane, strip, tab, Zone};
 use super::spine::Area;
@@ -70,6 +71,11 @@ impl JobView {
         let look = &look;
         let arrangement = self.arrangement().into_owned();
         let zoomed = self.zoomed();
+        // A drag let go of outside the panes, or ended by gpui, leaves nothing lit.
+        if !cx.has_active_drag() {
+            self.arranged.drop = None;
+        }
+        self.arranged.drawn_at.borrow_mut().clear();
         let holder = tree::holder_of(&arrangement, "thread").map(|pane| pane.id.clone());
         let host = holder.filter(|holder| zoomed.as_ref().is_none_or(|zoomed| zoomed == holder));
         if !self.zones_shown().contains(&Zone::Spine) {
@@ -97,14 +103,19 @@ impl JobView {
                 cx.notify();
             }
         });
-        div()
+        labelled(
+            div()
             .id("job-panes")
             .size_full()
             .relative()
             .flex()
             .on_mouse_up(MouseButton::Left, release)
             .on_mouse_up_out(MouseButton::Left, release_out)
+            .on_drag_move(cx.listener(Self::drag_tab_over))
+            .on_drop(cx.listener(|this, drag: &TabDrag, window, cx| this.drop_tab(drag, window, cx)))
+            .capture_key_down(cx.listener(Self::drag_key))
             .children(drawn)
+            .children(self.end_drop_mark(look))
             // What is left over when no pane holds the thread: the sheets and menus lie over the whole area.
             .when(host.is_none(), |root| root.key_context("thread").on_action(cx.listener(Self::on_act)).child(gpui_base::TextSelectionLayer).children(std::mem::take(&mut frame.popups)))
             .child(
@@ -114,8 +125,11 @@ impl JobView {
                 )
                 .absolute()
                 .size_full(),
-            )
-            .into_any_element()
+            ),
+            Role::Region,
+            "Job panes",
+        )
+        .into_any_element()
     }
 
     fn draw_node(&mut self, node: &Node, share: Share, frame: &mut Frame, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -151,13 +165,24 @@ impl JobView {
         let handle = self.shown.clone().map(|job| self.divider_handle(&job, &split.id, cx));
         let focused = handle.as_ref().is_some_and(|handle| handle.is_focused(window));
         let (down, up) = (id.clone(), id.clone());
-        let line = div().flex_none().rounded_full().when(row, |line| line.w(look.length(token::BORDER_WIDTH) * 2.).h_full()).when(!row, |line| line.h(look.length(token::BORDER_WIDTH) * 2.).w_full());
-        let line = if hot || focused { line.bg(accent) } else { line.group_hover(group.clone(), move |style| style.bg(accent)) };
+        // A tab dragged over the gap lights a bar as thick as `--space-1`, where a drop puts a pane of its own.
+        let lit = self.gap_lit(&split.id);
+        let thick = if lit { look.length(token::SPACE_1) } else { look.length(token::BORDER_WIDTH) * 2. };
+        let line = div().flex_none().rounded_full().when(row, |line| line.w(thick).h_full()).when(!row, |line| line.h(thick).w_full());
+        let line = if lit {
+            line.bg(look.color(token::FG_MUTED))
+        } else if hot || focused {
+            line.bg(accent)
+        } else {
+            line.group_hover(group.clone(), move |style| style.bg(accent))
+        };
         let gap = look.length(token::GAP_PANEL);
         labelled(
             div()
                 .id(SharedString::from(format!("pane-divider:{}", split.id)))
                 .group(group)
+                .relative()
+                .child(self.mark_drawn(format!("gap:{}", split.id)))
                 .flex_none()
                 .flex()
                 .items_center()
@@ -280,6 +305,8 @@ impl JobView {
         let (zoom_id, keys_id, add_id) = (pane_id.clone(), pane_id.clone(), pane_id.clone());
         let strip_el = strip_div
             .id(strip_id)
+            .relative()
+            .child(self.mark_drawn(format!("strip:{}", one.id)))
             .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
                 if event.click_count() == 2 {
                     this.toggle_zoom(&zoom_id, cx);
@@ -313,13 +340,17 @@ impl JobView {
         };
         let popups = if hosts { std::mem::take(&mut frame.popups) } else { Vec::new() };
         let press = one.id.clone();
+        let body_marks = self.body_drop_mark(&one.id, look);
+        let pane_marks = self.pane_drop_marks(&one.id, look);
         let element = sized(pane(look).id(SharedString::from(format!("pane:{}", one.id))), share)
-            .when(hosts, |pane| pane.relative().key_context("thread").on_action(cx.listener(Self::on_act)).child(gpui_base::TextSelectionLayer))
+            .relative()
+            .when(hosts, |pane| pane.key_context("thread").on_action(cx.listener(Self::on_act)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
             .child(strip_el)
             .children(said)
-            .child(div().flex_1().min_h_0().flex().flex_col().children(body))
+            .child(div().flex_1().min_h_0().flex().flex_col().relative().children(body).child(self.mark_drawn(format!("body:{}", one.id))).children(body_marks))
+            .children(pane_marks)
             .children(popups);
         match region {
             Some(name) => labelled(element, Role::Region, name).into_any_element(),
@@ -487,8 +518,19 @@ impl JobView {
                 }
             })
         };
+        let dragged = self.dragged_tab() == Some(tab_id.as_str());
         if tab_of.kind == "thread" {
-            return self.thread_tab(job, &tab_id, front, cx).on_mouse_down(MouseButton::Middle, middle).into_any_element();
+            let drag = TabDrag::new(tab_id.clone(), "Thread".into(), "message-square");
+            return self
+                .thread_tab(job, &tab_id, front, cx)
+                .on_mouse_down(MouseButton::Middle, middle)
+                .id(SharedString::from(format!("pane-tab-drag:{tab_id}")))
+                .relative()
+                .child(self.mark_drawn(format!("tab:{tab_id}")))
+                .children(self.strip_bar_on(&pane_id, &tab_id, look))
+                .when(dragged, |one| one.opacity(0.5))
+                .on_drag(drag, |drag, grabbed, _, cx| drag.lifted(grabbed, cx))
+                .into_any_element();
         }
         let handle = self.tab_handle(job, &tab_id, &tab_of.kind, cx);
         let group = SharedString::from(format!("tab:{tab_id}"));
@@ -511,7 +553,14 @@ impl JobView {
         let pulses = row.is_some_and(|(key, kind)| kind == super::row_tabs::RowKind::Walk && self.row_tab_of(job, kind, key).is_some_and(|held| !held.seen));
         let close = self.close_button(&tab_id, &word, group.clone(), front, look, cx);
         let ink = look.color(if front { token::FG_DEFAULT } else { token::FG_MUTED });
-        let base = tab(look, SharedString::from(format!("pane-tab:{tab_id}")), icon, said, front);
+        // A tab being renamed does not drag, as Classic's is not `draggable` then.
+        let drag = field.is_none().then(|| TabDrag::new(tab_id.clone(), word.clone(), icon));
+        let base = tab(look, SharedString::from(format!("pane-tab:{tab_id}")), icon, said, front)
+            .relative()
+            .child(self.mark_drawn(format!("tab:{tab_id}")))
+            .children(self.strip_bar_on(&pane_id, &tab_id, look))
+            .when(dragged, |one| one.opacity(0.5))
+            .when_some(drag, |one, drag| one.on_drag(drag, |drag, grabbed, _, cx| drag.lifted(grabbed, cx)));
         let tint = look.color(token::STATUS_AWAITING_REVIEW);
         let _ = (ink, &pane_id);
         labelled(

@@ -71,6 +71,7 @@ mod panes;
 mod pane_store;
 mod pane_tree;
 mod panes_place;
+mod place_drag;
 mod place_draw;
 mod place_menu;
 mod pulls;
