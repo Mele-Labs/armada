@@ -28,6 +28,10 @@ use crate::log::Note;
 /// it changes and takes it out once the file holds it, so whatever is left is what an abort would lose.
 static HELD: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
 
+/// The reports this run wrote. A panic off the main thread ends only its thread, so a run that then quits as he
+/// meant marks them seen: the panel says Armada quit only when it did.
+static WRITTEN: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
 /// A file's latest text, not yet written. Cheap: one lock and one string kept.
 pub(crate) fn hold(path: &Path, text: String) {
     let mut held = HELD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -114,13 +118,20 @@ pub(crate) fn install(cx: &mut gpui::App) {
                 location: location.as_deref(),
                 backtrace: &backtrace,
             });
-            let _ = write_report(&dir, at, &text);
+            if let Ok(file) = write_report(&dir, at, &text) {
+                if let Ok(mut written) = WRITTEN.try_lock() {
+                    written.push(file);
+                }
+            }
         }
         flush(false);
         previous(info);
     }));
     cx.on_app_quit(|_| {
         flush(true);
+        for file in WRITTEN.lock().map(|written| written.clone()).unwrap_or_default() {
+            let _ = std::fs::write(seen_mark(&file), "");
+        }
         std::future::ready(())
     })
     .detach();
