@@ -147,6 +147,15 @@ pub(crate) fn read(key: &str, raw: &ipc::RawScene) -> Option<Rc<Scene>> {
     read
 }
 
+/// A node's height as a place that sizes a drawing without laying it out should take it: a mock's is its title and the
+/// content of its page once a picture has come, else the node's own `h`, else `floor`.
+pub(crate) fn node_height(node: &SceneNode, look: &Look, floor: f64, cx: &App) -> f64 {
+    match mock_view::content_height(node, mock_view::dark(look), cx) {
+        Some(content) => f64::from(sheet_top(node) + content),
+        None => node.h.unwrap_or(floor),
+    }
+}
+
 /// Whether the scene has steps to play.
 pub(crate) fn plays(scene: &Scene) -> bool {
     scene.nodes.iter().any(|node| node.step.is_some()) || scene.edges.iter().any(|edge| edge.step.is_some())

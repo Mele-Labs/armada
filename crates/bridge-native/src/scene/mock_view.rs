@@ -18,7 +18,7 @@ use ipc::{KeptStyles, SceneKind, SceneNode};
 
 use super::geometry::{Pt, Rect};
 use super::mock_page::{page, KeptCache};
-use super::{sheet_top, Ink, DIMMED};
+use super::{sheet_top, Ink};
 use crate::look::{token, Tone};
 
 /// How many pictures are being made at once, across every scene in the app.
@@ -59,9 +59,23 @@ fn source(node: &SceneNode) -> Option<Rc<Mock>> {
         return None;
     }
     let html = node.html.clone()?;
+    Some(Rc::new(Mock { hash: hash_of(&html, &node.css, &node.kept), html, css: node.css.clone(), kept: node.kept.clone() }))
+}
+
+fn hash_of(html: &str, css: &Option<String>, kept: &Option<String>) -> u64 {
     let mut hasher = DefaultHasher::new();
-    (&html, &node.css, &node.kept).hash(&mut hasher);
-    Some(Rc::new(Mock { hash: hasher.finish(), html, css: node.css.clone(), kept: node.kept.clone() }))
+    (html, css, kept).hash(&mut hasher);
+    hasher.finish()
+}
+
+/// How tall a mock node's page stands, once a picture of it has come: the content's height at the node's width, in
+/// scene units. For a place that sizes a drawing from its nodes without laying it out.
+pub(crate) fn content_height(node: &SceneNode, dark: bool, cx: &App) -> Option<f32> {
+    if node.kind != SceneKind::Mock {
+        return None;
+    }
+    let key = PageKey { hash: hash_of(node.html.as_deref()?, &node.css, &node.kept), width: (node.w? as f32).round().max(1.) as u32, dark };
+    cx.try_global::<Pictures>()?.pages.get(&key).map(|drawn| drawn.height)
 }
 
 thread_local! {
