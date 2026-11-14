@@ -777,3 +777,45 @@ fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
     );
     assert!(!held.contains("BRIEF-SECRET"), "{held}");
 }
+
+/// The row `PhoneSession::of` makes of a hosted Job with `tail` after its fields and `attached` standing on it.
+fn row_with(tail: &str, attached: &[&str]) -> String {
+    let record = record("j1", "bridge", "live", tail).replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
+    let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+}
+
+#[test]
+fn a_row_carries_what_native_draws_its_row_from() {
+    let attachment = |kind: &str, target: &str, detail: &str| {
+        format!(
+            r#"{{"kind":"{kind}","target":"{target}","state":"standing","detail":{{{detail}}},"since":"2026-10-08T02:00:00.000Z","changed_at":"2026-10-08T02:00:00.000Z"}}"#
+        )
+    };
+    let tail = r#","last_turn_at":"2026-10-08T02:30:00.000Z","mark":{"state":"working","lamp":"running","group":"working"},"workflow":"Ship","activity":{"now":"Editing gate.rs","said":"Reading"},"so_far":"Earlier""#;
+    let row = row_with(&tail, &[&attachment("pr", "77", ""), &attachment("issue", "412", r#""title":"Phone rows""#)]);
+    assert!(row.contains(r#""mark":{"state":"working","lamp":"running","group":"working"}"#), "{row}");
+    assert!(row.contains(r#""last_turn_at":"2026-10-08T02:30:00.000Z""#), "{row}");
+    assert!(row.contains(r#""pull":77"#), "{row}");
+    assert!(row.contains(r##""issue":{"number":"#412","title":"Phone rows"}"##), "{row}");
+    assert!(row.contains(r#""step":"Ship""#), "{row}");
+    assert!(row.contains(r#""now":"Editing gate.rs""#), "{row}");
+
+    // An issue named by a word keeps it, and has no title where its attachment carries none.
+    let word = row_with("", &[&attachment("issue", "armada-a3f2", "")]);
+    assert!(word.contains(r#""issue":{"number":"armada-a3f2","title":""}"#), "{word}");
+
+    // What the Job said stands in for what it is doing, and what it has done so far for both.
+    let said = row_with(r#","activity":{"said":"Reading"},"so_far":"Earlier""#, &[]);
+    assert!(said.contains(r#""now":"Reading""#), "{said}");
+    let earlier = row_with(r#","so_far":"Earlier""#, &[]);
+    assert!(earlier.contains(r#""now":"Earlier""#), "{earlier}");
+}
+
+#[test]
+fn a_row_with_none_of_them_leaves_their_keys_out() {
+    let plain = row_with("", &[]);
+    for field in ["mark", "project", "last_turn_at", "pull", "issue", "step", "now"] {
+        assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
+    }
+}

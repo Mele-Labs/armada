@@ -8,7 +8,7 @@
 //! and the answer route read it there.
 
 use ipc::{
-    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, CallAnswer, CallInFlight, PullRequestWait,
+    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, JobMark, CallAnswer, CallInFlight, PullRequestWait,
     SessionOrigin, SessionRecord, SessionStanding, SessionState, SessionStopped, SessionTurn, SessionWait, StartCondition,
     StopReason, StopRepair, StopRestart, WaitingItem, WaitingSource,
 };
@@ -153,11 +153,40 @@ pub struct PhoneSession {
     /// The proposer is reading the request, and the Job starts on its answer.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub reading: bool,
+    /// The state its row draws: mark, lamp and group, as Fleet read them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mark: Option<JobMark>,
+    /// The project it was started for, by name. Not filled yet: the record carries the project's id, and a name needs `/projects`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    /// An instant, so the phone counts the age itself.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_turn_at: Option<String>,
+    /// The pull request it has standing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pull: Option<u64>,
+    /// The issue it was started on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue: Option<PhoneIssue>,
+    /// The workflow step it is at, in the step's own words, else the workflow's name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step: Option<String>,
+    /// What it is doing now, else what it last said, else what it has done so far.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub now: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct PhoneLink {
     pub id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PhoneIssue {
+    /// `#` and the number where the target is all digits, else the target as it is.
+    pub number: String,
+    /// Empty where the attachment carries none.
     pub title: String,
 }
 
@@ -354,6 +383,32 @@ impl PhoneSession {
             failing_pull: failing_pull(record),
             blank: record.attachments.is_empty() && record.title.is_none() && record.last_turn_at.is_none(),
             reading: record.proposal.as_ref().is_some_and(|proposal| proposal.reading),
+            mark: record.mark,
+            project: None,
+            last_turn_at: record.last_turn_at.as_ref().map(|at| at.as_str().to_string()),
+            pull: standing(record, "pr").and_then(|target| target.parse().ok()),
+            issue: record.attachments.iter().find(|one| one.kind == "issue").map(|one| PhoneIssue {
+                number: if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() },
+                title: one.detail.get("title").cloned().unwrap_or_default(),
+            }),
+            step: step(record),
+            now: record
+                .activity
+                .as_ref()
+                .and_then(|activity| activity.now.clone().or_else(|| activity.said.clone()))
+                .or_else(|| record.so_far.clone()),
         }
     }
+}
+
+/// The target of the first attachment of `kind` that still stands.
+fn standing<'a>(record: &'a SessionRecord, kind: &str) -> Option<&'a str> {
+    record.attachments.iter().find(|one| one.kind == kind && one.state == AttachmentState::Standing).map(|one| one.target.as_str())
+}
+
+/// Where the Job is in its workflow: the step's label where Fleet gives a step, else the workflow's name.
+fn step(record: &SessionRecord) -> Option<String> {
+    let copy = record.workflow_copy.as_ref();
+    let name = copy.map(|copy| copy.name.clone()).or_else(|| record.workflow.clone())?;
+    Some(record.workflow_step.and_then(|at| copy?.steps.get(at as usize)).map_or(name, |step| step.label.clone()))
 }
