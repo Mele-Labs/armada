@@ -100,10 +100,16 @@ pub(super) fn band_card(
             .into_any_element(),
         None => div().flex_1().into_any_element(),
     };
+    // gpui clips a card's children to its box, not its rounded corners, so the band rounds its own: the top
+    // two, or all four where no row follows. The card's radius less its hairline, so the curves sit inside it.
+    let inner = look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH);
+    let alone = rows.is_empty();
     let band = div()
         .flex()
         .items_center()
         .gap(look.length(token::SPACE_2))
+        .rounded_t(inner)
+        .when(alone, |band| band.rounded_b(inner))
         .min_h(look.length(token::H_CONTROL))
         .px(look.length(token::SPACE_3))
         .py(look.length(token::SPACE_1))
