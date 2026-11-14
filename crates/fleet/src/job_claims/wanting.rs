@@ -10,6 +10,7 @@ use store::{AttachmentState, Holder};
 use super::{person_holding, Wanted};
 use crate::clashing::Who;
 use crate::daemon::Fleet;
+use crate::flaky_tests::{TestWait, TEST, TEST_WAIT};
 use crate::pull_requesting::PR;
 use crate::session_issues::{CLAIMED_AS, ISSUE};
 
@@ -29,6 +30,12 @@ pub(crate) struct JobRead {
     pub pulls_ended: BTreeSet<u64>,
     /// Whether its tracker is beads, the one whose assignee counts as a person's held work.
     pub beads: bool,
+    /// The failing tests it was started to fix, each claimed for it until the fix merges and main is green.
+    pub tests: BTreeSet<String>,
+    /// The failing tests it waits on, by name, each with the pull request the merge queue threw out.
+    pub test_waits: BTreeMap<String, TestWait>,
+    /// When its newest pull request merged, as its ledger row last changed. `None` before one has.
+    pub merged_at: Option<String>,
 }
 
 impl JobRead {
@@ -48,12 +55,15 @@ impl JobRead {
     }
 
     /// What it holds for the store: its items no person holds, its files less those a merged or
-    /// closed pull request ended, and its open pull requests.
+    /// closed pull request ended, its open pull requests and the tests it fixes. **A test it waits on
+    /// is asked for too**, so the store lists the wait, and winning it is the wait's end.
     pub(crate) fn wanted(&self, person_held: &BTreeMap<String, String>, files_ended: &BTreeSet<String>) -> BTreeSet<Wanted> {
         let items = self.items.keys().filter(|item| !person_held.contains_key(*item)).map(|item| Wanted::item(item));
         let files = self.planned.union(&self.written).filter(|path| !files_ended.contains(*path)).map(|path| Wanted::file(path));
         let pulls = self.pulls_open.iter().map(|number| Wanted::pull_request(*number));
-        items.chain(files).chain(pulls).collect()
+        let fixing = self.tests.iter().map(|test| Wanted::test(test));
+        let waiting = self.test_waits.iter().filter(|(_, wait)| wait.red.is_none()).map(|(test, _)| Wanted::test(test));
+        items.chain(files).chain(pulls).chain(fixing).chain(waiting).collect()
     }
 }
 
@@ -88,7 +98,20 @@ where
                             }
                         }
                         (PR, AttachmentState::Standing) => job.pulls_open.extend(row.target.parse::<u64>().ok()),
-                        (PR, _) => job.pulls_ended.extend(row.target.parse::<u64>().ok()),
+                        (PR, state) => {
+                            job.pulls_ended.extend(row.target.parse::<u64>().ok());
+                            if state == AttachmentState::Spent && job.merged_at.as_ref().is_none_or(|at| *at < row.changed_at) {
+                                job.merged_at = Some(row.changed_at.clone());
+                            }
+                        }
+                        (TEST, AttachmentState::Standing) => {
+                            job.tests.insert(row.target.clone());
+                        }
+                        (TEST_WAIT, AttachmentState::Standing) => {
+                            if let Some(wait) = TestWait::read(&row.detail) {
+                                job.test_waits.insert(row.target.clone(), wait);
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -105,6 +128,7 @@ where
             job.written = self.writes().written_by(&Who::Session(job.id.clone()));
             let project = self.project_of_job(&job.id).await;
             job.beads = self.backlog_for_job(&served, project.as_deref()).is_some();
+            self.test_waits_read(&mut job).await;
             served_read.push(job);
         }
         served_read

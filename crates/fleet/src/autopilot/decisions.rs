@@ -111,7 +111,6 @@ where
             answered += self.items_answered(&mut helping, &jobs).await;
             answered += self.pulls_landed(&mut helping, &jobs).await;
             answered += self.set_asides_started(&mut helping).await;
-            answered += self.red_fixed(&helping).await;
         }
         Ok(answered)
     }

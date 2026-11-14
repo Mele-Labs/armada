@@ -444,6 +444,14 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn call_test_flaky(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _call: ipc::CallTestFlaky,
+    ) -> Result<ipc::TestCalledFlaky, Refusal> {
+        Ok(ipc::TestCalledFlaky { pull: 12, said: String::new() })
+    }
+
     async fn show_window(
         &self,
         _caller: Option<crate::Caller>,

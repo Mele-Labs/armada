@@ -316,15 +316,16 @@ where
         let mut everyone = true;
         for cause in causes {
             let owners = self.owners_of(served, pull.number, branch, false).await;
+            let ids: Vec<String> = owners.iter().map(|Owner::Session(id)| id.clone()).collect();
             let mut detail = None;
-            for owner in owners {
+            for owner in &owners {
                 if self
                     .told(
                         served,
                         &about,
                         cause,
-                        &owner,
-                        || self.failure_detail(served, pull, head, cause),
+                        owner,
+                        || self.failure_detail(served, pull, head, cause, &ids),
                         &mut detail,
                     )
                     .await
@@ -398,13 +399,15 @@ where
 
     /// The failing checks and the tail of the first few logs, for a failure, and for a drop the
     /// queue's own: its run is on a commit of its own, and can fail what the pull request's skips.
-    /// Empty otherwise.
+    /// **A drop's failing tests are judged for `owners`** (`crate::flaky_tests`): each is waited on,
+    /// claimed and fixed, or asked of the Job. Empty otherwise.
     async fn failure_detail(
-        &self,
+        self: &Arc<Self>,
         served: &Served,
         pull: &FollowedPull,
         head: &str,
         cause: Cause,
+        owners: &[String],
     ) -> String {
         match cause {
             Cause::ChecksFailed => {
@@ -420,25 +423,29 @@ where
                     })
                     .await
                     .unwrap_or_default();
-                self.logs_told(served, failing_lines(&failing), &failing, &runs).await
+                self.logs_told(served, failing_lines(&failing), &failing, &runs).await.0
             }
-            Cause::Dropped => self.queue_failure_detail(served, pull.number).await,
+            Cause::Dropped => {
+                let (detail, tests) = self.queue_failure_detail(served, pull.number).await;
+                let judged = self.ejection_judged(served, pull.number, owners, &tests, &detail).await;
+                [detail, judged].into_iter().filter(|part| !part.is_empty()).collect::<Vec<_>>().join("\n\n")
+            }
             _ => String::new(),
         }
     }
 
-    /// What the queue's newest run for `number` failed. Empty where it failed nothing or the
-    /// forge would not say: a drop by hand is told bare.
-    async fn queue_failure_detail(&self, served: &Served, number: u64) -> String {
+    /// What the queue's newest run for `number` failed, and the tests its logs name. Empty where it
+    /// failed nothing or the forge would not say: a drop by hand is told bare.
+    async fn queue_failure_detail(&self, served: &Served, number: u64) -> (String, Vec<String>) {
         let Some(base) = served.manifest().base().map(str::to_string) else {
-            return String::new();
+            return (String::new(), Vec::new());
         };
         let root = served.root().to_string();
         let Some(tested) = self
             .forge_asked(&root, move |vcs: &V, root: &str| vcs.queue_commit_of(root, &base, number))
             .await
         else {
-            return String::new();
+            return (String::new(), Vec::new());
         };
         let asked = tested.clone();
         let runs = self
@@ -458,21 +465,23 @@ where
             .collect();
         let failing: Vec<&FollowedCheck> = failing.iter().collect();
         if failing.is_empty() {
-            return String::new();
+            return (String::new(), Vec::new());
         }
         let named = format!("The merge queue failed, at {}:\n{}", short(&tested), failing_lines(&failing));
         self.logs_told(served, named, &failing, &runs).await
     }
 
-    /// `out`, then the tail of the first few failing checks' logs, from `runs`.
+    /// `out`, then the tail of the first few failing checks' logs, from `runs`, and the tests those
+    /// logs name as failing.
     async fn logs_told(
         &self,
         served: &Served,
         mut out: String,
         failing: &[&FollowedCheck],
         runs: &[adapter_traits::CiRun],
-    ) -> String {
+    ) -> (String, Vec<String>) {
         let root = served.root().to_string();
+        let mut tests: Vec<String> = Vec::new();
         for check in failing.iter().take(LOGS_READ) {
             let Some(run) = runs.iter().find(|run| {
                 run.state == CiState::Failed && run.name.as_written() == check.name.as_written()
@@ -486,6 +495,11 @@ where
             else {
                 continue;
             };
+            for test in checks_runner::failing_tests_in(log.as_written()) {
+                if !tests.contains(&test) {
+                    tests.push(test);
+                }
+            }
             let lines: Vec<&str> = log.as_written().lines().collect();
             let tail = &lines[lines.len().saturating_sub(TAIL_LINES)..];
             out.push_str(&format!(
@@ -494,7 +508,7 @@ where
                 tail.join("\n")
             ));
         }
-        out
+        (out, tests)
     }
 
     /// Pull requests that merged lately, told to the Sessions and Jobs that held them.

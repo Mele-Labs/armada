@@ -1144,6 +1144,22 @@ pub(crate) async fn take_main_red<D: Sessions>(
     }
 }
 
+/// A Job says a failing test Fleet asked it about is flaky. 200 with `TestCalledFlaky`; 409 where
+/// Fleet did not ask it about that test; 422 for a call that places no Session or names no log line.
+pub(crate) async fn call_test_flaky<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let call: ipc::CallTestFlaky = match ipc::decode_body("a flaky test to call", &body) {
+        Ok(call) => call,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().call_test_flaky(crate::acting::asking(), call).await {
+        Ok(called) => answer(StatusCode::OK, &called, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A Session's agent starts a Session, held for the person. 200 with `SessionHeld`; 422 for a call that
 /// places no hosted Session, a blank title or message, or a repository Fleet does not serve.
 ///

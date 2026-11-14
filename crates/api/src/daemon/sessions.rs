@@ -489,6 +489,14 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         take: ipc::TakeMainRed,
     ) -> impl Future<Output = Result<ipc::MainRedTaken, Refusal>> + Send;
+    /// `call_test_flaky` — a Job Fleet asked about a failing test says it is flaky, with the log line
+    /// that shows it. [`Refusal::Unacceptable`] for a call that places no Session or names no log
+    /// line; [`Refusal::IllegalMove`] where Fleet did not ask this Job about that test.
+    fn call_test_flaky(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        call: ipc::CallTestFlaky,
+    ) -> impl Future<Output = Result<ipc::TestCalledFlaky, Refusal>> + Send;
     /// `start_another_session` — a hosted Session's agent starts a Session with a first message held for the
     /// person. `caller` places the Session, which the body cannot name. No process starts.
     /// [`Refusal::Unacceptable`] for a call that places no hosted Session, a blank title or message, or

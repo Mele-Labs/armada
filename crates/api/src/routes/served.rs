@@ -577,6 +577,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/take_main_red",
     },
     Route {
+        operation: "call_test_flaky",
+        method: "POST",
+        path: "/sessions/call_test_flaky",
+    },
+    Route {
         operation: "waiting_for",
         method: "POST",
         path: "/sessions/waiting",

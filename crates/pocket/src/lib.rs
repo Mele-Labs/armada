@@ -35,6 +35,7 @@ mod nearby;
 mod pair_routes;
 mod pairing;
 mod phone_sessions;
+mod phone_terminals;
 mod push;
 mod reads;
 mod routes;
@@ -97,6 +98,8 @@ mod mac_tests;
 mod nearby_tests;
 #[cfg(test)]
 mod pairing_tests;
+#[cfg(test)]
+mod phone_terminal_tests;
 #[cfg(test)]
 mod push_tests;
 #[cfg(test)]
