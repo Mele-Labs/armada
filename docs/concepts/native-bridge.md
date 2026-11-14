@@ -205,7 +205,8 @@ FOUND lists the Macs the Gateway finds on his Cloudflare account and on this net
 A found row has the Mac's colour dot, its name, one chip and Pair.
 The chip is green Nearby when Bonjour sees it, else blue On your account when its tunnel is connected, else grey Asleep.
 Pair is off while the Mac is asleep, and its tooltip says it is asleep or Armada is closed there.
-A paired Mac that Bonjour sees now gains the green Nearby chip in PAIRED.
+A paired Mac that Bonjour sees now gains the green Nearby chip after its name in PAIRED.
+The Nearby chip has a small screen glyph before its word and the tooltip Found on this network.
 It is matched to its found row by name, since a paired Mac carries no tunnel.
 Pair asks that Mac to pair with no link, and the row joins PAIRED waiting on Confirm with the four digits both Macs show.
 Confirm stays the page's own Confirm on the other Mac's row.

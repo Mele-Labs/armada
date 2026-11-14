@@ -1366,9 +1366,7 @@ impl SettingsOverlay {
             first = false;
         };
         let refused_at = |act: &str| page.refused.get(act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
-        // Where a paired Mac is seen on this network, its row has a chip column, and every row keeps the column.
         let near = |mac: &Mac| paired_nearby(page.found.as_ref(), mac);
-        let near_col = matches!(&page.macs, Some(Ok(macs)) if macs.iter().any(|mac| near(mac)));
         match (&page.macs, &page.phones) {
             (None, _) | (_, None) => {
                 for _ in 0..3 {
@@ -1390,8 +1388,7 @@ impl SettingsOverlay {
                     let press = act.as_ref().and_then(|(key, said)| if differs { self.update_button(mac, key, said, look, window, cx) } else { self.row_button(key, said, format!("{said} {}", mac.name), matches!(mac.link, Some(MacLink::ConfirmWaiting)), look, window, cx) });
                     let ink = if differs { token::STATUS_ESCALATED } else { token::FG_MUTED };
                     let nearby = near(mac).then(|| presence_chip(look, format!("macs-nearby-{}", mac.id), Presence::Nearby, &mac.name));
-                    let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), mac.why.as_deref(), asleep)
-                        .when(near_col, |row| row.child(chip_column(look, nearby, PAIRED_CHIP)))
+                    let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), nearby, mac.why.as_deref(), asleep)
                         .child(div().flex_none().children(mac.build.as_ref().map(|build| build_mark_in(look, format!("macs-build-{}", mac.id), build, look.color(ink)))))
                         .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().children(mark))
                         .child(press_column(look, press));
@@ -1409,8 +1406,7 @@ impl SettingsOverlay {
                     let seen = phone.last_seen_at.map_or("Never seen".to_string(), |at| format!("Seen {}", age_of(at)));
                     let icon = svg().flex_none().path(icon_path("smartphone")).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(look.color(token::FG_MUTED)).into_any_element();
                     let unpair = self.unpair_button(phone, look, window, cx);
-                    let row = device_row(look, icon, &phone.name, None, None, false)
-                        .when(near_col, |row| row.child(chip_column(look, None, PAIRED_CHIP)))
+                    let row = device_row(look, icon, &phone.name, None, None, None, false)
                         .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(seen)))
                         .child(div().flex_none().w(look.length(token::SPACE_6)))
                         .child(press_column(look, unpair));
@@ -1779,9 +1775,9 @@ fn chip(look: &Look, mac: &Mac) -> AnyElement {
     labelled(div().id(SharedString::from(format!("macs-chip-{}", mac.id))).flex_none().size(look.length(token::SPACE_3)).rounded(look.length(token::RADIUS_SM)).bg(colour_of(look, mac.colour)), Role::Image, said).into_any_element()
 }
 
-/// A Devices row: its mark, its name, a quiet word after it, and the Gateway's why under it; the caller adds what
+/// A Devices row: its mark, its name, a quiet word and a chip after it, and the Gateway's why under it; the caller adds what
 /// goes at the right. A dimmed row's name is in the muted ink.
-fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static str>, why: Option<&str>, dim: bool) -> gpui::Div {
+fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static str>, chip: Option<AnyElement>, why: Option<&str>, dim: bool) -> gpui::Div {
     let ink = if dim { look.color(token::FG_MUTED) } else { look.color(token::FG_DEFAULT) };
     div()
         .flex()
@@ -1800,14 +1796,12 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
                         .items_baseline()
                         .gap(look.length(token::SPACE_2))
                         .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).child(SharedString::from(name.to_string())))
-                        .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside))),
+                        .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside)))
+                        .children(chip.map(|chip| div().flex_none().self_center().child(chip))),
                 )
                 .children(why.map(|why| caption(look, why))),
         )
 }
-
-/// How wide the chip column of a paired row stands: "Nearby".
-const PAIRED_CHIP: f32 = 1.75;
 
 /// How wide the chip column of a found row stands: "On your account", the widest of its three.
 const FOUND_CHIP: f32 = 2.5;
