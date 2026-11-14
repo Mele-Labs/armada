@@ -322,6 +322,21 @@ pub(super) fn linked_facts(look: &Look, key: &str, pull: &Pull) -> [AnyElement; 
 }
 
 /// A fact on the row's second line: its glyph, which carries the tooltip, and its word, filled in its hue.
+/// Chips that show only whole: a one-line wrap whose second line is clipped, so a chip without room
+/// drops out rather than being cut. The empty first child lets even the first chip wrap away.
+fn spare(look: &Look, chips: impl IntoIterator<Item = Option<AnyElement>>) -> gpui::Div {
+    let gap = look.length(token::SPACE_2);
+    div()
+        .min_w_0()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .h(look.length(token::LEADING_2XS))
+        .overflow_hidden()
+        .child(div().w_0().h_full())
+        .children(chips.into_iter().flatten().map(|chip| div().flex_none().pl(gap).child(chip)))
+}
+
 fn fact(look: &Look, id: String, icon: &'static str, said: String, word: &'static str, hue: Token) -> AnyElement {
     state_chip(look, id, icon, said, word, hue).into_any_element()
 }
@@ -441,7 +456,7 @@ impl JobView {
         });
         let from = pull.from.clone().map(|from| div().flex_none().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_MUTED).opacity(0.14)).child(SharedString::from(from)));
         let branch = (!pull.branch.is_empty()).then(|| {
-            div().min_w_0().truncate().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.08)).font_family(mono(look)).child(SharedString::from(pull.branch.clone()))
+            div().max_w(look.length(token::SPACE_12) * 4.).truncate().px(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.08)).font_family(mono(look)).child(SharedString::from(pull.branch.clone()))
         });
         let (check_icon, check_word, check_hue) = match pull.checks {
             PullChecks::Passed => ("circle-check", "Passed", token::STEP_ADVANCED),
@@ -466,23 +481,19 @@ impl JobView {
             .child(lead)
             .child(
                 div().flex_1().min_w_0().flex().flex_col().child(title).child(
+                    // The checks chip leads and always shows whole; a narrow pane drops the others
+                    // whole from the end, and never cuts one.
                     div()
                         .flex()
                         .items_center()
-                        .gap(look.length(token::SPACE_2))
                         .min_w_0()
                         .overflow_hidden()
                         .text_size(look.length(token::TEXT_2XS))
                         .line_height(look.length(token::LEADING_2XS))
                         .text_color(look.color(token::FG_MUTED))
                         .whitespace_nowrap()
-                        .children(based)
-                        .children(on)
-                        .children(from)
-                        .children(branch)
-                        .child(checks)
-                        .children(waiting)
-                        .children(standing),
+                        .child(div().flex_none().child(checks))
+                        .child(spare(look, [waiting, standing, based.map(IntoElement::into_any_element), on.map(IntoElement::into_any_element), from.map(IntoElement::into_any_element), branch.map(IntoElement::into_any_element)])),
                 ),
             );
         let pressed = pull.clone();
