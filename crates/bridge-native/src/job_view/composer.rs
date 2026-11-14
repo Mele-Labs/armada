@@ -283,6 +283,12 @@ pub(crate) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
     files.into_iter().map(|one| SessionUpload { name: one.name, media_type: one.media_type, data: engine.encode(one.bytes.as_slice()) }).collect()
 }
 
+/// A picture tile's width at height `tall`: the picture's own shape, kept between `least` and `most`.
+/// A picture whose size cannot be read takes the widest.
+fn thumb_width(natural: Option<(u32, u32)>, tall: f32, least: f32, most: f32) -> f32 {
+    natural.filter(|(w, h)| *w > 0 && *h > 0).map_or(most, |(w, h)| (tall * w as f32 / h as f32).clamp(least, most))
+}
+
 /// What is attached, as tiles in a row above the words: a picture shows itself, any other file its name and kind.
 /// `remove` makes each tile's Remove press; `more` are tiles the caller draws itself.
 pub(crate) fn tray(files: &[Attached], more: Vec<AnyElement>, look: &Look, remove: impl Fn(u64) -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>) -> AnyElement {
@@ -302,12 +308,14 @@ pub(crate) fn tray(files: &[Attached], more: Vec<AnyElement>, look: &Look, remov
             format!("Remove {}", one.name),
         );
         let body = match &one.preview {
-            Some(image) => div()
-                .h_full()
-                .min_w(look.length(token::SPACE_12))
-                .max_w(look.length(token::SPACE_12) * 2.7)
-                .child(img(image.clone()).h_full().object_fit(gpui::ObjectFit::Cover))
-                .into_any_element(),
+            Some(image) => {
+                // A picture's tile takes its width from the picture's own shape: an img given only a
+                // height lays out with no width, and the tile drew as an empty grey box.
+                let tall = f32::from(look.length(token::SPACE_12) + look.length(token::SPACE_4));
+                let least = f32::from(look.length(token::SPACE_12));
+                let wide = thumb_width(super::pictures::natural_size(&one.bytes), tall, least, least * 2.7);
+                div().h_full().w(gpui::px(wide)).child(img(image.clone()).size_full().object_fit(gpui::ObjectFit::Cover)).into_any_element()
+            }
             None => div()
                 .size_full()
                 .flex()
@@ -962,6 +970,9 @@ impl JobView {
         if self.fleet.is_none() {
             let bytes = b"fn main() {}\n".to_vec();
             self.add_file(&id, "sample.rs".into(), "text/plain".into(), bytes, cx);
+            if let Some(picture) = super::pictures::mock_picture("Pasted file.png") {
+                self.add_file(&id, "Pasted file.png".into(), "image/png".into(), picture, cx);
+            }
             return;
         }
         let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
@@ -1490,6 +1501,15 @@ fn lands_line(id: &str, look: &Look, cx: &App) -> Option<AnyElement> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pasted_pictures_tile_takes_the_pictures_shape_within_its_bounds() {
+        assert_eq!(thumb_width(Some((1600, 1000)), 64.0, 48.0, 130.0), 102.4);
+        assert_eq!(thumb_width(Some((400, 1000)), 64.0, 48.0, 130.0), 48.0);
+        assert_eq!(thumb_width(Some((4000, 1000)), 64.0, 48.0, 130.0), 130.0);
+        assert_eq!(thumb_width(None, 64.0, 48.0, 130.0), 130.0);
+        assert_eq!(thumb_width(Some((0, 0)), 64.0, 48.0, 130.0), 130.0);
+    }
 
     fn kept(text: &str) -> Kept {
         Kept { text: text.into(), tags: Vec::new() }

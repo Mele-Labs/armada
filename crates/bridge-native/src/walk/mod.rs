@@ -2567,6 +2567,21 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-owner-fixes",
+        title: "Three fixes: the working line, a pasted picture, the note card at an edge",
+        screen: Screen::App,
+        scenario: "owner-fixes",
+        steps: &[
+            step("A press on a working Job opens it", Verb::Press, "row", "Native Bridge foundation"),
+            step("Its working line says what it is doing now, as its row in the list does, in place of Thinking", Verb::Look, "status", "Working"),
+            step("Attach adds a file and a picture: the picture's tile shows the picture, at its own shape", Verb::Press, "button", "Attach file"),
+            step("The picture's tile", Verb::Look, "listitem", "Pasted file.png"),
+            step("⌥⌘A turns annotating on", Verb::Key("alt-cmd-a"), "status", "Annotating"),
+            step("A press on the right column's tab, at the window's top right edge, opens the note card", Verb::PressOn("tab", "Job column: Now"), "dialog", "New note"),
+            step("The card stands whole inside the window, under the title bar, with Cancel and Send in view", Verb::Look, "button", "Cancel"),
+        ],
+    },
+    Walk {
         name: "annotate-hover",
         title: "Notes stay on under the pointer",
         screen: Screen::App,
