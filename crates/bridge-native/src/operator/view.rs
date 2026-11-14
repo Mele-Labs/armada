@@ -232,6 +232,28 @@ impl OperatorPageView {
                 said,
             )
         });
+        // Where the page reads on, the one press that reads it off. The last place in the head, so Tab reaches the pills first.
+        let on = self.page.as_ref().is_some_and(|page| page.on);
+        let switch_off = on.then(|| {
+            let refused = self.switch_off_refused.clone().map(|why| {
+                labelled(
+                    div().id("switch-off-refused").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(format!("Not switched off: {why}")),
+                    Role::Alert,
+                    format!("Not switched off: {why}"),
+                )
+            });
+            let control = labelled(
+                pressed(
+                    press("operator-switch-off", "Switch off".into(), Some("power"), None, Weight::Bare, look)
+                        .tooltip(tip("Nothing is handed to the Operator and it makes no calls")),
+                    cx,
+                    |this, _, cx| this.switch_off(cx),
+                ),
+                Role::Button,
+                "Switch the Operator off",
+            );
+            div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(refused).child(control)
+        });
         div()
             .flex_none()
             .flex()
@@ -257,6 +279,7 @@ impl OperatorPageView {
             )
             .children(mains)
             .children(slots)
+            .children(switch_off)
     }
 
     /// The Operator's one line on what changed: grey words under the day, as nothing on it is to be pressed.
@@ -599,6 +622,7 @@ impl OperatorPageView {
             // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
             // go-ahead's says Yes.
             let label: SharedString = match turn.kind {
+                _ if yes && face::goes_to_look(turn) => face::pick_word(turn, None),
                 OperatorTurnKind::Decision if yes => face::pick_word(turn, chosen.as_deref()),
                 _ if yes && face::picks_later(turn) => "Later".into(),
                 _ => face::answer_word(answer).into(),
@@ -610,7 +634,9 @@ impl OperatorPageView {
                 None => said,
             };
             let key: Option<SharedString> = open.then(|| face::answer_key(answer).into());
-            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
+            let looks = yes && face::goes_to_look(turn);
+            let said = if looks { "Open the walk in its Job. It leaves Your turn once you approve it there".to_string() } else { said };
+            let button = press(format!("answer-{at}"), label.clone(), yes.then_some(if looks { "eye" } else { "check" }), key, if yes { Weight::Pick } else { Weight::Plain }, look)
                 .tooltip(tip(said));
             let button = pressed(button, cx, on_ask(&turn.id, move |this, window, cx| this.answer(answer, window, cx)));
             labelled(button, Role::Button, label).into_any_element()
@@ -1657,7 +1683,8 @@ impl Render for OperatorPageView {
             return root.child(top).child(self.skeleton(look)).child(self.composer.clone()).into_any_element();
         };
         let off = (!page.on).then(|| self.off(look, cx));
-        let mut parts: Vec<AnyElement> = vec![self.turn_head(look).into_any_element()];
+        // The message box leads the left column, above Your turn.
+        let mut parts: Vec<AnyElement> = vec![self.composer.clone().into_any_element(), self.turn_head(look).into_any_element()];
         // Another Mac waiting for his Confirm stands first: it lapses in five minutes and no Job holds it.
         parts.extend(self.pairing_cards(look, cx));
         parts.extend(self.on_it(page, look, cx));
@@ -1712,7 +1739,6 @@ impl Render for OperatorPageView {
         root.relative()
             .child(top.children(self.top_line(page, look)))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
-            .child(self.composer.clone())
             .children(sheet)
             .children(log)
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
@@ -1730,7 +1756,7 @@ impl OperatorPageView {
                 .gap(look.length(token::SPACE_2))
                 .text_color(look.color(token::FG_MUTED))
                 .child(spinner("switch-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
-                .child("Switching on")
+                .child(if self.switching_off { "Switching off" } else { "Switching on" })
                 .into_any_element()
         } else {
             labelled(

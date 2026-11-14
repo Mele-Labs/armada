@@ -2229,16 +2229,40 @@ impl JobsList {
         let status_on = view.on("view:status");
         // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
         let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
-        // A Job on its way to the other Mac, or gone there, wears that Mac's dot, and says so where its state is.
-        let going: Option<SharedString> =
-            row.moving_to.clone().or_else(|| row.moved.then(|| crate::move_to_mac::went_to(crate::pairing::macs(cx)).map(|id| SharedString::from(id.to_string()))).flatten());
+        // A Job gone to the other Mac wears that Mac's dot, and says so where its state is.
+        let going: Option<SharedString> = row.moved.then(|| crate::move_to_mac::went_to(crate::pairing::macs(cx)).map(|id| SharedString::from(id.to_string()))).flatten();
         let going_name = going.as_deref().and_then(|id| crate::pairing::chip(Some(id), cx)).map(|chip| chip.name);
-        let moving_said: Option<SharedString> = row.moving_to.as_ref().and(going_name.as_ref()).map(|name| format!("Moving to {name}").into());
         let moved_said: Option<SharedString> = row.moved.then_some(going_name.as_ref()).flatten().map(|name| format!("Moved to {name}").into());
         let mut mac_dot = dotted
             .then(|| crate::pairing::chip(going.as_deref().or(row.mac.as_deref()), cx))
             .flatten()
             .map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+        // A Job on its way keeps its place and wears an amber edge. At the row's end stand its Mac's dot, a muted arrow, the other
+        // Mac's dot and the amber word Moving, so the title keeps the width and the row stays one line. Where it goes is the mark's
+        // tooltip and its name.
+        let on_its_way = row.moving_to.as_ref().map(|target| {
+            let macs = crate::pairing::macs(cx);
+            let away = row.mac.is_some();
+            // A Job held from the other Mac that is moving here names this Mac by an id the list may not hold.
+            let to = crate::pairing::chip_of(macs, Some(target)).or_else(|| away.then(|| crate::pairing::chip_of(macs, None)).flatten());
+            let words = moving_mark_said(macs, target, away);
+            labelled(
+                meta(look)
+                    .id(SharedString::from(format!("moving-{}", row.id)))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .children(mac_dot.take())
+                    .child(div().flex_none().text_color(look.color(token::FG_SUBTLE)).child("\u{2192}"))
+                    .children(to.map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-to-{}", row.id)), &chip)))
+                    .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::STATUS_AWAITING_REVIEW)).child("Moving"))
+                    .tooltip(tip(words.clone())),
+                Role::Status,
+                words,
+            )
+        });
+        let lamp_ink = if on_its_way.is_some() { look.color(token::STATUS_AWAITING_REVIEW) } else { lamp_ink };
         // A row with a time keeps the slot's fixed width so marks line up down the list; one without lets the slot shrink to its glyphs.
         let timed = time.is_some();
         let marks = div()
@@ -2266,15 +2290,6 @@ impl JobsList {
                             .tooltip(tip("Handing off".into())),
                         Role::Image,
                         "Handing off",
-                    ))
-                }).when_some(moving_said, |slot, said| {
-                    slot.child(labelled(
-                        div()
-                            .id(SharedString::from(format!("moving-{}", row.id)))
-                            .child(crate::titlebar::parts::spinner(SharedString::from(format!("moving-ring-{}", row.id)), look.length(token::SPACE_4), look.color(token::FG_MUTED), cx))
-                            .tooltip(tip(said.clone())),
-                        Role::Image,
-                        said,
                     ))
                 }).children(quiet).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     let said = moved_said.clone().unwrap_or(said);
@@ -2346,6 +2361,7 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
+                    .children(on_its_way)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
@@ -2845,6 +2861,11 @@ impl JobsScreen {
         &self.within
     }
 
+    /// The palette, for the screen this one sits in to draw while another place is in front.
+    pub(crate) fn palette(&self) -> &Entity<crate::palette::Palette> {
+        &self.palette
+    }
+
     /// The room the three columns share: the window less its padding and the gaps between them.
     fn room(window: &Window, look: &Look) -> f32 {
         let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
@@ -2999,6 +3020,12 @@ pub(crate) fn row_card(look: &Look, id: SharedString, opened: bool, focused: boo
         .border_color(look.color(edge))
         .bg(look.color(ground))
         .when(hover && !opened, |card| card.hover(move |style| style.bg(hovered)))
+}
+
+/// What the mark at the end of a moving row says, and its tooltip: where the Job goes. A Job held from the other Mac that
+/// is moving here names this Mac, by an id the list may not hold.
+fn moving_mark_said(macs: &[ipc::Mac], target: &str, held_away: bool) -> SharedString {
+    crate::job_view::moving_said(&crate::job_view::name_of(macs, target, held_away)).into()
 }
 
 /// A row's lamp as a faint wash over its card's ground.
@@ -3784,6 +3811,22 @@ mod tests {
         all[at].end_reason = Some(crate::move_to_mac::ENDED_AS.into());
         let gone = row_of(&all, "mock-02").expect("a Job that went to the other Mac stays, ended as moved");
         assert!(gone.moved);
+    }
+
+    #[test]
+    fn the_mark_at_a_moving_rows_end_names_where_the_job_goes() {
+        let macs = crate::pairing::mock_macs(true);
+        assert_eq!(moving_mark_said(&macs, "air", false).as_ref(), "Moving to Air", "a Job this Mac holds goes to the other Mac");
+        assert_eq!(moving_mark_said(&macs, "an-id-the-list-lacks", true).as_ref(), "Moving to Studio", "a Job held away that comes here names this Mac");
+    }
+
+    #[test]
+    fn a_moving_row_is_dotted_from_its_mac_to_the_other_in_colours_that_read_apart() {
+        let macs = crate::pairing::mock_macs(true);
+        let from = crate::pairing::chip_of(&macs, None).expect("this Mac's chip");
+        let to = crate::pairing::chip_of(&macs, Some("air")).expect("the other Mac's chip");
+        assert_eq!((from.name.as_str(), to.name.as_str()), ("Studio", "Air"));
+        assert_ne!(from.colour, to.colour);
     }
 
     #[gpui::test]

@@ -184,7 +184,7 @@ mod tests;
 
 pub use annotations::annotation_places;
 pub use build_standing::{
-    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, origin_branches, position_against_main, BranchInBuild, BuildMade,
+    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade,
 };
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;

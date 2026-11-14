@@ -119,6 +119,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         swapping: false,
         switcher: None,
         origin: Vec::new(),
+        holds: Vec::new(),
     }
 }
 

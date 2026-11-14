@@ -9,7 +9,7 @@
 //! | The page's state, keys and presses, each answered at once | `page.rs` |
 //! | The page drawn, and the pane from a Job | `view.rs` |
 //! | The chat Ask opens | `chat.rs` |
-//! | The box at the page's foot, whose send is a dispatch | `composer.rs` |
+//! | The box atop the left column, above Your turn, whose send is a dispatch | `composer.rs` |
 //! | The ideas the Operator kept for later | `parked.rs` |
 //! | Another Mac waiting for his Confirm to pair, as a card atop Your turn | `pairing.rs` |
 //! | The six routes, live or mock | `wire.rs` |
