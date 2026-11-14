@@ -1792,11 +1792,16 @@ fn build_mark(look: &Look, id: impl Into<SharedString>, build: &str) -> AnyEleme
     build_mark_in(look, id, build, look.color(token::FG_MUTED))
 }
 
-/// A build's hash in the ink given: amber on a Mac whose build differs.
+/// A build's hash in the ink given: amber on a Mac whose build differs. Fleet sends the whole hash; its first seven
+/// characters are drawn and the whole one is in the tooltip.
 fn build_mark_in(look: &Look, id: impl Into<SharedString>, build: &str, ink: Hsla) -> AnyElement {
     let said = format!("Build {build}");
-    let hash = div().id(id.into()).flex_none().text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(build.to_string()));
+    let hash = div().id(id.into()).flex_none().text_size(look.length(token::TEXT_2XS)).text_color(ink).tooltip(tip(said.clone())).child(SharedString::from(short_hash(build).to_string()));
     labelled(hash, Role::Label, said).into_any_element()
+}
+
+fn short_hash(build: &str) -> &str {
+    build.char_indices().nth(7).map_or(build, |(at, _)| &build[..at])
 }
 
 fn not_done(look: &Look, id: &'static str) -> AnyElement {
@@ -1823,9 +1828,10 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
         .gap(look.length(token::SPACE_3))
         .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().child(mark))
         .child(
+            // Never narrower than this, so a why under the name wraps by words, not a letter a line.
             div()
                 .flex_1()
-                .min_w_0()
+                .min_w(look.length(token::SPACE_12) * 3.)
                 .flex()
                 .flex_col()
                 .child(
@@ -1987,7 +1993,7 @@ mod tests {
 
     #[gpui::test]
     fn a_long_name_or_address_stops_in_an_ellipsis_and_leaves_the_press_column_where_it_was(cx: &mut TestAppContext) {
-        use super::super::gateway::{LONG_ADDRESS, LONG_FOUND, LONG_MAC, LONG_THIS_MAC};
+        use super::super::gateway::{LONG_ADDRESS, LONG_FOUND, LONG_MAC, LONG_OLDER_BUILD, LONG_OLDER_MAC, LONG_THIS_MAC};
         assert_eq!((LONG_THIS_MAC.chars().count(), LONG_MAC.chars().count(), LONG_FOUND.chars().count(), LONG_ADDRESS.chars().count()), (50, 60, 60, 90));
         for width in [gpui::px(1400.), gpui::px(820.)] {
             let (overlay, cx) = opened_long(cx);
@@ -2010,10 +2016,15 @@ mod tests {
                 // Not truncated, a text this long wraps onto a second line, so one line is what proves the ellipsis.
                 let pair = bounds_of(window, cx, Role::Button, &format!("Pair {LONG_FOUND}")).expect("the found Mac's Pair is drawn");
                 assert!(pair.right() <= devices.right(), "at {width:?} a long found name does not push its Pair out of the Devices card");
-                for text in [LONG_THIS_MAC, LONG_MAC, LONG_FOUND, LONG_ADDRESS] {
+                for text in [LONG_THIS_MAC, LONG_MAC, LONG_FOUND, LONG_ADDRESS, LONG_OLDER_MAC] {
                     let drawn = bounds_of(window, cx, Role::Label, text).unwrap_or_else(|| panic!("{text} is drawn"));
                     assert!(drawn.size.height < gpui::px(30.), "at {width:?} {text} is on one line, not {:?} tall", drawn.size.height);
                 }
+                // Fleet's whole hash is drawn as its first seven characters, so the name beside it keeps its room.
+                let build = bounds_of(window, cx, Role::Label, &format!("Build {LONG_OLDER_BUILD}")).expect("the older Mac's build is drawn");
+                assert!(build.size.width < gpui::px(80.), "at {width:?} the build is a short hash, not {:?} wide", build.size.width);
+                let older = bounds_of(window, cx, Role::Label, LONG_OLDER_MAC).expect("the older Mac's name is drawn");
+                assert!(older.size.width > gpui::px(100.), "at {width:?} the older Mac's name keeps its room, not {:?}", older.size.width);
             });
         }
     }

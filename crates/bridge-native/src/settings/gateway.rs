@@ -281,6 +281,10 @@ pub const LONG_THIS_MAC: &str = "Studio in the corner of the second floor west w
 pub const LONG_MAC: &str = "Work MacBook Pro that travels between the office and the lab";
 /// A Mac found nearby and not paired, there: 60 characters.
 pub const LONG_FOUND: &str = "Office iMac in the corner of the third floor east wing today";
+/// A Mac there on an older build, whose why runs under its name.
+pub const LONG_OLDER_MAC: &str = "Nick-Meles-MacBook-Pro---Kiavi";
+/// That Mac's build, the whole hash as Fleet sends it.
+pub const LONG_OLDER_BUILD: &str = "1d199a1f0c3e8b2a7d5e64f90b1c2d3e4f5a6b7c";
 /// The tunnel's address there: 90 characters.
 pub const LONG_ADDRESS: &str = "https://studio-in-the-second-floor-corner-of-the-north-office.tunnels.example.com/pairing/";
 /// A link Start made on another Mac, which the mock's Claim takes.
@@ -389,8 +393,20 @@ impl MockGateway {
     /// tunnel's address 90.
     pub fn long_names() -> MockGateway {
         let mut gateway = MockGateway::new();
+        // Fleet sends each build as its whole hash, and a Mac on another build carries its why.
         gateway.macs[0].name = LONG_THIS_MAC.into();
+        gateway.macs[0].build = Some("50c0fd5f24078efc1e9f7b131fabdf2dd8282e71".into());
         gateway.macs[1].name = LONG_MAC.into();
+        gateway.macs.push(Mac {
+            id: "mac-older-long".into(),
+            name: LONG_OLDER_MAC.into(),
+            colour: MacColour::Teal,
+            address: Some("older.example.com".into()),
+            build: Some(LONG_OLDER_BUILD.into()),
+            link: Some(MacLink::OlderBuild),
+            why: Some(format!("{LONG_OLDER_MAC} runs an older build. Nothing crosses until it updates.")),
+            ..Default::default()
+        });
         let found = |tunnel: &str, name: &str, colour: MacColour, paired: bool| FoundMac { tunnel: tunnel.into(), name: name.into(), colour: Some(colour), online: true, paired, build: Some("2930ac0".into()), nearby: true, ..Default::default() };
         gateway.found = vec![found("armada-mac-work", LONG_MAC, MacColour::Orange, true), found("armada-mac-office", LONG_FOUND, MacColour::Blue, false)];
         gateway.setup.served = Served::None;
