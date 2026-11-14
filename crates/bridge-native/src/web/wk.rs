@@ -223,7 +223,11 @@ impl Native {
             let config = WKWebViewConfiguration::new(mtm);
             match options.store {
                 Some(id) => {
-                    let uuid = NSUUID::from_bytes(id);
+                    // From its text, not its bytes: objc2's debug check refuses `initWithUUIDBytes:` on this
+                    // macOS, so a debug build, which Fleet plays walks from, panicked on every web page.
+                    let hex: String = id.iter().map(|byte| format!("{byte:02X}")).collect();
+                    let text = format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]);
+                    let uuid = NSUUID::from_string(&NSString::from_str(&text)).expect("a UUID's own text parses");
                     config.setWebsiteDataStore(&WKWebsiteDataStore::dataStoreForIdentifier(&uuid, mtm));
                 }
                 None => config.setWebsiteDataStore(&WKWebsiteDataStore::nonPersistentDataStore(mtm)),
