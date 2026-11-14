@@ -18,6 +18,7 @@ mod calls;
 mod call_tabs;
 mod callchip;
 mod choose;
+mod claim_waits;
 mod cards;
 pub(crate) mod composer;
 mod deck;
@@ -60,6 +61,7 @@ mod refs;
 mod review;
 mod row_tabs;
 mod web_pages;
+mod page_tab;
 mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
@@ -170,6 +172,8 @@ pub(crate) enum Extra {
     Waiting,
     /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
     WaitsFor,
+    /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
+    ClaimWaits,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -920,6 +924,10 @@ impl JobView {
         if bands.end {
             extras.push(Extra::End);
         }
+        // The items it waits on that another holds stand with its other waits.
+        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty() || job.claims_unsent) {
+            extras.push(Extra::ClaimWaits);
+        }
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
@@ -1161,6 +1169,7 @@ impl Render for JobView {
         self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
+        self.sync_page_tabs(&id, window, cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
@@ -1329,3 +1338,4 @@ mod tests {
 
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
+pub(crate) use page_tab::page_in_front;

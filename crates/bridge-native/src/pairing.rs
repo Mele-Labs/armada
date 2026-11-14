@@ -186,7 +186,21 @@ pub fn asleep_said(since: i64) -> String {
 /// dimmed and says since when; the name is the chip's, so a walk and VoiceOver find it by it.
 pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
     let hue = crate::settings::macs::colour_of(look, chip.colour);
-    let drawn = div()
+    let drawn = pill_drawn(look, id, &chip.name, hue)
+        .when_some(chip.asleep_since, |pill, since| {
+            let said: SharedString = asleep_said(since).into();
+            pill.opacity(0.5).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
+        });
+    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+}
+
+/// A chip for a Mac the window may not list, such as a teammate's, in the hue given.
+pub fn pill_in(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> AnyElement {
+    labelled(pill_drawn(look, id, name, hue), Role::Image, SharedString::from(name.to_string())).into_any_element()
+}
+
+fn pill_drawn(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> gpui::Stateful<Div> {
+    div()
         .id(id)
         .max_w_full()
         .truncate()
@@ -197,12 +211,7 @@ pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
         .text_size(look.length(token::TEXT_2XS))
         .line_height(look.length(token::LEADING_XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-        .child(SharedString::from(chip.name.clone()))
-        .when_some(chip.asleep_since, |pill, since| {
-            let said: SharedString = asleep_said(since).into();
-            pill.opacity(0.5).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
-        });
-    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+        .child(SharedString::from(name.to_string()))
 }
 
 /// The Mac's dot in its fixed colour, dimmed while it sleeps.

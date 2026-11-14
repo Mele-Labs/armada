@@ -55,6 +55,10 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
                 break;
             }
             cx.advance_clock(std::time::Duration::from_millis(100));
+            // A step that waits on a page waits on WebKit, which answers on the run loop.
+            if crate::web::in_use() {
+                crate::web::pump(0.01);
+            }
             cx.run_until_parked();
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }

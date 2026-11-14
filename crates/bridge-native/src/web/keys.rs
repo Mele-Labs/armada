@@ -29,6 +29,8 @@ const KEY_TAB: u16 = 48;
 const KEY_SPACE: u16 = 49;
 const KEY_BACKQUOTE: u16 = 50;
 pub const KEY_ESCAPE: u16 = 53;
+const KEY_RETURN: u16 = 36;
+const KEY_ENTER: u16 = 76;
 
 /// What a page needs for itself under ⌘: editing its text. Its field would otherwise lose copy,
 /// paste, cut, select all and undo.
@@ -48,6 +50,12 @@ pub fn is_bridges(press: Press) -> bool {
         return false;
     }
     !EDITING.contains(&press.code) && !SYSTEM.contains(&press.code)
+}
+
+/// Whether a press on a sealed page the kit draws stays with the page though Bridge would take it: ⌘↵, which sends
+/// the words or the vote the keys are in.
+pub fn is_kits(press: Press) -> bool {
+    press.command && !press.option && !press.control && !press.shift && matches!(press.code, KEY_RETURN | KEY_ENTER)
 }
 
 #[cfg(test)]
@@ -87,6 +95,16 @@ mod tests {
     fn option_with_command_still_goes_back_and_control_with_command_does_not() {
         assert!(is_bridges(Press { option: true, ..with_command(124) }));
         assert!(!is_bridges(Press { control: true, ..with_command(18) }));
+    }
+
+    #[test]
+    fn command_return_stays_with_a_kit_page_and_nothing_else_does() {
+        assert!(is_bridges(with_command(KEY_RETURN)), "Bridge's on any other page");
+        assert!(is_kits(with_command(KEY_RETURN)));
+        assert!(is_kits(with_command(KEY_ENTER)));
+        assert!(!is_kits(plain(KEY_ESCAPE)), "Esc still leaves the page");
+        assert!(!is_kits(with_command(18)));
+        assert!(!is_kits(Press { option: true, ..with_command(KEY_RETURN) }));
     }
 
     #[test]

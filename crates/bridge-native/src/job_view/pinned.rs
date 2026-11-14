@@ -1,5 +1,6 @@
 //! What the thread pins at its foot: Stop (A1.10), the card of the subagents running now (A4.3), the card of
-//! what the Job waits on that is not the person, and the card of what he sent that waits for the Job's Mac.
+//! what the Job waits on that is not the person, the card of the items it waits on that another holds, and the card of
+//! what he sent that waits for the Job's Mac.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
@@ -15,7 +16,7 @@ impl JobView {
     /// place is below what is on screen it stands at the foot of the view instead.
     pub(super) fn render_subagents_pin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
-        let at = page.extras.iter().rposition(|extra| matches!(extra, super::Extra::Subagents | super::Extra::Waiting | super::Extra::WaitsFor))?;
+        let at = page.extras.iter().rposition(|extra| matches!(extra, super::Extra::Subagents | super::Extra::Waiting | super::Extra::WaitsFor | super::Extra::ClaimWaits))?;
         let item_ix = page.entry(page.items + at);
         let viewport = page.list.viewport_bounds();
         let seen = page.list.bounds_for_item(item_ix).is_some_and(|bounds| bounds.bottom() <= viewport.bottom());
@@ -27,6 +28,7 @@ impl JobView {
         let card = match page.extras[at] {
             super::Extra::Waiting => self.waiting_card(id, look, cx)?,
             super::Extra::WaitsFor => self.waits_for_card(id, look, cx)?,
+            super::Extra::ClaimWaits => self.claim_waits_card(id, look, cx)?,
             _ => self.subagents_card(item_ix, &held.items, page, look, cx)?,
         };
         Some(

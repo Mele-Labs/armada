@@ -150,6 +150,28 @@ pub enum Verb {
     /// left as it is. A walk of the wide title bar opens with it, so it plays the bar it shows at
     /// any width; the narrow bar has its own steps.
     Widen(u32),
+    /// An element inside the page a Job's page tab draws, found by role and name as a web page's walk finds its
+    /// targets, scrolled to the middle and ringed, and pressed where the aim says, as a click the page hears. The step
+    /// fails where the page holds no such element within five seconds. Its own target is then ringed as any other.
+    InPage(PageAim),
+}
+
+/// What a step aims at inside a page: an element's role and name, the element of that role and name it sits in, and
+/// whether it is pressed or only looked at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PageAim {
+    pub role: &'static str,
+    pub name: &'static str,
+    pub within: Option<(&'static str, &'static str)>,
+    pub press: bool,
+}
+
+impl PageAim {
+    /// The aim as a web page's walk names a target.
+    pub fn target(&self) -> ipc::WalkTarget {
+        let target = |role: &str, name: &str| ipc::WalkTarget { role: role.into(), name: Some(name.into()), exact: None, within: None };
+        ipc::WalkTarget { within: self.within.map(|(role, name)| Box::new(target(role, name))), ..target(self.role, self.name) }
+    }
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -235,6 +257,12 @@ const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> S
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
     Step { say, verb, target: Target { role, name } }
+}
+
+/// A step that presses inside the page a Job's page tab draws, or only looks where `press` is false; the tab's own page
+/// region is ringed.
+const fn in_page(say: &'static str, role: &'static str, name: &'static str, within: Option<(&'static str, &'static str)>, press: bool) -> Step {
+    Step { say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
 }
 
 /// The hand off marks, played alone and in today's walk.
@@ -881,6 +909,38 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-page-actions",
+        title: "A Job's page: its buttons and votes, carried to Fleet",
+        screen: Screen::JobsInApp,
+        scenario: "page-actions",
+        steps: &[
+            press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Needs you"),
+            press_on("The page opens in its own tab: its card, and under it the page as Fleet serves it, sealed, its buttons and votes drawn by the kit", "button", "Needs you", "region", "Page"),
+            in_page("Discuss messages the Job: a box for words opens under its row", "button", "Discuss", None, true),
+            in_page("Send carries the press to Fleet. Fleet's answer turns the row green, and the row says it was sent", "button", "Send", Some(("region", "Stale branches")), true),
+            step(
+                "Rebase it starts a Job at once: its row says which Job, and a toast says it too",
+                Verb::InPage(PageAim { role: "button", name: "Rebase it", within: None, press: true }),
+                "button",
+                "Stale branch design started Retry webhooks on a 503",
+            ),
+            in_page("Keep it answers the Job's question with that option", "button", "Keep it", None, true),
+            in_page("Drop it answers a question the Job no longer asks", "button", "Drop it", None, true),
+            in_page("Fleet refuses it, and its words stand on the row, which can be pressed again", "status", "no longer waits", None, false),
+            in_page("A pick: Faded row", "radio", "Pick Faded row", None, true),
+            in_page("Send casts the pick: the vote says it was sent", "button", "Send", Some(("region", "Pick a mark")), true),
+            in_page("A score: Compact row keeps its age", "radio", "Keep", Some(("radiogroup", "age of Compact row")), true),
+            in_page("and drops its author", "radio", "Drop", Some(("radiogroup", "author of Compact row")), true),
+            in_page("Full row keeps its author", "radio", "Keep", Some(("radiogroup", "author of Full row")), true),
+            in_page("Send casts the score", "button", "Send", Some(("region", "Score the rows")), true),
+            press_on("Closing the tab lets the page go", "button", "Close Stale branch design", "region", "Thread"),
+            press_on("Opened again, the page is read from Fleet again", "button", "Needs you", "region", "Page"),
+            in_page("What was pressed stands: Discuss is green", "status", "Sent to the Job: Discuss", None, false),
+            in_page("and the score is drawn as it was cast", "radio", "Drop", Some(("radiogroup", "author of Compact row")), false),
+            step("The toast opens the Job the page started", Verb::PressOn("button", "Stale branch design started Retry webhooks on a 503"), "row", "Thread: Retry webhooks on a 503"),
+        ],
+    },
+    Walk {
         name: "native-system-bays",
         title: "A Job's System and Bays tabs",
         screen: Screen::JobsInApp,
@@ -1052,6 +1112,22 @@ pub static WALKS: &[Walk] = &[
             ),
             press_on("Log shows what the run wrote", "tab", "Log", "region", "Log of run 412"),
             step("Esc shuts it", Verb::Key("escape"), "list", "Checks"),
+        ],
+    },
+    Walk {
+        name: "native-claim-waits",
+        title: "A Job waiting on an item another Job or a person holds",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that takes an item a Job on another Mac holds. The wait stands at the thread's end, with what ends it under it", "row", "Audit the docs index", "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            step("The holder's Mac in a chip, in the accent: Home is not one of these Macs", Verb::Look, "img", "Home"),
+            step("How long the Job has waited, and since when in its tooltip", Verb::Hover, "timer", "12 min"),
+            step("The line stays inside the card", Verb::Fits("region", "Claims"), "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A Job that takes an item a person is assigned in beads names the person and the item, and carries on once they are unassigned", "row", "Native Bridge foundation", "row", "Waiting on alice: armada-zasx.5"),
+            step("It has waited two hours", Verb::Look, "timer", "2 h"),
+            press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
+            step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
         ],
     },
     Walk {
