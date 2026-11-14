@@ -648,7 +648,7 @@ impl SettingsOverlay {
             _ => None,
         };
         let seconds_said = match one.kind {
-            SettingKind::Seconds { .. } if in_range => typed_text.trim().parse::<i64>().ok().map(in_words),
+            SettingKind::Seconds { .. } if in_range => typed_text.trim().parse::<i64>().ok().map(in_words).filter(|said| !said.ends_with(" seconds") && !said.ends_with(" second")),
             _ => None,
         };
         let figure = matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. });
