@@ -28,6 +28,7 @@ pub(crate) fn waiting(item: &str, on: &WaitedOn) -> String {
         WaitedOn::Person(person) => format!(
             "{item} is assigned to {person} in beads, so it is their work. Leave {item} and work on nothing it needs. Fleet tells you when it is unassigned."
         ),
+        WaitedOn::Main => format!("{item} fails on main too. Main's own fix covers it."),
     }
 }
 

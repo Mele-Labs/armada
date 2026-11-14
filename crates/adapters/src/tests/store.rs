@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store};
+use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, ListedClaim, ListedWait, OwnerKey, RepositoryKey, RunRow, Secret, Store};
 use p256::ecdsa::signature::Verifier;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -254,6 +254,44 @@ fn a_renewal_reads_who_else_asked_for_a_claim_and_skips_a_contest_it_cannot_name
             by: Claimant { holder: who, name: "ada".into(), title: "Rename the queue".into() },
         }]
     );
+}
+
+#[test]
+fn the_claims_list_reads_each_holders_claims_and_waits_and_skips_what_it_cannot_name() {
+    let (repo, test, pull) = ("a".repeat(64), "b".repeat(64), "c".repeat(64));
+    let body = format!(
+        r#"{{"holders":[
+            {{"holder":{{"kind":"session","id":"s1","machine":"home","name":"nick","title":"Fix the flaky queue test"}},"renewed":900,
+              "claims":[{{"repo":"{repo}","kind":"test","key":"{test}","since":800}},{{"repo":"{repo}","kind":"robot","key":"{test}","since":1}}],"waits":[]}},
+            {{"holder":{{"kind":"session","id":"s2","machine":"work","name":"nick","title":"Land the queue race fix"}},"renewed":950,
+              "claims":[{{"repo":"{repo}","kind":"pull_request","key":"{pull}","since":700}}],
+              "waits":[{{"repo":"{repo}","kind":"test","key":"{test}","holder":{{"kind":"session","id":"s1","machine":"home","since":800,"name":"nick","title":"Fix the flaky queue test"}}}}]}},
+            {{"holder":{{"kind":"job","id":"j9","machine":"old","name":"","title":""}},"renewed":1,"claims":[]}}
+        ]}}"#
+    );
+
+    let groups = store::listed(&reply(200, &body)).unwrap();
+
+    assert_eq!(groups.len(), 2, "a holder kind this build does not know is skipped");
+    let fixer = Holder { kind: HolderKind::Session, id: "s1".into(), machine: "home".into(), since: 800 };
+    assert_eq!(groups[0].holder.holder.id, "s1");
+    assert_eq!(groups[0].holder.holder.since, 0, "a group has no since of its own");
+    assert_eq!((groups[0].renewed, groups[0].holder.title.as_str()), (900, "Fix the flaky queue test"));
+    assert_eq!(
+        groups[0].claims,
+        vec![ListedClaim { repository: RepositoryKey::from_hash(&repo).unwrap(), kind: ClaimKind::Test, key: ClaimKey::from_hash(&test).unwrap(), since: 800 }]
+    );
+    assert_eq!(groups[1].claims[0].kind, ClaimKind::PullRequest);
+    assert_eq!(
+        groups[1].waits,
+        vec![ListedWait {
+            repository: RepositoryKey::from_hash(&repo).unwrap(),
+            kind: ClaimKind::Test,
+            key: ClaimKey::from_hash(&test).unwrap(),
+            held_by: Claimant { holder: fixer, name: "nick".into(), title: "Fix the flaky queue test".into() },
+        }]
+    );
+    assert!(store::listed(&reply(503, "")).unwrap_err().is_unreachable());
 }
 
 // A socket on this machine that answers a script, one connection per entry.

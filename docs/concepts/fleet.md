@@ -253,6 +253,7 @@ The store and its wire are [Central store](../contracts/central-store.md).
 | Tracker item | Each open issue row on the Job's ledger | The item closes, or the row is given back |
 | File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*) | A pull request of the Job's merges or closes |
 | Pull request | Each open pull request the Job holds | It merges or closes |
+| Failing test | A test Fleet started the Job to fix (*A test that fails the merge queue*) | The Job's fix merges and main reads green after it |
 
 A plan group with no paths claims no file.
 Every claim ends when the Job ends, and lapses 30 minutes after its renewals stop.
@@ -278,6 +279,30 @@ A claim held by this Mac's own Job that ended is taken over, never waited on.
 **Memory only.** After a restart the first pass claims again, and the store answers a claim its holder already has as its own.
 A wait read from a Job on another Mac is told only to the Job that waits.
 `crates/fleet/src/job_claims.rs`.
+
+**The claims list on a project's page is grouped by who holds each claim** (`GET /projects/project/{project}/claims`).
+Each holder carries its person, Mac and Job title, when it last renewed, its claims and what each of its pull requests waits on.
+A claim's item, file or test is named only where this Mac has the repository and its hash matches; a teammate's claim in a repository this Mac does not have carries the Job title alone.
+`crates/fleet/src/claims_list.rs`.
+
+### A test that fails the merge queue
+
+**Decided by the owner, 13 Nov 2026** (`.claude/decisions/2026-11-13-claims-store.md`).
+When the merge queue throws a Job's pull request out, Fleet reads which tests failed from the run's log and judges each, at most three, in this order.
+
+| The test | Fleet | The Job |
+|---|---|---|
+| Fails on main too | Keeps a wait on main's own fix | Waits, and its pull request is queued again once main is green |
+| Is claimed by another Job | Keeps a wait on that claim | Waits, told the holder's person, Mac and Job title |
+| Is not reached by the pull request's changed files, or failed the queue for another pull request in the last day | Calls it a flake, claims it and starts one Job titled "Fix the flaky test …" holding the claim | Waits on that Job |
+| Is reached by the changes | Claims nothing | Is told its change reaches the test: it fixes its own code, or calls `call_test_flaky` with the log line that shows the flake, and only then does Fleet claim the test and start the fix |
+
+**A test map that never saw the test cannot say a change misses it**: with no edge of the test at all, the Job is asked.
+The fix Job starts whatever the Autopilot switch says, and the claim is taken before it is briefed: **the first claim wins**, and a Fleet that loses the race closes the Job it started and waits on the winner.
+A Job waiting on a test is not queued by anything else while it waits.
+The claim ends when the fix Job's pull request merges and main reads green after it; each waiting Job's pull request is then asked for auto-merge again and the Job is told.
+A project with no store keeps the claim on this Mac alone.
+`crates/fleet/src/flaky_tests.rs`.
 
 ### The territory
 
@@ -422,6 +447,7 @@ When it ends red on the jobs the red already had, the red is back and the pickup
 The merge is the pull request's number and the Job that held the pull request or its branch in the ledger, in any state, given back included; a direct push has neither, and the forge's silence leaves both empty rather than guessed.
 When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), and acts on it in the same turn: a green ends every take of it.
 A red whose pull request a Job merged is claimed for that Job and the Job is told, or, if it cannot be, for a fork of it, and the take is recorded so the hub names it and no second fix is started while it holds.
+A red no Job took gets one Job titled "Fix main" at once, **whatever the Autopilot switch says**, once a red commit; the red is claimed for it before it is briefed, so of two Macs racing for one red the first claim wins and the other starts nothing (owner's ruling, 13 Nov 2026).
 `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *When main goes red* and *When a Job's pull request turns main red*, have the ways a red is taken.
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise.
@@ -687,7 +713,7 @@ worktrees a repository leases* — until a person changes the pool on this machi
 |---|---|
 | Lease | Takes the first free slot and points it at the branch. **A branch that exists here, or on `origin`, is checked out at its own tip and never moved**; a name nothing has is cut from the freshly fetched base with no upstream. Removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time has `setup.seed.paths` cloned into it, copy-on-write where the volume does it |
 | Release | `armada worktree release` is refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
-| Merged | When the pull request from a branch a slot is leased on merges, Fleet tells the Job holding the slot one line, that the slot is free to lease for new work or give back. **When that Job's turn then ends with nothing queued, Fleet gives the slot back** if HEAD is still the merged branch, or detached on a commit the base has, the tree is clean and every commit is on a remote or the base. Another branch checked out is new work, and the slot stays. A dirty tree or commits on no remote or base keep it too, and the holder is told once for each, naming it. The branch is never deleted. Told once, and kept in the store, so a restart repeats nothing. Only a hosted Job's slot is given back; a terminal Job is told and gives its own back |
+| Merged | When the pull request from a branch a slot is leased on merges, Fleet tells the Job holding the slot one line, that the slot is free to lease for new work or give back. **When that Job's turn then ends with nothing queued, Fleet gives the slot back** if HEAD is still the merged branch, or detached on a commit the base has, the tree is clean and every commit is on a remote or the base. Another branch checked out is new work, and the slot stays. So does a branch the base does not hold whole, whose name was reused for the next pull request: that slot is not told it merged either. A dirty tree or commits on no remote or base keep it too, and the holder is told once for each, naming it. The branch is never deleted. Told once, and kept in the store, so a restart repeats nothing. Only a hosted Job's slot is given back; a terminal Job is told and gives its own back |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Never refused for where HEAD points: a checkout on another branch than the lease names is committed there, and one on no branch or on the base, holding files or commits no branch has, gets a `kept/slot-<n>-<holder>` branch cut at HEAD (a number after it where the name is taken); a clean one holding nothing is only released. Refused while a take or release is under way. It answers with the commit and the paths it took |
 | Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist here or on `origin`, and for one another checkout already has, naming where. A slot whose holder is gone and which is clean is taken back for its own branch; one holding uncommitted files is not. `armada worktree lease --existing <branch>` |
 | Status | Every slot, the branch checked out in it, who holds it and for how long. **The branch is the one git has checked out, not the one the lease was cut for**: where a job moved off it, both are said (`follow-up (leased as feature)`), and `detached` stands for a checkout on no branch. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |

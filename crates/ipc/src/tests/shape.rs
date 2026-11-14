@@ -37,6 +37,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("all_done", shape::of::<crate::AllDone>()),
         ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
+        ("call_test_flaky", shape::of::<crate::CallTestFlaky>()),
         ("change_waiting", shape::of::<crate::ChangeWaiting>()),
         ("claim_issue", shape::of::<crate::ClaimIssue>()),
         ("claim_pull_request", shape::of::<crate::ClaimPullRequest>()),
