@@ -640,6 +640,25 @@ pub trait Sessions: Send + Sync + 'static {
         dispute: ipc::DisputeFleet,
     ) -> impl Future<Output = Result<ipc::FleetDisputed, Refusal>> + Send;
 
+    /// `raise_conflict` — the agent says its work and another Job's cannot both stand. `caller` places a hosted
+    /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session, a
+    /// `with` that is the sender, ended or no Job's address, no `files` and no `wire`, or an empty `mine`,
+    /// `theirs` or `breaks`.
+    fn raise_conflict(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        conflict: ipc::RaiseConflict,
+    ) -> impl Future<Output = Result<ipc::ConflictRaised, Refusal>> + Send;
+
+    /// `ask_held` — the agent asks whether a pull request or a branch should land. `caller` places a hosted
+    /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
+    /// neither or both of `pull` and `branch`, or one the Job's repository does not have.
+    fn ask_held(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        asked: ipc::AskHeld,
+    ) -> impl Future<Output = Result<ipc::HeldAsked, Refusal>> + Send;
+
     /// `report_bug` — the agent says Armada itself got something wrong. `caller` places a session as
     /// `all_done`'s does, a terminal one included. [`Refusal::Unacceptable`] for a call that places none, or an
     /// empty `title` or `what`.
