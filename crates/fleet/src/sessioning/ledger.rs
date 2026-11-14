@@ -290,6 +290,9 @@ where
         let mut record = session_wire(session, &reads.held);
         if session.state == store::SessionState::Live {
             self.slots_held_drawn(session, &mut record.attachments);
+            let claims = self.job_claims().shown(&session.id);
+            record.claim_waits = claims.wire();
+            record.claims_unsent = claims.unsent;
         }
         // A subagent the mod never settles is done once its own transcript shows its turn ended.
         let home = &self.host().home;

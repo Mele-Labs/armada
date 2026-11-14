@@ -37,6 +37,11 @@ impl Planted {
         Planted { store: None, bucket: None }
     }
 
+    /// A machine reaching `store` as its view of the store.
+    pub(crate) fn with_store(store: Arc<FakeStore>) -> Planted {
+        Planted { store: Some(store), bucket: None }
+    }
+
     /// A machine with a bucket to reach and no store.
     pub(crate) fn with_bucket(bucket: Arc<testkit::FakeBucket>) -> Planted {
         Planted { store: None, bucket: Some(bucket) }

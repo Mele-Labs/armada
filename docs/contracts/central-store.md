@@ -337,6 +337,14 @@ Signing out deletes the profile's device from every store it joined.
 **Rule.** A store that cannot be reached, or answers with a refusal, refuses the take. Fleet never proceeds on a claim it could not make.
 Why: a fix nobody else can see is the double fix this exists to stop. Decided by the owner, 13 Oct 2026.
 
+**Rule.** A Job's own claims, its tracker item, its files and its pull request, are the exception: a store that cannot be reached, or refuses, stops no Job.
+Fleet keeps what each live Job holds and sends what the store has not taken once it answers, and the Job's record says its claims are not sent until then.
+No call is logged to replay; a claim taken and given back while the store is down is never sent.
+Why: the owner ruled on 13 Nov 2026 that Jobs carry on while the store is down (`.claude/decisions/2026-11-13-claims-store.md`).
+The Job's claims and the waits they make are [Fleet](../concepts/fleet.md#claims-a-job-holds).
+
+**Rule.** A Job's own claims call the store of the projects holding its repository, whatever the Manifest says of pull request owners: naming a store in the project is the switch.
+
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
 **Rule.** A repository with the switch off, one in no project that names a store, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
