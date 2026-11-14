@@ -799,6 +799,37 @@ pub(crate) fn route_all(
             }
         }
     }
+    // An arrow between two facing sides keeps one straight run: where one end is alone on its side and the other is
+    // spread, the lone end moves to the other's offset, so long as that is still inside its box. A box with a
+    // pointed outline meets its arrows at its middle only, so its end stays.
+    let mut crowd: HashMap<(&str, Side), usize> = HashMap::new();
+    for (box_id, ends) in &by_side {
+        for one in ends {
+            *crowd.entry((*box_id, one.side)).or_insert(0) += 1;
+        }
+    }
+    for (k, (edge, from, to)) in joined.iter().enumerate() {
+        let held = moved[k];
+        let facing_sides = matches!((held.out, held.into), (Side::Right, Side::Left) | (Side::Left, Side::Right) | (Side::Top, Side::Bottom) | (Side::Bottom, Side::Top));
+        let alone = |box_id: &str, side: Side| crowd.get(&(box_id, side)).copied() == Some(1);
+        let (start_alone, end_alone) = (alone(edge.from, held.out), alone(edge.to, held.into));
+        if !facing_sides || start_alone == end_alone {
+            continue;
+        }
+        let across = held.out == Side::Right || held.out == Side::Left;
+        let inside = |r: Rect, at: Pt| if across { at.y > r.y && at.y < r.y + r.h } else { at.x > r.x && at.x < r.x + r.w };
+        if start_alone && !pointed_ids.contains(edge.from) {
+            let at = if across { Pt { x: held.start.x, y: held.end.y } } else { Pt { x: held.end.x, y: held.start.y } };
+            if inside(*from, at) {
+                moved[k].start = at;
+            }
+        } else if end_alone && !pointed_ids.contains(edge.to) {
+            let at = if across { Pt { x: held.end.x, y: held.start.y } } else { Pt { x: held.start.x, y: held.end.y } };
+            if inside(*to, at) {
+                moved[k].end = at;
+            }
+        }
+    }
     joined
         .iter()
         .enumerate()
@@ -994,6 +1025,41 @@ mod tests {
                 assert!(head.iter().all(|corner| !inside(r, *corner)), "{from} to {to}: a head corner {head:?} is inside {r:?}");
             }
         }
+    }
+
+    #[test]
+    fn an_arrow_from_a_shared_side_to_a_lone_one_is_drawn_as_one_run_with_no_jog() {
+        let rects = vec![
+            ("a".to_string(), rect(0.0, 0.0, 100.0, 50.0)),
+            ("b".to_string(), rect(300.0, 0.0, 100.0, 50.0)),
+            ("c".to_string(), rect(300.0, 120.0, 100.0, 50.0)),
+        ];
+        for path in [ScenePath::Straight, ScenePath::Elbow] {
+            let ways = ways_of(&rects, &[edge("ab", "a", "b", path, (false, true)), edge("ac", "a", "c", ScenePath::Elbow, (false, true))]);
+            let segs = &ways[0].1;
+            assert_eq!(segs.len(), 2, "{path:?}: one segment, no jog: {segs:?}");
+            let (Seg::Move(start), Seg::Line(end)) = (segs[0], segs[1]) else { panic!("{segs:?}") };
+            assert_eq!(start.y, end.y, "{path:?}: level");
+            assert!(start.x == 100.0 && end.x == 300.0 && end.y > 0.0 && end.y < 50.0, "{path:?}: inside the lone box's side: {segs:?}");
+            assert_ne!(start.y, 25.0, "the start stays where the spread put it");
+        }
+    }
+
+    #[test]
+    fn where_both_ends_share_their_sides_the_spread_stands() {
+        let rects = vec![
+            ("a".to_string(), rect(0.0, 0.0, 100.0, 50.0)),
+            ("b".to_string(), rect(300.0, 0.0, 100.0, 50.0)),
+            ("c".to_string(), rect(0.0, -120.0, 100.0, 50.0)),
+            ("d".to_string(), rect(300.0, 120.0, 100.0, 50.0)),
+        ];
+        let ways = ways_of(&rects, &[edge("ab", "a", "b", ScenePath::Straight, (false, true)), edge("ad", "a", "d", ScenePath::Straight, (false, true)), edge("cb", "c", "b", ScenePath::Straight, (false, true))]);
+        let ends = |segs: &[Seg]| match (segs[0], segs[1]) {
+            (Seg::Move(a), Seg::Line(b)) => (a.y, b.y),
+            _ => panic!("{segs:?}"),
+        };
+        let (start, end) = ends(&ways[0].1);
+        assert_ne!(start, end, "both sides are spread, so the arrow keeps its slope: {:?}", ways[0].1);
     }
 
     fn run_of(from: Pt, to: Pt) -> Vec<Seg> {
