@@ -965,6 +965,19 @@ pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Serve
     }
 }
 
+/// He opened a revision of an artifact. 200 with the newest he has opened, an older revision included; 422 for a
+/// revision never kept or an artifact not held.
+pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let mark: ipc::MarkArtifactSeen = match ipc::decode_body("an artifact he opened", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mark_artifact_seen(mark).await {
+        Ok(seen) => answer(StatusCode::OK, &seen, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
 #[derive(Deserialize)]
 pub(crate) struct WhichPage {

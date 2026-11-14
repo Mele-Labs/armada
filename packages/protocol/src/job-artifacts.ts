@@ -2,7 +2,7 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive, a restore, his Edit, a press and a vote publish.
+// which an archive, a restore, his Edit, a press, a vote and a mark that moved `seen` publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
@@ -95,6 +95,25 @@ export type JobArtifact = {
   presses?: PagePress[];
   /** The newest cast of each vote a page declares, in the order first cast. Absent where none, and for every form but a page. */
   votes?: VoteCast[];
+  /** The newest revision he opened, as `mark_artifact_seen` kept it. Absent while he opened none. Only moves forward. */
+  seen?: number;
+};
+
+/**
+ * `POST /sessions/artifacts/seen`: he opened revision `revision` of an artifact. Answered with `ArtifactSeen`. An
+ * older revision is answered with the current `seen`, not refused. Nothing is sent to the Job. 422
+ * `fleet.artifact_revision_unknown` for a revision never kept, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type MarkArtifactSeen = {
+  session_id: string;
+  /** The artifact's `id`. */
+  artifact: string;
+  revision: number;
+};
+
+/** The newest revision he has opened, after the mark. */
+export type ArtifactSeen = {
+  seen: number;
 };
 
 /** The forms a vote takes. */
@@ -210,7 +229,7 @@ export type GetArtifactPage = {
   revision?: number;
 };
 
-/** What the kit's script on a sealed page posts to `window.parent`. The host makes the Fleet call with the Job's `session_id`. */
+/** What the kit's script on a sealed page posts to its host: to `window.webkit.messageHandlers.armada` where the host has one (Native's WKWebView), otherwise to `window.parent` (Classic's iframe). The host makes the Fleet call with the Job's `session_id`. Rust's `PageMessage<PageToHost>`. */
 export type PageToHost =
   | {
       armada: 1;
@@ -229,7 +248,7 @@ export type PageToHost =
       result: VoteResult;
     };
 
-/** What the host posts back to the sealed page for it to draw: Fleet's answer, or its refusal. */
+/** What the host sends back to the sealed page for it to draw: Fleet's answer, or its refusal. Posted as a `message` event to Classic's iframe, or passed to `window.armadaHost` by Native. Rust's `PageMessage<HostToPage>`. */
 export type HostToPage =
   | {
       armada: 1;
@@ -294,7 +313,23 @@ export type ItemAnswer = {
   /** The `WaitingItem` id. */
   item: string;
   how: ItemHow;
-  notes?: string[];
+  notes?: ItemNote[];
+};
+
+/**
+ * One note of a verdict. A card's note box sends no `on`; a note on words of a page, or a part of a sketch, names
+ * them, and the Job reads it as `On "<quote>": <text>`. A `quote` blank after trimming counts as no `on`.
+ */
+export type ItemNote = {
+  text: string;
+  on?: NoteOn;
+};
+
+/** The words a note points at, and the block they are in. */
+export type NoteOn = {
+  quote: string;
+  /** The page block's id, or the sketch part's id. */
+  block: string;
 };
 
 /**

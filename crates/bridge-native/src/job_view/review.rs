@@ -1006,7 +1006,7 @@ impl JobView {
                             .changes
                             .as_ref()
                             .filter(|changes| plan.version >= 2 && !changes.is_empty())
-                            .map(|changes| self.plan_revision(SHEET, &card.id, plan, changes, page, look, cx));
+                            .map(|changes| self.plan_revision(SHEET, &card.id, plan, changes, Some("sheet"), page, look, cx));
                         self.plan_editor(id, plan, diff, false, look, cx)
                     }
                     None => self.review_skeleton(look),

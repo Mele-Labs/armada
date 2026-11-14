@@ -41,13 +41,28 @@ A press or a vote on another revision is not in it.
 Every `<` in it is written `<`, so no text in it closes its script.
 
 **The kit's script**, `crates/fleet/src/session_host/page_kit.js`, is the one script that runs.
-It draws each `<armada-action>` as a labelled button and each `<armada-vote>` as a vote, draws the record, and reaches nothing but `window.parent.postMessage`.
+It draws each `<armada-action>` as a labelled button and each `<armada-vote>` as a vote, draws the record, and reaches nothing but the two channels below.
 Its look, `page_kit.css` beside it, is the one the owner approved on 14 Nov 2026.
 
 ## The messages
 
-Every message is an object with `armada: 1`, posted with target origin `*`: nothing in one is secret, and the page's origin is opaque.
-The kit reads a message only from `window.parent`.
+Every message is an object with `armada: 1`.
+Nothing in one is secret, and the page's origin is opaque.
+
+| Way | Channel | Reads it |
+| --- | --- | --- |
+| Page to host | `window.webkit.messageHandlers.armada.postMessage(message)`, where the host has that handler | Native: a page in a WKWebView is a top-level page with no parent frame, so `window.parent.postMessage` would only reach the page itself |
+| Page to host | Otherwise `window.parent.postMessage(message, "*")`, target origin `*` | Classic: the page sits in an iframe |
+| Host to page | `window.armadaHost(message)`, called with the same object | Native, with `evaluateJavaScript` |
+| Host to page | A `message` event on the page's window, read only where `event.source` is `window.parent` | Classic's iframe |
+
+The page picks its way to the host once, at load, and both ways in run one handler.
+A message whose `armada` is not `1` is ignored by the page and refused by `ipc`.
+
+**The Rust types** are in `crates/ipc/src/artifact.rs`: `PageToHost` and `HostToPage`, each an enum tagged by `kind`, and `PageMessage<T>`, which writes `armada: 1` beside the message and refuses any other number when it reads one.
+They are not route bodies and have no operation file: the host's call to Fleet is `press_page_action` or `cast_page_vote`.
+`PageToHost` and `HostToPage` in `packages/protocol/src/job-artifacts.ts` mirror them, and `crates/ipc/src/tests/page_messages.rs` reads that file.
+`apps/pocket/src/pageKit.test.ts` runs the kit's script against a fake DOM and holds which channel it picks.
 
 | Way | `kind` | Carries | The other side |
 | --- | --- | --- | --- |

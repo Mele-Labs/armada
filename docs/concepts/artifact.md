@@ -25,6 +25,7 @@ The owner approved the design on 13 Nov 2026.
 | A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
 | A page's votes, `cast_page_vote` | Built in Fleet; native draws the votes later |
 | A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
+| Notes that point at words, and the revision he last saw, `mark_artifact_seen` | Built in Fleet; native draws them later |
 
 ## What an artifact is
 
@@ -290,3 +291,22 @@ Send sits at the foot of a vote, with ⌘↵, and every control is reached by ke
 **Rule.** The page never calls Fleet.
 It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.
 The presses and votes made on the revision ride with it, so a reopened page shows what he did.
+
+## Seen and anchored notes
+
+A note of a verdict may point at the words it is about, and Fleet keeps the newest revision of each artifact he opened, so native can tell him what changed since.
+Fleet's half is `ItemNote` on `answer_items` (`crates/ipc/operations/answer_items.toml`) and `mark_artifact_seen` (`crates/ipc/operations/mark_artifact_seen.toml`), the seam is `docs/practices/protocol/a-notes-and-seen.md`.
+
+**Rule.** A note carries `text` and, where he marked words, `on` with the `quote` he marked and the `block` it sits in, a page block's id or a sketch part's id.
+A card's note box sends a note with no `on`.
+The Job reads an anchored note as `On "<quote>": <text>`, numbered with the rest, and a plain note as its text.
+A quote blank after trimming counts as no `on`, and a note with blank text is dropped.
+The Job is not told the `block`.
+
+**Rule.** `seen` on an artifact is the newest revision he opened.
+It only moves forward: opening an older revision leaves it, and is answered with the current one, not refused.
+A revision never kept is refused, `fleet.artifact_revision_unknown`, and so is an artifact the Job does not hold.
+
+**Rule.** Nothing is sent to the Job when he opens a revision.
+Fleet publishes `session.changed` where `seen` moved, so a Bridge reads the artifact again, and not where it held.
+An archived artifact is marked all the same, since opening it changes nothing else.

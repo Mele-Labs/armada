@@ -130,6 +130,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/side-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // A plan with a sketch for the whole plan and one for a group, waiting on him beside a question; and the same plan once approved.
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches.json"),
         // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons.json"),
         // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
@@ -422,6 +424,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches-threads.json"),
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
@@ -1183,6 +1186,28 @@ mod tests {
     }
 
     #[test]
+    fn the_plan_sketches_scenario_asks_its_sketches_through_the_plan_alone() {
+        use ipc::NeedsYouAct;
+        let jobs = super::jobs("plan-sketches").expect("decodes");
+        let pending = jobs.iter().find(|job| job.id.as_str() == "plan-sk-1").expect("the pending Job");
+        let plan = pending.plan.as_ref().expect("its plan");
+        assert!(!plan.approved && !plan.sketches.is_empty() && plan.groups.iter().any(|group| !group.sketches.is_empty()));
+        let view = super::needs_you("plan-sk-1", &pending.waiting_for, &|_| false);
+        let rows: Vec<&NeedsYouAct> = view.sections.iter().flat_map(|section| &section.rows).map(|row| &row.act).collect();
+        assert!(rows.iter().any(|act| matches!(act, NeedsYouAct::OpenPlan)), "the plan waits");
+        assert!(!rows.iter().any(|act| matches!(act, NeedsYouAct::OpenSketch { .. })), "no sketch waits on its own");
+        let threads = super::threads("plan-sketches").expect("decodes");
+        let asked: Vec<&str> = threads["plan-sk-1"].items.iter().filter_map(|item| match item {
+            ipc::ThreadItem::Sketch(card) if card.asked => Some(card.sketch.as_str()),
+            _ => None,
+        }).collect();
+        assert_eq!(asked, ["sketch:Project switcher", "sketch:Switcher rows"], "each card was put to him, so only the plan keeps it from asking");
+        let approved = jobs.iter().find(|job| job.id.as_str() == "plan-sk-2").expect("the approved Job");
+        assert!(approved.plan.as_ref().is_some_and(|plan| plan.approved) && approved.waiting_for.is_empty());
+        assert!(threads["plan-sk-2"].items.iter().all(|item| !matches!(item, ipc::ThreadItem::Sketch(card) if card.settled.as_ref().is_none_or(|settled| settled.how != ipc::SketchHow::Approved))));
+    }
+
+    #[test]
     fn every_scenario_decodes_on_this_build_s_wire() {
         assert!(super::jobs("jobs-many").expect("decodes").len() > 10);
         let view = super::threads("job-view").expect("decodes");
@@ -1499,3 +1524,9 @@ const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused
 {"label":"Wait for main to move","description":"Nothing retries until main has a new commit. The branch is merged with it first, the Checks run again on the merge, and only a green run pushes. A refusal that names the branch protection stops at once."},
 {"label":"Ask each time","description":"Every refusal comes here as its own question with the forge's words, the branch and how far behind main it is. Nothing is pushed until you answer, and an answer applies to that one push only."},
 {"label":"Hand it to the merge queue","description":"The pull request is queued as it stands and the queue's own retries take over. The Job ends its part once the queue has it, and a queue failure opens a new Job for the fix with the failing Check named."}]}"#;
+
+/// A kept style set as `GET /sessions/kept_styles` answers it. A mock scene's mock nodes name no hash, so the one set
+/// answers every hash asked.
+pub fn kept_styles(_hash: &str) -> ipc::KeptStyles {
+    ipc::decode("kept styles", include_bytes!("../fixtures/kept-styles.json")).unwrap_or_else(|why| panic!("the kept styles fixture does not decode: {why}"))
+}

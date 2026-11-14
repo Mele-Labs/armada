@@ -58,7 +58,7 @@ fn record_of(html: &str) -> Record {
 }
 
 /// The Job writes the page again, and Fleet keeps it as the next revision.
-async fn rewritten(rig: &Rig, id: &SessionId, at: usize, path: &str, html: &str, revisions: usize) {
+pub(super) async fn rewritten(rig: &Rig, id: &SessionId, at: usize, path: &str, html: &str, revisions: usize) {
     std::fs::write(path, html).unwrap();
     rig.stand_in.says(
         at,
