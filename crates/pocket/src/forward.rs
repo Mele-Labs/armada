@@ -20,12 +20,17 @@ pub(crate) fn fleet_target(uri: &Uri) -> &str {
 }
 
 pub async fn forward(State(gateway): State<Gateway>, method: Method, uri: Uri, body: Bytes) -> Response {
-    let port = match port(&gateway) {
+    send_to(&gateway, &method, fleet_target(&uri), &body).await
+}
+
+/// [`forward`] to a Fleet path the phone's own does not map to: its body only for a POST.
+pub(crate) async fn send_to(gateway: &Gateway, method: &Method, target: &str, body: &[u8]) -> Response {
+    let port = match port(gateway) {
         Ok(port) => port,
         Err(refused) => return refused,
     };
-    let sent = (method == Method::POST).then_some(body.as_ref());
-    let answer = match fleet_client::send(port, method.as_str(), fleet_target(&uri), sent).await {
+    let sent = (*method == Method::POST).then_some(body);
+    let answer = match fleet_client::send(port, method.as_str(), target, sent).await {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };
