@@ -62,7 +62,7 @@ A subagent's turn counts toward the hour's burn and toward nothing else.
 
 | Rule | Crossed when | The Job is told |
 |---|---|---|
-| Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens | `Context is 312k tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don't ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.` |
+| Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens | `Context is 312k tokens, past the 300k limit. Write only a brief of where the work is, what is open and what you hold, and send it with handoff_brief. The owner answers on a card. Ask him nothing and start nothing yourself. Once it is sent, end your turn.` |
 
 **The Context rule answers to the owner.** His answer on the Job's handoff card, and the setting *Large context* (`plan.contextHandoff`), decide whether the Job is told, handed on with no card, or left alone: [A handed-off Job](a-handed-off-job.md).
 
@@ -70,7 +70,7 @@ A subagent's turn counts toward the hour's burn and toward nothing else.
 A quiet moment is a turn that has ended with nothing waiting on the person: no question open or lapsed, no Needs you item, walk, plan or draft awaiting him (the same quiet the stop nudge needs, [What a Job is doing](what-a-job-is-doing.md)).
 Over the limit while he has something to decide, the telling is held and sent at the next quiet moment, never mid-turn and never over a decision.
 A Fleet that restarts does not tell a Job again, because the last telling is read back from the trip rows.
-The owner's own *Remind me at a higher limit* is his answer and still asks again at the figure he set.
+The owner's own *Remind at* figure is his answer and still tells the Job again past the figure he set.
 
 **Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`), when (the stamp of the newest turn), the figure that crossed (tokens) and `burn_per_hour_before`, the burn in cost units per hour of the Job's active time over the 60 minutes up to that turn.
 A telling that was not taken, because the Job had ended, writes no row and is tried again at the Job's next turn.

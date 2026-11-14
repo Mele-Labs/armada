@@ -119,12 +119,12 @@ export type QuestionAnswer = {
   chosen: string[];
 };
 
-/** The four option labels of the Job's question about carrying on in a new Job (`ipc::HANDOFF_YES`, `ipc::HANDOFF_STAY`, `ipc::HANDOFF_QUIET`, `ipc::HANDOFF_REMIND`). Fleet starts a new Job on the owner's press of the first, and keeps the last two on the Job's ledger. */
+/** The four option labels of the question a Job asked about carrying on in a new Job before Fleet raised its own `handoff` card, whose options carry their labels. Off the wire; Classic's mock and walks still draw the old card. */
 export const HANDOFF_YES = "Carry on in a new Job";
 export const HANDOFF_STAY = "Stay here";
 export const HANDOFF_QUIET = "Stay, don't ask again this Job";
 export const HANDOFF_REMIND = "Remind me at a higher limit";
-/** The question Fleet puts on the card after `HANDOFF_REMIND` (`ipc::HANDOFF_REMIND_QUESTION`), and its figures in tokens, labelled `450k`. */
+/** The question the old card put after `HANDOFF_REMIND`, and its figures in tokens, labelled `450k`. Off the wire, as above. */
 export const HANDOFF_REMIND_QUESTION = "Ask again at";
 export const HANDOFF_REMIND_AT = [
   450_000,

@@ -215,13 +215,6 @@ fn an_idea_is_picked_by_choosing_an_option_the_question_gave_a_preview() {
 }
 
 #[test]
-fn fleets_own_questions_never_count_as_an_idea_picked() {
-    let remind = question(ipc::HANDOFF_REMIND_QUESTION, vec![choice("450k", "450,000 tokens")]);
-    let rows = [ask("c3", vec![remind], SessionAskState::AllowedOnce), answered("c3", &[(ipc::HANDOFF_REMIND_QUESTION, "450k")])];
-    assert!(!thread_facts(&rows, None).idea_picked);
-}
-
-#[test]
 fn an_idea_picked_later_from_needs_you_counts_as_one_picked_on_the_card() {
     let later = |chosen: &str| {
         let text = format!("Answering your earlier question \"Which layout?\": {chosen}");
