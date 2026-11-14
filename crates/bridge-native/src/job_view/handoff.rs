@@ -21,6 +21,8 @@ pub(super) const ITEM_PREFIX: &str = "handoff:";
 /// How many lines of the brief show before Show all, and about how many the opened well holds.
 const FOLDED_LINES: f32 = 4.;
 const OPEN_LINES: f32 = 10.;
+/// Under this width the head puts the question on a line of its own, and the card draws its presses closer.
+const NARROW: f32 = 420.;
 
 /// A handoff row's facts, as the card draws them.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,36 +130,18 @@ impl JobView {
         let opened = page.cards.opened.contains(&format!("{key}:brief"));
         let line = look.length(token::LEADING_SM);
         let folded = line * FOLDED_LINES;
-        // The brief's whole height as last drawn: over four lines it folds behind Show all.
-        let height = page.cards.brief_heights.borrow_mut().entry(format!("{key}:{}", if place == Place::Needs { "needs" } else { "thread" })).or_default().clone();
-        let tall = height.get() > folded + look.length(token::BORDER_WIDTH);
-        let sunken = look.color(token::BG_SUNKEN);
-        let words = {
-            let seen = height.clone();
-            let list = match place {
-                Place::Thread(ix) => Some((page.list.clone(), page.entry(ix))),
-                Place::Needs => None,
-            };
-            div().relative().w_full().child(card.brief.trim_end().to_string()).child(
-                canvas(
-                    move |bounds, window, cx| {
-                        if seen.get() != bounds.size.height {
-                            seen.set(bounds.size.height);
-                            // The fold's Show all comes or goes: the thread measures this item again.
-                            if let Some((list, at)) = list.clone() {
-                                cx.defer(move |_| list.remeasure_items(at..at + 1));
-                            }
-                            window.refresh();
-                        }
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full(),
-            )
+        // The brief's whole height and the head's width as last drawn: a draw that changes either measures again.
+        let side = if place == Place::Needs { "needs" } else { "thread" };
+        let cell = |part: &str| page.cards.measured.borrow_mut().entry(format!("{key}:{side}:{part}")).or_default().clone();
+        let (height, width) = (cell("brief"), cell("head"));
+        let list = match place {
+            Place::Thread(ix) => Some((page.list.clone(), page.entry(ix))),
+            Place::Needs => None,
         };
+        let tall = height.get() > folded + look.length(token::BORDER_WIDTH);
+        let narrow = width.get() > gpui::px(0.) && width.get() < gpui::px(NARROW);
+        let sunken = look.color(token::BG_SUNKEN);
+        let words = div().relative().w_full().child(card.brief.trim_end().to_string()).child(measure(height, list.clone(), |bounds| bounds.size.height));
         let well = div()
             .id(SharedString::from(format!("handoff-brief:{}", card.id)))
             .relative()
@@ -173,7 +157,9 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT));
         let well = if opened {
             // Opened, it scrolls inside its well, so the picks under it stay where they are.
-            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(line * OPEN_LINES).overflow_y_scroll().child(words))
+            // Narrow, the card is taller than the thread: the well keeps four lines and scrolls, so the head stays in view.
+            let lines = if narrow { FOLDED_LINES } else { OPEN_LINES };
+            well.child(div().id(SharedString::from(format!("handoff-brief-scroll:{}", card.id))).max_h(line * lines).overflow_y_scroll().child(words))
         } else {
             well.child(div().max_h(folded).overflow_hidden().child(words)).when(tall, |well| {
                 let clear = sunken.opacity(0.);
@@ -193,7 +179,7 @@ impl JobView {
             let said = if opened { "Show less" } else { "Show all" };
             let row = row_id.clone();
             labelled(
-                pressed(self.handoff_press(format!("handoff-whole:{}", card.id), said.into(), Some("B"), Tone::Words, look), cx, move |this, _, cx| this.flip_handoff_brief(&row, place, cx)),
+                pressed(self.handoff_press(format!("handoff-whole:{}", card.id), said.into(), Some("B"), Tone::Words, false, look), cx, move |this, _, cx| this.flip_handoff_brief(&row, place, cx)),
                 Role::Button,
                 said,
             )
@@ -201,9 +187,10 @@ impl JobView {
         let press = |at: usize, tone: Tone| {
             let (said, name) = options[at].clone();
             let row = row_id.clone();
-            let cap = SharedString::from((at + 1).to_string());
+            // Narrow, the presses drop their key caps so two share a row; 1 to 6 still press them.
+            let cap = (!narrow).then(|| SharedString::from((at + 1).to_string()));
             labelled(
-                pressed(self.handoff_press(format!("handoff-pick:{}:{at}", card.id), said.into(), Some(cap.as_ref()), tone, look), cx, move |this, window, cx| {
+                pressed(self.handoff_press(format!("handoff-pick:{}:{at}", card.id), said.into(), cap.as_ref().map(|cap| cap.as_ref()), tone, narrow, look), cx, move |this, window, cx| {
                     this.answer_handoff(&row, at, place, window, cx)
                 }),
                 Role::Button,
@@ -224,7 +211,7 @@ impl JobView {
             .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(HANDOFF_REMIND))
+            .child(div().flex_none().whitespace_nowrap().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(HANDOFF_REMIND))
             .children((3..options.len()).map(|at| press(at, Tone::Plain)));
         let answers = super::acts::gated(
             div().id(SharedString::from(format!("handoff-answers:{}", card.id))).flex().flex_col().gap(look.length(token::SPACE_2)).child(picks).child(remind),
@@ -239,39 +226,39 @@ impl JobView {
             .rounded(look.length(token::RADIUS_MD))
             .bg(look.color(token::STATUS_ESCALATED_BG))
             .child(glyph(look, "layers", Size::Mark, hue));
-        let head = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .child(tile)
-            .child(
-                div()
-                    .flex_none()
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XL))
-                    .line_height(look.length(token::LEADING_XL))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(hue)
-                    .child(handoff_figure(card.tokens)),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(ASKS),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(look.color(token::FG_MUTED))
-                    .child(format!("limit {}", handoff_figure(card.limit))),
-            );
+        let figure = div()
+            .flex_none()
+            .whitespace_nowrap()
+            .font_family(mono(look))
+            .text_size(look.length(token::TEXT_XL))
+            .line_height(look.length(token::LEADING_XL))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(hue)
+            .child(handoff_figure(card.tokens));
+        let asks = div()
+            .flex_1()
+            .min_w_0()
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(ASKS);
+        let limit = div()
+            .flex_none()
+            .ml_auto()
+            .whitespace_nowrap()
+            .font_family(mono(look))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(format!("limit {}", handoff_figure(card.limit)));
+        let row = || div().w_full().flex().items_center().gap(look.length(token::SPACE_3));
+        // Narrow, the figure and the limit take the first line and the question its own under them.
+        let head = if narrow {
+            div().relative().flex().flex_col().gap(look.length(token::SPACE_2)).child(row().child(tile).child(figure).child(limit)).child(asks)
+        } else {
+            row().relative().child(tile).child(figure).child(asks).child(limit)
+        }
+        .child(measure(width, list, |bounds| bounds.size.width));
         let body = div()
             .flex_1()
             .min_w_0()
@@ -332,7 +319,7 @@ impl JobView {
     }
 
     /// One press of the card, a tab stop that Enter and Space press, with its key on it.
-    fn handoff_press(&self, id: String, said: SharedString, cap: Option<&str>, tone: Tone, look: &Look) -> gpui::Stateful<gpui::Div> {
+    fn handoff_press(&self, id: String, said: SharedString, cap: Option<&str>, tone: Tone, compact: bool, look: &Look) -> gpui::Stateful<gpui::Div> {
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let hue = look.color(token::STATUS_ESCALATED);
         let (ground, hover, ink, edge) = match tone {
@@ -350,7 +337,8 @@ impl JobView {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .h(look.length(if tone == Tone::Words { token::H_CONTROL_SM } else { token::H_CONTROL }))
+            .whitespace_nowrap()
+            .h(look.length(if tone == Tone::Words || compact { token::H_CONTROL_SM } else { token::H_CONTROL }))
             .px(look.length(if tone == Tone::Words { token::SPACE_1 } else { token::SPACE_3 }))
             .rounded(look.length(token::RADIUS_MD))
             .border(look.length(token::BORDER_WIDTH))
@@ -445,6 +433,28 @@ enum Tone {
     Primary,
     Plain,
     Words,
+}
+
+/// A canvas laid over a part, keeping `read` of its bounds in `seen`. A change draws again, and in the thread
+/// measures the card's item again, since what the card shows depends on it.
+fn measure(seen: Rc<std::cell::Cell<gpui::Pixels>>, list: Option<(gpui::ListState, usize)>, read: fn(gpui::Bounds<gpui::Pixels>) -> gpui::Pixels) -> gpui::Canvas<()> {
+    canvas(
+        move |bounds, window, cx| {
+            let now = read(bounds);
+            if seen.get() != now {
+                seen.set(now);
+                if let Some((list, at)) = list {
+                    cx.defer(move |_| list.remeasure_items(at..at + 1));
+                }
+                window.refresh();
+            }
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
 }
 
 /// A press, on a click and on Enter or Space while it has the keys: the key goes no further.

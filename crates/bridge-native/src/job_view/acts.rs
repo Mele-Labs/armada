@@ -78,8 +78,9 @@ pub(super) struct CardState {
     pub playing: Option<(String, std::time::Instant)>,
     /// Note boxes just opened, to be scrolled clear of the composer once they are measured.
     pub reveal: HashMap<String, std::rc::Rc<std::cell::Cell<bool>>>,
-    /// How tall a handoff card's brief was last drawn whole, by card: over four lines it folds behind Show all.
-    pub brief_heights: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
+    /// A handoff card's sizes as last drawn, by card and part: the brief's whole height (over four lines it folds
+    /// behind Show all) and the head's width (a narrow head puts the question under the figure).
+    pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
