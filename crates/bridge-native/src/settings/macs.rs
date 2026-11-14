@@ -1845,9 +1845,9 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
 /// How wide the chip column of a found row stands: "On your account", the widest of its three.
 const FOUND_CHIP: f32 = 2.5;
 
-/// A small uppercase muted heading over a list.
+/// A small muted heading over a list, in sentence case as Settings draws every heading.
 fn section_head(look: &Look, id: &'static str, said: &'static str) -> AnyElement {
-    let head = div().id(id).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child(said.to_uppercase());
+    let head = div().id(id).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child(said);
     labelled(head, Role::Heading, said).into_any_element()
 }
 
