@@ -38,10 +38,19 @@ export type DraftSettled = {
 
 /** What the person pressed on a Job's handoff card: carry on in a new Job, stay (his Dismiss too), don't ask again, or remind at `tokens`. */
 export type HandoffPick =
-  | { kind: "carry_on" }
-  | { kind: "stay" }
-  | { kind: "quiet" }
-  | { kind: "remind_at"; tokens: number };
+  | {
+      kind: "carry_on";
+    }
+  | {
+      kind: "stay";
+    }
+  | {
+      kind: "quiet";
+    }
+  | {
+      kind: "remind_at";
+      tokens: number;
+    };
 
 /** `POST /sessions/start`. The row holds no slot and no branch until the agent writes. */
 export type StartSession = {
