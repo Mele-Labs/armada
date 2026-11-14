@@ -42,6 +42,9 @@ pub struct Row {
     pub icon: Option<&'static str>,
     /// Quiet mono words after the label, such as `Not set up`.
     pub detail: Option<SharedString>,
+    /// A second line under the label, quiet and mono, such as a project's repository. It is part of the
+    /// row's name and of what the search matches.
+    pub under: Option<SharedString>,
     /// The act's key, drawn as a keycap.
     pub key: Option<SharedString>,
     /// `Some` makes it a choice, ticked while true.
@@ -58,7 +61,7 @@ pub struct Row {
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
+        Row { id, label: label.into(), icon: None, detail: None, under: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -68,6 +71,11 @@ impl Row {
 
     pub fn detail(mut self, detail: impl Into<SharedString>) -> Row {
         self.detail = Some(detail.into());
+        self
+    }
+
+    pub fn under(mut self, under: impl Into<SharedString>) -> Row {
+        self.under = Some(under.into());
         self
     }
 
@@ -201,7 +209,13 @@ impl Dropdown {
             return (all(), false);
         }
         let end = if to_rule { (field + 1..len).find(|&at| matches!(self.entries[at], Entry::Rule)).unwrap_or(len) } else { len };
-        let holds = |at: usize| self.entries[at].label().is_some_and(|label| label.to_lowercase().contains(&needle));
+        let holds = |at: usize| {
+            let under = match &self.entries[at] {
+                Entry::Row(Row { under: Some(under), .. }) => under.to_lowercase().contains(&needle),
+                _ => false,
+            };
+            under || self.entries[at].label().is_some_and(|label| label.to_lowercase().contains(&needle))
+        };
         let under = |at: usize| matches!(&self.entries[at], Entry::Row(row) if row.member);
         let mut kept: Vec<usize> = (0..=field).collect();
         let mut heading: Option<usize> = None;
@@ -462,10 +476,23 @@ impl Dropdown {
                 let role = if row.ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 let (id, label) = (row.id, row.label.clone());
                 let live = row.off.is_none();
+                let name: SharedString = match &row.under {
+                    Some(under) => format!("{label}, {under}").into(),
+                    None => label.clone(),
+                };
+                let under = row.under.clone().map(|under| {
+                    div()
+                        .truncate()
+                        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                        .text_size(look.length(token::TEXT_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child(under)
+                });
                 labelled(
                     div()
                         .id(id)
-                        .h(look.length(token::H_MENU_ITEM))
+                        .when(under.is_none(), |line| line.h(look.length(token::H_MENU_ITEM)))
+                        .when(under.is_some(), |line| line.min_h(look.length(token::H_MENU_ITEM)).py(look.length(token::SPACE_1)))
                         .flex_none()
                         .flex()
                         .items_center()
@@ -480,7 +507,7 @@ impl Dropdown {
                         .when(has_icons, |line| {
                             line.child(div().flex_none().size(glyph).children(row.icon.map(|icon| svg().path(icon_path(icon)).size(glyph).text_color(ink))))
                         })
-                        .child(div().flex_1().min_w_0().truncate().child(label.clone()))
+                        .child(div().flex_1().min_w_0().flex().flex_col().child(div().truncate().child(label.clone())).children(under))
                         .children(row.detail.clone().map(|detail| {
                             div()
                                 .flex_none()
@@ -508,7 +535,7 @@ impl Dropdown {
                         .when_some(row.off.clone(), |line, why| line.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
                         .when(live, |line| line.on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx)))),
                     role,
-                    label,
+                    name,
                 )
                 .into_any_element()
             }
@@ -654,6 +681,16 @@ mod tests {
             assert_eq!(menu.first(), Some(0), "with nothing typed the first row is first");
             menu.query = "new".into();
             assert_eq!(menu.first(), Some(3), "a row above the field is not what was searched");
+        });
+    }
+
+    #[gpui::test]
+    fn the_search_reaches_a_rows_second_line(cx: &mut gpui::TestAppContext) {
+        let entries = vec![Entry::Search { label: "Find a project", to_rule: false }, Entry::Row(Row::new("armada", "Armada").under("armada")), Entry::Row(Row::new("storefront", "Storefront").under("sample-api"))];
+        let menu = cx.new(|cx| Dropdown::new("Project", entries, Point::default(), Anchor::TopLeft, false, cx));
+        menu.update(cx, |menu, _| {
+            menu.query = "sample-api".into();
+            assert_eq!(menu.first(), Some(2), "a project is found by its repository");
         });
     }
 }

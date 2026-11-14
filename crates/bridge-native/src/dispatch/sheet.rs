@@ -35,8 +35,9 @@ pub enum Asked {
     ReadRepository(String),
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
-    Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
-    Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
+    /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
+    Start { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String>, held: bool },
+    Queue { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String> },
     /// New Side Job, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
     JobHere(Option<String>),
 }
@@ -356,9 +357,11 @@ impl DispatchSheet {
         self.typed(&request, window, cx);
     }
 
-    /// A repository chosen for the sheet from elsewhere.
+    /// A repository chosen for the sheet from elsewhere: its first row, a project's before none.
     pub(super) fn pick_repository(&mut self, name: &str, cx: &mut Context<Self>) {
-        self.face.pick(name);
+        if let Some(id) = self.face.chips.iter().chain(&self.face.more).find(|chip| chip.name == name).map(|chip| chip.id()) {
+            self.face.pick(&id);
+        }
         cx.notify();
     }
 
@@ -366,6 +369,11 @@ impl DispatchSheet {
 
     pub(super) fn repository(&self) -> Option<String> {
         self.face.chosen().map(|chip| chip.name.to_string())
+    }
+
+    /// Fleet's id for the project of the row chosen; none where it is a repository in no project.
+    pub(super) fn project(&self) -> Option<String> {
+        self.face.chosen().and_then(|chip| chip.project.as_ref()).map(|project| project.id.to_string())
     }
 
     /// Start, from the button or ↵: it runs at once, pending in this frame.
@@ -405,6 +413,7 @@ impl DispatchSheet {
         cx.emit(Asked::Start {
             words,
             repository,
+            project: self.project(),
             model: self.model.as_ref().map(|one| one.to_string()),
             effort: self.effort.as_ref().map(|one| one.to_string()),
             held,
@@ -439,6 +448,7 @@ impl DispatchSheet {
         cx.emit(Asked::Queue {
             words: self.words(cx),
             repository,
+            project: self.project(),
             model: self.model.as_ref().map(|one| one.to_string()),
             effort: self.effort.as_ref().map(|one| one.to_string()),
         });
@@ -472,11 +482,11 @@ impl DispatchSheet {
     /// The app changed the face under the sheet: a read answered, a wait arrived. A start that was
     /// waiting on the repository goes on.
     pub fn set_face(&mut self, face: Face, window: &mut Window, cx: &mut Context<Self>) {
-        let hand = (self.face.reading == Reading::Picked).then(|| self.face.chosen().map(|chip| chip.name.clone())).flatten();
+        let hand = (self.face.reading == Reading::Picked).then(|| self.face.chosen().map(|chip| chip.id())).flatten();
         let refused = self.face.refused.clone();
         self.face = face;
-        if let Some(name) = hand {
-            self.face.pick(&name);
+        if let Some(id) = hand {
+            self.face.pick(&id);
         }
         if self.face.refused.is_none() {
             self.face.refused = refused.filter(|_| false);
@@ -510,9 +520,10 @@ impl DispatchSheet {
 
     // -- the repository row -------------------------------------------------------------------------
 
-    pub(super) fn pick(&mut self, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    /// A row picked by hand, by its [`super::face::Chip::id`].
+    pub(super) fn pick(&mut self, id: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let was_asking = self.asking;
-        self.face.pick(&name);
+        self.face.pick(&id);
         self.face.refused = None;
         self.asking = false;
         if was_asking {
@@ -536,7 +547,7 @@ impl DispatchSheet {
                 let Some(digit) = key.digit else { return };
                 let Some(chip) = self.face.chips.iter().find(|chip| chip.key == Some(digit)).cloned() else { return };
                 let none_chosen = self.repository().is_none();
-                self.face.pick(&chip.name);
+                self.face.pick(&chip.id());
                 self.asking = false;
                 // With none chosen, the key also sends.
                 if none_chosen && self.worded(cx) {
@@ -673,8 +684,8 @@ impl DispatchSheet {
             Pop::Model => self.model = id.strip_prefix("model:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
             Pop::Effort => self.effort = id.strip_prefix("effort:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
             Pop::Repository => {
-                if let Some(name) = id.strip_prefix("repo:") {
-                    self.pick(name.to_string().into(), window, cx);
+                if let Some(row) = id.strip_prefix("repo:") {
+                    self.pick(row.to_string().into(), window, cx);
                 }
                 return;
             }
@@ -703,23 +714,33 @@ impl DispatchSheet {
         self.open_pop(Pop::Effort, from, "Effort", entries, window, cx);
     }
 
-    /// The repository picker's list: every repository, the first nine with their ⌥ keys, and a search
-    /// over them once there are more than nine.
+    /// The picker's list: his projects, each with its repository on a line under the name, then under No project
+    /// every repository Fleet serves. The first nine carry their ⌥ keys, and a search goes over them once
+    /// there are more than nine.
     pub(super) fn open_repositories(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(from) = self.at.repository.get() else { return };
         let mut entries = Vec::new();
         if !self.face.more.is_empty() {
-            entries.push(Entry::Search { label: "Find a repository", to_rule: false });
+            entries.push(Entry::Search { label: "Find a project", to_rule: false });
         }
+        let mut in_project = false;
         for chip in self.face.chips.iter().chain(&self.face.more) {
-            let row = crate::dropdown::Row::new(id_of(format!("repo:{}", chip.name)), chip.name.clone()).ticked(chip.mark == Mark::Chosen);
+            if chip.project.is_none() && in_project {
+                entries.push(Entry::Label("No project"));
+            }
+            in_project = chip.project.is_some();
+            let row = crate::dropdown::Row::new(id_of(format!("repo:{}", chip.id())), chip.label().clone()).ticked(chip.mark == Mark::Chosen);
+            let row = match &chip.project {
+                Some(_) => row.icon("layers").under(chip.name.clone()),
+                None => row.icon("git-branch"),
+            };
             let row = match chip.key.and_then(|n| crate::keymap::shown_digit("dispatch_repository", n)) {
                 Some(key) => row.key(key),
                 None => row,
             };
             entries.push(Entry::Row(row));
         }
-        self.open_pop(Pop::Repository, from, "Repository", entries, window, cx);
+        self.open_pop(Pop::Repository, from, "Project", entries, window, cx);
     }
 
     // -- the wait sentence ------------------------------------------------------------------------------
@@ -889,6 +910,30 @@ mod tests {
             sheet.face.connected = false;
             assert_eq!(named(sheet, cx), ["request"], "Fleet unreachable: everything else is off");
         });
+    }
+
+    #[gpui::test]
+    fn start_sends_the_project_of_the_row_picked(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let heard = std::rc::Rc::clone(&asked);
+        let _sub = cx.update(|_, cx| {
+            cx.subscribe(&sheet, move |_, asked: &Asked, _| {
+                if let Asked::Start { repository, project, .. } = asked {
+                    heard.borrow_mut().push((repository.clone(), project.clone()));
+                }
+            })
+        });
+        sheet.update_in(cx, |sheet, window, cx| {
+            // ⌥3 is Storefront in sample-api; ⌥7 is sample-docs, a folder in no project.
+            for digit in [3, 7] {
+                let row = sheet.face.chips.iter().find(|chip| chip.key == Some(digit)).expect("a keyed row").id();
+                sheet.face.pick(&row);
+                sheet.act(window, cx);
+                sheet.sending = false;
+            }
+        });
+        assert_eq!(*asked.borrow(), [("sample-api".to_string(), Some("storefront".to_string())), ("sample-docs".to_string(), None)]);
     }
 
     #[gpui::test]

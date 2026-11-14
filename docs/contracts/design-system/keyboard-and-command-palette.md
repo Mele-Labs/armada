@@ -50,7 +50,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch, from every surface and from a field
-⌥1–⌥9    choose a repository to dispatch to
+⌥1–⌥9    choose a repository to dispatch to; in the native Bridge, a project and its repository
 ⌥A       dispatch after another Job: a Job with an @ typed in the request
 ⌥M       message the Job: put the caret in the open Job's message box
 ⌥↵       yes to a card waiting in the Job's thread: Approve, Allow once, Answer  (confirms)
