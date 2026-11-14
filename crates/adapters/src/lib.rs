@@ -154,6 +154,7 @@ mod cloudflare_tokens;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
+mod store_peers;
 mod store_signing;
 /// The directories of a repository's base and the paths an agent has changed in a slot.
 pub mod gate_worktree;
@@ -236,6 +237,7 @@ pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};
 pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
+pub use store_peers::signed_for_peer;
 pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use test_map::NextestCoverage;
 pub use api_forge::{ApiForge, ApiTrackers};

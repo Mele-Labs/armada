@@ -20,7 +20,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use adapter_traits::{
-    ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderClaims, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError,
+    ClaimKey, ClaimKind, Claimant, Claimed, Contest, DeviceKind, Holder, HolderClaims, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice,
+    StoreError, StorePeer,
 };
 
 #[derive(Debug, Default)]
@@ -34,6 +35,8 @@ struct Rows {
     /// The Mac each device enrolled as, in the order they enrolled.
     machines: Vec<(String, String)>,
     runs: BTreeMap<RepositoryKey, Vec<RunRow>>,
+    /// What each device is, where it says it is reached and the key it enrolled, by device.
+    presence: BTreeMap<String, (DeviceKind, String, String)>,
 }
 
 /// A store that remembers what it was asked and reaches nothing.
@@ -42,6 +45,8 @@ pub struct FakeStore {
     rows: Arc<Mutex<Rows>>,
     unreachable: AtomicBool,
     calls: Mutex<Vec<&'static str>>,
+    /// The device this handle signs as, for the calls that answer for the caller: `peers` and `put_presence`.
+    me: Option<String>,
 }
 
 impl FakeStore {
@@ -56,6 +61,30 @@ impl FakeStore {
             rows: Arc::clone(&self.rows),
             ..FakeStore::default()
         }
+    }
+
+    /// [`FakeStore::view`], signed as `device`: its peers are the devices of its account, the part of its id
+    /// before the first `.`, as the real store's are.
+    pub fn as_device(&self, device: &str) -> FakeStore {
+        FakeStore { me: Some(device.to_string()), ..self.view() }
+    }
+
+    /// Enrol a device of `kind` with its public key, base64 of its SPKI, as an enrolment or a phone's sign-in
+    /// would.
+    pub fn enrol_peer(&self, device: &str, machine: &str, kind: DeviceKind, public_key: &str) {
+        self.enrol_as(device, machine);
+        let mut rows = self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        rows.presence.insert(device.to_string(), (kind, String::new(), public_key.to_string()));
+    }
+
+    /// What `device` last put as its presence: its kind and address.
+    pub fn presence_of(&self, device: &str) -> Option<(DeviceKind, String)> {
+        let rows = self.rows.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        rows.presence.get(device).map(|(kind, address, _)| (*kind, address.clone()))
+    }
+
+    fn signed_as(&self) -> Result<&str, StoreError> {
+        self.me.as_deref().ok_or_else(|| StoreError::Refused("unknown_device".to_string()))
     }
 
     /// Register a device as an enrolment would. The real store does this on
@@ -230,12 +259,36 @@ impl Store for FakeStore {
         let mut rows = self.rows("delete_device")?;
         rows.devices.remove(device);
         rows.machines.retain(|(id, _)| id != device);
+        rows.presence.remove(device);
         Ok(())
     }
 
     fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError> {
         let rows = self.rows("signed_in_devices")?;
         Ok(rows.machines.iter().map(|(id, machine)| StoreDevice { id: id.clone(), machine: machine.clone() }).collect())
+    }
+
+    fn peers(&self) -> Result<Vec<StorePeer>, StoreError> {
+        let rows = self.rows("peers")?;
+        let me = self.signed_as()?;
+        let account = format!("{}.", me.split('.').next().unwrap_or_default());
+        Ok(rows
+            .machines
+            .iter()
+            .filter(|(id, _)| id.starts_with(&account) && id != me)
+            .map(|(id, machine)| {
+                let (kind, address, public_key) = rows.presence.get(id).cloned().unwrap_or((DeviceKind::Mac, String::new(), String::new()));
+                StorePeer { device: id.clone(), machine: machine.clone(), kind, address, public_key }
+            })
+            .collect())
+    }
+
+    fn put_presence(&self, kind: DeviceKind, address: &str) -> Result<(), StoreError> {
+        let mut rows = self.rows("put_presence")?;
+        let me = self.signed_as()?.to_string();
+        let key = rows.presence.get(&me).map(|(_, _, key)| key.clone()).unwrap_or_default();
+        rows.presence.insert(me, (kind, address.to_string(), key));
+        Ok(())
     }
 
     fn put_runs(&self, repository: &RepositoryKey, runs: &[RunRow]) -> Result<(), StoreError> {
@@ -414,5 +467,21 @@ mod tests {
         assert_eq!(found[&one], holder("mac-a"));
         store.delete_owner(&one).unwrap();
         assert!(store.owners(&[one, two]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_device_sees_its_own_accounts_other_devices_and_never_another_accounts() {
+        let store = FakeStore::new();
+        store.enrol_peer("7.aa", "Home", DeviceKind::Mac, "a");
+        store.enrol_peer("7.bb", "iPhone", DeviceKind::Phone, "b");
+        store.enrol_peer("70.cc", "Stranger", DeviceKind::Mac, "c");
+        let home = store.as_device("7.aa");
+        home.put_presence(DeviceKind::Mac, "https://home.example.com").unwrap();
+        let seen: Vec<String> = home.peers().unwrap().into_iter().map(|peer| peer.device).collect();
+        assert_eq!(seen, ["7.bb"]);
+        let from_phone = store.as_device("7.bb").peers().unwrap();
+        assert_eq!((from_phone[0].address.as_str(), from_phone[0].public_key.as_str()), ("https://home.example.com", "a"));
+        assert_eq!(store.presence_of("7.aa"), Some((DeviceKind::Mac, "https://home.example.com".to_string())));
+        assert!(store.peers().is_err(), "a handle signed as nobody has no account");
     }
 }
