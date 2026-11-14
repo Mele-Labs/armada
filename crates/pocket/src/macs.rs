@@ -120,6 +120,11 @@ pub struct MacGreeting {
     pub colour: MacColour,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+    /// The protocol ID its build speaks. A build from before Macs compared them sends none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_at: Option<String>,
 }
 
 /// The four digits both Macs show for an ask: from the asking Mac's key, each Mac's door certificate as
@@ -405,12 +410,21 @@ pub(crate) fn frozen(me: &crate::WayIn, row: &store::PairedMac) -> Option<MacLin
     if row.state != store::MacState::Linked || row.wire.as_deref() == Some(me.wire.as_str()) {
         return None;
     }
-    let older = match (row.wire.as_ref(), row.built_at.as_deref(), me.built_at.as_deref()) {
+    Some(if older_build(row.wire.as_deref(), row.built_at.as_deref(), me) { MacLink::OlderBuild } else { MacLink::NewerBuild })
+}
+
+/// Whether a Mac that named `wire` and `built_at` runs an older build than `me`. **The same wire is never
+/// older.** On another, a Mac that named no wire or no build time is older, since it predates both, and
+/// one that named both is older where its build time is not after this Mac's.
+pub(crate) fn older_build(wire: Option<&str>, built_at: Option<&str>, me: &crate::WayIn) -> bool {
+    if wire == Some(me.wire.as_str()) {
+        return false;
+    }
+    match (wire, built_at, me.built_at.as_deref()) {
         (None, _, _) | (_, None, _) => true,
         (_, Some(_), None) => false,
         (_, Some(theirs), Some(mine)) => theirs <= mine,
-    };
-    Some(if older { MacLink::OlderBuild } else { MacLink::NewerBuild })
+    }
 }
 
 /// The sentence a frozen link carries as `why`.

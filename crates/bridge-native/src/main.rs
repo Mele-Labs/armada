@@ -12,6 +12,9 @@
 //!
 //! `ARMADA_BRIDGE_QUIT_MARK` names a file the app writes when it quits after its window opened. `scripts/restart`
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
+//!
+//! Only one live app runs: it holds a lock on `bridge-native.lock` in the support folder (`instance.rs`), and a
+//! second start brings the first forward. A walk, a mock and a check take no lock.
 
 mod annotate;
 mod assets;
@@ -35,9 +38,11 @@ mod fleet;
 mod frames;
 mod job_view;
 mod inspect;
+mod instance;
 mod jobs;
 mod keymap;
 mod labels;
+mod launch_services;
 mod lanes_canvas;
 mod lanes_editor;
 mod link;
@@ -249,6 +254,16 @@ fn main() -> ExitCode {
         };
     }
 
+    // One live app at a time, whichever way it was opened. Held to the end of `main`; the OS frees it with the process.
+    let _instance = if matches!(mode, Mode::Live) {
+        match instance::claim(std::env::var_os("ARMADA_BRIDGE_QUIT_MARK").map(PathBuf::from)) {
+            instance::Claim::Leave => return ExitCode::SUCCESS,
+            instance::Claim::Instance(file) => file,
+        }
+    } else {
+        None
+    };
+
     let app = application().with_assets(assets::Assets);
     // macOS hands links over before the app is ready and on its own thread of control, so they cross a
     // channel to a task that reads them where the app can be reached. Nothing registers the scheme with
@@ -265,6 +280,7 @@ fn main() -> ExitCode {
         if matches!(mode, Mode::Live) {
             crash::install(cx);
             drafts::persist(drafts::file(), cx);
+            launch_services::point_at_current_build();
             pairing::follow(cx);
             job_view::keep_arrangements(cx);
         }
