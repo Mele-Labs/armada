@@ -74,7 +74,7 @@ impl Store for Viewed {
     fn clear_kind(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind) -> Result<(), adapter_traits::StoreError> {
         self.0.clear_kind(repository, kind)
     }
-    fn renew(&self, holder: &Holder) -> Result<u64, adapter_traits::StoreError> {
+    fn renew(&self, holder: &Holder) -> Result<adapter_traits::Renewed, adapter_traits::StoreError> {
         self.0.renew(holder)
     }
     fn put_owner(&self, key: &adapter_traits::OwnerKey, holder: &Holder) -> Result<(), adapter_traits::StoreError> {
