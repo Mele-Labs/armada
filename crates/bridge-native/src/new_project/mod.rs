@@ -929,9 +929,11 @@ impl NewProjectSheet {
                 let tracker = self.tracker.clone();
                 cx.spawn_in(window, async move |_, cx| {
                     let answer = sent.await;
-                    let _ = tracker.update(cx, |tracker, cx| match answer {
-                        Ok(job) => tracker.started(job, cx),
-                        Err(why) => tracker.refused(why, cx),
+                    let _ = cx.update(|window, cx| {
+                        tracker.update(cx, |tracker, cx| match answer {
+                            Ok(job) => tracker.started(job, window, cx),
+                            Err(why) => tracker.refused(why, cx),
+                        })
                     });
                 })
                 .detach();

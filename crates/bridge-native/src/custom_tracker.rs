@@ -116,7 +116,7 @@ impl EventEmitter<Asked> for CustomTracker {}
 impl CustomTracker {
     /// `id` names its elements, and `keep` the draft of what is typed (`drafts.rs`).
     pub fn new(id: &'static str, keep: &'static str, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Jira"));
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Such as Jira"));
         let typing = vec![cx.subscribe_in(&input, window, move |this, state, event: &InputEvent, _, cx| match event {
             InputEvent::Change => {
                 crate::drafts::keep(keep, state.read(cx).value().as_ref(), cx);
@@ -198,11 +198,17 @@ impl CustomTracker {
         cx.notify();
     }
 
-    /// The Job started: `job` is its id, none where the Operator holds the idea.
-    pub fn started(&mut self, job: Option<String>, cx: &mut Context<Self>) {
+    /// The Job started: `job` is its id, none where the Operator holds the idea. The press that was pressed is gone, so
+    /// the keys go to the one that opens the Job.
+    pub fn started(&mut self, job: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let named = SharedString::from(self.name(cx));
+        let opens = job.is_some();
         self.phase = Phase::Started { job, named };
         crate::drafts::clear(self.keep, cx);
+        if opens {
+            let open = self.open.clone();
+            window.defer(cx, move |window, cx| window.focus(&open, cx));
+        }
         cx.notify();
     }
 
@@ -241,11 +247,6 @@ impl CustomTracker {
             Phase::Started { job, .. } => job.as_deref(),
             _ => None,
         }
-    }
-
-    /// The field with the keys in it.
-    pub fn input_focus(&self, cx: &gpui::App) -> FocusHandle {
-        self.input.focus_handle(cx)
     }
 
     fn panel(&self, look: &Look) -> gpui::Div {

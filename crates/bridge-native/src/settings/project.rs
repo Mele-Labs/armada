@@ -427,9 +427,11 @@ impl SettingsOverlay {
                 let custom = self.custom.clone();
                 cx.spawn_in(window, async move |_, cx| {
                     let answer = sent.await;
-                    let _ = custom.update(cx, |custom, cx| match answer {
-                        Ok(job) => custom.started(job, cx),
-                        Err(why) => custom.refused(why.said, cx),
+                    let _ = cx.update(|window, cx| {
+                        custom.update(cx, |custom, cx| match answer {
+                            Ok(job) => custom.started(job, window, cx),
+                            Err(why) => custom.refused(why.said, cx),
+                        })
                     });
                 })
                 .detach();
