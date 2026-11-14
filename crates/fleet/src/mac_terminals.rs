@@ -122,6 +122,11 @@ where
         Ok(listed)
     }
 
+    /// Whether run `run_id` is one of a Job held from another Mac.
+    pub(crate) fn run_held_from_other_mac(&self, run_id: &str) -> bool {
+        self.phone_held().terminals.held(run_id).is_some()
+    }
+
     /// A keystroke, resize or stop on run `run_id` of a Job held from another Mac, sent there at once and one at a
     /// time. **One the link cannot carry is refused**, and never sent later.
     pub(crate) async fn terminal_act_on_other_mac(&self, run_id: &str, act: impl FnOnce(SessionId) -> TerminalFromMac) -> Option<Result<SessionRunUnderway, Refusal>> {

@@ -150,6 +150,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_CLAIM {
                     over.update(cx, |over, cx| over.claim_later(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_NEARBY {
+                    over.update(cx, |over, cx| over.nearby_macs(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
                 }
