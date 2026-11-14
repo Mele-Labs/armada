@@ -75,7 +75,7 @@ pub struct OperatorPageView {
     /// The option he picked on an item that offers more than one, by its label; else the Operator's.
     pub(super) option: HashMap<String, String>,
     pub(super) chat: Option<Entity<OperatorChat>>,
-    /// The box at the page's foot, whose send is a dispatch to the Operator.
+    /// The box atop the page's left column, above Your turn, whose send is a dispatch to the Operator.
     pub(super) composer: Entity<OperatorComposer>,
     /// The ideas the Operator kept for later.
     pub(super) parked: Entity<ParkedIdeas>,
@@ -89,9 +89,12 @@ pub struct OperatorPageView {
     pub(super) aged: bool,
     /// The clock the page reads its times against: the walk's 13:05, else this Mac's.
     pub(super) clock_now: Option<chrono::DateTime<chrono::Local>>,
-    /// Switch on pressed, and Fleet has not answered; or why it refused.
+    /// Switch on or Switch off pressed, and Fleet has not answered; or why it refused.
     pub(super) switching: bool,
+    /// The press in flight is Switch off.
+    pub(super) switching_off: bool,
     pub(super) switch_refused: Option<SharedString>,
+    pub(super) switch_off_refused: Option<SharedString>,
     /// A Mac waiting to pair whose Confirm or Decline is in flight, by its call's key.
     pub(super) pairing_pending: BTreeSet<String>,
     /// What the Gateway refused on a Mac waiting to pair, by its call's key, with its sentence.
@@ -174,7 +177,9 @@ impl OperatorPageView {
             aged: false,
             clock_now: None,
             switching: false,
+            switching_off: false,
             switch_refused: None,
+            switch_off_refused: None,
             pairing_pending: BTreeSet::new(),
             pairing_refused: None,
             pairing_front: None,
@@ -445,16 +450,28 @@ impl OperatorPageView {
     /// The page reads on at once, and goes back with why if Fleet refuses. Saved, Fleet's
     /// `operator.page_changed` redraws it; the mock sends no event, so it is read in its place.
     pub fn switch_on(&mut self, cx: &mut Context<Self>) {
+        self.set_switch(true, cx);
+    }
+
+    /// Switch off, from the page's head: the same setting the other way. The page reads off at once, and
+    /// goes back on with why if Fleet refuses.
+    pub fn switch_off(&mut self, cx: &mut Context<Self>) {
+        self.set_switch(false, cx);
+    }
+
+    fn set_switch(&mut self, on: bool, cx: &mut Context<Self>) {
         if self.switching {
             return;
         }
         self.switching = true;
+        self.switching_off = !on;
         self.switch_refused = None;
+        self.switch_off_refused = None;
         if let Some(page) = self.page.as_mut() {
-            page.on = true;
+            page.on = on;
         }
         cx.notify();
-        let task = self.wire.switch(true, cx);
+        let task = self.wire.switch(on, cx);
         let task = cx.spawn(async move |this, cx| {
             let saved = task.await;
             let _ = this.update(cx, |this, cx| {
@@ -464,9 +481,13 @@ impl OperatorPageView {
                     Ok(()) => cx.notify(),
                     Err(why) => {
                         if let Some(page) = this.page.as_mut() {
-                            page.on = false;
+                            page.on = !on;
                         }
-                        this.switch_refused = Some(why.into());
+                        if on {
+                            this.switch_refused = Some(why.into());
+                        } else {
+                            this.switch_off_refused = Some(why.into());
+                        }
                         cx.notify();
                     }
                 }
@@ -688,6 +709,14 @@ impl OperatorPageView {
     fn answer_now(&mut self, answer: OperatorAnswer, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
         if !face::answers_of(&turn).contains(&answer) {
+            return;
+        }
+        // A walk is his to look at, not to say Yes to: the press opens its Job, where the walk is, and nothing
+        // is answered. The item leaves Your turn when he approves the walk there.
+        if answer == OperatorAnswer::Yes && face::goes_to_look(&turn) {
+            if let Some(job) = turn.session_id.clone() {
+                cx.emit(Opened::Job(job));
+            }
             return;
         }
         // A pick of Later is done by Yes: the item goes Later, nothing is answered.
@@ -1639,6 +1668,30 @@ mod tests {
         page.read_with(cx, |page, _| {
             assert!(page.switch_refused.is_none());
             assert!(!page.items().is_empty(), "Fleet's turn is read again");
+        });
+    }
+
+    #[gpui::test]
+    fn switch_off_reads_off_at_once_and_a_refusal_puts_it_back_with_why(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| page.on)), "the page reads on");
+
+        page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.refuse_switch = Some("Fleet could not save the setting".into())));
+        page.update(cx, |page, cx| page.switch_off(cx));
+        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| !page.on)), "off before Fleet answers");
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(page.page.as_ref().is_some_and(|page| page.on), "back on");
+            assert_eq!(page.switch_off_refused.as_deref(), Some("Fleet could not save the setting"));
+            assert!(page.switch_refused.is_none());
+            assert!(!page.switching);
+        });
+
+        page.update(cx, |page, cx| page.switch_off(cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(page.switch_off_refused.is_none());
+            assert!(page.page.as_ref().is_some_and(|page| !page.on && page.turn.is_empty()), "off, with nothing queued");
         });
     }
 

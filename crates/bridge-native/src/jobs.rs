@@ -2845,6 +2845,11 @@ impl JobsScreen {
         &self.within
     }
 
+    /// The palette, for the screen this one sits in to draw while another place is in front.
+    pub(crate) fn palette(&self) -> &Entity<crate::palette::Palette> {
+        &self.palette
+    }
+
     /// The room the three columns share: the window less its padding and the gaps between them.
     fn room(window: &Window, look: &Look) -> f32 {
         let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
