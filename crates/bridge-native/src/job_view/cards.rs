@@ -574,12 +574,13 @@ impl JobView {
     pub(super) fn file_row(&self, id: &str, path: &str, name: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
         let parts = vec![
             div().flex_none().child("Opened").into_any_element(),
-            div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(name.to_string())).into_any_element(),
+            // From no width, so a long name stays on the glyph's line and truncates at the row's end.
+            div().flex_1().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(name.to_string())).into_any_element(),
         ];
         let label = format!("Opened {name}");
         if let Some(picture) = super::pictures::read_picture(path) {
             let tile = self.picture_tile(&picture, look, cx);
-            let line = self.quiet_base(id, "image", parts, look).flex_wrap().children(tile.map(|tile| div().w_full().pl(look.length(token::SPACE_6)).child(tile)));
+            let line = self.quiet_base(id, "image", parts, look).flex_wrap().children(tile.map(|tile| div().w_full().child(tile)));
             return labelled(line, Role::Row, label).into_any_element();
         }
         let path = path.to_string();
