@@ -318,7 +318,7 @@ pub(crate) fn hidden(error: CloudflareError, token: &Secret<String>) -> Cloudfla
 /// Cloudflare's API, reached with whichever token each call is given. Holds no token itself.
 pub struct HttpCloudflare {
     base: String,
-    client: Client,
+    timeout: Duration,
 }
 
 impl HttpCloudflare {
@@ -329,15 +329,20 @@ impl HttpCloudflare {
 
     /// The API at `base_url`, for a test that answers on this machine.
     pub fn at(base_url: &str, timeout: Duration) -> Result<HttpCloudflare, String> {
-        let client = Client::builder()
-            .timeout(timeout)
-            .connect_timeout(timeout)
+        Ok(HttpCloudflare { base: base_url.trim_end_matches('/').to_string(), timeout })
+    }
+
+    /// Made for each call, as the other adapters do: the blocking client owns a runtime, and Fleet
+    /// builds this adapter inside its own, where that runtime may not be built or dropped.
+    fn client(&self) -> Result<Client, CloudflareError> {
+        Client::builder()
+            .timeout(self.timeout)
+            .connect_timeout(self.timeout)
             .user_agent("armada")
             // A redirect would carry the token to a host it was not given for.
             .redirect(Policy::none())
             .build()
-            .map_err(|why| format!("Cloudflare's client could not be made: {why}"))?;
-        Ok(HttpCloudflare { base: base_url.trim_end_matches('/').to_string(), client })
+            .map_err(|why| CloudflareError::Failed(format!("Cloudflare's client could not be made: {why}")))
     }
 
     fn send(&self, token: &Secret<String>, call: &Call) -> Result<Reply, CloudflareError> {
@@ -345,7 +350,8 @@ impl HttpCloudflare {
         let mut bearer = HeaderValue::from_str(&format!("Bearer {}", token.expose()))
             .map_err(|_| CloudflareError::Refused("The token has characters no Cloudflare token has.".to_string()))?;
         bearer.set_sensitive(true);
-        let mut request = self.client.request(method, format!("{}{}", self.base, call.target)).header(AUTHORIZATION, bearer);
+        let client = self.client()?;
+        let mut request = client.request(method, format!("{}{}", self.base, call.target)).header(AUTHORIZATION, bearer);
         if let Some(content_type) = &call.content_type {
             request = request.header(CONTENT_TYPE, content_type).body(call.body.clone());
         }

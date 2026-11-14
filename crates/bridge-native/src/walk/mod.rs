@@ -150,6 +150,28 @@ pub enum Verb {
     /// left as it is. A walk of the wide title bar opens with it, so it plays the bar it shows at
     /// any width; the narrow bar has its own steps.
     Widen(u32),
+    /// An element inside the page a Job's page tab draws, found by role and name as a web page's walk finds its
+    /// targets, scrolled to the middle and ringed, and pressed where the aim says, as a click the page hears. The step
+    /// fails where the page holds no such element within five seconds. Its own target is then ringed as any other.
+    InPage(PageAim),
+}
+
+/// What a step aims at inside a page: an element's role and name, the element of that role and name it sits in, and
+/// whether it is pressed or only looked at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PageAim {
+    pub role: &'static str,
+    pub name: &'static str,
+    pub within: Option<(&'static str, &'static str)>,
+    pub press: bool,
+}
+
+impl PageAim {
+    /// The aim as a web page's walk names a target.
+    pub fn target(&self) -> ipc::WalkTarget {
+        let target = |role: &str, name: &str| ipc::WalkTarget { role: role.into(), name: Some(name.into()), exact: None, within: None };
+        ipc::WalkTarget { within: self.within.map(|(role, name)| Box::new(target(role, name))), ..target(self.role, self.name) }
+    }
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -235,6 +257,12 @@ const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> S
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
     Step { say, verb, target: Target { role, name } }
+}
+
+/// A step that presses inside the page a Job's page tab draws, or only looks where `press` is false; the tab's own page
+/// region is ringed.
+const fn in_page(say: &'static str, role: &'static str, name: &'static str, within: Option<(&'static str, &'static str)>, press: bool) -> Step {
+    Step { say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
 }
 
 /// The hand off marks, played alone and in today's walk.
@@ -881,6 +909,38 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-page-actions",
+        title: "A Job's page: its buttons and votes, carried to Fleet",
+        screen: Screen::JobsInApp,
+        scenario: "page-actions",
+        steps: &[
+            press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Needs you"),
+            press_on("The page opens in its own tab: its card, and under it the page as Fleet serves it, sealed, its buttons and votes drawn by the kit", "button", "Needs you", "region", "Page"),
+            in_page("Discuss messages the Job: a box for words opens under its row", "button", "Discuss", None, true),
+            in_page("Send carries the press to Fleet. Fleet's answer turns the row green, and the row says it was sent", "button", "Send", Some(("region", "Stale branches")), true),
+            step(
+                "Rebase it starts a Job at once: its row says which Job, and a toast says it too",
+                Verb::InPage(PageAim { role: "button", name: "Rebase it", within: None, press: true }),
+                "button",
+                "Stale branch design started Retry webhooks on a 503",
+            ),
+            in_page("Keep it answers the Job's question with that option", "button", "Keep it", None, true),
+            in_page("Drop it answers a question the Job no longer asks", "button", "Drop it", None, true),
+            in_page("Fleet refuses it, and its words stand on the row, which can be pressed again", "status", "no longer waits", None, false),
+            in_page("A pick: Faded row", "radio", "Pick Faded row", None, true),
+            in_page("Send casts the pick: the vote says it was sent", "button", "Send", Some(("region", "Pick a mark")), true),
+            in_page("A score: Compact row keeps its age", "radio", "Keep", Some(("radiogroup", "age of Compact row")), true),
+            in_page("and drops its author", "radio", "Drop", Some(("radiogroup", "author of Compact row")), true),
+            in_page("Full row keeps its author", "radio", "Keep", Some(("radiogroup", "author of Full row")), true),
+            in_page("Send casts the score", "button", "Send", Some(("region", "Score the rows")), true),
+            press_on("Closing the tab lets the page go", "button", "Close Stale branch design", "region", "Thread"),
+            press_on("Opened again, the page is read from Fleet again", "button", "Needs you", "region", "Page"),
+            in_page("What was pressed stands: Discuss is green", "status", "Sent to the Job: Discuss", None, false),
+            in_page("and the score is drawn as it was cast", "radio", "Drop", Some(("radiogroup", "author of Compact row")), false),
+            step("The toast opens the Job the page started", Verb::PressOn("button", "Stale branch design started Retry webhooks on a 503"), "row", "Thread: Retry webhooks on a 503"),
+        ],
+    },
+    Walk {
         name: "native-system-bays",
         title: "A Job's System and Bays tabs",
         screen: Screen::JobsInApp,
@@ -1052,6 +1112,22 @@ pub static WALKS: &[Walk] = &[
             ),
             press_on("Log shows what the run wrote", "tab", "Log", "region", "Log of run 412"),
             step("Esc shuts it", Verb::Key("escape"), "list", "Checks"),
+        ],
+    },
+    Walk {
+        name: "native-claim-waits",
+        title: "A Job waiting on an item another Job or a person holds",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that takes an item a Job on another Mac holds. The wait stands at the thread's end, with what ends it under it", "row", "Audit the docs index", "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            step("The holder's Mac in a chip, in the accent: Home is not one of these Macs", Verb::Look, "img", "Home"),
+            step("How long the Job has waited, and since when in its tooltip", Verb::Hover, "timer", "12 min"),
+            step("The line stays inside the card", Verb::Fits("region", "Claims"), "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A Job that takes an item a person is assigned in beads names the person and the item, and carries on once they are unassigned", "row", "Native Bridge foundation", "row", "Waiting on alice: armada-zasx.5"),
+            step("It has waited two hours", Verb::Look, "timer", "2 h"),
+            press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
+            step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
         ],
     },
     Walk {
@@ -1994,7 +2070,7 @@ pub static WALKS: &[Walk] = &[
             step("A second question takes several", Verb::Press, "checkbox", "In the tooltip"),
             step("Answer goes to Fleet and waits for its word", Verb::Open("button", "Answer"), "button", "Needs you"),
             step("The band folds the panel", Verb::Press, "button", "Needs you"),
-            step("⇧⌘Y opens the review sheet, as a plan waits on the Job", Verb::Key("shift-cmd-y"), "dialog", "Fix the merge line freshness chip"),
+            step("⇧⌘Y opens the review sheet, as a plan waits on the Job", Verb::Key("shift-cmd-y"), "dialog", "Review"),
             step("Esc shuts it and the band is as it was", Verb::Key("escape"), "button", "Needs you"),
             step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
             step("The plan and the pinned sketch wait at the end", Verb::Key("pageup"), "region", "Thread"),
@@ -2123,36 +2199,36 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("A press on a Job opens it; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
             step("The Review row names the kinds it holds", Verb::Look, "button", "Review"),
-            step("Review opens the sheet", Verb::Open("button", "Review"), "dialog", "Fix the merge line freshness chip"),
-            step("Items stand oldest first", Verb::Look, "group", "Waiting on you"),
+            step("Review opens the sheet", Verb::Open("button", "Review"), "dialog", "Review"),
+            step("Items stand oldest first, under the Job's name", Verb::Look, "group", "Waiting on you"),
             step("A plan", Verb::Look, "img", "Plan"),
             step("A sketch", Verb::Look, "img", "Sketch"),
             step("A document", Verb::Look, "img", "Document"),
             step("A draft", Verb::Look, "img", "Draft"),
-            step("The primary names the item and its key", Verb::Look, "button", "Approve Plan v2"),
-            step("Send back, ⌥R", Verb::Look, "button", "Send back"),
+            step("Approve, A", Verb::Look, "button", "Approve"),
+            step("Ask for changes, C", Verb::Look, "button", "Ask for changes"),
             step("Close", Verb::Look, "button", "Close"),
             step("A press on an item shows its body", Verb::Press, "button", "Tail layout"),
-            step("↓ moves to the next item", Verb::Key("down"), "button", "Approve Stale branch design"),
-            step("↑ moves back", Verb::Key("up"), "button", "Approve Tail layout"),
-            step("End goes to the last item; a proposed workflow has no Send back", Verb::Key("end"), "button", "Approve Workflow quick-fix"),
-            step("Home goes to the first", Verb::Key("home"), "button", "Approve Plan v2"),
-            step("Approve answers in this frame", Verb::Open("button", "Approve Plan v2"), "img", "Approved"),
+            step("↓ moves to the next item", Verb::Key("down"), "region", "Stale branch design"),
+            step("↑ moves back", Verb::Key("up"), "region", "Tail layout"),
+            step("End goes to the last item; a proposed workflow has no Ask for changes", Verb::Key("end"), "region", "Workflow quick-fix"),
+            step("Home goes to the first", Verb::Key("home"), "region", "Plan v2"),
+            step("A approves in this frame", Verb::Key("a"), "img", "Approved"),
             step("A right press opens the item's menu", Verb::RightPress("Tail layout"), "menuitem", "Dismiss"),
-            step("Esc shuts the menu and the keys return to the list", Verb::Key("escape"), "button", "Approve Tail layout"),
+            step("Esc shuts the menu and the keys return to the list", Verb::Key("escape"), "region", "Tail layout"),
             step("Shift+F10 opens it from the keys", Verb::Key("shift-f10"), "menuitem", "Dismiss"),
             step("Dismiss puts the item away", Verb::Open("menuitem", "Dismiss"), "img", "Dismissed"),
-            step("⌥R opens the note on the open item", Verb::Key("alt-r"), "textbox", "Note"),
-            step("The note is typed", Verb::Type("Say which branches are affected"), "textbox", "Note"),
-            step("⌘↵ sends it back", Verb::Key("cmd-enter"), "img", "Sent back"),
-            step("The next open item is chosen", Verb::Look, "button", "Approve Comment on #3290"),
-            step("⌥R opens a note again", Verb::Key("alt-r"), "textbox", "Note"),
-            step("Esc leaves the note first", Verb::Key("escape"), "button", "Send back"),
+            step("C with no notes puts the caret in the item's notes", Verb::Key("c"), "textbox", "Notes"),
+            step("The note is typed", Verb::Typed("Say which branches are affected"), "textbox", "Notes"),
+            step("⌘↵ asks for changes with it", Verb::Key("cmd-enter"), "img", "Changes asked"),
+            step("The next open item is chosen", Verb::Look, "region", "Comment on #3290"),
+            step("C puts the caret in its notes again", Verb::Key("c"), "textbox", "Notes"),
+            step("Esc leaves the notes first", Verb::Key("escape"), "button", "Ask for changes"),
             step("Esc shuts the sheet next", Verb::Key("escape"), "button", "Needs you"),
-            step("⇧⌘Y opens the sheet from anywhere", Verb::Key("shift-cmd-y"), "dialog", "Fix the merge line freshness chip"),
-            step("Tab stays inside the sheet", Verb::Key("tab"), "button", "Close"),
+            step("⇧⌘Y opens the sheet from anywhere", Verb::Key("shift-cmd-y"), "dialog", "Review"),
+            step("Tab stays inside the sheet", Verb::Key("tab"), "button", "Dismiss"),
             step("⌘K opens the palette over the sheet", Verb::Key("cmd-k"), "dialog", "Command palette"),
-            step("Esc gives the keys back to the sheet", Verb::Key("escape"), "dialog", "Fix the merge line freshness chip"),
+            step("Esc gives the keys back to the sheet", Verb::Key("escape"), "dialog", "Review"),
             step("Close shuts the sheet", Verb::Open("button", "Close"), "button", "Needs you"),
             step("⌘K opens the palette from anywhere", Verb::Key("cmd-k"), "dialog", "Command palette"),
             step("One field searches", Verb::Look, "searchbox", "Search actions, jobs and settings"),
@@ -2242,6 +2318,34 @@ pub static WALKS: &[Walk] = &[
             step("Its row reads as a Job's, with its state and when it ended", Verb::Look, "option", "An ended Job stays out of the list"),
             step("The glyph says Ended", Verb::Hover, "img", "Ended"),
             step("A press on the row opens the ended Job, though its list's scope holds no row for it", Verb::Open("option", "An ended Job stays out of the list"), "row", "Thread: An ended Job stays out of the list"),
+        ],
+    },
+    Walk {
+        name: "native-review-grouped",
+        title: "Review: every item with an Approve, grouped by Job",
+        screen: Screen::Jobs,
+        scenario: "review-grouped",
+        steps: &[
+            step("A press on a Job opens it; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("Review opens the sheet over the Job", Verb::Open("button", "Review"), "dialog", "Review"),
+            step("Every item with an Approve, across Jobs: the Job it opened from heads the list", Verb::Look, "heading", "Fix the merge line freshness chip"),
+            step("Each other Job under its own name, oldest first", Verb::Look, "heading", "Audit the docs index"),
+            step("A row: the kind, the title, where it stands and its For line", Verb::Look, "button", "Docs index layout"),
+            step("The chosen item: its band, its body and its notes", Verb::Look, "region", "Plan v2"),
+            step("J moves down", Verb::Key("j"), "region", "Tail layout"),
+            step("J again crosses into the next Job", Verb::Key("j"), "region", "Docs index layout"),
+            step("K moves back", Verb::Key("k"), "region", "Tail layout"),
+            step("A approves this item alone", Verb::Key("a"), "img", "Approved"),
+            step("The next open item comes up", Verb::Look, "region", "Docs index layout"),
+            step("J to the document", Verb::Key("j"), "region", "Docs index design"),
+            step("C with no notes puts the caret in the item's notes", Verb::Key("c"), "textbox", "Notes"),
+            step("A note on this item", Verb::Typed("Name the pages it drops."), "textbox", "Notes"),
+            step("⌘↵ asks for changes with that note", Verb::Key("cmd-enter"), "img", "Changes asked"),
+            step("Approve all and Dismiss all sit in the foot, away from the item's buttons", Verb::Look, "toolbar", "Every item"),
+            step("⇧A approves every item still asking. Fleet refuses one, and its row says why", Verb::Key("shift-a"), "status", "the sketch `Docs index layout` is not the drawing that was read: the job has drawn it again since"),
+            step("The rest settled", Verb::Look, "button", "Release note for the clash mark"),
+            step("⇧D dismisses what still asks", Verb::Key("shift-d"), "img", "Dismissed"),
+            step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
         ],
     },
     Walk {
@@ -2689,7 +2793,7 @@ pub static WALKS: &[Walk] = &[
             step("The list's row reads it too", Verb::Look, "row", "Fix the merge line freshness chips"),
             step("So does the palette, where the open Job heads the list", Verb::Key("cmd-k"), "heading", "Fix the merge line freshness chips"),
             step("Esc shuts the palette", Verb::Key("escape"), "button", "Needs you"),
-            step("And the review sheet", Verb::Key("shift-cmd-y"), "dialog", "Fix the merge line freshness chips"),
+            step("And the review sheet", Verb::Key("shift-cmd-y"), "dialog", "Review"),
             step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
             step("⌥⌘Y opens Needs you again", Verb::Key("alt-cmd-y"), "button", "Open Which colour does the stale chip take?"),
             step("The question opens whole", Verb::Open("button", "Open Which colour does the stale chip take?"), "button", "Back"),
@@ -2714,26 +2818,13 @@ pub static WALKS: &[Walk] = &[
             step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),
-            step("⇧⌘Y opens the review sheet; the Job's waiting items stand in it", Verb::Key("shift-cmd-y"), "dialog", "Fix the merge line freshness chips"),
-            step("The plan reads as what changed since the last version; Edit plan opens its groups", Verb::Open("button", "Edit plan"), "region", "Chip reads the stale state"),
-            step("A press on a task's name makes it a field", Verb::Open("button", "Task: Read behind_by on the row"), "textbox", "Task"),
-            step("The new name is typed", Verb::Type(" and its base"), "textbox", "Task"),
-            step("Enter keeps it, as a mark not yet sent", Verb::Key("enter"), "button", "Task: Read behind_by on the row and its base"),
-            step("The last line of a group takes a new task", Verb::Open("textbox", "New task in Write it down"), "textbox", "New task in Write it down"),
-            step("The task is typed", Verb::Type("Say what the amber chip means"), "textbox", "New task in Write it down"),
-            step("Enter adds it and the line stays open for the next", Verb::Key("enter"), "button", "Task: Say what the amber chip means"),
-            step("Esc shuts the line", Verb::Key("escape"), "textbox", "New task in Write it down"),
-            step("Each group's subagent type is a menu", Verb::Open("combobox", "Subagent type of Write it down"), "menuitemcheckbox", "general-purpose"),
-            step("A type picked replaces it", Verb::Open("menuitemcheckbox", "rust-engineer"), "combobox", "Subagent type of Write it down"),
-            step("Suggest opens a box under the group", Verb::Open("button", "Suggest on group Write it down"), "textbox", "Suggest on Write it down"),
-            step("The suggestion is typed", Verb::Type("Link the legend from the chip's tooltip"), "textbox", "Suggest on Write it down"),
-            step("Enter pins it under the group", Verb::Key("enter"), "list", "Suggestions"),
+            step("⇧⌘Y opens the review sheet; the Job's waiting items stand in it", Verb::Key("shift-cmd-y"), "dialog", "Review"),
             step("A press on an item shows its body", Verb::Press, "button", "Tail layout"),
-            step("↓ moves to the next item, ↑ back", Verb::Key("down"), "button", "Approve Stale branch design"),
-            step("⌥R opens the note on the open item", Verb::Key("alt-r"), "textbox", "Note"),
-            step("The note is typed", Verb::Type("Say which branches are affected"), "textbox", "Note"),
-            step("⌘↵ sends it back, and the next open item is chosen", Verb::Key("cmd-enter"), "img", "Sent back"),
-            step("⌘↵ is also the primary: it answers the item in view", Verb::Key("cmd-enter"), "img", "Approved"),
+            step("↓ moves to the next item", Verb::Key("down"), "region", "Stale branch design"),
+            step("C with no notes puts the caret in the item's notes", Verb::Key("c"), "textbox", "Notes"),
+            step("The note is typed", Verb::Typed("Say which branches are affected"), "textbox", "Notes"),
+            step("⌘↵ asks for changes with it, and the next open item is chosen", Verb::Key("cmd-enter"), "img", "Changes asked"),
+            step("A approves the item in view", Verb::Key("a"), "img", "Approved"),
             step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
             step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
             step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),

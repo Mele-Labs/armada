@@ -73,6 +73,9 @@ pub(crate) fn end_the_group(group: NonZeroU32) {
 ///
 /// **The caller proves the group is an orphan's**, by the mark it carries or the
 /// directory its argv names, read immediately before — never by a pid alone.
+/// A Job's keeper is proved by its lock, found held immediately before, which
+/// the kernel lets go the moment the keeper is gone
+/// (`crate::session_host::keeper::make_way`).
 #[allow(unsafe_code)]
 pub(crate) fn ask_the_group_to_end(group: NonZeroU32) {
     let Ok(group) = libc::pid_t::try_from(group.get()) else {
