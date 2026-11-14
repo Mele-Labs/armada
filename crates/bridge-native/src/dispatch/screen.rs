@@ -76,8 +76,11 @@ const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
 pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>)> {
-    let bar = titlebar::live(cx)?;
-    let face = &bar.read(cx).face;
+    scope_of(&titlebar::live(cx)?.read(cx).face)
+}
+
+/// [`scope`] of a bar's face.
+fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedString>)> {
     let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
         return face.chosen.and_then(|at| face.repositories.get(at)).map(|one| (None, vec![one.name.clone()]));
     };
@@ -98,6 +101,16 @@ fn projects(cx: &App) -> Vec<live::ProjectRepositories> {
         let face = &bar.read(cx).face;
         live::projects_of(&face.projects, &face.repositories)
     })
+}
+
+/// Where ⌘T starts a Job and the project it starts for, from the repository the sheet's picker named and what the
+/// window is scoped to. A project's Job is sent with the project's id, so it stands under it; none where the window is
+/// on All or one repository. A project that holds several repositories starts in its first, none having been picked.
+fn terminal_place(picked: Option<String>, scoped: Option<(Option<SharedString>, Vec<SharedString>)>) -> Option<(Place, Option<String>)> {
+    let (project, names) = scoped.unwrap_or_default();
+    // A project of several repositories, none picked: the first, as ⌘T has always started it.
+    let place = picked.or_else(|| names.first().map(|name| name.to_string()))?;
+    Some((Place::Repository(place), project.map(|id| id.to_string())))
 }
 
 /// Where ⌘T would start a Job, as the card under the sheet names it: the project the title bar is scoped
@@ -366,9 +379,10 @@ impl DispatchScreen {
         if self.sheet.read(cx).is_open() && here_name(cx).is_some() {
             self.sheet.update(cx, |sheet, cx| sheet.close(window, cx));
         }
-        let here = picked.map(Place::Repository).or_else(|| scope(cx).and_then(|(_, names)| names.first().map(|name| Place::Repository(name.to_string()))));
-        match here.or_else(|| crate::terminal::start::kept_place(cx)) {
-            Some(place) => self.start_terminal(Start { place, size: crate::terminal::start::size(cx), project: None }, None, window, cx),
+        let here = terminal_place(picked, scope(cx));
+        let size = crate::terminal::start::size(cx);
+        match here.map(|(place, project)| Start { place, size, project }).or_else(|| crate::terminal::start::kept_place(cx).map(|place| Start { place, size, project: None })) {
+            Some(start) => self.start_terminal(start, None, window, cx),
             None => self.open_sheet("", window, cx),
         }
     }
@@ -1032,5 +1046,37 @@ impl Render for DispatchScreen {
             .child(self.snooze.clone())
             // Over every overlay the screen draws, Settings among them, so a note can be made on it.
             .children(self.layer.clone().map(|layer| gpui::deferred(layer).with_priority(annotate::OVER)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::titlebar::scenes;
+
+    fn storefront() -> titlebar::Face {
+        let mut face = scenes::rest();
+        face.scoped = Some(1);
+        face
+    }
+
+    #[test]
+    fn a_job_started_with_a_project_picked_is_sent_for_that_project_in_its_first_repository() {
+        let (place, project) = terminal_place(None, scope_of(&storefront())).expect("a place");
+        assert_eq!(place, Place::Repository("sample-web".into()));
+        assert_eq!(project.as_deref(), Some("storefront"));
+        // One the sheet's picker named stays in the project it is a member of.
+        let (place, project) = terminal_place(Some("sample-api".into()), scope_of(&storefront())).expect("a place");
+        assert_eq!((place, project.as_deref()), (Place::Repository("sample-api".into()), Some("storefront")));
+    }
+
+    #[test]
+    fn a_job_started_on_all_or_in_one_repository_is_sent_for_no_project() {
+        let mut all = scenes::rest();
+        all.scoped = None;
+        assert_eq!(terminal_place(None, scope_of(&all)), None, "the place last started in is used, with no project");
+        assert_eq!(terminal_place(Some("sample-api".into()), scope_of(&all)), Some((Place::Repository("sample-api".into()), None)));
+        all.chosen = Some(1);
+        assert_eq!(terminal_place(None, scope_of(&all)), Some((Place::Repository("sample-web".into()), None)));
     }
 }
