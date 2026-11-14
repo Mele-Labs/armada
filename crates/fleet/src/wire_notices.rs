@@ -49,16 +49,25 @@ where
     /// A pull request in the merge queue, told to the Jobs that read what it changes.
     pub(crate) async fn wire_told(self: &Arc<Self>, served: &Served, pull: &FollowedPull) {
         let held = format!("{}@{}", pull.number, pull.head.as_deref().unwrap_or_default());
-        self.wire_told_of(served, pull.number, pull.branch.as_written(), &held, false).await;
+        self.wire_told_of(served, pull.number, pull.branch.as_written(), &held, false, None).await;
     }
 
     /// A pull request that merged, told to the Jobs the queue did not reach and, in a line, to
-    /// those it did.
-    pub(crate) async fn wire_told_of_merge(self: &Arc<Self>, served: &Served, number: u64, branch: &str) {
-        self.wire_told_of(served, number, branch, &format!("{number}@merged"), true).await;
+    /// those it did. **A branch that already has the merge commit is not told**: it was cut or
+    /// caught up after the merge, so it reads the type as changed.
+    pub(crate) async fn wire_told_of_merge(self: &Arc<Self>, served: &Served, number: u64, branch: &str, commit: Option<&str>) {
+        self.wire_told_of(served, number, branch, &format!("{number}@merged"), true, commit).await;
     }
 
-    async fn wire_told_of(self: &Arc<Self>, served: &Served, number: u64, branch: &str, held: &str, merged: bool) {
+    async fn wire_told_of(
+        self: &Arc<Self>,
+        served: &Served,
+        number: u64,
+        branch: &str,
+        held: &str,
+        merged: bool,
+        commit: Option<&str>,
+    ) {
         let root = served.root().to_string();
         let manifest = served.manifest().id().as_str().to_string();
         let mut owners: Vec<Owner> = self.owners_of(served, number, branch, merged).await;
@@ -100,7 +109,8 @@ where
                     continue;
                 };
                 let (worktrees, looked, since) = (standing.worktrees, types.to_vec(), base.clone());
-                let reads = tokio::task::spawn_blocking(move || readers_of(&worktrees, &since, &looked))
+                let had = commit.map(str::to_string);
+                let reads = tokio::task::spawn_blocking(move || readers_of(&worktrees, &since, &looked, had.as_deref()))
                     .await
                     .unwrap_or_default();
                 let reads: Vec<Read<'_>> = reads
@@ -147,10 +157,11 @@ where
 }
 
 /// For each changed type the worktrees name, where: when one of them changes a file the wire is
-/// read from, since a branch that does not has nothing to adjust.
-fn readers_of(worktrees: &[PathBuf], base: &str, types: &[TypeChange]) -> Vec<(String, Vec<String>)> {
+/// read from, since a branch that does not has nothing to adjust, and none already has `merged`.
+fn readers_of(worktrees: &[PathBuf], base: &str, types: &[TypeChange], merged: Option<&str>) -> Vec<(String, Vec<String>)> {
     let reading: Vec<&PathBuf> = worktrees
         .iter()
+        .filter(|worktree| !merged.is_some_and(|commit| adapters::clash::has_in_history(worktree, commit)))
         .filter(|worktree| {
             changed_since_base(worktree, base)
                 .is_ok_and(|changed| changed.iter().any(|path| READERS.iter().any(|dir| path.starts_with(&format!("{dir}/")))))

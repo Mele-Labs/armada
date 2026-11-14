@@ -212,3 +212,42 @@ async fn a_wire_change_is_told_once_at_the_queue_and_a_merge_follows_in_one_line
     assert_eq!(told.len(), 2, "{told:?}");
     assert_eq!(told[1], "#7 merged: its wire change is on main.");
 }
+
+#[tokio::test]
+async fn a_merge_is_not_told_to_a_branch_that_already_has_it() {
+    let rig = a_rig();
+    let before = rig.a_job_in_slot(2, "crates/bridge-native/src/view.rs", "use ipc::SessionRow;").await;
+    std::fs::write(rig.home.path().join("docs/notes.md"), "notes\nmerged\n").unwrap();
+    git(rig.home.path(), &["commit", "--quiet", "-am", "Merge pull request #7"]);
+    let merge = String::from_utf8(
+        std::process::Command::new("git").arg("-C").arg(rig.home.path()).args(["rev-parse", "HEAD"]).output().unwrap().stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+    let after = rig.a_job_in_slot(3, "crates/bridge-native/src/view.rs", "use ipc::SessionRow;").await;
+    rig.the_forge_says(PullQueue::Waiting);
+    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    let root = rig.root();
+    rig.fleet.sweeping().lock().await.merged.insert(
+        root,
+        vec![crate::main_hub::MergedPulled {
+            pull: RecentlyMerged {
+                number: 7,
+                title: FromOutside::verbatim("Carry the notice"),
+                branch: FromOutside::verbatim("armada/7"),
+                url: FromOutside::verbatim("https://forge.invalid/armada/pull/7"),
+                author: None,
+                merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+                commit: Some(FromOutside::verbatim(&merge)),
+            },
+        }],
+    );
+
+    rig.reads().await;
+
+    let told = rig.wire_words_to(&before).await;
+    let [said] = told.as_slice() else { panic!("one word: {told:?}") };
+    assert!(said.starts_with("Wire change merged into main: #7."), "{said}");
+    assert!(rig.wire_words_to(&after).await.is_empty(), "a branch cut after the merge already reads the change");
+}
