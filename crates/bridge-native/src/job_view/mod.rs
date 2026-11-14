@@ -119,6 +119,13 @@ use crate::look::{token, ActiveLook, Look};
 
 actions!(job_view, [PageUp, PageDown, ToStart, ToEnd]);
 
+/// Each Job's panes kept in a file on this Mac from now on, so a restart brings them back. The live app's alone.
+pub fn keep_arrangements(cx: &mut App) {
+    if let Some(store) = pane_store::FileStore::live() {
+        pane_store::install(store, cx);
+    }
+}
+
 /// The thread's own keys, which the registry does not carry: Electron lets the browser scroll a
 /// focused scroller on these (`SessionThread.tsx`, A1.5).
 pub fn bind(cx: &mut App) {

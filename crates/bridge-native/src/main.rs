@@ -247,6 +247,7 @@ fn main() -> ExitCode {
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
             pairing::follow(cx);
+            job_view::keep_arrangements(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {
