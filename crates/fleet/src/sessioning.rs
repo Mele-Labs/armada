@@ -1070,6 +1070,22 @@ where
         self.fleet_disputed(caller, dispute).await
     }
 
+    async fn raise_conflict(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        conflict: ipc::RaiseConflict,
+    ) -> Result<ipc::ConflictRaised, Refusal> {
+        self.conflict_raised(caller, conflict).await
+    }
+
+    async fn ask_held(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        asked: ipc::AskHeld,
+    ) -> Result<ipc::HeldAsked, Refusal> {
+        self.held_asked(caller, asked).await
+    }
+
     async fn report_bug(
         &self,
         caller: Option<api::Caller>,

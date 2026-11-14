@@ -310,6 +310,15 @@ fn the_rules_say_when_to_call_report_bug_and_with_what() {
     }
 }
 
+/// A job is told when to call `raise_conflict` and `ask_held`, with what, and that nothing else goes to the Operator.
+#[test]
+fn the_rules_say_when_to_call_raise_conflict_and_ask_held() {
+    let asking = rules().split("\n\n").find(|block| block.starts_with("Asking the Operator.")).expect("a paragraph on asking the Operator");
+    for named in ["`raise_conflict`", "`with`", "`files`", "`wire`", "`mine`", "`theirs`", "`breaks`", "`ask_held`", "`pull`", "`branch`", "Never message the Operator for anything else"] {
+        assert!(asking.contains(named), "{named}");
+    }
+}
+
 /// The paragraph only a hosted session is given: a dispute is tied to a row of the thread, and a
 /// terminal job's thread is not Fleet's, so `dispute_fleet` refuses one.
 const HOSTED_ONLY: &str = "Fleet's notices.";
@@ -322,7 +331,7 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 10, "tools, needs, drafts, progress, planning, subagents, showing, watching, finishing, bugs");
+    assert_eq!(blocks.len(), 11, "tools, needs, drafts, progress, planning, subagents, showing, watching, finishing, bugs, the Operator");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

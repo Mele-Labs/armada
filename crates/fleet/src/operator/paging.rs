@@ -153,6 +153,7 @@ where
             })
             .collect();
         let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some() || super::answering::what_of(&item).is_some());
+        let ask = store.latest_job_ask(&row.item).ok().flatten().filter(|ask| ask.session_id == row.session);
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
             kind: if row.go_ahead { OperatorTurnKind::GoAhead } else { OperatorTurnKind::Decision },
@@ -167,12 +168,17 @@ where
             later_until: later.map(Instant::carried),
             then: thens,
             keeps,
-            also_raised_by: suggestion_number(&row.item)
-                .and_then(|n| store.operator_suggestion(n).ok().flatten())
-                .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
-                .unwrap_or_default(),
+            also_raised_by: match &ask {
+                Some(ask) => ask.also_raised_by.clone(),
+                None => suggestion_number(&row.item)
+                    .and_then(|n| store.operator_suggestion(n).ok().flatten())
+                    .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
+                    .unwrap_or_default(),
+            },
             group: None,
             follows: row.follows.as_deref().and_then(|text| ipc::decode::<ipc::operator_page::OperatorFollows>("a citation", text.as_bytes()).ok()),
+            conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
+            held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
         };
         Some((later.is_some(), shown))
     }

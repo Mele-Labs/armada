@@ -73,6 +73,8 @@ Everything a Job does is that Job's own, and behaves as it does with the Operato
 | A note | The person, left on Bridge, still open and sent to no Job after ten minutes |
 | An error | Bridge, for a failure card it showed the person |
 | A bug report | A Job's `report_bug`, kept on this Mac |
+| A conflict | A Job's `raise_conflict`, between its work and another Job's |
+| A landing question | A Job's `ask_held`, whether a pull request or a branch should land |
 | A new issue | The repository's tracker |
 | A red main | The repository's own checks |
 
@@ -103,6 +105,33 @@ When it gains `sent`, the Log keeps a row signed by the person with the outcome 
 The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`.
 It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
 
+### A Job's two asks
+
+**A Job may send the Operator two typed things and nothing else.**
+`raise_conflict` says two Jobs' work cannot both stand: `with`, the other Job's address, `files` and `wire` (at least one), `mine`, `theirs` and `breaks`, one sentence each.
+`ask_held` asks whether a pull request or a branch should land: exactly one of `pull` and `branch`.
+Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held_refused`, in a sentence that names the part.
+A conflict is refused where `with` is the sender, has ended or is no Job's address, where `files` and `wire` are both empty, and where `mine`, `theirs` or `breaks` is empty.
+A landing question is refused where neither or both are named, and where the repository has no such pull request or local branch.
+
+**Fleet answers first, with no call.**
+A pull request the forge shows merged or closed is answered to the Job as a Fleet message, `held? #12: merged at 14:05.` or `held? #12: closed.`
+A branch has no such fact, so a branch always goes on.
+
+**The rest is handed to the Operator while it is on.**
+The arrivals are `conflict:<a>:<b>`, the two addresses sorted, and `held:<repository>:<pull or branch>`.
+It may tell the Job or Jobs in its words, or raise the ask to Your turn, where the card is `OperatorTurnItem::conflict` or `held`.
+A call that rules nothing raises the ask, so no ask waits where nobody sees it.
+
+**While it is off the ask is the sending Job's own item in Needs you.**
+`job_conflict` offers Tell the sender to change, Tell the other Job, and Hold both.
+`job_held` offers Land it and Hold it.
+His press sends the Job or Jobs it names a Fleet message that states his answer, and Fleet writes nothing to a forge.
+
+**A second conflict between the same two Jobs folds into the open one.**
+Whichever Job raises it, the item stays the first one's and keeps "also raised by".
+A question asked again after it was answered is a new ask.
+
 ### An error
 
 **It goes first, once.**
@@ -113,7 +142,7 @@ A Job it starts is briefed with every word the card carried.
 ### The ways
 
 **A ruling is one way.**
-Start a new Job, send the words to an existing Job, raise it to the person, link it to an open issue, file a new one, close one, group a new one with an open one, or for a note he sent to a Job himself, leave it.
+Start a new Job, send the words to an existing Job, raise it to the person, tell a Job its answer to a conflict or a landing question, link it to an open issue, file a new one, close one, group a new one with an open one, or for a note he sent to a Job himself, leave it.
 A way that names another Job names it and the paths they share, or Fleet refuses it.
 A way that names an issue names one the item was offered, or Fleet refuses it.
 

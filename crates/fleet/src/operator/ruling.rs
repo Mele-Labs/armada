@@ -36,6 +36,8 @@ pub enum Way {
     Leave,
     /// A dispatch that is a loose idea is kept for later, and no Job is started.
     Park,
+    /// A Job's conflict or landing question is answered by the Operator, in its words, with no press.
+    Tell,
 }
 
 impl Way {
@@ -51,6 +53,7 @@ impl Way {
             Way::Noted => "noted",
             Way::Leave => "leave",
             Way::Park => "park",
+            Way::Tell => "tell",
         }
     }
 
@@ -67,12 +70,13 @@ impl Way {
             Way::Noted => "proposed_noted",
             Way::Leave => "proposed_leave",
             Way::Park => "proposed_park",
+            Way::Tell => "proposed_tell",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Close, Way::Group, Way::Noted, Way::Leave, Way::Park].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Close, Way::Group, Way::Noted, Way::Leave, Way::Park, Way::Tell].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -87,6 +91,7 @@ impl Way {
             Way::Noted => "note it",
             Way::Leave => "leave it with the Job he sent it to",
             Way::Park => "keep it for later as an idea",
+            Way::Tell => "tell the Job or Jobs it names, in your words",
         }
     }
 
@@ -172,12 +177,14 @@ pub struct Ruling {
     pub grouping: Option<Grouping>,
     /// On a bug report: what goes wrong for the person, in one plain sentence, which its card says.
     pub plain: Option<String>,
+    /// On a landing question: what the Operator tells the Job, `land` or `hold`.
+    pub verdict: Option<String>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None, grouping: None, plain: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), refused: Vec::new(), issue: None, grouping: None, plain: None, verdict: None }
     }
 }
 
@@ -292,6 +299,12 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
             _ => None,
         };
         return Ok(Ruling { issue: Some(issue), grouping, ..Ruling::alone(way, because) });
+    }
+    if way == Way::Tell {
+        // Which Job, or which verdict, is checked against the ask itself when it is carried out.
+        let other = said(block, "job").filter(|id| !none(id));
+        let verdict = said(block, "kind").filter(|kind| !none(kind)).map(|kind| kind.to_ascii_lowercase());
+        return Ok(Ruling { other, verdict, ..Ruling::alone(way, because) });
     }
     if !way.names_another() {
         return Ok(Ruling::alone(way, because));

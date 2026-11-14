@@ -888,6 +888,19 @@ pub enum WaitingSource {
     /// and his choice, and the item goes. Dismissing it drops it. The Operator's own review never answers it.
     /// Listed only while the Job is live. Since 13 Nov 2026.
     OperatorUndone,
+    /// Fleet: a Job sent a `raise_conflict` and nothing answered it. Derived on every read from the kept ask, never
+    /// kept in the Job's list: id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, an
+    /// `answer` act whose `target` is the id, and exactly three options, `Tell <sender> to change` (choice 0),
+    /// `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds the item. A Job it names
+    /// is told his answer, and **no forge is written to**. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobConflict,
+    /// Fleet: a Job sent an `ask_held` that Fleet could not answer from what it keeps. Derived on every read from
+    /// the kept ask: id `held:<repository>:<pull or branch>`, text `Should #N land?` or `Should <branch> land?`, an
+    /// `answer` act whose `target` is the id, and exactly two options, `Land it` (choice 0) and `Hold it`
+    /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobHeld,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
