@@ -21,6 +21,8 @@ use crate::scene::{Clock, Fit, Lens};
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Standing {
     Asking,
+    /// The waiting plan names it, so the plan's Approve answers it.
+    WithPlan,
     Approved,
     SentBack,
     Reading,
@@ -28,11 +30,12 @@ enum Standing {
 }
 
 impl Standing {
-    fn of(card: &ThreadSketch, said: Option<Said>) -> Self {
+    fn of(card: &ThreadSketch, said: Option<Said>, with_plan: bool) -> Self {
         match said {
             Some(Said::Approved) => Standing::Approved,
             Some(Said::SentBack) => Standing::SentBack,
             None if card.withdrawn => Standing::Withdrawn,
+            None if with_plan && card.asked && !card.replaced => Standing::WithPlan,
             None if card.asked && !card.replaced => Standing::Asking,
             None => Standing::Reading,
         }
@@ -41,6 +44,7 @@ impl Standing {
     fn word(self) -> &'static str {
         match self {
             Standing::Asking => "Asking",
+            Standing::WithPlan => "With the plan",
             Standing::Approved => "Approved",
             Standing::SentBack => "Sent back",
             Standing::Reading => "Reading",
@@ -50,7 +54,7 @@ impl Standing {
 
     fn ink(self) -> Token {
         match self {
-            Standing::Asking => token::STATUS_AWAITING_REVIEW,
+            Standing::Asking | Standing::WithPlan => token::STATUS_AWAITING_REVIEW,
             Standing::Approved => token::STATUS_COMPLETED_SUCCESS,
             Standing::SentBack => token::STATUS_REJECTED,
             Standing::Reading => token::STATUS_NOT_STARTED,
@@ -61,6 +65,7 @@ impl Standing {
     fn tip(self) -> &'static str {
         match self {
             Standing::Asking => "Waiting on your answer",
+            Standing::WithPlan => "The plan's Approve answers it",
             Standing::Approved => "You approved it",
             Standing::SentBack => "You sent it back with changes",
             Standing::Reading => "Shown to you, with no answer asked",
@@ -195,7 +200,8 @@ impl JobView {
         let key = card.id.clone();
         let optimistic = page.cards.answers.get(&key);
         let settled = settled_of(card.settled.as_ref(), optimistic);
-        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said));
+        // One the waiting plan names is answered by the plan's Approve, so its card asks nothing of its own.
+        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
         let revisions = card.revisions.len();
         let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
@@ -206,12 +212,12 @@ impl JobView {
         let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
         let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
         let drawing = scene.map(|scene| {
-            let height = self.drawing_height(&scene, look, cx);
+            let height = self.drawing_height(&scene, None, look, cx);
             let drawn = drawn_against(card, picked, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default());
-            self.well(height, card.replaced, drawn, look)
+            self.well(height, card.replaced, false, drawn, look)
         });
         let band = self.band(ix, card, standing, picked, shown_earlier, look, cx);
-        let press = self.sketch_press(&acts, &card.title, band, drawing, plays, page, cx);
+        let press = self.sketch_press(&acts, None, &card.title, band, drawing, plays, page, cx);
         let words = settled.as_ref().and_then(|(said, words)| (*said == Said::SentBack).then_some(words.as_deref()).flatten());
         // A narrow thread lets the card reach a little past the words, as the old frame did (`--spacious-bleed`), so Approve and Ask for changes fit one row.
         let bleed = self.narrow(look);
@@ -235,6 +241,66 @@ impl JobView {
             format!("Sketch: {}", card.title),
         )
         .into_any_element()
+    }
+
+    /// A sketch a plan names, drawn inside the plan: its card's band and drawing, with no footer, since the plan's
+    /// Approve answers it. A press opens it and the pointer on it plays its steps, as on its card. The drawing is
+    /// sized from the plan column's width as it was last drawn, which is narrower than the thread's.
+    pub(super) fn plan_sketch(&self, key: &str, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let settled = settled_of(card.settled.as_ref(), page.cards.answers.get(&card.id));
+        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
+        let acts = Acts { ix: 0, key: key.to_string(), sketch: card.sketch.clone(), drawn: None, asking: false };
+        let (scene_key, scene) = shown_scene(card, None);
+        let pointed = page.cards.pointed.as_deref() == Some(key) || page.cards.focused.as_deref() == Some(key);
+        let playing = page.cards.playing.as_ref().filter(|(at, _)| at == key).map(|(_, since)| *since);
+        let plays = scene.as_ref().is_some_and(|scene| crate::scene::plays(scene));
+        let column = self.plan_columns.get(key).copied();
+        let drawing = scene.map(|scene| {
+            let height = self.drawing_height(&scene, column, look, cx);
+            let drawn = drawn_against(card, None, &scene_key, scene, true, Fit::Preview, Clock::both(playing), Lens::default());
+            self.well(height, false, true, drawn, look)
+        });
+        // The column's width is read where it is drawn; a change draws the thread once more at it.
+        let (me, measured) = (cx.entity().downgrade(), key.to_string());
+        let measure = gpui::canvas(
+            move |bounds, _, cx| {
+                let width = bounds.size.width;
+                if column != Some(width) {
+                    let (me, measured) = (me.clone(), measured.clone());
+                    cx.defer(move |cx| {
+                        let _ = me.update(cx, |this, cx| this.plan_column_drawn(measured, width, cx));
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full();
+        let band = self.band(0, card, standing, None, false, look, cx);
+        let press = self.sketch_press(&acts, Some(&card.id), &card.title, band, drawing, plays, page, cx);
+        div()
+            .flex()
+            .flex_col()
+            .min_w_0()
+            .overflow_hidden()
+            .rounded(look.length(token::RADIUS_LG) * 1.5)
+            .bg(look.color(token::BG_RAISED))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if pointed { token::ACCENT } else { token::BORDER_DEFAULT }))
+            .relative()
+            .child(press)
+            .child(measure)
+            .into_any_element()
+    }
+
+    /// A plan sketch's column was drawn at `width`: kept, and the lists measured again where it changed.
+    fn plan_column_drawn(&mut self, key: String, width: gpui::Pixels, cx: &mut Context<Self>) {
+        if self.plan_columns.insert(key, width) != Some(width) {
+            self.pages.values().for_each(|page| page.list.remeasure());
+            cx.notify();
+        }
     }
 
     /// The header: the kind's mark, the title, the revision and where it stands; under them what it is for.
@@ -333,9 +399,10 @@ impl JobView {
             .into_any_element()
     }
 
-    /// How tall the drawing stands where the card is as wide as the thread: the scene's own extent at the
-    /// scale the card fits it to, which is never above one.
-    fn drawing_height(&self, scene: &ipc::Scene, look: &Look, cx: &gpui::App) -> gpui::Pixels {
+    /// How tall the drawing stands where the card is as wide as the thread, or, inside a plan, where its frame is
+    /// `frame` wide and its well runs edge to edge: the scene's own extent at the scale the card fits it to, which
+    /// is never above one.
+    fn drawing_height(&self, scene: &ipc::Scene, frame: Option<gpui::Pixels>, look: &Look, cx: &gpui::App) -> gpui::Pixels {
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         let mut reach = |x: f64, y: f64| {
             (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
@@ -347,37 +414,37 @@ impl JobView {
         for point in scene.strokes.iter().flat_map(|stroke| stroke.points.iter()) {
             reach(point.x, point.y);
         }
-        let floor = look.length(token::SPACE_12) * 2.;
+        // Inside a plan the well has no inset of its own, and stands no taller than its drawing.
+        let floor = look.length(token::SPACE_12) * if frame.is_some() { 1. } else { 2. };
         if x1 <= x0 || y1 <= y0 {
             return floor;
         }
         // The card's edge to the drawing: the frame's inset and the well's padding, each side, and the well's edge.
-        let around = look.length(token::SPACE_4) * 4. + look.length(token::BORDER_WIDTH) * 2.;
+        let around = look.length(token::SPACE_4) * if frame.is_some() { 2. } else { 4. } + look.length(token::BORDER_WIDTH) * 2.;
         let bleed = if self.narrow(look) { (look.length(token::SPACE_4) + look.length(token::SPACE_1)) * 2. } else { px(0.) };
-        let across = f32::from(self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2. + bleed - around).max(1.);
+        let frame = frame.unwrap_or_else(|| self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2. + bleed);
+        let across = f32::from(frame - around).max(1.);
         let scale = (across / (x1 - x0) as f32).min(1.);
         // The fit keeps four in a hundred clear on each side.
         px((y1 - y0) as f32 * scale * 1.08).max(floor)
     }
 
     /// The drawing's well: sunken, its edge a hairline, cut at 240 with a fade at its foot where the drawing runs on.
-    fn well(&self, height: gpui::Pixels, replaced: bool, drawn: AnyElement, look: &Look) -> AnyElement {
+    /// `edge_to_edge` fills the frame it stands in, whose own edge it keeps, as a sketch inside a plan does.
+    fn well(&self, height: gpui::Pixels, replaced: bool, edge_to_edge: bool, drawn: AnyElement, look: &Look) -> AnyElement {
         let most = look.length(token::SPACE_12) * 5.;
         let pad = look.length(token::SPACE_3);
         let cut = height + pad * 2. + look.length(token::BORDER_WIDTH) * 2. > most;
         let sunken = look.color(token::BG_SUNKEN);
         div()
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
+            .when(!edge_to_edge, |inset| inset.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)))
             .child(
                 div()
                     .relative()
                     .overflow_hidden()
                     .max_h(most)
-                    .rounded(look.length(token::RADIUS_LG))
                     .bg(sunken)
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .when(!edge_to_edge, |well| well.rounded(look.length(token::RADIUS_LG)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                     .px(look.length(token::SPACE_4))
                     .py(pad)
                     .child(div().w_full().h(height).when(replaced, |inner| inner.opacity(0.5)).child(drawn))
@@ -398,12 +465,13 @@ impl JobView {
 
     /// The band and the drawing as one press, `Open sketch …`, which plays the steps while the pointer or the keys
     /// are on it, as Electron's `SketchRow` does. While it has focus its keys answer: A approves, C asks for changes,
-    /// D dismisses, Enter opens.
+    /// D dismisses, Enter opens. Drawn elsewhere than its card, `inside` names the card it opens, and Enter alone answers.
     #[allow(clippy::too_many_arguments)]
-    fn sketch_press(&self, acts: &Acts, title: &str, band: AnyElement, drawing: Option<AnyElement>, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
+    fn sketch_press(&self, acts: &Acts, inside: Option<&str>, title: &str, band: AnyElement, drawing: Option<AnyElement>, plays: bool, page: &Page, cx: &Context<Self>) -> AnyElement {
         let key = acts.key.as_str();
         let spot = page.keys.spot(&format!("sketch-press:{key}"), cx);
-        let (hover_key, open_key) = (key.to_string(), key.to_string());
+        let opens = inside.unwrap_or(key).to_string();
+        let (hover_key, open_key, enter_key, alone) = (key.to_string(), opens.clone(), opens, inside.is_none());
         let was = page.cards.focused.as_deref() == Some(key);
         let (focus, me, focus_key) = (spot.focus.clone(), cx.entity().downgrade(), key.to_string());
         let acts = acts.clone();
@@ -422,7 +490,8 @@ impl JobView {
                         return;
                     }
                     match event.keystroke.key.as_str() {
-                        "enter" | "space" => this.read_sketch(&acts.key, &acts.key, window, cx),
+                        "enter" | "space" => this.read_sketch(&enter_key, &enter_key, window, cx),
+                        _ if !alone => return,
                         "a" if acts.asking => this.approve_sketch(&acts, window, cx),
                         "c" if acts.asking => this.ask_changes(&acts, window, cx),
                         "d" if acts.asking => this.dismiss_sketch(&acts, window, cx),

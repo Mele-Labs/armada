@@ -130,6 +130,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "new-project" => include_bytes!("../fixtures/side-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // A plan with a sketch for the whole plan and one for a group, waiting on him beside a question; and the same plan once approved.
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches.json"),
         // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons.json"),
         // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
@@ -422,6 +424,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches-threads.json"),
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
@@ -1180,6 +1183,28 @@ mod tests {
         let jobs = super::jobs("needs-plan").expect("decodes");
         let view = super::needs_you("mock-01", &jobs[0].waiting_for, &|_| false);
         assert!(!view.fold && !view.review_in_band && view.glyphs.is_empty());
+    }
+
+    #[test]
+    fn the_plan_sketches_scenario_asks_its_sketches_through_the_plan_alone() {
+        use ipc::NeedsYouAct;
+        let jobs = super::jobs("plan-sketches").expect("decodes");
+        let pending = jobs.iter().find(|job| job.id.as_str() == "plan-sk-1").expect("the pending Job");
+        let plan = pending.plan.as_ref().expect("its plan");
+        assert!(!plan.approved && !plan.sketches.is_empty() && plan.groups.iter().any(|group| !group.sketches.is_empty()));
+        let view = super::needs_you("plan-sk-1", &pending.waiting_for, &|_| false);
+        let rows: Vec<&NeedsYouAct> = view.sections.iter().flat_map(|section| &section.rows).map(|row| &row.act).collect();
+        assert!(rows.iter().any(|act| matches!(act, NeedsYouAct::OpenPlan)), "the plan waits");
+        assert!(!rows.iter().any(|act| matches!(act, NeedsYouAct::OpenSketch { .. })), "no sketch waits on its own");
+        let threads = super::threads("plan-sketches").expect("decodes");
+        let asked: Vec<&str> = threads["plan-sk-1"].items.iter().filter_map(|item| match item {
+            ipc::ThreadItem::Sketch(card) if card.asked => Some(card.sketch.as_str()),
+            _ => None,
+        }).collect();
+        assert_eq!(asked, ["sketch:Project switcher", "sketch:Switcher rows"], "each card was put to him, so only the plan keeps it from asking");
+        let approved = jobs.iter().find(|job| job.id.as_str() == "plan-sk-2").expect("the approved Job");
+        assert!(approved.plan.as_ref().is_some_and(|plan| plan.approved) && approved.waiting_for.is_empty());
+        assert!(threads["plan-sk-2"].items.iter().all(|item| !matches!(item, ipc::ThreadItem::Sketch(card) if card.settled.as_ref().is_none_or(|settled| settled.how != ipc::SketchHow::Approved))));
     }
 
     #[test]
