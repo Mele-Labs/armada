@@ -95,6 +95,8 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 
@@ -141,6 +143,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         running: true,
         commands: Vec::new(),
         paused: None,
+        moving_to_mac: None,
         start: None,
         start_failed: None,
     };

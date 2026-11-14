@@ -385,6 +385,8 @@ mod slot_holders;
 mod slot_reclaiming;
 /// A red main claimed in the central store, and the claim read back for the hub.
 pub mod red_claim;
+/// What each live Job holds, claimed in its project's store, and the waits and words that follow.
+mod job_claims;
 /// A red main whose pull request a Session merged is claimed for that Session, or for a fork of it.
 mod session_red;
 mod taking_red;

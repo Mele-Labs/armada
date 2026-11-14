@@ -37,6 +37,11 @@ impl Planted {
         Planted { store: None, bucket: None }
     }
 
+    /// A machine reaching `store` as its view of the store.
+    pub(crate) fn with_store(store: Arc<FakeStore>) -> Planted {
+        Planted { store: Some(store), bucket: None }
+    }
+
     /// A machine with a bucket to reach and no store.
     pub(crate) fn with_bucket(bucket: Arc<testkit::FakeBucket>) -> Planted {
         Planted { store: None, bucket: Some(bucket) }
@@ -74,7 +79,7 @@ impl Store for Viewed {
     fn clear_kind(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind) -> Result<(), adapter_traits::StoreError> {
         self.0.clear_kind(repository, kind)
     }
-    fn renew(&self, holder: &Holder) -> Result<u64, adapter_traits::StoreError> {
+    fn renew(&self, holder: &Holder) -> Result<adapter_traits::Renewed, adapter_traits::StoreError> {
         self.0.renew(holder)
     }
     fn put_owner(&self, key: &adapter_traits::OwnerKey, holder: &Holder) -> Result<(), adapter_traits::StoreError> {

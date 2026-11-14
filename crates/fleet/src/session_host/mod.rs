@@ -83,6 +83,7 @@ mod auto_landing;
 mod project_moving;
 pub(crate) mod queue_guard;
 mod pausing;
+pub(crate) mod to_other_mac;
 mod editing;
 pub(crate) mod quick;
 mod reach_folders;
@@ -511,6 +512,11 @@ pub(crate) struct State {
     /// The slot the session was leased, waiting for its turn to end and its agents to finish so
     /// the process can be resumed there.
     pub moving: Option<Move>,
+    /// The Mac the person moved the Job to, while its turn finishes and it is handed over. In memory: a
+    /// Fleet that stops mid-wait leaves the Job where it is. `to_other_mac`.
+    pub to_mac: Option<String>,
+    /// The hand-over to `to_mac` has begun, so it is not begun twice.
+    pub carrying_to_mac: bool,
     /// Sessions that wrote to this one and whose message has not yet started a
     /// turn.
     pub woken_by: Vec<ipc::SessionVoiceNamed>,
@@ -619,8 +625,23 @@ impl State {
             && self.unstarted.is_empty()
             && self.asked.is_none()
             && self.moving.is_none()
+            && self.to_mac.is_none()
             && !self.reattached_busy
             && !self.proposal.holds_back()
+    }
+
+    /// The Mac to hand the Job to now, where a move to one waits on nothing but the agents still
+    /// working, marked begun so it is taken once.
+    pub(crate) fn mac_move_taken(&mut self) -> Option<String> {
+        let due = self.to_mac.is_some()
+            && !self.carrying_to_mac
+            && self.moving.is_none()
+            && matches!(self.turn, SessionTurn::Idle)
+            && self.queued == 0
+            && self.unstarted.is_empty()
+            && self.asked.is_none();
+        self.carrying_to_mac |= due;
+        due.then(|| self.to_mac.clone()).flatten()
     }
 
     /// Whether a move waits on nothing but the agents still working.
@@ -638,6 +659,8 @@ impl State {
             turn: SessionTurn::Idle,
             queued: 0,
             moving: None,
+            to_mac: None,
+            carrying_to_mac: false,
             woken_by: Vec::new(),
             fleet_told: 0,
             asked: None,

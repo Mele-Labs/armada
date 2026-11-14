@@ -163,7 +163,7 @@ pub(crate) struct StartReads {
 }
 
 /// A kept first turn read back. One that will not read is none: the card shows an empty box.
-pub(super) fn first_turn_of(body: &str) -> Option<FirstTurn> {
+pub(crate) fn first_turn_of(body: &str) -> Option<FirstTurn> {
     ipc::decode::<FirstTurn>("a held job's first turn", body.as_bytes()).ok()
 }
 

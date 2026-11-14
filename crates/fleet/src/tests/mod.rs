@@ -292,6 +292,7 @@ mod studios;
 // fixture here already uses, rather than a second one invented beside it.
 pub(crate) mod tmp;
 mod backlog;
+mod job_claims;
 mod plan_mirror;
 mod bay_history;
 mod verify_runs;

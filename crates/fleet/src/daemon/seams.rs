@@ -467,6 +467,9 @@ where
     pub(crate) fn writes(&self) -> &Arc<crate::clashing::Writes> {
         &self.writes
     }
+    pub(crate) fn job_claims(&self) -> &crate::job_claims::JobClaims {
+        &self.job_claims
+    }
     pub(crate) fn feed(&self) -> &Arc<crate::test_map_feed::Feed> {
         &self.feed
     }

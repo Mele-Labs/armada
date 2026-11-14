@@ -88,6 +88,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-projects" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
+        // Three Jobs asking: a plan and a sketch, a sketch and a document, and a draft.
+        "review-grouped" => include_bytes!("../fixtures/review-grouped.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
@@ -461,6 +463,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
         "job-view" | "review-palette" | "side-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
@@ -699,6 +702,42 @@ pub fn act_refused(route: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
     (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
         .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
+}
+
+/// The sketch Fleet refuses an approval of in `review-grouped`: drawn again since he read it.
+pub const REVIEW_REDRAWN: (&str, &str) = ("mock-04", "sketch:Docs index layout");
+
+/// What `answer_items` and `dismiss_items` answer on mock data: every item settles, but in `review-grouped` the
+/// Docs index sketch's approval is refused as Fleet refuses a drawing read before it was drawn again.
+pub fn items_settled(route: &str, body: &str) -> Result<ipc::ItemsSettled, String> {
+    let asked: Vec<(ipc::SessionId, String, bool)> = match route {
+        "/sessions/items/answer" => ipc::decode::<ipc::AnswerItems>("AnswerItems", body.as_bytes())
+            .map_err(|why| why.to_string())?
+            .items
+            .into_iter()
+            .map(|one| (one.session_id, one.item, one.how == ipc::ItemHow::Approve))
+            .collect(),
+        "/sessions/items/dismiss" => {
+            ipc::decode::<ipc::DismissItems>("DismissItems", body.as_bytes()).map_err(|why| why.to_string())?.items.into_iter().map(|one| (one.session_id, one.item, false)).collect()
+        }
+        other => return Err(format!("{other} is not an items route")),
+    };
+    let grouped = scenario_is("review-grouped");
+    let outcomes = asked
+        .into_iter()
+        .map(|(session_id, item, approves)| {
+            let outcome = if grouped && approves && (session_id.as_str(), item.as_str()) == REVIEW_REDRAWN {
+                ipc::ItemSettled::Refused {
+                    code: "fleet.sketch_redrawn".into(),
+                    message: "the sketch `Docs index layout` is not the drawing that was read: the job has drawn it again since".into(),
+                }
+            } else {
+                ipc::ItemSettled::Settled
+            };
+            ipc::ItemOutcome { session_id, item, outcome }
+        })
+        .collect();
+    Ok(ipc::ItemsSettled { outcomes })
 }
 
 /// What `GET /sessions/lead_picture` answers for a Job in the scenario last named: the last thing the Job showed before

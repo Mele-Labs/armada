@@ -19,6 +19,7 @@ use serde::Serialize;
 use store::{FromMac, KeptFromMac};
 
 use crate::daemon::Fleet;
+use crate::session_host::to_other_mac::MOVED_TO_MAC;
 
 const MAC_UNNAMED: &str = "fleet.other_mac_unnamed";
 const EVENT_NOT_KEPT: &str = "fleet.other_mac_event_not_kept";
@@ -115,16 +116,20 @@ where
         if held.is_empty() {
             return Ok(own);
         }
-        own.extend(held.into_iter().filter(|record| listed(record, manifest, text, state)));
+        // A Job that moved has a row on both Macs: the live one stands, wherever it is.
+        let moved = |record: &SessionRecord| record.end_reason.as_deref() == Some(MOVED_TO_MAC);
+        own.retain(|mine| !(moved(mine) && held.iter().any(|one| one.id == mine.id)));
+        let kept: Vec<SessionId> = own.iter().map(|mine| mine.id.clone()).collect();
+        own.extend(held.into_iter().filter(|record| !kept.contains(&record.id) && listed(record, manifest, text, state)));
         in_list_order(&mut own);
         Ok(own)
     }
 
     /// The Mac Job `job` is held from. **None where this Mac holds a Job by that id itself**, so another Mac
-    /// can never stand in for one of this Mac's Jobs.
+    /// can never stand in for one of this Mac's Jobs, unless it moved from here to that Mac.
     pub(crate) async fn mac_holding(&self, job: &str) -> Option<String> {
         let store = self.store().lock().await;
-        if store.session(job).ok().flatten().is_some() {
+        if store.session(job).ok().flatten().is_some_and(|one| one.end_reason.as_deref() != Some(MOVED_TO_MAC)) {
             return None;
         }
         let held = store.held_from_macs(FromMac::Sessions).ok()?;
@@ -227,8 +232,8 @@ where
     async fn share_sessions(&self) -> Result<SessionList, Refusal> {
         let listed = self.list_sessions(None, None, None).await?;
         let mut sessions = Vec::new();
-        // A row held from another Mac never goes back out, whatever its project here says.
-        for record in listed.sessions.into_iter().filter(|one| one.mac.is_none()) {
+        // A row held from another Mac never goes back out, whatever its project here says, nor one that moved there.
+        for record in listed.sessions.into_iter().filter(|one| one.mac.is_none() && one.end_reason.as_deref() != Some(MOVED_TO_MAC)) {
             let job = record.id.clone();
             if let Some(crossing) = self.of_job_for_other_mac(&job, record).await {
                 sessions.push(sent_on(crossing.sent()));
@@ -282,6 +287,8 @@ where
 
     async fn share_event(&self, event: Event) -> Option<Event> {
         match self.event_for_other_mac(event).await?.sent() {
+            // The Mac it moved to holds it live, and this row ending it here would stand over that one.
+            Event::SessionChanged(record) if record.end_reason.as_deref() == Some(MOVED_TO_MAC) => None,
             Event::SessionChanged(record) => Some(Event::SessionChanged(sent_on(record))),
             other => Some(other),
         }
@@ -413,5 +420,25 @@ where
     async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
         self.calls_claimed(claims.claims.clone());
         Ok(claims)
+    }
+
+    async fn move_job_to_mac(self: Arc<Self>, asked: ipc::MoveJobToMac) -> Result<SessionRecord, Refusal> {
+        self.job_moved_to_mac(asked).await
+    }
+
+    async fn move_from_mac(self: Arc<Self>, mac: String, job: SessionId) -> Result<SessionRecord, Refusal> {
+        self.job_moved_from_mac(mac, job).await
+    }
+
+    async fn arrive_from_mac(self: Arc<Self>, mac: String, job: ipc::ArrivingJob) -> Result<SessionRecord, Refusal> {
+        self.arrived_from(mac, job).await
+    }
+
+    async fn move_settled_from_mac(self: Arc<Self>, mac: String, settled: ipc::MoveSettled) -> Result<(), Refusal> {
+        self.move_settled_from(mac, settled).await
+    }
+
+    async fn share_job_conversation(&self, mac: String, job: SessionId, from: u64) -> Result<Vec<u8>, Refusal> {
+        self.conversation_shared(mac, job, from).await
     }
 }

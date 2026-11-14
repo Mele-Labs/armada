@@ -32,7 +32,8 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues | report | plan | thread | dispatch
+#                 logbook | issues | report | plan | thread | dispatch |
+#                 review sheet
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1481,3 +1482,76 @@ scope = "terminal"
 destructive = false
 confirms = false
 notes = "Opens a new shell in place of one that ended, under the same terminal id and tab, from a terminal whose shell has ended. While a shell runs Enter is the shell's, and this row is not heard. Native only: Classic's New shell is a button with no key. Taken 12 Nov 2026, when the button became words."
+
+# ------------------------------------------------------------ review sheet
+
+[actions.items_approve]
+kind = "Action"
+tier = "Contextual"
+verb = "Approve"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Approves the item chosen in the review sheet, with the notes typed on it, through `answer_items` for that one item. The sheet lists every item with an Approve across Jobs, grouped by Job. Its own scope, as the sheet holds the keys while it is up and its letters meet only the global ones. Native only. The owner's look, 14 Nov 2026."
+
+[actions.items_ask_changes]
+kind = "Action"
+tier = "Contextual"
+verb = "Ask for changes"
+icon = ""
+icon_absent = "undecided"
+shortcut = "c"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Sends the chosen item back with its notes through `answer_items`. With no notes typed it puts the caret in the item's notes and sends nothing, since Fleet refuses a send back with none (`fleet.items_send_back_empty`). In the notes `⌘↵` sends. Native only, 14 Nov 2026."
+
+[actions.items_dismiss]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Takes the chosen item off his list with no verdict, through `dismiss_items` for that one item. Native only, 14 Nov 2026."
+
+[actions.items_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between items"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Chooses the next or the previous item of the review sheet, across its Jobs' groups. Its own row for the reason `plan`'s is: the sheet's list is not the Board's. Native only, 14 Nov 2026."
+
+[actions.items_approve_all]
+kind = "Action"
+tier = "Contextual"
+verb = "Approve all"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧a"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Approves every item of the review sheet still asking in one `answer_items` call, each with its own notes. A refusal stands on its own row as Fleet's sentence and the rest settle. Shift on `a`, Approve's key: the same act on every item. It sits in the sheet's foot, away from the item's buttons. Native only, 14 Nov 2026."
+
+[actions.items_dismiss_all]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss all"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧d"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Takes every item of the review sheet still asking off his list in one `dismiss_items` call. Each Job is told he passed on its items with no verdict. Native only, 14 Nov 2026."

@@ -44,7 +44,8 @@ impl JobView {
     /// The plan's sketches drawn at `group` (`None` for the whole plan's), each as its card draws it at the
     /// column's width. Nothing where it names none, or where the thread holds no card for one.
     pub(super) fn plan_sketches(&self, key: &str, plan: &SessionPlan, group: Option<(&str, &str)>, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.as_ref()?;
+        // The Job whose page this is: the review sheet draws other Jobs' plans beside the one shown.
+        let job = self.pages.iter().find(|(_, held)| std::ptr::eq(*held, page)).map(|(job, _)| job)?;
         let held = self.thread(job, cx)?;
         let cards: Vec<&ThreadSketch> = drawn_at(plan, group.map(|(id, _)| id)).into_iter().filter_map(|one| super::review::sketch_card(&held.head, &held.items, &one.id)).collect();
         if cards.is_empty() {
