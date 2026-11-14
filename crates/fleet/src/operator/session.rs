@@ -13,9 +13,11 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings as keys;
+use ipc::operator_page::OperatorFeedKind;
 use ipc::{CloseSession, ManifestId, Notice, SessionVoice, StartSession};
 
 use crate::daemon::Fleet;
+use super::arriving::{Arrival, Arrived};
 use crate::session_host::Marked;
 
 /// What the Operator's session is called where a title is drawn.
@@ -115,6 +117,32 @@ where
         matches!(self.told_by_fleet(&id, text, Notice::Operator).await, Ok(true))
     }
 
+    /// Tell the Operator's session of `arrival` instead of ruling on it, once. **`false` where no session runs, or it could
+    /// not be told**, and the caller goes on as it did before the session, so nothing that arrives is lost.
+    pub(crate) async fn arrival_told(self: &Arc<Self>, arrival: &Arrival) -> bool {
+        if self.operator_session_id().await.is_none() {
+            return false;
+        }
+        let now = self.now();
+        if !self.store().lock().await.keep_linked_told("operator", TOLD, &arrival.id, &now).unwrap_or(false) {
+            return true;
+        }
+        let repository = self.board_repository(&arrival.manifest_id).map(|name| format!(" in {name}")).unwrap_or_default();
+        let text = format!(
+            "{}{repository}: {}\n\n{}\n\nFleet does not rule on this while you run. Settle it with your own tools, or put a card in front of him where it is his to decide.",
+            arrival.arrived.said(),
+            arrival.subject,
+            arrival.words
+        );
+        if !self.operator_told(&text).await {
+            return false;
+        }
+        let kind = if matches!(arrival.arrived, Arrived::Conflict | Arrived::Held) { OperatorFeedKind::Asked } else { OperatorFeedKind::Told };
+        let session = Some(arrival.session_id.as_str()).filter(|id| !id.is_empty());
+        self.feed_kept(kind, &arrival.subject, session, Some(arrival.arrived.said())).await;
+        true
+    }
+
     /// The person's words to the Operator's session, as he wrote them. A refusal says it is not running.
     pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str) -> Result<(), Refusal> {
         let Some(id) = self.operator_session_id().await else {
@@ -123,6 +151,9 @@ where
         self.first_message_from(&id, SessionVoice::You, text).await
     }
 }
+
+/// What `keep_linked_told` files an arrival told to the Operator's session under.
+const TOLD: &str = "told";
 
 /// The Operator's session is not running.
 pub(crate) const NOT_RUNNING: &str = "fleet.operator_session_not_running";

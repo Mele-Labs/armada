@@ -25,6 +25,7 @@ mod disk_health;
 mod agent_starts;
 mod agent_starts_at_once;
 mod agent_starts_project;
+mod operator_cards;
 mod operator_dispatches;
 mod operator_elsewhere;
 mod held_children;

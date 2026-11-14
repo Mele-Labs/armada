@@ -12,6 +12,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::item_kept;
+use ipc::operator_page::OperatorFeedKind;
 use ipc::{CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use store::KeptTurn;
 
@@ -181,7 +182,7 @@ where
         let row = self.card_open(&settle.card).await?;
         let at = self.now();
         self.store().lock().await.settle_operator_turn(row.n, at.as_str(), Some(&format!("{SETTLED}{said}"))).map_err(|why| self.ledger_fault(why))?;
-        self.operator_page_changed();
+        self.feed_kept(OperatorFeedKind::Settled, &Self::card_title(&row), None, Some(said)).await;
         Ok(OperatorCardSettled { card: settle.card })
     }
 

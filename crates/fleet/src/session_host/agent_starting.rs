@@ -342,6 +342,12 @@ where
             let link = attachment(holder, kind, manifest, target, AttachmentState::Spent, linked.clone(), &now);
             store.attach(&link, false).map_err(|why| self.ledger_fault(why))?;
         }
+        let title = store.session(new).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| new.to_string());
+        drop(store);
+        // What the Operator's own session starts is on its page's feed.
+        if self.session_is_the_operator(caller) {
+            self.feed_kept(ipc::operator_page::OperatorFeedKind::Dispatched, &title, Some(new), None).await;
+        }
         Ok(())
     }
 }

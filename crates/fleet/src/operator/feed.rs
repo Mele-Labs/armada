@@ -2,7 +2,6 @@
 //! request that merged are read from the ledger; the Operator's dispatches, what a Job asked or told it and the cards it
 //! settled are kept as they happen. `crates/ipc/operations/operator_page.toml`.
 
-use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::operator_page::{OperatorFeedEntry, OperatorFeedKind};
@@ -74,7 +73,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Keep one line of the feed and tell the page. A line that cannot be kept is only a line the feed lacks.
-    pub(crate) async fn feed_kept(self: &Arc<Self>, kind: OperatorFeedKind, title: &str, session: Option<&str>, said: Option<&str>) {
+    pub(crate) async fn feed_kept(&self, kind: OperatorFeedKind, title: &str, session: Option<&str>, said: Option<&str>) {
         let line = KeptFeed { at: self.now().as_str().to_string(), kind: word(kind).to_string(), title: title.to_string(), session_id: session.map(str::to_string), said: said.map(str::to_string) };
         let _ = self.store().lock().await.put_operator_feed(&line);
         self.operator_page_changed();

@@ -57,7 +57,7 @@ where
 
     /// A Job `job` was made on `brief`, by `source`: where a live Job is near it, the Operator is
     /// handed it to judge. **Nothing is held or closed here**, and no call is made where no Job is near.
-    pub(crate) async fn start_overlap_raised(&self, job: &str, brief: &str, source: Source) {
+    pub(crate) async fn start_overlap_raised(self: &Arc<Self>, job: &str, brief: &str, source: Source) {
         if !self.operator_on() || brief.trim().is_empty() {
             return;
         }

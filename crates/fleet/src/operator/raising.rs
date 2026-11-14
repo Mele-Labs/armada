@@ -450,7 +450,8 @@ where
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;
         let present = self.store().lock().await.operator_turn_present().unwrap_or_default();
-        let on = self.operator_on();
+        // While the Operator's own session runs it reads what waits on Jobs itself, so nothing is queued here.
+        let on = self.operator_on() && self.operator_session_id().await.is_none();
         let gone = |session: &str, item: &str| {
             // A red main's and a short disk's are their own to settle, never read off a list.
             if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) || item.starts_with(super::cards::CARD) {

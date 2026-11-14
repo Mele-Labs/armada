@@ -3,12 +3,12 @@
 
 use super::session_host::{eventually, rig_placing, Rig};
 
-async fn switched(rig: &Rig, on: bool) {
+pub(super) async fn switched(rig: &Rig, on: bool) {
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operator".to_string(), Some(ipc::SettingValue::Bool(on)))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
-async fn live(rig: &Rig) -> Option<String> {
+pub(super) async fn live(rig: &Rig) -> Option<String> {
     rig.fleet.operator_session_id().await
 }
 

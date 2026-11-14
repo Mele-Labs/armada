@@ -46,7 +46,7 @@ fn ruling(way: u8, live: Option<&SessionId>) -> String {
     }
 }
 
-fn the_dispatch(rig: &Rig) -> DispatchJob {
+pub(super) fn the_dispatch(rig: &Rig) -> DispatchJob {
     let start = StartSession {
         project: None,
         manifest_id: rig.manifest.clone(),
