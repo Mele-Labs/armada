@@ -315,11 +315,14 @@ impl DispatchScreen {
         let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &BarAsked, cx: &mut App| {
             if matches!(asked, BarAsked::Dispatch) {
+                // Deferred: the bar asks from inside its own update, and opening the sheet reads the bar.
                 let me = me.clone();
-                let _ = handle.update(cx, move |_, window, cx| {
-                    if let Some(me) = me.upgrade() {
-                        me.update(cx, |this, cx| this.open_sheet("", window, cx));
-                    }
+                cx.defer(move |cx| {
+                    let _ = handle.update(cx, move |_, window, cx| {
+                        if let Some(me) = me.upgrade() {
+                            me.update(cx, |this, cx| this.open_sheet("", window, cx));
+                        }
+                    });
                 });
             } else if let Some(behind) = &behind {
                 (behind.0)(asked, cx);
