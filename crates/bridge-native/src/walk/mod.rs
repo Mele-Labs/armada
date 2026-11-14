@@ -19,6 +19,7 @@ pub mod fleet;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
+pub mod project_filter;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -1730,6 +1731,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "new-project",
         steps: &new_project::STEPS,
+    },
+    Walk {
+        name: "native-project-filter",
+        title: "The project switcher narrows the Jobs list, and ⌘T starts its Job in the project",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &project_filter::STEPS,
     },
     Walk {
         name: "jobs-ended-glyph",
