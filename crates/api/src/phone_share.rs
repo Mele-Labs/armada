@@ -17,7 +17,7 @@ use serde::Deserialize;
 
 use crate::acting::{CALLER_HEADER, PHONE};
 use crate::answers::{answer, refused};
-use crate::daemon::OtherMacs;
+use crate::daemon::{OtherMacs, Sessions};
 use crate::served::Served;
 
 /// An id no Job has, asked in place of a Job the phone does not see.
@@ -118,7 +118,7 @@ impl NamesAJob {
 }
 
 /// The layer: a call the Gateway makes as the phone goes on as its route's ruling says, and every other passes.
-pub(crate) async fn to_the_phone<D: OtherMacs>(State(served): State<Served<D>>, request: Request, next: Next) -> Response {
+pub(crate) async fn to_the_phone<D: OtherMacs + Sessions>(State(served): State<Served<D>>, request: Request, next: Next) -> Response {
     let phone = request.headers().get(CALLER_HEADER).is_some_and(|said| said.as_bytes() == PHONE.as_bytes());
     if !phone {
         return next.run(request).await;
@@ -164,9 +164,13 @@ pub(crate) async fn to_the_phone<D: OtherMacs>(State(served): State<Served<D>>, 
             if run.is_empty() || served.daemon().run_for_phone(&run).await {
                 return next.run(request).await;
             }
-            let (mut parts, body) = request.into_parts();
-            parts.uri = format!("/sessions/run/{NO_JOB}/observe").parse().unwrap_or_else(|_| Uri::from_static("/"));
-            as_no_job(next.run(Request::from_parts(parts, body)).await, &run).await
+            // The route has read the run from the path already, so a new path would not reach it: the run is
+            // answered here, as the route answers one Fleet does not hold.
+            let answered = match served.daemon().observe_session_run(NO_JOB.to_string()).await {
+                Err(refusal) => refused(refusal),
+                Ok(_) => StatusCode::NOT_FOUND.into_response(),
+            };
+            as_no_job(answered, &run).await
         }
         Ruling::RunInBody => {
             let (parts, body) = request.into_parts();
