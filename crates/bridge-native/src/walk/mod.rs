@@ -1295,7 +1295,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "sketches-several",
         steps: &[
             press_on("A Job puts two sketches to him: the newest stands pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
-            step("The older one keeps its own card in the thread, its Approve and Send back under it", Verb::Wheel("region", "Thread", -420), "article", "Sketch: Merge line flow"),
+            step("The older one keeps its own card in the thread, its Approve and Ask for changes under it", Verb::Wheel("region", "Thread", -420), "article", "Sketch: Merge line flow"),
             step("Back at the end, the pinned one waits too", Verb::Wheel("region", "Thread", 1200), "article", "Sketch to approve: Freshness chip"),
             press_on("Needs you opens the review: each sketch is an item of its own, the older one drawn first with its own Approve", "button", "Needs you", "button", "Approve Merge line flow"),
             step("The other waits in the list beside it", Verb::Look, "button", "Freshness chip"),
@@ -1303,6 +1303,21 @@ pub static WALKS: &[Walk] = &[
             press_on("Approve answers that one alone, and the other comes up", "button", "Approve Freshness chip", "button", "Approve Merge line flow"),
             step("Its own Send back is still there", Verb::Look, "button", "Send back"),
             step("Esc shuts the review, and the pin has moved to the sketch still waiting", Verb::Key("escape"), "article", "Sketch to approve: Merge line flow"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-band",
+        title: "A sketch card in the thread, one per state",
+        screen: Screen::Jobs,
+        scenario: "sketch-band",
+        steps: &[
+            press_on("A Job's sketches stand in its thread, each card's band tinted by where it stands: this one the Job took back", "row", "Edit the merge line", "article", "Sketch: Crossing arrows"),
+            step("Shown to him with no answer asked: Reading", Verb::Wheel("region", "Thread", -340), "article", "Sketch: Pinned clock"),
+            step("Sent back: his words stand under the drawing", Verb::Wheel("region", "Thread", -310), "article", "Sketch: Store clock reads"),
+            step("Approved", Verb::Wheel("region", "Thread", -380), "article", "Sketch: Merge line flow"),
+            step("Asking: its For line names what it is for and the links it touches, its revision beside the state, Approve and Ask for changes under the drawing", Verb::Wheel("region", "Thread", -250), "article", "Sketch: Freshness chip"),
+            press_on("Ask for changes opens a note in the footer: Cancel on Esc, Send on \u{2318}\u{21b5}", "button", "Ask for changes", "textbox", "What should change?"),
+            step("Cancel and Send stand under it", Verb::Look, "button", "Send"),
         ],
     },
     Walk {

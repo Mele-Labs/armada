@@ -67,6 +67,7 @@ mod mods_made;
 mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
+mod sketch_card;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
