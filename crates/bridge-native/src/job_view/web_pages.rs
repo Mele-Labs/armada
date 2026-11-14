@@ -159,6 +159,119 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    /// The mock Job on Air that showed a walk and serves a dev server, and the same Job held on this Mac.
+    const JOB: &str = "mock-01";
+
+    /// A Job view on the mock's Jobs, where the Jobs on Air stay on Air or (`here`) are all held on this Mac, with
+    /// the Macs and the link to Air as a walk sets them: two Macs with Air asleep, and its link carrying.
+    fn open<'a>(here: bool, cx: &'a mut TestAppContext) -> (Entity<JobView>, &'a mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::pairing::hold(crate::pairing::mock_macs(true), cx);
+            crate::terminal::shells::hold_walk(cx);
+        });
+        let mut jobs = crate::mock::jobs("jobs-other-mac").expect("the fixture decodes");
+        if here {
+            jobs.iter_mut().for_each(|job| job.mac = None);
+        }
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        cx.add_window_view(|window, cx| JobView::new(list, None, window, cx))
+    }
+
+    fn wake_air(cx: &mut VisualTestContext) {
+        cx.update(|_, cx| crate::pairing::scene("air-awake", cx).expect("a pairing scene"));
+    }
+
+    fn link(scene: &str, cx: &mut VisualTestContext) {
+        cx.update(|_, cx| crate::terminal::shells::walk_link(scene, cx).expect("a link scene"));
+    }
+
+    /// Open `url` of the Job as a press on its row does, and what that left: how the Open stands, the words under its
+    /// row in Now, and whether the page is drawn in a tab.
+    fn press(view: &Entity<JobView>, url: &str, cx: &mut VisualTestContext) -> (Option<PageOpen>, Option<String>, bool) {
+        view.update_in(cx, |view, window, cx| view.open_page(JOB, url, window, cx));
+        view.read_with(cx, |view, _| (view.page_open(JOB, url).cloned(), view.page_words(JOB, url), view.web_page_drawn(JOB, url)))
+    }
+
+    #[gpui::test]
+    fn a_page_of_a_job_on_a_mac_that_sleeps_is_not_opened_and_says_so_with_its_time(cx: &mut TestAppContext) {
+        let (view, cx) = open(false, cx);
+        let since = cx.update(|_, cx| crate::pairing::chip(Some("air"), cx).and_then(|chip| chip.asleep_since)).expect("Air sleeps");
+        let said = "Air is asleep. Its pages open when it wakes.";
+        for url in [crate::mock::AIR_WALK, crate::mock::AIR_LIVE] {
+            let (open, words, drawn) = press(&view, url, cx);
+            assert_eq!(open, Some(PageOpen::Asleep { said: said.into(), since }), "{url}");
+            assert_eq!(words.as_deref(), Some(said), "{url}: Now's line under the page is the sentence");
+            assert!(!drawn, "{url}: nothing is drawn from an address nobody answered");
+        }
+    }
+
+    #[gpui::test]
+    fn a_page_of_a_job_on_a_mac_whose_link_does_not_carry_is_refused_with_the_links_sentence(cx: &mut TestAppContext) {
+        let (view, cx) = open(false, cx);
+        wake_air(cx);
+        link("down", cx);
+        let (open, words, drawn) = press(&view, crate::mock::AIR_WALK, cx);
+        assert_eq!(open, Some(PageOpen::Refused(crate::terminal::shells::UNREACHED.into())));
+        assert_eq!(words.as_deref(), Some(crate::terminal::shells::UNREACHED));
+        assert!(!drawn);
+    }
+
+    #[gpui::test]
+    fn a_sleeping_mac_is_said_before_its_link_is(cx: &mut TestAppContext) {
+        let (view, cx) = open(false, cx);
+        link("down", cx);
+        let (open, _, _) = press(&view, crate::mock::AIR_WALK, cx);
+        assert!(matches!(open, Some(PageOpen::Asleep { .. })), "{open:?}");
+    }
+
+    #[gpui::test]
+    fn a_page_of_a_job_on_a_mac_that_answers_opens_in_its_tab_and_a_refusal_before_is_forgotten(cx: &mut TestAppContext) {
+        let (view, cx) = open(false, cx);
+        assert!(matches!(press(&view, crate::mock::AIR_WALK, cx).0, Some(PageOpen::Asleep { .. })));
+        wake_air(cx);
+        link("down", cx);
+        assert!(matches!(press(&view, crate::mock::AIR_WALK, cx).0, Some(PageOpen::Refused(_))), "Open again after a refusal asks again");
+        link("up", cx);
+        assert_eq!(press(&view, crate::mock::AIR_WALK, cx), (None, None, true), "opened: nothing left to say, and the page is drawn");
+        // The live page is its own page, opened apart from the walk's.
+        assert_eq!(press(&view, crate::mock::AIR_LIVE, cx), (None, None, true));
+    }
+
+    #[gpui::test]
+    fn a_page_of_a_job_held_on_this_mac_opens_as_it_is_whatever_air_and_its_link_do(cx: &mut TestAppContext) {
+        let (view, cx) = open(true, cx);
+        link("down", cx);
+        for url in [crate::mock::AIR_WALK, crate::mock::AIR_LIVE] {
+            assert_eq!(press(&view, url, cx), (None, None, true), "{url}: asleep Air and a link that is down are not asked");
+        }
+    }
+
+    #[gpui::test]
+    fn a_page_drawn_is_left_as_it_is_by_another_open(cx: &mut TestAppContext) {
+        let (view, cx) = open(false, cx);
+        wake_air(cx);
+        press(&view, crate::mock::AIR_WALK, cx);
+        link("down", cx);
+        assert_eq!(press(&view, crate::mock::AIR_WALK, cx), (None, None, true), "a drawn page does not ask the link again");
+    }
+
+    #[test]
+    fn a_page_fleet_says_the_job_never_showed_is_refused_with_fleets_sentence_and_not_said_asleep() {
+        let unshown = br#"{"code":"fleet.other_mac_page_not_shown","message":"That page is not shown.","run_id":"r","fields":{"since":5},"chain":[]}"#;
+        assert_eq!(refused(404, unshown), PageOpen::Refused("That page is not shown.".into()));
+        let unreached = br#"{"code":"fleet.other_mac_unreachable","message":"Work did not answer.","run_id":"r","fields":{},"chain":[]}"#;
+        assert_eq!(refused(500, unreached), PageOpen::Refused("Work did not answer.".into()));
+    }
+
+    #[test]
+    fn an_asleep_refusal_with_no_time_is_a_refusal_with_its_sentence() {
+        let asleep = br#"{"code":"fleet.other_mac_asleep","message":"Work is asleep. Its pages open when it wakes.","run_id":"r","fields":{},"chain":[]}"#;
+        assert_eq!(refused(409, asleep), PageOpen::Refused("Work is asleep. Its pages open when it wakes.".into()));
+    }
 
     #[test]
     fn an_asleep_refusal_keeps_its_time_and_any_other_its_sentence() {

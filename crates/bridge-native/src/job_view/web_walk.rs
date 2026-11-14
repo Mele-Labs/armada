@@ -467,6 +467,55 @@ mod tests {
         );
     }
 
+    /// A tab drawn in a window of its own, and the events it told the Job view.
+    fn drawn<'a>(live: bool, cx: &'a mut gpui::TestAppContext) -> (Entity<WebWalkTab>, std::rc::Rc<std::cell::RefCell<usize>>, &'a mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let steps = if live { Vec::new() } else { vec![WalkStep { press: Some(target("button", "Add")), ..step("Add one") }, step("Then look")] };
+        let shown = Shown { job: "mock-01".into(), url: "http://localhost:5173/".into(), here: "file:///tmp/page.html".into(), title: "Orders dev server".into(), steps, live, manifest: None };
+        let (tab, cx) = cx.add_window_view(|_, cx| WebWalkTab::new(shown, cx.focus_handle(), cx));
+        let approved = std::rc::Rc::new(std::cell::RefCell::new(0));
+        let heard = approved.clone();
+        cx.update(|_, cx| cx.subscribe(&tab, move |_, _: &WebWalkEvent, _| *heard.borrow_mut() += 1).detach());
+        (tab, approved, cx)
+    }
+
+    /// The names of the buttons and the toolbar the window drew.
+    fn bar_of(cx: &mut gpui::VisualTestContext) -> (Vec<String>, Vec<String>) {
+        cx.update(|window, cx| {
+            let drawn = cx.try_global::<crate::labels::LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+            let named = |role: Role| drawn.iter().filter(|one| one.role == role).map(|one| one.name.to_string()).collect::<Vec<_>>();
+            (named(Role::Toolbar), named(Role::Button))
+        })
+    }
+
+    #[gpui::test]
+    fn a_live_pages_tab_has_its_name_and_reload_and_no_steps_and_no_approve(cx: &mut gpui::TestAppContext) {
+        let (tab, approved, cx) = drawn(true, cx);
+        let (bars, buttons) = bar_of(cx);
+        assert_eq!(bars, ["Walk Orders dev server"], "the bar is named for the page");
+        assert!(buttons.iter().any(|name| name == "Reload"), "{buttons:?}");
+        for gone in ["Approve", "Replay to the step before", "Act on the ringed target and go on"] {
+            assert!(!buttons.iter().any(|name| name == gone), "a live page draws no {gone}: {buttons:?}");
+        }
+        tab.update_in(cx, |tab, window, cx| tab.approve(&Approve, window, cx));
+        assert_eq!(*approved.borrow(), 0, "⌘↵ on a live page tells the Job nothing");
+        tab.read_with(cx, |tab, _| assert!(tab.said.is_none() && tab.steps.is_empty()));
+    }
+
+    #[gpui::test]
+    fn a_walks_tab_has_reload_the_steps_and_approve_which_tells_the_job(cx: &mut gpui::TestAppContext) {
+        let (tab, approved, cx) = drawn(false, cx);
+        let (_, buttons) = bar_of(cx);
+        for there in ["Reload", "Approve", "Replay to the step before", "Act on the ringed target and go on"] {
+            assert!(buttons.iter().any(|name| name == there), "a walk draws {there}: {buttons:?}");
+        }
+        tab.update_in(cx, |tab, window, cx| tab.approve(&Approve, window, cx));
+        assert_eq!(*approved.borrow(), 1);
+    }
+
     #[test]
     fn a_local_file_is_loaded_as_a_file_and_anything_else_as_an_address() {
         assert!(matches!(source_of("file:///tmp/walk/page.html?x=1"), Source::File(path) if path == "/tmp/walk/page.html"));
