@@ -88,3 +88,13 @@ fn the_two_per_repository_maps_are_taken_whole_and_an_empty_one_is_taken() {
     assert_eq!(taken.get(s::SKILLS_OFF), Some(empty.clone()));
     assert_eq!(taken.get(s::CONNECTORS_OFF), Some(empty));
 }
+
+#[test]
+fn a_jobs_reasoning_ships_shown_and_is_read_live_under_harness() {
+    let nothing = resolved(&[]).expect("taken");
+    assert!(nothing.get(s::HARNESS_THINKING_SUMMARIES), "reasoning ships shown");
+    let off = resolved(&[("harness.thinkingSummaries", SettingValue::Bool(false))]).expect("taken");
+    assert!(!off.get(s::HARNESS_THINKING_SUMMARIES));
+    let found = entry("harness.thinkingSummaries").expect("an entry");
+    assert_eq!((found.section.title(), found.applies), ("Harness", s::Applies::Live));
+}

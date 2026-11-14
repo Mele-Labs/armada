@@ -864,6 +864,23 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "web-walk",
+        title: "A Job's walk of a web page, in its tab",
+        screen: Screen::JobsInApp,
+        scenario: "job-web-walk",
+        steps: &[
+            press_on("A Job that owes you a walk of a web page: its tab arrives behind the thread, named for the walk", "row", "Fix the merge line freshness chip", "tab", "Job tab: Orders page"),
+            press_on("The tab draws the walk's bar over the page, which a web view draws edge to edge under it; step 1 rings its target", "tab", "Job tab: Orders page", "img", "The target of this step"),
+            press_on("Next acts on the ringed target and rings the next: the search box", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            press_on("Next on the search box rings Add order", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            press_on("Next presses Add order, as a click the page hears, and rings the form it opened", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            press_on("Next on the form rings its Cancel", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            press_on("Next presses Cancel, which shuts the form, and rings Export below the fold: the page scrolls it to the middle first", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            step("The last step: Next is off, and Approve is the walk's", Verb::Look, "button", "Approve"),
+            press_on("Back replays to the step before", "button", "Replay to the step before", "img", "The target of this step"),
+        ],
+    },
+    Walk {
         name: "native-system-bays",
         title: "A Job's System and Bays tabs",
         screen: Screen::JobsInApp,

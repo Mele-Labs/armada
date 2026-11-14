@@ -1345,6 +1345,21 @@ Added by the Aug 2026 config review. Adapter config: which binary, and which fla
 **The value lives in settings.json under `harness.agent` and `harness.binaryPath`** (read at start; `ARMADA_AGENT_BINARY` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.harness-thinking-summaries]
+name = "Show what a Job reasoned"
+scope = "Machine"
+default = "on"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Whether a hosted Job's CLI is started with `--thinking-display summarized`. A print-mode CLI sends its thinking blocks empty unless the display is asked for on the command line: the `showThinkingSummaries` key in `--settings` is read only by an interactive CLI (measured on 2.1.322, 13 Nov 2026). On, each thinking block carries the API's summary, which the thread shows as the agent's reasoning. Off, the thread shows only that the agent thought.
+
+**The value lives in settings.json under `harness.thinkingSummaries`** (live), read at each Job start, so a change reaches the Jobs started after it.
+"""
+
 [settings.secrets-provider-selection]
 name = "Secrets provider selection"
 scope = "Machine"

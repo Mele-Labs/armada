@@ -198,7 +198,7 @@ fn a_repository_chosen_for_a_profile_that_signed_out_has_no_store_and_is_not_han
     signing.set_repository_profile(&armada.root, Some(HUBOT), &[armada.clone()]).expect("chosen");
     assert!(signing.profile_for(&armada).is_some());
 
-    let out = signing.sign_out(HUBOT, "https://store.test", &[armada.clone()]).expect("signed out");
+    let out = signing.sign_out(HUBOT, &[armada.clone()]).expect("signed out");
     assert_eq!(standing(&out.accounts, &armada), Err(vec![OCTOCAT]), "its login's owner still matches, and is only offered");
     assert_eq!(signing.profile_for(&armada), None);
 }
