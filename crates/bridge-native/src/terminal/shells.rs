@@ -630,6 +630,11 @@ pub fn hold_walk(cx: &mut App) {
     cx.set_global(WalkShells(mock));
 }
 
+/// Whether a walk's link to Air refuses what goes to its Jobs now: a page of one opens to the link's sentence too.
+pub fn walk_link_down(cx: &App) -> bool {
+    cx.try_global::<WalkShells>().is_some_and(|held| held.0.state.borrow().link_down)
+}
+
 /// A walk's scene for the link to Air: `up`, `down` (keys and opens refused), or `drops` (the watched shells end here).
 pub fn walk_link(scene: &str, cx: &mut App) -> Result<(), String> {
     let mock = cx.try_global::<WalkShells>().map(|held| held.0.clone()).ok_or("no walk shells")?;

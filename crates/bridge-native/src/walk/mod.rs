@@ -3182,6 +3182,26 @@ pub static WALKS: &[Walk] = &[
             step("Esc closes the tab and the thread is back", Verb::Key("escape"), "button", "Opened mac-mark.md"),
         ],
     },
+    Walk {
+        name: "native-other-mac-page",
+        title: "A walk and the dev server of a Job on the other Mac, in a tab",
+        screen: Screen::JobsInApp,
+        scenario: "jobs-other-mac",
+        steps: &[
+            press_on("A Job held on Air that owes a walk of a page: its tab arrives behind the thread, named for the walk", "row", "Fix the merge line freshness chip", "tab", "Job tab: Orders page"),
+            press_on("The tab names the walk and the page, with Air's chip and Open", "tab", "Job tab: Orders page", "button", "Open"),
+            press_on("Open while Air sleeps: nothing opens, and the tab says so in Fleet's words", "button", "Open", "status", "Air is asleep. Its pages open when it wakes."),
+            pairing("Air wakes", "air-awake", "button", "Open"),
+            press_on("Open again: Fleet answers an address on this Mac, and the tab draws the page under the walk's bar, step 1 ringed", "button", "Open", "img", "The target of this step"),
+            press_on("Next acts on the ringed target and rings the next", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            step("Its dev server stands in Now with Air's chip and Open", Verb::Look, "button", "Open Orders dev server"),
+            pairing("The link to Air stops carrying", "link-down", "button", "Open Orders dev server"),
+            press_on("Open on the dev server brings its tab forward, and the link's sentence stands where the page would", "button", "Open Orders dev server", "alert", crate::terminal::shells::UNREACHED),
+            pairing("The link carries again", "link-up", "button", "Open"),
+            press_on("Open tries again, and the dev server's page is drawn", "button", "Open", "button", "Reload"),
+            step("A page the Job serves is not a walk: its bar has Reload and no Approve", Verb::Absent("button", "Approve"), "button", "Reload"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {

@@ -6,6 +6,9 @@
 //! ringed, as `finder.ts` finds them. A press is a click the page hears. The pages stay alive while the
 //! tab is hidden, and keep their scroll and state.
 //!
+//! A page a Job serves and has not shown as a walk (its dev server) takes the same tab with its name and Reload alone.
+//! A Job held on another Mac is drawn from the address Fleet answered on this one (`web_pages.rs`).
+//!
 //! Left out, as Classic has more here: popups, site permissions, the burn and annotation layer, held notes,
 //! local-network prompts, takes, and acts other than a press (type, key, select, paste, drag), which ring their
 //! target and go on.
@@ -112,11 +115,26 @@ pub fn source_of(url: &str) -> Source {
     }
 }
 
+/// What a tab shows: the Job's page as it named it (`url`, which the walk is approved by), and the address it is drawn
+/// from (`here`), which is `url` itself unless the Job is held on another Mac and Fleet answered an address on this one.
+pub struct Shown {
+    pub job: SharedString,
+    pub url: String,
+    pub here: String,
+    pub title: String,
+    pub steps: Vec<WalkStep>,
+    /// The Job's dev server or the page it showed last, not a walk: the bar is its name and Reload alone.
+    pub live: bool,
+    pub manifest: Option<String>,
+}
+
 pub struct WebWalkTab {
     job: SharedString,
     url: String,
     title: SharedString,
     steps: Vec<WalkStep>,
+    /// A page the Job serves, not a walk of it: no steps and no Approve.
+    live: bool,
     /// The step on screen, from 0.
     at: usize,
     page: Entity<WebPage>,
@@ -138,15 +156,15 @@ pub struct WebWalkTab {
 impl EventEmitter<WebWalkEvent> for WebWalkTab {}
 
 impl WebWalkTab {
-    pub fn new(job: SharedString, url: String, title: String, steps: Vec<WalkStep>, manifest: Option<&str>, focus: FocusHandle, cx: &mut Context<Self>) -> Self {
-        let source = source_of(&url);
-        let manifest = manifest.map(str::to_string);
+    pub fn new(shown: Shown, focus: FocusHandle, cx: &mut Context<Self>) -> Self {
+        let Shown { job, url, here, title, steps, live, manifest } = shown;
+        let source = source_of(&here);
         let page = cx.new(|cx| WebPage::new(manifest.as_deref(), source, cx));
         let watch = cx.subscribe(&page, |this, _, _: &WebPageEvent, cx| {
             this.start(cx);
             cx.notify();
         });
-        WebWalkTab { job, url, title: title.into(), steps, at: 0, page, said: None, finding: false, started: false, replay: None, focus, _page: watch, _find: None }
+        WebWalkTab { job, url, title: title.into(), steps, live, at: 0, page, said: None, finding: false, started: false, replay: None, focus, _page: watch, _find: None }
     }
 
     pub fn job(&self) -> &SharedString {
@@ -287,6 +305,9 @@ impl WebWalkTab {
     }
 
     fn approve(&mut self, _: &Approve, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.live {
+            return;
+        }
         self.said = Some("Approved".into());
         cx.emit(WebWalkEvent::Approve);
         cx.notify();
@@ -329,7 +350,7 @@ impl WebWalkTab {
                 )
             })))
             .child(icon_button("web-walk-reload", "refresh-cw", "Reload", Some("\u{2318}R"), Weight::Quiet, true, cx, cx.listener(|this, _, window, cx| this.reload(&Reload, window, cx))))
-            .child(div().flex_none().w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx)))));
+            .children((!self.live).then(|| div().flex_none().w(look.length(token::SPACE_8) * 6.).child(button("web-walk-approve", "Approve", Some("\u{2318}\u{21B5}"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))))));
         let line = row()
             .child(icon_button("web-walk-back", "chevron-left", "Replay to the step before", Some("\u{2325}\u{2318}\u{2190}"), Weight::Quiet, !first && !self.finding, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
             .child(
@@ -360,7 +381,7 @@ impl WebWalkTab {
                 // A press on the bar leaves the keys where they were.
                 .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
                 .child(top)
-                .child(line),
+                .children((!self.live).then_some(line)),
             Role::Toolbar,
             format!("Walk {}", self.title),
         )
