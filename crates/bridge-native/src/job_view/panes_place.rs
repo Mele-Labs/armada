@@ -501,9 +501,7 @@ impl JobView {
             || self.teach.is_some()
             || self.review_open()
             || self.sketch_reading.is_some()
-            || self.subagent_reading.is_some()
             || self.pictures.viewing.is_some()
-            || self.pane_panel_open()
     }
 
     /// A key of the registry's that arranges the panes. True where it was taken.

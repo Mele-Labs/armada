@@ -127,7 +127,7 @@ export const ACTIONS: readonly Action[] = [
     id: "new_terminal_job",
     kind: "Action",
     tier: "Global",
-    verb: "New Job here",
+    verb: "New Side Job",
     icon: Plus,
     iconAbsent: null,
     shortcut: "⌘T",

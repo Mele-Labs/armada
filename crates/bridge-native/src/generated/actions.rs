@@ -168,7 +168,7 @@ pub const ACTIONS: &[Act] = &[
         id: "new_terminal_job",
         kind: ActionKind::Action,
         tier: ActionTier::Global,
-        verb: "New Job here",
+        verb: "New Side Job",
         glyph: Some("plus"),
         icon_absent: None,
         shortcut: "⌘T",

@@ -72,6 +72,7 @@ mod sketch_read;
 mod subagent_read;
 mod zoom;
 mod panes;
+mod panel_tab;
 mod pane_store;
 pub(crate) mod pane_tree;
 mod panes_place;
@@ -426,9 +427,10 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
-    /// A subagent's thread open on its sheet, and the last threads read, newest last.
-    subagent_reading: Option<subagent_read::Reading>,
+    /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
+    subagents_opened: HashMap<String, ipc::ToolSubagent>,
     /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
     forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
@@ -615,8 +617,8 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
-            subagent_reading: None,
             subagents_read: Vec::new(),
+            subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
@@ -1228,8 +1230,6 @@ impl Render for JobView {
         popups.extend(self.render_sketch(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_subagent_reading(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_pane_panel(window, cx).map(IntoElement::into_any_element));
         let panes = self.render_panes(&id, thread_body, popups, window, cx);
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
