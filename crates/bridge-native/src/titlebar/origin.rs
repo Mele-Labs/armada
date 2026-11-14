@@ -110,10 +110,14 @@ impl TitleBar {
             .enumerate()
             .map(|(at, one)| {
                 let branch = one.branch.clone();
-                let name: SharedString = one.branch.clone().into();
+                let name: SharedString = one.title.clone().unwrap_or_else(|| one.branch.clone()).into();
+                let hover: SharedString = match &one.title {
+                    Some(title) => format!("{title}, {}", one.branch).into(),
+                    None => one.branch.clone().into(),
+                };
                 let age = age_of(&one.committed_at, now);
                 let when: SharedString = format!("Last commit {}", built_said(&one.committed_at)).into();
-                let pick: SharedString = format!("Add {name} to the next build").into();
+                let pick: SharedString = format!("Add {} to the next build", one.branch).into();
                 let plus = icon_button(("origin-pick", at), "plus", look.color(if off { token::FG_SUBTLE } else { token::FG_MUTED }), look)
                     .size(look.length(token::H_CONTROL_SM))
                     .tooltip(tip("Add to the next build"));
@@ -128,7 +132,7 @@ impl TitleBar {
                     .pl(look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_LG))
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(div().id(("origin-name", at)).flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).tooltip(tip(name.clone())).child(name.clone()))
+                    .child(div().id(("origin-name", at)).flex_1().min_w_0().truncate().when(one.title.is_none(), |name| name.font_family(mono(look))).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).tooltip(tip(hover)).child(name.clone()))
                     .children(age.map(|age| {
                         labelled(
                             div()

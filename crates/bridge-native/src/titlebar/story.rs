@@ -14,37 +14,52 @@ pub struct Held {
     pub branches: Vec<String>,
     /// A Job offered one of its branches for the preview.
     pub offered: bool,
+    /// Every one of its branches is on main.
+    pub landed: bool,
 }
 
-/// The work the running build holds, a Job once however many branches it has: the Jobs not yet kept, the Jobs
-/// a revert would take out, then the offers the build holds. A branch takes its Job's title from its offer,
-/// then from its pick. Fleet sends no whole list of what the build holds yet, so this is as much as it says.
+/// The work the running build holds, a Job once however many branches it has, as Fleet's `holds` names it.
+/// A Fleet from before `holds` is read from what else it says: the Jobs not yet kept, the Jobs a revert would
+/// take out, then the offers the build holds. A branch takes its Job's title from Fleet, its offer, then its pick.
 pub fn held(report: &FleetBuildReport, offers: Option<&PreviewOffers>) -> Vec<Held> {
     let rows = offers.map_or(&[][..], |offers| offers.offers.as_slice());
     let title_of = |branch: &str| rows.iter().find(|offer| offer.branch == branch && !offer.title.trim().is_empty()).map(|offer| offer.title.clone());
-    let mut found: Vec<(Option<String>, String)> = Vec::new();
+    if !report.holds.is_empty() {
+        let found = report.holds.iter().map(|one| {
+            let name = one.title.clone().filter(|title| !title.trim().is_empty()).or_else(|| title_of(&one.branch)).unwrap_or_else(|| one.branch.clone());
+            (Some(one.branch.clone()), name, one.landed)
+        });
+        return grouped(found, rows);
+    }
+    let mut found: Vec<(Option<String>, String, bool)> = Vec::new();
     let taken_out = report.previous.iter().flat_map(|previous| previous.takes_out.iter());
     for name in report.trying.iter().chain(taken_out) {
         match report.picked.iter().find(|pick| pick.title.as_deref() == Some(name.as_str()) || pick.branch == *name) {
-            Some(pick) => found.push((Some(pick.branch.clone()), title_of(&pick.branch).or_else(|| pick.title.clone()).unwrap_or_else(|| pick.branch.clone()))),
-            None => found.push((None, title_of(name).unwrap_or_else(|| name.clone()))),
+            Some(pick) => found.push((Some(pick.branch.clone()), title_of(&pick.branch).or_else(|| pick.title.clone()).unwrap_or_else(|| pick.branch.clone()), false)),
+            None => found.push((None, title_of(name).unwrap_or_else(|| name.clone()), false)),
         }
     }
     for offer in rows.iter().filter(|offer| offer.in_build) {
-        found.push((Some(offer.branch.clone()), title_of(&offer.branch).unwrap_or_else(|| offer.branch.clone())));
+        found.push((Some(offer.branch.clone()), title_of(&offer.branch).unwrap_or_else(|| offer.branch.clone()), false));
     }
+    grouped(found, rows)
+}
+
+/// One row a Job, its branches gathered under it, in the order they came: landed where every branch is.
+fn grouped(found: impl IntoIterator<Item = (Option<String>, String, bool)>, rows: &[ipc::PreviewOfferRow]) -> Vec<Held> {
     let mut work: Vec<Held> = Vec::new();
-    for (branch, name) in found {
+    for (branch, name, landed) in found {
         let offered = branch.as_deref().is_some_and(|branch| rows.iter().any(|offer| offer.branch == branch));
         let at = match work.iter().position(|one| one.name == name) {
             Some(at) => at,
             None => {
-                work.push(Held { name, branches: Vec::new(), offered: false });
+                work.push(Held { name, branches: Vec::new(), offered: false, landed: true });
                 work.len() - 1
             }
         };
         let one = &mut work[at];
         one.offered |= offered;
+        one.landed &= landed;
         if let Some(branch) = branch.filter(|branch| !one.branches.contains(branch)) {
             one.branches.push(branch);
         }
@@ -144,11 +159,27 @@ mod tests {
         assert_eq!(
             work,
             vec![
-                Held { name: "Native Settings".into(), branches: vec!["native/settings-split-rows".into(), "native/settings-macs-models-width".into()], offered: true },
-                Held { name: "native/plan-sketches".into(), branches: vec!["native/plan-sketches".into()], offered: false },
+                Held { name: "Native Settings".into(), branches: vec!["native/settings-split-rows".into(), "native/settings-macs-models-width".into()], offered: true, landed: false },
+                Held { name: "native/plan-sketches".into(), branches: vec!["native/plan-sketches".into()], offered: false, landed: false },
             ]
         );
         assert!(added(&report, &work).is_empty(), "the picks default to the running build, so nothing is added");
+    }
+
+    #[test]
+    fn fleets_holds_name_every_job_the_build_holds_and_which_are_on_main() {
+        let (mut report, offers) = his();
+        report.trying.clear();
+        report.holds = vec![
+            ipc::HeldBranch { branch: "native/settings-split-rows".into(), title: Some("Native Settings".into()), landed: false },
+            ipc::HeldBranch { branch: "native/settings-macs-models-width".into(), title: None, landed: false },
+            ipc::HeldBranch { branch: "native/plan-sketches".into(), title: None, landed: true },
+            ipc::HeldBranch { branch: "armada/session-4f13f876".into(), title: Some("Web pages in the native window".into()), landed: true },
+        ];
+        let work = held(&report, Some(&offers));
+        let said: Vec<(&str, bool, bool)> = work.iter().map(|one| (one.name.as_str(), one.offered, one.landed)).collect();
+        assert_eq!(said, [("Native Settings", true, false), ("native/plan-sketches", false, true), ("Web pages in the native window", false, true)]);
+        assert_eq!(work[0].branches, ["native/settings-split-rows", "native/settings-macs-models-width"], "a branch with no title takes its offer's");
     }
 
     #[test]

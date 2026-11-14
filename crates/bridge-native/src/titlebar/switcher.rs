@@ -230,18 +230,25 @@ impl TitleBar {
             .iter()
             .enumerate()
             .map(|(at, one)| {
-                let (ink, said): (Hsla, &'static str) =
-                    if one.offered { (look.color(token::STATUS_RUNNING), "Offered by its Job for the preview") } else { (look.color(token::FG_MUTED), "In this build") };
+                let (icon, ink, said, word): (&'static str, Hsla, &'static str, Option<&'static str>) = if one.landed {
+                    ("git-merge", look.color(token::STATUS_COMPLETED_SUCCESS), "On main", Some("on main"))
+                } else if one.offered {
+                    ("git-branch", look.color(token::STATUS_RUNNING), "Offered by its Job for the preview", Some("offered"))
+                } else {
+                    ("git-branch", look.color(token::FG_MUTED), "In this build", None)
+                };
+                // The name is the branch where no Job names it, so the branch goes on hover only beside a title.
+                let hover = (one.branches.len() > 1 || one.branches.first().is_some_and(|branch| *branch != one.name)).then(|| one.branches.join(", ").into());
                 row(
                     look,
                     "held",
                     at,
                     Row {
-                        mark: state_glyph(format!("held-mark-{at}").into(), "git-branch", ink, said.into()),
+                        mark: state_glyph(format!("held-mark-{at}").into(), icon, ink, said.into()),
                         name: one.name.clone().into(),
-                        hover: (!one.branches.is_empty()).then(|| one.branches.join(", ").into()),
+                        hover,
                         about: None,
-                        word: one.offered.then_some(("offered", ink)),
+                        word: word.map(|word| (word, ink)),
                         end: None,
                     },
                 )
