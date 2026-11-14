@@ -1,12 +1,13 @@
-//! The switcher's On origin row (#3547): branches origin holds that main lacks and no Job here holds,
-//! newest first. A search narrows them, since the list runs long; a plus picks one into the next build as
-//! a picked Job's chip is, and the snapshot's Ready and Swap follow.
+//! The Fleet panel's Add a branch fold (#3547): branches origin holds that main lacks and no Job here holds,
+//! newest first. A search narrows them, since the list runs long; a plus picks one into the next build, where
+//! it stands above the search with an x, and the Waiting section's build of the picks follows.
 
 use gpui::{div, prelude::*, px, AnyElement, Context, Entity, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 
 use super::face::{built_said, Build};
 use super::parts::{icon_button, mono, tip};
+use super::switcher::{row, state_glyph, Row};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -19,6 +20,14 @@ const ROWS_SHOWN: f32 = 6.;
 pub(super) struct OriginSearch {
     input: Option<(Entity<InputState>, Subscription)>,
     query: String,
+}
+
+impl OriginSearch {
+    /// The search's keys, once it is made.
+    pub(super) fn focus(&self, cx: &gpui::App) -> Option<gpui::FocusHandle> {
+        use gpui::Focusable as _;
+        self.input.as_ref().map(|(input, _)| input.read(cx).focus_handle(cx))
+    }
 }
 
 /// The branches whose name holds every word typed, in Fleet's order.
@@ -61,13 +70,38 @@ impl TitleBar {
         self.origin.input = Some((input, typed));
     }
 
-    /// The On origin row, or nothing while origin holds no branch to offer.
-    pub(super) fn origin_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Add a branch, opened: the branches he added to the next build, each with its x, then the search and the
+    /// branches on origin. Nothing while there are neither.
+    pub(super) fn origin_section(&self, held: &Build, added: &[&ipc::PickedJob], look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let origin = &held.report.origin;
-        if origin.is_empty() {
+        if origin.is_empty() && added.is_empty() {
             return None;
         }
         let off = held.restart().pending || held.report.swapping || held.report.reverting;
+        let added_rows: Vec<AnyElement> = added
+            .iter()
+            .enumerate()
+            .map(|(at, one)| {
+                let name: SharedString = one.title.clone().unwrap_or_else(|| one.branch.clone()).into();
+                let branch = one.branch.clone();
+                let leave: SharedString = format!("Leave {} out of the build", one.branch).into();
+                let x = icon_button(("unpick", at), "x", look.color(token::FG_MUTED), look).size(look.length(token::H_CONTROL_SM)).tooltip(tip("Leave out of the next build"));
+                let x = x.on_click(cx.listener(move |this, _, _, cx| this.unpick_pressed(branch.clone(), cx)));
+                row(
+                    look,
+                    "added",
+                    at,
+                    Row {
+                        mark: state_glyph(format!("added-mark-{at}").into(), "plus", look.color(token::STATUS_COMPLETED_SUCCESS), "Added to the next build".into()),
+                        hover: one.title.is_some().then(|| one.branch.clone().into()),
+                        name,
+                        about: None,
+                        word: None,
+                        end: Some(labelled(x, Role::Button, leave).into_any_element()),
+                    },
+                )
+            })
+            .collect();
         let now = chrono::Utc::now();
         let shown = matching(origin, &self.origin.query);
         let row_height = look.length(token::H_CONTROL_LG);
@@ -135,9 +169,15 @@ impl TitleBar {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_1))
-                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::TEXT_LABEL)).child("On origin"))
-                .children(search)
-                .children(none)
+                .children((!added_rows.is_empty()).then(|| {
+                    labelled(
+                        div().id("added").flex().flex_col().overflow_hidden().rounded(look.length(token::RADIUS_LG)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_SUNKEN)).children(added_rows),
+                        Role::List,
+                        "Added to the next build",
+                    )
+                }))
+                .children((!origin.is_empty()).then_some(search).flatten())
+                .children((!origin.is_empty()).then_some(none).flatten())
                 .child(labelled(
                     div().id("origin-list").flex().flex_col().max_h(row_height * ROWS_SHOWN + px(1.)).overflow_y_scroll().children(rows),
                     Role::List,

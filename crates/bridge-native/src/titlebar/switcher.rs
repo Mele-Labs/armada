@@ -2,286 +2,342 @@
 //! dialog that confirms a revert (`FleetBuild.tsx`, `trying-bar.tsx`).
 
 use gpui::{
-    anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Pixels, Role, SharedString,
+    anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Hsla, Pixels, Role, SharedString,
 };
-use ipc::{BuildSource, SnapshotState};
+use ipc::BuildSource;
 
 use super::face::{ahead_said, behind_said, built_said, kept_said, stage_word, Build, Position};
 use super::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
-use super::{Dialog, MenuKind, TitleBar};
+use super::{story, Dialog, MenuKind, TitleBar};
 use crate::dropdown::Entry;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, Look, Token};
+
+/// One row of a panel section: its state glyph, the work's name with its branches on hover, a line under it,
+/// a word in the state's hue, and a control at its end.
+pub(super) struct Row {
+    pub mark: AnyElement,
+    pub name: SharedString,
+    pub hover: Option<SharedString>,
+    pub about: Option<SharedString>,
+    pub word: Option<(&'static str, Hsla)>,
+    pub end: Option<AnyElement>,
+}
+
+/// A row, a hairline over it. `kind` and `at` give it and its parts their ids.
+pub(super) fn row(look: &Look, kind: &'static str, at: usize, one: Row) -> AnyElement {
+    let name = div()
+        .id(SharedString::from(format!("{kind}-name-{at}")))
+        .min_w_0()
+        .text_size(look.length(token::TEXT_SM))
+        .line_height(look.length(token::LEADING_SM))
+        .text_color(look.color(token::FG_DEFAULT))
+        .child(one.name);
+    let name = match one.hover {
+        Some(said) => name.tooltip(tip(said)),
+        None => name,
+    };
+    let about = one.about.map(|said| {
+        div()
+            .id(SharedString::from(format!("{kind}-about-{at}")))
+            .min_w_0()
+            // Two lines, then an ellipsis; the whole line is in the tooltip.
+            .line_clamp(2)
+            .text_ellipsis()
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .tooltip(tip(said.clone()))
+            .child(said)
+    });
+    div()
+        .id((kind, at))
+        .flex()
+        .items_start()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .border_t(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(one.mark))
+        .child(div().flex_1().min_w_0().flex().flex_col().child(name).children(about))
+        .children(one.word.map(|(word, ink)| {
+            div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().text_size(look.length(token::TEXT_XS)).text_color(ink).child(word)
+        }))
+        .children(one.end)
+        .into_any_element()
+}
+
+/// A state as a 12px registry glyph in its hue, said in its tooltip.
+pub(super) fn state_glyph(id: SharedString, name: &'static str, ink: Hsla, said: SharedString) -> AnyElement {
+    labelled(div().id(id).flex_none().tooltip(tip(said.clone())).child(glyph(name, px(12.), ink)), Role::Image, said).into_any_element()
+}
+
+/// A section of the panel: a band in the state's hue with its line and a control, then the rows on the
+/// sunken ground. `sub` is the line and what its tooltip says whole.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn band_card(
+    look: &Look,
+    id: &'static str,
+    icon: &'static str,
+    hue: Token,
+    ground: Token,
+    title: &'static str,
+    sub: Option<(SharedString, SharedString)>,
+    end: Option<AnyElement>,
+    rows: Vec<AnyElement>,
+) -> gpui::Stateful<gpui::Div> {
+    let ink = look.color(hue);
+    let line = match sub {
+        Some((said, whole)) => div()
+            .id(SharedString::from(format!("{id}-said")))
+            .flex_1()
+            .min_w_0()
+            .truncate()
+            .text_color(look.color(token::FG_MUTED))
+            .tooltip(tip(whole))
+            .child(said)
+            .into_any_element(),
+        None => div().flex_1().into_any_element(),
+    };
+    let band = div()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .min_h(look.length(token::H_CONTROL))
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_1))
+        // The state's hue on the band's edge and in its ground.
+        .border_l(look.length(token::BORDER_WIDTH) * 3.)
+        .border_color(ink)
+        .bg(look.color(ground))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .child(glyph(icon, px(12.), ink))
+        .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
+        .child(line)
+        .children(end);
+    div()
+        .id(id)
+        .flex()
+        .flex_col()
+        .overflow_hidden()
+        .rounded(look.length(token::RADIUS_LG))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .bg(look.color(token::BG_SUNKEN))
+        .child(band)
+        .children(rows)
+}
 
 /// What a restart costs a Drone that is working, on hover.
 
 impl TitleBar {
-    /// The switcher, stacked, as the first block of the Fleet popover.
-    pub(super) fn build_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let restart = held.restart();
-        let report = &held.report;
-        let working = restart.pending;
-        let spin = look.color(token::FG_DEFAULT);
+    /// The build Fleet runs on, as a chip in the panel's head: a press opens Main and Preview.
+    pub(super) fn build_chip(&self, held: &Build, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let working = held.restart().pending;
         let select_at = std::rc::Rc::clone(&self.at.select);
-        let on_name = match report.on {
-            BuildSource::Main => "Main",
-            BuildSource::Preview => "Preview",
+        let (name, hue, ground) = match held.report.on {
+            BuildSource::Main => ("Main", token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG),
+            BuildSource::Preview => ("Preview", token::STATUS_RUNNING, token::STATUS_RUNNING_BG),
         };
-        let select = labelled(
+        let ink = look.color(hue);
+        let ring = Self::focus_ring(look);
+        labelled(
             div()
                 .id("build-select")
                 .relative()
-                .w_full()
-                .h(look.length(token::H_CONTROL))
+                .flex_none()
                 .flex()
                 .items_center()
-                .justify_between()
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_LG))
+                .gap(look.length(token::SPACE_1))
+                .h(look.length(token::H_CONTROL_SM))
+                .px(look.length(token::SPACE_2))
+                .rounded_full()
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_SUNKEN))
-                .text_size(look.length(token::TEXT_SM))
-                .line_height(look.length(token::LEADING_SM))
-                .text_color(look.color(token::FG_DEFAULT))
-                .when(!working, |select| {
-                    let ring = Self::focus_ring(look);
-                    select
-                        .cursor_pointer()
+                .border_color(gpui::transparent_black())
+                .bg(look.color(ground))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .text_color(ink)
+                .when(!working, |chip| {
+                    chip.cursor_pointer()
                         .focusable()
                         .tab_stop(true)
                         .focus_visible(move |style| style.border_color(ring))
-                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .hover(move |style| style.border_color(ink))
                         .on_click(cx.listener(|this, _, window, cx| this.build_select_pressed(window, cx)))
                 })
-                .when(working, |select| select.opacity(0.5))
+                .when(working, |chip| chip.opacity(0.5))
                 .child(canvas(move |bounds, _, _| select_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
-                .child(on_name)
-                .child(glyph("chevron-down", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
-                .tooltip(tip("Build Fleet runs on")),
+                .child(name)
+                .child(glyph("chevron-down", look.length(token::SPACE_3), ink))
+                .tooltip(tip("The build Fleet runs on")),
             Role::Button,
             "Build",
-        );
-        let restart_button = {
-            let button = Btn::new("restart-build", restart.label, Weight::Secondary)
-                .icon("rotate-cw")
-                .pending(restart.pending)
-                .disabled(restart.disabled)
-                .full()
-                .draw(look, cx)
-                .tooltip(tip(restart.tip));
-            let button = if restart.disabled { button } else { button.on_click(cx.listener(|this, _, window, cx| this.restart_pressed(window, cx))) };
-            labelled(button, Role::Button, restart.label)
-        };
-        let revert_button = held.revert_tip().map(|said| {
-            let label = if report.reverting { "Reverting" } else { "Revert" };
-            let off = working || report.reverting || report.swapping;
-            let button = Btn::new("revert-build", label, Weight::Secondary).icon("undo-2").pending(report.reverting).disabled(off).full().draw(look, cx).tooltip(tip(said));
-            let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.revert_pressed(window, cx))) };
-            labelled(button, Role::Button, label)
-        });
-        let picked = (!report.picked.is_empty()).then(|| {
-            let chips: Vec<AnyElement> = report
-                .picked
-                .iter()
-                .enumerate()
-                .map(|(at, one)| {
-                    let name: SharedString = one.title.clone().unwrap_or_else(|| one.branch.clone()).into();
-                    let branch = one.branch.clone();
-                    let leave: SharedString = format!("Leave {name} out of the build").into();
+        )
+        .into_any_element()
+    }
+
+    /// The build block of the Fleet popover: what runs, what waits to be added, and the press that builds it.
+    pub(super) fn build_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let report = &held.report;
+        let offers = self.face.offers.as_ref();
+        let busy = report.restarting.is_some() || report.reverting || report.swapping;
+        let restarting = report.restarting.is_some();
+        let work = story::held(report, offers);
+        let keep_row = (!report.trying.is_empty()).then(|| {
+            let amber = look.color(token::STATUS_AWAITING_REVIEW);
+            let keep = Btn::new("keep-build", "Keep", Weight::Secondary).disabled(report.reverting).draw(look, cx).tooltip(tip("Keep this build and tell its Jobs to land"));
+            let keep = if report.reverting { keep } else { keep.on_click(cx.listener(|this, _, _, cx| this.keep_pressed(cx))) };
+            div()
+                .id("keep-row")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(labelled(
                     div()
-                        .id(("picked", at))
+                        .id("not-kept")
+                        .flex_none()
                         .flex()
                         .items_center()
-                        .justify_between()
-                        .gap(look.length(token::SPACE_2))
-                        .pl(look.length(token::SPACE_3))
-                        .pr(look.length(token::SPACE_1))
-                        .h(look.length(token::H_CONTROL))
-                        .rounded(look.length(token::RADIUS_LG))
-                        .border(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .bg(look.color(token::BG_SUNKEN))
+                        .gap(look.length(token::SPACE_1))
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_2))
+                        .rounded_full()
+                        .bg(look.color(token::STATUS_AWAITING_REVIEW_BG))
+                        .text_color(amber)
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
-                        .child(div().min_w_0().truncate().child(name))
-                        .child(labelled(
-                            super::parts::icon_button(("unpick", at), "x", look.color(token::FG_MUTED), look)
-                                .size(look.length(token::H_CONTROL_SM))
-                                .tooltip(tip("Leave out of the build"))
-                                .on_click(cx.listener(move |this, _, _, cx| this.unpick_pressed(branch.clone(), cx))),
-                            Role::Button,
-                            leave,
-                        ))
-                        .into_any_element()
-                })
-                .collect();
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .tooltip(tip("Keep has not been pressed on this build"))
+                        .child(glyph("circle-dot", px(12.), amber))
+                        .child("Not kept"),
+                    Role::Image,
+                    "Not kept",
+                ))
+                .child(div().flex_1())
+                .child(labelled(keep, Role::Button, "Keep"))
+                .children(self.revert_button(held, look, cx))
+                .into_any_element()
+        });
+        let rows: Vec<AnyElement> = work
+            .iter()
+            .enumerate()
+            .map(|(at, one)| {
+                let (ink, said): (Hsla, &'static str) =
+                    if one.offered { (look.color(token::STATUS_RUNNING), "Offered by its Job for the preview") } else { (look.color(token::FG_MUTED), "In this build") };
+                row(
+                    look,
+                    "held",
+                    at,
+                    Row {
+                        mark: state_glyph(format!("held-mark-{at}").into(), "git-branch", ink, said.into()),
+                        name: one.name.clone().into(),
+                        hover: (!one.branches.is_empty()).then(|| one.branches.join(", ").into()),
+                        about: None,
+                        word: one.offered.then_some(("offered", ink)),
+                        end: None,
+                    },
+                )
+            })
+            .collect();
+        let sub = story::running_said(held).map(|said| {
+            let whole = match report.position {
+                Some(at) if at.ahead > 0 => format!("{said}. {}", ahead_said(at.ahead)),
+                _ => said.clone(),
+            };
+            (SharedString::from(said), SharedString::from(whole))
+        });
+        // Revert sits in the band once the build is kept; before, it stands beside Keep.
+        let band_end = if restarting || keep_row.is_some() { None } else { self.revert_button(held, look, cx) };
+        let running = labelled(
+            band_card(look, "running", "play", token::STATUS_RUNNING, token::STATUS_RUNNING_BG, "Running", sub, band_end, keep_row.into_iter().chain(rows).collect()),
+            Role::Group,
+            "Running",
+        );
+        // Each press with the sentence that says what it builds.
+        let refresh_row = offers.and_then(|offers| offers.refresh.as_ref());
+        let on = report.on;
+        let refreshing = report.restarting == Some(BuildSource::Preview);
+        let updating = report.restarting == Some(BuildSource::Main);
+        let said = |text: SharedString| -> AnyElement {
+            div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(text).into_any_element()
+        };
+        let refresh = (on == BuildSource::Preview || refresh_row.is_some()).then(|| {
+            let label = if refreshing { "Refreshing" } else { "Refresh" };
+            let weight = if refresh_row.is_some() { Weight::Primary } else { Weight::Secondary };
+            let button = Btn::new("refresh-build", label, weight)
+                .icon("rotate-cw")
+                .pending(refreshing)
+                .disabled(busy)
+                .full()
+                .draw(look, cx)
+                .flex_1()
+                .tooltip(tip("Merge the offered branches onto latest main and restart Fleet"));
+            let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, window, cx))) };
+            let skip = refresh_row.map(|refresh| {
+                let id = refresh.id.clone();
+                let button = Btn::new("skip-offers", "Skip", Weight::Secondary).draw(look, cx).tooltip(tip("Hide what waits until the offers change"));
+                labelled(button.on_click(cx.listener(move |this, _, window, cx| this.skip_offers_pressed(id.clone(), window, cx))), Role::Button, "Skip")
+            });
             div()
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::TEXT_LABEL)).child("Next build holds"))
-                .children(chips)
+                .gap(look.length(token::SPACE_2))
+                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(button, Role::Button, label)).children(skip))
+                .children((!restarting).then(|| said(story::refresh_said(offers).into())))
         });
-        let snapshot = report.snapshot.as_ref().map(|snapshot| match snapshot.state {
-            SnapshotState::Building => labelled(
-                div()
-                    .id("snapshot")
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(token::FG_MUTED))
-                    .child(spinner("snapshot-spin", px(12.), spin, cx))
-                    .child("Building")
-                    .children(snapshot.stage.map(|stage| div().child(stage_word(stage)))),
-                Role::Status,
-                "Building",
-            )
-            .into_any_element(),
-            SnapshotState::Failed => {
-                let said: SharedString = snapshot.failed.clone().unwrap_or_default().into();
-                self.failed_line(look, "snapshot-failed", said)
-            }
-            SnapshotState::Ready => {
-                let off = report.swapping || report.reverting || working;
-                let label = if report.swapping { "Swapping" } else { "Swap" };
-                let button = Btn::new("swap-build", label, Weight::Secondary).pending(report.swapping).disabled(off).draw(look, cx);
-                let button = if off { button } else { button.on_click(cx.listener(|this, _, _, cx| this.swap_pressed(cx))) };
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_2))
-                    .child(
-                        self.mark(look, "snapshot-ready", "check", token::STATUS_COMPLETED_SUCCESS, "Ready").text_color(look.color(token::STATUS_COMPLETED_SUCCESS)),
-                    )
-                    .children((!snapshot.jobs.is_empty()).then(|| {
-                        labelled(
-                            div()
-                                .id("held-by-snapshot")
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_1))
-                                .text_size(look.length(token::TEXT_XS))
-                                .line_height(look.length(token::LEADING_XS))
-                                .children(snapshot.jobs.iter().map(|one| div().truncate().child(one.clone()))),
-                            Role::List,
-                            "Held by the snapshot",
-                        )
-                    }))
-                    .children(snapshot.bridge_reopens.then(|| {
-                        div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child("Bridge reopens")
-                    }))
-                    .child(labelled(button, Role::Button, label))
-                    .into_any_element()
-            }
+        let update = (on == BuildSource::Main).then(|| {
+            let idle = held.aligned && !restarting;
+            let off = busy || idle;
+            let label = if updating { "Updating to main" } else { "Update to main" };
+            let button = Btn::new("update-build", label, Weight::Secondary)
+                .icon("rotate-cw")
+                .pending(updating)
+                .disabled(off)
+                .full()
+                .draw(look, cx)
+                .tooltip(tip(if idle { "On latest main" } else { "Restart Fleet on latest main" }));
+            let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Main, window, cx))) };
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(labelled(button, Role::Button, label))
+                .children((!restarting && !idle).then(|| said(story::UPDATE_SAID.into())))
         });
-        let failed = (!working).then(|| report.failed.clone()).flatten().map(|said| self.failed_line(look, "build-failed", said.into()));
-        let left_out = (report.on == BuildSource::Preview && !working && !report.left_out.is_empty()).then(|| {
-            labelled(
-                div().id("left-out").flex().flex_col().gap(look.length(token::SPACE_3)).children(report.left_out.iter().enumerate().map(|(at, one)| {
-                    div()
-                        .id(("left-out-row", at))
-                        .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_1))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(look.length(token::SPACE_2))
-                                .child(labelled(
-                                    div()
-                                        .id(("left-out-mark", at))
-                                        .flex_none()
-                                        .tooltip(tip("Left out of the preview"))
-                                        .child(glyph("circle-slash", px(12.), look.color(token::STATUS_AWAITING_REVIEW))),
-                                    Role::Image,
-                                    "Left out of the preview",
-                                ))
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .font_family(mono(look))
-                                        .text_size(look.length(token::TEXT_XS))
-                                        .line_height(look.length(token::LEADING_XS))
-                                        .child(one.branch.clone()),
-                                )
-                                // The moved column holds its width on every row, so the rows line up.
-                                .child(div().flex_none().w(px(12.)).children(one.moved.then(|| {
-                                    labelled(
-                                        div()
-                                            .id(("left-out-moved", at))
-                                            .tooltip(tip("Moved since it was left out"))
-                                            .child(glyph("git-commit-horizontal", px(12.), look.color(token::FG_MUTED))),
-                                        Role::Image,
-                                        "Moved since it was left out",
-                                    )
-                                }))),
-                        )
-                        .child(
-                            div()
-                                .id(("left-out-why", at))
-                                .pl(px(12.) + look.length(token::SPACE_2))
-                                .truncate()
-                                .text_size(look.length(token::TEXT_XS))
-                                .line_height(look.length(token::LEADING_XS))
-                                .text_color(look.color(token::FG_MUTED))
-                                .tooltip(tip(one.why.clone()))
-                                .child(one.why.clone()),
-                        )
-                })),
-                Role::List,
-                "Left out of the preview",
-            )
-        });
-        // The Refresh row has a Refresh preview of its own, so this one gives way to it.
-        let offers = self.offers_section(held, look, cx);
-        let restart_stays = super::offers::restart_stays(held, offers.is_some());
-        let position = div()
-            .flex()
-            .items_center()
-            .justify_between()
-            .gap(look.length(token::SPACE_2))
-            .children((!working).then(|| div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::TEXT_LABEL)).child("main")))
-            .child(self.position_marks(held, look, cx));
+        // A restart under way says its stage where the sentences stood.
+        let stage = matches!(held.position(), Position::Restarting { stage: Some(_), .. }).then(|| self.position_marks(held, look, cx));
+        let failed = (!restarting).then(|| report.failed.clone()).flatten().map(|said| self.failed_line(look, "build-failed", said.into()));
         div()
             .id("fleet-build")
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .pb(look.length(token::SPACE_3))
-            .mb(look.length(token::SPACE_1))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(select)
-            .children(restart_stays.then_some(restart_button))
-            .children(offers)
-            .children(revert_button)
-            .children(picked)
-            .children(snapshot)
+            .child(running)
+            .children(self.waiting_section(held, look, cx))
+            .children(update)
+            .children(refresh)
+            .children(stage)
             .children(failed)
-            .children(left_out)
-            .children(self.origin_section(held, look, cx))
-            // A restart with no stage yet has only its button's spinner to say; the row comes back with the stage's words.
-            .children((!matches!(held.position(), Position::Restarting { stage: None, .. })).then_some(position))
             .into_any_element()
     }
 
-    /// A mark: a 12px glyph with words, in mono, in the colour of its tone.
-    fn mark(&self, look: &Look, id: &'static str, name: &'static str, tone: crate::look::Token, said: &'static str) -> gpui::Stateful<gpui::Div> {
-        div()
-            .id(id)
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
-            .font_family(mono(look))
-            .text_size(look.length(token::TEXT_XS))
-            .line_height(look.length(token::LEADING_XS))
-            .child(glyph(name, px(12.), look.color(tone)))
-            .child(said)
+    /// Revert, where a build before is kept: it asks first, in the dialog that says what it changes.
+    fn revert_button(&self, held: &Build, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let report = &held.report;
+        let said = held.revert_tip()?;
+        let label = if report.reverting { "Reverting" } else { "Revert" };
+        let off = report.restarting.is_some() || report.reverting || report.swapping;
+        let button = Btn::new("revert-build", label, Weight::Secondary).icon("undo-2").pending(report.reverting).disabled(off).draw(look, cx).tooltip(tip(said));
+        let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.revert_pressed(window, cx))) };
+        Some(labelled(button, Role::Button, label).into_any_element())
     }
 
     fn failed_line(&self, look: &Look, id: &'static str, said: SharedString) -> AnyElement {
@@ -370,7 +426,8 @@ impl TitleBar {
             Entry::Choice { id: "main", label: "Main".into(), on: on == BuildSource::Main },
             Entry::Choice { id: "preview", label: "Preview".into(), on: on == BuildSource::Preview },
         ];
-        self.open_menu(MenuKind::Build, entries, "Build", from, false, window, cx);
+        // The chip stands at the panel's right, so the menu hangs from its right edge.
+        self.open_menu(MenuKind::Build, entries, "Build", from, true, window, cx);
     }
 
     /// The Keep and Revert bar: one line across the top of the screen, above the Fleet notice.
