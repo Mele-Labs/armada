@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk draws a mock page as the fixture picture: no web view is opened.
+        crate::scene::mock_view::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
         crate::pairing::begin_mock(walk.scenario, cx);
