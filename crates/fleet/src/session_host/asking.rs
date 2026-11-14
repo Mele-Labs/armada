@@ -249,7 +249,8 @@ where
             via,
         };
         {
-            let mut state = self.hosts().of(id).state();
+            let host = self.hosts().of(id);
+            let mut state = host.state();
             state.asked = Some(waiting.clone());
             state.carded |= !asking.questions().is_empty();
         }
@@ -462,7 +463,8 @@ where
             .map_err(|why| self.ledger_fault(why))?;
         self.hosts().terminals().polled(&waiting.call);
         {
-            let mut state = self.hosts().of(id).state();
+            let host = self.hosts().of(id);
+            let mut state = host.state();
             state.asked = Some(waiting.clone());
             state.carded |= question;
         }
