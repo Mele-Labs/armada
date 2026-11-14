@@ -91,8 +91,8 @@ where
 
     /// A reply ended on `said`. Where the owner answers by buttons and it asks him something in words,
     /// the Job is told once to ask it again with options. **Not when the Job asked through a tool**
-    /// (a question card open, a list kept), and **not for the reply to this very notice**, so a Job
-    /// that still asks in words is not told again until he has written.
+    /// (a question card open or put to him in this turn, a list kept), and **not for the reply to this
+    /// very notice**, so a Job that still asks in words is not told again until he has written.
     pub(crate) async fn reply_asked_again(self: &Arc<Self>, id: &str, said: &str) {
         if !ways::buttons(&self.preferences_in_force()) || super::asks::asking_line(said).is_none() {
             return;
@@ -100,8 +100,11 @@ where
         if self.hosts().of(id).state().asked.is_some() {
             return;
         }
-        if self.store().lock().await.waiting_for(id).is_ok_and(|kept| !kept.is_empty()) {
-            return;
+        {
+            let store = self.store().lock().await;
+            if store.waiting_for(id).is_ok_and(|kept| !kept.is_empty()) || store.turn_end_carded(id).unwrap_or(false) {
+                return;
+            }
         }
         let Ok(rows) = self.rows_of(id).await else { return };
         let last_word = rows.iter().rev().find_map(|row| match row {

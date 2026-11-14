@@ -548,6 +548,9 @@ pub(crate) struct State {
     /// The last thing the agent said to the person in the turn running now, so the turn's end can say
     /// how it ended. Cleared when a turn starts. In memory.
     pub said: Option<String>,
+    /// The turn running now put a question card to the person: the card is its ask, so what it says
+    /// before the card or after his answer raises no ask of its own. Cleared when a turn starts.
+    pub carded: bool,
     /// The calls of the stream that wrote a page of the Job's document, by call id, to be kept once the
     /// tool has answered and the file is on disk. In memory.
     pub pages: HashMap<String, String>,
@@ -643,6 +646,7 @@ impl State {
             reattached_busy: false,
             turn_began: None,
             said: None,
+            carded: false,
             pages: HashMap::new(),
             on_your_words: false,
             activity: activity::Activity::default(),

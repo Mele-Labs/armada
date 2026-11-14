@@ -258,3 +258,86 @@ async fn a_question_held_when_fleet_stops_is_refused_with_the_restart_named() {
         .collect();
     assert_eq!(states, [SessionAskState::Unanswered], "the card closes rather than waiting on");
 }
+
+/// How he answers. With buttons, a reply that asks in words tells the Job to ask again, and that notice
+/// starts a turn, which hides the reply's item: so items are read with him typing, the notice with buttons.
+async fn answer_with(rig: &Rig, word: &str) {
+    rig.fleet
+        .save_preference_now(ipc::SavePreference { name: "answer_with".into(), value: false, text: Some(word.into()) })
+        .await
+        .expect("saved");
+}
+
+/// A turn begun on his words, once Fleet has heard it start, so a card asked next is in it.
+async fn a_turn(rig: &Rig, id: &SessionId, words: &str) {
+    rig.send(id, words).await;
+    rig.stand_in.init(0);
+    eventually(|| async { rig.fleet.hosts().of(id.as_str()).state().turn_began.is_some() }).await;
+}
+
+/// The card is asked and he answers it, inside the turn.
+async fn carded(rig: &Rig, id: &SessionId) {
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    let ask = waiting_on(rig, id).await;
+    let both = vec![chosen("Which toppings?", &["cheese"]), chosen("Which size?", &["S"])];
+    answer(rig, id, &ask.call, CallAnswer::AllowOnce, both).await.expect("answered");
+    held.await.unwrap().unwrap();
+}
+
+async fn ended_on(rig: &Rig, id: &SessionId, said: &str) {
+    eventually(|| async { rig.fleet.store().lock().await.turn_end(id.as_str()).unwrap().is_some_and(|(_, kept)| kept == said) }).await;
+}
+
+async fn replied_items(rig: &Rig, id: &SessionId) -> Vec<String> {
+    let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap();
+    read.session.waiting_for.iter().filter(|one| one.source == ipc::WaitingSource::Replied).map(|one| one.text.clone()).collect()
+}
+
+async fn told_to_ask_again(rig: &Rig, id: &SessionId) -> usize {
+    rig.rows(id).await.iter().filter(|row| matches!(row, SessionRow::Message { notice: Some(word), .. } if word == "reply_claim")).count()
+}
+
+/// Read as he answers by buttons: whether the reply tells the Job to ask again. Then back to typing.
+async fn asked_again(rig: &Rig, id: &SessionId, said: &str) -> usize {
+    answer_with(rig, "buttons").await;
+    Arc::clone(&rig.fleet).reply_asked_again(id.as_str(), said).await;
+    answer_with(rig, "type").await;
+    told_to_ask_again(rig, id).await
+}
+
+/// The prose an agent writes before its card, or the reply after he answered it, closes as an ask
+/// would. **The card was the turn's ask**: neither raises a Needs you item, nor tells the Job to ask
+/// again with buttons. The next turn with no card is read as before.
+#[tokio::test]
+async fn a_reply_in_the_turn_of_a_question_card_asks_nothing_more_and_a_turn_with_none_still_asks() {
+    const BEFORE: &str = "Two sizes fit. Which one should I order?";
+    const AFTER: &str = "Cheese, small. Want me to order it now?";
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+
+    // The prose, then the card, then the turn ends on nothing more.
+    a_turn(&rig, &id, "order lunch").await;
+    rig.stand_in.says(0, vec![adapter_traits::DroneEvent::Said { text: BEFORE.into(), by: adapter_traits::Speaker::Drone }]);
+    carded(&rig, &id).await;
+    rig.stand_in.says(0, vec![adapter_traits::DroneEvent::Ended { turns: 1, cost_micros: 0, refusals: 0 }]);
+    ended_on(&rig, &id, BEFORE).await;
+    assert_eq!(replied_items(&rig, &id).await, Vec::<String>::new(), "the prose before the card");
+    assert_eq!(asked_again(&rig, &id, BEFORE).await, 0, "the prose before the card");
+
+    // The card, then the reply after his answer.
+    a_turn(&rig, &id, "and a drink").await;
+    carded(&rig, &id).await;
+    rig.stand_in.finishes(0, AFTER);
+    ended_on(&rig, &id, AFTER).await;
+    assert_eq!(replied_items(&rig, &id).await, Vec::<String>::new(), "the reply after the answered card");
+    assert_eq!(asked_again(&rig, &id, AFTER).await, 0, "the reply after the answered card");
+
+    // No card this turn: the same close asks.
+    a_turn(&rig, &id, "and dessert").await;
+    rig.stand_in.finishes(0, AFTER);
+    ended_on(&rig, &id, AFTER).await;
+    assert_eq!(replied_items(&rig, &id).await, ["Want me to order it now?"]);
+    assert_eq!(asked_again(&rig, &id, AFTER).await, 1);
+}
