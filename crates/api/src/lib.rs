@@ -76,6 +76,8 @@ mod mcp;
 mod mods;
 /// His other Macs, as this Mac's Phone Gateway reaches Fleet for them.
 mod other_macs;
+/// The phone's routes, each cut to the Jobs in a shared project.
+mod phone_share;
 mod mac_terminals;
 /// Acts on a Job another Mac holds, sent there, and what another Mac sends here.
 mod mac_acts;

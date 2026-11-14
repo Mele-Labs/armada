@@ -97,6 +97,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
+| The project switcher (his report, 12 to 14 Nov) | Picking a project narrows the Jobs list to the Jobs started for it, with Active, Needs you and the other scopes still holding within them; All draws every Job again. The bar's own project name is the sign a filter is on, with no banner, and a window opens on All. ⌘T starts its Job for the picked project, in its first repository or the one the sheet's picker named |
 | Ended Jobs | Leave the list. The palette finds them |
 | Thread | A run of tool calls folds into one line that opens on a press |
 | Start | The app opens where he left off |
@@ -197,6 +198,24 @@ The parity check takes each row here as chosen.
 | A sketch's arrows, and how a sketch opens (owner, 13 Nov) | Classic keeps only the edge fields it knew before `line`, `head` and `path`, so every arrow is an elbow with a head at its end, dashed unless it says `flow: false`, and the panel plays its steps on open | Native draws `line` (solid, dashed or dotted), `head` (end, start, both or none) and `path` (elbow, straight or curve), in the canvas, the picture and page and the Mermaid copy, where Mermaid has the form. An arrow that says neither `line` nor `flow` is solid, as Fleet's docs have it. Each head has a straight run of two head lengths before it and its tip on the box's edge, and an arrow drawn later hops over one it crosses with a small half circle. The panel opens paused with every step lit, and Play starts from the first |
 | A plan's sketches (owner, 13 Nov: one approval for one decision) | Classic draws the plan without the sketches it names, and each keeps its own Approve on its card in the thread | Each sketch the plan names is drawn inside the plan at the column's width: the whole plan's under its summary, a group's under that group, in the thread's plan card and the review sheet. A press opens it, and the pointer on it plays its steps. The plan's one Approve answers them all. While the plan waits, a sketch's own card in the thread reads With the plan and has no Approve or Ask for changes, and Fleet leaves it out of Needs you |
 | The review sheet, several items at once (owner's look, 14 Nov) | One Job's items, answered one at a time with ⌘↵ and ⌥R, its plan edited in place | Every item with an Approve across Jobs, grouped under each Job's name and state. A, C and D answer the chosen item; ⇧A and ⇧D answer every item still asking in one `answer_items` or `dismiss_items` call, and a refusal stands on its own row in Fleet's words. Questions, Job starts, commands and walks stay on their cards, and the plan is read here and edited in Now |
+
+## Macs found
+
+**Settings › Macs lists the Macs it finds beside the ones it has paired, with a Pair on each.**
+The page has two lists, PAIRED and FOUND, each under a small uppercase muted heading.
+FOUND lists the Macs the Gateway finds on his Cloudflare account and on this network that are not paired.
+A found row has the Mac's colour dot, its name, one chip and Pair.
+The chip is green Nearby when Bonjour sees it, else blue On your account when its tunnel is connected, else grey Asleep.
+Pair is off while the Mac is asleep, and its tooltip says it is asleep or Armada is closed there.
+A paired Mac that Bonjour sees now gains the green Nearby chip after its name in PAIRED.
+The Nearby chip has a small screen glyph before its word and the tooltip Found on this network.
+It is matched to its found row by name, since a paired Mac carries no tunnel.
+Pair asks that Mac to pair with no link, and the row joins PAIRED waiting on Confirm with the four digits both Macs show.
+Confirm stays the page's own Confirm on the other Mac's row.
+A refusal stands under the found row in the Gateway's words.
+The list is read again every two seconds with the Macs, so a Mac Bonjour finds turns up without reopening Settings.
+FOUND is not drawn when nothing is unpaired, and the Gateway's sentence stands above its rows when the account could not be read.
+`native-nearby-macs` plays it.
 
 ## Notifying
 

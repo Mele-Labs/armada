@@ -19,6 +19,7 @@ pub mod fleet;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
+pub mod project_filter;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -1732,6 +1733,13 @@ pub static WALKS: &[Walk] = &[
         steps: &new_project::STEPS,
     },
     Walk {
+        name: "native-project-filter",
+        title: "The project switcher narrows the Jobs list, and ⌘T starts its Job in the project",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &project_filter::STEPS,
+    },
+    Walk {
         name: "jobs-ended-glyph",
         title: "An ended Job's mark beside a quiet one",
         screen: Screen::Jobs,
@@ -3028,6 +3036,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::MACS_BUILD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_NEARBY,
+        title: "Settings › Macs: Macs nearby and on your account",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_NEARBY_STEPS,
     },
     Walk {
         name: crate::settings::walk::WAYS,
