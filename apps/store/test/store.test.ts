@@ -1,6 +1,6 @@
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { CLAIM_KINDS, LAPSE_SECONDS } from "../src/rows";
+import { CLAIM_KINDS, LAPSE_SECONDS, MAX_CONTENDERS } from "../src/rows";
 import { signRequest } from "../src/signing";
 import vector from "../test-vectors/red-claim.json";
 import {
@@ -204,6 +204,7 @@ describe("a renewal", () => {
     expect(renewal.status).toBe(200);
     expect(await renewal.json()).toEqual({
       claims: CLAIM_KINDS.length,
+      contested: [],
     });
     for (const kind of CLAIM_KINDS) {
       const read = await answered(await call(a, "GET", claimPath(hash("a"), kind, hash("b"))));
@@ -218,6 +219,7 @@ describe("a renewal", () => {
     await claimRed(a, hash("a"), hash("b"), claimant("s-1", "Home Mac"));
     expect(await (await renew(a, claimant("s-1", "Work Mac"))).json()).toEqual({
       claims: 0,
+      contested: [],
     });
   });
 
@@ -229,6 +231,7 @@ describe("a renewal", () => {
     });
     expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
       claims: 0,
+      contested: [],
     });
     expect((await call(a, "GET", claimPath(hash("a"), "red", hash("b")))).status).toBe(404);
   });
@@ -248,6 +251,569 @@ describe("a renewal", () => {
     });
     expect(person.status).toBe(400);
     expect((await call(a, "GET", "/v1/renewals")).status).toBe(405);
+  });
+});
+
+/** The contenders left in the table, as `kind/id` of each. */
+async function contendersLeft(account: number): Promise<string[]> {
+  return runInDurableObject(accountObject(account), (_instance, state) =>
+    state.storage.sql
+      .exec<{
+        who: string;
+      }>("SELECT contender_kind || '/' || contender_id AS who FROM contenders ORDER BY who")
+      .toArray()
+      .map((row) => row.who),
+  );
+}
+
+/** Sets when each contender last asked, as though that many seconds had passed since. */
+async function askedAgo(account: number, ago: Record<string, number>) {
+  await runInDurableObject(accountObject(account), (_instance, state) => {
+    for (const [id, seconds] of Object.entries(ago))
+      state.storage.sql.exec(
+        "UPDATE contenders SET at = ? WHERE contender_id = ?",
+        now() - seconds,
+        id,
+      );
+  });
+}
+
+/** Whether each contender was told, as `id` to its flag. */
+async function toldOf(account: number): Promise<Record<string, number>> {
+  return runInDurableObject(accountObject(account), (_instance, state) =>
+    Object.fromEntries(
+      state.storage.sql
+        .exec<{
+          contender_id: string;
+          told: number;
+        }>("SELECT contender_id, told FROM contenders ORDER BY contender_id")
+        .toArray()
+        .map((row) => [
+          row.contender_id,
+          row.told,
+        ]),
+    ),
+  );
+}
+
+type Listed = {
+  holders: {
+    holder: Record<string, unknown>;
+    renewed: number;
+    claims: Record<string, unknown>[];
+    waits: Record<string, unknown>[];
+  }[];
+};
+const listed = async (answer: Response) => (await answer.json()) as Listed;
+
+/** Within a few seconds of `ago` seconds before now. */
+const around = (renewed: number, ago: number) => Math.abs(renewed - (now() - ago)) <= 5;
+
+describe("a contested claim", () => {
+  it("records the one refused, and the holder's next renewal is told of it once", async () => {
+    const a = await enrolDevice(5801);
+    await claim(
+      a,
+      hash("a"),
+      "file",
+      hash("b"),
+      claimant("s-1", "Home Mac", "Nick", "Fix the queue"),
+    );
+    const refused = await claim(
+      a,
+      hash("a"),
+      "file",
+      hash("b"),
+      claimant("s-2", "Work Mac", "Ada", "Rename the queue"),
+    );
+    expect(refused.status).toBe(409);
+    expect(await contendersLeft(5801)).toEqual([
+      "job/s-2",
+    ]);
+
+    const told = (await (await renew(a, claimant("s-1", "Home Mac"))).json()) as {
+      claims: number;
+      contested: Record<string, unknown>[];
+    };
+    expect(told.claims).toBe(1);
+    expect(told.contested).toEqual([
+      {
+        repo: hash("a"),
+        kind: "file",
+        key: hash("b"),
+        holder: {
+          kind: "job",
+          id: "s-2",
+          machine: "Work Mac",
+          since: claimant("s-2").since,
+          name: "Ada",
+          title: "Rename the queue",
+        },
+      },
+    ]);
+    expect(await contendersLeft(5801)).toEqual([
+      "job/s-2",
+    ]);
+    expect(await (await renew(a, claimant("s-1", "Home Mac"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+  });
+
+  it("keeps one row for a contender that asks again, with its latest title", async () => {
+    const a = await enrolDevice(5802);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "First"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "Second"));
+    const told = (await (await renew(a, claimant("s-1"))).json()) as {
+      contested: {
+        holder: {
+          title: string;
+        };
+      }[];
+    };
+    expect(told.contested.map((contest) => contest.holder.title)).toEqual([
+      "Second",
+    ]);
+  });
+
+  it("is not recorded when the holder asks for its own claim again", async () => {
+    const a = await enrolDevice(5803);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    expect((await claim(a, hash("a"), "file", hash("b"), claimant("s-1"))).status).toBe(409);
+    expect(await contendersLeft(5803)).toEqual([]);
+    expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+  });
+
+  it("is told only to the holder of the claim", async () => {
+    const a = await enrolDevice(5804);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    expect(await (await renew(a, claimant("s-2"))).json()).toEqual({
+      claims: 0,
+      contested: [],
+    });
+    expect(await contendersLeft(5804)).toEqual([
+      "job/s-2",
+    ]);
+  });
+
+  it("drops its contenders when the claim is given back, when its kind is cleared and when it lapses", async () => {
+    const a = await enrolDevice(5805);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "red", hash("c"), claimant("s-1"));
+    await claim(a, hash("a"), "test", hash("d"), claimant("s-3"));
+    for (const [kind, key] of [
+      [
+        "file",
+        "b",
+      ],
+      [
+        "red",
+        "c",
+      ],
+      [
+        "test",
+        "d",
+      ],
+    ] as const)
+      await claim(a, hash("a"), kind, hash(key), claimant("s-2"));
+    expect(await contendersLeft(5805)).toEqual([
+      "job/s-2",
+      "job/s-2",
+      "job/s-2",
+    ]);
+
+    await call(a, "DELETE", claimPath(hash("a"), "file", hash("b")));
+    expect(await contendersLeft(5805)).toHaveLength(2);
+    await call(a, "DELETE", `/v1/claims/${hash("a")}/red`);
+    expect(await contendersLeft(5805)).toHaveLength(1);
+    await renewedAgo(5805, {
+      "s-3": LAPSE_SECONDS,
+    });
+    await call(a, "GET", claimPath(hash("a"), "test", hash("d")));
+    expect(await contendersLeft(5805)).toEqual([]);
+  });
+
+  it("drops its contenders when a lapse is run by the alarm", async () => {
+    const a = await enrolDevice(5806);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    await renewedAgo(5806, {
+      "s-1": LAPSE_SECONDS,
+    });
+    await runDurableObjectAlarm(accountObject(5806));
+    expect(await contendersLeft(5806)).toEqual([]);
+  });
+
+  it("is answered 409 with no row kept once the account holds 10,000 contenders", async () => {
+    const a = await enrolDevice(5807);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await runInDurableObject(accountObject(5807), (_instance, state) => {
+      state.storage.sql.exec(
+        `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+         INSERT INTO contenders (repo, kind, key, contender_kind, contender_id, machine, name, title, since, at)
+         SELECT ?, 'file', ?, 'job', 'filler-' || i, 'studio', '', '', 1, ? FROM n`,
+        MAX_CONTENDERS,
+        hash("a"),
+        hash("b"),
+        now(),
+      );
+    });
+    const refused = await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    expect(refused.status).toBe(409);
+    expect((await answered(refused)).holder.id).toBe("s-1");
+    const kept = await runInDurableObject(
+      accountObject(5807),
+      (_instance, state) =>
+        state.storage.sql
+          .exec<{
+            n: number;
+          }>("SELECT COUNT(*) AS n FROM contenders WHERE contender_id = 's-2'")
+          .one().n,
+    );
+    expect(kept).toBe(0);
+  });
+});
+
+describe("a contender that was told", () => {
+  it("is told once, stays on the claim and is still a wait after its holder renews", async () => {
+    const a = await enrolDevice(5810);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1", "Home Mac"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "Work Mac", "Ada", "Rename"));
+    expect(await toldOf(5810)).toEqual({
+      "s-2": 0,
+    });
+
+    const first = (await (await renew(a, claimant("s-1", "Home Mac"))).json()) as {
+      contested: unknown[];
+    };
+    expect(first.contested).toHaveLength(1);
+    expect(await toldOf(5810)).toEqual({
+      "s-2": 1,
+    });
+    expect(await (await renew(a, claimant("s-1", "Home Mac"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+
+    const waits = (await listed(await call(a, "GET", "/v1/claims"))).holders.find(
+      (group) => group.holder.id === "s-2",
+    )!.waits;
+    expect(waits.map((wait) => wait.key)).toEqual([
+      hash("b"),
+    ]);
+  });
+
+  it("keeps its told flag when it asks again, and a new contender is told on the next renewal", async () => {
+    const a = await enrolDevice(5811);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "First"));
+    await renew(a, claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "studio", "Ada", "Second"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-3", "studio", "Sam", "Third"));
+    expect(await toldOf(5811)).toEqual({
+      "s-2": 1,
+      "s-3": 0,
+    });
+
+    const told = (await (await renew(a, claimant("s-1"))).json()) as {
+      contested: {
+        holder: {
+          id: string;
+        };
+      }[];
+    };
+    expect(told.contested.map((contest) => contest.holder.id)).toEqual([
+      "s-3",
+    ]);
+    expect(await toldOf(5811)).toEqual({
+      "s-2": 1,
+      "s-3": 1,
+    });
+  });
+
+  it("lapses 30 minutes after it last asked, read as gone before the alarm has run", async () => {
+    const a = await enrolDevice(5812);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    await askedAgo(5812, {
+      "s-2": LAPSE_SECONDS - 60,
+    });
+    let groups = (await listed(await call(a, "GET", "/v1/claims"))).holders;
+    expect(groups.map((group) => group.holder.id)).toEqual([
+      "s-1",
+      "s-2",
+    ]);
+
+    await askedAgo(5812, {
+      "s-2": LAPSE_SECONDS,
+    });
+    groups = (await listed(await call(a, "GET", "/v1/claims"))).holders;
+    expect(groups.map((group) => group.holder.id)).toEqual([
+      "s-1",
+    ]);
+    expect(await contendersLeft(5812)).toEqual([]);
+  });
+
+  it("lapses on a renewal as well, and its claim stays", async () => {
+    const a = await enrolDevice(5813);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    await askedAgo(5813, {
+      "s-2": LAPSE_SECONDS,
+    });
+    expect(await (await renew(a, claimant("s-1"))).json()).toEqual({
+      claims: 1,
+      contested: [],
+    });
+    expect(await contendersLeft(5813)).toEqual([]);
+  });
+
+  it("is dropped by the alarm when its asker stopped asking, and the alarm is set for it", async () => {
+    const a = await enrolDevice(5814);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    await askedAgo(5814, {
+      "s-2": LAPSE_SECONDS,
+    });
+    expect(await runDurableObjectAlarm(accountObject(5814))).toBe(true);
+    expect(await contendersLeft(5814)).toEqual([]);
+    expect(await holdersOfClaims(5814)).toEqual([
+      "s-1",
+    ]);
+  });
+});
+
+describe("the claims list", () => {
+  it("groups every live claim by holder, with each holder's waits, in order", async () => {
+    const [home, work] = [
+      await enrolDevice(5901),
+      await enrolDevice(5901),
+    ];
+    const at = (id: string, machine: string, name: string, title: string, since: number) => ({
+      ...claimant(id, machine, name, title),
+      since,
+    });
+    const nick = at("s-1", "Home Mac", "Nick", "Fix the queue", 1000);
+    const ada = at("s-2", "Work Mac", "Ada", "Speed up the build", 2000);
+    const adaHome = at("s-4", "Home Mac", "Ada", "Tidy the docs", 3000);
+    const sam = at("s-3", "Work Mac", "Ada", "Rename the queue", 4000);
+    await claim(home, hash("a"), "test", hash("b"), nick);
+    await claim(home, hash("a"), "item", hash("c"), nick);
+    await claim(home, hash("a"), "file", hash("e"), {
+      ...nick,
+      since: 300,
+    });
+    await claim(home, hash("a"), "file", hash("f"), {
+      ...nick,
+      since: 200,
+    });
+    await claim(home, hash("a"), "pull_request", hash("g"), nick);
+    await claim(work, hash("a"), "red", hash("d"), ada);
+    await claim(home, hash("a"), "item", hash("h"), adaHome);
+    expect((await claim(work, hash("a"), "test", hash("b"), sam)).status).toBe(409);
+    expect((await claim(work, hash("a"), "item", hash("c"), sam)).status).toBe(409);
+    await renewedAgo(5901, {
+      "s-1": 100,
+      "s-2": 200,
+      "s-4": 300,
+    });
+    await askedAgo(5901, {
+      "s-3": 60,
+    });
+
+    const answer = await call(home, "GET", "/v1/claims");
+    expect(answer.status).toBe(200);
+    const { holders } = await listed(answer);
+
+    expect(
+      holders.map((group) => [
+        group.holder.name,
+        group.holder.machine,
+        group.holder.kind,
+        group.holder.id,
+      ]),
+    ).toEqual([
+      [
+        "Ada",
+        "Home Mac",
+        "job",
+        "s-4",
+      ],
+      [
+        "Ada",
+        "Work Mac",
+        "job",
+        "s-2",
+      ],
+      [
+        "Ada",
+        "Work Mac",
+        "job",
+        "s-3",
+      ],
+      [
+        "Nick",
+        "Home Mac",
+        "job",
+        "s-1",
+      ],
+    ]);
+    const [adaHomeGroup, adaGroup, contenderGroup, nickGroup] = holders;
+
+    expect(nickGroup!.holder).toEqual({
+      kind: "job",
+      id: "s-1",
+      machine: "Home Mac",
+      name: "Nick",
+      title: "Fix the queue",
+    });
+    expect(around(nickGroup!.renewed, 100)).toBe(true);
+    expect(nickGroup!.claims).toEqual([
+      {
+        repo: hash("a"),
+        kind: "file",
+        key: hash("f"),
+        since: 200,
+      },
+      {
+        repo: hash("a"),
+        kind: "file",
+        key: hash("e"),
+        since: 300,
+      },
+      {
+        repo: hash("a"),
+        kind: "item",
+        key: hash("c"),
+        since: 1000,
+      },
+      {
+        repo: hash("a"),
+        kind: "pull_request",
+        key: hash("g"),
+        since: 1000,
+      },
+      {
+        repo: hash("a"),
+        kind: "test",
+        key: hash("b"),
+        since: 1000,
+      },
+    ]);
+    expect(nickGroup!.waits).toEqual([]);
+
+    expect(adaGroup!.claims).toEqual([
+      {
+        repo: hash("a"),
+        kind: "red",
+        key: hash("d"),
+        since: 2000,
+      },
+    ]);
+    expect(around(adaGroup!.renewed, 200)).toBe(true);
+    expect(adaHomeGroup!.claims).toEqual([
+      {
+        repo: hash("a"),
+        kind: "item",
+        key: hash("h"),
+        since: 3000,
+      },
+    ]);
+    expect(around(adaHomeGroup!.renewed, 300)).toBe(true);
+
+    expect(contenderGroup!.holder).toEqual({
+      kind: "job",
+      id: "s-3",
+      machine: "Work Mac",
+      name: "Ada",
+      title: "Rename the queue",
+    });
+    expect(around(contenderGroup!.renewed, 60)).toBe(true);
+    expect(contenderGroup!.claims).toEqual([]);
+    const heldBy = {
+      kind: "job",
+      id: "s-1",
+      machine: "Home Mac",
+      since: 1000,
+      name: "Nick",
+      title: "Fix the queue",
+    };
+    expect(contenderGroup!.waits).toEqual([
+      {
+        repo: hash("a"),
+        kind: "item",
+        key: hash("c"),
+        holder: heldBy,
+      },
+      {
+        repo: hash("a"),
+        kind: "test",
+        key: hash("b"),
+        holder: heldBy,
+      },
+    ]);
+  });
+
+  it("names a holder that both holds and waits from its own row, and leaves a lapsed holder and its claims out", async () => {
+    const a = await enrolDevice(5902);
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1", "Home Mac", "Nick", "One"));
+    await claim(a, hash("a"), "file", hash("c"), claimant("s-2", "Work Mac", "Ada", "Two"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2", "Work Mac", "Ada", "Two"));
+    await claim(a, hash("a"), "file", hash("d"), claimant("s-3", "Work Mac", "Sam", "Three"));
+    await renewedAgo(5902, {
+      "s-3": LAPSE_SECONDS,
+    });
+
+    const { holders } = await listed(await call(a, "GET", "/v1/claims"));
+
+    expect(holders.map((group) => group.holder.id)).toEqual([
+      "s-2",
+      "s-1",
+    ]);
+    expect(holders[0]!.claims.map((held) => held.key)).toEqual([
+      hash("c"),
+    ]);
+    expect(holders[0]!.waits.map((wait) => wait.key)).toEqual([
+      hash("b"),
+    ]);
+  });
+
+  it("is an empty list for an account holding nothing, and writes nothing", async () => {
+    const a = await enrolDevice(5903);
+    expect(await listed(await call(a, "GET", "/v1/claims"))).toEqual({
+      holders: [],
+    });
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-1"));
+    await claim(a, hash("a"), "file", hash("b"), claimant("s-2"));
+    const tables = async () =>
+      (
+        JSON.parse(await everythingStoredFor(5903)) as {
+          name: string;
+          rows: unknown[];
+        }[]
+      ).filter((table) =>
+        [
+          "claims",
+          "holders",
+          "contenders",
+        ].includes(table.name),
+      );
+    const before = await tables();
+    await call(a, "GET", "/v1/claims");
+    expect(await tables()).toEqual(before);
+  });
+
+  it("takes a signed GET and no other method", async () => {
+    const a = await enrolDevice(5904);
+    expect((await call(a, "PUT", "/v1/claims", {})).status).toBe(405);
+    expect((await call(a, "DELETE", "/v1/claims")).status).toBe(405);
+    const unsigned = await toStore(`${STORE}/v1/claims`);
+    expect(unsigned.status).toBe(401);
   });
 });
 
@@ -330,6 +896,63 @@ describe("a store built on the October schema", () => {
     expect(await holdersOfClaims(account)).toEqual([
       "s-new",
     ]);
+  });
+});
+
+describe("a store whose contenders table has no told column", () => {
+  it("gets the column at the first verified request and keeps its rows, none of them told", async () => {
+    const account = 5702;
+    const { key, spki } = await newKeyPair();
+    const device = {
+      id: `${account}.${"e".repeat(32)}`,
+      key,
+      account,
+      token: "",
+    };
+    await runInDurableObject(accountObject(account), (_instance, state) => {
+      const sql = state.storage.sql;
+      sql.exec(`
+        CREATE TABLE devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
+        CREATE TABLE nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
+        CREATE TABLE owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
+        CREATE TABLE claims (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, holder_kind TEXT NOT NULL, holder_id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL, PRIMARY KEY (repo, kind, key));
+        CREATE TABLE holders (kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, renewed INTEGER NOT NULL, PRIMARY KEY (kind, id, machine));
+        CREATE TABLE contenders (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, contender_kind TEXT NOT NULL, contender_id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, since INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (repo, kind, key, contender_kind, contender_id, machine));
+      `);
+      sql.exec(
+        "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, 'studio')",
+        device.id,
+        spki,
+      );
+      sql.exec(
+        "INSERT INTO claims VALUES (?, 'file', ?, 'job', 's-1', 'studio', 1)",
+        hash("a"),
+        hash("b"),
+      );
+      sql.exec("INSERT INTO holders VALUES ('job', 's-1', 'studio', 'Nick', 'One', ?)", now());
+      sql.exec(
+        "INSERT INTO contenders VALUES (?, 'file', ?, 'job', 's-2', 'studio', 'Ada', 'Two', 1, ?)",
+        hash("a"),
+        hash("b"),
+        now(),
+      );
+    });
+
+    const { holders } = await listed(await call(device, "GET", "/v1/claims"));
+    expect(holders.map((group) => group.holder.id)).toEqual([
+      "s-2",
+      "s-1",
+    ]);
+    expect(await toldOf(account)).toEqual({
+      "s-2": 0,
+    });
+    const told = (await (await renew(device, claimant("s-1"))).json()) as {
+      contested: unknown[];
+    };
+    expect(told.contested).toHaveLength(1);
+    expect(await toldOf(account)).toEqual({
+      "s-2": 1,
+    });
   });
 });
 

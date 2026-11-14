@@ -44,6 +44,8 @@ mod checks;
 mod disputes;
 /// An agent's report that Armada itself got something wrong, kept on this Mac.
 mod bug_reports;
+/// `raise_conflict` and `ask_held`, the two things a Job may send the Operator.
+mod job_asks;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -137,6 +139,7 @@ mod issues;
 mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
+mod project_store;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
@@ -353,6 +356,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
@@ -516,9 +520,10 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
+pub use project_store::{ClaimsHolder, ClaimsWait, DeployProjectStore, HeldClaim, HeldClaimKind, JoinStore, ProjectClaims, ProjectStoreState, SetProjectStore, StoreDeploy, StoreDeployed, StoreJoin};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
-    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectStore, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{
@@ -711,20 +716,20 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use mac_acts::{ArrivingJob, CarriedConversation, DispatchOn, JobAct, JobMessage, MacAct, MoveJobToMac, MoveSettled, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{
     ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
     OtherMacProjects, OtherMacSessions,
 };
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
-pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemOutcome, ItemRef, ItemSettled, ItemsSettled, NoteOn};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use artifact::{
-    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, PageAct, PagePress, PressDid, PressPageAction, SaveArtifactEdit,
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
 pub use sketch::{
@@ -758,8 +763,8 @@ pub use session_summary::{
 pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
-    PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
-    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
+    PullRequestClaimed, NameSession, RenameSession, TakeMainRed, CallTestFlaky, TestCalledFlaky, SessionFact, SessionId, SessionList,
+    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,

@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use gpui::{div, prelude::*, px, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{CloudflareState, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac};
+use ipc::{CloudflareState, FoundMac, FoundMacs, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac};
 
 use super::entries::Body;
 use crate::dropdown::{Dropdown, Entry, Picked};
@@ -32,6 +32,8 @@ pub struct MacsPage {
     setup: Option<Result<GatewaySetup, String>>,
     macs: Option<Result<Vec<Mac>, String>>,
     phones: Option<Result<Vec<PairedPhone>, String>>,
+    /// The Macs found on his account and on this network, as last read. A read that fails leaves the last good one.
+    found: Option<FoundMacs>,
     asked: bool,
     pressing: bool,
     /// The press's refusal, said under its button.
@@ -43,7 +45,7 @@ pub struct MacsPage {
     paste: Entity<InputState>,
     paste_focus: FocusHandle,
     /// A pairing act's refusal, said under it, by the act's key: `pair`, `claim`, `confirm:<id>`, `forget:<id>`,
-    /// `update:<id>` or `update-this:<id>`.
+    /// `update:<id>`, `update-this:<id>` or `ask:<tunnel>`.
     refused: BTreeMap<String, String>,
     /// The Macs whose Update was pressed and whose row still reads another build: the press says Updating.
     updating: BTreeSet<String>,
@@ -149,6 +151,7 @@ impl MacsPage {
             setup: None,
             macs: None,
             phones: None,
+            found: None,
             asked: false,
             pressing: false,
             said: None,
@@ -282,6 +285,48 @@ fn frozen(mac: &Mac) -> bool {
     matches!(mac.link, Some(MacLink::OlderBuild | MacLink::NewerBuild))
 }
 
+/// The Macs found and not paired: a pairing waiting on a Confirm counts as paired, as the Gateway says.
+fn unpaired(found: &FoundMacs) -> impl Iterator<Item = &FoundMac> + '_ {
+    found.macs.iter().filter(|one| !one.paired)
+}
+
+/// Where a found Mac can be reached now, which is the one chip its row carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Presence {
+    /// Bonjour sees it on this network.
+    Nearby,
+    /// Cloudflare says its tunnel is connected.
+    OnAccount,
+    /// Neither: asleep, or Armada is closed there.
+    Asleep,
+}
+
+impl Presence {
+    fn said(self) -> &'static str {
+        match self {
+            Presence::Nearby => "Nearby",
+            Presence::OnAccount => "On your account",
+            Presence::Asleep => "Asleep",
+        }
+    }
+}
+
+fn presence_of(mac: &FoundMac) -> Presence {
+    if mac.nearby {
+        Presence::Nearby
+    } else if mac.online {
+        Presence::OnAccount
+    } else {
+        Presence::Asleep
+    }
+}
+
+/// Whether a paired Mac is seen on this network now. The paired `Mac` carries no tunnel, so its found row is matched by
+/// name, among the rows the Gateway marks paired.
+fn paired_nearby(found: Option<&FoundMacs>, mac: &Mac) -> bool {
+    !mac.this_mac && found.is_some_and(|found| found.macs.iter().any(|one| one.paired && one.nearby && one.name == mac.name))
+}
+
 /// What a press on one row is called for VoiceOver and for a walk, and what its tooltip says it does.
 fn press_said(mac: &Mac, said: &str, going: bool) -> (String, Option<String>) {
     match (&mac.link, going) {
@@ -379,7 +424,7 @@ impl SettingsOverlay {
     }
 
     fn read_devices(&mut self, cx: &mut Context<Self>) {
-        let (macs, phones) = (self.wire.gateway_macs(cx), self.wire.gateway_phones(cx));
+        let (macs, phones, found) = (self.wire.gateway_macs(cx), self.wire.gateway_phones(cx), self.wire.gateway_found(cx));
         self.macs._reads = vec![
             cx.spawn(async move |this, cx| {
                 let answer = macs.await;
@@ -397,6 +442,15 @@ impl SettingsOverlay {
                 let answer = phones.await;
                 let _ = this.update(cx, |this, cx| {
                     this.macs.phones = Some(answer);
+                    cx.notify();
+                });
+            }),
+            cx.spawn(async move |this, cx| {
+                let answer = found.await;
+                let _ = this.update(cx, |this, cx| {
+                    if let Ok(found) = answer {
+                        this.macs.found = Some(found);
+                    }
                     cx.notify();
                 });
             }),
@@ -486,6 +540,7 @@ impl SettingsOverlay {
         if let Some(Ok(phones)) = &self.macs.phones {
             names.extend(phones.iter().map(|one| format!("unpair:{}", one.id)));
         }
+        names.extend(self.macs.found.iter().flat_map(|found| unpaired(found)).map(|one| format!("ask:{}", one.tunnel)));
         for name in names {
             self.macs.keys.entry(name).or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
@@ -553,6 +608,7 @@ impl SettingsOverlay {
         if let Some(Ok(phones)) = &page.phones {
             stops.extend(phones.iter().filter_map(|one| key(&format!("unpair:{}", one.id))));
         }
+        stops.extend(page.found.iter().flat_map(|found| unpaired(found)).filter_map(|one| key(&format!("ask:{}", one.tunnel))));
         stops
     }
 
@@ -679,6 +735,8 @@ impl SettingsOverlay {
                     self.update_mac(id.to_string(), true, window, cx);
                 } else if let Some(id) = name.strip_prefix("update:") {
                     self.update_mac(id.to_string(), false, window, cx);
+                } else if let Some(tunnel) = name.strip_prefix("ask:") {
+                    self.ask_mac(tunnel.to_string(), window, cx);
                 }
             }
         }
@@ -940,6 +998,42 @@ impl SettingsOverlay {
                     }
                     if let Some(row) = this.macs.macs.as_mut().and_then(|macs| macs.as_mut().ok()).and_then(|macs| macs.iter_mut().find(|one| one.id == mac.id)) {
                         *row = mac;
+                    }
+                    this.read_devices(cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// `POST /admin/macs/pair/ask`: the found Mac is asked to pair, with no link. It joins the list waiting on its Confirm,
+    /// which the page draws as it draws one claimed by a link, and the keys move to its Forget. A refusal is said under
+    /// the row in the Gateway's words.
+    fn ask_mac(&mut self, tunnel: String, window: &mut Window, cx: &mut Context<Self>) {
+        let act = format!("ask:{tunnel}");
+        let Some(asleep) = self.macs.found.iter().flat_map(|found| unpaired(found)).find(|one| one.tunnel == tunnel).map(|one| presence_of(one) == Presence::Asleep) else { return };
+        if asleep || !self.begin(&act) {
+            return;
+        }
+        let press = self.wire.pair_ask(tunnel.clone(), cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = press.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if let Some(mac) = this.answered(&act, answer) {
+                    let forget = this.macs.keys.entry(format!("forget:{}", mac.id)).or_insert_with(|| cx.focus_handle().tab_stop(true)).clone();
+                    if this.holds(&act, window) {
+                        window.focus(&forget, cx);
+                    }
+                    if let Some(found) = this.macs.found.as_mut() {
+                        found.macs.iter_mut().filter(|one| one.tunnel == tunnel).for_each(|one| one.paired = true);
+                    }
+                    if let Some(Ok(macs)) = this.macs.macs.as_mut() {
+                        match macs.iter_mut().find(|one| one.id == mac.id) {
+                            Some(row) => *row = mac,
+                            None => macs.push(mac),
+                        }
                     }
                     this.read_devices(cx);
                 }
@@ -1295,6 +1389,7 @@ impl SettingsOverlay {
             first = false;
         };
         let refused_at = |act: &str| page.refused.get(act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
+        let near = |mac: &Mac| paired_nearby(page.found.as_ref(), mac);
         match (&page.macs, &page.phones) {
             (None, _) | (_, None) => {
                 for _ in 0..3 {
@@ -1315,7 +1410,8 @@ impl SettingsOverlay {
                     let act = press_of_mac(mac).map(|(act, said)| (format!("{act}:{}", mac.id), said));
                     let press = act.as_ref().and_then(|(key, said)| if differs { self.update_button(mac, key, said, look, window, cx) } else { self.row_button(key, said, format!("{said} {}", mac.name), matches!(mac.link, Some(MacLink::ConfirmWaiting)), look, window, cx) });
                     let ink = if differs { token::STATUS_ESCALATED } else { token::FG_MUTED };
-                    let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), mac.why.as_deref(), asleep)
+                    let nearby = near(mac).then(|| presence_chip(look, format!("macs-nearby-{}", mac.id), Presence::Nearby, &mac.name));
+                    let row = device_row(look, chip(look, mac), &mac.name, mac.this_mac.then_some("This Mac"), nearby, mac.why.as_deref(), asleep)
                         .child(div().flex_none().children(mac.build.as_ref().map(|build| build_mark_in(look, format!("macs-build-{}", mac.id), build, look.color(ink)))))
                         .child(div().flex_none().w(look.length(token::SPACE_6)).flex().justify_center().children(mark))
                         .child(press_column(look, press));
@@ -1333,7 +1429,7 @@ impl SettingsOverlay {
                     let seen = phone.last_seen_at.map_or("Never seen".to_string(), |at| format!("Seen {}", age_of(at)));
                     let icon = svg().flex_none().path(icon_path("smartphone")).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(look.color(token::FG_MUTED)).into_any_element();
                     let unpair = self.unpair_button(phone, look, window, cx);
-                    let row = device_row(look, icon, &phone.name, None, None, false)
+                    let row = device_row(look, icon, &phone.name, None, None, None, false)
                         .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(seen)))
                         .child(div().flex_none().w(look.length(token::SPACE_6)))
                         .child(press_column(look, unpair));
@@ -1349,8 +1445,68 @@ impl SettingsOverlay {
         let pair = self.macs_button("pair", "Pair a Mac", Weight::Ghost, page.out.as_deref() == Some("pair"), look, window, cx);
         let pair_phone = self.macs_button("pair-phone", "Pair a phone", Weight::Ghost, page.out.as_deref() == Some("pair-phone"), look, window, cx);
         let presses = div().flex().items_center().gap(look.length(token::SPACE_2)).child(pair).child(pair_phone).into_any_element();
-        let body = self.phone_panel(look, window, cx).into_iter().chain([self.pairing(look, window, cx), list.into_any_element()]).collect();
+        let paired = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(section_head(look, "macs-paired-head", "Paired")).child(list).into_any_element();
+        let body = self.phone_panel(look, window, cx).into_iter().chain([self.pairing(look, window, cx), paired]).chain(self.found_section(look, window, cx)).collect();
         labelled(card(look, "settings-card-devices", "Devices", Some(presses), body), Role::Region, "Devices").into_any_element()
+    }
+
+    /// The Macs found and not paired, each with the chip that says where it is reached and a Pair. Nothing is drawn while
+    /// none is found, and the Gateway's sentence stands above the rows when it could not read the account.
+    fn found_section(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let found = self.macs.found.as_ref()?;
+        let rows: Vec<AnyElement> = unpaired(found)
+            .enumerate()
+            .map(|(at, one)| {
+                let act = format!("ask:{}", one.tunnel);
+                let dot = match one.colour {
+                    Some(colour) => (colour_of(look, colour), format!("{} colour", colour.name())),
+                    None => (look.color(token::FG_SUBTLE), "No colour".to_string()),
+                };
+                let dot = labelled(div().id(SharedString::from(format!("macs-found-dot-{}", one.tunnel))).flex_none().size(look.length(token::SPACE_3)).rounded_full().bg(dot.0), Role::Image, dot.1);
+                let name = labelled(
+                    div().id(SharedString::from(format!("macs-found-name-{}", one.tunnel))).flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).tooltip(tip(one.name.clone())).child(SharedString::from(one.name.clone())),
+                    Role::Label,
+                    one.name.clone(),
+                );
+                let chip = presence_chip(look, format!("macs-found-chip-{}", one.tunnel), presence_of(one), &one.name);
+                let row = div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().child(dot))
+                    .child(name)
+                    .child(chip_column(look, Some(chip), FOUND_CHIP))
+                    .child(div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_2)).flex().justify_end().children(self.ask_button(one, look, window, cx)));
+                let refused = self.macs.refused.get(&act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(row)
+                    .children(refused)
+                    .pb(look.length(token::SPACE_3))
+                    .when(at > 0, |row| row.pt(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                    .into_any_element()
+            })
+            .collect();
+        if rows.is_empty() {
+            return None;
+        }
+        let why = found.why.as_deref().map(|why| labelled(div().id("macs-found-why").child(caption(look, why)), Role::Label, why.to_string()));
+        let list = labelled(div().id("macs-found").flex().flex_col().children(rows), Role::List, "Found Macs");
+        Some(div().flex().flex_col().gap(look.length(token::SPACE_2)).child(section_head(look, "macs-found-head", "Found")).children(why).child(list).into_any_element())
+    }
+
+    /// Pair, at the end of a found Mac's row: primary, and off while the Mac is asleep, with the reason as its tooltip.
+    fn ask_button(&self, one: &FoundMac, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let key = format!("ask:{}", one.tunnel);
+        let focus = self.macs.keys.get(&key)?.clone();
+        let asleep = presence_of(one) == Presence::Asleep;
+        let off = asleep || !self.live_gateway() || self.macs.out.as_deref() == Some(key.as_str());
+        let button = super::change_band::filled(look, SharedString::from(format!("macs-{key}")), "Pair", off);
+        let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
+        let button = button.when(asleep, |button| button.tooltip(tip(format!("{} is asleep, or Armada is closed there", one.name))));
+        Some(labelled(button, Role::Button, format!("Pair {}", one.name)).into_any_element())
     }
 
     /// Pair a phone: the QR code and the link its camera opens with the time left, a claim to Confirm or Decline, or
@@ -1657,9 +1813,9 @@ fn chip(look: &Look, mac: &Mac) -> AnyElement {
     labelled(div().id(SharedString::from(format!("macs-chip-{}", mac.id))).flex_none().size(look.length(token::SPACE_3)).rounded(look.length(token::RADIUS_SM)).bg(colour_of(look, mac.colour)), Role::Image, said).into_any_element()
 }
 
-/// A Devices row: its mark, its name, a quiet word after it, and the Gateway's why under it; the caller adds what
+/// A Devices row: its mark, its name, a quiet word and a chip after it, and the Gateway's why under it; the caller adds what
 /// goes at the right. A dimmed row's name is in the muted ink.
-fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static str>, why: Option<&str>, dim: bool) -> gpui::Div {
+fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static str>, chip: Option<AnyElement>, why: Option<&str>, dim: bool) -> gpui::Div {
     let ink = if dim { look.color(token::FG_MUTED) } else { look.color(token::FG_DEFAULT) };
     div()
         .flex()
@@ -1679,10 +1835,53 @@ fn device_row(look: &Look, mark: AnyElement, name: &str, aside: Option<&'static 
                         .items_baseline()
                         .gap(look.length(token::SPACE_2))
                         .child(labelled(div().id(SharedString::from(format!("macs-name-{name}"))).min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(ink).tooltip(tip(name.to_string())).child(SharedString::from(name.to_string())), Role::Label, name.to_string()))
-                        .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside))),
+                        .children(aside.map(|aside| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(aside)))
+                        .children(chip.map(|chip| div().flex_none().self_center().child(chip))),
                 )
                 .children(why.map(|why| caption(look, why))),
         )
+}
+
+/// How wide the chip column of a found row stands: "On your account", the widest of its three.
+const FOUND_CHIP: f32 = 2.5;
+
+/// A small uppercase muted heading over a list.
+fn section_head(look: &Look, id: &'static str, said: &'static str) -> AnyElement {
+    let head = div().id(id).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_MUTED)).child(said.to_uppercase());
+    labelled(head, Role::Heading, said).into_any_element()
+}
+
+/// Where a Mac is reached, as a chip: green nearby with a glyph before its word, blue on his account, grey asleep. It is
+/// named for the Mac. Nearby's tooltip says how it was found. The registry has no wifi glyph, so `monitor`, which it
+/// reserves for a machine other than this one, stands for the Mac seen on this network.
+fn presence_chip(look: &Look, id: impl Into<SharedString>, presence: Presence, mac: &str) -> AnyElement {
+    let (ink, wash) = match presence {
+        Presence::Nearby => (token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG),
+        Presence::OnAccount => (token::STATUS_RUNNING, token::STATUS_RUNNING_BG),
+        Presence::Asleep => (token::FG_MUTED, token::BG_SUNKEN),
+    };
+    let chip = div()
+        .id(id.into())
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::H_BADGE))
+        .px(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_SM))
+        .bg(look.color(wash))
+        .text_size(look.length(token::TEXT_2XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .text_color(look.color(ink))
+        .when(presence == Presence::Nearby, |chip| {
+            chip.gap(look.length(token::SPACE_1)).tooltip(tip("Found on this network")).child(svg().flex_none().path(icon_path("monitor")).size(look.length(token::SPACE_3)).text_color(look.color(ink)))
+        })
+        .child(presence.said());
+    labelled(chip, Role::Label, format!("{mac} is {}", presence.said().to_lowercase())).into_any_element()
+}
+
+/// A column of fixed width, `wide` spaces of 48 across, so a chip lines up down the list.
+fn chip_column(look: &Look, chip: Option<AnyElement>, wide: f32) -> gpui::Div {
+    div().flex_none().w(look.length(token::SPACE_12) * wide).flex().children(chip)
 }
 
 /// The column every row's press sits in, the same width down the list: wide enough for Update this Mac.
@@ -1788,8 +1987,8 @@ mod tests {
 
     #[gpui::test]
     fn a_long_name_or_address_stops_in_an_ellipsis_and_leaves_the_press_column_where_it_was(cx: &mut TestAppContext) {
-        use super::super::gateway::{LONG_ADDRESS, LONG_MAC, LONG_THIS_MAC};
-        assert_eq!((LONG_THIS_MAC.chars().count(), LONG_MAC.chars().count(), LONG_ADDRESS.chars().count()), (50, 60, 90));
+        use super::super::gateway::{LONG_ADDRESS, LONG_FOUND, LONG_MAC, LONG_THIS_MAC};
+        assert_eq!((LONG_THIS_MAC.chars().count(), LONG_MAC.chars().count(), LONG_FOUND.chars().count(), LONG_ADDRESS.chars().count()), (50, 60, 60, 90));
         for width in [gpui::px(1400.), gpui::px(820.)] {
             let (overlay, cx) = opened_long(cx);
             cx.simulate_resize(gpui::size(width, gpui::px(900.)));
@@ -1809,7 +2008,9 @@ mod tests {
                 let tunnel = bounds_of(window, cx, Role::Status, &format!("Reached at {LONG_ADDRESS}")).expect("the tunnel's row is drawn");
                 assert!(tunnel.right() <= copy.0, "at {width:?} the address stops before Copy address");
                 // Not truncated, a text this long wraps onto a second line, so one line is what proves the ellipsis.
-                for text in [LONG_THIS_MAC, LONG_MAC, LONG_ADDRESS] {
+                let pair = bounds_of(window, cx, Role::Button, &format!("Pair {LONG_FOUND}")).expect("the found Mac's Pair is drawn");
+                assert!(pair.right() <= devices.right(), "at {width:?} a long found name does not push its Pair out of the Devices card");
+                for text in [LONG_THIS_MAC, LONG_MAC, LONG_FOUND, LONG_ADDRESS] {
                     let drawn = bounds_of(window, cx, Role::Label, text).unwrap_or_else(|| panic!("{text} is drawn"));
                     assert!(drawn.size.height < gpui::px(30.), "at {width:?} {text} is on one line, not {:?} tall", drawn.size.height);
                 }
@@ -2066,6 +2267,179 @@ mod tests {
             assert_eq!(press_of_mac(office), Some(("confirm", "Confirm")));
             assert!(this.macs.keys.get("confirm:mac-office").is_some_and(|confirm| this.macs_stops().contains(confirm)), "its Confirm is a stop");
         });
+    }
+
+    /// The page on a Gateway that has found Macs: one paired and nearby, one nearby, one on the account, one asleep.
+    fn opened_nearby(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        opened_found(cx, |_| {})
+    }
+
+    /// As `opened_nearby`, with the Gateway's fixture changed first.
+    fn opened_found(cx: &mut TestAppContext, change: impl FnOnce(&mut super::super::gateway::MockGateway) + 'static) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| {
+            let mut fleet = MockFleet::new();
+            fleet.gateway = super::super::gateway::MockGateway::nearby();
+            change(&mut fleet.gateway);
+            SettingsOverlay::new(Wire::Mock(Box::new(fleet)), window, cx)
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.read_macs(window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| overlay.update(cx, |this, cx| this.macs_keys(cx)));
+        (overlay, cx)
+    }
+
+    fn found_tunnels(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
+        overlay.read_with(cx, |this, _| this.macs.found.iter().flat_map(|found| unpaired(found)).map(|one| one.tunnel.clone()).collect())
+    }
+
+    fn asked_of(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.gateway.asks.clone(),
+            Wire::Live(_) => Vec::new(),
+        })
+    }
+
+    fn found_mac(tunnel: &str, online: bool, nearby: bool, paired: bool) -> FoundMac {
+        FoundMac { tunnel: tunnel.into(), name: tunnel.into(), online, paired, nearby, ..FoundMac::default() }
+    }
+
+    #[test]
+    fn a_found_mac_carries_one_chip_nearby_first_then_on_the_account_then_asleep() {
+        assert_eq!(presence_of(&found_mac("a", true, true, false)), Presence::Nearby);
+        assert_eq!(presence_of(&found_mac("a", false, true, false)), Presence::Nearby, "nearby is enough");
+        assert_eq!(presence_of(&found_mac("a", true, false, false)), Presence::OnAccount);
+        assert_eq!(presence_of(&found_mac("a", false, false, false)), Presence::Asleep);
+        assert_eq!([Presence::Nearby, Presence::OnAccount, Presence::Asleep].map(Presence::said), ["Nearby", "On your account", "Asleep"]);
+    }
+
+    #[test]
+    fn found_lists_only_the_macs_not_paired() {
+        let found = FoundMacs { macs: vec![found_mac("a", true, true, true), found_mac("b", true, true, false), found_mac("c", false, false, false)], why: None };
+        assert_eq!(unpaired(&found).map(|one| one.tunnel.as_str()).collect::<Vec<_>>(), ["b", "c"]);
+        let all_paired = FoundMacs { macs: vec![found_mac("a", true, true, true)], why: Some("The account could not be read.".into()) };
+        assert_eq!(unpaired(&all_paired).count(), 0, "nothing unpaired: the section has no rows to draw");
+    }
+
+    #[test]
+    fn a_paired_mac_is_nearby_where_a_found_row_of_its_name_is_paired_and_nearby() {
+        let mac = |name: &str, this_mac: bool| Mac { name: name.into(), this_mac, ..Mac::default() };
+        let row = |name: &str, paired: bool, nearby: bool| FoundMac { name: name.into(), paired, nearby, online: true, ..FoundMac::default() };
+        let found = FoundMacs { macs: vec![row("Work MacBook", true, true), row("Mac mini", true, false), row("Office iMac", false, true)], why: None };
+        assert!(paired_nearby(Some(&found), &mac("Work MacBook", false)));
+        assert!(!paired_nearby(Some(&found), &mac("Mac mini", false)), "paired and on the account only: no chip");
+        assert!(!paired_nearby(Some(&found), &mac("Office iMac", false)), "a Mac found and not paired is not a paired one");
+        assert!(!paired_nearby(Some(&found), &mac("Work MacBook", true)), "this Mac is never found");
+        assert!(!paired_nearby(None, &mac("Work MacBook", false)), "nothing read yet");
+    }
+
+    #[gpui::test]
+    fn the_gateways_found_macs_are_read_and_the_paired_ones_leave_the_found_list(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        assert_eq!(found_tunnels(&overlay, cx), ["armada-mac-office", "armada-mac-book-pro", "armada-mac-old"]);
+        overlay.read_with(cx, |this, _| {
+            let near: Vec<_> = this.macs.macs.iter().flatten().flatten().filter(|mac| paired_nearby(this.macs.found.as_ref(), mac)).map(|mac| mac.name.as_str()).collect();
+            assert_eq!(near, ["Work MacBook"]);
+        });
+    }
+
+    #[gpui::test]
+    fn pair_asks_the_mac_nearby_and_its_row_waits_on_confirm_with_the_four_digits(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        press(&overlay, "ask:armada-mac-office", cx);
+        assert_eq!(asked_of(&overlay, cx), ["armada-mac-office"]);
+        assert_eq!(refused(&overlay, "ask:armada-mac-office", cx), None);
+        assert!(links(&overlay, cx).contains(&("mac-office".into(), Some(MacLink::ConfirmWaiting))), "it joins the Macs, waiting on Confirm there");
+        let why = overlay.read_with(cx, |this, _| this.macs.macs.iter().flatten().flatten().find(|mac| mac.id == "mac-office").and_then(|mac| mac.why.clone()));
+        assert_eq!(why.as_deref(), Some("Confirm on Office iMac if it shows 4821."));
+        assert_eq!(found_tunnels(&overlay, cx), ["armada-mac-book-pro", "armada-mac-old"], "and leaves the found list");
+        assert!(overlay.read_with(cx, |this, _| this.macs.keys.contains_key("forget:mac-office")), "with its Forget, the press the keys go to");
+    }
+
+    #[gpui::test]
+    fn a_refused_pair_is_said_under_its_row_in_the_gateways_words_and_the_row_stays(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        press(&overlay, "ask:armada-mac-book-pro", cx);
+        assert_eq!(refused(&overlay, "ask:armada-mac-book-pro", cx).as_deref(), Some("MacBook Pro did not answer. Check Armada is open there, then press Pair again."));
+        assert!(found_tunnels(&overlay, cx).contains(&"armada-mac-book-pro".to_string()));
+        press(&overlay, "ask:armada-mac-book-pro", cx);
+        assert_eq!(asked_of(&overlay, cx).len(), 2, "pressed again, it asks again");
+    }
+
+    #[gpui::test]
+    fn pair_does_nothing_while_the_mac_is_asleep(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        press(&overlay, "ask:armada-mac-old", cx);
+        assert_eq!(asked_of(&overlay, cx), Vec::<String>::new(), "nothing is sent");
+        assert_eq!(refused(&overlay, "ask:armada-mac-old", cx), None);
+        assert!(found_tunnels(&overlay, cx).contains(&"armada-mac-old".to_string()));
+    }
+
+    #[gpui::test]
+    fn tab_reaches_each_pair_after_the_paired_macs_presses(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        let stops = overlay.read_with(cx, |this, _| {
+            let stops = this.macs_stops();
+            ["ask:armada-mac-office", "ask:armada-mac-book-pro", "ask:armada-mac-old"].map(|key| this.macs.keys.get(key).and_then(|focus| stops.iter().position(|stop| stop == focus)))
+        });
+        assert!(stops.iter().all(Option::is_some), "each Pair is a stop: {stops:?}");
+        assert!(stops.windows(2).all(|pair| pair[0] < pair[1]), "in the order they are drawn");
+        overlay.read_with(cx, |this, _| {
+            let confirm = this.macs.keys.get("forget:mac-work").and_then(|focus| this.macs_stops().iter().position(|stop| stop == focus));
+            assert!(confirm < stops[0], "after the paired Macs' own presses");
+        });
+    }
+
+    /// Draws Settings on Macs and says whether a labelled element is on the page.
+    fn on_page(overlay: &Entity<SettingsOverlay>, role: Role, name: &str, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, _| {
+                this.open = true;
+                this.picked = "bridge:macs";
+            });
+            window.refresh();
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+            cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some())
+        })
+    }
+
+    #[gpui::test]
+    fn the_found_section_is_drawn_under_its_own_heading_after_the_paired_list(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        assert!(on_page(&overlay, Role::Heading, "Paired", cx), "the paired list has its heading");
+        assert!(on_page(&overlay, Role::Heading, "Found", cx));
+        assert!(on_page(&overlay, Role::List, "Found Macs", cx));
+        assert!(on_page(&overlay, Role::Button, "Pair Office iMac", cx));
+        assert!(on_page(&overlay, Role::Label, "Work MacBook is nearby", cx), "a paired Mac seen on this network carries the chip");
+        assert!(on_page(&overlay, Role::Label, "MacBook Pro is on your account", cx));
+        assert!(on_page(&overlay, Role::Label, "Old iMac is asleep", cx));
+    }
+
+    #[gpui::test]
+    fn the_found_section_is_not_drawn_at_all_when_nothing_is_unpaired(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_found(cx, |gateway| gateway.found.iter_mut().for_each(|one| one.paired = true));
+        assert!(on_page(&overlay, Role::Heading, "Paired", cx));
+        assert!(!on_page(&overlay, Role::Heading, "Found", cx), "no heading, and no placeholder");
+        assert!(!on_page(&overlay, Role::List, "Found Macs", cx));
+    }
+
+    #[gpui::test]
+    fn the_gateways_why_stands_above_the_found_rows(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened_nearby(cx);
+        let why = "Cloudflare did not answer, so only the Macs on this network are listed.";
+        overlay.update(cx, |this, _| {
+            if let Some(found) = this.macs.found.as_mut() {
+                found.why = Some(why.into());
+            }
+        });
+        assert!(on_page(&overlay, Role::Label, why, cx));
     }
 
     #[test]

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Holder, HolderKind, OwnerKey, RepositoryKey, RunRow, Secret, Store};
+use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, ListedClaim, ListedWait, OwnerKey, RepositoryKey, RunRow, Secret, Store};
 use p256::ecdsa::signature::Verifier;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -222,8 +222,76 @@ fn a_renewal_names_the_holder_without_since_and_reads_how_many_claims_it_has() {
     let call = store::renewal_call(&holder("mac-a")).unwrap();
     assert_eq!((call.method, call.target.as_str()), ("POST", "/v1/renewals"));
     assert_eq!(String::from_utf8(call.body).unwrap(), r#"{"holder":{"kind":"session","id":"j1","machine":"mac-a"}}"#);
-    assert_eq!(store::renewed(&reply(200, r#"{"claims":5}"#)).unwrap(), 5);
+    let renewed = store::renewed(&reply(200, r#"{"claims":5}"#)).unwrap();
+    assert_eq!((renewed.claims, renewed.contested), (5, Vec::new()));
     assert!(store::renewed(&reply(503, "")).unwrap_err().is_unreachable());
+}
+
+#[test]
+fn a_renewal_reads_who_else_asked_for_a_claim_and_skips_a_contest_it_cannot_name() {
+    let (repo, key) = ("a".repeat(64), "b".repeat(64));
+    let by = |kind: &str| format!(r#"{{"kind":"{kind}","id":"s2","machine":"mac-b","since":70,"name":"ada","title":"Rename the queue"}}"#);
+    let contest = |repo: &str, kind: &str, key: &str, holder: &str| format!(r#"{{"repo":"{repo}","kind":"{kind}","key":"{key}","holder":{holder}}}"#);
+    let body = format!(
+        r#"{{"claims":2,"contested":[{},{},{},{},{}]}}"#,
+        contest(&repo, "file", &key, &by("session")),
+        contest(&repo, "robot", &key, &by("session")),
+        contest(&repo, "file", &key, &by("job")),
+        contest("short", "file", &key, &by("session")),
+        contest(&repo, "red", "no spaces in a hash", &by("session")),
+    );
+
+    let renewed = store::renewed(&reply(200, &body)).unwrap();
+
+    let who = Holder { kind: HolderKind::Session, id: "s2".into(), machine: "mac-b".into(), since: 70 };
+    assert_eq!(renewed.claims, 2);
+    assert_eq!(
+        renewed.contested,
+        vec![Contest {
+            repository: RepositoryKey::from_hash(&repo).unwrap(),
+            kind: ClaimKind::File,
+            key: ClaimKey::from_hash(&key).unwrap(),
+            by: Claimant { holder: who, name: "ada".into(), title: "Rename the queue".into() },
+        }]
+    );
+}
+
+#[test]
+fn the_claims_list_reads_each_holders_claims_and_waits_and_skips_what_it_cannot_name() {
+    let (repo, test, pull) = ("a".repeat(64), "b".repeat(64), "c".repeat(64));
+    let body = format!(
+        r#"{{"holders":[
+            {{"holder":{{"kind":"session","id":"s1","machine":"home","name":"nick","title":"Fix the flaky queue test"}},"renewed":900,
+              "claims":[{{"repo":"{repo}","kind":"test","key":"{test}","since":800}},{{"repo":"{repo}","kind":"robot","key":"{test}","since":1}}],"waits":[]}},
+            {{"holder":{{"kind":"session","id":"s2","machine":"work","name":"nick","title":"Land the queue race fix"}},"renewed":950,
+              "claims":[{{"repo":"{repo}","kind":"pull_request","key":"{pull}","since":700}}],
+              "waits":[{{"repo":"{repo}","kind":"test","key":"{test}","holder":{{"kind":"session","id":"s1","machine":"home","since":800,"name":"nick","title":"Fix the flaky queue test"}}}}]}},
+            {{"holder":{{"kind":"job","id":"j9","machine":"old","name":"","title":""}},"renewed":1,"claims":[]}}
+        ]}}"#
+    );
+
+    let groups = store::listed(&reply(200, &body)).unwrap();
+
+    assert_eq!(groups.len(), 2, "a holder kind this build does not know is skipped");
+    let fixer = Holder { kind: HolderKind::Session, id: "s1".into(), machine: "home".into(), since: 800 };
+    assert_eq!(groups[0].holder.holder.id, "s1");
+    assert_eq!(groups[0].holder.holder.since, 0, "a group has no since of its own");
+    assert_eq!((groups[0].renewed, groups[0].holder.title.as_str()), (900, "Fix the flaky queue test"));
+    assert_eq!(
+        groups[0].claims,
+        vec![ListedClaim { repository: RepositoryKey::from_hash(&repo).unwrap(), kind: ClaimKind::Test, key: ClaimKey::from_hash(&test).unwrap(), since: 800 }]
+    );
+    assert_eq!(groups[1].claims[0].kind, ClaimKind::PullRequest);
+    assert_eq!(
+        groups[1].waits,
+        vec![ListedWait {
+            repository: RepositoryKey::from_hash(&repo).unwrap(),
+            kind: ClaimKind::Test,
+            key: ClaimKey::from_hash(&test).unwrap(),
+            held_by: Claimant { holder: fixer, name: "nick".into(), title: "Fix the flaky queue test".into() },
+        }]
+    );
+    assert!(store::listed(&reply(503, "")).unwrap_err().is_unreachable());
 }
 
 // A socket on this machine that answers a script, one connection per entry.
@@ -471,4 +539,14 @@ fn a_store_that_refuses_runs_is_refused_and_one_that_fails_is_unreachable() {
     assert!(!store.put_runs(&repository(), &[]).unwrap_err().is_unreachable());
     assert!(store.read_runs(&repository()).unwrap_err().is_unreachable());
     server.join().unwrap();
+}
+
+#[test]
+fn the_signed_in_devices_are_read_in_the_stores_order_and_a_refusal_is_not_an_empty_list() {
+    let answered = store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa","machine":"home"},{"device":"2.bb","machine":"work"}]}"#))
+        .expect("read");
+    let named: Vec<(&str, &str)> = answered.iter().map(|one| (one.id.as_str(), one.machine.as_str())).collect();
+    assert_eq!(named, [("1.aa", "home"), ("2.bb", "work")]);
+    assert!(store::devices_held(&reply(401, r#"{"error":"unknown_device"}"#)).is_err());
+    assert!(store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa"}]}"#)).is_err(), "a device with no Mac is not read as one");
 }

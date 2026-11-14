@@ -1345,6 +1345,21 @@ Added by the Aug 2026 config review. Adapter config: which binary, and which fla
 **The value lives in settings.json under `harness.agent` and `harness.binaryPath`** (read at start; `ARMADA_AGENT_BINARY` still wins), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.harness-thinking-summaries]
+name = "Show what a Job reasoned"
+scope = "Machine"
+default = "on"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "adapters, fleet"
+notes = """
+Whether a hosted Job's CLI is started with `--thinking-display summarized`. A print-mode CLI sends its thinking blocks empty unless the display is asked for on the command line: the `showThinkingSummaries` key in `--settings` is read only by an interactive CLI (measured on 2.1.322, 13 Nov 2026). On, each thinking block carries the API's summary, which the thread shows as the agent's reasoning. Off, the thread shows only that the agent thought.
+
+**The value lives in settings.json under `harness.thinkingSummaries`** (live), read at each Job start, so a change reaches the Jobs started after it.
+"""
+
 [settings.secrets-provider-selection]
 name = "Secrets provider selection"
 scope = "Machine"
@@ -1577,21 +1592,6 @@ notes = """
 The client id of the OAuth app Armada signs in with. Blank leaves sign-in unavailable: starting one is refused with a plain reason until the owner has registered an app with the device flow enabled. It is not a secret, and the device flow holds no client secret. `docs/concepts/account.md`, *Sign-in*.
 
 **The value lives in settings.json under `account.clientId`** (live), read when a sign-in starts.
-"""
-
-[settings.store-url]
-name = "Store address"
-scope = "Machine"
-default = "blank"
-lifetime = "Live"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-The address of the central store the machines signed in to one account share (`docs/contracts/central-store.md`). Blank leaves sign-in unavailable: a sign-in enrols this machine with the store, so starting one is refused with a plain reason until a store is deployed.
-
-**The value lives in settings.json under `store.url`** (live), read when a sign-in starts.
 """
 
 [settings.token-compaction-window]

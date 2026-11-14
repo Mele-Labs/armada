@@ -63,6 +63,10 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Merge { number, .. } => said(&format!("Merge #{number}"), None),
         JobAct::Start(_) => said("Start", None),
         JobAct::Dispatch(_) => said("Start", None),
+        // A `Move` sent from here asks the other Mac to send its Job here; Arrive and MoveSettled are the two
+        // Fleets' halves of the move he pressed.
+        JobAct::Move { .. } => said("Bring here", None),
+        JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
     }
 }
 
@@ -125,6 +129,20 @@ mod tests {
         assert_eq!(words(r#"{"kind":"merge","body":{"session_id":"j","repository":"armada","number":3548}}"#), "Merge #3548");
         assert_eq!(words(r#"{"kind":"sketch_answer","body":{"session_id":"j","sketch":"sketch:Tail layout","drawn":"d","how":"approved"}}"#), "Answer: Tail layout, approved");
         assert_eq!(words(r#"{"kind":"message","body":{"session_id":"j","text":"  "}}"#), "Message", "a message of pictures alone says its kind");
+    }
+
+    #[test]
+    fn a_move_waiting_on_the_other_mac_says_bring_here_and_its_two_halves_say_move() {
+        let said = |act: &JobAct| said_of(act, &[]);
+        let asked = act(r#"{"kind":"move","body":{"session_id":"j"}}"#);
+        assert_eq!(said(&asked), Said { kind: "Bring here".into(), detail: None });
+        let job = crate::mock::jobs("jobs-screens").expect("the fixture decodes").remove(0);
+        let arriving = JobAct::Arrive(ipc::ArrivingJob { record: job, branch: Some("native/x".into()), conversation: ipc::CarriedConversation { bytes: 12, sha256: "ab".into() } });
+        assert_eq!(said(&arriving), Said { kind: "Move".into(), detail: None });
+        let settled = act(r#"{"kind":"move_settled","body":{"session_id":"j"}}"#);
+        assert_eq!(said(&settled), Said { kind: "Move".into(), detail: None });
+        let refused = act(r#"{"kind":"move_settled","body":{"session_id":"j","refused":"No room"}}"#);
+        assert_eq!(said(&refused), Said { kind: "Move".into(), detail: None }, "a refusal is still a move's half, with no words of its own");
     }
 
     #[test]

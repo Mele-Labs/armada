@@ -32,7 +32,8 @@
 #   shortcut    - the binding, as the contract's map spells it
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
-#                 logbook | issues | report | plan | thread | dispatch
+#                 logbook | issues | report | plan | thread | dispatch |
+#                 review sheet
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -92,13 +93,13 @@ notes = "Opens and shuts the history of what the Operator raised as toasts, from
 [actions.new_terminal_job]
 kind = "Action"
 tier = "Global"
-verb = "New Job here"
+verb = "New Side Job"
 icon = "plus"
 shortcut = "⌘T"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Starts a Job with no sheet and opens it on its thread with the keys in its message box: in the project or repository the window is on, else the open Job's, else the place one last started in, and the dispatch sheet where there is none. Fleet's Side Job (`start_side_job`): its agent waits until he writes, and no shell opens until he asks for one from the Job's +. Native only. Taken 12 Nov 2026; nothing held it, the walk window's takes are ⌥⌘T, and a shell never hears a ⌘ chord. Renamed from New terminal the same day, when he wanted to start a Job and jump into it, on its thread. The id stays `new_terminal_job`."
+notes = "Starts a Job with no sheet and opens it on its thread with the keys in its message box: in the project or repository the window is on, else the open Job's, else the place one last started in, and the dispatch sheet where there is none. Fleet's Side Job (`start_side_job`): its agent waits until he writes, and no shell opens until he asks for one from the Job's +. Native only. Taken 12 Nov 2026; nothing held it, the walk window's takes are ⌥⌘T, and a shell never hears a ⌘ chord. Renamed from New terminal the same day, when he wanted to start a Job and jump into it, on its thread. The id stays `new_terminal_job`. Renamed New Side Job on 13 Nov 2026, the name Fleet gives it."
 
 [actions.toast_focus]
 kind = "Action"
@@ -417,6 +418,18 @@ scope = "list and detail"
 destructive = false
 confirms = false
 notes = "The contract decides the blank: nothing in the error treatment carries a glyph, and `triangle-alert` and `octagon-alert` are both spoken for. `copy` was not taken either — it means copy an id or a path, and a debug payload is an artifact rather than a value. Widening it is a decision for the icon registry."
+
+[actions.move_to_mac]
+kind = "Action"
+tier = "Contextual"
+verb = "Move to another Mac"
+icon = ""
+icon_absent = "undecided"
+shortcut = "M"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Moves the focused Job to his other Mac, or brings it here where that Mac holds it: Fleet's `move_job_to_mac`, which waits for the Job's turn to end, then pauses it, pushes its branch and resumes it there. Offered only while another Mac is linked, and on a Job that has not ended, is not paused and is not moving already. Native only. Shifted because `m` is the Cockpit's map; Pause (`p`) and Snooze (`z`) are the Jobs list's own bare keys and carry no row, so the next row act takes a capital. No glyph: nothing registered means a Job travelling between machines, and `monitor` and `laptop` are each reserved for where a thing is. The palette answers it as the row's own act, with ⌥⌘M. Taken 14 Nov 2026."
 
 [actions.new_job]
 kind = "Action"
@@ -1412,6 +1425,39 @@ destructive = false
 confirms = false
 notes = "Folds the open Job's Needs you card to its band, or opens it, from anywhere in the Job, so the thread can be read with it shut. Where a review waits ⇧⌘Y opens the sheet; this key only folds. A scroll of the thread or a press in it folds the card too. Asked for by the owner on 10 Nov 2026."
 
+[actions.thread_find]
+kind = "Action"
+tier = "Global"
+verb = "Find in thread"
+icon = "search"
+shortcut = "⌘F"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens a find bar over the open Job's thread with the keys in it, or puts them back in it while it is open. It searches the whole thread, rows not drawn and folds included: messages, reasoning and tool calls. Every match is marked, the current one more strongly, and a match in a folded tool run or folded reasoning opens that fold. Enter and ⇧Enter step to the next and the previous match in the bar; Esc shuts it and puts the keys in the message box. From the message box too, which leaves ⌘F to the Job. Native only. Asked for by the owner on 13 Nov 2026."
+
+[actions.thread_find_next]
+kind = "Action"
+tier = "Global"
+verb = "Next match"
+icon = "chevron-down"
+shortcut = "⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Steps to the next match of the thread's find bar while it is open, from the last back to the first, opening a fold that holds it. Enter in the bar does the same. Native only."
+
+[actions.thread_find_previous]
+kind = "Action"
+tier = "Global"
+verb = "Previous match"
+icon = "chevron-up"
+shortcut = "⇧⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Steps to the previous match of the thread's find bar while it is open, from the first round to the last. ⇧Enter in the bar does the same. Native only."
+
 [actions.handoff_retry]
 kind = "Action"
 tier = "Contextual"
@@ -1448,3 +1494,76 @@ scope = "terminal"
 destructive = false
 confirms = false
 notes = "Opens a new shell in place of one that ended, under the same terminal id and tab, from a terminal whose shell has ended. While a shell runs Enter is the shell's, and this row is not heard. Native only: Classic's New shell is a button with no key. Taken 12 Nov 2026, when the button became words."
+
+# ------------------------------------------------------------ review sheet
+
+[actions.items_approve]
+kind = "Action"
+tier = "Contextual"
+verb = "Approve"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Approves the item chosen in the review sheet, with the notes typed on it, through `answer_items` for that one item. The sheet lists every item with an Approve across Jobs, grouped by Job. Its own scope, as the sheet holds the keys while it is up and its letters meet only the global ones. Native only. The owner's look, 14 Nov 2026."
+
+[actions.items_ask_changes]
+kind = "Action"
+tier = "Contextual"
+verb = "Ask for changes"
+icon = ""
+icon_absent = "undecided"
+shortcut = "c"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Sends the chosen item back with its notes through `answer_items`. With no notes typed it puts the caret in the item's notes and sends nothing, since Fleet refuses a send back with none (`fleet.items_send_back_empty`). In the notes `⌘↵` sends. Native only, 14 Nov 2026."
+
+[actions.items_dismiss]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Takes the chosen item off his list with no verdict, through `dismiss_items` for that one item. Native only, 14 Nov 2026."
+
+[actions.items_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between items"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Chooses the next or the previous item of the review sheet, across its Jobs' groups. Its own row for the reason `plan`'s is: the sheet's list is not the Board's. Native only, 14 Nov 2026."
+
+[actions.items_approve_all]
+kind = "Action"
+tier = "Contextual"
+verb = "Approve all"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧a"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Approves every item of the review sheet still asking in one `answer_items` call, each with its own notes. A refusal stands on its own row as Fleet's sentence and the rest settle. Shift on `a`, Approve's key: the same act on every item. It sits in the sheet's foot, away from the item's buttons. Native only, 14 Nov 2026."
+
+[actions.items_dismiss_all]
+kind = "Action"
+tier = "Contextual"
+verb = "Dismiss all"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⇧d"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Takes every item of the review sheet still asking off his list in one `dismiss_items` call. Each Job is told he passed on its items with no verdict. Native only, 14 Nov 2026."

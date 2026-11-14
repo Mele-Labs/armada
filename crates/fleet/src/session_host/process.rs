@@ -61,6 +61,9 @@ pub struct Start {
     pub compaction_window: i64,
     /// The skills the process is started without, never a repository's own nor Armada's.
     pub skills_off: Vec<String>,
+    /// Whether the process is asked for its thinking summaries: `harness.thinkingSummaries` as it
+    /// stood when the process started.
+    pub thinking_summaries: bool,
 }
 
 /// What a process says, in the order it said it.
@@ -319,6 +322,10 @@ impl Processes for ProcessHost {
             false => hosted.without_connectors(),
         };
         let hosted = hosted.compacting_at(start.compaction_window).without_skills(&start.skills_off);
+        let hosted = match start.thinking_summaries {
+            true => hosted.summarising_thinking(),
+            false => hosted,
+        };
         // The copy's plugin, when it holds one: a job gets the mod whether or not the person ever
         // installed it into their CLI.
         let plugin = crate::runtime::mod_dir(&self.home);
@@ -335,6 +342,10 @@ impl Processes for ProcessHost {
         keepers_made(&self.keepers, Path::new(&self.home), Path::new(PRIVATE_ROOT))?;
         let socket = self.socket_of(&start.session)?;
         let spool = self.keepers.join(format!("{}.spool", start.session));
+        // **One keeper per Job**: one still running is adopted or stopped first.
+        if let Some(stream) = super::keeper::make_way(&socket, KEEPER_WITHIN)? {
+            return super::kept::attached(stream, self.agent.clone(), sink, &socket, &spool);
+        }
         let log = spool.with_extension("log");
         // Emptied, then held for append: the keeper's own error and the
         // agent's, which it writes later, land in one file.

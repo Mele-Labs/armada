@@ -621,6 +621,14 @@ where
         self.main_red_taken(caller, take).await
     }
 
+    async fn call_test_flaky(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        call: ipc::CallTestFlaky,
+    ) -> Result<ipc::TestCalledFlaky, Refusal> {
+        self.test_called_flaky(caller, call).await
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,
@@ -657,6 +665,10 @@ where
         if native {
             if let Some(why) = crate::native_walks::takes_no(&show) {
                 return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
+            }
+            // His one press must open it: a walk the build he runs cannot play goes back to the Job.
+            if let Some(why) = crate::native_walks::unplayable(&self.host().home, &show).await {
+                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, &why));
             }
         } else if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
@@ -1064,6 +1076,22 @@ where
         dispute: ipc::DisputeFleet,
     ) -> Result<ipc::FleetDisputed, Refusal> {
         self.fleet_disputed(caller, dispute).await
+    }
+
+    async fn raise_conflict(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        conflict: ipc::RaiseConflict,
+    ) -> Result<ipc::ConflictRaised, Refusal> {
+        self.conflict_raised(caller, conflict).await
+    }
+
+    async fn ask_held(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        asked: ipc::AskHeld,
+    ) -> Result<ipc::HeldAsked, Refusal> {
+        self.held_asked(caller, asked).await
     }
 
     async fn report_bug(

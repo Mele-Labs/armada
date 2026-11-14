@@ -7,6 +7,9 @@ use super::{Applies, Entry, Flag, Json, Kind, List, Options, Section, Shipped, W
 pub const HARNESS_AGENT: Words = Words("harness.agent");
 pub const HARNESS_BINARY_PATH: Words = Words("harness.binaryPath");
 pub const HARNESS_DRONE_PATH: List = List("harness.dronePath");
+/// Whether a hosted Job asks the CLI for its thinking summaries. Off, a print-mode CLI sends every
+/// thinking block empty and the thread shows only that the agent thought.
+pub const HARNESS_THINKING_SUMMARIES: Flag = Flag("harness.thinkingSummaries");
 
 pub const WORDS_CAN_ACT: Flag = Flag("features.onYourWordsCanAct");
 pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
@@ -40,8 +43,6 @@ pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
 pub const MACHINE_NAME: Words = Words("machine.name");
 
 pub const ACCOUNT_CLIENT_ID: Words = Words("account.clientId");
-
-pub const STORE_URL: Words = Words("store.url");
 
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
@@ -98,6 +99,18 @@ pub(super) const HARNESS: &[Entry] = &[
         ]),
         applies: Applies::AtRestart,
         row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: HARNESS_THINKING_SUMMARIES.0,
+        section: Section::Harness,
+        title: "Show what a Job reasoned",
+        description: "A Job's thread shows a short summary of what the agent reasoned before it acted. Off, the thread shows only that it thought.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: Some("harness-thinking-summaries"),
         env: None,
         tip: None,
     },
@@ -333,15 +346,3 @@ pub(super) const ACCOUNT: &[Entry] = &[Entry {
     tip: None,
 }];
 
-pub(super) const STORE: &[Entry] = &[Entry {
-    key: STORE_URL.0,
-    section: Section::Store,
-    title: "Store address",
-    description: "The address of the central store your machines share. Blank leaves sign-in unavailable until a store is deployed.",
-    kind: Kind::Text,
-    shipped: Shipped::Text(""),
-    applies: Applies::Live,
-    row: Some("store-url"),
-    env: None,
-    tip: None,
-}];

@@ -124,6 +124,8 @@ where
             fleet.laters_run_out().await;
             // A bug report, a new issue or a note left, handed to the Operator once.
             fleet.sources_handed().await;
+            // What each live Job holds, claimed in its project's store, renewed and waited on.
+            fleet.claims_kept().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
             // The clashes of every repository, pushed when the set moved.

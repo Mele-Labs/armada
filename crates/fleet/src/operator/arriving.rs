@@ -36,6 +36,10 @@ pub enum Arrived {
     Merged,
     /// An error Bridge showed the person, which goes first in the order.
     Error,
+    /// A Job raised a conflict with another Job's work.
+    Conflict,
+    /// A Job asked whether a pull request or a branch should land.
+    Held,
 }
 
 impl Arrived {
@@ -56,11 +60,13 @@ impl Arrived {
             Arrived::Ended => "ended",
             Arrived::Merged => "merged",
             Arrived::Error => "error",
+            Arrived::Conflict => "conflict",
+            Arrived::Held => "held",
         }
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 15] = [
+    pub(super) const EVERY: [Arrived; 17] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -76,6 +82,8 @@ impl Arrived {
         Arrived::Ended,
         Arrived::Merged,
         Arrived::Error,
+        Arrived::Conflict,
+        Arrived::Held,
     ];
 
     /// The kinds the Operator is still handed, which nobody owns: the others are a Job's own events
@@ -107,6 +115,8 @@ impl Arrived {
             Arrived::Ended => "Job ends",
             Arrived::Merged => "merges",
             Arrived::Error => "errors",
+            Arrived::Conflict => "conflicts",
+            Arrived::Held => "landing questions",
         }
     }
 
@@ -134,6 +144,8 @@ impl Arrived {
             Arrived::Ended => "A Job ended",
             Arrived::Merged => "A pull request merged",
             Arrived::Error => "Bridge showed the person an error",
+            Arrived::Conflict => "A Job raised a conflict with another Job",
+            Arrived::Held => "A Job asked whether work should land",
         }
     }
 }
@@ -233,6 +245,11 @@ impl Arrival {
         self.id.starts_with(super::dispatching::DISPATCH)
     }
 
+    /// A conflict or a landing question a Job sent, which the Operator tells the Job or raises.
+    pub fn is_job_ask(&self) -> bool {
+        matches!(self.arrived, Arrived::Conflict | Arrived::Held)
+    }
+
     /// A note the person sent to a Job himself, which the Operator may move or leave.
     pub fn is_sent_note(&self) -> bool {
         self.id.starts_with(super::sources::SENT_NOTE)
@@ -285,6 +302,8 @@ impl Arrival {
                 (Way::ExistingJob, Arrived::Start) if self.is_dispatch() => "existing job: hand its words to the live Job that already holds the work",
                 (Way::Park, Arrived::Start) if self.is_dispatch() => "park: keep it for later as an idea and start no Job, for a loose thought that is not work to do now",
                 (Way::Raise, Arrived::Start) if self.is_dispatch() => "raise: ask the person whether to hand it to a live Job or start it as its own Job",
+                (Way::Tell, Arrived::Conflict) => "tell: answer it without the person. Name in job the Job whose side changes, one of the two Jobs here, or none to hold both, and say what to do in because; only where what is written settles it",
+                (Way::Tell, Arrived::Held) => "tell: answer the asking Job without the person. Name in kind land or hold, and say why in because; only where what is written settles it",
                 _ => way.word_shown(),
             };
             out.push_str(&format!(" {}. {said}", number + 1));

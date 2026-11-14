@@ -5,7 +5,7 @@
 //! **Every call is a blocking round trip**, so it is built, made and dropped on
 //! one blocking thread ([`Fleet::at_the_store`]). Where the repository's switch
 //! is off, the repository is bound to no profile or to one the machine is signed
-//! out of, or no store address is set, the call is
+//! out of, or no project holding it names a store, the call is
 //! never made: [`Fleet::at_the_store`] answers `Ok(None)` and the take goes on
 //! locally as it did before the store.
 //!
@@ -16,7 +16,7 @@
 //! repository's login, this machine's name and the Session's title.
 //!
 //! **The holder is shared with the owner registry**, `crate::pull_registry`:
-//! one gate (the switch, a store address, and a profile the repository is bound
+//! one gate (the switch, its project's store, and a profile the repository is bound
 //! to), one blocking thread, one place a name becomes a hash. **The profile is the
 //! repository's own** (`SigningIn::profile_for`), never one the machine acts as.
 
@@ -151,7 +151,9 @@ where
 {
     /// Run `work` against the store for `root`'s red at `red_commit`. `Ok(None)`
     /// is **no store applies** and nothing was asked; an `Err` is a store that
-    /// would not answer.
+    /// would not answer. **Naming a store in the project is the switch**, as for a
+    /// Job's own claims: a red's fix always starts, so two Macs that skipped the
+    /// claim would both fix it.
     async fn at_the_store<T: Send + 'static>(
         &self,
         root: &str,
@@ -159,7 +161,7 @@ where
         work: impl FnOnce(&Reach) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
         let red_commit = red_commit.to_string();
-        self.at_the_store_of(root, move |opened| {
+        self.at_the_store_switched(root, true, move |opened| {
             let Opened { store, slug, machine, login } = opened;
             let Some((repository, red)) = keys_of(&slug, &red_commit) else { return Ok(None) };
             work(&Reach { store, repository, red, machine, login }).map(Some)
@@ -169,8 +171,9 @@ where
     }
 
     /// Run `work` against the store for `root`. **The gate every call passes**:
-    /// the repository's switch is on, a store address is set and the repository
-    /// is bound to a profile this machine is signed in to; otherwise `Ok(None)`
+    /// the repository's switch is on, a project holding it names a store
+    /// ([`Fleet::store_of_root`]) and the repository is bound to a profile this
+    /// machine is signed in to and enrolled with that store; otherwise `Ok(None)`
     /// and nothing was asked. **The store is opened as that profile**, so each
     /// repository claims in its own account's view.
     pub(crate) async fn at_the_store_of<T: Send + 'static>(
@@ -190,12 +193,11 @@ where
         switched_on: bool,
         work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
-        let settings = self.machine_settings().now();
-        let url: String = settings.get(keys::STORE_URL);
-        if !switched_on || url.trim().is_empty() {
+        if !switched_on {
             return Ok(None);
         }
-        let configured: String = settings.get(keys::MACHINE_NAME);
+        let Some(address) = self.store_of_root(root) else { return Ok(None) };
+        let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
         let root = root.to_string();
@@ -203,7 +205,8 @@ where
             let Some(slug) = reaching.slug(&root) else { return Ok(None) };
             let repo = Repo::new(&root, Some(slug.clone()));
             let Some(bound) = signing.profile_for(&repo) else { return Ok(None) };
-            let Some(store) = reaching.open(url.trim(), &bound.directory).map_err(StoreError::Refused)? else {
+            let directory = crate::project_store::store_directory(&bound.directory, &address);
+            let Some(store) = reaching.open(address.as_str(), &directory).map_err(StoreError::Refused)? else {
                 return Ok(None);
             };
             let login = signing.login_for(&repo).unwrap_or_default();

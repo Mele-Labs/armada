@@ -888,6 +888,19 @@ pub enum WaitingSource {
     /// and his choice, and the item goes. Dismissing it drops it. The Operator's own review never answers it.
     /// Listed only while the Job is live. Since 13 Nov 2026.
     OperatorUndone,
+    /// Fleet: a Job sent a `raise_conflict` and nothing answered it. Derived on every read from the kept ask, never
+    /// kept in the Job's list: id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, an
+    /// `answer` act whose `target` is the id, and exactly three options, `Tell <sender> to change` (choice 0),
+    /// `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds the item. A Job it names
+    /// is told his answer, and **no forge is written to**. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobConflict,
+    /// Fleet: a Job sent an `ask_held` that Fleet could not answer from what it keeps. Derived on every read from
+    /// the kept ask: id `held:<repository>:<pull or branch>`, text `Should #N land?` or `Should <branch> land?`, an
+    /// `answer` act whose `target` is the id, and exactly two options, `Land it` (choice 0) and `Hold it`
+    /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobHeld,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -1637,6 +1650,49 @@ pub struct SessionRecord {
     /// `docs/practices/protocol/a-draft-names-the-pull-request-it-describes.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_request_drafts: Vec<crate::PullRequestDraft>,
+    /// Each tracker item the Job waits on because another holds it, in the item's order. Empty where it
+    /// waits on none. Since 14 Nov 2026. `docs/practices/protocol/a-jobs-wait-on-a-held-item.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_waits: Vec<ClaimWait>,
+    /// Whether the Job holds claims its project's store has not taken yet, because the store did not
+    /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub claims_unsent: bool,
+}
+
+/// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is
+/// its assignee in beads. Or a failing test another Job is fixing, which threw its pull request out
+/// of the merge queue. The Job's wait line. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimWait {
+    /// The item as its tracker names it: `armada-zasx.3`, `12`.
+    pub item: String,
+    /// The person holding it: the holding Job's forge login, or the assignee in beads. Empty where the
+    /// store named none.
+    pub holder: String,
+    /// The holding Job's Mac. Absent for a person in beads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine: Option<String>,
+    /// The holding Job's title. Absent for a person in beads, and for a Job with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// When the wait began.
+    pub since: Instant,
+    /// What ends the wait.
+    pub ends: ClaimWaitEnds,
+}
+
+/// What ends a wait on a held item. Either way the Job is woken to carry on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimWaitEnds {
+    /// The other Job's claim ends: it closes the item, drops it, or its Mac stops renewing for 30 minutes.
+    ClaimEnds,
+    /// The person is no longer the item's assignee in beads.
+    Unassigned,
+    /// A failing test's fix merges and main is green, or main's own red is fixed: the pull request the
+    /// merge queue threw out is queued again. `item` is the test, and `holder` is empty while main is red.
+    FixMerges,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.
@@ -1770,6 +1826,30 @@ pub struct MainRedTaken {
     /// *Pull request owners* switch is off or the machine is signed out: nothing was written
     /// and no other machine will be told.
     pub claimed: bool,
+}
+
+/// `call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of
+/// the merge queue says the test is flaky instead, with the log line that shows it. Fleet then claims
+/// the test, starts the one Job that fixes it, and queues the pull request again when that fix
+/// merges. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallTestFlaky {
+    /// Which session calls it. **Read only where the connection places no hosted session**, as
+    /// `TakeMainRed::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The test, as Fleet named it when it asked.
+    pub test: String,
+    /// The line of the failing run's log that shows the test is flaky and not broken by the change.
+    pub log_line: String,
+}
+
+/// What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it
+/// tells the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestCalledFlaky {
+    pub pull: u64,
+    pub said: String,
 }
 
 /// What `claim_pull_request` answers: the pull request now held, and by whom.

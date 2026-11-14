@@ -89,13 +89,14 @@ pub fn is_stepped(one: &Setting) -> bool {
     control_of(one) == Control::Stepper
 }
 
-/// What settings.json holds for it, else what is in force: the value a press steps from.
-fn current(one: &Setting) -> &SettingValue {
+/// What settings.json holds for it, else what is in force: the value a press steps from, and the one a row shows, so
+/// a setting waiting on a restart reads what he chose.
+pub(super) fn current(one: &Setting) -> &SettingValue {
     one.saved.as_ref().unwrap_or(&one.value)
 }
 
 /// Saved, and not what ships.
-fn changed(one: &Setting) -> bool {
+pub(super) fn changed(one: &Setting) -> bool {
     one.saved.as_ref().is_some_and(|saved| *saved != one.default)
 }
 
@@ -162,7 +163,7 @@ pub fn stops(this: &SettingsOverlay, list: &SettingsList, cx: &App) -> Vec<Focus
 }
 
 /// The figure's ink, and the edge of its stepper or field: the accent where the value is not what ships.
-fn frame_ink(look: &Look, lit: bool) -> (Hsla, Hsla) {
+pub(super) fn frame_ink(look: &Look, lit: bool) -> (Hsla, Hsla) {
     let edge = look.color(token::BORDER_DEFAULT);
     if lit {
         let accent = look.color(token::ACCENT);
@@ -180,7 +181,7 @@ impl SettingsOverlay {
     /// The page: its band, then each group of tiles, or bones while Fleet has not answered.
     pub(super) fn render_limits(&self, entry: &Entry, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let hue = look.color(entry.hue);
-        let band = self.limits_band(entry, hue, look, window, cx);
+        let band = self.page_band(entry, super::rows::purpose_of(entry).into(), "limits", false, true, look, window, cx);
         let edge = look.length(token::BORDER_WIDTH);
         let pad = look.length(token::SPACE_6);
         let gap = look.length(token::SPACE_3) + edge * 2.;
@@ -220,7 +221,7 @@ impl SettingsOverlay {
                 if !self.live {
                     body.push(div().px(pad).pt(look.length(token::SPACE_4)).child(labelled(small(look, NOT_LIVE, look.color(token::FG_MUTED)).id("settings-not-live"), Role::Status, NOT_LIVE)).into_any_element());
                 }
-                let across = self.limits_width(look, window, cx) - pad * 2.;
+                let across = self.page_width(look, window, cx) - pad * 2.;
                 let cols = columns(f32::from(across), f32::from(gap));
                 for (group, rows) in grouped(list) {
                     groups = groups.child(self.limits_group(group, &rows, cols, hue, look, window, cx));
@@ -244,98 +245,6 @@ impl SettingsOverlay {
             .bg(look.color(token::SURFACE_CARD))
             .overflow_hidden()
             .child(scroll)
-            .into_any_element()
-    }
-
-    /// How wide the page is drawn: the overlay's box, less its padding, the sidebar, and a mod's panel where one is open.
-    fn limits_width(&self, look: &Look, window: &Window, cx: &App) -> gpui::Pixels {
-        let room = crate::room::of(window, cx);
-        let boxed = room.size.width * 0.9;
-        let gap = look.length(token::GAP_PANEL);
-        let panel = if self.mods.panel.is_some() { boxed * 0.36 + gap } else { px(0.) };
-        boxed - gap * 2. - look.length(token::W_SETTINGS_INDEX) - gap - panel - look.length(token::BORDER_WIDTH) * 2.
-    }
-
-    /// The head: the page's glyph and name, and where its values are kept with the press that opens the file.
-    fn limits_band(&self, entry: &Entry, hue: Hsla, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let edge = look.length(token::BORDER_WIDTH);
-        let off = self.list.is_none();
-        let path = self.list.as_ref().map_or_else(|| "settings.json".to_string(), |list| list.path.clone());
-        let open = ringed(
-            look,
-            div()
-                .id("settings-open-file")
-                .track_focus(&self.file_stop)
-                .flex_none()
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::ACCENT) })
-                .when(!off, |press| press.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-                .child("Open")
-                .when(!off, |press| {
-                    press.on_click(cx.listener(|this, _, _, cx| this.open_file(cx))).on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                        if press_keys(event) {
-                            this.open_file(cx);
-                        }
-                    }))
-                }),
-            &self.file_stop,
-            window,
-        );
-        let glyph = div()
-            .flex_none()
-            .size(look.length(token::SPACE_8) + edge * 2.)
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(look.length(token::RADIUS_LG))
-            .bg(hue.opacity(0.28))
-            .child(svg().path(icon_path(entry.icon)).size(look.length(token::SPACE_4) + edge).text_color(hue));
-        let name = div()
-            .flex()
-            .flex_col()
-            .min_w_0()
-            .child(labelled(
-                div().id("limits-title").text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(entry.label),
-                Role::Heading,
-                entry.label,
-            ))
-            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child("How much of this Mac Fleet takes"));
-        let kept = div()
-            .flex_none()
-            .ml_auto()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(
-                div()
-                    .id("limits-kept")
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .tooltip(tip(SharedString::from(path)))
-                    .child("Kept in this Mac's settings.json"),
-            )
-            .child(labelled(open, Role::Button, "Open settings.json"));
-        div()
-            .id("limits-band")
-            .flex_none()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap_x(look.length(token::SPACE_3) + edge * 2.)
-            .gap_y(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_6))
-            .py(look.length(token::SPACE_4))
-            .bg(look.color(token::SURFACE_CARD).blend(hue.opacity(0.12)))
-            .border_b(edge)
-            .border_color(hue.opacity(0.35))
-            .child(glyph)
-            .child(name)
-            .child(kept)
             .into_any_element()
     }
 
@@ -459,7 +368,7 @@ impl SettingsOverlay {
         let control: AnyElement = match kind {
             Control::Stepper => self.limits_stepper(one, lit, off, look, window, cx),
             Control::Switch => self.limits_switch(one, off, look, window, cx),
-            Control::Field => self.limits_field(one, lit, off, saving, look, window, cx),
+            Control::Field => self.number_field(one, lit, off, saving, px(FIELD_W), false, look, window, cx),
             Control::Generic => self.render_field(one, look, window, cx),
         };
         let foot = if kind == Control::Generic {
@@ -612,14 +521,15 @@ impl SettingsOverlay {
         labelled(control, Role::Switch, one.title.clone()).into_any_element()
     }
 
-    /// A figure typed, with its unit inside at the right and Save inside once it differs from what is in force.
+    /// A figure typed, with its unit inside at the right and Save inside once it differs from what is in force. The
+    /// unit is written in words where `words` says so, as the rows of the other pages write it.
     #[allow(clippy::too_many_arguments)]
-    fn limits_field(&self, one: &Setting, lit: bool, off: bool, saving: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn number_field(&self, one: &Setting, lit: bool, off: bool, saving: bool, wide: gpui::Pixels, words: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(Typed::Line(state)) = self.typed.get(&key) else { return div().into_any_element() };
         let unit = match &one.kind {
-            SettingKind::Seconds { .. } => Some("s"),
-            SettingKind::Integer { unit, .. } => unit.as_deref().map(unit_shown).filter(|unit| !unit.is_empty()),
+            SettingKind::Seconds { .. } => Some(if words { "seconds" } else { "s" }),
+            SettingKind::Integer { unit, .. } => unit.as_deref().map(|unit| if words { super::rows::unit_in_words(unit) } else { unit_shown(unit) }).filter(|unit| !unit.is_empty()),
             _ => None,
         };
         let focus = state.read(cx).focus_handle(cx);
@@ -636,7 +546,7 @@ impl SettingsOverlay {
             .id(SharedString::from(format!("line-{key}")))
             .key_context(crate::keymap::TEXT_BOX)
             .flex_none()
-            .w(px(FIELD_W))
+            .w(wide)
             .h(look.length(token::H_CONTROL))
             .flex()
             .items_center()
@@ -740,6 +650,21 @@ mod tests {
         assert!(!changed(&one));
         one.saved = Some(SettingValue::Integer(3));
         assert!(changed(&one));
+    }
+
+    #[test]
+    fn a_setting_waiting_on_a_restart_shows_what_he_saved_and_resets_to_what_ships() {
+        let mut one = setting("timeouts.commandSeconds");
+        one.kind = SettingKind::Seconds { min: 5, max: 300 };
+        one.default = SettingValue::Integer(15);
+        one.value = SettingValue::Integer(15);
+        one.saved = Some(SettingValue::Integer(30));
+        one.pending_restart = true;
+        assert_eq!(*current(&one), SettingValue::Integer(30), "the field reads the saved value, not the one in force");
+        assert!(changed(&one));
+        assert_eq!(super::super::rows::default_words(&one), "15 seconds", "Reset goes back to what ships");
+        one.saved = None;
+        assert_eq!(*current(&one), SettingValue::Integer(15), "nothing saved: what is in force");
     }
 
     #[test]

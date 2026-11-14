@@ -33,10 +33,10 @@ DESKTOP = {"apps/desktop/unit:desktop_test"}
 RUST = {"apps/desktop:xtask_test"}
 
 # Workspace Checks by name that the Linux matrix job runs.
-MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "pocket_test", "store_test", "test"}
+MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "pocket_test", "store_test", "bundle_current", "test"}
 
 # Of those, the ones that never open a browser.
-NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test"}
+NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test", "bundle_current"}
 
 # The grouped jobs the matrix keys run in, one runner each: a runner's checkout
 # and setup cost about as much as a short Check, so a job runs several Checks

@@ -457,6 +457,16 @@ impl JobView {
         if live {
             acts.push(crate::snooze::menu_item(self.snoozed(id, cx)));
         }
+        if live {
+            acts.extend(crate::move_to_mac::offer(job, crate::pairing::macs(cx)).map(|offer| Entry::Item {
+                id: "move_mac",
+                label: offer.label.into(),
+                icon: None,
+                danger: false,
+                key: None,
+                off: offer.off.map(Into::into),
+            }));
+        }
         if live && hosted {
             acts.push(Entry::Toggle { id: "land", label: "Auto land".into(), on: self.auto_land(id, cx) });
             let holds = self.holds(id, cx).is_empty();
@@ -473,6 +483,9 @@ impl JobView {
         // The tab's own entries after the Job's acts, as Electron's `tabEntries`; Move to window is held.
         let zoomed = self.thread_pane().is_some_and(|pane| self.zoomed().as_deref() == Some(pane.as_str()));
         groups.push(super::place_menu::pane_entries(zoomed));
+        if let Some(tab) = self.thread_tab_id() {
+            groups.push(self.move_entries(&tab));
+        }
         let mut ends = Vec::new();
         if self.fork_offered(id, cx) {
             ends.push(Entry::Item {
@@ -505,7 +518,7 @@ impl JobView {
         if let Some(why) = self.off_here(id, cx) {
             for entry in &mut entries {
                 match entry {
-                    Entry::Item { id, .. } if *id == "zoom" || route_of(id).is_some_and(crate::pairing::crosses) => {}
+                    Entry::Item { id, .. } if *id == "zoom" || super::place_menu::is_move(id) || route_of(id).is_some_and(crate::pairing::crosses) => {}
                     Entry::Item { off, .. } => *off = Some(why.clone()),
                     Entry::Toggle { id, label, .. } => {
                         *entry = Entry::Item { id, label: label.clone(), icon: None, danger: false, key: None, off: Some(why.clone()) };
@@ -554,7 +567,13 @@ impl JobView {
 
     pub(super) fn head_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        if act != "zoom" && self.off_to(&id, route_of(act).unwrap_or_default(), cx).is_some() {
+        if act != "zoom" && !super::place_menu::is_move(act) && self.off_to(&id, route_of(act).unwrap_or_default(), cx).is_some() {
+            return;
+        }
+        if super::place_menu::is_move(act) {
+            if let Some(tab) = self.thread_tab_id() {
+                self.move_tab_picked(act, &tab, window, cx);
+            }
             return;
         }
         let session_id = Self::session_id(&id);
@@ -583,6 +602,7 @@ impl JobView {
                 self.ask_act(id, "/sessions/resume".into(), encoded(ipc::encode(&ipc::ResumeSession { session_id })), |overlay| overlay.paused = None, window, cx);
             }
             "snooze" => self.ask_snooze(&id, window, cx),
+            "move_mac" => self.list.update(cx, |list, cx| list.move_to_mac(&id, cx)),
             "wake" => self.list.update(cx, |list, cx| list.snooze(&id, None, cx)),
             "land" => {
                 let on = !self.auto_land(&id, cx);
@@ -1183,6 +1203,7 @@ impl JobView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .items_center()
                         .gap(look.length(token::SPACE_3))
                         .px(look.length(token::SPACE_3))
@@ -1190,7 +1211,8 @@ impl JobView {
                         .border_x(look.length(token::BORDER_WIDTH))
                         .border_color(hue)
                         .bg(look.color(token::BG_RAISED))
-                        .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
+                        // The reason keeps a readable width; in a narrow thread the buttons wrap under it.
+                        .child(div().flex_1().min_w(gpui::px(180.0)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
                         .child(retry)
                         .child(fix),
                 )
@@ -1383,8 +1405,28 @@ impl JobView {
                     said,
                 )
             });
-            let mac_mark = crate::pairing::chip(job.mac.as_deref(), cx).map(|chip| crate::pairing::pill(look, "mark-mac".into(), &chip));
-            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mac_mark).children(mod_mark).children(tools_mark)
+            // While a move waits, the ring and the target Mac stand in for the held Mac's chip: the bar has no room for both at the narrowest width.
+            let moving = crate::move_to_mac::moving_to(job).is_some();
+            let mac_mark = crate::pairing::chip(job.mac.as_deref(), cx).filter(|_| !moving).map(|chip| crate::pairing::pill(look, "mark-mac".into(), &chip));
+            // A move that waits for the turn to end: a turning ring, then the Mac the Job is going to.
+            let moving_mark = crate::move_to_mac::moving_to(job).and_then(|to| crate::pairing::chip(Some(to), cx)).map(|chip| {
+                let said: SharedString = format!("Moving to {}", chip.name).into();
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(labelled(
+                        div()
+                            .id("mark-moving")
+                            .flex_none()
+                            .child(crate::titlebar::parts::spinner("mark-moving-ring", look.length(token::SPACE_4), look.color(token::FG_MUTED), cx))
+                            .tooltip(tip(said.clone())),
+                        Role::Status,
+                        said,
+                    ))
+                    .child(crate::pairing::pill(look, "mark-moving-mac".into(), &chip))
+            });
+            div().flex().items_center().gap(look.length(token::SPACE_2)).children(mac_mark).children(moving_mark).children(mod_mark).children(tools_mark)
         };
         let aa = labelled(
             div()
@@ -1545,6 +1587,7 @@ fn route_of(act: &str) -> Option<&'static str> {
         "release" => "/sessions/release_holds",
         "end" => "/sessions/close",
         "rename" => "/sessions/rename",
+        "move_mac" => crate::move_to_mac::ROUTE,
         _ => return None,
     })
 }

@@ -735,6 +735,32 @@ pub(crate) async fn report_bug<D: Sessions>(State(served): State<Served<D>>, bod
     }
 }
 
+/// The agent says its work and another Job's cannot both stand. 200 with the conflict's id; 422 for a part Fleet refuses.
+/// **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn raise_conflict<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let conflict: ipc::RaiseConflict = match ipc::decode_body("a conflict", &body) {
+        Ok(conflict) => conflict,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().raise_conflict(crate::acting::asking(), conflict).await {
+        Ok(raised) => answer(StatusCode::OK, &raised, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent asks whether a pull request or a branch should land. 200 with the ask's id, and Fleet's answer where it
+/// had one; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn ask_held<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::AskHeld = match ipc::decode_body("what is asked about landing", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().ask_held(crate::acting::asking(), asked).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The bug reports on this Mac, newest first.
 pub(crate) async fn list_bug_reports<D: Sessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().list_bug_reports().await {
@@ -1114,6 +1140,22 @@ pub(crate) async fn take_main_red<D: Sessions>(
         .await
     {
         Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Job says a failing test Fleet asked it about is flaky. 200 with `TestCalledFlaky`; 409 where
+/// Fleet did not ask it about that test; 422 for a call that places no Session or names no log line.
+pub(crate) async fn call_test_flaky<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let call: ipc::CallTestFlaky = match ipc::decode_body("a flaky test to call", &body) {
+        Ok(call) => call,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().call_test_flaky(crate::acting::asking(), call).await {
+        Ok(called) => answer(StatusCode::OK, &called, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

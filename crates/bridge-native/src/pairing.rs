@@ -5,7 +5,7 @@
 //! the list once ([`hold`]) and every row, head and menu reads it, as the write-clash marks do.
 //!
 //! **Nothing is drawn until a second Mac is linked or asleep** ([`shows_chips`]). A Job on another Mac is read
-//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge) go from
+//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge, and the move that brings a Job here) go from
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
@@ -53,6 +53,7 @@ pub fn follow(cx: &mut App) {
 
 /// A walk's Macs: the pairing scenario's two, and none for any other, so one walk never leaves chips for the next.
 pub fn begin_mock(scenario: &str, cx: &mut App) {
+    crate::move_to_mac::refuse_next(false);
     hold(if scenario == "jobs-pairing" { mock_macs(true) } else { Vec::new() }, cx);
 }
 
@@ -155,7 +156,7 @@ pub fn reads(path: &str) -> bool {
 /// (`docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*). A start and a dispatch cross
 /// too, but name their Mac in the body, so they are not acts on a Job held there.
 pub fn crosses(path: &str) -> bool {
-    const ROUTES: [&str; 9] = [
+    const ROUTES: [&str; 10] = [
         "/sessions/message",
         "/sessions/ask/answer",
         "/sessions/waiting/answer",
@@ -165,6 +166,7 @@ pub fn crosses(path: &str) -> bool {
         "/sessions/sketch/answer",
         "/sessions/document/answer",
         "/sessions/stop",
+        crate::move_to_mac::ROUTE,
     ];
     ROUTES.contains(&path) || (path.starts_with("/pull_requests/") && path.ends_with("/merge"))
 }
@@ -186,7 +188,21 @@ pub fn asleep_said(since: i64) -> String {
 /// dimmed and says since when; the name is the chip's, so a walk and VoiceOver find it by it.
 pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
     let hue = crate::settings::macs::colour_of(look, chip.colour);
-    let drawn = div()
+    let drawn = pill_drawn(look, id, &chip.name, hue)
+        .when_some(chip.asleep_since, |pill, since| {
+            let said: SharedString = asleep_said(since).into();
+            pill.opacity(0.5).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
+        });
+    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+}
+
+/// A chip for a Mac the window may not list, such as a teammate's, in the hue given.
+pub fn pill_in(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> AnyElement {
+    labelled(pill_drawn(look, id, name, hue), Role::Image, SharedString::from(name.to_string())).into_any_element()
+}
+
+fn pill_drawn(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> gpui::Stateful<Div> {
+    div()
         .id(id)
         .max_w_full()
         .truncate()
@@ -197,12 +213,7 @@ pub fn pill(look: &Look, id: SharedString, chip: &Chip) -> AnyElement {
         .text_size(look.length(token::TEXT_2XS))
         .line_height(look.length(token::LEADING_XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-        .child(SharedString::from(chip.name.clone()))
-        .when_some(chip.asleep_since, |pill, since| {
-            let said: SharedString = asleep_said(since).into();
-            pill.opacity(0.5).tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
-        });
-    labelled(drawn, Role::Image, SharedString::from(chip.name.clone())).into_any_element()
+        .child(SharedString::from(name.to_string()))
 }
 
 /// The Mac's dot in its fixed colour, dimmed while it sleeps.

@@ -49,6 +49,7 @@ mod menu;
 mod merge_strip;
 mod option_pictures;
 mod mock;
+mod move_to_mac;
 mod new_project;
 mod notify;
 mod operator;
@@ -72,6 +73,7 @@ mod toasts;
 mod transport;
 mod voice;
 mod waiting_sends;
+mod web;
 mod walk;
 mod ways;
 mod whisper;
@@ -108,6 +110,7 @@ const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
        bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
+       bridge-native --list-walks
 
 With no flags it opens on the Fleet this Mac runs.
   --mock <scenario>   open on a mock scenario's data instead
@@ -119,16 +122,19 @@ With no flags it opens on the Fleet this Mac runs.
   --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
+  --list-walks        print the name of every walk this build plays, one a line, and exit
   -h, --help          print this and exit
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
 const VALUED: [&str; 10] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--width", "--height", "--take", "--mock"];
-const BARE: [&str; 1] = ["--check"];
+const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
 enum Mode {
     Help,
+    /// Fleet asks which walks the build behind his preview plays, before a Job may show one.
+    Walks,
     Live,
     Mock(String),
     Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
@@ -146,6 +152,9 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
             // `-psn_0_…` is what LaunchServices may hand an app it opens; it is not his to type.
             return Err(format!("{arg} is not a flag this app reads"));
         }
+    }
+    if args.iter().any(|arg| arg == "--list-walks") {
+        return Ok(Mode::Walks);
     }
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
     if let Some(name) = value("--walk").transpose()? {
@@ -218,6 +227,10 @@ fn main() -> ExitCode {
         print!("{USAGE}");
         return ExitCode::SUCCESS;
     }
+    if let Mode::Walks = mode {
+        walk::WALKS.iter().for_each(|walk| println!("{}", walk.name));
+        return ExitCode::SUCCESS;
+    }
     if let Mode::Walk { name, check: true, shots, hold, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
@@ -251,6 +264,7 @@ fn main() -> ExitCode {
         if matches!(mode, Mode::Live) {
             drafts::persist(drafts::file(), cx);
             pairing::follow(cx);
+            job_view::keep_arrangements(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {
@@ -275,11 +289,12 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help => Ok(()),
+            Mode::Help | Mode::Walks => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
                     terminal::shells::hold_live(&fleet, cx);
+                    scene::mock_view::hold_live(&fleet, cx);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
                     let menu = cx.new(|cx| MenuController::new(&fleet, cx));
@@ -388,5 +403,6 @@ mod tests {
         assert_eq!(mode_of(&args(&["--walks", "jobs-list"])).err().as_deref(), Some("--walks is not a flag this app reads"));
         assert!(mode_of(&args(&["--walk", "jobs-list", "--check", "--width", "800"])).is_ok(), "a value is not read as a flag");
         assert!(matches!(mode_of(&args(&["-psn_0_123456"])), Ok(Mode::Live)), "LaunchServices' own argument passes");
+        assert!(matches!(mode_of(&args(&["--list-walks"])), Ok(Mode::Walks)));
     }
 }

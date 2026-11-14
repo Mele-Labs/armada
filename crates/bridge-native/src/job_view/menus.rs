@@ -81,6 +81,8 @@ pub(super) fn disable_label(word: &str) -> Option<&'static str> {
         "started_job_ended" => "Disable ended by its starter",
         "gate_closed" => "Disable a gate closed",
         "gate_hold" => "Disable a gate holds",
+        "claims" => "Disable claims",
+        "wire_changed" => "Disable wire change",
         _ => return None,
     })
 }
@@ -228,7 +230,7 @@ mod tests {
 
     #[test]
     fn every_notice_word_is_read_and_has_a_name() {
-        for word in ["behind_base", "gate_hold", "pr_merged", "operator"] {
+        for word in ["behind_base", "gate_hold", "pr_merged", "operator", "claims", "wire_changed"] {
             assert!(notice_of(word).is_some(), "{word}");
             assert!(disable_label(word).is_some(), "{word}");
         }

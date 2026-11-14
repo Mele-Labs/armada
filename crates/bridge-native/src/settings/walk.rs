@@ -67,6 +67,33 @@ pub static MACS_PHONE_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-pages`: each Settings page drawn as split rows, one step a page, then a project's own values beside every project's.
+pub const PAGES: &str = "native-settings-pages";
+
+pub static PAGES_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Pull requests: how work lands, per project", "button", "Pull requests", "button", "Pull requests"),
+    press_on("Starting Jobs: Jobs that Jobs start, per project", "button", "Starting Jobs", "button", "Starting Jobs"),
+    press_on("Look: the look, per project", "button", "Look", "button", "Look"),
+    press_on("Prompts: the Drone's prompts", "button", "Prompts", "button", "Prompts"),
+    press_on("Harness: the agent program", "button", "Harness", "button", "Harness"),
+    press_on("Timeouts: how long Fleet waits", "button", "Timeouts", "button", "Timeouts"),
+    press_on("Retention: what Fleet keeps, and for how long", "button", "Retention", "button", "Retention"),
+    press_on("Plan: stepping down on the weekly plan", "button", "Plan", "button", "Plan"),
+    press_on("Machine: this Mac's name", "button", "Machine", "button", "Machine"),
+    press_on("Account: the sign-in app", "button", "Account", "button", "Account"),
+    press_on("Features: switches and folders", "button", "Features", "button", "Features"),
+    press_on("Spacing: density", "button", "Spacing", "button", "Spacing"),
+    press_on("Time: how stamps are written", "button", "Time", "button", "Time"),
+    press_on("Editor: where code opens", "button", "Editor", "button", "Editor"),
+    press_on("Terminal: which terminal opens", "button", "Terminal", "button", "Terminal"),
+    press_on("Links: where pull requests open", "button", "Links", "button", "Links"),
+    step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
+    press_on("Pull requests under a project: its own value beside every project's", "button", "Pull requests", "radiogroup", "Merging for Storefront"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-settings-limits`: Settings › Limits as tiles, group by group, then a count stepped and put back.
 pub const LIMITS: &str = "native-settings-limits";
 
@@ -131,8 +158,25 @@ pub static MACS_LONG_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
     press_on("Macs: a name stops in an ellipsis at the edge of its card, and a tooltip holds the whole name", "button", "Macs", "list", "Devices"),
     step("The tunnel's address stops in an ellipsis on its own line, and Copy address copies all of it", Verb::Look, "button", "Copy address"),
+    step("A Mac found nearby stops in an ellipsis too, with its chip and its Pair in their columns", Verb::Look, "list", "Found Macs"),
     press_on("Pair a phone: its link stops on one line, and Copy link copies all of it", "button", "Pair a phone", "button", "Copy link"),
     press_on("Pair a Mac: its link stops on one line too", "button", "Pair a Mac", "textbox", "Paste the link from your other Mac"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-nearby-macs`: his other Macs found on this network and on his account, each with where it is reached and a
+/// Pair. Pair on the one nearby asks it with no link, and its row waits on Confirm; the one only on his account refuses.
+pub const MACS_NEARBY: &str = "native-nearby-macs";
+
+pub static MACS_NEARBY_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: the paired Macs come first", "button", "Macs", "list", "Devices"),
+    step("Work MacBook is paired and on this network, so it carries a green Nearby", Verb::Wheel("region", "Devices", 600), "label", "Work MacBook is nearby"),
+    step("Found Macs follow: one on this network, one on his account, one asleep, each with one chip and a Pair", Verb::Look, "list", "Found Macs"),
+    step("Pair is off while a Mac is asleep, and its tooltip says why", Verb::Hover, "button", "Pair Old iMac"),
+    press_on("Pair on the Mac nearby asks it, with no link: its row waits on Confirm and shows the four digits", "button", "Pair Office iMac", "img", "Confirm on Office iMac if it shows 4821."),
+    press_on("The Mac only on his account does not answer, and the Gateway's sentence stands under its row", "button", "Pair MacBook Pro", "alert", "MacBook Pro did not answer. Check Armada is open there, then press Pair again."),
+    step("Tab goes on to the next Pair", Verb::Key("tab"), "button", "Pair Old iMac"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 

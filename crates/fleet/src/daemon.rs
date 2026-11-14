@@ -65,6 +65,8 @@ pub struct Fleet<H, V, W> {
     /// The central store's other half: a repository's forge address and the
     /// store a profile is enrolled with. See [`crate::red_claim`].
     reaching: Arc<dyn crate::red_claim::Reaching>,
+    /// Deploying a project's store. See [`crate::store_deploy`].
+    deploying: crate::store_deploy::Deploying,
     judge: Arc<dyn ModelClient + Send + Sync>,
     trackers: Arc<dyn Trackers + Send + Sync>,
     /// The tracker, the issue lists last read from it, and when Fleet last
@@ -130,6 +132,9 @@ pub struct Fleet<H, V, W> {
     /// Never written down, for `sweeping`'s reason; an `Arc` because a Drone's tap holds it —
     /// `crate::clashing`.
     writes: Arc<crate::clashing::Writes>,
+    /// What each live Job holds in its project's store, and what it waits on. Never written down, for
+    /// `sweeping`'s reason: a pass claims again after a restart — `crate::job_claims`.
+    job_claims: crate::job_claims::JobClaims,
     /// Main's moves not yet fed to the test map. Never written down, for `sweeping`'s reason —
     /// `crate::test_map_feed`.
     feed: Arc<crate::test_map_feed::Feed>,

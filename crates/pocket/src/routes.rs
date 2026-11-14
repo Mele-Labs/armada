@@ -13,7 +13,7 @@ use axum::Router;
 use tower_http::compression::CompressionLayer;
 
 use crate::{
-    admin, cors, fleet_client, forward, mac_ask_routes, mac_pages, mac_pair_routes, mac_routes, mac_terminals, machine, pair_routes, push, reads, session_routes, setup,
+    admin, cors, fleet_client, forward, mac_ask_routes, mac_pages, mac_pair_routes, mac_routes, mac_terminals, machine, pair_routes, phone_terminals, push, reads, session_routes, setup,
     shown_address, signing, stat, thread_window,
 };
 
@@ -83,6 +83,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/page/:job/:port/", any(mac_pages::serve))
         .route("/api/mac/page/:job/:port/*rest", any(mac_pages::serve))
         .route("/api/mac/terminal/observe", get(mac_terminals::observe))
+        .route("/api/sessions/terminal/observe", get(phone_terminals::observe))
         .route("/api/push/subscribe", post(push::subscribe))
         .route("/api/push/key", get(push::key))
         .route("/api/push/vapid_private", get(push::vapid_private));
@@ -94,9 +95,11 @@ pub fn router(gateway: Gateway) -> Router {
         // Another Mac pairing, unsigned: the claim carries the key its calls are signed with after.
         .route("/pair/mac", post(mac_pair_routes::claimed_here))
         .route("/pair/mac/back", post(mac_pair_routes::back))
-        // Another Mac on his account: who this is, its ask to pair, and word that the ask was declined.
+        // Another Mac on his account or nearby: who this is, its ask to pair and its half of the code, and
+        // word that the ask was declined.
         .route("/pair/mac/hello", get(mac_ask_routes::hello))
         .route("/pair/mac/ask", post(mac_ask_routes::asked_here))
+        .route("/pair/mac/reveal", post(mac_ask_routes::revealed_here))
         .route("/pair/mac/declined", post(mac_pair_routes::declined))
         // Only a linked Mac, and never a phone: `signing::signed`.
         .route("/api/mac/hello", get(mac_routes::hello))
@@ -107,6 +110,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/act", post(mac_routes::act))
         .route("/api/mac/update", post(mac_routes::update))
         .route("/api/mac/thread", get(mac_routes::read))
+        .route("/api/mac/conversation", get(mac_routes::read_naming_mac))
         .route("/api/mac/page", get(mac_routes::read))
         .route("/api/mac/terminal", post(mac_terminals::act))
         .route("/api/mac/forget", post(mac_pair_routes::forgotten))
@@ -138,6 +142,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/close", post(forward::forward))
         .route("/api/sessions/tune", post(forward::forward))
         .route("/api/sessions/run/start", post(forward::forward))
+        .route("/api/sessions/terminals", get(phone_terminals::list))
+        .route("/api/sessions/terminal/write", post(phone_terminals::write))
         .route("/api/sessions/waiting/dismiss", post(forward::forward))
         .route("/api/sessions/change_waiting", post(forward::forward))
         .route("/api/sessions/start_waiting", post(forward::forward))

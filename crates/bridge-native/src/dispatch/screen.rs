@@ -348,7 +348,7 @@ impl DispatchScreen {
         cx.notify();
     }
 
-    /// ⌘T, New Job here: a Job where the window is, else where the last one started, with no sheet. With
+    /// ⌘T, New Side Job: a Job where the window is, else where the last one started, with no sheet. With
     /// neither, the sheet opens to be told where.
     /// A repository the sheet's picker named starts it there; none, where the title bar is.
     fn new_terminal(&mut self, picked: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
@@ -374,7 +374,7 @@ impl DispatchScreen {
         self.start_terminal(start, made.lands.clone(), window, cx);
     }
 
-    /// Start Fleet's quick Job and open it on its thread, the keys in its message box. A refusal is a toast.
+    /// Start Fleet's Side Job and open it on its thread, the keys in its message box. A refusal is a toast.
     /// `lands` is the line over its box, for a New project's first Job.
     fn start_terminal(&mut self, start: Start, lands: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let place = start.place.clone();

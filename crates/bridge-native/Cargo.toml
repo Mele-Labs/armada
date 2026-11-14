@@ -34,6 +34,9 @@ gpui-component = "=0.9.0"
 gpui-base = "=0.9.0"
 # The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
 gpui-kit-assets = "=0.9.0"
+# A mock's markup is parsed and cleaned as the browser parses it; gpui-component already links these exact versions.
+html5ever = "=0.27.0"
+markup5ever_rcdom = "=0.3.0"
 # The wire, linked and never copied: the protocol ID covers this crate.
 ipc = { path = "../ipc" }
 # The log envelope's own type, so a line from here joins to a line from Fleet.
@@ -77,7 +80,11 @@ getrandom = "0.3"
 objc2 = "0.6"
 block2 = "0.6"
 objc2-foundation = "0.3"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSResponder"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "block2", "NSApplication", "NSDockTile", "NSResponder", "NSAppearance", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSEvent", "NSImage", "NSImageRep", "NSView", "NSWindow"] }
+# Web pages: Apple's web view, WKWebView, placed over the gpui window's own NSView (`src/web/`). The owner chose it over
+# embedding Chrome on 13 Nov. Only the classes `src/web/wk.rs` calls. `raw-window-handle` is how gpui hands out that NSView.
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-app-kit", "objc2-core-foundation", "WKWebView", "WKWebViewConfiguration", "WKWebsiteDataStore", "WKWebpagePreferences", "WKSnapshotConfiguration", "WKNavigation", "WKNavigationAction", "WKNavigationDelegate", "WKContentWorld", "WKFrameInfo", "WKScriptMessage", "WKScriptMessageHandler", "WKUserContentController"] }
+raw-window-handle = "0.6"
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNUserNotificationCenter"] }
 
 [dev-dependencies]

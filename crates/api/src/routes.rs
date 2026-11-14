@@ -406,6 +406,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/settle_later", post(crate::sessions::settle_later::<D>))
         .route("/sessions/dispute_fleet", post(crate::sessions::dispute_fleet::<D>))
         .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
+        .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
+        .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
         .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
         .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
         .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
@@ -549,6 +551,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/take_main_red",
             post(crate::sessions::take_main_red::<D>),
+        )
+        .route(
+            "/sessions/call_test_flaky",
+            post(crate::sessions::call_test_flaky::<D>),
         )
         .route(
             "/sessions/start_another",
@@ -697,6 +703,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/artifacts/press",
             post(crate::hosted_sessions::press_page_action::<D>),
+        )
+        .route(
+            "/sessions/artifacts/vote",
+            post(crate::hosted_sessions::cast_page_vote::<D>),
+        )
+        .route(
+            "/sessions/artifacts/seen",
+            post(crate::hosted_sessions::mark_artifact_seen::<D>),
+        )
+        .route(
+            "/sessions/artifacts/page",
+            get(crate::hosted_sessions::get_artifact_page::<D>),
         )
         .route(
             "/sessions/mcp/act",
@@ -873,6 +891,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
         .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
+        .route(
+            "/projects/project/:project/store",
+            get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),
+        )
+        .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
+        .route("/projects/project/:project/claims", get(crate::projects::get_project_claims::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

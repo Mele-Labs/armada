@@ -609,6 +609,18 @@ where
         self.page_action_pressed(press).await
     }
 
+    async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
+        self.page_vote_cast(cast).await
+    }
+
+    async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
+        self.artifact_seen_marked(mark).await
+    }
+
+    async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.artifact_page(id.as_str(), &artifact, revision).await
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let act = super::mcp_servers::McpAct::from(asked.act);
         let acted = self.session_mcp_acted(asked.session_id.as_str(), &asked.server, act).await?;

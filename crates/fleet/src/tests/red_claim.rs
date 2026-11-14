@@ -37,6 +37,11 @@ impl Planted {
         Planted { store: None, bucket: None }
     }
 
+    /// A machine reaching `store` as its view of the store.
+    pub(crate) fn with_store(store: Arc<FakeStore>) -> Planted {
+        Planted { store: Some(store), bucket: None }
+    }
+
     /// A machine with a bucket to reach and no store.
     pub(crate) fn with_bucket(bucket: Arc<testkit::FakeBucket>) -> Planted {
         Planted { store: None, bucket: Some(bucket) }
@@ -74,8 +79,11 @@ impl Store for Viewed {
     fn clear_kind(&self, repository: &adapter_traits::RepositoryKey, kind: adapter_traits::ClaimKind) -> Result<(), adapter_traits::StoreError> {
         self.0.clear_kind(repository, kind)
     }
-    fn renew(&self, holder: &Holder) -> Result<u64, adapter_traits::StoreError> {
+    fn renew(&self, holder: &Holder) -> Result<adapter_traits::Renewed, adapter_traits::StoreError> {
         self.0.renew(holder)
+    }
+    fn claims_listed(&self) -> Result<Vec<adapter_traits::HolderClaims>, adapter_traits::StoreError> {
+        self.0.claims_listed()
     }
     fn put_owner(&self, key: &adapter_traits::OwnerKey, holder: &Holder) -> Result<(), adapter_traits::StoreError> {
         self.0.put_owner(key, holder)
@@ -88,6 +96,9 @@ impl Store for Viewed {
     }
     fn delete_device(&self, device: &str) -> Result<(), adapter_traits::StoreError> {
         self.0.delete_device(device)
+    }
+    fn signed_in_devices(&self) -> Result<Vec<adapter_traits::StoreDevice>, adapter_traits::StoreError> {
+        self.0.signed_in_devices()
     }
     fn put_runs(&self, repository: &adapter_traits::RepositoryKey, runs: &[adapter_traits::RunRow]) -> Result<(), adapter_traits::StoreError> {
         self.0.put_runs(repository, runs)
@@ -159,11 +170,39 @@ pub(super) async fn machine_hosting(
     if let Some(stand_in) = stand_in {
         fleet = fleet.hosting_sessions_on(Arc::new(crate::tests::session_host::Shared(stand_in)), Duration::from_secs(600));
     }
-    let changes = [("store.url", "https://store.test"), ("machine.name", name)]
+    let changes = [("machine.name", name)]
         .into_iter()
         .map(|(key, value)| (key.to_string(), Some(ipc::SettingValue::Text(value.to_string()))))
         .collect();
     api::Settings::save_settings(&fleet, ipc::SaveSettings { changes }).await.expect("saved");
+    in_a_project_storing_at(&fleet, "https://store.test").await;
     Machine { fleet, view, _home: home }
+}
+
+/// Every repository `fleet` serves, in one new project that names the store at `address`. Its id.
+/// A project holding every repository the Fleet serves, naming no store. Its id.
+pub(crate) async fn a_project_of_every_repository(fleet: &Fixture) -> String {
+    let members = fleet
+        .repositories()
+        .served()
+        .into_iter()
+        .map(|one| ipc::ProjectMember { manifest_id: ipc::ManifestId::carried(one.manifest().id().as_str()), folder: None })
+        .collect();
+    let new = ipc::NewProject { name: "Every repository".into(), members: Some(members), place: None, values: None };
+    api::Projects::add_project(fleet, new).await.expect("added").projects.last().expect("the project").id.clone()
+}
+
+pub(crate) async fn in_a_project_storing_at(fleet: &Fixture, address: &str) -> String {
+    let members = fleet
+        .repositories()
+        .served()
+        .into_iter()
+        .map(|one| ipc::ProjectMember { manifest_id: ipc::ManifestId::carried(one.manifest().id().as_str()), folder: None })
+        .collect();
+    let new = ipc::NewProject { name: format!("Stored at {address}"), members: Some(members), place: None, values: None };
+    let id = api::Projects::add_project(fleet, new).await.expect("added").projects.last().expect("the project").id.clone();
+    let store = core_model::ProjectStore::joined(core_model::StoreAddress::new(address).expect("an address"), None);
+    fleet.project_store_written(&id, Some(store)).await.expect("its store named");
+    id
 }
 

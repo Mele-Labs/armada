@@ -54,6 +54,8 @@ mod waiting_compactions;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
 mod bug_reports;
+/// What a Job asked the Operator with `raise_conflict` and `ask_held`.
+mod job_asks;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -86,6 +88,10 @@ mod artifact_archives;
 mod artifact_owner_revisions;
 /// The presses of the actions a Job's pages declare, kept apart from their attachments.
 mod page_presses;
+/// The casts of the votes a Job's pages declare, kept apart from their attachments.
+mod page_votes;
+/// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
+mod artifact_seen;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -241,6 +247,7 @@ pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
@@ -260,6 +267,8 @@ pub use job_renames::KeptRename;
 pub use artifact_archives::KeptArchive;
 pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use page_presses::KeptPress;
+pub use page_votes::KeptVote;
+pub use artifact_seen::KeptArtifactSeen;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

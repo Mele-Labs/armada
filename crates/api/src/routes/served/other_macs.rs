@@ -81,6 +81,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/act",
     },
     Route {
+        operation: "share_job_conversation",
+        method: "GET",
+        path: "/other_mac/conversation",
+    },
+    Route {
+        operation: "move_job_to_mac",
+        method: "POST",
+        path: "/sessions/move_to_mac",
+    },
+    Route {
         operation: "list_queued",
         method: "GET",
         path: "/queued",
