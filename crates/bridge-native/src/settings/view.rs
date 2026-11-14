@@ -54,27 +54,6 @@ pub fn in_words(seconds: i64) -> String {
     }
 }
 
-/// `2`, `15%`, `10 GiB`, `$10`.
-fn figure(value: i64, unit: Option<&str>) -> String {
-    match unit {
-        None | Some("") => value.to_string(),
-        Some("%") => format!("{value}%"),
-        Some("$") => format!("${value}"),
-        Some(unit) => format!("{value} {unit}"),
-    }
-}
-
-/// The shipped value as a person reads it, or `None` for a kind that draws no line (`controlOf`).
-fn shipped(one: &Setting) -> Option<String> {
-    let number = |value: &SettingValue, fallback: i64| if let SettingValue::Integer(n) = value { *n } else { fallback };
-    match &one.kind {
-        SettingKind::Integer { min, unit, .. } => Some(figure(number(&one.default, *min), unit.as_deref())),
-        SettingKind::Seconds { min, .. } => Some(in_words(number(&one.default, *min))),
-        SettingKind::Boolean => Some(if one.default == SettingValue::Bool(true) { "on".into() } else { "off".into() }),
-        _ => None,
-    }
-}
-
 /// The folders a Job always reaches and never reaches, as settings.json holds them (`reachFoldersOf`).
 pub fn reach_folders(value: Option<&SettingValue>) -> (Vec<String>, Vec<String>) {
     let list = |name: &str| match value {
@@ -104,6 +83,12 @@ pub fn pane_stops(this: &SettingsOverlay, shown: &Entry, _cx: &App) -> Vec<Focus
         _ => return Vec::new(),
     };
     this.panes.iter().filter(|(key, _)| key.starts_with(prefix)).map(|(_, handle)| handle.clone()).collect()
+}
+
+/// A registry word as a sentence starts: `carry on automatically` is `Carry on automatically`.
+fn sentence(word: &str) -> String {
+    let mut letters = word.chars();
+    letters.next().map_or_else(String::new, |first| first.to_uppercase().chain(letters).collect())
 }
 
 pub fn tip(said: impl Into<SharedString>) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView {
@@ -459,7 +444,8 @@ impl SettingsOverlay {
         for (n, word) in options.iter().enumerate() {
             let on = *word == now;
             let (press_key, press_word) = (key.clone(), word.clone());
-            let segment = segment(look, SharedString::from(format!("choice-{key}-{n}")), word.clone().into(), if on { Pick::Set } else { Pick::No }, off)
+            let said = sentence(word);
+            let segment = segment(look, SharedString::from(format!("choice-{key}-{n}")), said.clone().into(), if on { Pick::Set } else { Pick::No }, off)
                 .aria_toggled(if on { Toggled::True } else { Toggled::False })
                 .when(!off, |segment| {
                     segment.on_click(cx.listener(move |this, _, window, cx| {
@@ -469,7 +455,7 @@ impl SettingsOverlay {
                         this.save(press_key.clone(), Some(SettingValue::Text(press_word.clone())), window, cx);
                     }))
                 });
-            track = track.child(labelled(segment, Role::RadioButton, word.clone()));
+            track = track.child(labelled(segment, Role::RadioButton, said));
         }
         let track = ringed(look, track, &stops.control, window).when(!off, |track| {
             let (name, options, now, key) = (one.title.clone(), options.to_vec(), now.clone(), key.clone());
@@ -611,24 +597,43 @@ impl SettingsOverlay {
                 });
                 labelled(trigger, Role::ComboBox, one.title.clone()).into_any_element()
             }
-            (_, Some(Typed::Lines(state))) => labelled(
-                div().id(SharedString::from(format!("lines-{key}"))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(state).disabled(off)),
-                Role::TextInput,
-                one.title.clone(),
-            )
-            .into_any_element(),
+            (_, Some(typed @ Typed::Lines(state))) => {
+                let focus = typed.focus(cx);
+                let frame = div()
+                    .id(SharedString::from(format!("lines-{key}")))
+                    .key_context(crate::keymap::TEXT_BOX)
+                    .w_full()
+                    .px(look.length(token::SPACE_2))
+                    .py(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .text_size(look.length(token::TEXT_SM))
+                    .child(Textarea::new(state).appearance(false).bordered(false).disabled(off));
+                labelled(ringed(look, frame, &focus, window), Role::TextInput, one.title.clone()).into_any_element()
+            }
             (_, Some(Typed::Line(state))) if matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. }) => {
                 let _ = state;
                 self.number_field(one, changed, off, saving, px(FIELD_W), true, look, window, cx)
             }
-            (_, Some(Typed::Line(state))) => {
+            (_, Some(typed @ Typed::Line(state))) => {
+                let focus = typed.focus(cx);
                 let field = div()
                     .id(SharedString::from(format!("line-{key}")))
                     .key_context(crate::keymap::TEXT_BOX)
                     .w_full()
+                    .flex()
+                    .items_center()
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
                     .text_size(look.length(token::TEXT_SM))
-                    .child(Input::new(state).disabled(off).when(self.dirty(&key, cx) || saving, |input| input.suffix(self.save_button(one, look, window, cx))));
-                labelled(field, Role::TextInput, one.title.clone()).into_any_element()
+                    .child(Input::new(state).appearance(false).bordered(false).disabled(off).when(self.dirty(&key, cx) || saving, |input| input.suffix(self.save_button(one, look, window, cx))));
+                labelled(ringed(look, field, &focus, window), Role::TextInput, one.title.clone()).into_any_element()
             }
             _ => div().into_any_element(),
         };
@@ -651,9 +656,9 @@ impl SettingsOverlay {
             let across = if slides(one) { Some(self.render_slider(one, &typed_text, in_range, off, look, window, cx)) } else { None };
             line(look)
                 .child(typed_field)
-                .children(across.map(|slider| div().flex_1().min_w(px(120.)).max_w(px(CONTROL_W)).child(slider)))
                 .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
                 .children(reset)
+                .children(across.map(|slider| div().flex_none().w(px(CONTROL_W)).max_w_full().child(slider)))
                 .into_any_element()
         } else if matches!(one.kind, SettingKind::Prompt | SettingKind::TextList) {
             let below = dirty || saving || reset.is_some();

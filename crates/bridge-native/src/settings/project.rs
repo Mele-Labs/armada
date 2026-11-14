@@ -140,7 +140,7 @@ impl Key {
     fn fixed(self) -> Vec<(String, String)> {
         let pairs: &[(&str, &str)] = match self {
             Key::Delivery => &[(ASK, "Ask each Job")],
-            Key::PrMode => &[("ready", "Ready for review"), ("draft", "Draft")],
+            Key::PrMode => &[("draft", "Draft"), ("ready", "Ready for review")],
             Key::AutoMerge => &[("never", "Never"), ("checks-pass", "When checks pass"), ("always", "Always")],
             Key::Plans | Key::PullRequests => &[("off", "Off"), ("review", "Review"), ("review_and_approve", "Review and approve")],
             Key::Walks => &[("off", "Off"), ("review", "Review")],
@@ -668,7 +668,9 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
         labelled(clear, Role::Button, format!("Clear {} for {project}", key.title()))
     });
     let options = this.options(key, word.as_deref(), cx);
-    if !options.is_empty() && options.len() <= SEGMENTS_MAX {
+    // What this Mac has, such as models, themes and layouts, grows, so it is a dropdown however few there are.
+    let open_ended = matches!(key, Key::ReviewModel | Key::Theme | Key::Layout);
+    if !open_ended && !options.is_empty() && options.len() <= SEGMENTS_MAX {
         // Up to three words are segments: the word in force raised, in the accent where it is set at this layer.
         let strong = !same && !defaulted && lock.is_none();
         let mut track = segment_track(look, SharedString::from(format!("value-{key:?}-{column:?}"))).track_focus(focus);
