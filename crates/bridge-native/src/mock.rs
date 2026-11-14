@@ -68,8 +68,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
-        // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
-        "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
+        // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
+        "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
         "option-pictures" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
@@ -124,8 +124,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
-        // The terminal Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
-        "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
+        // The Side Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
+        "new-project" => include_bytes!("../fixtures/side-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
@@ -376,7 +376,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" => return screens_threads(),
-        "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "review-palette" | "side-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),

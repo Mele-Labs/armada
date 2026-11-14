@@ -368,10 +368,10 @@ pub static WALKS: &[Walk] = &[
         steps: &run_commands::STEPS,
     },
     Walk {
-        name: "native-terminal",
-        title: "A new Job from ⌘T and the palette, on its thread; its shells from the +",
+        name: "native-side-job",
+        title: "A Side Job from ⌘T and the palette, on its thread; its shells from the +",
         screen: Screen::App,
-        scenario: "terminal-job",
+        scenario: "side-job",
         steps: &terminal::STEPS,
     },
     Walk {

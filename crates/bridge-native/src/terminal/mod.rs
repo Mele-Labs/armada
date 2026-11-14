@@ -1,5 +1,5 @@
 //! A Job's terminals: shells Fleet keeps, each drawn as a pane the person types in and watches
-//! (`t1`, `t2`, ...), and the terminal Job that opens straight onto one.
+//! (`t1`, `t2`, ...), and the Side Job that opens straight onto one.
 //!
 //! | Part | File |
 //! |---|---|
@@ -8,7 +8,7 @@
 //! | The screen's colours from the tokens | `colors.rs` |
 //! | Fleet's shells, or a walk's | `shells.rs` |
 //! | The pane: its head, the drawn screen, keys and the pointer | `pane.rs` |
-//! | Starting a terminal Job, and where the last one started | `start.rs` |
+//! | Starting a Side Job, and where the last one started | `start.rs` |
 
 pub mod colors;
 pub mod keys;
