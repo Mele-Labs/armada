@@ -485,12 +485,12 @@ mod tests {
 
     #[test]
     fn a_handoff_row_decodes_from_fleets_json_into_its_card() {
-        let row: SessionRow = serde_json::from_str(ROW).expect("decodes");
+        let row: SessionRow = ipc::decode("SessionRow", ROW.as_bytes()).expect("decodes");
         let card = Card::of(&row).expect("a handoff row");
         assert_eq!(card, Card { id: "ho-1".into(), tokens: 312_000, limit: 300_000, brief: "The fix is on branch fix/reader.".into(), remind_at: vec![400_000, 450_000, 500_000], answer: None });
         let names: Vec<String> = card.options().into_iter().map(|(_, name)| name).collect();
         assert_eq!(names, ["Carry on in a new Job", "Stay here", "Don't ask again", "Remind at 400k", "Remind at 450k", "Remind at 500k"]);
-        let answered: SessionRow = serde_json::from_str(&ROW.replace(r#""remind_at":[400000,450000,500000]"#, r#""remind_at":[400000,450000,500000],"answer":{"kind":"remind_at","tokens":450000}"#)).expect("decodes");
+        let answered: SessionRow = ipc::decode("SessionRow", ROW.replace(r#""remind_at":[400000,450000,500000]"#, r#""remind_at":[400000,450000,500000],"answer":{"kind":"remind_at","tokens":450000}"#).as_bytes()).expect("decodes");
         assert_eq!(Card::of(&answered).and_then(|card| card.answer), Some(HandoffPick::RemindAt { tokens: 450_000 }));
     }
 
