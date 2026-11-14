@@ -416,6 +416,16 @@ pub trait Sessions: Send + Sync + 'static {
         draft: ipc::ProposeDraft,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `handoff_brief` — a Job past its context limit sends its brief, and Fleet raises the handoff
+    /// card. `caller` places a hosted session as `show_window`'s does. Answers with the row at once,
+    /// its `handoff:<row id>` item waiting. [`Refusal::Unacceptable`] for a blank brief, a Job Fleet did
+    /// not ask for one, or a call that places no session.
+    fn handoff_brief(
+        &self,
+        caller: Option<crate::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `withdraw_draft` — a session takes back a draft it proposed, settling its row `withdrawn` so it
     /// waits no more. `caller` places a hosted session as `show_window`'s does. Answers with the row.
     /// [`Refusal::Unacceptable`] for a draft that is not this session's or not open, or a call that

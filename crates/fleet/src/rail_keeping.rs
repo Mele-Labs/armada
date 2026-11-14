@@ -185,11 +185,11 @@ fn walk_approved_at<'a>(rows: &'a [SessionRow], plan_approved_at: Option<&Instan
 }
 
 /// Whether the person picked an option the Job's question gave a preview, on its card or later from
-/// Needs you. Words of his own pick nothing, and Fleet's own questions are not the Job's ideas.
+/// Needs you. Words of his own pick nothing.
 fn idea_picked(rows: &[SessionRow]) -> bool {
     let picked = |questions: &[AskedQuestion], answers: Vec<QuestionAnswer>| {
         answers.iter().any(|answer| {
-            questions.iter().filter(|asked| asked.question == answer.question && !fleet_asked(asked)).any(|asked| {
+            questions.iter().filter(|asked| asked.question == answer.question).any(|asked| {
                 asked.options.iter().any(|option| !option.preview.is_empty() && answer.chosen.contains(&option.label))
             })
         })
@@ -214,11 +214,6 @@ fn idea_picked(rows: &[SessionRow]) -> bool {
         },
         _ => false,
     })
-}
-
-/// A question Fleet put on the Job's card itself, the handoff's, which offers no ideas.
-fn fleet_asked(asked: &AskedQuestion) -> bool {
-    asked.question == ipc::HANDOFF_REMIND_QUESTION || asked.options.iter().any(|option| option.label == ipc::HANDOFF_YES)
 }
 
 impl<H, V, W> Fleet<H, V, W>

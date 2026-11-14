@@ -89,6 +89,11 @@ fn context(turn: &KeptTurnUsage) -> u64 {
     turn.input_tokens + turn.cache_creation_tokens + turn.cache_read_tokens
 }
 
+/// The Job's context in its newest main-thread turn of `turns`, oldest first. `None` with no such turn.
+pub fn context_now(turns: &[KeptTurnUsage]) -> Option<u64> {
+    turns.iter().rev().find(|turn| !turn.subagent).map(context)
+}
+
 fn millis(turn: &KeptTurnUsage) -> Option<i64> {
     Timestamp::from_rfc3339(turn.at.clone()).epoch_millis()
 }
@@ -130,12 +135,9 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                 rule: Rule::Context,
                 figure: held as f64,
                 text: format!(
-                    "Context is {}k tokens. To carry on in a new job, ask the owner with the options \"{yes}\", \"{stay}\", \"{quiet}\" and \"{remind}\", and write your brief (where the work is, what is open, what you hold) in the description of \"{yes}\". Start nothing yourself.",
+                    "Context is {}k tokens, past the {} limit. Write only a brief of where the work is, what is open and what you hold, and send it with handoff_brief. The owner answers on a card. Ask him nothing and start nothing yourself. Once it is sent, end your turn.",
                     (held as f64 / 1_000.0).round(),
-                    yes = ipc::HANDOFF_YES,
-                    stay = ipc::HANDOFF_STAY,
-                    quiet = ipc::HANDOFF_QUIET,
-                    remind = ipc::HANDOFF_REMIND,
+                    ipc::handoff_figure(limit),
                 ),
             });
         }

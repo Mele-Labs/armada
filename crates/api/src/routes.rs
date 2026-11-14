@@ -371,6 +371,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/sessions/draft", post(crate::sessions::propose_draft::<D>))
         .route("/sessions/withdraw_draft", post(crate::sessions::withdraw_draft::<D>))
+        .route("/sessions/handoff_brief", post(crate::sessions::handoff_brief::<D>))
         .route(
             "/sessions/window/closed",
             post(crate::sessions::window_closed::<D>),

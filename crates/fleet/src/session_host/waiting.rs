@@ -59,7 +59,7 @@ use store::{KeptApproval, KeptClosed, KeptSession, KeptWaiting, Store};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
-use crate::session_host::handoff_answers::lapsed_question;
+use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
@@ -801,6 +801,29 @@ where
                         operator_read: None,
                     })
                 }
+                // Fleet's handoff card, while the Job is live to hand on.
+                SessionRow::Handoff { id, at, remind_at, answer: None, .. } => {
+                    let id = format!("{HANDOFF_PREFIX}{id}");
+                    (!ended && !dismissed.contains(&id)).then(|| WaitingItem {
+                        approves: false,
+                        act: Some(WaitingAct {
+                            kind: WaitingActKind::Answer,
+                            target: id.clone(),
+                        }),
+                        id,
+                        text: handoff_answers::CARD_ASKS.to_string(),
+                        since: at,
+                        source: WaitingSource::Handoff,
+                        options: handoff_answers::card_options(&remind_at),
+                        steps: Vec::new(),
+                        place: None,
+                        confirmed: false,
+                        holders: Vec::new(),
+                        creating_since: None,
+                        create_refused: None,
+                        operator_read: None,
+                    })
+                }
                 _ => None,
             }));
             // The done and a reply that asks are read off the turn, so a Session whose agent never
@@ -816,6 +839,7 @@ where
                         | WaitingSource::Permission
                         | WaitingSource::WindowAsk
                         | WaitingSource::Draft
+                        | WaitingSource::Handoff
                         | WaitingSource::Sketch
                         | WaitingSource::Document
                 )
@@ -1346,6 +1370,17 @@ where
             }
             WaitingSource::Delivery => self.delivery_chosen(&id, said.choice).await,
             WaitingSource::WordsAddress => self.words_address_chosen(&id, &item, picked.as_deref(), words).await,
+            // Fleet's card: his press is the whole answer, and the Job is told nothing.
+            WaitingSource::Handoff => {
+                if by == Answerer::InHisPlace {
+                    return Err(self.hosted_refusal(SESSION_WAITING_UNHELD, "whether a Job carries on in a new one is his to answer"));
+                }
+                let row = item.id.strip_prefix(HANDOFF_PREFIX).unwrap_or_default();
+                let figures = self.handoff_figures(&id, row).await;
+                let pick = said.choice.and_then(|choice| handoff_answers::pick_of(choice, &figures));
+                let pick = pick.ok_or_else(|| self.hosted_refusal(SESSION_WAITING_EMPTY, "a handoff card is answered with one of its options"))?;
+                self.handoff_answered(&id, row, pick).await
+            }
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
@@ -1488,6 +1523,12 @@ where
             let reason = dismiss.reason.as_deref().map(str::trim).filter(|why| !why.is_empty());
             self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
             return self.draft_settled(&id, row, DraftHow::Withdrawn, reason.map(str::to_string)).await;
+        }
+        // Dismissing the handoff card is Stay, and the Job is told nothing.
+        if item.source == WaitingSource::Handoff {
+            let row = item.id.strip_prefix(HANDOFF_PREFIX).unwrap_or_default();
+            self.store().lock().await.keep_closed_waiting(&id, &closed).map_err(|why| self.ledger_fault(why))?;
+            return self.handoff_answered(&id, row, ipc::HandoffPick::Stay).await;
         }
         // Not a question: the sentence is kept for good, so a near one is not raised again and the
         // trainer reads it as asking nothing.

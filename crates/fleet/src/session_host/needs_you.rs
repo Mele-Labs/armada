@@ -54,6 +54,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `walk` | walks | plain |
 /// | `replied` | by act | not a question |
 /// | `draft` | to review | reason |
+/// | `handoff` | questions | plain: Stay |
 /// | `sketch`, `document`, `plan` | to review | plain |
 /// | `done` | done | plain |
 /// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
@@ -70,6 +71,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::Permission => rule(Questions, Dismiss::None),
         WaitingSource::WindowAsk => rule(Questions, Dismiss::None),
         WaitingSource::Draft => rule(Review, Dismiss::Reason),
+        WaitingSource::Handoff => rule(Questions, Dismiss::Plain),
         WaitingSource::Sketch => rule(Review, Dismiss::Plain),
         WaitingSource::Document => rule(Review, Dismiss::Plain),
         WaitingSource::FirstMessage => rule(Questions, Dismiss::None),
@@ -133,7 +135,7 @@ fn restart_of(command: &str) -> Option<(&'static str, BuildSource, bool)> {
 /// Whether words go as an answer besides the choices. Fleet refuses them on a slot call and a page's ask has
 /// no use for them, nor does what the Operator would do.
 fn takes_words(source: WaitingSource) -> bool {
-    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion)
+    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff)
 }
 
 /// What pressing the item does. **An agent's item that asks nothing and runs nothing is something he does**, so

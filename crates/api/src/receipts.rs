@@ -54,6 +54,10 @@ enum Set<'a> {
         #[serde(skip_serializing_if = "Option::is_none")]
         draft: Option<&'a str>,
     },
+    Handoff {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        handoff: Option<&'a str>,
+    },
     Workflow {
         #[serde(skip_serializing_if = "Option::is_none")]
         workflow: Option<&'a str>,
@@ -279,6 +283,17 @@ impl<'a> Receipt<'a> {
             .find(|item| item.text == draft.title.trim())
             .map(|item| item.id.as_str());
         Receipt::of(record, Set::Drafted { draft: drafted })
+    }
+
+    /// The handoff card the brief raised: the newest open one.
+    pub(crate) fn handed(record: &'a SessionRecord) -> Self {
+        let handoff = record
+            .waiting_for
+            .iter()
+            .rev()
+            .find(|item| item.source == WaitingSource::Handoff)
+            .map(|item| item.id.as_str());
+        Receipt::of(record, Set::Handoff { handoff })
     }
 
     /// The workflow the Job follows and the steps skipped, after either was set.

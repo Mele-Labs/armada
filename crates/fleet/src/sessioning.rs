@@ -884,6 +884,14 @@ where
         self.draft_proposed(caller, draft).await
     }
 
+    async fn handoff_brief(
+        &self,
+        caller: Option<api::Caller>,
+        brief: ipc::HandoffBrief,
+    ) -> Result<SessionRecord, Refusal> {
+        self.handoff_brief_sent(caller, brief).await
+    }
+
     async fn withdraw_draft(
         &self,
         caller: Option<api::Caller>,
