@@ -58,6 +58,7 @@ mod secret;
 mod setup;
 mod shared_home;
 mod sign_in;
+mod sign_in_app;
 mod slots;
 mod store;
 mod test_map;
@@ -123,7 +124,8 @@ pub use shared_home::{
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
-pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError};
+pub use sign_in_app::{AppForm, RegisteredApp, SignInApp};
+pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, DeviceKind, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError, StorePeer};
 pub use tracker::{
     IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool, ToolInstalled,
     Tracker, TrackerChoice, Trackers,

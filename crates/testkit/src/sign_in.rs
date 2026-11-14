@@ -10,17 +10,29 @@
 //!
 //! The interval is zero: a test that waits a real second between polls is a
 //! test people stop running. The code a person types is the same every time.
+//!
+//! # Registering the sign-in app
+//!
+//! [`SignInApp`] converts [`APP_CODE`] into an app whose client id is
+//! [`APP_CLIENT_ID`], and refuses any other code as the forge does one it never
+//! gave. `refusing_to_convert` refuses every one.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use adapter_traits::{DeviceCode, Polled, Secret, SignIn, SignInError, SignedInAs};
+use adapter_traits::{AppForm, DeviceCode, Polled, RegisteredApp, Secret, SignIn, SignInApp, SignInError, SignedInAs};
 
 /// The code `begin` hands out.
 pub const USER_CODE: &str = "WDJB-MJHT";
 /// The page it is typed at.
 pub const VERIFICATION_URI: &str = "https://forge.test/login/device";
 const DEVICE_CODE: &str = "fake-device-code";
+/// The code the forge sends the browser back with, which `convert` takes.
+pub const APP_CODE: &str = "fake-app-code";
+/// The client id of the app `convert` answers.
+pub const APP_CLIENT_ID: &str = "Iv23.fake-app";
+/// The page its settings are on.
+pub const APP_SETTINGS_PAGE: &str = "https://forge.test/settings/apps/armada-sign-in";
 
 enum Step {
     Pending,
@@ -41,6 +53,8 @@ struct State {
     begun: Vec<String>,
     polls: usize,
     who_asked: usize,
+    convert_refused: Option<String>,
+    converted: Vec<String>,
 }
 
 /// A forge that remembers what it was asked and reaches nothing.
@@ -112,6 +126,17 @@ impl FakeSignIn {
     pub fn refusing_to_begin(self, why: &str) -> FakeSignIn {
         self.state().begin_refused = Some(why.to_string());
         self
+    }
+
+    /// `convert` is refused with `why`, as the forge does a code it will not take.
+    pub fn refusing_to_convert(self, why: &str) -> FakeSignIn {
+        self.state().convert_refused = Some(why.to_string());
+        self
+    }
+
+    /// The code of each `convert`, in order.
+    pub fn converted(&self) -> Vec<String> {
+        self.state().converted.clone()
     }
 
     /// Every call fails as unreachable while set.
@@ -198,6 +223,31 @@ impl SignIn for FakeSignIn {
             return Err(SignInError::Refused("The forge would not list the organisations.".to_string()));
         }
         Ok(state.organisations.get(token.expose()).cloned().unwrap_or_default())
+    }
+}
+
+impl SignInApp for FakeSignIn {
+    fn form(&self, name: &str, back_to: &str, state: &str) -> AppForm {
+        AppForm {
+            action: format!("https://forge.test/settings/apps/new?state={state}"),
+            field: "manifest".to_string(),
+            manifest: format!("{{\"name\":\"{name}\",\"redirect_url\":\"{back_to}\"}}"),
+        }
+    }
+
+    fn convert(&self, code: &str) -> Result<RegisteredApp, SignInError> {
+        let mut state = self.state();
+        state.converted.push(code.to_string());
+        if state.unreachable {
+            return Err(down());
+        }
+        if let Some(why) = &state.convert_refused {
+            return Err(SignInError::Refused(why.clone()));
+        }
+        if code != APP_CODE {
+            return Err(SignInError::Refused("Not Found".to_string()));
+        }
+        Ok(RegisteredApp { client_id: APP_CLIENT_ID.to_string(), settings_page: APP_SETTINGS_PAGE.to_string() })
     }
 }
 
