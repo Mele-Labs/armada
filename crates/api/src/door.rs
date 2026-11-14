@@ -191,6 +191,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "finish_up",
     "dispute_fleet",
     "report_bug",
+    // The two things a Job may send the Operator.
+    "raise_conflict",
+    "ask_held",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
     // The Jobs it started are read and commanded the same way.

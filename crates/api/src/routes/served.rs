@@ -622,6 +622,16 @@ const ROUTES: &[Route] = &[
         path: "/sessions/report_bug",
     },
     Route {
+        operation: "raise_conflict",
+        method: "POST",
+        path: "/sessions/raise_conflict",
+    },
+    Route {
+        operation: "ask_held",
+        method: "POST",
+        path: "/sessions/ask_held",
+    },
+    Route {
         operation: "list_bug_reports",
         method: "GET",
         path: "/bug_reports",
