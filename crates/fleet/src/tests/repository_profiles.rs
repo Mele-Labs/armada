@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use adapter_traits::{Holder, Store};
+use adapter_traits::{ClaimKind, Claimant, Store};
 use ipc::{Accounts, BoundHow};
 use store::{MainCi, MainState};
 use testkit::{FakeSignIn, FakeStore, FakeWorkProduct};
@@ -300,9 +300,9 @@ fn red_at(root: &str, fleet: &super::main_ci::Fixture) -> MainCi {
     }
 }
 
-fn claim_of(store: &FakeStore, slug: &str) -> Option<Holder> {
+fn claim_of(store: &FakeStore, slug: &str) -> Option<Claimant> {
     let (repository, red) = keys_of(slug, RED).expect("keys");
-    store.read_claim(&repository, &red).expect("reads")
+    store.read_claim(&repository, ClaimKind::Red, &red).expect("reads")
 }
 
 fn owner_of(store: &FakeStore, slug: &str, number: u64) -> bool {
@@ -318,8 +318,9 @@ async fn a_red_is_claimed_in_the_view_of_the_profile_its_repository_is_bound_to_
     assert!(two.fleet.claim_red(&red_at(&two.first, &two.fleet), &taker, false).await.expect("claimed"));
     assert!(two.fleet.claim_red(&red_at(&two.second, &two.fleet), &taker, false).await.expect("claimed"));
 
-    assert!(claim_of(&two.octocat, "mele-labs/armada").is_some(), "octocat's repository is in octocat's store");
-    assert!(claim_of(&two.hubot, "acme/site").is_some(), "hubot's repository is in hubot's store");
+    let name = |claim: Option<Claimant>| claim.map(|held| held.name);
+    assert_eq!(name(claim_of(&two.octocat, "mele-labs/armada")).as_deref(), Some("octocat"), "octocat's repository is in octocat's store, named as octocat");
+    assert_eq!(name(claim_of(&two.hubot, "acme/site")).as_deref(), Some("hubot"), "hubot's repository is in hubot's store, named as hubot");
     assert!(claim_of(&two.octocat, "acme/site").is_none() && claim_of(&two.hubot, "mele-labs/armada").is_none());
 }
 

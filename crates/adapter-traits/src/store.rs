@@ -1,6 +1,6 @@
 //! The central store: one small service every machine signed in to an account
-//! reaches, holding a claim on a red main and the registered owner of a pull
-//! request.
+//! reaches, holding claims of every kind (a tracker item, a file, a test, a red
+//! main, a pull request) and the registered owner of a pull request.
 //! `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *Fixing a red across machines*.
 //!
 //! # A trait of its own, so [`Delivery`](crate::Delivery) keeps being per-forge
@@ -10,12 +10,14 @@
 //! store is held by the caller that is allowed to reach the network, and by no
 //! Drone.
 //!
-//! # The store never sees a name
+//! # The store never sees a name of a thing
 //!
-//! A repository, a red commit and a pull request are each an opaque hash made
+//! A repository, a claimed thing and a pull request are each an opaque hash made
 //! on the machine, and a key type refuses anything that is not one. A path
 //! separator or a space cannot reach the wire, because the type that would
-//! carry it does not exist.
+//! carry it does not exist. **Who holds a claim is the exception**: the person's
+//! name, the Mac and the Job's title are sent readable, so another Mac can say who
+//! (the owner's ruling of 13 Nov 2026, `.claude/decisions/2026-11-13-claims-store.md`).
 //!
 //! # A repository's runs are the one thing a row holds in the clear
 //!
@@ -68,13 +70,37 @@ hash_key!(
     RepositoryKey
 );
 hash_key!(
-    /// The commit main went red at, as a hash made on the machine.
-    RedKey
+    /// The thing a claim is on, as a hash made on the machine: for a red main, the
+    /// commit main went red at.
+    ClaimKey
 );
 hash_key!(
     /// A pull request, as a hash made on the machine.
     OwnerKey
 );
+
+/// What a claim is on. The same [`ClaimKey`] under two kinds is two claims.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ClaimKind {
+    Item,
+    File,
+    Test,
+    Red,
+    PullRequest,
+}
+
+impl ClaimKind {
+    /// The word the store writes, in a body and in a path.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            ClaimKind::Item => "item",
+            ClaimKind::File => "file",
+            ClaimKind::Test => "test",
+            ClaimKind::Red => "red",
+            ClaimKind::PullRequest => "pull_request",
+        }
+    }
+}
 
 /// What kind of thing holds a claim or owns a pull request. A Session; the store once also
 /// took a Job's, and a row it holds for one is refused when read.
@@ -128,13 +154,37 @@ impl Holder {
     }
 }
 
+/// The longest a person's name may be on a claim.
+const LONGEST_PERSON: usize = 64;
+/// The longest a Job's title may be on a claim.
+const LONGEST_TITLE: usize = 200;
+
+/// Who holds a claim, readable: the holder, the person's name and the Job's title.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Claimant {
+    pub holder: Holder,
+    /// The person, as their forge login. Empty where the Mac knows none.
+    pub name: String,
+    /// The Job's title. Empty where it has none.
+    pub title: String,
+}
+
+impl Claimant {
+    /// **Made to fit rather than refused**, as a machine's name is: a long title is
+    /// not a reason to leave a red unclaimed. Control characters are dropped.
+    pub fn new(holder: Holder, name: &str, title: &str) -> Claimant {
+        let fit = |text: &str, most: usize| -> String { text.chars().filter(|c| !c.is_control()).take(most).collect() };
+        Claimant { holder, name: fit(name, LONGEST_PERSON), title: fit(title, LONGEST_TITLE) }
+    }
+}
+
 /// What a claim came to.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Claimed {
     /// Nobody held it, and this holder does now.
     Won,
     /// Somebody already did, and this is who.
-    Held(Holder),
+    Held(Claimant),
 }
 
 /// Why the store did not answer.
@@ -194,23 +244,31 @@ pub struct RunRow {
 /// what it already has and calls this only where an answer must be fresh: a
 /// take always meets the store itself.
 pub trait Store {
-    /// Take the red if nobody holds it. **One call, answered atomically by the
+    /// Take the thing if nobody holds it. **One call, answered atomically by the
     /// store**: of two machines racing, the first wins and the other is told who.
-    fn claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError>;
+    /// A win renews every claim the holder has.
+    fn claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError>;
 
-    /// Who holds the red, if anyone.
-    fn read_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<Option<Holder>, StoreError>;
+    /// Who holds the thing, if anyone. A claim whose holder stopped renewing for
+    /// 30 minutes is gone.
+    fn read_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<Option<Claimant>, StoreError>;
 
-    /// Give a claim back, so another machine may take the red. Nothing held is
-    /// not an error.
-    fn release_claim(&self, repository: &RepositoryKey, red: &RedKey) -> Result<(), StoreError>;
+    /// Give a claim back, so another machine may take it. Nothing held is not an
+    /// error.
+    fn release_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey) -> Result<(), StoreError>;
 
-    /// Take the red from whoever holds it. **Asked for, never assumed**: the
+    /// Take the thing from whoever holds it. **Asked for, never assumed**: the
     /// caller has been told who holds it and a person said to take it over.
-    fn replace_claim(&self, repository: &RepositoryKey, red: &RedKey, holder: &Holder) -> Result<Claimed, StoreError>;
+    fn replace_claim(&self, repository: &RepositoryKey, kind: ClaimKind, key: &ClaimKey, claimant: &Claimant) -> Result<Claimed, StoreError>;
 
-    /// Delete every claim under a repository: main went green.
-    fn clear_repository(&self, repository: &RepositoryKey) -> Result<(), StoreError>;
+    /// Delete every claim of one kind under a repository: main went green, and its
+    /// reds end.
+    fn clear_kind(&self, repository: &RepositoryKey, kind: ClaimKind) -> Result<(), StoreError>;
+
+    /// Renew every claim `holder` has, in one call, and answer how many it still
+    /// has: `0` for a holder whose claims lapsed, which takes them again. The
+    /// holder's `since` is not sent.
+    fn renew(&self, holder: &Holder) -> Result<u64, StoreError>;
 
     /// Register the owner of a pull request.
     fn put_owner(&self, key: &OwnerKey, holder: &Holder) -> Result<(), StoreError>;
@@ -244,7 +302,15 @@ mod tests {
         for bad in ["", "abc", &"a".repeat(31), &format!("{}/{}", "a".repeat(20), "b".repeat(20)), &"a b".repeat(12), "../../etc/passwd/../../etc/passwd"] {
             assert!(RepositoryKey::from_hash(bad).is_none(), "{bad:?}");
         }
-        assert!(RedKey::from_hash(&"a".repeat(129)).is_none());
+        assert!(ClaimKey::from_hash(&"a".repeat(129)).is_none());
+    }
+
+    #[test]
+    fn a_claimants_name_and_title_are_made_to_fit() {
+        let holder = Holder::new(HolderKind::Session, "s1", "mac", 5).expect("a holder");
+        let claimant = Claimant::new(holder, &format!("{}\n", "n".repeat(70)), &"t".repeat(250));
+        assert_eq!(claimant.name, "n".repeat(64));
+        assert_eq!(claimant.title, "t".repeat(200));
     }
 
     #[test]
