@@ -9,8 +9,8 @@
 //!
 //! **A held item makes the Job wait; a held file only tells it.** A beads assignee who is a person
 //! holds the item too. The wait is a line on the Job, and ends when Fleet takes the claim, which
-//! wakes the Job with a word to carry on. The owner's rulings of 13 Nov 2026,
-//! `.claude/decisions/2026-11-13-claims-store.md`.
+//! wakes the Job with a word to carry on. The owner's rulings of 13 Nov 2026, cited where the
+//! concept doc above says what a Job holds.
 //!
 //! **Memory only.** After a restart the next pass claims everything again, and the store answers a
 //! claim this holder already has as its own.
