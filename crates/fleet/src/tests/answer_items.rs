@@ -171,7 +171,8 @@ async fn dismissing_a_plan_sets_it_aside_as_his_dismiss_does() {
     let record = record_of(&rig, &id).await;
     assert!(record.plan.as_ref().and_then(|plan| plan.set_aside_at.as_ref()).is_some(), "{:?}", record.plan);
     assert!(!ids(&record).contains(&"plan:1"));
-    eventually(|| async { told(&rig, &id, "He passed on \"plan v1\" with no verdict.") == 1 }).await;
+    // The process reads the message as JSON, so its quotes arrive escaped.
+    eventually(|| async { told(&rig, &id, r#"He passed on \"plan v1\" with no verdict."#) == 1 }).await;
     assert_eq!(told(&rig, &id, "Not ready for a plan yet"), 0);
 }
 

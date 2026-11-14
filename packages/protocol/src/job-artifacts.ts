@@ -118,3 +118,61 @@ export type ForLink = {
   label: string;
   url: string;
 };
+
+/** His verdict on one item with an Approve. */
+export type ItemHow = "approve" | "send_back";
+
+/**
+ * `POST /sessions/items/answer`: his verdict on several items with an Approve, across Jobs, answered 200 with
+ * `ItemsSettled` even where some are refused. Each settles as its own answer would, in order. `notes` go with that
+ * item's verdict, numbered by Fleet; a `send_back` needs one. 422 only for a body that does not decode.
+ */
+export type AnswerItems = {
+  items: ItemAnswer[];
+};
+
+export type ItemAnswer = {
+  session_id: string;
+  /** The `WaitingItem` id. */
+  item: string;
+  how: ItemHow;
+  notes?: string[];
+};
+
+/**
+ * `POST /sessions/items/dismiss`: several items with an Approve off his list with no verdict, answered as
+ * `AnswerItems` is. Each Job is sent one message, a line per item.
+ */
+export type DismissItems = {
+  items: ItemRef[];
+};
+
+export type ItemRef = {
+  session_id: string;
+  item: string;
+};
+
+/**
+ * How one item ended. Refusal codes: `fleet.items_not_waiting`, `fleet.items_not_approvable`,
+ * `fleet.items_send_back_empty`, `fleet.items_on_another_mac`, or the item's own answer's code.
+ */
+export type ItemSettled =
+  | {
+      kind: "settled";
+    }
+  | {
+      kind: "refused";
+      code: string;
+      message: string;
+    };
+
+export type ItemOutcome = {
+  session_id: string;
+  item: string;
+  outcome: ItemSettled;
+};
+
+/** One outcome per item asked, in the order asked. */
+export type ItemsSettled = {
+  outcomes: ItemOutcome[];
+};

@@ -21,6 +21,7 @@ The owner approved the design on 13 Nov 2026.
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
 | His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
 | A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
+| Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
 
 ## What an artifact is
 
@@ -162,3 +163,32 @@ The artifact shows the newest revision's.
 A sketch drawn again with no `for` has only Fleet's links.
 
 **Rule.** The For line rides on the artifact, the latest sketch card, the document card and the draft row, so native draws it without a second read.
+
+## Several at once
+
+The owner decided this on 13 Nov 2026.
+His review panel answers several items in one press: Approve all, Ask for changes on each, and Dismiss all.
+Fleet's half is `answer_items` and `dismiss_items` (`crates/fleet/src/session_host/answering_items.rs`).
+
+**Rule.** Both reach every item with an Approve, across Jobs: a sketch, a page that asks, a plan, a draft, a walk, and an item a Job raised with `approves: true`.
+A question, a permission prompt and every other item keep their own answers, and either call refuses them, `fleet.items_not_approvable`.
+
+**Rule.** Each item settles on its own and in order, and one refusal never stops the rest.
+The answer names each item with `settled`, or `refused` with a code and a message, and a refused item stands as it was.
+
+**Rule.** Each item settles the way its own answer settles it, with the same message to its Job.
+A sketch is answered at the drawing it holds now, and a page at its newest revision.
+A plan is approved as `approve_plan` approves it, and goes as `send_plan_changes` sends its marks where it carries notes.
+A draft, a walk and an agent's item take their Approve or Ask for changes.
+
+**Rule.** His notes stay on their item and go with that item's verdict, numbered `1.`, `2.`, one a line.
+They are the words of an approval, or the note of a send back, and a send back with no note is refused for that item, `fleet.items_send_back_empty`.
+A plan's notes are each a note on the plan as a whole.
+A walk approved with notes keeps `Approved: <address>` as its first line, with the notes under it.
+
+**Rule.** Dismiss all takes each item off his list with no verdict.
+Each Job is sent one message, a line `He passed on "<title>" with no verdict.` for each of its items, in place of each kind's own dismiss text.
+A plan's title is `plan v<version>`.
+
+**Rule.** The message goes first, so a send that fails leaves every item of that Job standing.
+Then each closes as his own Dismiss closes it: a plan is set aside, a draft settles `withdrawn` with no reason, and a sketch reads `dismissed`.
