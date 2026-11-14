@@ -3206,7 +3206,7 @@ pub static WALKS: &[Walk] = &[
             step("A right press on it offers Move to Air under Snooze, with M at its right", Verb::RightPress("Native Bridge foundation"), "menuitem", "Move to Air"),
             step("Move to Air asks Fleet. The Job finishes its turn first: the row turns a ring before its state, with Air's dot in place of this Mac's", Verb::Open("menuitem", "Move to Air"), "img", "Moving to Air"),
             step("The ring's tooltip says where it goes", Verb::Hover, "img", "Moving to Air"),
-            press_on("The Job's head carries the same: the ring, then Air's chip beside this Mac's", "row", "Native Bridge foundation", "status", "Moving to Air"),
+            press_on("The Job's head carries the same: the ring, then Air's chip in place of this Mac's", "row", "Native Bridge foundation", "status", "Moving to Air"),
             pairing("The turn ends, the branch is pushed and Air takes the Job: its row here ends, reading Moved to Air", "move-ended", "img", "Moved to Air"),
             step("Its thread ends on the same words, which open the Job where it is now", Verb::Look, "button", "Moved to Air"),
             pairing("Air's row of the same Job stands in its place, with Air's dot", "move-landed", "row", "Native Bridge foundation"),
