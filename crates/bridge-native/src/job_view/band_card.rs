@@ -496,12 +496,17 @@ impl JobView {
             page.keys.commit(key, Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| run(this, Act::Send, window, cx))));
         }
         let reveal = page.cards.reveal.get(key).cloned().map(|flag| {
-            let (me, ix) = (cx.entity().downgrade(), foot.ix);
+            let (me, ix, scroll) = (cx.entity().downgrade(), foot.ix, self.body_scroll.clone());
             gpui::canvas(
-                move |_, _, cx| {
+                move |bounds, _, cx| {
                     if flag.replace(false) {
                         let me = me.clone();
+                        let scroll = scroll.clone();
                         cx.defer(move |cx| {
+                            // In a tab the box and its Send scroll into view in the tab's body; in the thread, the card does.
+                            if ix == super::acts::SHEET {
+                                reveal_in(&scroll, bounds);
+                            }
                             let _ = me.update(cx, |this, cx| this.reveal_card(ix, cx));
                         });
                     }
@@ -780,6 +785,21 @@ pub(super) fn revision_said(number: u32, by: ArtifactBy, at: &str) -> String {
     };
     let when = super::acts::at_of(&ipc::Instant::carried(at)).map_or_else(String::new, |at| format!(", {}", at.format("%-d %b %H:%M")));
     format!("r{number} by {who}{when}")
+}
+
+/// Scrolls a body the least that brings `note` into view, its foot first: the box and the Send under it.
+pub(super) fn reveal_in(scroll: &gpui::ScrollHandle, note: gpui::Bounds<gpui::Pixels>) {
+    let view = scroll.bounds();
+    let pad = px(16.);
+    let mut by = (note.bottom() + pad - view.bottom()).max(px(0.));
+    // A note taller than the body shows its top.
+    if note.top() - by < view.top() {
+        by = (note.top() - view.top()).max(px(0.));
+    }
+    if by > px(0.) {
+        let top = (scroll.offset().y - by).clamp(-scroll.max_offset().y, px(0.));
+        scroll.set_offset(gpui::point(scroll.offset().x, top));
+    }
 }
 
 #[cfg(test)]

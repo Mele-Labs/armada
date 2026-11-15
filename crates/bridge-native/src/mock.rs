@@ -161,7 +161,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -621,7 +621,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
-        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "ready-to-try" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "ready-to-try" => include_bytes!("../fixtures/sketch-card-threads.json"),
         // The same two sketches, Freshness chip's mock drawn as a small form: a note may name the box, or an element inside the mock.
         "sketch-reader" => include_bytes!("../fixtures/sketch-reader-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
@@ -695,6 +695,11 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     // no picture, and the four that are settled one line each beside one put off.
     if scenario == "ready-to-try" {
         ready_cards(&mut all)?;
+    }
+    if scenario == "thread-jump" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            thread_jump(thread)?;
+        }
     }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
     if scenario == "job-system" {
@@ -1908,4 +1913,14 @@ const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused
 /// answers every hash asked.
 pub fn kept_styles(_hash: &str) -> ipc::KeptStyles {
     ipc::decode("kept styles", include_bytes!("../fixtures/kept-styles.json")).unwrap_or_else(|why| panic!("the kept styles fixture does not decode: {why}"))
+}
+
+fn thread_jump(thread: &mut JobThread) -> Result<(), String> {
+    let plan = ipc::decode::<ipc::ThreadHead>("head", br#"{"trail":{"started":"2026-11-10T21:58:00Z"},"plan":{"id":"plan:v2","version":2,"state":"set_aside"}}"#).map_err(|why| why.to_string())?;
+    thread.head.plan = plan.plan;
+    for n in 0..14 {
+        let wire = format!(r#"{{"kind":"row","row":{{"kind":"message","id":"jm{n}","at":"2026-11-10T21:59:{n:02}Z","from":{{"kind":"agent"}},"text":"Message {n}: the chip takes its colour from the branch's age, and the rule reads the last merge."}}}}"#);
+        thread.items.insert(2, ipc::decode::<ipc::ThreadItem>("row", wire.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(())
 }

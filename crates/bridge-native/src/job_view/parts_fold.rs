@@ -272,20 +272,45 @@ impl JobView {
 /// The folds' Job on screen in a window tall enough to draw its whole thread, its thread read and drawn.
 #[cfg(test)]
 pub(super) fn folds_job<'a>(cx: &'a mut gpui::TestAppContext, tune: impl FnOnce(&mut Vec<ipc::SessionRecord>)) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+    rooted_job(cx, "artifact-folds", crate::mock_parts::JOB, gpui::size(gpui::px(1400.), gpui::px(6000.)), tune)
+}
+
+/// A window's one view, drawn under the label root as the app draws it: the book of what was drawn is cleared each frame,
+/// so a test can ask that something is not drawn.
+#[cfg(test)]
+pub(super) struct Rooted(gpui::Entity<JobView>);
+
+#[cfg(test)]
+impl gpui::Render for Rooted {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        crate::labels::label_root(div().size_full().child(self.0.clone()))
+    }
+}
+
+/// A scenario's Job on screen at `size` under the label root, its thread read and drawn.
+#[cfg(test)]
+pub(super) fn rooted_job<'a>(
+    cx: &'a mut gpui::TestAppContext,
+    scenario: &str,
+    job: &str,
+    size: gpui::Size<gpui::Pixels>,
+    tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
+) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
     });
-    let mut jobs = crate::mock::jobs("artifact-folds").expect("the fixture decodes");
+    let mut jobs = crate::mock::jobs(scenario).expect("the fixture decodes");
     tune(&mut jobs);
-    let threads = crate::mock::threads("artifact-folds").expect("the threads decode");
+    let threads = crate::mock::threads(scenario).expect("the threads decode");
     let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
-    let (view, cx) = cx.add_window_view({
+    let (root, cx) = cx.add_window_view({
         let list = list.clone();
-        move |window, cx| JobView::new(list, Some(threads), window, cx)
+        move |window, cx| Rooted(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
     });
-    cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
-    list.update(cx, |list, cx| list.open(crate::mock_parts::JOB.into(), cx));
+    let view = root.read_with(cx, |root, _| root.0.clone());
+    cx.simulate_resize(size);
+    list.update(cx, |list, cx| list.open(job.into(), cx));
     redraw(cx);
     (view, cx)
 }
