@@ -75,6 +75,8 @@ const DOT_PERIOD: f32 = 8.;
 pub(crate) enum Fit {
     Preview,
     Reading,
+    /// Filling the reading column: no air or inset round the canvas, and drawn larger than its own size where the column is wider.
+    Column,
 }
 
 impl Fit {
@@ -82,6 +84,15 @@ impl Fit {
         match self {
             Fit::Preview => 0.04,
             Fit::Reading => 0.1,
+            Fit::Column => 0.,
+        }
+    }
+
+    /// The most the fit draws a scene at: its own size, or in the column up to twice it.
+    fn most_zoom(self) -> f32 {
+        match self {
+            Fit::Preview | Fit::Reading => 1.,
+            Fit::Column => 2.,
         }
     }
 
@@ -92,7 +103,7 @@ impl Fit {
     /// Room kept clear on every side inside the box, in window pixels: `--space-4`, so nothing touches the frame.
     fn inset(self) -> f32 {
         match self {
-            Fit::Preview => 0.,
+            Fit::Preview | Fit::Column => 0.,
             Fit::Reading => 16.,
         }
     }
@@ -429,6 +440,24 @@ fn size_of(node: &SceneNode, facts: Facts, measure: &Measure, (floor, ceiling): 
 /// How far a hand line's ink reaches past its points.
 const INK_REACH: f32 = 4.;
 
+thread_local! {
+    /// The canvas each drawing stood on when it was last drawn, by its key: its width and height in scene units.
+    static CANVAS: RefCell<HashMap<SharedString, (f32, f32)>> = RefCell::default();
+}
+
+/// Note the canvas a drawing stands on. A box that sized itself from an earlier answer, or from none, draws once more where it changed.
+fn keep_canvas(key: &SharedString, bounds: Rect, window: &mut Window) {
+    let now = (bounds.w, bounds.h);
+    if CANVAS.with(|held| held.borrow_mut().insert(key.clone(), now)) != Some(now) {
+        window.request_animation_frame();
+    }
+}
+
+/// The canvas a drawing stands on, in scene units, once it has been drawn: its shape is what a box sizes itself to.
+pub(crate) fn canvas_size(key: &str) -> Option<(f32, f32)> {
+    CANVAS.with(|held| held.borrow().get(key).copied())
+}
+
 /// The canvas the drawing stands on: every node (at any side of zero), its mark and badge, every arrow's way and its words, and
 /// every hand line, with air round it. What the fit shows, so nothing of the drawing is left outside it.
 fn canvas_of(rects: &[Rect], marks: &[Option<Rect>], badges: &[Option<(Rect, String)>], ways: &[Option<Way>], scene: &Scene) -> Rect {
@@ -635,14 +664,14 @@ struct View {
 }
 
 impl View {
-    /// The zoom that fits the whole scene inside `bounds`, less the fit's air and inset, never above 1. There is no floor above
+    /// The zoom that fits the whole scene inside `bounds`, less the fit's air and inset, never above the fit's most. There is no floor above
     /// the least a scene may be drawn at, so a wide or tall drawing is shrunk whole and never started at its corner.
     fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit) -> f32 {
         let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
         let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
         let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
-        across.min(down).clamp(Fit::MIN_ZOOM, 1.)
+        across.min(down).clamp(Fit::MIN_ZOOM, fit.most_zoom())
     }
 
     fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
@@ -826,6 +855,7 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let view = View::fit(bounds, laid.bounds, fit, lens);
+    keep_canvas(key, laid.bounds, window);
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
     let trees = trees(key, scene);

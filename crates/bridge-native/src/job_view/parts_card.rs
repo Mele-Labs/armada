@@ -34,6 +34,22 @@ pub(super) const PRESS: &str = crate::web::kit::PRESS;
 const JOIN: char = '\u{1f}';
 /// The most takes one row holds.
 const ACROSS: usize = 3;
+/// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
+const SIDE_BY_SIDE: f32 = 520.;
+/// How tall a picture may stand in the reading column, against the pane it is read in.
+const TALL_SHARE: f32 = 0.8;
+
+/// How many takes one row holds in a body `room` points wide with `gap` between: as many as would each be `SIDE_BY_SIDE` wide, and
+/// never more than `ACROSS`. Four stand two and two.
+fn across_in(room: f32, gap: f32, takes: usize) -> usize {
+    let fit = (((room + gap) / (SIDE_BY_SIDE + gap)).floor() as usize).clamp(1, ACROSS);
+    let across = fit.min(takes.max(1));
+    if takes == 4 && across > 2 {
+        2
+    } else {
+        across
+    }
+}
 
 /// The key a part is kept under in a Job's page: its artifact and its own id.
 pub(super) fn part_key(artifact: &str, part: &str) -> String {
@@ -849,7 +865,7 @@ impl JobView {
             Some(at) => self.large_take_view(c, key, takes, at, chosen, open, cx),
             None => {
                 // A narrow thread leaves a take too little room for its title: they stand one under another there.
-                let across = if self.band_narrow(look) { 1 } else if takes.len() == 4 { 2 } else { takes.len().clamp(1, ACROSS) };
+                let across = if c.tab { across_in(f32::from(self.part_room(c)), f32::from(look.length(token::SPACE_3)), takes.len()) } else if self.band_narrow(look) { 1 } else if takes.len() == 4 { 2 } else { takes.len().clamp(1, ACROSS) };
                 let rows: Vec<AnyElement> = takes
                     .chunks(across)
                     .enumerate()
@@ -929,7 +945,8 @@ impl JobView {
                     .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child(" (Job's pick)"))),
             )
             .child(expand);
-        let thumb = self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview).map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
+        let thumb = if c.tab { self.take_flat(c, key, at, take) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview) }
+            .map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
         let (press_key, key_key) = (key.to_string(), key.to_string());
         let tile = div()
             .id(SharedString::from(format!("take:{key}:{at}")))
@@ -966,6 +983,55 @@ impl JobView {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}", c.job, text.len());
         self.scene_in(&held, text, height, c.look, fit, Lens::default())
+    }
+
+    /// What a part's body has to stand in, in the reader: the card's width less the part's own padding.
+    fn part_room(&self, c: &Ctx) -> gpui::Pixels {
+        let look = c.look;
+        let held = self.body_scroll.bounds().size.width;
+        let card = if held > px(0.) { (held - look.length(token::SPACE_4) * 2.).min(self.column(look)) } else { self.column(look) };
+        (card - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.))
+    }
+
+    /// The tallest a picture stands in the reading column: four fifths of the pane it is read in.
+    fn tall_most(&self) -> gpui::Pixels {
+        let pane = self.body_scroll.bounds().size.height;
+        let pane = if pane > px(0.) { pane } else { self.pane_height.unwrap_or(px(600.)) };
+        pane * TALL_SHARE
+    }
+
+    /// A take's picture filling the reading column: the width of its place, the height its own shape gives, no taller than
+    /// `tall_most`, and no frame round it.
+    fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake) -> Option<AnyElement> {
+        let text = take.scene.as_deref()?;
+        let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
+        self.scene_column(&held, text, self.tall_most(), c.look)
+    }
+
+    /// A scene's JSON drawn to fill its width: it stands as tall as its canvas's own shape asks, up to `tall`, and is centred
+    /// where that leaves room at the sides.
+    fn scene_column(&self, key: &str, text: &str, tall: gpui::Pixels, look: &Look) -> Option<AnyElement> {
+        let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
+        let scene = crate::scene::read(key, &raw)?;
+        // The canvas's shape is known once it has been drawn; the frame before that draws at a plain 16 to 10 and draws again.
+        let ratio = crate::scene::canvas_size(key).map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        Some(
+            div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .child(
+                    div()
+                        .relative()
+                        .w_full()
+                        .max_w(tall * ratio)
+                        .aspect_ratio(ratio)
+                        .overflow_hidden()
+                        .rounded(look.length(token::RADIUS_MD))
+                        .child(crate::scene::view(SharedString::from(key.to_string()), scene, Fit::Column, Clock::default(), Lens::default())),
+                )
+                .into_any_element(),
+        )
     }
 
     /// A scene's JSON drawn in a sunken box `height` tall, as a take's thumbnail and the drawing part are.
@@ -1064,7 +1130,7 @@ impl JobView {
                         "Back",
                     )),
             );
-        let picture = self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading);
+        let picture = if c.tab { self.take_flat(c, key, at, take) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading) };
         let choose = open.then(|| {
             labelled(
                 act(look, format!("large-pick:{key}"), if on { "Chosen" } else { "Choose this take" }, Kind::Secondary, "", true)
@@ -1173,10 +1239,9 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The drawing read large in the artifact's tab.
+    /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str) -> AnyElement {
-        let look = c.look;
-        let Some(drawn) = self.scene_in(held, scene, look.length(token::SPACE_12) * 10., look, Fit::Reading, Lens::default()) else { return div().into_any_element() };
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(), c.look) else { return div().into_any_element() };
         labelled(div().id(SharedString::from(format!("drawing:{key}"))).w_full().child(drawn), Role::Group, "Drawing").into_any_element()
     }
 
@@ -1359,6 +1424,19 @@ mod tests {
     fn the_jobs_pick_is_the_words_it_wrote_in_the_title() {
         assert_eq!(pick_mark("B Rail (Job's pick)"), ("B Rail", true));
         assert_eq!(pick_mark("A Bar"), ("A Bar", false));
+    }
+
+    #[test]
+    fn takes_stand_one_a_row_until_each_would_be_five_hundred_and_twenty_wide_side_by_side() {
+        let gap = 12.;
+        assert_eq!(across_in(700., gap, 3), 1, "a column of seven hundred has no room for two");
+        assert_eq!(across_in(1051., gap, 3), 1, "one short of two takes of 520 and the gap between");
+        assert_eq!(across_in(1052., gap, 3), 2);
+        assert_eq!(across_in(1600., gap, 3), 3);
+        assert_eq!(across_in(2600., gap, 2), 2, "never more across than there are takes");
+        assert_eq!(across_in(1600., gap, 4), 2, "four stand two and two");
+        assert_eq!(across_in(1052., gap, 4), 2);
+        assert_eq!(across_in(700., gap, 4), 1);
     }
 
     #[test]
