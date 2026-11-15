@@ -363,6 +363,8 @@ where
         // Whether the Job that owns a failure has been told of it is read by the calls, which hear the row next.
         self.hosts().calls.told_noted(&session.id, waited.told.as_deref());
         record.waiting_for = waited.items;
+        // Waiting for a slot is no question to him: the record says so, and the Job is moved in when one frees.
+        record.slot_wait = self.hosts().slot_queue().slot_wait(&session.id);
         // A call held at a gate only the person can close is his to settle.
         if session.state == store::SessionState::Live {
             let nothing_runs = record.running.is_empty();

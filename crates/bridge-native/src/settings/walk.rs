@@ -289,6 +289,33 @@ pub static TAKE_STEPS: &[Step] = &[
     step("Cancel shuts it and changes nothing", Verb::Open("button", "Cancel"), "button", "Choose what to take"),
 ];
 
+/// `native-learned-links`: a value Fleet learned from his first answer says so beside its setting, and a press on that
+/// takes the keys to the setting, so he can change it where he disagrees. So does Fleet's line in a Job's thread that says
+/// the work lands as the project's setting.
+pub const LEARNED_LINKS: &str = "native-learned-links";
+
+pub static LEARNED_LINKS_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings, editing every project", Verb::Key("cmd-,"), "dialog", "Settings"),
+    step("\u{2318}P opens the Editing picker, and Armada is under it", Verb::Key("cmd-p"), "menu", "Editing"),
+    step("\u{2193} and Enter pick Armada", Verb::Keys(&["down", "enter"]), "group", "For Armada"),
+    press_on("Pull requests: How work lands is Armada's own word, and Learned marks it as the one Fleet kept from his first answer", "button", "Pull requests", "button", "Learned: How work lands"),
+    step("Learned is a press: its tooltip says what it is and that it takes him to the setting", Verb::Hover, "button", "Learned: How work lands"),
+    step("Its tooltip", Verb::Later(800), "button", "Learned: How work lands"),
+    press_on("A press takes the keys to How work lands for Armada, ringed", "button", "Learned: How work lands", "combobox", "How work lands for Armada"),
+    step("Enter opens its choices, where he changes it", Verb::Key("enter"), "menuitemcheckbox", "Auto land"),
+    step("Esc shuts them, and the keys stay on the setting", Verb::Key("escape"), "combobox", "How work lands for Armada"),
+    step("Shift-Tab twice goes back to Learned from the keys", Verb::Keys(&["shift-tab", "shift-tab"]), "button", "Learned: How work lands"),
+    step("Enter on it takes the keys to the setting as a press does", Verb::Key("enter"), "combobox", "How work lands for Armada"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+    press_on("A Job in Armada: Fleet says in its thread that the work lands as Armada's setting", "row", "Native Bridge foundation", "link", "Change it in Settings, in the project's settings."),
+    step("The line is quiet, in Fleet's words, and its last sentence is a link", Verb::Hover, "link", "Change it in Settings, in the project's settings."),
+    step("Its tooltip", Verb::Later(800), "link", "Change it in Settings, in the project's settings."),
+    press_on("A press opens Settings on How work lands for Armada, ringed", "link", "Change it in Settings, in the project's settings.", "combobox", "How work lands for Armada"),
+    step("Esc closes Settings, and the keys go back to the link", Verb::Key("escape"), "link", "Change it in Settings, in the project's settings."),
+    step("Enter on the link opens it the same way", Verb::Key("enter"), "combobox", "How work lands for Armada"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-workflows-follow-picker`: the Workflows list headed for what the Editing picker has, and F typed into a box.
 pub const FOLLOWS_PICKER: &str = "native-workflows-follow-picker";
 
@@ -445,7 +472,7 @@ pub static STEPS: &[Step] = &[
     step("Esc clears the search first, and the page picked before comes back", Verb::Key("escape"), "region", "Limits"),
     press_on("Features: a switch per feature, then the folders a Job's card always allows or blocks", "button", "Features", "region", "Folders jobs reach"),
     press_on("A switch saves when pressed", "switch", "Interface sounds", "switch", "Interface sounds"),
-    press_on("A setting Fleet reads at start says it waits for a restart", "button", "Timeouts", "status", "Restart Fleet to apply."),
+    press_on("A setting Fleet reads at start says it waits for a restart", "button", "Timeouts", "status", "Restart Fleet to apply"),
     press_on(
         "A setting set where Fleet runs says the value here is not the one in force",
         "button",
@@ -677,20 +704,18 @@ pub static STEPS: &[Step] = &[
     step("↓ moves to Armada, and Enter picks it", Verb::Keys(&["down", "enter"]), "group", "For Armada"),
     step("The pages Armada can set are under its name; everything else is under This Mac", Verb::Look, "group", "This Mac"),
     step("Models stays under This Mac; the sketch had it under the project", Verb::Look, "button", "Models"),
-    press_on("Pull requests: every project beside Armada. Plans is set for Armada; Pull requests and Walks follow every project", "button", "Pull requests", "combobox", "Plans for Armada"),
-    step("Where Armada sets a key, the every project cell beside it says what Armada overrides; nothing below sets Plans, so it reads the default, muted", Verb::Hover, "combobox", "Plans for every project"),
-    step("Its tooltip says it is Armada's default", Verb::Later(800), "combobox", "Plans for every project"),
-    step("A cell of every project's can still be changed from here", Verb::Hover, "combobox", "Pull requests for every project"),
-    step("Its tooltip says it changes every project", Verb::Later(800), "combobox", "Pull requests for every project"),
-    step("How work lands: Armada lands on its own, the word Fleet learned from his first answer", Verb::Look, "img", "Learned: Fleet learned this from your first answer"),
+    press_on("Pull requests: every project beside Armada. Plans is set for Armada; Pull requests and Walks follow every project", "button", "Pull requests", "radiogroup", "Plans for Armada"),
+    step("Where Armada sets a key, the every project cell beside it says what Armada overrides; nothing below sets Plans, so it reads the default, muted", Verb::Hover, "radiogroup", "Plans for every project"),
+    step("Its tooltip says it is Armada's default", Verb::Later(800), "radiogroup", "Plans for every project"),
+    step("A cell of every project's can still be changed from here", Verb::Hover, "radiogroup", "Pull requests for every project"),
+    step("Its tooltip says it changes every project", Verb::Later(800), "radiogroup", "Pull requests for every project"),
+    step("How work lands: Armada lands on its own, the word Fleet learned from his first answer", Verb::Look, "button", "Learned: How work lands"),
     step("⌘P again shows Armada ticked, with what it sets", Verb::Key("cmd-p"), "menuitem", "Armada"),
     step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Armada"),
-    press_on("✕ clears Merging for Armada, so it follows every project again", "button", "Clear Merging for Armada", "combobox", "Merging for Armada"),
-    press_on("A cell that follows every project opens its choices", "combobox", "Walks for Armada", "menuitemcheckbox", "Review"),
-    press_on("Picking one sets it for Armada", "menuitemcheckbox", "Review", "button", "Clear Walks for Armada"),
-    press_on("Starting Jobs: whether a Job that a Job or the Operator starts runs at once, or waits on his start card", "button", "Starting Jobs", "combobox", "Jobs a Job or the Operator starts for Armada"),
-    press_on("Its choices: Start at once, or Ask me", "combobox", "Jobs a Job or the Operator starts for Armada", "menuitemcheckbox", "Ask me"),
-    press_on("Ask me sets it for Armada: what a Job or the Operator starts there waits on his start card", "menuitemcheckbox", "Ask me", "button", "Clear Jobs a Job or the Operator starts for Armada"),
+    press_on("✕ clears Merging for Armada, so it follows every project again", "button", "Clear Merging for Armada", "radiogroup", "Merging for Armada"),
+    step("A cell that follows every project is a row of words, and a press on one sets it for Armada", Verb::PressWithin("radiogroup", "Walks for Armada", "Review"), "button", "Clear Walks for Armada"),
+    press_on("Starting Jobs: whether a Job that a Job or the Operator starts runs at once, or waits on his start card", "button", "Starting Jobs", "radiogroup", "Jobs a Job or the Operator starts for Armada"),
+    step("Ask me sets it for Armada: what a Job or the Operator starts there waits on his start card", Verb::PressWithin("radiogroup", "Jobs a Job or the Operator starts for Armada", "Ask me"), "button", "Clear Jobs a Job or the Operator starts for Armada"),
     press_on("Macs: Armada's share switch, over this Mac's own", "button", "Macs", "switch", "Share with your other Macs"),
     press_on("A press turns it on; the switch takes what Fleet answers", "switch", "Share with your other Macs", "switch", "Share with your other Macs"),
     press_on("Workflows, editing Armada", "button", "Workflows", "region", "Workflow"),
@@ -705,7 +730,7 @@ pub static STEPS: &[Step] = &[
     press_on("Discard drops the draft", "button", "Discard", "textbox", "Tell an agent what to change"),
     step("⌘P opens the picker on Every project", Verb::Key("cmd-p"), "menu", "Editing"),
     step("Enter picks it", Verb::Key("enter"), "group", "For every project"),
-    press_on("Every project: one column, the values every project uses, each one editable", "button", "Pull requests", "combobox", "Plans for every project"),
+    press_on("Every project: one column, the values every project uses, each one editable", "button", "Pull requests", "radiogroup", "Plans for every project"),
     step("Esc closes it", Verb::Key("escape"), "button", "Menu"),
     step("The project switcher is on the wide bar", Verb::Widen(1100), "button", "Project"),
     press_on("The project switcher's Settings opens it on that project", "button", "Project", "button", "Settings"),
