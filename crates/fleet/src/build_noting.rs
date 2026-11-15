@@ -26,6 +26,11 @@ fn answer_text(note: &KeptBuildNote, words: &str) -> String {
     format!("On your preview note \"{}\": {words}", note.about)
 }
 
+/// What the Job is told when the owner marks its note looked at.
+fn looked_text(note: &KeptBuildNote) -> String {
+    format!("The owner looked at your preview note \"{}\" on {} at {}.", note.about, note.branch, note.tip.get(..7).unwrap_or(&note.tip))
+}
+
 /// What a new Job starts from where the note's Job has ended: his words, then what he was looking at.
 fn started_brief(note: &KeptBuildNote, title: &str, words: &str) -> String {
     let mut brief = format!("His feedback on a preview note of the Job \"{title}\", which has ended:\n\n{words}\n\nThe note said: {}", note.about);
@@ -96,11 +101,19 @@ where
     }
 
     /// `mark_build_note_looked_at`: keep the mark against the (branch, tip), and answer the notes now.
-    pub(crate) async fn build_note_looked_at(&self, asked: MarkBuildNoteLookedAt) -> Result<BuildNotes, Refusal> {
+    pub(crate) async fn build_note_looked_at(self: &Arc<Self>, asked: MarkBuildNoteLookedAt) -> Result<BuildNotes, Refusal> {
         let at = self.now().as_str().to_string();
+        let before = self.store().lock().await.build_note_of(&asked.branch, &asked.tip).map_err(|why| self.ledger_fault(why))?;
         let marked = self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at).map_err(|why| self.ledger_fault(why))?;
         if !marked {
             return Err(self.build_note_unknown(&asked.branch, &asked.tip));
+        }
+        // The note's Job is told the first time, where it is live, as it is told the rest of its preview news.
+        if let Some(note) = before.filter(|note| note.looked_at.is_none()) {
+            let live = self.store().lock().await.session(&note.session_id).ok().flatten().is_some_and(|row| row.state != SessionState::Ended);
+            if live {
+                let _ = self.told_news_by_fleet(&note.session_id, &looked_text(&note), ipc::Notice::BuildMoved).await;
+            }
         }
         self.build_notes_moved().await;
         Ok(self.build_notes_read().await)

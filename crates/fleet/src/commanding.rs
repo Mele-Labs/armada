@@ -125,7 +125,7 @@ where
     }
 
     /// Mark a note of the build looked at — [`crate::build_noting`].
-    async fn mark_build_note_looked_at(&self, asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
+    async fn mark_build_note_looked_at(self: Arc<Self>, asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
         self.build_note_looked_at(asked).await
     }
 

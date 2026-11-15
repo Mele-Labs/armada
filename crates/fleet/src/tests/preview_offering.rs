@@ -514,7 +514,7 @@ async fn a_note_is_marked_looked_at_by_branch_and_tip_and_a_new_tip_is_not() {
     holding(&rig, &[("armada/one", &tip)]);
     let mut watching = rig.fleet.events().subscribe();
 
-    let marked = api::Commands::mark_build_note_looked_at(&*rig.fleet, MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: tip.clone() }).await.expect("marked");
+    let marked = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: tip.clone() }).await.expect("marked");
 
     assert!(marked.notes[0].looked_at);
     assert!(notes(&rig).await.notes[0].looked_at);
@@ -533,8 +533,10 @@ async fn a_note_is_marked_looked_at_by_branch_and_tip_and_a_new_tip_is_not() {
     .await
     .expect("build_notes.changed arrives");
     assert!(told.notes[0].looked_at);
+    let thread = rig.thread_of(&session).await;
+    assert_eq!(thread.last().map(String::as_str), Some(format!("The owner looked at your preview note \"Keeps one thing\" on armada/one at {}.", &tip[..7]).as_str()), "the note's Job is told");
 
-    let unknown = api::Commands::mark_build_note_looked_at(&*rig.fleet, MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: "0".repeat(40) }).await;
+    let unknown = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: "0".repeat(40) }).await;
     assert_eq!(unknown.expect_err("no such note").status(), 404);
 
     let newer = branch_with(&rig, "armada/one", "armada/one", "crates/x/more.rs", "2");
