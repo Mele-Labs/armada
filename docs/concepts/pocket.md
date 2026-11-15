@@ -262,12 +262,12 @@ The Gateway's own 409 for a signature sent before carries no such code.
 The Gateway maps the label to Fleet's manifest id, refuses one it does not know or two repositories share, and starts a Job with `POST /sessions/start` carrying the text as `request`.
 It answers 201 with the Job.
 
-**Dispatch to the Operator.** `POST /api/sessions/dispatch` takes `{text, repository, kind?, mac?}` and nothing else, and sends Fleet's `POST /sessions/dispatch` as Bridge's composer does: the text as the request and as the first message, `kind` as the hint.
+**Dispatch to the Operator.** `POST /api/sessions/dispatch` takes `{text, repository, kind?, mac?}` and nothing else, and sends Fleet's `POST /sessions/dispatch` as Bridge's composer does: the text as the request and as the first message, `kind` as a plain field that picks nothing.
 `mac` names another Mac by the name the phone knows it by, or its id, and is left out for the Mac the call is made to.
 The phone calls the chosen Mac's own Gateway with no `mac` where it answers, and another Mac's with `mac` set only where the chosen Mac is asleep, so the send waits.
 For another Mac the Gateway also names the shared project that Mac holds, since the phone knows no project, and answers 409 where the repository is in none.
-It answers 200 with what the dispatch came to (`session`, `operator` or `parked`, the Job trimmed as the lists trim it), or 202 with the `Queued` act where that Mac does not answer and the send waits for it.
-What the Operator then did with a held dispatch comes on `/api/live`.
+It answers 200 with what the dispatch came to (`session` or `operator`, the Job trimmed as the lists trim it), or 202 with the `Queued` act where that Mac does not answer and the send waits for it.
+A dispatch an earlier Fleet held, started as asked when Fleet starts, comes on `/api/live`.
 
 **`/api/live`** is Fleet's `/events` narrowed to `session.changed`, written as `{change: "session", session_id}`, to `operator.dispatched`, written as `{change: "operator", dispatched}`, to `queued.changed`, written as `{change: "queued"}` for the phone to read `/api/queued` again, and `{change: "resync"}` where the phone's lists may be behind.
 The app keeps one per Mac and reads again on a session change or a resync.

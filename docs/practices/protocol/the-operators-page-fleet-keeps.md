@@ -107,8 +107,10 @@ A client that missed one reads the page again on reconnecting.
 
 ## What goes from the wire
 
-These leave with the old machinery, and a later change removes them: `operator_answer` and its Yes, Always here, Always and No, `operator_undo_ruling`, `operator_turn_order`, the Then offers, `follows` and `ruled`, the kind-chip hint on a dispatch, and the per-item review's read and pick on an item.
-Until then each behaves as it does now.
+These left with the old machinery: `operator_undo_ruling` (its route and its operation), `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion` and `read_thought`, each now answered 404.
+`operator_answer` stays for a press on a card, a red main or a disk hold, and refuses Always here and Always with `fleet.operator_answer_not_offered`.
+The Then offers, `follows`, `ruled`, `learned`, `handled.acts` and the per-item review's read on an item stay on the wire as plain fields, always empty or absent, so a client that reads them still decodes the page.
+`kind` on a dispatch is a plain field that picks nothing.
 `operator_later` is replaced by Discuss later as a message naming the card.
 
 ## Skew
