@@ -291,3 +291,27 @@ async fn the_job_archiving_a_part_that_still_asks_withdraws_that_part() {
     assert_eq!(list.len(), 1, "the drawing still asks him: {list:?}");
     assert!(!list[0].1.contains("Lease expiry"), "the withdrawn page is not named: {}", list[0].1);
 }
+
+#[tokio::test]
+async fn a_takes_part_keeps_each_mock_with_its_style_set_so_it_draws_in_the_apps_styles() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let css = std::path::Path::new(&rig.root).join("src/a.css");
+    std::fs::create_dir_all(css.parent().unwrap()).unwrap();
+    std::fs::write(&css, ":root { --bg-raised: #222 } .a { background: var(--bg-raised) }").unwrap();
+    let mock = |title: &str| {
+        format!(r#"{{"id":"{title}","title":"{title}","scene":{{"nodes":[{{"id":"m","kind":"mock","x":0,"y":0,"w":300,"html":"<b class=\"a\">x</b>","styles":["src/a.css"]}}],"edges":[]}}}}"#)
+    };
+    let part = format!(r#""title":"Layout","part":{{"id":"layout","kind":"takes","takes":[{},{}]}}"#, mock("left"), mock("right"));
+    rig.fleet.add_part(None, added(&id, &part)).await.unwrap();
+
+    let held = artifacts(&rig, &id).await;
+    let Some(ipc::PartContent::Takes { takes, .. }) = held[0].parts.iter().map(|part| &part.content).find(|content| content.kind() == PartKind::Takes) else {
+        panic!("no takes part: {held:?}")
+    };
+    for take in takes {
+        let scene: ipc::Scene = ipc::decode("a take's scene", take.scene.as_deref().expect("a scene").as_bytes()).unwrap();
+        let kept = scene.nodes[0].kept.clone().unwrap_or_else(|| panic!("take `{}` has no `kept`, so native draws it without the app's styles", take.id));
+        assert!(rig.fleet.get_kept_styles(kept).await.unwrap().sheets[0].css.contains("--bg-raised"));
+    }
+}

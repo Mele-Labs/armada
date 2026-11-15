@@ -391,6 +391,7 @@ where
             let store = self.store().lock().await;
             store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a job Fleet knows"))?.harness
         };
+        let checked = self.takes_styled(&id, checked).await?;
         let held = self.held_rows(&id).await?;
         // A part the Job put before is revised where it stands.
         let earlier = held.iter().filter(|one| is_sketch(one)).find(|one| stored(&one.detail).iter().any(|part| part.id == checked.id)).map(|one| one.target.clone());
@@ -402,6 +403,19 @@ where
             },
         };
         self.part_put(&id, &harness, &target, &checked, said).await
+    }
+
+    /// `checked` with each take's mocks kept with their style set, as `show_sketch` keeps a sketch's. Without it a
+    /// take's mock draws with its own `css` alone, so the repository's tokens read as nothing and it draws blank.
+    async fn takes_styled(&self, id: &str, mut checked: ipc::CheckedPart) -> Result<ipc::CheckedPart, Refusal> {
+        if let PartContent::Takes { takes, .. } = &mut checked.content {
+            for take in takes.iter_mut() {
+                let Some(scene) = take.scene.take() else { continue };
+                let sketch = ipc::Sketch { title: take.title.clone(), scene, nodes: 0, edges: 0, against: None };
+                take.scene = Some(self.sketch_styled(id, sketch, "add_part").await?.scene);
+            }
+        }
+        Ok(checked)
     }
 
     /// `checked` put on the artifact at `target`, kept, and the artifact asked again where the part asks.
