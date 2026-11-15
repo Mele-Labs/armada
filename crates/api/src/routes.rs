@@ -363,6 +363,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/plan", post(crate::sessions::record_plan::<D>))
         .route("/sessions/plan/approve", post(crate::sessions::approve_plan::<D>))
         .route("/sessions/plan/changes", post(crate::sessions::send_plan_changes::<D>))
+        .route("/sessions/aside", post(crate::asides::ask_aside::<D>))
+        .route("/sessions/asides", get(crate::asides::list_asides::<D>))
+        .route("/sessions/aside/tell", post(crate::asides::tell_aside::<D>))
         .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
@@ -762,6 +765,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/copy",
             get(crate::hosted_sessions::get_job_copy::<D>).post(crate::hosted_sessions::change_job_copy::<D>),
         )
+        .route("/sessions/for_you", get(crate::hosted_sessions::get_for_you::<D>))
+        .route("/sessions/for_you/withdraw", post(crate::hosted_sessions::withdraw_for_you::<D>))
+        .route("/sessions/for_you/order", post(crate::hosted_sessions::order_for_you::<D>))
+        .route("/sessions/for_you/line", post(crate::hosted_sessions::line_for_you::<D>))
+        .route("/sessions/for_you/add", post(crate::hosted_sessions::add_for_you::<D>))
         .route(
             "/sessions/copy/keep",
             post(crate::hosted_sessions::keep_job_workflow::<D>),

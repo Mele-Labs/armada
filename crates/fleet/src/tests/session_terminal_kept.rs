@@ -22,23 +22,35 @@ use crate::tests::session_running::{rig, Rig};
 use crate::tests::session_terminal::{ends, shortly};
 use crate::tests::tmp::TempDir;
 
-/// A client of a keeper, speaking its frames.
-struct Wire(UnixStream);
+/// A client of a keeper, speaking its frames, and what it was last told about the foreground.
+struct Wire(UnixStream, bool);
 
 impl Wire {
     fn attach(socket: &Path, tail: u64) -> Wire {
         let mut stream = UnixStream::connect(socket).expect("a keeper answers");
         stream.set_read_timeout(Some(Duration::from_secs(30))).unwrap();
         wire::write_frame(&mut stream, wire::ATTACH, &tail.to_be_bytes()).unwrap();
-        let mut wire = Wire(stream);
+        let mut wire = Wire(stream, false);
         let (kind, ready) = wire.next();
         assert_eq!(kind, wire::READY, "ready first");
         assert_eq!(ready.len(), 5);
+        wire.1 = ready[4] == 1;
         wire
     }
 
     fn next(&mut self) -> (u8, Vec<u8>) {
-        wire::read_frame(&mut self.0).expect("a frame in time").expect("the keeper kept the connection")
+        let (kind, payload) = wire::read_frame(&mut self.0).expect("a frame in time").expect("the keeper kept the connection");
+        if kind == wire::FOREGROUND {
+            self.1 = payload == [1];
+        }
+        (kind, payload)
+    }
+
+    /// Frames until the keeper has said the foreground is `taken`, or `taken` is what it said last.
+    fn foreground_until(&mut self, taken: bool) {
+        while self.1 != taken {
+            self.next();
+        }
     }
 
     fn send(&mut self, kind: u8, payload: &[u8]) {
@@ -200,23 +212,16 @@ fn a_resize_reaches_the_shell_and_the_foreground_is_told_when_a_program_takes_it
     let mut size = 100u16.to_be_bytes().to_vec();
     size.extend_from_slice(&30u16.to_be_bytes());
     client.send(wire::RESIZE, &size);
-    client.types("stty size\r");
-    client.until("30 100");
+    client.types("stty size; echo sized-$((40+2))\r");
+    assert!(client.until("sized-42").contains("30 100"), "stty saw the new size");
+    // `stty` held the foreground for a moment the keeper may have seen. The shell printed after it,
+    // so a taking seen is told by now, and the shell holding it again is told before `sleep` starts.
+    client.foreground_until(false);
 
     client.types("sleep 30\r");
-    loop {
-        let (kind, payload) = client.next();
-        if kind == wire::FOREGROUND && payload == [1] {
-            break;
-        }
-    }
+    client.foreground_until(true);
     client.types("\u{3}");
-    loop {
-        let (kind, payload) = client.next();
-        if kind == wire::FOREGROUND && payload == [0] {
-            break;
-        }
-    }
+    client.foreground_until(false);
     client.send(wire::END, &[]);
     client.until_exit();
     finishes(serving);

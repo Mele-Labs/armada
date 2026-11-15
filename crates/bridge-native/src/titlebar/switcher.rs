@@ -329,7 +329,7 @@ impl TitleBar {
         // A restart under way says its stage where the sentences stood.
         let stage = matches!(held.position(), Position::Restarting { stage: Some(_), .. }).then(|| self.position_marks(held, look, cx));
         let failed = (!restarting).then(|| report.failed.clone()).flatten().map(|said| self.failed_line(look, "build-failed", said.into()));
-        let lists = div().id("fleet-build").flex().flex_col().gap(look.length(token::SPACE_3)).child(running).children(self.waiting_section(held, look, cx)).into_any_element();
+        let lists = div().id("fleet-build").flex().flex_col().gap(look.length(token::SPACE_3)).child(running).children(self.notes_row(look, cx)).children(self.waiting_section(held, look, cx)).into_any_element();
         let presses = div().id("fleet-build-presses").flex().flex_col().gap(look.length(token::SPACE_3)).children(update).children(refresh).children(stage).children(failed).into_any_element();
         (lists, presses)
     }

@@ -25,6 +25,7 @@
 //! this crate that did not follow it. Each module below states its own half.
 
 mod accounts;
+mod asides;
 mod admitting;
 mod judge;
 mod app_runs;
@@ -53,6 +54,7 @@ mod studios;
 mod watches;
 
 pub use accounts::Accounts;
+pub use asides::Asides;
 pub use admitting::{offerable, operator_rows, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
@@ -142,6 +144,7 @@ pub trait Daemon:
     + Accounts
     + SharedHome
     + JudgeReadings
+    + Asides
     + Requests
     + Watches
     + AppRuns
@@ -174,6 +177,7 @@ impl<
             + Accounts
             + SharedHome
             + JudgeReadings
+            + Asides
             + Requests
             + Watches
             + AppRuns
