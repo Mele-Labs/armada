@@ -1,5 +1,5 @@
 //! A hosted Session's `armada worktree lease` finding every slot held, and the call Fleet raises
-//! for it. `ipc::slot_asking`, `docs/concepts/session.md`, *A full pool asks the owner*.
+//! for it. `ipc::slot_asking`, `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
 //! **One call per Session, never two.** The call is the `slot_choice` item a queued write raises.
 //! A command's asking adds a record beside the line, and the item is derived from whichever stands:
