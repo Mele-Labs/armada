@@ -19,6 +19,7 @@ fn steps_item(id: &ipc::SessionId) -> SetWaitingFor {
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
                 options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
                 steps: vec!["first".into(), "second".into()],
+                artifact: None,
             },
             WaitingInput {
                 approves: false,
@@ -27,6 +28,7 @@ fn steps_item(id: &ipc::SessionId) -> SetWaitingFor {
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
                 options: Vec::new(),
                 steps: Vec::new(),
+                artifact: None,
             },
         ],
     }

@@ -29,6 +29,9 @@ The owner approved the design on 13 Nov 2026.
 | Parts: `add_part`, `answer_part`, `JobArtifact.parts`, one open artifact per Job | Built in Fleet; native draws the parts later |
 | A page revision's own HTML, `get_artifact_page_source`, for native's Edit | Built in Fleet; native's reader calls it later |
 | A node's `state` in a sketch's scene | Built in Fleet; native draws it later, Classic does not |
+| A page that buries its ask is kept for reading and not put to him | Built in Fleet |
+| A calm house style under every sealed page's own CSS | Built in Fleet |
+| A Needs you item that names one of the Job's artifacts, `WaitingItem.artifact` | Built in Fleet; native's press on it is the Jobs screens' work |
 
 ## What an artifact is
 
@@ -56,6 +59,10 @@ A page that does not ask reads `reading`; one that asks and whose file is gone r
 **Rule.** `withdraw_sketch` and `withdraw_document` write the dismissal his Dismiss writes, and mark the attachment `withdrawn_by` `agent`.
 The mark is what tells the Job's withdrawal from his Dismiss.
 A sketch or page withdrawn before the mark existed reads `dismissed`.
+
+**Rule.** A Needs you item a Job raises about an artifact names it with `artifact`, the artifact's id or its title.
+Fleet checks it against what the Job holds, refuses one it does not hold, and serves the id on `WaitingItem.artifact`, so a client names the artifact and opens it.
+This is the item the Job raises, apart from the item Fleet keeps for an artifact that asks, below.
 
 **Rule.** An artifact that asks names the Needs you item that answers it: `sketch:<title>`, `document:<path>` or `draft:<row id>`, and an artifact of parts the one item its id names.
 A sketch the pending plan names names the plan's item, `plan:<version>`.
@@ -106,6 +113,13 @@ Words and a drawing that only inform get nothing, and buttons act when pressed.
 A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
 A `rank` or `score` takes part is cast with `cast_page_vote`.
 A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
+
+**Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
+It grows one artifact for each question and never shows a new sketch, draft or page beside it.
+The artifact opens with one sentence saying what he decides, then the takes, with detail folded below.
+Takes go in a takes part, drawn plain: a few labelled blocks each with placeholder text, never a screen of real data, the Job's pick first.
+It names which parts ask and which only inform, and how each is answered.
+The owner, 14 Nov 2026: "There is no spacing, no depth, everything is bright and in your face."
 
 **Rule.** The Job is told each answer as his message, naming the artifact and the part.
 A drawing, a draft and a page are told as they were before.
@@ -336,6 +350,9 @@ The owner approved the looks of its actions and votes on 14 Nov 2026.
 Fleet's half is `get_artifact_page` (`crates/ipc/operations/get_artifact_page.toml`), in `crates/fleet/src/session_host/page_sealed.rs`, and the seam is `docs/practices/protocol/a-pages-sealed-serving.md`.
 
 **Rule.** Any kept revision serves, the newest where none is named, archived or not.
+
+**Rule.** Every sealed page has a calm default under its own CSS, in `page_kit.css`, all of it `:where()` so a page's rules and `armada-kit.css` win.
+Body text is the muted foreground and headings the default, blocks keep a roomy vertical rhythm, depth is a surface step (base, raised, sunken) edged by a hairline and never a bright fill, a table's header row is quiet, and colour is for state and for the ask's block, which is an accent hairline and a faint wash.
 
 **Rule.** The page fetches nothing and runs none of its own scripts.
 Its policy allows inline style, `data:` images and one script source, a nonce fresh for each answer, and only the kit's script carries it.

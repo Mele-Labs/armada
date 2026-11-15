@@ -100,6 +100,17 @@ where
             .ok_or_else(|| self.hosted_refusal(ARTIFACT_UNNAMED, "a job whose artifact it is"))
     }
 
+    /// The id of the artifact the Job holds as `named`, its id or its title, refused naming the ids it does hold.
+    pub(super) async fn artifact_named(&self, id: &str, named: &str) -> Result<String, Refusal> {
+        match self.artifact_held(id, named).await {
+            Ok(artifact) => Ok(artifact.id),
+            Err(refused) => {
+                let held = self.job_artifacts(id).await?;
+                held.into_iter().find(|one| one.title == named.trim()).map(|one| one.id).ok_or(refused)
+            }
+        }
+    }
+
     /// The artifact the Job holds as `named`, refused naming the ids it does hold.
     pub(super) async fn artifact_held(&self, id: &str, named: &str) -> Result<JobArtifact, Refusal> {
         let named = named.trim();

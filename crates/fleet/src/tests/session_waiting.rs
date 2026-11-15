@@ -23,6 +23,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
         act: Some((kind.into(), target.into())),
         options: Vec::new(),
         pictures: String::new(),
+        artifact: String::new(),
         steps: Vec::new(),
     }
 }
@@ -129,6 +130,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                 }),
                 options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
                 steps: Vec::new(),
+                artifact: None,
             })
             .collect(),
     }
@@ -350,7 +352,7 @@ fn said(id: &ipc::SessionId, item: &str, text: &str) -> SetWaitingFor {
     let act = WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5187/?walk=filesAsATree".into() };
     SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { approves: false, id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new(), artifact: None }],
     }
 }
 
@@ -401,6 +403,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
         act: Some(("walk".into(), url.into())),
         options: Vec::new(),
         pictures: String::new(),
+        artifact: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[kept]).unwrap();
@@ -694,6 +697,7 @@ fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> 
             act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new() }),
             options: options_of(labels),
             steps: Vec::new(),
+            artifact: None,
         }],
     }
 }
@@ -735,6 +739,7 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
         act: Some(("answer".into(), String::new())),
         options: labels.iter().map(|label| (*label).to_string()).collect(),
         pictures: String::new(),
+        artifact: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[item("clock", &["Fake", "Frozen"]), item("tz", &["UTC", "Local"])]).unwrap();

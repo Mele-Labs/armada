@@ -21,7 +21,7 @@ fn page(title: &str, scenes: &[(&str, &str)]) -> String {
             format!(r#"<armada-sketch title="{name}"><script type="application/json">{scene}</script></armada-sketch>"#)
         })
         .collect();
-    format!(r#"<html><head><title>{title}</title>{ASKS}</head><body><h1>Other</h1>{sketches}</body></html>"#)
+    format!(r#"<html><head><title>{title}</title>{ASKS}</head><body><h1>Other</h1><p>What he decides.</p>{sketches}</body></html>"#)
 }
 
 /// The mark that makes a page ask his approval. Without it a page is for reading.
@@ -82,7 +82,7 @@ fn two_identical_writes_keep_one_revision_and_a_changed_write_adds_the_next() {
     assert_eq!(keep(&folder, b"one", "html").unwrap().map(|kept| kept.len()), Some(3));
 }
 
-async fn writes(rig: &Rig, at: usize, path: &str, call: &str, tool: &str, detail: &str) {
+pub(super) async fn writes(rig: &Rig, at: usize, path: &str, call: &str, tool: &str, detail: &str) {
     rig.stand_in.says(
         at,
         vec![
@@ -92,13 +92,13 @@ async fn writes(rig: &Rig, at: usize, path: &str, call: &str, tool: &str, detail
     );
 }
 
-fn revisions_of(record: &ipc::SessionRecord, path: &str) -> Option<Vec<String>> {
+pub(super) fn revisions_of(record: &ipc::SessionRecord, path: &str) -> Option<Vec<String>> {
     let one = record.attachments.iter().find(|one| one.kind == "artifact" && one.target == path)?;
     assert_eq!(one.detail.get("form").map(String::as_str), Some("document"));
     Some(ipc::decode("revisions", one.detail.get("revisions")?.as_bytes()).expect("a list of paths"))
 }
 
-async fn record_of(rig: &Rig, id: &SessionId) -> ipc::SessionRecord {
+pub(super) async fn record_of(rig: &Rig, id: &SessionId) -> ipc::SessionRecord {
     use api::Sessions;
     let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
     listed.into_iter().find(|one| &one.id == id).expect("listed")
@@ -260,7 +260,7 @@ async fn a_write_the_tool_failed_keeps_nothing() {
 }
 
 /// A Job at the rig's root with its process up, and the index of that process.
-async fn a_job(rig: &Rig) -> (SessionId, usize) {
+pub(super) async fn a_job(rig: &Rig) -> (SessionId, usize) {
     let id = rig.start().await;
     rig.send(&id, "write it up").await;
     let at = process_at(rig, &id).await;
@@ -274,7 +274,7 @@ async fn process_at(rig: &Rig, id: &SessionId) -> usize {
 }
 
 /// A page under the rig's root, its folder made, and its path.
-fn page_at_root(rig: &Rig, name: &str) -> (std::path::PathBuf, String) {
+pub(super) fn page_at_root(rig: &Rig, name: &str) -> (std::path::PathBuf, String) {
     let file = std::path::Path::new(&rig.root).join(".armada/documents").join(name);
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     let path = file.to_string_lossy().into_owned();
@@ -304,7 +304,7 @@ async fn handed_on(rig: &Rig, old: &SessionId) -> (SessionId, usize) {
 
 /// Whether the page waits on him: by its own item, or as a part of the artifact that is one item of the Job's
 /// (`artifact_parts.rs`: one artifact is open per Job, so a second page that asks joins the first).
-fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
+pub(super) fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
     if record.waiting_for.iter().any(|one| one.id == format!("document:{path}")) {
         return true;
     }
@@ -426,7 +426,7 @@ fn a_page_asks_only_where_its_head_carries_the_review_mark() {
     assert!(!crate::session_host::document_page::asks_approval("<p>armada-review approve</p>"));
 }
 
-fn asked(record: &ipc::SessionRecord, path: &str) -> Option<String> {
+pub(super) fn asked(record: &ipc::SessionRecord, path: &str) -> Option<String> {
     record.attachments.iter().find(|one| one.target == path)?.detail.get("asked").cloned()
 }
 

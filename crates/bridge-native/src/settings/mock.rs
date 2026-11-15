@@ -52,6 +52,8 @@ pub struct MockFleet {
     pub lanes_from_text: bool,
     /// The claims store each project names, and the calls the page made on them (`mock_store.rs`).
     pub stores: super::mock_store::MockStores,
+    /// The presses of Settings › Account's Register on GitHub, and what Fleet answers them with.
+    pub sign_in_app: super::sign_in_app::MockSignInApp,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -143,6 +145,7 @@ impl MockFleet {
             job_projects: vec![("mock-02", "armada")],
             lanes_from_text: false,
             stores: super::mock_store::MockStores::new(),
+            sign_in_app: super::sign_in_app::MockSignInApp::new(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };

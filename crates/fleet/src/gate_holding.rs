@@ -75,6 +75,7 @@ pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, n
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     })
 }
 
