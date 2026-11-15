@@ -2155,7 +2155,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-bands",
         steps: &[
             press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
-            step("Each wait is a row with its kind's glyph in its state's hue", Verb::Look, "row", "Held open by ci on branch"),
+            step("Each wait is a row with its kind's glyph in its state's hue; the card is one line until a press opens it", Verb::Open("button", "Waiting on"), "row", "Held open by ci on branch"),
             step("A right press offers its stop", Verb::RightOpen("row", "Held open by ci on branch"), "menuitem", "Stop the watch"),
             step("Esc shuts the menu; the card has no close and leaves when the wait ends", Verb::Key("escape"), "region", "Waiting on"),
             step("A Job whose agent came up without its tools says so", Verb::Press, "row", "Upgrade the router"),
@@ -2807,7 +2807,7 @@ pub static WALKS: &[Walk] = &[
             step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
             step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),
             press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
-            step("A row for each wait, its stop behind a right press", Verb::Look, "row", "Held open by ci on branch"),
+            step("A row for each wait, its stop behind a right press", Verb::Open("button", "Waiting on"), "row", "Held open by ci on branch"),
             step("Another Job: its box, its pickers and its quick bar", Verb::Press, "row", "Audit the docs index"),
             step("Words are typed", Verb::Type("Check the index again"), "textbox", "Message"),
             step("Enter sends them, and they stand in the thread the same frame", Verb::Key("enter"), "region", "Your message"),
