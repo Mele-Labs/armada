@@ -1142,6 +1142,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-slot-wait",
+        title: "A Job waiting for a worktree slot, asking nothing",
+        screen: Screen::Jobs,
+        scenario: "slot-wait",
+        steps: &[
+            step("A Job waiting for a slot wears a drive beside its state, its place in the tooltip", Verb::Hover, "img", "Waiting for a slot, 2nd in line"),
+            press_on("Its thread ends on the wait: its place, how long, and that it moves in by itself", "row", "Audit the docs index", "region", "Waiting for a slot"),
+            step("Add a slot has Fleet make one for this Job", Verb::Hover, "button", "Add a slot"),
+            step("Free gives this Job the slot of the quietest Job nothing keeps", Verb::Hover, "button", "Free slot 9"),
+            step("The card stays inside the thread", Verb::Fits("region", "Waiting for a slot"), "button", "Free slot 9"),
+            press_on("Now says it too", "tab", "Job column: Now", "group", "Waiting for a slot, 2nd in line"),
+        ],
+    },
+    Walk {
         name: "native-panes",
         title: "Splitting, sizing and closing a Job's panes",
         screen: Screen::Jobs,
