@@ -1,6 +1,6 @@
 // Builds Armada Voice, the helper Talk hears through: `node native/voice/build.mjs` from `apps/desktop`, which `pnpm
 // build` runs first and electron-builder's `beforePack` runs again (`before-pack.cjs`). Writes
-// `native/voice/build/Armada Voice.app`, signed ad hoc; the packaged app carries it in `Contents/Helpers`.
+// `native/voice/build/Armada Voice.app`, signed by `scripts/signing-identity`; the packaged app carries it in `Contents/Helpers`.
 //
 // **An app of its own, not a bare binary**, because macOS asks for the microphone and speech recognition on behalf of
 // the process it holds responsible, and reads the reason it shows from that process's Info.plist. The helper makes
@@ -93,12 +93,11 @@ if (process.platform !== "darwin") {
     binary,
   ]);
   copyFileSync(join(here, "Info.plist"), join(app, "Contents", "Info.plist"));
+  // With this Mac's "Armada Local Signing" certificate where it has one, so its microphone grant outlasts the build.
   execFileSync(
-    "codesign",
+    join(here, "..", "..", "..", "..", "scripts", "signing-identity"),
     [
-      "--force",
-      "--sign",
-      "-",
+      "sign",
       app,
     ],
     {

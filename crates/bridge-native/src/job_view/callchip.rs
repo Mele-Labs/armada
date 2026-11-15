@@ -10,6 +10,17 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
 
 impl JobView {
+    /// The room the thread keeps clear at its foot while the chip stands over it, so the chip never covers a card's acts: the
+    /// chip's height and the gap round it. Nothing where the chip is not drawn.
+    pub(super) fn chip_room(&self, id: &SharedString, cx: &Context<Self>) -> gpui::Pixels {
+        let look = cx.look();
+        if self.render_callchip(id, cx).is_some() {
+            look.length(token::H_CONTROL_SM) + look.length(token::SPACE_2) * 2.
+        } else {
+            gpui::px(0.)
+        }
+    }
+
     pub(super) fn render_callchip(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
         let tail = page.entry(page.items);

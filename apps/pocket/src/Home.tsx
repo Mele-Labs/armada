@@ -1,5 +1,6 @@
-// Home: every paired Mac's live Jobs in one list, drawn as native's Jobs list: under the notch bar, a search and a scope,
-// then a heading per project and its Jobs, Needs you first, each Job another started folded under its starter.
+// Home: every paired Mac's live Jobs in one list, drawn as native's Jobs list: under the notch bar, a search, a project
+// and a scope, then a heading per project and its Jobs, Needs you first, each Job another started folded under its
+// starter. A Job in no project is listed only under All, headed by its repository.
 // A Mac that forgot the phone, or is not answering, is a row of its own at the top.
 
 import { useRef, useState } from "react";
@@ -108,8 +109,9 @@ export function Home() {
   const match = (item: Item) =>
     inScope(scope, item) &&
     (item.session.title ?? "").toLowerCase().includes(words.trim().toLowerCase());
+  const projects = repositories.filter((one) => one.project).map((one) => one.name);
   const groups = repositories
-    .filter((one) => project === undefined || one.name === project)
+    .filter((one) => project === undefined || (one.project && one.name === project))
     .map((one) => ({
       name: one.name,
       shown: narrowed
@@ -135,7 +137,7 @@ export function Home() {
         place="jobs"
         onSearch={() => search.current?.focus()}
         projects={{
-          names: repositories.map((one) => one.name),
+          names: projects,
           shown: project,
           onShow: setProject,
           onDrafts: () => setScope("drafts"),
@@ -152,6 +154,23 @@ export function Home() {
             value={words}
             onChange={(event) => setWords(event.target.value)}
           />
+        </label>
+        <label className="pk-scope pk-scope--project">
+          <select
+            aria-label="Which project the list shows"
+            value={project ?? ""}
+            onChange={(event) =>
+              setProject(event.target.value === "" ? undefined : event.target.value)
+            }
+          >
+            <option value="">All</option>
+            {projects.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} aria-hidden="true" />
         </label>
         <label className="pk-scope">
           <select
