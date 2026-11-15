@@ -50,15 +50,17 @@ A card never holds a count or a status report.
 | Press an option, or its key | The Operator is told which card and which option. It does the thing and settles the card |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | The card folds to one line and the talk runs below it, until the item settles or the Operator puts up a new card |
-| Discuss later (`L`) | The card goes back until its time, hidden until then |
-| Press Waiting in the head | The list of the cards queued behind opens. Pressing one brings it to the front |
+| Snooze (`S`) | The card goes back until its time, hidden until then |
+| Open Next up, at the top of the right side | The cards queued behind the one in front, then the ideas the Operator kept, newest first. Pressing a card brings it to the front. The keys go into it: ↓ and ↑ move, Enter brings, Esc folds it |
+| Press a kept idea in Next up | The idea comes to the front as a card with two options: Start it, which sends it as a dispatch, and Remove, which drops it. It has no Discuss and no Snooze. Esc puts the Operator's own card back |
 
 **A talk about a card ends in one of two ways.**
 The Operator settles the card, or it puts up a new one.
 It may revise the card in front while you talk.
 
-**Waiting is a list of what is queued behind the card in front.**
-It is drawn in the head where the page's other state is, and it opens the list.
+**Next up is what is queued behind the card in front, and the ideas the Operator kept.**
+It is a section at the top of the right side, above the feed, folded until you open it, with its count beside its name.
+The count includes the kept ideas.
 A snoozed Job raises nothing until it wakes.
 
 **The right side is a feed of what happened since you last looked.**
@@ -94,7 +96,7 @@ Everything a Job does is that Job's own.
 | Arrives | Comes from |
 |---|---|
 | A note | You, from Bridge |
-| A press, Later or a message in the composer | You, on a card. Each reaches the session as a message that names the card |
+| A press, Snooze or a message in the composer | You, on a card. Each reaches the session as a message that names the card |
 | A bug report | A Job's `report_bug`, kept on this Mac |
 | A conflict | A Job's `raise_conflict`, between its work and another Job's |
 | A landing question | A Job's `ask_held`, whether a pull request or a branch should land |
@@ -129,7 +131,7 @@ It may answer in the Job's thread, or put up a card.
 | `settle_card` | Closes a card with what was said |
 
 Only the Operator's session may call these.
-A card's id is what the press, Later and the composer name.
+A card's id is what the press, Snooze and the composer name.
 
 **It writes to a forge only to land a pull request.**
 It never comments on, labels or edits an issue or a pull request for you.
@@ -183,7 +185,7 @@ The code that served them is removed by a later change, and until it is each beh
 | Learned rules and the digest's tiles | Each project's kept rules, and Landed, What I handled, Running and Coming up | The feed, for what happened, and `operator_acts` for what it keeps |
 | The queue board, Permissions tab, Read-only, Suggest and Decide, `role_off` and `always_raise` | Positions and standing orders for each role | `operator_acts` |
 | Suggestion cards with Do it and Skip, and Overrule | A ruling that acts waited on one press | A card with options, and the talk |
-| The Your turn list, dragged into order | The short list he ordered | One card in front, and Waiting behind it |
+| The Your turn list, dragged into order | The short list he ordered | One card in front, and Next up behind it |
 
 The measure of the one-shot rulings is `../spikes/operator-replay.md`.
 
