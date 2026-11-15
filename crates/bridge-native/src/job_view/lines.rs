@@ -114,6 +114,8 @@ impl JobView {
             | SessionRow::WindowAsk { .. }
             | SessionRow::Ask { .. } => Some(self.body_row(ix, row, page, look, now, cx)),
             SessionRow::Handoff { .. } => super::handoff::Card::of(row).map(|card| self.handoff_card(&card, super::handoff::Place::Thread(ix), page, look, cx)),
+            // How the work lands, where Fleet said so for the person: a line with a link to the setting.
+            SessionRow::Delivery { id, said: Some(said), .. } => Some(self.delivery_line(id, said, page, look, cx)),
             // Never drawn in the thread: the plan's card is its own item, and the others have no screen.
             SessionRow::Plan { .. } | SessionRow::Delivery { .. } | SessionRow::BrowserReminder { .. } => None,
             _ => self.line(ix, row, page, look, now, cx),

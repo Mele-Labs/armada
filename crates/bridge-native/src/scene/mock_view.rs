@@ -16,6 +16,8 @@ use std::sync::Arc;
 use gpui::{point, px, quad, size, App, BorderStyle, Bounds, Corners, Global, Hsla, RenderImage, SharedString, Task, TextAlign, Window};
 use ipc::{KeptStyles, SceneKind, SceneNode};
 
+pub use crate::web::PagePart;
+
 use super::geometry::{Pt, Rect};
 use super::mock_page::{page, KeptCache};
 use super::{sheet_top, Ink};
@@ -39,8 +41,9 @@ pub enum Appearance {
     Dark,
 }
 
-/// What the web view answers: the picture, `width * scale` pixels across, and the content's height in points.
-pub type Picture = (Arc<RenderImage>, f32);
+/// What the web view answers: the picture, `width * scale` pixels across, the content's height in points, and the parts
+/// a note may name, where the page laid them out.
+pub type Picture = (Arc<RenderImage>, f32, Arc<Vec<PagePart>>);
 
 /// Draws `html` `width` points across at `scale` pixels to the point. **Called on the main thread**, where a web view lives.
 pub type Painter = Rc<dyn Fn(String, f32, f32, Appearance, &mut App) -> Task<Result<Picture, String>>>;
@@ -158,6 +161,7 @@ impl Queue {
 /// What has been drawn of a page: its content's height and the pictures, oldest first.
 struct Drawn {
     height: f32,
+    parts: Arc<Vec<PagePart>>,
     images: Vec<(u32, Arc<RenderImage>)>,
 }
 
@@ -202,7 +206,7 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
                 Appearance::Dark => crate::web::Appearance::Dark,
             };
             let drawn = crate::web::render_html(html, width, scale, appearance, cx);
-            cx.foreground_executor().spawn(async move { drawn.await.map(|rendered| (rendered.image, rendered.height)) })
+            cx.foreground_executor().spawn(async move { drawn.await.map(|rendered| (rendered.image, rendered.height, Arc::new(rendered.parts))) })
         }),
         cx,
     );
@@ -211,6 +215,11 @@ pub fn hold_live(fleet: &gpui::Entity<crate::fleet::FleetConnection>, cx: &mut A
 /// How tall a page's content stands at this width, once any picture of it has come.
 pub(super) fn height(mock: &Mock, width: f32, dark: bool, cx: &App) -> Option<f32> {
     cx.try_global::<Pictures>()?.pages.get(&page_key(mock, width, dark)).map(|drawn| drawn.height)
+}
+
+/// What a page holds that a note may name, once a picture of it has come.
+pub(super) fn parts(mock: &Mock, width: f32, dark: bool, cx: &App) -> Option<Arc<Vec<PagePart>>> {
+    cx.try_global::<Pictures>()?.pages.get(&page_key(mock, width, dark)).map(|drawn| drawn.parts.clone())
 }
 
 /// The picture to draw now, asking for the one the zoom wants. Until it comes, the nearest scale already made.
@@ -298,9 +307,10 @@ fn finish(key: Key, made: Result<Picture, String>, cx: &mut App) {
     let pictures = cx.default_global::<Pictures>();
     pictures.queue.done(key);
     match made {
-        Ok((image, height)) => {
-            let drawn = pictures.pages.entry(key.page).or_insert_with(|| Drawn { height, images: Vec::new() });
+        Ok((image, height, parts)) => {
+            let drawn = pictures.pages.entry(key.page).or_insert_with(|| Drawn { height, parts: parts.clone(), images: Vec::new() });
             drawn.height = height;
+            drawn.parts = parts;
             drawn.images.retain(|(scale, _)| *scale != key.scale);
             drawn.images.push((key.scale, image));
             if drawn.images.len() > SCALES_KEPT {
@@ -341,7 +351,7 @@ pub(super) fn paint(ink: &Ink, node: &SceneNode, rect: Rect, shown: &Shown, alph
     }
     let frame = frame_of(rect, node);
     let bounds: Bounds<gpui::Pixels> = view.rect(frame);
-    let radius = look.length(token::RADIUS_MD) * view.zoom;
+    let radius = view.len(super::tile::RADIUS);
     match &shown.image {
         Some(image) => {
             let _ = window.paint_image(bounds, bounds, Corners::all(radius), image.clone(), 0, false);
@@ -375,6 +385,13 @@ pub(super) fn dark(look: &crate::look::Look) -> bool {
     look.tone() == Tone::Dark
 }
 
+/// The markup between `<body>` and `</body>` of a page `page` built, which is what a part is read from.
+fn html_body(page: &str) -> String {
+    let start = page.find("<body>").map_or(0, |at| at + "<body>".len());
+    let end = page.rfind("</body>").unwrap_or(page.len());
+    page.get(start..end.max(start)).unwrap_or_default().to_string()
+}
+
 /// A walk's web view: every page is the fixture picture, as tall as its shape gives at the width asked.
 pub fn hold_walk(cx: &mut App) {
     let fixture = include_bytes!("../../fixtures/mock-chip.png");
@@ -388,9 +405,14 @@ pub fn hold_walk(cx: &mut App) {
         }
         Arc::new(RenderImage::new(vec![image::Frame::new(bgra)]))
     };
-    let painter: Painter = Rc::new(move |_html, width, _scale, _appearance, cx: &mut App| {
+    let painter: Painter = Rc::new(move |html, width, _scale, _appearance, cx: &mut App| {
         let _ = cx;
-        Task::ready(Ok((image.clone(), (width * down / across).round())))
+        let height = (width * down / across).round();
+        // No web view lays the page out, so its parts stand one under another, each a share of the picture's height.
+        let outline = super::mock_page::outline(&html_body(&html));
+        let share = height / outline.len().max(1) as f32;
+        let parts = outline.into_iter().enumerate().map(|(at, one)| PagePart { key: one.key, label: one.label, x: 0., y: share * at as f32, w: width, h: share, depth: one.depth }).collect();
+        Task::ready(Ok((image.clone(), height, Arc::new(parts))))
     });
     set_painter(painter, cx);
 }
@@ -475,7 +497,7 @@ mod tests {
                 let image = image.clone();
                 cx.spawn(async move |_| {
                     let _ = receive.recv().await;
-                    Ok((image, 48.))
+                    Ok((image, 48., Arc::default()))
                 })
             })
         };

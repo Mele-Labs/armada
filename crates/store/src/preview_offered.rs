@@ -22,9 +22,45 @@ pub struct KeptPreviewOffered {
     pub checked_at: Option<String>,
     /// The `<tip> <state>` the Job was last told, so a change of state is told once.
     pub told: Option<String>,
+    /// One line on what the owner should look at.
+    pub look: Option<String>,
+    /// How to get there, in order.
+    pub steps: Vec<KeptStep>,
 }
 
-const COLUMNS: &str = "session_id, branch, tip, about, offered_at, state, why, files, checked_at, told";
+/// One step of a note: what the owner does, and the act that takes him there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptStep {
+    pub say: String,
+    pub act: Option<String>,
+}
+
+/// `steps` as the one JSON column keeps them. Written by hand: the store holds no serde derives.
+pub(crate) fn steps_text(steps: &[KeptStep]) -> String {
+    let rows: Vec<serde_json::Value> = steps
+        .iter()
+        .map(|step| match &step.act {
+            Some(act) => serde_json::json!({ "say": step.say, "act": act }),
+            None => serde_json::json!({ "say": step.say }),
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// The steps a column holds. One that does not read is left out.
+pub(crate) fn steps_read(text: &str) -> Vec<KeptStep> {
+    let Ok(serde_json::Value::Array(rows)) = serde_json::from_str(text) else {
+        return Vec::new();
+    };
+    rows.iter()
+        .filter_map(|row| {
+            let say = row.get("say")?.as_str()?.to_string();
+            Some(KeptStep { say, act: row.get("act").and_then(|act| act.as_str()).map(str::to_string) })
+        })
+        .collect()
+}
+
+const COLUMNS: &str = "session_id, branch, tip, about, offered_at, state, why, files, checked_at, told, look, steps";
 
 fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPreviewOffered> {
     let files: String = row.get(7)?;
@@ -39,22 +75,47 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptPreviewOffered> {
         files: serde_json::from_str(&files).unwrap_or_default(),
         checked_at: row.get(8)?,
         told: row.get(9)?,
+        look: row.get(10)?,
+        steps: steps_read(&row.get::<_, String>(11)?),
     })
 }
 
 impl Store {
     /// Keep an offer, replacing the Job's offer of that branch: at the new tip, checking, and told nothing
     /// yet. **The Job's earlier `told` is kept**, so a re-offer that ends where it began is not told twice.
-    pub fn keep_preview_offered(&mut self, session_id: &str, branch: &str, tip: &str, about: &str, at: &str) -> Result<(), WriteError> {
-        self.conn
+    /// **The note of this (branch, tip) is kept with it**, in one step: a re-offer at the same tip updates the
+    /// note and leaves it looked at, a new tip is a new note. The note is not taken away with the offer.
+    #[allow(clippy::too_many_arguments)]
+    pub fn keep_preview_offered(
+        &mut self,
+        session_id: &str,
+        branch: &str,
+        tip: &str,
+        about: &str,
+        look: Option<&str>,
+        steps: &[KeptStep],
+        at: &str,
+    ) -> Result<(), WriteError> {
+        let doing = "keeping an offer for the preview";
+        let steps = steps_text(steps);
+        let transaction = self.conn.transaction().map_err(fault(doing)).map_err(WriteError::Database)?;
+        transaction
             .execute(
-                "INSERT INTO preview_offered (session_id, branch, tip, about, offered_at, state) VALUES (?1, ?2, ?3, ?4, ?5, 'checking') \
-                 ON CONFLICT (session_id, branch) DO UPDATE SET tip = ?3, about = ?4, offered_at = ?5, state = 'checking', why = NULL, files = '[]', checked_at = NULL",
-                params![session_id, branch, tip, about, at],
+                "INSERT INTO preview_offered (session_id, branch, tip, about, offered_at, state, look, steps) VALUES (?1, ?2, ?3, ?4, ?5, 'checking', ?6, ?7) \
+                 ON CONFLICT (session_id, branch) DO UPDATE SET tip = ?3, about = ?4, offered_at = ?5, state = 'checking', why = NULL, files = '[]', checked_at = NULL, look = ?6, steps = ?7",
+                params![session_id, branch, tip, about, at, look, steps],
             )
-            .map_err(fault("keeping an offer for the preview"))
+            .map_err(fault(doing))
             .map_err(WriteError::Database)?;
-        Ok(())
+        transaction
+            .execute(
+                "INSERT INTO build_notes (branch, tip, session_id, about, look, steps, offered_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+                 ON CONFLICT (branch, tip) DO UPDATE SET session_id = ?3, about = ?4, look = ?5, steps = ?6, offered_at = ?7",
+                params![branch, tip, session_id, about, look, steps, at],
+            )
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        transaction.commit().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
     /// Every offer, oldest first.

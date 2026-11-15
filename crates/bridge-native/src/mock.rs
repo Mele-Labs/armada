@@ -72,6 +72,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.
+        "delivery-line" => include_bytes!("../fixtures/jobs-delivery-line.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
         "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
@@ -151,7 +153,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -561,6 +563,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
         "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        // The same two sketches, Freshness chip's mock drawn as a small form: a note may name the box, or an element inside the mock.
+        "sketch-reader" => include_bytes!("../fixtures/sketch-reader-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
         "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
@@ -577,6 +581,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        "delivery-line" => include_bytes!("../fixtures/delivery-line-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),

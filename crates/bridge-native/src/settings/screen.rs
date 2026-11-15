@@ -109,6 +109,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of names and an address too long for their cards.
+    pub fn long_names(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.gateway = super::gateway::MockGateway::long_names();
+            }
+        });
+    }
+
     /// For the walk of a Mac Tailscale Funnel does not serve.
     pub fn without_funnel(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
@@ -133,6 +142,14 @@ impl SettingsScreen {
         );
         let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &Asked, cx: &mut App| {
+            if let Asked::SettingsAt(at) = asked {
+                let (me, at) = (me.clone(), at.clone());
+                cx.defer(move |cx| {
+                    let Some(me) = me.upgrade() else { return };
+                    let _ = handle.update(cx, move |_, window, cx| me.update(cx, |this, cx| this.go_to(at, window, cx)));
+                });
+                return;
+            }
             let project = match asked {
                 Asked::Settings => Some(None),
                 Asked::RepositorySettings(_) => None,

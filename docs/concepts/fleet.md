@@ -638,8 +638,14 @@ A job that cannot be told now is asked again at the next reading and nothing is 
 **A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
 `withdraw_preview` takes it back.
 Without a `branch`, the call names the one branch the Job holds a slot on.
-It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, and a repository with no `scripts/preview`.
+It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, a `look` or `steps` that do not read (below), and a repository with no `scripts/preview`.
 Only this repository has one.
+
+**An offer also says what the owner should look at and how to get there.**
+`look` is one line of at most 300 characters.
+`steps` are at most 9, because Bridge binds the keys 1 to 9, each a `say` of one line and at most 120 characters and an `act` where one takes him there.
+An `act` is an id in `crates/core-model/domain/actions.toml`, which Fleet reads from a copy built in, so a step names an act Bridge knows or the offer is refused (`fleet.preview_look_invalid`, `fleet.preview_steps_invalid`, `fleet.preview_step_act_unknown`).
+A re-offer that leaves `look` or `steps` out keeps the ones it had, an empty `look` clears it and an empty list clears the steps.
 
 **One check at a time, for the whole Fleet, in one kept worktree** at `<checkout>/.armada/preview-check`, made once and moved onto each merged commit.
 Triggers that arrive during a check run it once more afterwards.
@@ -664,6 +670,19 @@ Fleet drops an offer on the sweep when its branch moved (the Job is told), its t
 **`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads `Armada/preview-held`).
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
 `preview_offers.changed` carries the answer whole.
+
+**A note of each offer outlives it.**
+On every accepted offer Fleet keeps one note a (branch, tip) in `build_notes`: the Job, its `about`, `look` and `steps`, when it was offered and when the owner looked.
+A re-offer at the same tip updates the note and keeps the mark, and a new tip is a new note that is not looked at.
+Fleet drops an offer when its Job ends or its tip lands, and the note stays, because the build the owner loaded still holds the branch.
+**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended` and `looked_at`, and the build's commit.
+Off the preview it answers no notes and no commit.
+`build_notes.changed` carries it whole, when a note is marked, when a Job whose note the build holds ends, and when the running build changes.
+Fleet looks for the last two on the sweep that reads `main`, so a Job's end reaches Bridge within one sweep.
+The owner has two acts on a note, each refused to a Job: `mark_build_note_looked_at` keeps the mark so the next build shows only what is new, and `send_build_note_feedback` sends his words on it.
+Where the note's Job is live, the words reach its thread as his message, led by `On your preview note "<about>":`.
+Where it has ended, Fleet starts a new Job in the same repository, running at once because the press is his, whose request carries his words, the ended Job's title, the note's `look` and `steps`, and the branch and tip.
+A note, a mark or a tip Fleet does not know is a 404, `fleet.build_note_unknown`, and empty words are a 422, `fleet.build_note_words_empty`.
 
 ### Restarting Fleet
 

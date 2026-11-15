@@ -58,7 +58,7 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
-    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// A press on the button, or the radio, of this name inside the element of this role and name: where its name is
     /// one the walk's own bar or another place also draws.
     PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
@@ -115,6 +115,9 @@ pub enum Verb {
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
     Fits(&'static str, &'static str),
+    /// Nothing pressed: the target must be drawn no wider than this many points, or the step fails.
+    /// For a title that must be cut inside its tab rather than widen it.
+    NoWiderThan(u32),
     /// Nothing of this role and name is drawn; the target is.
     Absent(&'static str, &'static str),
     /// This many milliseconds go by before the target is ringed, as they do while a person reads the
@@ -1246,6 +1249,9 @@ pub static WALKS: &[Walk] = &[
             step("The first stand at the top", Verb::Wheel("region", "Open, Done and Deferred", -1400), "button", "Read the chip's stories"),
             press_on("A press opens its thread as a tab beside the Job's", "button", "Read the chip's stories", "tab", "Job tab: Read the chip's stories"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Read the chip's stories"),
+            press_on("A subagent with a long task opens its tab", "button", "Check the tooltip wording against the voice rules", "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("The title is cut inside its tab, which keeps its width, and its × is drawn after it", Verb::NoWiderThan(240), "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Check the tooltip wording against the voice rules"),
             press_on("+ again", "button", "Add tab: Done", "menuitem", "Judge"),
             press_on("Judge: the Judge of the whole Job", "menuitem", "Judge", "region", "Judge"),
         ],
@@ -1536,6 +1542,34 @@ pub static WALKS: &[Walk] = &[
             step("The picture keeps the hops", Verb::Look, "region", "What they see when they open Crossing arrows.png"),
             step("Esc puts it away", Verb::Key("escape"), "button", "Share"),
             step("Esc again shuts the sketch", Verb::Key("escape"), "button", "Open sketch Crossing arrows"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-reader-fixes",
+        title: "Notes on a sketch, its full screen, and a sketch once answered",
+        screen: Screen::Jobs,
+        scenario: "sketch-reader",
+        steps: &[
+            press_on("A Job puts a sketch to him", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Open in the panel reads it full screen", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
+            press_on("Opened", "button", "Open in the panel", "dialog", "Sketch: Freshness chip"),
+            step("A right press on a box offers Add note", Verb::RightOpen("group", "Merge queue"), "menuitem", "Add note"),
+            press_on("Add note opens a box under the box, named Note", "menuitem", "Add note", "textbox", "Note"),
+            step("He says what it is about", Verb::Type("Say what the queue waits on."), "textbox", "Note"),
+            step("Enter holds the note: its number stands on the box", Verb::Key("enter"), "dialog", "Sketch: Freshness chip"),
+            step("A right press on an element inside a mock offers it too", Verb::RightOpen("group", "Send invite"), "menuitem", "Add note"),
+            press_on("The box opens under that element", "menuitem", "Add note", "textbox", "Note"),
+            step("A second note", Verb::Type("Name who it goes to."), "textbox", "Note"),
+            step("Held: number 2 stands on the element, number 1 stays on the box", Verb::Key("enter"), "dialog", "Sketch: Freshness chip"),
+            step("Zoom in, or the rail's +, or a pinch or the wheel with ⌘", Verb::Key("cmd-="), "dialog", "Sketch: Freshness chip"),
+            step("Zoom out, or the rail's -", Verb::Key("cmd--"), "dialog", "Sketch: Freshness chip"),
+            press_on("The rail's Zoom in works the same", "button", "Zoom in", "dialog", "Sketch: Freshness chip"),
+            press_on("Fit fits it again", "button", "Fit", "dialog", "Sketch: Freshness chip"),
+            step("The sketch still asks, so its answers stand at the foot of the full screen", Verb::Look, "toolbar", "Answers"),
+            step("Send back opens its note box", Verb::PressWithin("dialog", "Sketch: Freshness chip", "Send back"), "textbox", "Note"),
+            step("What to change", Verb::Type("Grey the chip once it is current."), "textbox", "Note"),
+            step("⌘↵ sends it back from here", Verb::Key("cmd-enter"), "status", "Sent back"),
+            step("Esc shuts it. Its card in the thread is one line: the sketch, its verdict and the start of his note", Verb::Key("escape"), "button", "Open sketch Freshness chip"),
         ],
     },
     Walk {
@@ -1842,6 +1876,22 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &title_bar::PREVIEW_OFFERS,
+    },
+    Walk {
+        name: "native-waits-and-fleet-scroll",
+        title: "A waiting Job's row says what it waits on you for, and the Fleet panel scrolls its lists",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            right_on("A right press on a Job opens its menu, with the View group at its foot", "row", "Fix the merge line freshness chip", "menuitemcheckbox", "Now"),
+            press_on("Now puts a line under each title", "menuitemcheckbox", "Now", "menuitemcheckbox", "Now"),
+            step("A Job waiting on you says the first thing it waits for: Plan to approve, not what it last ran", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            step("A Job at work still says what it is doing", Verb::Look, "row", "Native Bridge foundation"),
+            scene("Ten branches are offered for the preview", "preview-offers-many", "button", "Fleet — Running"),
+            press_on("The panel stops at the window's edge. Refresh and Skip stay at its foot", "button", "Fleet — Running", "button", "Refresh"),
+            step("The lists scroll between the head and the foot", Verb::Wheel("group", "Waiting to be added", 320), "button", "Refresh"),
+            step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+        ],
     },
     Walk {
         name: "native-build-origin",
@@ -3022,6 +3072,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_BUILD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_MODELS,
+        title: "Settings › Macs and Models use the width",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_MODELS_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_LONG,
+        title: "Settings › Macs: long names and addresses",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_LONG_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::MACS_NEARBY,
         title: "Settings › Macs: Macs nearby and on your account",
         screen: Screen::Settings,
@@ -3093,6 +3157,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::LEARNED_LINKS,
+        title: "A learned setting links to its setting",
+        screen: Screen::Settings,
+        scenario: "delivery-line",
+        steps: crate::settings::walk::LEARNED_LINKS_STEPS,
     },
     Walk {
         name: crate::settings::walk::FOLLOWS_PICKER,

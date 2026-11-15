@@ -20,13 +20,42 @@ pub enum Appearance {
     Dark,
 }
 
+/// A part of a page a person can point at, where the page laid it out, in the page's own points: the nearest element
+/// carrying `data-part`, else the nearest with words (`partOf` in `mock-frame.ts`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PagePart {
+    /// Where the part is found again: its `data-part` (with its place among the same name when the name repeats), else its path from the body.
+    pub key: String,
+    pub label: String,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    /// How many elements stand between it and the body, so the innermost part under a point is the one named.
+    pub depth: u32,
+}
+
 /// One picture of an HTML string and how tall its content is.
 pub struct Rendered {
     /// The page's pixels, `width * scale` across and `height * scale` down, ready for `paint_image` or `img`.
     pub image: Arc<RenderImage>,
     /// The content's height in points: the picture is drawn at this height for the width asked.
     pub height: f32,
+    /// What the page holds that a note may name, with where each stands.
+    pub parts: Vec<PagePart>,
 }
+
+/// Asks the page for its parts, as `partOf`, `partKey` and `partName` of `mock-frame.ts` name them: every element with a
+/// `data-part` or words of its own, once for its part. The answer is JSON.
+const PARTS: &str = r#"(function(){var b=document.body,out=[],seen={};
+var words=function(e){return (e.textContent||'').replace(/\s+/g,' ').trim();};
+var own=function(e){for(var c=e.firstChild;c;c=c.nextSibling){if(c.nodeType===3&&(c.textContent||'').trim()!=='')return true;}return false;};
+var inside=function(e){return e!==null&&e!==b&&e!==document.documentElement;};
+var partOf=function(e){var a;for(a=e;inside(a);a=a.parentElement){if(a.hasAttribute('data-part'))return a;}for(a=e;inside(a);a=a.parentElement){if(words(a)!=='')return a;}return null;};
+var key=function(e){var n=e.getAttribute('data-part');if(n!==null){var same=[].filter.call(b.querySelectorAll('[data-part]'),function(o){return o.getAttribute('data-part')===n;});return same.length>1?n+'['+(same.indexOf(e)+1)+']':n;}var path=[];for(var a=e;a&&a!==b;a=a.parentElement){path.unshift(a.tagName.toLowerCase()+':nth-child('+([].indexOf.call(a.parentElement.children,a)+1)+')');}return ['body'].concat(path).join(' > ');};
+var label=function(e){var n=e.getAttribute('data-part');if(n!==null)return n;var s=words(e);return s.length>40?s.slice(0,40).replace(/\s+$/,'')+'\u2026':s;};
+[].forEach.call(b.querySelectorAll('*'),function(e){if(out.length>=400)return;if(!e.hasAttribute('data-part')&&!own(e))return;var p=partOf(e);if(p===null)return;var k=key(p);if(seen[k])return;seen[k]=1;var r=p.getBoundingClientRect();if(r.width<1||r.height<1)return;var d=0;for(var a=p;a&&a!==b;a=a.parentElement)d++;out.push({k:k,l:label(p),x:r.left+window.scrollX,y:r.top+window.scrollY,w:r.width,h:r.height,d:d});});
+return JSON.stringify(out);})()"#;
 
 /// The policy put ahead of the HTML. Later policies can only narrow it, so the page cannot lift it.
 const SEAL: &str = "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:\">";
@@ -66,9 +95,10 @@ pub fn render_html(html: String, width: f32, scale: f32, appearance: Appearance,
             let _ = tx.try_send(png);
         });
         let png = rx.recv().await.ok().flatten().ok_or("the page gave no picture")?;
+        let parts = parts_of(&native).await;
         let to = ((width * scale.max(0.5)).round() as u32, (height * scale.max(0.5)).round() as u32);
         let image = cx.background_executor().spawn(async move { decode(&png, Some(to)) }).await.ok_or("the picture would not decode")?;
-        Ok(Rendered { image, height })
+        Ok(Rendered { image, height, parts })
     })
 }
 
@@ -78,6 +108,32 @@ async fn content_height(native: &Native) -> f32 {
         let _ = tx.try_send(answer);
     });
     rx.recv().await.ok().flatten().and_then(|text| text.parse::<f32>().ok()).unwrap_or(0.)
+}
+
+async fn parts_of(native: &Native) -> Vec<PagePart> {
+    let (tx, rx) = async_channel::bounded(1);
+    native.evaluate(PARTS, move |answer| {
+        let _ = tx.try_send(answer);
+    });
+    rx.recv().await.ok().flatten().map(|text| read_parts(&text)).unwrap_or_default()
+}
+
+/// The page's answer: a list of `{k, l, x, y, w, h, d}`. Anything that does not read is no parts, and a mock then takes a note as a whole.
+fn read_parts(text: &str) -> Vec<PagePart> {
+    #[derive(serde::Deserialize)]
+    struct One {
+        k: String,
+        l: String,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        d: u32,
+    }
+    serde_json::from_str::<Vec<One>>(text).map_or_else(
+        |_| Vec::new(),
+        |all| all.into_iter().map(|one| PagePart { key: one.k, label: one.l, x: one.x, y: one.y, w: one.w, h: one.h, depth: one.d }).collect(),
+    )
 }
 
 /// A PNG as the image gpui paints: BGRA, one frame. `to`: the size in pixels it is drawn at, where it is not the one WebKit
@@ -104,6 +160,13 @@ mod tests {
         assert!(html.ends_with("<p>hello</p>"));
         assert!(html.contains("default-src 'none'"));
         assert!(!html.contains("script-src"), "scripts are refused by default-src and by the preferences, never allowed");
+    }
+
+    #[test]
+    fn the_pages_parts_are_read_and_a_bad_answer_is_none() {
+        let read = read_parts(r#"[{"k":"chip","l":"chip","x":4,"y":2,"w":60.5,"h":20,"d":1}]"#);
+        assert_eq!(read, vec![PagePart { key: "chip".into(), label: "chip".into(), x: 4., y: 2., w: 60.5, h: 20., depth: 1 }]);
+        assert!(read_parts("not json").is_empty());
     }
 
     #[test]
