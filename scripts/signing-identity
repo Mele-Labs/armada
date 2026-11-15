@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+#
+# One code-signing certificate on this Mac, "Armada Local Signing", so that every build Armada makes
+# for itself is signed by the same signer and macOS remembers what was allowed:
+#
+#   scripts/signing-identity                         make it in the login keychain, once; asks for your keychain password
+#   scripts/signing-identity sign <path> [<identifier>]   sign <path> with it, or ad hoc where there is none
+#   scripts/signing-identity which                   print the certificate's SHA-1, or `-` where there is none
+#
+# **Why it exists.** macOS keeps a privacy grant, such as Local Network, against an app's designated
+# requirement. An ad hoc signature's requirement is its code hash, which every build changes, so each
+# new build asks again. Signed with this certificate, the requirement is the identifier and the
+# certificate, and those stay the same from build to build.
+#
+# **Making it** is run by a person, once, in a terminal: it writes a key and a self-signed certificate
+# into the login keychain, then lets `codesign` use the key without a dialog, which asks for the
+# keychain's password (your login password). It does nothing where the certificate is already there.
+# The certificate is trusted by nothing and needs no Apple account; it only has to stay the same.
+# Deleting it from Keychain Access puts builds back to ad hoc, and macOS asks once more for each grant.
+#
+# **`sign`** is what the build scripts call: `native-app`, `armada-electron`, `keep-build` and
+# Armada Voice's `build.mjs`. It never asks anything: where the keychain is locked it signs ad hoc. It prints nothing on success, and fails where
+# `codesign` does, with its error. `<identifier>` is for a bare binary, which has no Info.plist to
+# take one from; a bundle's comes from its plist.
+#
+# `ARMADA_SIGNING_KEYCHAIN` names another keychain to make and look in, and
+# `ARMADA_SIGNING_KEYCHAIN_PASSWORD` its password, which the tests use so they never touch the login
+# keychain and never ask.
+
+set -euo pipefail
+
+name="Armada Local Signing"
+keychain="${ARMADA_SIGNING_KEYCHAIN:-}"
+
+fail() {
+  echo "signing-identity: $*" >&2
+  exit 1
+}
+
+# The certificate's SHA-1, where the keychain has it with its key. Untrusted is fine: codesign signs with it.
+identity() {
+  security find-identity -p codesigning ${keychain:+"$keychain"} 2>/dev/null \
+    | awk -v want="\"$name\"" 'index($0, want) && $2 ~ /^[0-9A-F]{40}$/ { print $2; exit }'
+}
+
+# Whether the keychain is unlocked, asked of Security without a dialog. A locked one would have codesign
+# put a password dialog on the screen and hold the build until somebody answers it (15 Nov), so `sign`
+# falls back to ad hoc instead.
+unlocked() {
+  python3 - "${keychain:-$HOME/Library/Keychains/login.keychain-db}" <<'PY'
+import ctypes, sys
+sec = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/Security.framework/Security")
+ref, status = ctypes.c_void_p(), ctypes.c_uint32()
+if sec.SecKeychainOpen(sys.argv[1].encode(), ctypes.byref(ref)) or sec.SecKeychainGetStatus(ref, ctypes.byref(status)):
+    sys.exit(1)
+sys.exit(0 if status.value & 1 else 1)
+PY
+}
+
+if [[ "${1:-}" == "which" ]]; then
+  with=$(identity || true)
+  echo "${with:--}"
+  exit 0
+fi
+if [[ "${1:-}" == "sign" ]]; then
+  [[ $# -eq 2 || $# -eq 3 ]] || fail "usage: signing-identity sign <path> [<identifier>]"
+  path="$2" id="${3:-}"
+  with=$(identity || true)
+  if [[ -n "$with" ]] && ! unlocked; then
+    echo "signing-identity: the keychain is locked, so $path is signed ad hoc" >&2
+    with=""
+  fi
+  args=(--force)
+  if [[ -z "$with" ]]; then
+    args+=(-s -)
+  else
+    args+=(-s "$with")
+    [[ -z "$keychain" ]] || args+=(--keychain "$keychain")
+  fi
+  [[ -z "$id" ]] || args+=(-i "$id")
+  exec codesign "${args[@]}" "$path"
+fi
+[[ $# -eq 0 ]] || fail "usage: signing-identity | signing-identity sign <path> [<identifier>] | signing-identity which"
+
+if [[ -n "$(identity || true)" ]]; then
+  echo "\"$name\" is already in the keychain; builds are signed with it"
+  exit 0
+fi
+
+into="${keychain:-$HOME/Library/Keychains/login.keychain-db}"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+cat >"$work/cert.cnf" <<EOF
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = $name
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+EOF
+# macOS's own LibreSSL: a PKCS#12 from OpenSSL 3 uses a cipher `security import` cannot read.
+/usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 7300 -config "$work/cert.cnf" \
+  -keyout "$work/key.pem" -out "$work/cert.pem" 2>/dev/null || fail "openssl could not make the certificate"
+pass=$(/usr/bin/openssl rand -hex 16)
+/usr/bin/openssl pkcs12 -export -name "$name" -inkey "$work/key.pem" -in "$work/cert.pem" \
+  -out "$work/id.p12" -passout "pass:$pass" || fail "openssl could not package the certificate"
+security import "$work/id.p12" -k "$into" -P "$pass" -T /usr/bin/codesign >/dev/null \
+  || fail "could not add the certificate to $into"
+echo "Added \"$name\" to $into."
+echo "Now the keychain's password, so codesign may use the key without asking each build:"
+# With no -k it asks for the password on the terminal, which is the one thing a person types here.
+# The tests' scratch keychain passes its own, in `ARMADA_SIGNING_KEYCHAIN_PASSWORD`.
+unlock=()
+[[ -z "${ARMADA_SIGNING_KEYCHAIN_PASSWORD:-}" ]] || unlock=(-k "$ARMADA_SIGNING_KEYCHAIN_PASSWORD")
+security set-key-partition-list -S apple-tool:,apple: -s -l "$name" ${unlock[@]+"${unlock[@]}"} "$into" >/dev/null \
+  || fail "the certificate is in, but codesign may ask before each signing; run this script again to retry"
+[[ -n "$(identity || true)" ]] || fail "the certificate is in $into, but codesign does not see it"
+echo "Done. The next build is signed with \"$name\"; macOS asks once more for Local Network, then remembers."
