@@ -1,12 +1,9 @@
-//! Fleet handing the Operator work from outside a Job's own run, and doing what it rules on it.
-//! **Each arrives once**: a report as it is kept, an issue new since the last read of its tracker,
-//! a red main as Autopilot's red kind finds it, and a note the person left on
+//! Fleet handing the Operator's session work from outside a Job's own run. **Each arrives once**: a
+//! report as it is kept, an issue new since the last read of its tracker, and a note the person left on
 //! Bridge once its file is new to the repository's annotations and has waited, open and sent to no
-//! Job. A note he sends to a Job meanwhile is his row in the Log, and then arrives as a note of its
-//! own, to be moved or left. Nothing arrives while the Operator is off.
+//! Job. Nothing arrives while the Operator is off or its session is not running, and what waited is let go.
 //!
-//! **Nothing is written to the forge.** A link is kept on this Mac, and File writes only to the
-//! repository's beads, never to an issue the person or anyone else filed.
+//! **Nothing is written to the forge.**
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
@@ -14,30 +11,24 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, OpenIssue, Vcs, WorkProduct};
 use ipc::annotations::{note_read, NoteRead};
-use ipc::{ManifestId, Notice, SessionTag, TagKind};
 
 use super::seat::Seat;
-use super::suggesting::pressed;
-use super::{held, Arrival, Arrived, Filed, Grouping, NewIssue, Note, Outcome, Report, Ruling, Way, NEEDS_YOU_WAIT};
-use crate::autopilot::report_brief;
+use super::{held, Arrival, NewIssue, Note, Report};
 use crate::daemon::Fleet;
 
 /// How long an open note sent to no Job is read again each tick, for the person to send it, before
 /// it is handed on as it stands.
 pub(crate) const NOTE_SENT_WAIT: Duration = Duration::from_secs(10 * 60);
 
-/// What is waiting to be handed, and what a call is out on.
+/// What is waiting to be handed.
 #[derive(Default)]
 pub(crate) struct Sources {
-    out: Arc<Mutex<BTreeSet<String>>>,
     /// Reports kept since the last tick.
     reports: Mutex<Vec<String>>,
     /// The issues each repository's last read held.
     issues: Mutex<BTreeMap<String, BTreeSet<String>>>,
     /// Issues new since the read before, not yet handed.
     fresh: Mutex<Vec<NewIssue>>,
-    /// The issues the Operator filed itself, which are not new to it.
-    pub(super) filed: Mutex<BTreeSet<String>>,
     /// The note files each repository's last listing held. A repository with no entry has not been
     /// listed since Fleet started, so its first listing only marks what is there.
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
@@ -52,17 +43,6 @@ struct Watched {
     since: tokio::time::Instant,
     /// Whether it is handed on if it waits out. A note already there when Fleet started is not.
     hand: bool,
-    /// Whether it was new since the last listing, so that its being sent already is news.
-    news: bool,
-    /// Whether a read of it has been made.
-    read: bool,
-}
-
-/// A note that gained `sent`: the note, and the Job it went to as `(id, title)`.
-pub(super) struct Sent {
-    note: Note,
-    job: String,
-    title: Option<String>,
 }
 
 impl Seat {
@@ -76,13 +56,12 @@ impl Seat {
     pub(crate) fn issues_read(&self, manifest: &str, issues: &[OpenIssue]) {
         let now: BTreeSet<String> = issues.iter().map(|one| one.reference.clone()).collect();
         let Some(was) = held(&self.sources.issues).insert(manifest.to_string(), now) else { return };
-        let filed = held(&self.sources.filed).clone();
         let mut fresh = held(&self.sources.fresh);
         // A child is a part of an issue already placed, such as a plan's task mirrored into beads;
         // one assigned is somebody's.
         let new = issues
             .iter()
-            .filter(|one| !was.contains(&one.reference) && !filed.contains(&one.reference))
+            .filter(|one| !was.contains(&one.reference))
             .filter(|one| !one.closed && one.assignees.is_empty() && !one.reference.contains('.'));
         for one in new {
             fresh.push(NewIssue {
@@ -118,26 +97,6 @@ impl Seat {
     pub(crate) fn note_wait_is(&self, wait: Duration) {
         *held(&self.sources.sent_wait) = Some(wait);
     }
-
-    /// Whether `id` is waiting for the Operator or out on a call.
-    pub(super) fn is_out(&self, id: &str) -> bool {
-        held(&self.sources.out).contains(id)
-    }
-
-    /// Rule on `arrival` in the background, unless a call on it is already out. Whether it was handed.
-    pub(crate) fn hand_sourced(&self, arrival: Arrival) -> bool {
-        let Some(operator) = self.operator() else { return false };
-        let out = Arc::clone(&self.sources.out);
-        if !held(&out).insert(arrival.id.clone()) {
-            return false;
-        }
-        tokio::spawn(async move {
-            let id = arrival.id.clone();
-            operator.ruled(arrival, NEEDS_YOU_WAIT).await;
-            held(&out).remove(&id);
-        });
-        true
-    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -150,20 +109,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Hand `arrival` to the Operator, unless the Log already holds it or it is waiting. Whether it was handed.
+    /// Tell the session of `arrival`, once. Whether it was told or had been told already: **`false` where the
+    /// Operator is off or its session is not running**, and the arrival reaches nobody.
     pub(crate) async fn hand_once(self: &Arc<Self>, arrival: Arrival) -> bool {
-        if self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true) {
-            return false;
-        }
-        // While the Operator's session runs it is told, and Fleet rules nothing.
-        if self.arrival_told(&arrival).await {
-            return true;
-        }
-        self.operator_seat().hand_sourced(arrival)
+        self.operator_on() && self.arrival_told(&arrival).await
     }
 
-    /// Each report kept, issue new and note left since the last tick, handed
-    /// to the Operator once. While it is off, what waited is let go.
+    /// Each report kept, issue new and note left since the last tick, told to the session once. While it is
+    /// off or not running, what waited is let go.
     pub async fn sources_handed(self: &Arc<Self>) {
         let seat = self.operator_seat();
         let reports = std::mem::take(&mut *held(&seat.sources.reports));
@@ -178,61 +131,34 @@ where
             }
         }
         for issue in fresh {
-            let (open, files) = self.open_beside(&issue.manifest_id).await;
-            self.hand_once(issue.arrival_among(&open, files)).await;
+            self.hand_once(issue.arrival()).await;
         }
-        let (arrivals, sends) = self.notes_arrived().await;
-        for sent in sends {
-            self.note_sent_kept(sent).await;
-        }
-        for arrival in arrivals {
+        for arrival in self.notes_arrived().await {
             self.hand_once(arrival).await;
         }
     }
 
-    /// What Jobs asked the Operator that nothing has raised yet. **While the Operator is off, or none is seated, they
-    /// stand on the sending Job's Needs you at once**; while it is on each is handed to it, once, and a call that
-    /// ruled nothing raises it too, so no ask is left where nobody sees it.
+    /// What Jobs asked the Operator that nothing has raised yet. **While the session is not running they stand on
+    /// the sending Job's Needs you at once**; while it runs each is told to it, once, and stands answered here.
     async fn job_asks_handed(self: &Arc<Self>) {
         let asks = self.store().lock().await.unraised_job_asks().unwrap_or_default();
         for ask in asks {
             let arrival = super::sources::ask_arrival(&ask);
-            let seat = self.operator_seat();
-            // The Operator's session is told it and answers the Job itself, so the ask stands answered here.
-            if self.operator_on() && self.arrival_told(&arrival).await {
+            if self.hand_once(arrival).await {
                 let at = self.now().as_str().to_string();
                 let _ = self.store().lock().await.answer_job_ask(&ask.id, "told the Operator", &at);
-                continue;
-            }
-            let operator = seat.operator().filter(|_| self.operator_on());
-            let ruled = self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true);
-            let Some(operator) = operator.filter(|_| !ruled) else {
-                // Off, or ruled already and still unraised: where it was ruled to wait, it waits for him.
+            } else {
                 self.job_ask_raised(&ask.id).await;
-                continue;
-            };
-            let out = Arc::clone(&seat.sources.out);
-            if !held(&out).insert(arrival.id.clone()) {
-                continue;
             }
-            let fleet = Arc::clone(self);
-            tokio::spawn(async move {
-                let id = arrival.id.clone();
-                let ruled = operator.ruled(arrival, NEEDS_YOU_WAIT).await;
-                held(&out).remove(&id);
-                if matches!(ruled, super::Ruled::PassedOn(_)) {
-                    fleet.job_ask_raised(super::sources::ask_id_of(&id)).await;
-                }
-            });
         }
     }
 
-    /// The notes of each hosted repository, as arrivals and as sends. **A note is read again each tick
-    /// while it is open and sent to no Job**, for as long as [`NOTE_SENT_WAIT`]: one that gains `sent`
-    /// is a send, and one that waits that long, still open and unsent, is an arrival as it stands. A
-    /// note already there when Fleet started is watched too, but never handed on unsent.
-    async fn notes_arrived(&self) -> (Vec<Arrival>, Vec<Sent>) {
-        let (mut arrivals, mut sends) = (Vec::new(), Vec::new());
+    /// The notes of each hosted repository, as arrivals. **A note is read again each tick while it is open
+    /// and sent to no Job**, for as long as [`NOTE_SENT_WAIT`]: one sent to a Job meanwhile is that Job's,
+    /// and one that waits that long, still open and unsent, is an arrival as it stands. A note already
+    /// there when Fleet started is watched too, but never handed on unsent.
+    async fn notes_arrived(&self) -> Vec<Arrival> {
+        let mut arrivals = Vec::new();
         let seat = self.operator_seat();
         let wait = seat.note_wait();
         for served in self.repositories().hosted() {
@@ -244,7 +170,7 @@ where
             {
                 let mut watching = held(&seat.sources.watching);
                 for id in new {
-                    watching.entry((manifest.clone(), id)).or_insert(Watched { since: tokio::time::Instant::now(), hand: !first, news: !first, read: false });
+                    watching.entry((manifest.clone(), id)).or_insert(Watched { since: tokio::time::Instant::now(), hand: !first });
                 }
             }
             let ours: Vec<(String, std::path::PathBuf)> = {
@@ -260,11 +186,10 @@ where
             }
             let paths: Vec<std::path::PathBuf> = ours.iter().map(|(_, path)| path.clone()).collect();
             let reads: Vec<Option<NoteRead>> = tokio::task::spawn_blocking(move || paths.iter().map(|path| note_read(&std::fs::read(path).ok()?).ok()).collect()).await.unwrap_or_default();
-            let (mut left, mut sent) = (Vec::new(), Vec::new());
+            let mut left = Vec::new();
             for ((id, _), read) in ours.into_iter().zip(reads) {
                 let key = (manifest.clone(), id);
-                let Some(watched) = held(&seat.sources.watching).get(&key).map(|one| (one.since, one.hand, one.news, one.read)) else { continue };
-                let (since, hand, news, was_read) = watched;
+                let Some((since, hand)) = held(&seat.sources.watching).get(&key).map(|one| (one.since, one.hand)) else { continue };
                 let done = |key: &(String, String)| {
                     held(&seat.sources.watching).remove(key);
                 };
@@ -276,15 +201,9 @@ where
                     done(&key);
                     continue;
                 }
-                if let Some(to) = &read.sent {
+                if read.sent.is_some() {
                     done(&key);
-                    if news || was_read {
-                        sent.push((to.session_id.clone(), to.title.clone(), read));
-                    }
                     continue;
-                }
-                if let Some(one) = held(&seat.sources.watching).get_mut(&key) {
-                    one.read = true;
                 }
                 if since.elapsed() >= wait {
                     done(&key);
@@ -293,59 +212,9 @@ where
                     }
                 }
             }
-            if left.is_empty() && sent.is_empty() {
-                continue;
-            }
-            let open = self.open_of(&manifest).await;
-            let files = self.served_named(Some(&ManifestId::carried(&manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some());
-            let note = |read: NoteRead| Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, open: open.clone(), files };
-            arrivals.extend(left.into_iter().map(|read| note(read).arrival()));
-            sends.extend(sent.into_iter().map(|(job, title, read)| Sent { note: note(read), job, title }));
+            arrivals.extend(left.into_iter().map(|read| Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component }.arrival()));
         }
-        (arrivals, sends)
-    }
-
-    /// A note the person sent to a Job: his send is a row of the Log, signed by him, and then the
-    /// Operator is handed the note as its own arrival, to move or leave. **Nothing is kept where the
-    /// Log already holds the note**, such as one handed on as it stood.
-    async fn note_sent_kept(self: &Arc<Self>, sent: Sent) {
-        let unsent = sent.note.arrival();
-        if self.store().lock().await.operator_ruled(&unsent.id).unwrap_or(true) {
-            return;
-        }
-        let title = match sent.title {
-            Some(title) => title,
-            None => self.title_of(&sent.job).await,
-        };
-        let mut row = pressed(&unsent, Outcome::Sent, "the person sent it from Bridge", self.now());
-        row.other = Some(sent.job.clone());
-        if self.store().lock().await.add_operator_ruling(&row.kept()).is_err() {
-            return;
-        }
-        self.operator_board_changed();
-        self.hand_once(sent.note.sent_arrival(&sent.job, &title)).await;
-    }
-
-    /// The issues open in `manifest`'s tracker, and whether it is beads, which Fleet writes to.
-    pub(super) async fn open_beside(&self, manifest: &str) -> (Vec<Filed>, bool) {
-        match self.files_in(manifest) {
-            true => (self.open_of(manifest).await, true),
-            false => (Vec::new(), false),
-        }
-    }
-
-    /// Whether `manifest`'s tracker is beads, the one Fleet writes to.
-    pub(super) fn files_in(&self, manifest: &str) -> bool {
-        self.served_named(Some(&ManifestId::carried(manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some())
-    }
-
-    /// The issues open in `manifest`'s tracker, as Fleet holds them.
-    pub(super) async fn open_of(&self, manifest: &str) -> Vec<Filed> {
-        let open = self.open_issues(&ManifestId::carried(manifest)).await.unwrap_or_default();
-        open.into_iter()
-            .filter(|one| !one.closed)
-            .map(|one| Filed { reference: one.reference, title: one.title.as_written().to_string() })
-            .collect()
+        arrivals
     }
 
     async fn report_of(&self, id: &str) -> Option<Arrival> {
@@ -355,167 +224,8 @@ where
             let hosting = store.hosting(&report.session_id).ok().flatten()?;
             (report, hosting.manifest_id)
         };
-        let open = self.open_of(&manifest).await;
-        Some(Report { id: report.id, session_id: report.session_id, manifest_id: manifest, title: report.title, what: report.what, open }.arrival())
+        Some(Report { id: report.id, session_id: report.session_id, manifest_id: manifest, title: report.title, what: report.what }.arrival())
     }
-
-    /// What the Operator ruled for work from outside a Job's own run, and whether Fleet did it. A raise
-    /// is its Log row. **What it made of a note** comes back, so a press on a suggestion can say it in
-    /// the Log. A red main is Autopilot's own act, which says nothing of how it came out.
-    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<Sourced, String> {
-        let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
-        let mut made = Sourced::default();
-        let undone = |what: &str| Err(what.to_string());
-        // Read again as it is carried out, so a project turned off while the call ran is not reached.
-        if let Some(into) = ruling.other.as_deref().filter(|_| arrival.reaches_only_shared()) {
-            if !self.job_shared(into).await {
-                return undone("the Job it named is not in a shared project");
-            }
-        }
-        match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
-            (Arrived::Report, Way::Link, _, Some(issue)) => {
-                if self.store().lock().await.link_bug_report(last, issue).is_err() {
-                    return undone("the report was not linked");
-                }
-            }
-            // Each arm that starts, hands or tells a Job is boxed: inline, they make this frame too deep for a test thread.
-            (Arrived::Report, Way::NewJob, _, _) => Box::pin(self.operator_started_report(last, manifest)).await?,
-            (Arrived::Report, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_handed_report(last, manifest, into)).await?,
-            (Arrived::RedMain, Way::NewJob, _, _) => Box::pin(self.operator_fixed_red(manifest, last)).await,
-            (Arrived::RedMain, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_gave_red(manifest, last, into)).await?,
-            (Arrived::Start, _, _, _) if arrival.is_dispatch() => Box::pin(self.dispatch_sourced(arrival, ruling)).await?,
-            (Arrived::Start, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_handed_start(arrival, into)).await?,
-            (Arrived::Note, Way::Link, _, _) => {
-                if !self.note_settled_by_operator(manifest, last).await {
-                    return undone("the note was not marked done");
-                }
-            }
-            (Arrived::Note, Way::File, _, _) => made.issue = Some(Box::pin(self.operator_filed_note(manifest, last, arrival)).await.ok_or("the issue was not filed")?),
-            (Arrived::Note, Way::NewJob, _, _) => made.job = Some(Box::pin(self.operator_started_note(manifest, last, arrival)).await.ok_or("the Job did not start")?),
-            (Arrived::Note, Way::ExistingJob, Some(into), _) => Box::pin(self.operator_told_note(manifest, last, arrival, into)).await?,
-            (Arrived::Merged, Way::Close, _, Some(issue)) => {
-                self.operator_closed_issue(manifest, issue, &format!("Done by #{last}, as the Operator ruled")).await?;
-            }
-            (Arrived::Issue, Way::Group, _, Some(open)) => {
-                let new = super::suggesting::issue_of(arrival);
-                if new.is_empty() {
-                    return undone("the new issue's id does not read");
-                }
-                match ruling.grouping {
-                    Some(Grouping::Part) => self.operator_put_under(manifest, new, open).await?,
-                    Some(Grouping::Duplicate) => self.operator_closed_issue(manifest, new, &format!("Duplicate of {open}, as the Operator ruled")).await?,
-                    None => return undone("the group names neither duplicate nor part"),
-                }
-            }
-            (Arrived::Conflict | Arrived::Held, Way::Raise, _, _) => {
-                self.job_ask_raised(super::sources::ask_id_of(&arrival.id)).await;
-            }
-            (Arrived::Conflict | Arrived::Held, Way::Tell, _, _) => Box::pin(self.operator_told_ask(arrival, ruling)).await?,
-            (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
-            (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),
-            (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await?,
-            _ => {}
-        }
-        Ok(made)
-    }
-
-    /// A note no open issue covers, filed in the repository's beads with his words, and marked done.
-    /// The issue it was filed as.
-    async fn operator_filed_note(&self, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
-        let served = self.served_named(Some(&ManifestId::carried(manifest))).ok()?;
-        let backlog = self.backlog_of(&served)?;
-        let (root, title) = (served.root().to_string(), arrival.subject.clone());
-        let body = format!("{}\n\nFiled by the Operator from a note he left on Bridge.", arrival.words);
-        let filed = tokio::task::spawn_blocking(move || backlog.file(&root, &title, &body)).await;
-        let Ok(Ok(reference)) = filed else { return None };
-        held(&self.operator_seat().sources.filed).insert(reference.clone());
-        self.note_settled_by_operator(manifest, note).await;
-        self.tracking().forget(manifest);
-        Some(reference)
-    }
-
-    /// A note the Operator ruled a Job of its own: started on it, briefed with his words, and the
-    /// note marked sent to it. The Job's id.
-    async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) -> Option<String> {
-        let brief = format!("The person left this note on Bridge. Do what it asks.\n\n{}", arrival.words);
-        let job = self.operator_job_started(manifest, &arrival.subject, &brief).await.ok()?;
-        let title = self.title_of(&job).await;
-        self.note_given_by_operator(manifest, note, &job, &title, arrival.is_sent_note()).await;
-        Some(job)
-    }
-
-    /// A note the Operator ruled to live Job `into`, whose work is near it: told it, and the note
-    /// marked sent to it.
-    async fn operator_told_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival, into: &str) -> Result<(), String> {
-        let text = format!("The Operator handed you a note the person left on Bridge, as your work is near it:\n\n{}\n\nDo it as part of your work, or say why it is not yours.", arrival.words);
-        if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            return Err("the Job did not take the note".to_string());
-        }
-        let title = self.title_of(into).await;
-        self.note_given_by_operator(manifest, note, into, &title, arrival.is_sent_note()).await;
-        Ok(())
-    }
-
-    /// A conflict or a landing question the Operator answered itself: the ask is settled and the Jobs it names told, in
-    /// its words. **Refused where the answer names a Job that is neither of the two, or a verdict that is neither land nor hold**,
-    /// so the item goes on to the person.
-    async fn operator_told_ask(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
-        use crate::session_host::job_asks::{Said, Voice};
-        let id = super::sources::ask_id_of(&arrival.id);
-        let ask = self.store().lock().await.open_job_ask(id).ok().flatten().ok_or("it was answered already")?;
-        let said = match arrival.arrived {
-            Arrived::Held => match ruling.verdict.as_deref() {
-                Some("land") => Said::Land,
-                Some("hold") => Said::Hold,
-                _ => return Err("it named neither land nor hold".to_string()),
-            },
-            _ => match ruling.other.as_deref() {
-                None => Said::HoldBoth,
-                Some(job) => {
-                    let named = |session: &str| session == job || crate::session_host::address_of(session) == job;
-                    match (named(&ask.session_id), ask.other_session_id.as_deref().is_some_and(named)) {
-                        (true, _) => Said::ChangeSender,
-                        (_, true) => Said::ChangeOther,
-                        _ => return Err("the Job it named is neither of the two".to_string()),
-                    }
-                }
-            },
-        };
-        self.job_ask_settled(&ask, said, Voice::Operator(ruling.because.clone())).await
-    }
-
-    /// A report the Operator ruled a Job of its own: started on it, briefed with it, and holding it.
-    async fn operator_started_report(self: &Arc<Self>, id: &str, manifest: &str) -> Result<(), String> {
-        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
-        let job = self.operator_job_started(manifest, &report.title, &report_brief(&report)).await.map_err(str::to_string)?;
-        let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
-        self.reports_named(&job, manifest, &[tag]).await;
-        Ok(())
-    }
-
-    /// A report the Operator ruled to live Job `into`, whose work is near it: told it, and holding it.
-    async fn operator_handed_report(self: &Arc<Self>, id: &str, manifest: &str, into: &str) -> Result<(), String> {
-        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
-        let text = format!(
-            "The Operator handed you a bug report, as your work is near it:\n\n{}\n\nFix it as part of your work, or say why it is not yours.",
-            report_brief(&report)
-        );
-        if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            return Err("the Job did not take the report".to_string());
-        }
-        let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
-        self.reports_named(into, manifest, &[tag]).await;
-        Ok(())
-    }
-}
-
-/// What a ruling on work from outside a Job made, as the Log row names it.
-#[derive(Debug, Default)]
-pub(super) struct Sourced {
-    /// The issue a note was filed as.
-    pub issue: Option<String>,
-    /// The Job a note was started as.
-    pub job: Option<String>,
 }
 
 /// The note files in `places`, as each one's id and path: the first of any id found twice.

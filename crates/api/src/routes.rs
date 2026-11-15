@@ -28,7 +28,7 @@ use axum::Router;
 
 use crate::amending::edit_manifest;
 use crate::commands::{catch_up_checkout, change_slot_pool, checkout_to_pull_request, rescue_slot};
-use crate::conversing::{ask_the_person, read_thought, tell_session};
+use crate::conversing::{ask_the_person, tell_session};
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
@@ -456,10 +456,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::operator_answer::<D>),
         )
         .route(
-            "/operator/page/undo",
-            post(crate::hosted_sessions::operator_undo_ruling::<D>),
-        )
-        .route(
             "/operator/page/order",
             post(crate::hosted_sessions::operator_turn_order::<D>),
         )
@@ -468,20 +464,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::operator_later::<D>),
         )
         .route(
-            "/operator/board",
-            get(crate::hosted_sessions::get_operator_board::<D>),
-        )
-        .route(
-            "/operator/board/move",
-            post(crate::hosted_sessions::move_on_operator_board::<D>),
-        )
-        .route(
             "/operator/errors",
             post(crate::hosted_sessions::report_bridge_error::<D>),
-        )
-        .route(
-            "/operator/suggestions/answer",
-            post(crate::hosted_sessions::answer_operator_suggestion::<D>),
         )
         .route(
             "/operator/orders",
@@ -1086,7 +1070,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
         .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
-        .route("/operator/read_thought", post(read_thought::<D>))
         .route("/operator/tell_session", post(tell_session::<D>))
         .route("/calls/permission", post(ask_the_person::<D>))
         .route("/studios", get(list_studios::<D>))
