@@ -210,6 +210,7 @@ impl JobView {
             if let Some(read) = self.artifacts.read.get_mut(id.as_ref()) {
                 read.rows = Some(rows);
             }
+            self.offer_artifacts(id, cx);
             return;
         }
         let (job, path) = (id.to_string(), format!("/sessions/artifacts?session_id={}", super::wire::encoded(id)));
@@ -223,10 +224,20 @@ impl JobView {
                     if let Some(read) = this.artifacts.read.get_mut(&job) {
                         read.rows = Some(rows);
                     }
+                    this.offer_artifacts(&SharedString::from(job.clone()), cx);
                     cx.notify();
                 }
             }),
         );
+    }
+
+    /// The Job's first artifact puts its Artifacts tab beside Now, behind, once (his ask of 15 Nov 2026). It waits for the
+    /// store's answer, so a layout kept from an earlier run is not lost to it.
+    pub(super) fn offer_artifacts(&mut self, job: &SharedString, cx: &mut Context<Self>) {
+        let any = self.artifacts.read.get(job.as_ref()).and_then(|read| read.rows.as_ref()).is_some_and(|rows| !rows.is_empty());
+        if any && self.panes_answered(job) {
+            self.look_in(job, |was| super::panes_place::offer_beside_now(was, "artifacts"), cx);
+        }
     }
 
     /// An artifact he folded away or restored here is drawn so at once, before Fleet's list says it.
