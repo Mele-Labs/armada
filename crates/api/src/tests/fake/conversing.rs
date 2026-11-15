@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use ipc::{ManifestId, ReadThought, TellSession, ThoughtKind, ThoughtReading, ThoughtTarget};
+use ipc::{ManifestId, TellSession, ThoughtKind, ThoughtTarget};
 
 use super::FakeDaemon;
 use crate::{Conversations, Refusal};
@@ -25,23 +25,6 @@ impl crate::Admitting for FakeDaemon {
 }
 
 impl Conversations for FakeDaemon {
-    /// **A question, unless the words ask to be routed**: then a thought for the one Session the
-    /// fake knows. What reads the words is Fleet's.
-    async fn read_thought(&self, read: ReadThought) -> ThoughtReading {
-        if !read.text.contains("route") {
-            return ThoughtReading::Question;
-        }
-        ThoughtReading::Thought {
-            target: Some(ThoughtTarget {
-                kind: ThoughtKind::Session,
-                id: String::from("01SESSION000000000000000001"),
-                title: String::from("Sessions list views"),
-                manifest_id: Some(ManifestId::carried(SERVED_MANIFEST)),
-                slot: Some(3),
-            }),
-        }
-    }
-
     /// Keeps the words and answers where they went. **What a send is, is Fleet's**, and so is
     /// which repository serves the thread: the door names the Manifest the caller stands in, and
     /// the fake takes it as it is.

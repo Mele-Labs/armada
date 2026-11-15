@@ -1,0 +1,8 @@
+[operations.set_operator_acts]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Save what you may do unasked in one project: act_then_tell, ask_before_starting or only_when_told, after he said so. Leave acts out to unset it. Give project (its id) and acts"
+notes = """
+Since 14 Nov 2026. `POST /operator/acts`, body `SetOperatorActs`: `project`, the project's id, and `acts`, absent to unset. Answered with `OperatorActsList`, every project's value. **Bridge calls it too**: the person may set it for a project himself. 404 `fleet.no_such_project` for a project he has none of. The value is a learned per-project value and never in the project's file.
+"""

@@ -1,37 +1,26 @@
-//! The page's state and acts: which item is open, what he answered this sitting, the chat on Ask. Every
-//! press answers at once: the page moves first, says so with a pending mark, and takes Fleet's page when
-//! it comes. A refusal puts the item back and says why on it.
+//! The page's state and acts: the card in front, the cards waiting behind it, the talk about a card, and what the
+//! Operator is allowed to do unasked. Every press answers at once: the page moves first and takes Fleet's page when it
+//! comes. A refusal puts the card back and says why on it.
 
+use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
+use std::rc::Rc;
 
-use gpui::{App, AppContext as _, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, ScrollHandle, SharedString, Subscription, Task, Window};
+use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
-use ipc::{SessionId, WaitingAct};
+use ipc::{OperatorActs, SessionId, WaitingAct};
 
-use super::chat::{ChatAsked, OperatorChat};
 use super::composer::{Composed, OperatorComposer, Outgoing};
-use super::face::{self, Kind};
+use super::face;
 use super::parked::{ParkedAsked, ParkedIdeas};
 use super::scenes::{self, MockFleet};
 use super::wire::{Failed, Wire};
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
-use crate::look::ActiveLook as _;
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
 use crate::log::Note;
-
-/// An item answered this sitting, struck through under Your turn.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Done {
-    pub id: String,
-    pub kind: Kind,
-    pub title: SharedString,
-    /// What came of it, in a few words. Absent while Fleet has not answered.
-    pub said: Option<SharedString>,
-    /// When he pressed it: Answered today holds the presses of his local day.
-    pub at: chrono::DateTime<chrono::Local>,
-}
+use crate::look::ActiveLook as _;
 
 /// What the page asks of the window around it: a place it does not draw.
 #[derive(Clone, Debug, PartialEq)]
@@ -39,59 +28,65 @@ pub enum Opened {
     /// The act of an item Fleet cannot do itself, such as a walk to open or a pull request, from the
     /// Job that holds it.
     Act(WaitingAct, Option<SessionId>),
-    /// A Job, from a row of the digest.
+    /// A Job, from a row of the feed.
     Job(SessionId),
 }
 
-/// Items that joined Your turn since the page was last read, oldest first: what raises a toast. Jobs
+/// Items that joined the queue since the page was last read, oldest first: what raises a toast. Jobs
 /// screens own toasts (`banner.rs`, `notify.rs`) and subscribe to this on [`super::live`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Arrived(pub Vec<OperatorTurnItem>);
 
-/// The digest's tab stops: each tile's head, and the links under them.
-pub const STOPS: [&str; 9] = ["Ruled", "Landed", "What I handled", "Running", "Coming up", "Learned", "Holds", "The whole Log", "Every rule"];
-
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
+
+/// A talk about a card: the card folds to one line and the Operator's thread runs under it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Talk {
+    /// The card's id.
+    pub about: String,
+    /// The card's title, for the tag in the box and the folded line.
+    pub title: SharedString,
+    /// The folded card is open again, beside the talk.
+    pub unfolded: bool,
+    /// What he sent that the thread has not echoed yet, drawn as his own message.
+    pub sent: Option<SharedString>,
+}
+
+/// Where each press that opens a menu was drawn, by name.
+pub(super) type Bounded = Rc<RefCell<HashMap<&'static str, Bounds<Pixels>>>>;
 
 pub struct OperatorPageView {
     pub(super) wire: Wire,
     /// Fleet's page, with this sitting's presses already on it. `None` until it is read: a skeleton.
     pub(super) page: Option<OperatorPage>,
-    /// The date, and when he came back, as RFC 3339 so it flips with the page's other times.
-    pub(super) day: Option<SharedString>,
-    pub(super) back_at: Option<String>,
-    /// The item open, by id: one at a time.
+    /// The card in front, by id: where he brought one from Waiting, else the first.
     pub(super) open: Option<String>,
-    /// The open card is to be scrolled into view at the next frame: set when the keys or an answer move it.
-    pub(super) reveal: bool,
-    pub(super) done: Vec<Done>,
-    /// The items whose press is in flight.
+    /// The cards settled here, which stay out of the queue though Fleet keeps one whose act it left to him to open.
+    pub(super) settled: BTreeSet<String>,
+    /// The cards whose press is in flight.
     pub(super) pending: BTreeSet<String>,
-    /// A press Fleet refused, on that item, with why.
+    /// A press Fleet refused, on that card, with why.
     pub(super) refused: Option<(String, SharedString)>,
-    /// The Then he picked on a go-ahead to file, where he picked one; else the Operator's.
-    pub(super) then: HashMap<String, OperatorThen>,
-    /// The option he picked on an item that offers more than one, by its label; else the Operator's.
-    pub(super) option: HashMap<String, String>,
-    pub(super) chat: Option<Entity<OperatorChat>>,
-    /// The box at the page's foot, whose send is a dispatch to the Operator.
+    /// The Jobs' titles, by id, which a card's chips read.
+    pub(super) titles: HashMap<String, String>,
+    pub(super) talk: Option<Talk>,
+    /// The box under the card, whose send is a dispatch, or a talk where it holds a tag.
     pub(super) composer: Entity<OperatorComposer>,
     /// The ideas the Operator kept for later.
     pub(super) parked: Entity<ParkedIdeas>,
     parked_reading: bool,
-    /// The digest's tiles he has folded or opened, by name, against how they open.
-    pub(super) folded: HashMap<&'static str, bool>,
     pub focus: FocusHandle,
-    /// The pane from a Job: the chat and a short list.
-    pub(super) pane: bool,
     /// Every time on the page read as its age, after a press on one: they flip together, as the thread's do.
     pub(super) aged: bool,
     /// The clock the page reads its times against: the walk's 13:05, else this Mac's.
     pub(super) clock_now: Option<chrono::DateTime<chrono::Local>>,
-    /// Switch on pressed, and Fleet has not answered; or why it refused.
+    /// Switch on or Switch off pressed, and Fleet has not answered; or why it refused.
     pub(super) switching: bool,
+    /// The press in flight is Switch off.
+    pub(super) switching_off: bool,
     pub(super) switch_refused: Option<SharedString>,
+    pub(super) switch_off_refused: Option<SharedString>,
     /// A Mac waiting to pair whose Confirm or Decline is in flight, by its call's key.
     pub(super) pairing_pending: BTreeSet<String>,
     /// What the Gateway refused on a Mac waiting to pair, by its call's key, with its sentence.
@@ -102,29 +97,23 @@ pub struct OperatorPageView {
     pub(super) pairing_focus: FocusHandle,
     /// The front card waits to be scrolled to and given the keys at the next frame.
     pub(super) pairing_reveal: bool,
-    /// The digest's tiles and links, each a tab stop that Enter presses, by name.
-    pub(super) stops: HashMap<&'static str, FocusHandle>,
-    /// Tiles drawing every row, past the first few.
-    pub(super) whole: BTreeSet<&'static str>,
-    /// Every rule, on a sheet over the page, with the row the arrows are on. `None` while it is shut.
-    pub(super) rules: Option<usize>,
-    pub(super) rules_focus: FocusHandle,
-    pub(super) rules_scroll: ScrollHandle,
-    /// The week's Log, on a sheet over the page: `Some("")` while it is read, its words once read.
-    pub(super) log: Option<String>,
-    pub(super) log_focus: FocusHandle,
-    pub(super) log_scroll: ScrollHandle,
     pub(super) main_scroll: ScrollHandle,
+    pub(super) talk_scroll: ScrollHandle,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
-    /// The open card's Later, so a test can put the keys on a press.
+    /// The open card's Discuss later, so a test can put the keys on a press.
     pub(super) later_focus: FocusHandle,
-    /// Where each ask's Later is drawn, by its id, so the menu opens under the open ask's.
-    pub(super) later_bounds: std::rc::Rc<std::cell::RefCell<HashMap<String, gpui::Bounds<gpui::Pixels>>>>,
-    /// Where each ask of a Job's card sits in the scrolled content, by its id, so a key that opens one shows it.
-    pub(super) ask_bounds: std::rc::Rc<std::cell::RefCell<HashMap<String, gpui::Bounds<gpui::Pixels>>>>,
-    /// Later's menu of when the item comes back, while it is open.
+    /// Where each press that opens a menu was drawn, by name, so the menu opens under it.
+    pub(super) drawn: Bounded,
+    /// Discuss later's menu of when the card comes back, while it is open.
     pub(super) later_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
+    /// The menu of what the Operator may do unasked, while it is open.
+    pub(super) acts_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
+    /// Fleet's sentence where it refused the last change of that value.
+    pub(super) acts_refused: Option<SharedString>,
+    /// The list of the cards waiting behind the one in front, while it is open, with the row the keys are on.
+    pub(super) waiting_open: bool,
+    pub(super) waiting_focus: FocusHandle,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -133,7 +122,7 @@ pub struct OperatorPageView {
 }
 
 impl OperatorPageView {
-    fn new(wire: Wire, pane: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    fn new(wire: Wire, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut subs = Vec::new();
         // Whenever the window gains focus or is shown: Fleet keeps when he was last in front.
         subs.push(cx.observe_window_activation(window, |this, window, cx| {
@@ -141,9 +130,6 @@ impl OperatorPageView {
                 this.in_front(cx);
             }
         }));
-        if pane {
-            cx.defer_in(window, |this, window, cx| this.open_pane_chat(window, cx));
-        }
         let fleet = match &wire {
             Wire::Live(fleet) => Some(fleet.clone()),
             Wire::Mock(_) => None,
@@ -155,45 +141,37 @@ impl OperatorPageView {
         OperatorPageView {
             wire,
             page: None,
-            day: None,
-            back_at: None,
             open: None,
-            reveal: false,
-            done: Vec::new(),
+            settled: BTreeSet::new(),
             pending: BTreeSet::new(),
             refused: None,
-            then: HashMap::new(),
-            option: HashMap::new(),
-            chat: None,
+            titles: HashMap::new(),
+            talk: None,
             composer,
             parked,
             parked_reading: false,
-            folded: HashMap::new(),
             focus: cx.focus_handle(),
-            pane,
             aged: false,
             clock_now: None,
             switching: false,
+            switching_off: false,
             switch_refused: None,
+            switch_off_refused: None,
             pairing_pending: BTreeSet::new(),
             pairing_refused: None,
             pairing_front: None,
             pairing_focus: cx.focus_handle(),
             pairing_reveal: false,
-            stops: STOPS.iter().map(|name| (*name, cx.focus_handle())).collect(),
-            whole: BTreeSet::new(),
-            rules: None,
-            rules_focus: cx.focus_handle(),
-            rules_scroll: ScrollHandle::new(),
-            log: None,
-            log_focus: cx.focus_handle(),
-            log_scroll: ScrollHandle::new(),
             main_scroll: ScrollHandle::new(),
+            talk_scroll: ScrollHandle::new(),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
-            later_bounds: Default::default(),
-            ask_bounds: Default::default(),
+            drawn: Default::default(),
             later_menu: None,
+            acts_menu: None,
+            acts_refused: None,
+            waiting_open: false,
+            waiting_focus: cx.focus_handle(),
             seen: None,
             read_at: 0,
             reading: false,
@@ -202,8 +180,8 @@ impl OperatorPageView {
     }
 
     /// The page on the owner's Fleet: read when the port is known, and again on each `operator.page_changed`.
-    pub fn live(fleet: &Entity<FleetConnection>, pane: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let mut this = Self::new(Wire::Live(fleet.clone()), pane, window, cx);
+    pub fn live(fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::new(Wire::Live(fleet.clone()), window, cx);
         this.subs.push(cx.observe(fleet, |this, fleet, cx| {
             let held = fleet.read(cx).held();
             // A Mac confirmed or declined stays pressed until Fleet's calls drop it.
@@ -233,11 +211,10 @@ impl OperatorPageView {
     }
 
     /// The page on the walk's Fleet, at 13:05 as the sketch drew it.
-    pub fn mock(pane: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), pane, window, cx);
-        this.day = Some(scenes::day());
-        this.back_at = Some(scenes::now().to_rfc3339());
+    pub fn mock(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), window, cx);
         this.clock_now = Some(scenes::now());
+        this.titles = scenes::titles();
         this.parked.update(cx, |parked, _| parked.set_clock(Some(scenes::now())));
         this.read(cx);
         this.read_parked(cx);
@@ -259,42 +236,52 @@ impl OperatorPageView {
         }
     }
 
-    /// Whether Fleet's page has been read once: before it, Your turn is not known to be empty.
+    /// Whether Fleet's page has been read once: before it, the queue is not known to be empty.
     pub fn is_read(&self) -> bool {
         self.page.is_some()
     }
 
+    /// Everything Fleet queues: the card in front, then the cards waiting, and the cards raised in a talk.
     pub fn items(&self) -> &[OperatorTurnItem] {
         self.page.as_ref().map_or(&[], |page| page.turn.as_slice())
     }
 
+    /// A card the Operator raised in the talk now open: it carries on from the card he is talking about.
+    pub(super) fn is_talk_card(&self, turn: &OperatorTurnItem) -> bool {
+        let (Some(talk), Some(card)) = (&self.talk, &turn.card) else { return false };
+        card.talk_of.as_deref() == Some(talk.about.as_str())
+    }
+
+    /// The cards in line, the talk's own left out.
+    pub(super) fn queue(&self) -> Vec<&OperatorTurnItem> {
+        self.items().iter().filter(|turn| !self.is_talk_card(turn)).collect()
+    }
+
+    /// The card in front: the one he brought there, else the first in line.
     pub fn open_item(&self) -> Option<&OperatorTurnItem> {
-        let open = self.open.as_deref()?;
-        self.items().iter().find(|turn| turn.id == open)
+        let queue = self.queue();
+        self.open.as_deref().and_then(|open| queue.iter().copied().find(|turn| turn.id == open)).or_else(|| queue.first().copied())
     }
 
-    fn index_of(&self, id: &str) -> Option<usize> {
-        self.items().iter().position(|turn| turn.id == id)
+    /// The cards waiting behind the one in front, in the order Fleet queues them.
+    pub fn waiting(&self) -> Vec<&OperatorTurnItem> {
+        let front = self.open_item().map(|turn| turn.id.clone());
+        self.queue().into_iter().filter(|turn| Some(&turn.id) != front.as_ref()).collect()
     }
 
-    /// The Then a Yes would carry: his pick, else the Operator's. `None` on anything but a file.
-    pub fn then_of(&self, turn: &OperatorTurnItem) -> Option<OperatorThen> {
-        self.then.get(&turn.id).copied().or_else(|| turn.then.iter().find(|offer| offer.pick).map(|offer| offer.then))
+    /// The cards the Operator raised in the talk, oldest first.
+    pub(super) fn talk_cards(&self) -> Vec<&OperatorTurnItem> {
+        self.items().iter().filter(|turn| self.is_talk_card(turn)).collect()
     }
 
-    /// The option a Yes would carry, on an item that offers more than one: his pick, else the Operator's,
-    /// else the first. `None` on any other item.
-    pub fn option_of(&self, turn: &OperatorTurnItem) -> Option<SharedString> {
-        if !face::chooses(turn) {
-            return None;
-        }
-        let offered = |label: &str| turn.item.options.iter().any(|option| option.label == label);
-        self.option
-            .get(&turn.id)
-            .filter(|label| offered(label))
-            .map(|label| SharedString::from(label.clone()))
-            .or_else(|| face::pick_of(turn).filter(|pick| offered(pick)))
-            .or_else(|| turn.item.options.first().map(|option| SharedString::from(option.label.clone())))
+    /// The card the keys act on: the newest the Operator raised in the talk, else the one in front.
+    pub fn target(&self) -> Option<&OperatorTurnItem> {
+        self.talk_cards().last().copied().or_else(|| self.open_item())
+    }
+
+    /// A Job's title, as the card's chip says it.
+    pub(super) fn title_of_job(&self, id: &SessionId) -> SharedString {
+        self.titles.get(id.as_str()).cloned().map_or_else(|| id.as_str().to_string().into(), SharedString::from)
     }
 
     /// A request's follow-up runs to its end however the page moves on: each holds the page weakly.
@@ -320,9 +307,8 @@ impl OperatorPageView {
         self.track(task);
     }
 
-    /// Fleet's page replaces the one held. The open item stays open where it is still there, and an item
-    /// not seen before is told once.
-    /// An item he answered here stays out of Your turn, though Fleet keeps one whose act it left to him
+    /// Fleet's page replaces the one held. The card in front stays where it is still there, and a card not seen before
+    /// is told once. A card he settled here stays out of the queue, though Fleet keeps one whose act it left to him
     /// to open until he does it.
     pub fn set_page(&mut self, mut page: OperatorPage, cx: &mut Context<Self>) {
         let ids: BTreeSet<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
@@ -332,13 +318,20 @@ impl OperatorPageView {
                 cx.emit(Arrived(new));
             }
         }
-        self.seen = Some(ids.clone());
-        page.turn.retain(|turn| !self.done.iter().any(|done| done.id == turn.id));
+        self.seen = Some(ids);
+        page.turn.retain(|turn| !self.settled.contains(&turn.id));
         let ids: BTreeSet<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
-        self.then.retain(|id, _| ids.contains(id));
-        let keep = self.open.as_ref().filter(|open| ids.contains(*open)).cloned();
-        self.open = keep.or_else(|| page.turn.first().map(|turn| turn.id.clone()));
+        self.settled.retain(|id| ids.contains(id) || self.pending.contains(id));
         self.page = Some(page);
+        // A talk lasts until its card is settled or put back.
+        if self.talk.as_ref().is_some_and(|talk| !ids.contains(&talk.about)) {
+            self.talk = None;
+        }
+        let keep = self.open.as_ref().filter(|open| self.queue().iter().any(|turn| &turn.id == *open)).cloned();
+        self.open = keep.or_else(|| self.queue().first().map(|turn| turn.id.clone()));
+        if self.talk.is_some() {
+            self.read_thread(cx);
+        }
         cx.notify();
     }
 
@@ -346,7 +339,7 @@ impl OperatorPageView {
 
     pub fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         // ⌥M puts the caret in the box from anywhere on the page, as it does in a Job's view.
-        if act.is("message_job") && !self.pane {
+        if act.is("message_job") {
             return self.composer.update(cx, |composer, cx| composer.focus(window, cx));
         }
         if self.composer.read(cx).has_keys(window, cx) {
@@ -358,80 +351,29 @@ impl OperatorPageView {
             }
             return;
         }
-        if self.chat_has_keys(window, cx) {
+        if self.waiting_open {
             return cx.propagate();
         }
-        // The Log's sheet scrolls on the arrows, and no key reaches Your turn behind it.
-        if self.log.is_some() {
-            match act.id {
-                "call_move_focus" => self.scroll_log(if act.slot % 2 == 0 { 1. } else { -1. }, cx),
-                id if id.starts_with("call_") => {}
-                _ => cx.propagate(),
-            }
-            return;
-        }
-        // The sheet over the page takes the arrows and Enter, and no key reaches Your turn behind it.
-        if self.rules.is_some() {
-            match act.id {
-                "call_move_focus" => self.step_rule(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
-                "call_send" => cx.propagate(),
-                "call_forget" => self.forget_selected_rule(cx),
-                id if id.starts_with("call_") => {}
-                _ => cx.propagate(),
-            }
-            return;
-        }
         match act.id {
-            // The registry's slots are j, k, ↓, ↑: even slots go down.
+            // The registry's slots are j, k, ↓, ↑: even slots go down. They go through the cards waiting.
             "call_move_focus" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
             "call_yes" => self.answer(OperatorAnswer::Yes, window, cx),
-            "call_always_here" => self.answer(OperatorAnswer::AlwaysHere, window, cx),
-            "call_always" => self.answer(OperatorAnswer::Always, window, cx),
-            "call_dismiss" => self.answer(OperatorAnswer::No, window, cx),
             "call_send" => self.enter(window, cx),
-            "call_send_changes" => self.send_changes(cx),
             "call_later" => self.open_later(true, window, cx),
-            "call_ask" => self.ask(window, cx),
-            // ⌥↑ then ⌥↓.
-            "call_reorder" => self.shove(if act.slot == 0 { -1 } else { 1 }, cx),
+            // `/` is Discuss, which the registry knows as Ask the Operator.
+            "call_ask" => self.discuss(window, cx),
             "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
-            // `f` among them: a rule's or a hold's Forget takes it itself, where it has the keys.
             _ => cx.propagate(),
         }
     }
 
-    fn chat_has_keys(&self, window: &Window, cx: &App) -> bool {
-        self.chat.as_ref().is_some_and(|chat| chat.read(cx).focus_handle(cx).contains_focused(window, cx))
-    }
-
-    /// Enter where the page itself has the keys: Yes. A press with the keys, such as Later, a tile or a
-    /// time, takes Enter itself and does what a click does: gpui runs the binding first, so it is handed on.
+    /// Enter where the page itself has the keys: the Operator's pick. A press with the keys, such as Later or a row, takes
+    /// Enter itself and does what a click does: gpui runs the binding first, so it is handed on.
     fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus.is_focused(window) {
             self.answer(OperatorAnswer::Yes, window, cx);
         } else {
             cx.propagate();
-        }
-    }
-
-    /// A tile's head folds or opens it; a link does what it says.
-    pub fn press_stop(&mut self, name: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        match name {
-            "The whole Log" => self.open_log(window, cx),
-            "Every rule" => self.open_rules(window, cx),
-            tile => {
-                let open = self.folded.get(tile).copied().unwrap_or(super::view::opens_unpressed(tile));
-                self.folded.insert(tile, !open);
-                cx.notify();
-            }
-        }
-    }
-
-    /// Send changes, on a plan: its Job, where the plan takes changes. Nothing is answered.
-    pub fn send_changes(&mut self, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().filter(|turn| face::sends_changes(turn)) else { return };
-        if let Some(job) = turn.session_id.clone() {
-            cx.emit(Opened::Job(job));
         }
     }
 
@@ -445,16 +387,28 @@ impl OperatorPageView {
     /// The page reads on at once, and goes back with why if Fleet refuses. Saved, Fleet's
     /// `operator.page_changed` redraws it; the mock sends no event, so it is read in its place.
     pub fn switch_on(&mut self, cx: &mut Context<Self>) {
+        self.set_switch(true, cx);
+    }
+
+    /// Switch off, from the page's head: the same setting the other way. The page reads off at once, and
+    /// goes back on with why if Fleet refuses.
+    pub fn switch_off(&mut self, cx: &mut Context<Self>) {
+        self.set_switch(false, cx);
+    }
+
+    fn set_switch(&mut self, on: bool, cx: &mut Context<Self>) {
         if self.switching {
             return;
         }
         self.switching = true;
+        self.switching_off = !on;
         self.switch_refused = None;
+        self.switch_off_refused = None;
         if let Some(page) = self.page.as_mut() {
-            page.on = true;
+            page.on = on;
         }
         cx.notify();
-        let task = self.wire.switch(true, cx);
+        let task = self.wire.switch(on, cx);
         let task = cx.spawn(async move |this, cx| {
             let saved = task.await;
             let _ = this.update(cx, |this, cx| {
@@ -464,9 +418,13 @@ impl OperatorPageView {
                     Ok(()) => cx.notify(),
                     Err(why) => {
                         if let Some(page) = this.page.as_mut() {
-                            page.on = false;
+                            page.on = !on;
                         }
-                        this.switch_refused = Some(why.into());
+                        if on {
+                            this.switch_refused = Some(why.into());
+                        } else {
+                            this.switch_off_refused = Some(why.into());
+                        }
                         cx.notify();
                     }
                 }
@@ -475,271 +433,165 @@ impl OperatorPageView {
         self.track(task);
     }
 
-    // -- the Log ----------------------------------------------------------------------------------
+    // -- the card in front and the cards waiting ---------------------------------------------------
 
-    /// The whole Log: the week's journal on a sheet, read from where Fleet says it is.
-    pub fn open_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(path) = self.page.as_ref().and_then(|page| page.digest.handled.log.as_ref()).map(|log| log.path.clone()) else { return };
-        self.log = Some(String::new());
-        window.focus(&self.log_focus, cx);
-        cx.notify();
-        let read = self.wire.log(path, cx);
-        let task = cx.spawn(async move |this, cx| {
-            let read = read.await;
-            let _ = this.update(cx, |this, cx| {
-                if this.log.is_some() {
-                    this.log = Some(read.unwrap_or_else(|why| format!("The Log did not read: {why}")));
-                    cx.notify();
-                }
-            });
-        });
-        self.track(task);
-    }
-
-    /// Esc on the Log: shut, and the keys back on the link that opened it.
-    pub fn close_log(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.log = None;
-        match self.stops.get("The whole Log") {
-            Some(keys) => window.focus(keys, cx),
-            None => window.focus(&self.focus, cx),
-        }
-        cx.notify();
-    }
-
-    fn scroll_log(&mut self, by: f32, cx: &mut Context<Self>) {
-        let step = gpui::px(60.);
-        let offset = self.log_scroll.offset();
-        self.log_scroll.set_offset(gpui::point(offset.x, (offset.y - step * by).min(gpui::px(0.))));
-        cx.notify();
-    }
-
-    // -- every rule --------------------------------------------------------------------------------
-
-    /// Every rule, in the sheet's order: everywhere first, then each project by name.
-    pub fn rules_in_order(&self) -> Vec<&ipc::operator_page::OperatorLearned> {
-        let mut rules: Vec<_> = self.page.as_ref().map_or(Vec::new(), |page| page.digest.learned.iter().collect());
-        rules.sort_by(|a, b| (a.repository.is_some(), a.repository.as_deref()).cmp(&(b.repository.is_some(), b.repository.as_deref())));
-        rules
-    }
-
-    pub fn open_rules(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.rules = Some(0);
-        window.focus(&self.rules_focus, cx);
-        cx.notify();
-    }
-
-    /// Esc on the sheet: shut, and the keys back on the link that opened it.
-    pub fn close_rules(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.rules = None;
-        match self.stops.get("Every rule") {
-            Some(keys) => window.focus(keys, cx),
-            None => window.focus(&self.focus, cx),
-        }
-        cx.notify();
-    }
-
-    fn step_rule(&mut self, by: isize, cx: &mut Context<Self>) {
-        let rules = self.rules_in_order();
-        let Some(at) = self.rules else { return };
-        let at = (at as isize + by).clamp(0, rules.len().saturating_sub(1) as isize) as usize;
-        // The sheet's list holds a heading before each place's first rule: the row's place counts them.
-        let heads = rules.iter().take(at + 1).enumerate().filter(|(n, rule)| *n == 0 || rules[n - 1].repository != rule.repository).count();
-        self.rules_scroll.scroll_to_item(at + heads);
-        self.rules = Some(at);
-        cx.notify();
-    }
-
-    /// Forget: the rule or hold stops standing. Its row goes at once; Fleet's `operator.page_changed`
-    /// redraws the page, and a refusal reads it again, which puts the row back.
-    pub fn forget(&mut self, id: i64, cx: &mut Context<Self>) {
-        if let Some(page) = self.page.as_mut() {
-            page.digest.learned.retain(|rule| rule.id != id);
-            page.digest.holds.retain(|hold| hold.id != id);
-        }
-        if let Some(at) = self.rules {
-            self.rules = Some(at.min(self.rules_in_order().len().saturating_sub(1)));
-        }
-        cx.notify();
-        let task = self.wire.forget(id, cx);
-        let task = cx.spawn(async move |this, cx| {
-            let forgot = task.await;
-            let _ = this.update(cx, |this, cx| match forgot {
-                Ok(Some(page)) => this.set_page(page, cx),
-                Ok(None) => {}
-                Err(why) => {
-                    Note::warn("the Operator's page did not forget it").field("why", why).emit();
-                    this.read(cx);
-                }
-            });
-        });
-        self.track(task);
-    }
-
-    /// Forget pressed on a row: the row and its Forget go, so the keys go to the sheet, or the tile's
-    /// head. A tile left with nothing is not drawn, so then the keys go to the other tile, or the page.
-    pub fn forget_pressed(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
-        let held = self.page.as_ref().is_some_and(|page| page.digest.holds.iter().any(|hold| hold.id == id));
-        self.forget(id, cx);
-        let (rules, holds) = self.page.as_ref().map_or((false, false), |page| (!page.digest.learned.is_empty(), !page.digest.holds.is_empty()));
-        let tile = match (held, holds, rules) {
-            (true, true, _) | (false, true, false) => Some("Holds"),
-            (_, _, true) => Some("Learned"),
-            _ => None,
-        };
-        let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { tile.and_then(|tile| self.stops.get(tile)) };
-        window.focus(keys.unwrap_or(&self.focus), cx);
-    }
-
-    /// Undo on a ruling: the question goes back to him. The row reads taken back at once, and Fleet's page puts
-    /// the question in Your turn; a refusal reads the page again, which puts the row back as Fleet has it.
-    pub fn undo(&mut self, id: &str, cx: &mut Context<Self>) {
-        if let Some(ruled) = self.page.as_mut().and_then(|page| page.digest.ruled.iter_mut().find(|ruled| ruled.id == id)) {
-            ruled.undo = false;
-            ruled.undone_at = Some(ipc::Instant::carried(self.clock_now.unwrap_or_else(chrono::Local::now).to_rfc3339()));
-        }
-        cx.notify();
-        let task = self.wire.undo(id, cx);
-        let task = cx.spawn(async move |this, cx| {
-            let undone = task.await;
-            let _ = this.update(cx, |this, cx| match undone {
-                Ok(page) => {
-                    // He gave it back himself, so its return to Your turn raises no toast.
-                    if let Some(seen) = this.seen.as_mut() {
-                        seen.extend(page.turn.iter().filter(|turn| turn.item.source == ipc::WaitingSource::OperatorUndone).map(|turn| turn.id.clone()));
-                    }
-                    this.set_page(page, cx)
-                }
-                Err(why) => {
-                    Note::warn("the Operator's ruling was not taken back").field("why", why).emit();
-                    this.read(cx);
-                }
-            });
-        });
-        self.track(task);
-    }
-
-    /// Undo pressed on a row: its Undo goes, so the keys go to Ruled's head.
-    pub fn undo_pressed(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.undo(id, cx);
-        window.focus(self.stops.get("Ruled").unwrap_or(&self.focus), cx);
-    }
-
-    /// `f` on Every rule: the selected rule.
-    fn forget_selected_rule(&mut self, cx: &mut Context<Self>) {
-        if let Some(id) = self.rules.and_then(|at| self.rules_in_order().get(at).map(|rule| rule.id)) {
-            self.forget(id, cx);
-        }
-    }
-
-    /// Open the next or the previous item.
+    /// ↓ and ↑: the next or the previous card in line comes to the front.
     pub fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let count = self.items().len();
-        if count == 0 {
+        let queue: Vec<String> = self.queue().iter().map(|turn| turn.id.clone()).collect();
+        if queue.is_empty() {
             return;
         }
-        let at = self.open.as_deref().and_then(|id| self.index_of(id)).unwrap_or(0) as isize;
-        let to = (at + by).clamp(0, count as isize - 1) as usize;
-        self.open = Some(self.items()[to].id.clone());
-        self.reveal = true;
+        let at = self.open_item().and_then(|front| queue.iter().position(|id| *id == front.id)).unwrap_or(0) as isize;
+        let to = (at + by).clamp(0, queue.len() as isize - 1) as usize;
+        self.bring(&queue[to], cx);
+    }
+
+    /// A card comes to the front. A talk about the card that was there ends: its card is still waiting.
+    pub fn bring(&mut self, id: &str, cx: &mut Context<Self>) {
+        if self.queue().iter().all(|turn| turn.id != id) {
+            return;
+        }
+        if self.open.as_deref() != Some(id) {
+            self.talk = None;
+            self.composer.update(cx, |composer, cx| composer.untag(cx));
+        }
+        self.open = Some(id.to_string());
+        self.waiting_open = false;
+        self.main_scroll.set_offset(gpui::Point::default());
         cx.notify();
     }
 
+    /// The old name of a press on a card that is not the open one.
     pub fn open_id(&mut self, id: &str, cx: &mut Context<Self>) {
-        if self.index_of(id).is_some() {
-            self.open = Some(id.to_string());
+        self.bring(id, cx);
+    }
+
+    /// Waiting opens its list, or shuts it.
+    pub fn toggle_waiting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.waiting_open && self.waiting().is_empty() {
+            return;
+        }
+        self.waiting_open = !self.waiting_open;
+        if self.waiting_open {
+            let keys = self.waiting_focus.clone();
+            window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        } else {
+            window.focus(&self.focus, cx);
+        }
+        cx.notify();
+    }
+
+    pub fn close_waiting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if std::mem::take(&mut self.waiting_open) {
+            window.focus(&self.focus, cx);
             cx.notify();
         }
     }
 
-    /// A digit: on a go-ahead to file, the Then in that place; on an item with options, the option in that
-    /// place. Each answer has a letter of its own.
+    // -- settling ----------------------------------------------------------------------------------
+
+    /// A digit: the option in that place settles the card; on a go-ahead to file, the Then in that place.
     pub fn digit(&mut self, digit: usize, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().cloned() else { return };
+        let Some(turn) = self.target().cloned() else { return };
+        let Some(at) = digit.checked_sub(1) else { return };
         if face::chooses(&turn) {
-            if let Some(option) = digit.checked_sub(1).and_then(|at| turn.item.options.get(at)) {
-                self.option.insert(turn.id.clone(), option.label.clone());
-                cx.notify();
+            if let Some(option) = turn.item.options.get(at) {
+                self.settle_option(&turn.id, &option.label.clone(), cx);
+            }
+        } else if let Some(offer) = turn.then.get(at) {
+            self.settle_then(&turn.id, offer.then, cx);
+        } else if at == 0 && turn.then.is_empty() {
+            self.settle(&turn.id, None, None, cx);
+        }
+    }
+
+    /// The card settles at once on the option named.
+    pub fn settle_option(&mut self, id: &str, label: &str, cx: &mut Context<Self>) {
+        self.settle(id, Some(label.to_string()), None, cx);
+    }
+
+    /// The card settles at once on a Then, on a go-ahead to file.
+    pub fn settle_then(&mut self, id: &str, then: OperatorThen, cx: &mut Context<Self>) {
+        self.settle(id, None, Some(then), cx);
+    }
+
+    /// Yes: the Operator's pick, on the card the keys act on. A walk is his to look at, so it opens its Job and answers nothing.
+    pub fn answer(&mut self, answer: OperatorAnswer, _window: &mut Window, cx: &mut Context<Self>) {
+        let Some(turn) = self.target().cloned() else { return };
+        if answer != OperatorAnswer::Yes {
+            return;
+        }
+        // A walk is his to look at, not to say Yes to: the press opens its Job, where the walk is, and nothing
+        // is answered. The item leaves the queue when he approves the walk there.
+        if face::goes_to_look(&turn) {
+            if let Some(job) = turn.session_id.clone() {
+                cx.emit(Opened::Job(job));
             }
             return;
         }
-        // On a go-ahead to file, the digit is that outcome's press.
-        let Some(offer) = digit.checked_sub(1).and_then(|at| turn.then.get(at)) else { return };
-        self.outcome(offer.then, cx);
-    }
-
-    /// One outcome of a go-ahead to file, pressed: Yes with that Then.
-    pub fn outcome(&mut self, then: OperatorThen, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().cloned() else { return };
-        self.then.insert(turn.id.clone(), then);
-        self.answer_now(OperatorAnswer::Yes, cx);
-    }
-
-    pub fn pick_option(&mut self, id: &str, label: &str, cx: &mut Context<Self>) {
-        self.option.insert(id.to_string(), label.to_string());
-        cx.notify();
-    }
-
-    /// One press on the open item. It leaves Your turn at once for Answered today, with a pending mark,
-    /// and the next item opens.
-    pub fn answer(&mut self, answer: OperatorAnswer, _window: &mut Window, cx: &mut Context<Self>) {
-        self.answer_now(answer, cx);
-    }
-
-    fn answer_now(&mut self, answer: OperatorAnswer, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().cloned() else { return };
-        if !face::answers_of(&turn).contains(&answer) {
-            return;
-        }
-        // A pick of Later is done by Yes: the item goes Later, nothing is answered.
-        if answer == OperatorAnswer::Yes && face::picks_later(&turn) && self.option.get(&turn.id).is_none() {
+        // A pick of Later is done by Yes: the card goes Later, nothing is answered.
+        if face::picks_later(&turn) {
             return self.later(None, cx);
         }
-        let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
-        // The option goes out only where it is not the Operator's pick: a press that names none takes the pick.
-        let option = self.option_of(&turn).filter(|label| answer != OperatorAnswer::No && face::pick_of(&turn).as_ref() != Some(label)).map(|label| label.to_string());
-        let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No), option, project: None };
-        self.send(turn, press, cx);
+        let option = face::chooses(&turn).then(|| face::pick_of(&turn).filter(|pick| turn.item.options.iter().any(|one| one.label == pick.as_ref())).or_else(|| turn.item.options.first().map(|one| SharedString::from(one.label.clone())))).flatten();
+        let then = turn.then.iter().find(|offer| offer.pick).or(turn.then.first()).map(|offer| offer.then);
+        self.settle(&turn.id, option.map(|label| label.to_string()), then, cx);
     }
 
-    /// The press goes to Fleet, and its item to Answered today: once, however often it is sent.
-    fn send(&mut self, turn: OperatorTurnItem, press: OperatorAnswerPress, cx: &mut Context<Self>) {
-        let at = self.index_of(&turn.id).unwrap_or(0);
-        let was_open = self.open.as_deref() == Some(turn.id.as_str());
-        self.take_out(&turn.id);
-        self.done.retain(|done| done.id != turn.id);
-        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
-        self.done.push(Done { id: turn.id.clone(), kind: face::kind_of(&turn), title: face::title_of(&turn), said: None, at: now });
-        self.pending.insert(turn.id.clone());
-        self.refused = None;
-        if was_open || self.open.is_none() {
-            self.open_near(at, turn.group.as_deref());
+    /// The press goes to Fleet and its card leaves the queue at once, once however often it is sent. The next card comes
+    /// to the front.
+    fn settle(&mut self, id: &str, option: Option<String>, then: Option<OperatorThen>, cx: &mut Context<Self>) {
+        let Some(turn) = self.items().iter().find(|turn| turn.id == id).cloned() else { return };
+        if self.pending.contains(id) {
+            return;
         }
+        // A card the Operator raised in a talk carries the talk on: settling it ends the talk and the card it was about.
+        let base = turn.card.as_ref().and_then(|card| card.talk_of.clone()).filter(|about| self.talk.as_ref().is_some_and(|talk| &talk.about == about)).unwrap_or_else(|| id.to_string());
+        let at = self.queue().iter().position(|one| one.id == base).unwrap_or(0);
+        let was_front = self.open_item().is_some_and(|front| front.id == base);
+        self.settled.insert(id.to_string());
+        self.pending.insert(id.to_string());
+        if self.talk.as_ref().is_some_and(|talk| talk.about == base) {
+            self.talk = None;
+            self.composer.update(cx, |composer, cx| composer.untag(cx));
+        }
+        if let Some(page) = self.page.as_mut() {
+            page.turn.retain(|one| one.id != id && one.id != base);
+        }
+        self.refused = None;
+        if was_front || self.open.is_none() {
+            let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
+            self.open = queue.get(at).or(queue.last()).cloned();
+            self.main_scroll.set_offset(gpui::Point::default());
+        }
+        let press = OperatorAnswerPress { id: id.to_string(), answer: OperatorAnswer::Yes, then, option, project: None };
+        self.send(turn, press, cx);
         cx.notify();
-        let answer = press.answer;
+    }
+
+    fn send(&mut self, turn: OperatorTurnItem, press: OperatorAnswerPress, cx: &mut Context<Self>) {
+        self.settled.insert(turn.id.clone());
+        self.pending.insert(turn.id.clone());
         let task = self.wire.answer(press.clone(), cx);
         let task = cx.spawn(async move |this, cx| {
             let answered = task.await;
-            let _ = this.update(cx, |this, cx| this.answered(&turn, &press, answer, answered, cx));
+            let _ = this.update(cx, |this, cx| this.answered(&turn, &press, answered, cx));
         });
         self.track(task);
     }
 
-    fn answered(&mut self, turn: &OperatorTurnItem, press: &OperatorAnswerPress, answer: OperatorAnswer, answered: Result<OperatorAnswered, Failed>, cx: &mut Context<Self>) {
+    fn answered(&mut self, turn: &OperatorTurnItem, press: &OperatorAnswerPress, answered: Result<OperatorAnswered, Failed>, cx: &mut Context<Self>) {
         self.pending.remove(&turn.id);
         match answered {
             Ok(answered) => {
-                let chosen = self.option_of(turn);
-                if let Some(done) = self.done.iter_mut().find(|done| done.id == turn.id) {
-                    done.said = Some(said_of(turn, answer, chosen, &answered));
-                }
                 if let Some(act) = answered.open.clone() {
                     cx.emit(Opened::Act(act, turn.session_id.clone()));
                 }
                 self.set_page(answered.page, cx);
             }
             Err(failed) => {
-                // Back where it was, open: with Fleet's why under it, or a toast to send it again.
-                self.done.retain(|done| done.id != turn.id);
+                // Back where it was, in front: with Fleet's why under it, or a toast to send it again.
+                self.settled.remove(&turn.id);
                 if let Some(page) = self.page.as_mut() {
                     if !page.turn.iter().any(|one| one.id == turn.id) {
                         page.turn.insert(0, turn.clone());
@@ -754,7 +606,15 @@ impl OperatorPageView {
                         let sentence = format!("Your answer to {} did not reach Fleet: {why}", face::card_title(&turn));
                         let retry: crate::toasts::Retry = std::rc::Rc::new(move |cx: &mut App| {
                             let (turn, press) = (turn.clone(), press.clone());
-                            let _ = page.update(cx, |page, cx| page.send(turn, press, cx));
+                            let _ = page.update(cx, |page, cx| {
+                                page.settled.insert(turn.id.clone());
+                                page.pending.insert(turn.id.clone());
+                                if let Some(page) = page.page.as_mut() {
+                                    page.turn.retain(|one| one.id != turn.id);
+                                }
+                                page.send(turn, press, cx);
+                                cx.notify();
+                            });
                         });
                         cx.defer(move |cx| crate::toasts::tell_retry(sentence, retry, cx));
                     }
@@ -764,38 +624,19 @@ impl OperatorPageView {
         }
     }
 
-    /// What he answered on his local day, oldest first, for Answered today.
-    pub fn answered_today(&self) -> Vec<&Done> {
-        let today = self.clock_now.unwrap_or_else(chrono::Local::now).date_naive();
-        self.done.iter().filter(|done| done.at.date_naive() == today).collect()
-    }
+    // -- Discuss later -----------------------------------------------------------------------------
 
-    fn take_out(&mut self, id: &str) {
-        if let Some(page) = self.page.as_mut() {
-            page.turn.retain(|turn| turn.id != id);
-        }
-    }
-
-    /// Open the item now at `at`, or the last one. An ask that leaves a Job's card leaves it open on the
-    /// Job's ask beside it.
-    fn open_near(&mut self, at: usize, group: Option<&str>) {
-        let items = self.items();
-        let mate = group.and_then(|group| [Some(at), at.checked_sub(1)].into_iter().flatten().filter_map(|at| items.get(at)).find(|turn| turn.group.as_deref() == Some(group)));
-        self.open = mate.or(items.get(at)).or(items.last()).map(|turn| turn.id.clone());
-        self.reveal = true;
-    }
-
-    /// Later's menu, under the open card's Later: when the item comes back. From the keys, they rest on
-    /// its first choice; picked, the item goes Later until then.
+    /// Discuss later's menu, under its press: when the card comes back. From the keys, they rest on its first choice;
+    /// picked, the card goes back until then.
     pub fn open_later(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().cloned() else { return };
-        let Some(bounds) = self.later_bounds.borrow().get(&turn.id).copied() else { return };
+        let Some(turn) = self.target().cloned() else { return };
+        let Some(bounds) = self.drawn.borrow().get("later").copied() else { return };
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let choices = face::later_choices(now);
         let entries = choices.iter().map(|(id, label, at)| Entry::Row(Row::new(id, *label).detail(face::back_at(*at, now)))).collect();
         let gap = cx.look().length(crate::look::token::SPACE_1);
         let at = gpui::point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
-        let menu = cx.new(|cx| Dropdown::new("Later", entries, at, gpui::Anchor::TopRight, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Discuss later", entries, at, gpui::Anchor::TopRight, from_keys, cx));
         let id = turn.id.clone();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id: choice, .. } = picked;
@@ -803,7 +644,7 @@ impl OperatorPageView {
             // The menu goes with the keys on it: they come back to the page, as Esc brings them.
             window.focus(&this.focus, cx);
             let until = choices.iter().find(|(id, ..)| id == choice).map(|(_, _, at)| *at);
-            if until.is_some() && this.open.as_deref() == Some(id.as_str()) {
+            if until.is_some() && this.target().is_some_and(|turn| turn.id == id) {
                 this.later(until, cx);
             }
             cx.notify();
@@ -819,32 +660,39 @@ impl OperatorPageView {
         cx.notify();
     }
 
-    /// Later: the open item goes last until `until`, or for the rest of the day, and the next one opens.
+    /// Discuss later: the card goes back until `until`, or for the rest of the day, and the next one comes to the front.
     pub fn later(&mut self, until: Option<chrono::DateTime<chrono::Local>>, cx: &mut Context<Self>) {
-        let Some(turn) = self.open_item().cloned() else { return };
-        let at = self.index_of(&turn.id).unwrap_or(0);
+        let Some(turn) = self.target().cloned() else { return };
+        let at = self.queue().iter().position(|one| one.id == turn.id).unwrap_or(0);
         let until = until.map(|until| until.to_rfc3339());
+        // Fleet leaves a card put back out of the queue until its time.
         if let Some(page) = self.page.as_mut() {
             page.turn.retain(|one| one.id != turn.id);
-            let mut moved = turn.clone();
-            moved.later_until = Some(ipc::Instant::carried(until.clone().unwrap_or_default()));
-            page.turn.push(moved);
         }
-        if self.items().len() > 1 {
-            self.open_near(at, turn.group.as_deref());
+        self.settled.insert(turn.id.clone());
+        if self.talk.as_ref().is_some_and(|talk| talk.about == turn.id) {
+            self.talk = None;
+            self.composer.update(cx, |composer, cx| composer.untag(cx));
+        }
+        if self.open.as_deref() == Some(turn.id.as_str()) || self.open.is_none() {
+            let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
+            self.open = queue.get(at).or(queue.last()).cloned();
         }
         self.refused = None;
         cx.notify();
         let task = self.wire.later(&turn.id, until, cx);
-        // Refused, as a time already passed is, the item opens again where Fleet keeps it, saying why.
+        // Refused, as a time already passed is, the card comes back in front where Fleet keeps it, saying why.
         let task = cx.spawn(async move |this, cx| {
-            let settled = task.await;
-            let _ = this.update(cx, |this, cx| match settled {
-                Ok(page) => this.set_page(page, cx),
+            let later = task.await;
+            let _ = this.update(cx, |this, cx| match later {
+                Ok(page) => {
+                    this.settled.remove(&turn.id);
+                    this.set_page(page, cx)
+                }
                 Err(why) => {
+                    this.settled.remove(&turn.id);
                     this.refused = Some((turn.id.clone(), why.into()));
                     this.open = Some(turn.id.clone());
-                    this.reveal = true;
                     this.read(cx);
                 }
             });
@@ -852,134 +700,177 @@ impl OperatorPageView {
         self.track(task);
     }
 
-    /// ⌥↑ and ⌥↓: the open item one place up or down, a Job's card whole. The keys stay on it.
-    pub fn shove(&mut self, by: isize, cx: &mut Context<Self>) {
-        let Some(id) = self.open.clone() else { return };
-        let Some(at) = self.index_of(&id) else { return };
-        let groups: Vec<Option<&str>> = self.items().iter().map(|turn| turn.group.as_deref()).collect();
-        let run = run_at(&groups, at);
-        let to = if by < 0 { run.start.checked_sub(1) } else { Some(run.end).filter(|end| *end < groups.len()) };
-        let Some(to) = to else { return };
-        self.move_to(&id, to, cx);
-    }
+    // -- Discuss -----------------------------------------------------------------------------------
 
-    /// A drag, or a shove: the item goes to `to`, with the rest of its Job's card, and Fleet keeps the order.
-    pub fn move_to(&mut self, id: &str, to: usize, cx: &mut Context<Self>) {
-        let pairs: Vec<(&str, Option<&str>)> = self.items().iter().map(|turn| (turn.id.as_str(), turn.group.as_deref())).collect();
-        let Some(ids) = moved(&pairs, id, to) else { return };
-        let Some(page) = self.page.as_mut() else { return };
-        page.turn.sort_by_key(|turn| ids.iter().position(|id| *id == turn.id));
-        cx.notify();
-        let task = self.wire.order(ids, cx);
-        self.settle(task, cx);
-    }
-
-    /// Fleet's page after a Later or an order, or why it was refused, which reads the page again.
-    fn settle(&mut self, task: Task<Result<OperatorPage, String>>, cx: &mut Context<Self>) {
-        let task = cx.spawn(async move |this, cx| {
-            let settled = task.await;
-            let _ = this.update(cx, |this, cx| match settled {
-                Ok(page) => this.set_page(page, cx),
-                Err(why) => {
-                    Note::warn("the Operator's page did not take the move").field("why", why).emit();
-                    this.read(cx);
-                }
-            });
+    /// Discuss: the box under the card takes the keys, with a tag naming the card in it. The card stays in sight.
+    pub fn discuss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(turn) = self.target().cloned() else { return self.composer.update(cx, |composer, cx| composer.focus(window, cx)) };
+        let title = face::card_title(&turn);
+        self.composer.update(cx, |composer, cx| {
+            composer.tag(turn.id.clone(), title, cx);
+            composer.focus(window, cx);
         });
-        self.track(task);
-    }
-
-    // -- the chat ----------------------------------------------------------------------------------
-
-    /// Ask: the chat about the open item, inside its card, with the keys in its box.
-    pub fn ask(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let turn = self.open_item().cloned();
-        let about = turn.as_ref().map(|turn| turn.id.clone());
-        let title = turn.as_ref().map(face::title_of);
-        let chat = self.chat.clone().filter(|chat| chat.read(cx).about == about).unwrap_or_else(|| self.new_chat(about, title, window, cx));
-        let keys = chat.read(cx).focus_handle(cx);
-        self.chat = Some(chat);
-        window.focus(&keys, cx);
         cx.notify();
     }
 
-    fn new_chat(&mut self, about: Option<String>, title: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) -> Entity<OperatorChat> {
-        let chat = cx.new(|cx| OperatorChat::new(about, title, window, cx));
-        self.subs.push(cx.subscribe_in(&chat, window, |this, chat, asked: &ChatAsked, window, cx| match asked {
-            ChatAsked::Leave => this.leave_chat(window, cx),
-            ChatAsked::Send(words) => this.say(chat.clone(), words.clone(), window, cx),
-        }));
-        let task = self.wire.talk(cx);
-        let reading = chat.downgrade();
-        let task = cx.spawn(async move |_, cx| {
-            let talk = task.await;
-            let _ = reading.update(cx, |chat, cx| match talk {
-                Ok(talk) => chat.set_lines(talk.lines, cx),
-                Err(why) => {
-                    Note::warn("the Operator's talk could not be read").field("why", why).emit();
-                    chat.set_lines(Vec::new(), cx);
-                }
-            });
-        });
-        self.track(task);
-        chat
-    }
-
-    fn say(&mut self, chat: Entity<OperatorChat>, words: String, window: &mut Window, cx: &mut Context<Self>) {
-        let about = chat.read(cx).about.clone();
-        let Some(task) = self.wire.say(words, about, cx) else { return };
-        let task = cx.spawn_in(window, async move |_, cx| {
-            let said = task.await;
-            let _ = chat.update_in(cx, |chat, window, cx| match said {
-                Ok(said) => chat.answered(said.said, String::new(), cx),
-                Err(why) => chat.refused(why, window, cx),
-            });
-        });
-        self.track(task);
-    }
-
-    /// Esc in the chat: the digest is back and the keys are on the page.
-    pub fn leave_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.pane {
-            window.focus(&self.focus, cx);
-            return;
+    /// The talk about a card, as he sent words with its tag: the card folds and the Operator's thread runs under it.
+    fn talk_about(&mut self, words: String, about: String, window: &mut Window, cx: &mut Context<Self>) {
+        let title = self.items().iter().find(|turn| turn.id == about).map(face::card_title).unwrap_or_else(|| about.clone().into());
+        // He is talking about the front card, or one the Operator raised in the talk.
+        if self.talk.as_ref().map(|talk| talk.about.as_str()) != Some(about.as_str()) && self.is_front(&about) {
+            self.talk = Some(Talk { about: about.clone(), title, unfolded: false, sent: None });
         }
-        self.chat = None;
-        window.focus(&self.focus, cx);
-        // The keys are back on the open item: the page shows it.
-        self.main_scroll.set_offset(gpui::Point::default());
+        if let Some(talk) = self.talk.as_mut() {
+            talk.sent = Some(words.clone().into());
+        }
+        self.read_thread(cx);
+        self.talk_scroll.scroll_to_bottom();
+        cx.notify();
+        let task = self.wire.say(words, Some(about), cx);
+        let Some(task) = task else {
+            // The mock holds the Operator's answer until a scene gives one.
+            self.composer.update(cx, |composer, cx| composer.sent(window, cx));
+            return;
+        };
+        let composer = self.composer.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let said = task.await;
+            let _ = this.update_in(cx, |this, window, cx| match said {
+                Ok(_) => composer.update(cx, |composer, cx| composer.sent(window, cx)),
+                Err(why) => {
+                    if let Some(talk) = this.talk.as_mut() {
+                        talk.sent = None;
+                    }
+                    composer.update(cx, |composer, cx| composer.refuse(why, cx));
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn is_front(&self, id: &str) -> bool {
+        self.open_item().is_some_and(|turn| turn.id == id) || self.items().iter().any(|turn| turn.id == id && self.is_talk_card(turn))
+    }
+
+    /// The folded card opens beside the talk, or folds again.
+    pub fn toggle_fold(&mut self, cx: &mut Context<Self>) {
+        if let Some(talk) = self.talk.as_mut() {
+            talk.unfolded = !talk.unfolded;
+            cx.notify();
+        }
+    }
+
+    /// The Operator session's thread, read from Fleet: the talk's rows are drawn from it.
+    fn read_thread(&mut self, cx: &mut Context<Self>) {
+        let (Some(session), Wire::Live(fleet)) = (self.page.as_ref().and_then(|page| page.session_id.clone()), &self.wire) else { return };
+        fleet.update(cx, |fleet, cx| fleet.read_thread(session.as_str(), false, cx));
+    }
+
+    /// The rows of the Operator's thread this talk draws: from his last words about the card on, as Fleet tags them.
+    pub(super) fn talk_rows(&self, cx: &App) -> Vec<ipc::ThreadItem> {
+        let (Some(talk), Some(session)) = (&self.talk, self.page.as_ref().and_then(|page| page.session_id.clone())) else { return Vec::new() };
+        let items: Vec<ipc::ThreadItem> = match &self.wire {
+            Wire::Live(fleet) => fleet.read(cx).held().threads.get(session.as_str()).map(|held| held.items.clone()).unwrap_or_default(),
+            Wire::Mock(mock) => mock.thread.items.clone(),
+        };
+        let tag = format!("[About card {} ", talk.about);
+        let start = items.iter().rposition(|item| matches!(item, ipc::ThreadItem::Row { row: ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } } if text.starts_with(&tag)));
+        match start {
+            Some(start) => items[start..].to_vec(),
+            None => Vec::new(),
+        }
+    }
+
+    // -- what the Operator may do unasked -----------------------------------------------------------
+
+    /// The project the head's value is for: the one the window is scoped to, else the first Fleet lists.
+    pub fn acts_project(&self, cx: &App) -> Option<ipc::ProjectOperatorActs> {
+        let list = &self.page.as_ref()?.operator_acts;
+        let scoped = crate::dispatch::screen::scope(cx).and_then(|(id, _)| id);
+        scoped.and_then(|id| list.iter().find(|one| one.project == id.as_ref())).or_else(|| list.first()).cloned()
+    }
+
+    /// The menu of values, under the chip.
+    pub fn open_acts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.acts_project(cx) else { return };
+        let Some(bounds) = self.drawn.borrow().get("acts").copied() else { return };
+        let entries = ACTS.iter().map(|(id, acts, label, _)| Entry::Choice { id, label: (*label).into(), on: project.acts == Some(*acts) }).collect();
+        let gap = cx.look().length(crate::look::token::SPACE_1);
+        let at = gpui::point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
+        let menu = cx.new(|cx| Dropdown::new("What the Operator does unasked", entries, at, gpui::Anchor::TopRight, true, cx));
+        let id = project.project.clone();
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id: choice, .. } = picked;
+            this.acts_menu = None;
+            window.focus(&this.focus, cx);
+            if let Some((_, acts, ..)) = ACTS.iter().find(|(word, ..)| word == choice) {
+                this.set_acts(id.clone(), Some(*acts), cx);
+            }
+            cx.notify();
+        });
+        let shut = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
+            this.acts_menu = None;
+            window.focus(&this.focus, cx);
+            cx.notify();
+        });
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.acts_menu = Some((menu, [picked, shut]));
         cx.notify();
     }
 
-    /// The pane holds its chat from the start, about nothing until a row is pressed.
-    fn open_pane_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.chat.is_none() {
-            let chat = self.new_chat(None, None, window, cx);
-            self.chat = Some(chat);
+    /// The value is set at once, and goes back with Fleet's sentence where it refuses.
+    pub fn set_acts(&mut self, project: String, acts: Option<OperatorActs>, cx: &mut Context<Self>) {
+        let was = self.page.as_ref().and_then(|page| page.operator_acts.iter().find(|one| one.project == project)).map(|one| one.acts);
+        self.put_acts(&project, acts);
+        self.acts_refused = None;
+        cx.notify();
+        let task = self.wire.set_acts(project.clone(), acts, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let set = task.await;
+            let _ = this.update(cx, |this, cx| {
+                match set {
+                    Ok(list) => {
+                        if let Some(page) = this.page.as_mut() {
+                            page.operator_acts = list.projects;
+                        }
+                    }
+                    Err(why) => {
+                        if let Some(was) = was {
+                            this.put_acts(&project, was);
+                        }
+                        this.acts_refused = Some(why.into());
+                    }
+                }
+                cx.notify();
+            });
+        });
+        self.track(task);
+    }
+
+    fn put_acts(&mut self, project: &str, acts: Option<OperatorActs>) {
+        if let Some(one) = self.page.as_mut().and_then(|page| page.operator_acts.iter_mut().find(|one| one.project == project)) {
+            one.acts = acts;
         }
     }
 
     // -- in front ----------------------------------------------------------------------------------
 
-    /// `operator_in_front`, sent each time the window gains focus or is shown. Where Fleet says he came
-    /// back after time away, the head says when.
+    /// `operator_in_front`, sent each time the window gains focus or is shown.
     pub fn in_front(&mut self, cx: &mut Context<Self>) {
         let task = self.wire.in_front(cx);
-        let live = self.wire.is_live();
-        let task = cx.spawn(async move |this, cx| {
-            let front = task.await;
-            let _ = this.update(cx, |this, cx| match front {
-                Ok(front) if live && (front.rewriting || this.back_at.is_none()) => {
-                    let now = chrono::Local::now();
-                    this.day = Some(face::day(&now));
-                    this.back_at = Some(now.to_rfc3339());
-                    cx.notify();
-                }
-                Ok(_) => {}
-                Err(why) => Note::info("Fleet was not told the window came to the front").field("why", why).emit(),
-            });
+        let task = cx.spawn(async move |_, _| {
+            if let Err(why) = task.await {
+                Note::info("Fleet was not told the window came to the front").field("why", why).emit();
+            }
         });
         self.track(task);
+    }
+
+    /// A feed row's press: its Job opens.
+    pub fn open_job(&mut self, id: SessionId, cx: &mut Context<Self>) {
+        cx.emit(Opened::Job(id));
     }
 
     // -- the box and the ideas ---------------------------------------------------------------------
@@ -989,11 +880,20 @@ impl OperatorPageView {
         self.composer.update(cx, |composer, cx| composer.set_jobs(jobs, cx));
     }
 
-    /// What the box asks: its dispatch goes to Fleet, or the keys come back to the page.
+    /// Every Job's title, ended ones too: the chips on a card read them.
+    pub fn set_titles(&mut self, titles: HashMap<String, String>, cx: &mut Context<Self>) {
+        if self.titles != titles {
+            self.titles = titles;
+            cx.notify();
+        }
+    }
+
+    /// What the box asks: its dispatch goes to Fleet, its talk to the Operator, or the keys come back to the page.
     fn composed(&mut self, event: &Composed, window: &mut Window, cx: &mut Context<Self>) {
         match event {
             Composed::Leave => window.focus(&self.focus, cx),
             Composed::Send(out) => self.dispatch(out.clone(), window, cx),
+            Composed::Talk { words, about } => self.talk_about(words.clone(), about.clone(), window, cx),
         }
     }
 
@@ -1110,11 +1010,10 @@ impl OperatorPageView {
 
     // -- the walk's scenes -------------------------------------------------------------------------
 
-    /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
-    /// the queue (`arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
-    /// reply lost (`lose`), or it is switched off (`off`). Two scenes only scroll the page, where a
-    /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
-    /// back to the card.
+    /// Move the mock Fleet to a named scene: the Operator answers the talk and raises a card in it (`said`), a new card
+    /// joins the queue (`arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
+    /// reply lost (`lose`), the next change of what it does unasked is refused (`acts-refused`), or it is switched off
+    /// (`off`). Two scenes only scroll the page: `rest` to what is under the card, `top` back to it.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
         match name {
             "rest" => {
@@ -1132,16 +1031,22 @@ impl OperatorPageView {
         let mock = self.mock_fleet().ok_or("the page is on a live Fleet")?;
         match name {
             "said" => {
-                let line = mock.said().ok_or("nothing was asked of the Operator")?;
-                let chat = self.chat.clone().ok_or("the chat is not open")?;
-                chat.update(cx, |chat, cx| chat.answered(line.text, line.at, cx));
+                mock.said().ok_or("nothing was said to the Operator")?;
+                let page = mock.page.clone();
+                if let Some(talk) = self.talk.as_mut() {
+                    talk.sent = None;
+                }
+                // The card it raised arrives with the page, once, and raises no toast.
+                if let Some(seen) = self.seen.as_mut() {
+                    seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
+                }
+                self.set_page(page, cx);
+                self.talk_scroll.scroll_to_bottom();
             }
             "arrives" => {
                 mock.arrives();
                 let page = mock.page.clone();
                 self.set_page(page, cx);
-                // The step looks at the row that joined, at the queue's end.
-                self.main_scroll.scroll_to_bottom();
             }
             // Work asks to pair, and a press on its banner brings the page and its card to the front.
             "pairing" => {
@@ -1155,27 +1060,15 @@ impl OperatorPageView {
                 let page = mock.page.clone();
                 self.set_page(page, cx);
             }
-            // Two questions whose pick follows what he said first in Your turn, and what it ruled that way.
-            "precedent" => {
-                mock.precedent();
-                let page = mock.page.clone();
-                // They were waiting when he came back, so they raise no toast.
-                if let Some(seen) = self.seen.as_mut() {
-                    seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
-                }
-                self.set_page(page, cx);
-                self.open = self.page.as_ref().and_then(|page| page.turn.first()).map(|turn| turn.id.clone());
-                self.main_scroll.set_offset(gpui::Point::default());
-            }
             // Fleet refuses the next answer, or its reply never arrives.
-            "refuse" => mock.fail_answer = Some(Failed::Refused("The tracker did not take the new issue.".into())),
+            "refuse" => mock.fail_answer = Some(Failed::Refused("The Operator could not settle the card.".into())),
             "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
-            // Fleet refuses the next Later: the time it names has passed by the time it reads it.
+            // Fleet refuses the next Discuss later: the time it names has passed by the time it reads it.
             "late" => mock.refuse_later = Some("That time has passed. Pick a later one.".into()),
+            "acts-refused" => mock.refuse_acts = Some("No project has that id".into()),
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();
-                self.done.clear();
                 self.set_page(page, cx);
             }
             other => return Err(format!("no Operator scene named {other}")),
@@ -1184,585 +1077,164 @@ impl OperatorPageView {
     }
 }
 
-/// The run of items around `at` that share its group: one Job's asks, which Your turn draws as one entry.
-/// Fleet can list a Job's asks put Later as a second run under the same group, so a run is never more
-/// than the neighbours.
-pub(super) fn run_at(groups: &[Option<&str>], at: usize) -> std::ops::Range<usize> {
-    let Some(group) = groups.get(at).copied().flatten() else { return at..at + 1 };
-    let same = |one: &usize| groups[*one] == Some(group);
-    let start = (0..at).rev().take_while(same).last().unwrap_or(at);
-    let end = (at + 1..groups.len()).take_while(same).last().map_or(at + 1, |last| last + 1);
-    start..end
-}
-
-/// Your turn's ids once the entry holding `id` goes where `to` stands: after that entry going down and
-/// before it going up, a Job's asks moving whole and passed whole. `None` where nothing moves.
-pub(super) fn moved(items: &[(&str, Option<&str>)], id: &str, to: usize) -> Option<Vec<String>> {
-    let at = items.iter().position(|(one, _)| *one == id)?;
-    let to = to.min(items.len() - 1);
-    let groups: Vec<Option<&str>> = items.iter().map(|(_, group)| *group).collect();
-    let moving = run_at(&groups, at);
-    if moving.contains(&to) {
-        return None;
-    }
-    let target = run_at(&groups, to);
-    let down = to > at;
-    let anchor = items[if down { target.end - 1 } else { target.start }].0;
-    let mut ids: Vec<&str> = items.iter().enumerate().filter(|(one, _)| !moving.contains(one)).map(|(_, (one, _))| *one).collect();
-    let place = ids.iter().position(|one| *one == anchor)? + usize::from(down);
-    ids.splice(place..place, items[moving].iter().map(|(one, _)| *one));
-    Some(ids.into_iter().map(String::from).collect())
-}
-
-/// What came of a press, in a few words, from Fleet's answer.
-fn said_of(turn: &OperatorTurnItem, answer: OperatorAnswer, chosen: Option<SharedString>, answered: &OperatorAnswered) -> SharedString {
-    if answer == OperatorAnswer::No {
-        return "Dropped".into();
-    }
-    let mut said = match (&answered.filed, &answered.handed_to, &answered.started) {
-        (Some(filed), Some(_), _) => {
-            let to = turn.then.iter().find_map(|offer| offer.hand_to.as_ref()).map_or("the Job".to_string(), |to| to.job.clone());
-            format!("Filed {filed} and handed to {to}")
-        }
-        (Some(filed), None, Some(_)) => format!("Filed {filed} and started a Job"),
-        (Some(filed), None, None) => format!("Filed {filed}"),
-        (None, _, Some(_)) => "Started a Job".to_string(),
-        (None, _, None) if answered.open.is_some() => "Opened".to_string(),
-        // Fleet settled it with the pick and gives nothing more back.
-        (None, _, None) => format!("Answered {}", chosen.or_else(|| face::pick_of(turn)).map_or("Yes".to_string(), |pick| pick.to_string())),
-    };
-    match answer {
-        OperatorAnswer::AlwaysHere => said.push_str(". Kept for this project"),
-        OperatorAnswer::Always => said.push_str(". Kept everywhere"),
-        _ => {}
-    }
-    said.into()
-}
+/// What the Operator may do unasked, as the menu words it: its wire word, its value, its label and what it means.
+pub(super) const ACTS: [(&str, OperatorActs, &str, &str); 3] = [
+    ("act_then_tell", OperatorActs::ActThenTell, "Act then tell", "It acts on what it sees, then tells you"),
+    ("ask_before_starting", OperatorActs::AskBeforeStarting, "Ask before starting", "It asks before it starts a Job"),
+    ("only_when_told", OperatorActs::OnlyWhenTold, "Only when told", "It does nothing until you say"),
+];
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
+    use super::*;
     use gpui::{TestAppContext, VisualTestContext};
 
-    use super::*;
-
     fn open(cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
-        open_as(cx, false)
-    }
-
-    fn open_as(cx: &mut TestAppContext, pane: bool) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
             crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
         });
-        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(pane, window, cx));
-        cx.update(|window, cx| {
-            let keys = page.read(cx).focus.clone();
-            window.focus(&keys, cx);
-        });
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
         cx.run_until_parked();
         (page, cx)
     }
 
-    fn pressed(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Vec<OperatorAnswerPress> {
-        page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.pressed.clone()).unwrap_or_default())
-    }
-
-    fn ids(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Vec<String> {
-        page.read_with(cx, |page, _| page.items().iter().map(|turn| turn.id.clone()).collect())
-    }
-
-    fn open_id(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Option<String> {
-        page.read_with(cx, |page, _| page.open.clone())
+    fn front(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> String {
+        page.read_with(cx, |page, _| page.open_item().map(|turn| turn.id.clone()).unwrap_or_default())
     }
 
     #[gpui::test]
-    fn a_says_yes_to_the_pick_and_the_next_item_opens_struck_through_below(cx: &mut TestAppContext) {
+    fn one_card_is_in_front_and_four_wait_behind_it(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
-        cx.simulate_keystrokes("a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"), "the next item opens");
         page.read_with(cx, |page, _| {
-            assert_eq!(page.done.iter().map(|done| done.id.as_str()).collect::<Vec<_>>(), ["turn:1"]);
-            assert_eq!(page.done[0].said.as_deref(), Some("Answered Approve"), "what came of it, once Fleet answered");
-            assert!(page.pending.is_empty());
-        });
-        assert!(!ids(&page, cx).contains(&"turn:1".to_string()));
-    }
-
-    #[gpui::test]
-    fn an_option_that_is_not_the_pick_goes_out_by_its_label(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("down down down down");
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:9"));
-        cx.simulate_keystrokes("1 h");
-        assert_eq!(
-            pressed(&page, cx),
-            vec![OperatorAnswerPress { id: "turn:9".into(), answer: OperatorAnswer::AlwaysHere, then: None, option: Some("Start a fix".into()), project: None }]
-        );
-        page.read_with(cx, |page, _| assert_eq!(page.done[0].said.as_deref(), Some("Answered Start a fix. Kept for this project")));
-    }
-
-    #[gpui::test]
-    fn yes_on_the_pick_names_no_option(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("down down down down a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:9".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
-    }
-
-    #[gpui::test]
-    fn a_digit_presses_that_outcome_with_yes(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("down");
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
-        page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| page.then_of(turn)), Some(OperatorThen::FileAndHand), "the Operator's pick stands first"));
-        cx.simulate_keystrokes("2");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart), option: None, project: None }]);
-    }
-
-    #[gpui::test]
-    fn always_is_offered_only_where_fleet_keeps_a_rule(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::Always, window, cx)));
-        assert!(pressed(&page, cx).is_empty(), "a decision offers no Always");
-        // A go-ahead to file offers its rule only after he answers; turn:9 keeps one and has no outcomes.
-        cx.simulate_keystrokes("j");
-        cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::AlwaysHere, window, cx)));
-        assert!(pressed(&page, cx).is_empty(), "a go-ahead to file offers no Always before its answer");
-        cx.simulate_keystrokes("down down down");
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:9"));
-        cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::AlwaysHere, window, cx)));
-        assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:9", OperatorAnswer::AlwaysHere)]);
-    }
-
-    #[gpui::test]
-    fn later_puts_the_item_last_until_its_pick_and_opens_the_next(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        // L opens Later's menu with the keys on its first choice, and Enter takes it.
-        cx.simulate_keystrokes("l");
-        assert!(page.read_with(cx, |page, _| page.later_menu.is_some()));
-        cx.simulate_keystrokes("enter");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11", "turn:1"]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
-        page.read_with(cx, |page, _| assert!(page.items().last().is_some_and(|turn| turn.later_until.is_some())));
-    }
-
-    #[gpui::test]
-    fn a_shove_moves_the_open_item_and_fleet_keeps_the_order(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("alt-down");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"), "the keys stay on the item it moved");
-        let kept: Vec<String> = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.page.turn.iter().map(|turn| turn.id.clone()).collect()).unwrap_or_default());
-        assert_eq!(kept, ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
-        cx.update(|_, cx| page.update(cx, |page, cx| page.move_to("turn:4", 0, cx)));
-        assert_eq!(ids(&page, cx), ["turn:4", "turn:2", "turn:1", "turn:3", "turn:9", "turn:10", "turn:11"], "a drop moves it as a drag would");
-    }
-
-    #[test]
-    fn a_jobs_asks_move_as_one_entry_and_are_passed_whole() {
-        let items = [("a", None), ("g1", Some("job")), ("g2", Some("job")), ("b", None), ("l1", Some("job")), ("l2", Some("job"))];
-        let order = |id: &str, to: usize| moved(&items, id, to);
-        assert_eq!(run_at(&items.map(|(_, group)| group), 2), 1..3);
-        assert_eq!(run_at(&items.map(|(_, group)| group), 4), 4..6, "the same Job's asks put Later are a run of their own");
-        assert_eq!(order("g2", 0).unwrap(), ["g1", "g2", "a", "b", "l1", "l2"], "up: the whole card goes before the item");
-        assert_eq!(order("g1", 3).unwrap(), ["a", "b", "g1", "g2", "l1", "l2"], "down: the whole card goes after the item");
-        assert_eq!(order("a", 1).unwrap(), ["g1", "g2", "a", "b", "l1", "l2"], "down onto a card: after its last ask");
-        assert_eq!(order("b", 2).unwrap(), ["a", "b", "g1", "g2", "l1", "l2"], "up onto a card: before its first ask");
-        assert_eq!(order("b", 5).unwrap(), ["a", "g1", "g2", "l1", "l2", "b"]);
-        assert_eq!(order("g1", 2), None, "onto itself nothing moves");
-        assert_eq!(order("a", 0), None);
-        let single = [("1", None), ("2", None), ("3", None)];
-        assert_eq!(moved(&single, "1", 1).unwrap(), ["2", "1", "3"], "a single item moves as it did");
-        assert_eq!(moved(&single, "3", 0).unwrap(), ["3", "1", "2"]);
-    }
-
-    #[gpui::test]
-    fn a_jobs_card_shoves_whole_and_an_answered_ask_leaves_the_rest_open(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        page.update(cx, |page, cx| page.open_id("turn:11", cx));
-        cx.simulate_keystrokes("alt-up");
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:10", "turn:11", "turn:9"]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:11"), "the keys stay on the ask");
-        cx.simulate_keystrokes("a");
-        assert_eq!(pressed(&page, cx).iter().map(|press| press.id.as_str()).collect::<Vec<_>>(), ["turn:11"]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:10"), "the Job's other ask stays open");
-        page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| turn.group.clone()), None, "one ask left is a card of its own"));
-        cx.simulate_keystrokes("alt-down");
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10"]);
-    }
-
-    #[gpui::test]
-    fn a_refused_press_puts_the_item_back_open_with_why(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        // Fleet no longer holds it, so it refuses.
-        page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.page.turn.retain(|turn| turn.id != "turn:1")));
-        cx.simulate_keystrokes("a");
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
-        page.read_with(cx, |page, _| {
-            assert!(page.done.is_empty());
-            assert_eq!(page.refused.as_ref().map(|(id, _)| id.as_str()), Some("turn:1"));
-            assert!(page.items().iter().any(|turn| turn.id == "turn:1"));
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"));
+            assert_eq!(page.waiting().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:32", "turn:33", "turn:34", "turn:35"]);
         });
     }
 
     #[gpui::test]
-    fn undo_reads_taken_back_at_once_and_the_question_comes_back_to_your_turn_with_no_toast(cx: &mut TestAppContext) {
+    fn a_press_on_an_option_settles_the_card_at_once_with_yes_and_that_option(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("precedent", cx))).expect("the scene plays");
-        let told: Rc<RefCell<Vec<String>>> = Rc::default();
-        let heard = told.clone();
-        let _keep = cx.update(|_, cx| cx.subscribe(&page, move |_, arrived: &Arrived, _| heard.borrow_mut().extend(arrived.0.iter().map(|turn| turn.id.clone()))));
-        let ruling = |page: &Entity<OperatorPageView>, cx: &mut VisualTestContext| {
-            page.read_with(cx, |page, _| page.page.as_ref().and_then(|page| page.digest.ruled.iter().find(|ruled| ruled.id == "turn:17")).map(|ruled| (ruled.undo, ruled.undone_at.is_some())))
-        };
-        let given_back = |page: &Entity<OperatorPageView>, cx: &mut VisualTestContext| {
-            page.read_with(cx, |page, _| page.items().iter().filter(|turn| turn.item.source == ipc::WaitingSource::OperatorUndone).map(|turn| (turn.item.text.clone(), turn.item.options.len())).collect::<Vec<_>>())
-        };
-
-        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:17", cx)));
-        assert_eq!(ruling(&page, cx), Some((false, true)), "taken back before Fleet answers");
-        cx.run_until_parked();
-        assert_eq!(given_back(&page, cx), [("Rebase on main before pushing?".to_string(), 2)], "his again, with the options it was asked with");
-        assert!(told.borrow().is_empty(), "he gave it back himself, so it raises no toast");
-
-        // Taken back already: Fleet refuses, the page is read again as Fleet has it, and nothing is given back twice.
-        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:17", cx)));
-        cx.run_until_parked();
-        assert_eq!(ruling(&page, cx), Some((false, true)));
-        assert_eq!(given_back(&page, cx).len(), 1);
-    }
-
-    #[gpui::test]
-    fn a_ruling_whose_job_ended_is_not_given_back(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("precedent", cx))).expect("the scene plays");
-        cx.update(|_, cx| page.update(cx, |page, cx| page.undo("turn:14", cx)));
-        cx.run_until_parked();
-        let ended = page.read_with(cx, |page, _| page.page.as_ref().and_then(|page| page.digest.ruled.iter().find(|ruled| ruled.id == "turn:14")).map(|ruled| (ruled.undo, ruled.undone_at.is_some())));
-        assert_eq!(ended, Some((false, false)), "Fleet refused, and the page read again puts the row back as it stands");
-        assert!(page.read_with(cx, |page, _| page.items().iter().all(|turn| turn.item.source != ipc::WaitingSource::OperatorUndone)));
-    }
-
-    #[gpui::test]
-    fn a_new_item_is_told_once(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let told: Rc<RefCell<Vec<String>>> = Rc::default();
-        let heard = told.clone();
-        let _keep = cx.update(|_, cx| cx.subscribe(&page, move |_, arrived: &Arrived, _| heard.borrow_mut().extend(arrived.0.iter().map(|turn| turn.id.clone()))));
-        cx.update(|_, cx| page.update(cx, |page, cx| page.scene("arrives", cx))).expect("the scene plays");
-        cx.update(|_, cx| page.update(cx, |page, cx| page.read(cx)));
-        cx.run_until_parked();
-        assert_eq!(*told.borrow(), ["turn:5"]);
-    }
-
-    #[gpui::test]
-    fn slash_asks_about_the_open_item_and_esc_gives_the_keys_back(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("/");
-        let chat = page.read_with(cx, |page, _| page.chat.clone()).expect("the chat is open");
-        assert_eq!(chat.read_with(cx, |chat, _| chat.about.clone()).as_deref(), Some("turn:1"));
-        cx.update(|window, cx| assert!(chat.read(cx).focus_handle(cx).is_focused(window), "the keys are in its box"));
-        cx.simulate_keystrokes("a");
-        assert!(pressed(&page, cx).is_empty(), "a letter in the box is typing, not Yes");
-        cx.simulate_keystrokes("escape");
-        assert!(page.read_with(cx, |page, _| page.chat.is_none()));
-        cx.update(|window, cx| assert!(page.read(cx).focus.is_focused(window)));
-    }
-
-    fn type_in_box(page: &Entity<OperatorPageView>, words: &str, cx: &mut VisualTestContext) {
-        let composer = page.read_with(cx, |page, _| page.composer.clone());
-        cx.update(|window, cx| composer.update(cx, |composer, cx| composer.focus(window, cx)));
-        cx.simulate_input(words);
-    }
-
-    #[gpui::test]
-    fn alt_m_puts_the_caret_in_the_box_and_a_letter_there_is_typing_not_an_answer(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("alt-m");
-        let composer = page.read_with(cx, |page, _| page.composer.clone());
-        cx.update(|window, cx| assert!(composer.read(cx).has_keys(window, cx), "the caret is in the box"));
-        cx.simulate_keystrokes("a");
-        assert!(pressed(&page, cx).is_empty(), "a letter in the box is not Yes");
-        assert_eq!(composer.read_with(cx, |composer, cx| composer.words(cx)), "a");
-        cx.simulate_keystrokes("escape");
-        cx.update(|window, cx| assert!(page.read(cx).focus.is_focused(window), "Esc gives the keys back to the page"));
-    }
-
-    #[gpui::test]
-    fn a_send_is_an_unheld_dispatch_that_carries_the_kind_picked_and_none_when_none_is(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let composer = page.read_with(cx, |page, _| page.composer.clone());
-        type_in_box(&page, "Keep the palette's last search", cx);
-        cx.simulate_keystrokes("cmd-enter");
-        cx.run_until_parked();
-        type_in_box(&page, "The meter jumps", cx);
-        composer.update(cx, |composer, cx| composer.pick_kind(ipc::DispatchKind::Bug, cx));
-        cx.simulate_keystrokes("cmd-enter");
-        cx.run_until_parked();
-        let sent = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.clone()).unwrap_or_default());
-        assert_eq!(sent.len(), 2);
-        assert_eq!(sent[0].kind, None, "no chip sends no kind");
-        assert_eq!(sent[1].kind, Some(ipc::DispatchKind::Bug));
-        assert!(sent.iter().all(|one| !one.start.held), "his send is never a draft");
-        assert_eq!(composer.read_with(cx, |composer, cx| composer.words(cx)), "", "the answer emptied the box");
-        assert_eq!(composer.read_with(cx, |composer, _| composer.kind()), None, "and the kind he picked went with it");
-    }
-
-    #[gpui::test]
-    fn what_the_operator_kept_is_listed_newest_first_and_a_kept_send_joins_it(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let parked = page.read_with(cx, |page, _| page.parked.clone());
-        let ids = |cx: &mut VisualTestContext| parked.read_with(cx, |parked, _| parked.ideas().iter().map(|idea| idea.id.clone()).collect::<Vec<_>>());
-        assert_eq!(ids(cx), ["idea:3", "idea:2", "idea:1"]);
-        type_in_box(&page, "A thought for later", cx);
-        cx.simulate_keystrokes("cmd-enter");
-        cx.run_until_parked();
-        assert_eq!(ids(cx).len(), 4);
-        assert_eq!(ids(cx)[0], "idea:101", "the idea the Operator just kept is the newest");
-    }
-
-    #[gpui::test]
-    fn start_sends_a_kept_idea_unheld_and_without_the_kind_idea_then_lets_it_go(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let parked = page.read_with(cx, |page, _| page.parked.clone());
-        let idea = parked.read_with(cx, |parked, _| parked.ideas().into_iter().find(|idea| idea.id == "idea:2").cloned()).expect("a kept idea");
-        parked.update(cx, |_, cx| cx.emit(ParkedAsked::Start(idea)));
-        cx.run_until_parked();
-        let sent = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.clone()).unwrap_or_default());
-        assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].kind, None, "an idea started is no longer one to keep");
-        assert!(!sent[0].start.held);
-        let left = parked.read_with(cx, |parked, _| parked.ideas().iter().map(|idea| idea.id.clone()).collect::<Vec<_>>());
-        assert_eq!(left, ["idea:3", "idea:1"]);
-        let (kept, bug) = (parked.read_with(cx, |parked, _| parked.ideas().len()), left.contains(&"idea:3".to_string()));
-        assert!(bug && kept == 2);
-    }
-
-    #[gpui::test]
-    fn remove_lets_an_idea_go_and_an_empty_list_draws_nothing(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let parked = page.read_with(cx, |page, _| page.parked.clone());
-        for id in ["idea:1", "idea:2", "idea:3"] {
-            parked.update(cx, |_, cx| cx.emit(ParkedAsked::Remove(id.to_string())));
-            cx.run_until_parked();
-        }
-        assert!(parked.read_with(cx, |parked, _| parked.is_read() && !parked.draws()));
-        assert!(page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.dispatched.is_empty()).unwrap_or(false)), "removing starts nothing");
-    }
-
-    #[gpui::test]
-    fn coming_to_the_front_tells_fleet(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let before = page.update(cx, |page, _| page.mock_fleet().map_or(0, |mock| mock.fronted));
-        cx.update(|_, cx| page.update(cx, |page, cx| page.in_front(cx)));
-        cx.run_until_parked();
-        assert_eq!(page.update(cx, |page, _| page.mock_fleet().map_or(0, |mock| mock.fronted)), before + 1);
-    }
-
-    fn opened(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Rc<RefCell<Vec<Opened>>>, Subscription) {
-        let told: Rc<RefCell<Vec<Opened>>> = Rc::default();
-        let heard = told.clone();
-        let keep = cx.update(|_, cx| cx.subscribe(page, move |_, opened: &Opened, _| heard.borrow_mut().push(opened.clone())));
-        (told, keep)
-    }
-
-    #[gpui::test]
-    fn h_shift_a_and_d_answer_a_kept_item(cx: &mut TestAppContext) {
-        for (keys, answer) in [("h", OperatorAnswer::AlwaysHere), ("shift-a", OperatorAnswer::Always), ("d", OperatorAnswer::No)] {
-            let (page, cx) = open(cx);
-            cx.simulate_keystrokes("down down down down");
-            cx.simulate_keystrokes(keys);
-            assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:9", answer)], "{keys}");
-        }
-    }
-
-    #[gpui::test]
-    fn a_plan_offers_no_no(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("d h");
-        assert!(pressed(&page, cx).is_empty(), "a plan takes Approve or Send changes");
-    }
-
-    #[gpui::test]
-    fn c_sends_changes_in_the_plans_job_and_answers_nothing(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let (told, _keep) = opened(&page, cx);
-        let job = page.read_with(cx, |page, _| page.open_item().and_then(|turn| turn.session_id.clone())).expect("the plan has its Job");
-        cx.simulate_keystrokes("c");
-        assert_eq!(*told.borrow(), [Opened::Job(job)]);
-        assert!(pressed(&page, cx).is_empty());
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"), "the plan stays open");
-    }
-
-    #[gpui::test]
-    fn typing_in_the_chat_presses_and_moves_nothing(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("/");
-        cx.simulate_keystrokes("a l j k h d c 2 alt-up alt-down");
-        assert!(pressed(&page, cx).is_empty());
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
-        assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a digit in the box picks no Then");
-    }
-
-    #[gpui::test]
-    fn a_digit_picks_only_a_then(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("2");
-        assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a plan has no Then");
-        assert!(pressed(&page, cx).is_empty());
-    }
-
-    #[gpui::test]
-    fn switch_on_reads_on_at_once_and_a_refusal_puts_it_back_with_why(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        page.update(cx, |page, cx| page.scene("off", cx)).expect("the scene plays");
-        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| !page.on && page.turn.is_empty())));
-
-        page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.refuse_switch = Some("Fleet could not save the setting".into())));
-        page.update(cx, |page, cx| page.switch_on(cx));
-        cx.run_until_parked();
-        page.read_with(cx, |page, _| {
-            assert!(page.page.as_ref().is_some_and(|page| !page.on), "back off");
-            assert_eq!(page.switch_refused.as_deref(), Some("Fleet could not save the setting"));
-            assert!(!page.switching);
+        page.update(cx, |page, cx| {
+            page.settle_option("turn:31", "Let both run", cx);
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:32"), "the next card is in front before Fleet answers");
         });
-
-        page.update(cx, |page, cx| page.switch_on(cx));
-        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| page.on)), "on before Fleet answers");
         cx.run_until_parked();
-        page.read_with(cx, |page, _| {
-            assert!(page.switch_refused.is_none());
-            assert!(!page.items().is_empty(), "Fleet's turn is read again");
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed.len(), 1);
+            assert_eq!((pressed[0].id.as_str(), pressed[0].answer, pressed[0].option.as_deref()), ("turn:31", OperatorAnswer::Yes, Some("Let both run")));
+            assert_eq!(page.waiting().len(), 3);
         });
     }
 
     #[gpui::test]
-    fn a_press_on_a_time_flips_every_time(cx: &mut TestAppContext) {
+    fn a_number_settles_the_option_in_that_place_and_yes_takes_the_operators_pick(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        assert!(!page.read_with(cx, |page, _| page.aged));
-        page.update(cx, |page, cx| page.flip_stamps(cx));
-        assert!(page.read_with(cx, |page, _| page.aged));
-        page.update(cx, |page, cx| page.flip_stamps(cx));
-        assert!(!page.read_with(cx, |page, _| page.aged));
-    }
-
-    #[gpui::test]
-    fn enter_and_space_press_the_button_with_the_keys_and_say_no_yes(cx: &mut TestAppContext) {
-        for key in ["enter", "space"] {
-            let (page, cx) = open(cx);
-            let later = page.read_with(cx, |page, _| page.later_focus.clone());
-            cx.update(|window, cx| window.focus(&later, cx));
-            cx.simulate_keystrokes(key);
-            assert!(pressed(&page, cx).is_empty(), "{key} on Later is not Yes");
-            assert!(page.read_with(cx, |page, _| page.later_menu.is_some()), "{key} on Later opens its menu of when");
-        }
-    }
-
-    #[gpui::test]
-    fn tab_from_the_page_starts_at_its_first_pill(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        cx.simulate_keystrokes("tab");
-        let first = page.read_with(cx, |page, _| page.first_stop.clone());
-        cx.update(|window, _| assert!(first.is_focused(window)));
-    }
-
-    #[gpui::test]
-    fn enter_on_a_tile_head_opens_and_folds_it(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let keys = page.read_with(cx, |page, _| page.stops.get("Landed").cloned()).expect("Landed is a tab stop");
-        cx.update(|window, cx| window.focus(&keys, cx));
-        cx.simulate_keystrokes("enter");
-        assert_eq!(page.read_with(cx, |page, _| page.folded.get("Landed").copied()), Some(true), "open");
-        assert!(pressed(&page, cx).is_empty(), "Enter on a tile is not Yes");
-        cx.simulate_keystrokes("enter");
-        assert_eq!(page.read_with(cx, |page, _| page.folded.get("Landed").copied()), Some(false), "folded");
-    }
-
-    #[gpui::test]
-    fn every_rule_lists_everywhere_first_and_esc_gives_the_keys_back_to_its_link(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let order: Vec<Option<String>> = page.read_with(cx, |page, _| page.rules_in_order().iter().map(|rule| rule.repository.clone()).collect());
-        assert_eq!(order, [None, None, Some("armada".into()), Some("armada".into()), Some("storefront".into()), Some("storefront".into())]);
-
-        let link = page.read_with(cx, |page, _| page.stops.get("Every rule").cloned()).expect("Every rule is a tab stop");
-        cx.update(|window, cx| window.focus(&link, cx));
-        cx.simulate_keystrokes("enter");
-        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(0));
-        cx.simulate_keystrokes("down down up");
-        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1));
-        cx.simulate_keystrokes("a l alt-up");
-        assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9", "turn:10", "turn:11"]);
-        cx.simulate_keystrokes("escape");
-        assert_eq!(page.read_with(cx, |page, _| page.rules), None);
-        cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
-    }
-
-    #[gpui::test]
-    fn the_whole_log_opens_on_a_sheet_with_the_weeks_days_and_esc_gives_the_keys_back_to_its_link(cx: &mut TestAppContext) {
-        let (page, cx) = open(cx);
-        let link = page.read_with(cx, |page, _| page.stops.get("The whole Log").cloned()).expect("The whole Log is a tab stop");
-        cx.update(|window, cx| window.focus(&link, cx));
-        cx.simulate_keystrokes("enter");
+        page.update(cx, |page, cx| page.digit(3, cx));
         cx.run_until_parked();
-        let log = page.read_with(cx, |page, _| page.log.clone()).expect("the Log is open");
-        assert!(log.contains("## Wednesday 2026-11-11"), "the week's journal, as Fleet writes it");
-        cx.simulate_keystrokes("a l alt-up");
-        assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
-        cx.simulate_keystrokes("escape");
-        assert_eq!(page.read_with(cx, |page, _| page.log.clone()), None);
-        cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on The whole Log"));
-    }
-
-    fn standing(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Vec<i64>, Vec<i64>) {
-        page.read_with(cx, |page, _| {
-            let digest = page.page.as_ref().map(|page| &page.digest);
-            (digest.map_or(Vec::new(), |digest| digest.learned.iter().map(|rule| rule.id).collect()), digest.map_or(Vec::new(), |digest| digest.holds.iter().map(|hold| hold.id).collect()))
-        })
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed[0].option.as_deref(), Some("Hand Pocket's change to Jobs screens"));
+        });
+        page.update_in(cx, |page, window, cx| page.answer(OperatorAnswer::Yes, window, cx));
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed[1].id, "turn:32");
+            assert!(pressed[1].option.is_some(), "Yes sends the card's pick");
+        });
     }
 
     #[gpui::test]
-    fn f_on_every_rule_forgets_the_rule_it_has_on_and_the_next_one_takes_its_place(cx: &mut TestAppContext) {
+    fn a_refused_press_puts_the_card_back_in_front_with_fleets_why(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        let link = page.read_with(cx, |page, _| page.stops.get("Every rule").cloned()).expect("Every rule is a tab stop");
-        cx.update(|window, cx| window.focus(&link, cx));
-        cx.simulate_keystrokes("enter down");
-        let on = page.read_with(cx, |page, _| page.rules_in_order()[1].id);
-        cx.simulate_keystrokes("f");
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").fail_answer = Some(Failed::Refused("The Operator could not settle the card.".into()));
+            page.digit(1, cx);
+        });
         cx.run_until_parked();
-        let (rules, _) = standing(&page, cx);
-        assert!(!rules.contains(&on), "forgotten");
-        assert_eq!(rules.len(), 5);
-        assert!(page.update(cx, |page, _| page.mock_fleet().is_some_and(|mock| mock.page.digest.learned.iter().all(|rule| rule.id != on))), "Fleet was told");
-        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1), "the next rule has the sheet");
-        assert!(pressed(&page, cx).is_empty(), "f answers nothing in Your turn");
+        assert_eq!(front(&page, cx), "turn:31");
+        page.read_with(cx, |page, _| assert_eq!(page.refused.as_ref().map(|(id, why)| (id.as_str(), why.as_ref())), Some(("turn:31", "The Operator could not settle the card."))));
     }
 
     #[gpui::test]
-    fn forget_lifts_a_hold_at_once_and_a_refusal_reads_the_page_again(cx: &mut TestAppContext) {
+    fn a_waiting_card_comes_to_the_front_and_the_one_it_replaced_waits(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update(cx, |page, cx| page.forget(12, cx));
-        assert_eq!(standing(&page, cx).1, [11], "gone before Fleet answers");
-        cx.run_until_parked();
-        assert_eq!(standing(&page, cx).1, [11]);
-
-        // An id nothing has: the mock refuses, and the page is read again as it was.
-        page.update(cx, |page, cx| page.forget(99, cx));
-        cx.run_until_parked();
-        assert_eq!(standing(&page, cx), (vec![1, 2, 3, 4, 5, 6], vec![11]));
+        page.update(cx, |page, cx| page.bring("turn:34", cx));
+        assert_eq!(front(&page, cx), "turn:34");
+        page.read_with(cx, |page, _| assert!(page.waiting().iter().any(|turn| turn.id == "turn:31")));
     }
 
     #[gpui::test]
-    fn the_pane_from_a_job_holds_its_chat_from_the_start(cx: &mut TestAppContext) {
-        let (page, cx) = open_as(cx, true);
-        let chat = page.read_with(cx, |page, _| page.chat.clone()).expect("the pane opens with its chat");
-        assert_eq!(chat.read_with(cx, |chat, _| chat.about.clone()), None, "about nothing until a row is pressed");
-        assert!(chat.read_with(cx, |chat, _| chat.read), "the conversation so far is read");
+    fn discuss_tags_the_box_with_the_card_and_leaves_the_card_in_front(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.discuss(window, cx));
+        let tagged = page.read_with(cx, |page, cx| page.composer.read(cx).tagged());
+        assert_eq!(tagged.map(|(id, title)| (id, title.to_string())), Some(("turn:31".to_string(), "Two Jobs are changing paging.rs".to_string())));
+        assert_eq!(front(&page, cx), "turn:31");
+    }
+
+    #[gpui::test]
+    fn a_talk_about_a_card_goes_to_the_operator_with_its_id_and_folds_the_card(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update(cx, |page, _| {
+            assert_eq!(page.talk.as_ref().map(|talk| talk.about.as_str()), Some("turn:31"));
+            assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_card_the_operator_raises_in_the_talk_is_drawn_in_it_and_settling_it_ends_the_talk(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        page.read_with(cx, |page, cx| {
+            assert_eq!(page.talk_cards().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:36"]);
+            assert_eq!(page.waiting().len(), 4, "the raised card does not wait in line");
+            let rows = page.talk_rows(cx);
+            assert_eq!(rows.len(), 2, "his words, then the Operator's");
+        });
+        page.update(cx, |page, cx| page.digit(2, cx));
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            assert!(page.talk.is_none(), "the talk ends with its card");
+            assert_eq!(page.mock_fleet().expect("the walk's Fleet").pressed[0].id, "turn:36");
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:32"), "the card it was about is settled too, and the next is in front");
+        });
+    }
+
+    #[gpui::test]
+    fn discuss_later_takes_the_card_out_of_line_and_a_refusal_brings_it_back(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.later(None, cx));
+        cx.run_until_parked();
+        assert_eq!(front(&page, cx), "turn:32");
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").refuse_later = Some("That time has passed. Pick a later one.".into());
+            page.later(None, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(front(&page, cx), "turn:32");
+        page.read_with(cx, |page, _| assert_eq!(page.refused.as_ref().map(|(id, _)| id.as_str()), Some("turn:32")));
+    }
+
+    #[gpui::test]
+    fn a_value_for_what_the_operator_does_unasked_is_set_and_a_refusal_says_why(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.set_acts("armada".into(), Some(OperatorActs::OnlyWhenTold), cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, cx| assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold)));
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").refuse_acts = Some("No project has that id".into());
+            page.set_acts("armada".into(), Some(OperatorActs::ActThenTell), cx);
+        });
+        cx.run_until_parked();
+        page.read_with(cx, |page, cx| {
+            assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold), "the value stays");
+            assert!(page.acts_refused.is_some());
+        });
     }
 }

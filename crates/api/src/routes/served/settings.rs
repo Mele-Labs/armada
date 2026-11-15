@@ -75,6 +75,22 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/accounts/start_sign_in",
     },
+    // Registering the app sign-in uses: Bridge's press, then two routes the person's browser opens.
+    Route {
+        operation: "register_sign_in_app",
+        method: "POST",
+        path: "/accounts/sign_in_app",
+    },
+    Route {
+        operation: "get_sign_in_app_form",
+        method: "GET",
+        path: "/accounts/sign_in_app/form",
+    },
+    Route {
+        operation: "sign_in_app_registered",
+        method: "GET",
+        path: "/accounts/sign_in_app/registered",
+    },
     Route {
         operation: "sign_out",
         method: "POST",

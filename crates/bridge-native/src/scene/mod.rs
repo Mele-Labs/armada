@@ -11,11 +11,13 @@ mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
+mod notes;
 pub(crate) mod mock_page;
 pub(crate) mod mock_view;
 mod route;
 mod screen;
 mod settle;
+mod start;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -30,6 +32,7 @@ use ipc::{Scene, SceneColor, SceneKind, SceneNode, SceneShape, ScreenElement, Wi
 use lyon::tessellation::{LineCap, LineJoin};
 
 use crate::look::{token, Look};
+pub(crate) use notes::{bounds_of, nodes, part_at, Mark, Marks, Part};
 use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
@@ -241,9 +244,15 @@ pub(crate) fn against(key: &str, before: &Scene, after: &Scene) -> (Rc<Scene>, R
 /// The scene, drawn to fill its parent, with what changed against an earlier one marked: added
 /// green, changed amber, removed red and struck through, the rest stood back.
 pub(crate) fn view_changes(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
+    view_marked(key, scene, changes, fit, clock, lens, Rc::default())
+}
+
+/// As [`view_changes`], with the notes' numbers standing on the parts they are about and the parts picked ringed. A reading
+/// view keeps where it put each part (`part_at`, `nodes`, `bounds_of`), which a press and the keys ask for.
+pub(crate) fn view_marked(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>) -> impl IntoElement {
     let held = scene.clone();
     canvas(
-        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, bounds, window, cx),
+        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, marks, bounds, window, cx),
         move |bounds, mut prepared, window, cx| paint(&scene, &mut prepared, fit, clock, bounds, window, cx),
     )
     .size_full()
@@ -291,6 +300,8 @@ struct Laid {
     /// Each arrow's way, by its index in the scene, with its words placed. An arrow the router found no way for is `None`.
     ways: Vec<Option<Way>>,
     bounds: Rect,
+    /// The "Start" tab over each node the sketch starts at, by node index.
+    tabs: Vec<Option<Rect>>,
     /// The step numbers, sorted and unique: the same number plays together.
     steps: Vec<f64>,
     /// The content height each mock was laid out with, by node index: the layout is worked out again when one is known that was not.
@@ -434,7 +445,10 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let order = arrange(scene, &sizes);
     let rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
     let ways = ways(scene, &order, &rects, HOP);
-    let bounds = rects.iter().copied().reduce(union).unwrap_or_default();
+    let starts = start::nodes(scene);
+    let word_w = measure.width(start::TAB_WORD, f32::from(look.length(token::TEXT_2XS)), look.number(token::WEIGHT_HEADING), false);
+    let tabs: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::tab(node, *rect, word_w))).collect();
+    let bounds = rects.iter().copied().chain(tabs.iter().flatten().copied()).reduce(union).unwrap_or_default();
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
         .nodes
@@ -445,7 +459,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
         .collect();
     steps.sort_by(f64::total_cmp);
     steps.dedup();
-    Laid { rects, ways, bounds, steps, mocks }
+    Laid { rects, ways, bounds, tabs, steps, mocks }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -676,6 +690,13 @@ impl<'a> Ink<'a> {
         Ink { over, struck: change == Some(Change::Removed), ..self.clone() }
     }
 
+    /// The ink for the node a sketch starts at: its frame in the accent, unless a change already has its own hue. Only a box
+    /// or a block of code has a frame to colour; the others carry the tab alone.
+    fn started(&self, node: &SceneNode) -> Ink<'a> {
+        let frame = matches!(node.kind, SceneKind::Box | SceneKind::Code);
+        Ink { over: self.over.or_else(|| frame.then(|| self.look.color(token::ACCENT))), ..self.clone() }
+    }
+
     /// The part's hue: its change's where it has one, else its own colour.
     fn hue(&self, color: Option<SceneColor>, default: SceneColor) -> Hsla {
         self.over.unwrap_or_else(|| hue(self.look, color, default))
@@ -717,6 +738,27 @@ struct Prepared {
     sheets: Vec<Option<(AnyElement, f32)>>,
     /// Each mock's picture, where one has come, by its node's index: `None` for a node that is not a mock.
     mocks: Vec<Option<mock_view::Shown>>,
+    /// Where each part stands, for the notes' numbers, which stand on them.
+    placed: Vec<notes::Placed>,
+    marks: Rc<Marks>,
+}
+
+/// Every node and, inside a mock, every element of its page, where it stands in scene units. Only a reading view holds them.
+fn placed_of(scene: &Scene, laid: &Laid, sources: &[Option<Rc<mock_view::Mock>>], dark: bool, cx: &App) -> Vec<notes::Placed> {
+    let mut placed = Vec::new();
+    for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
+        placed.push(notes::Placed { part: Part { id: node.id.clone(), label: part_label(node).to_string() }, rect: *rect, depth: if ground(node) { 0 } else { 1 }, node: true });
+        let (Some(Some(mock)), Some(width)) = (sources.get(index), node.w) else { continue };
+        let Some(parts) = mock_view::parts(mock, width as f32, dark, cx) else { continue };
+        let top = sheet_top(node);
+        placed.extend(parts.iter().map(|part| notes::Placed {
+            part: Part { id: format!("{}#{}", node.id, part.key), label: part.label.clone() },
+            rect: Rect { x: rect.x + part.x, y: rect.y + top + part.y, w: part.w, h: part.h },
+            depth: 1 + part.depth,
+            node: false,
+        }));
+    }
+    placed
 }
 
 /// The nodes the step playing lights: those it names and those its arrows reach.
@@ -732,7 +774,7 @@ fn lit<'a>(scene: &'a Scene, now: Option<&Playing>) -> HashSet<&'a str> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
+fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let view = View::fit(bounds, laid.bounds, fit, lens);
@@ -765,7 +807,11 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
             sheets.push(Some((sheet, alpha)));
         }
     });
-    Prepared { laid, view, changes, now, sheets, mocks }
+    let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
+    if fit == Fit::Reading {
+        notes::keep(key, notes::Probe { view, placed: placed.clone() });
+    }
+    Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -808,8 +854,12 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
             let sheet = prepared.sheets.get_mut(index).and_then(Option::take);
             let lit_here = lit.contains(node.id.as_str());
             let dim = (now.is_some() && !lit_here) || change == Some(Change::Same);
+            let tab = laid.tabs.get(index).copied().flatten();
             if let Some(Some(shown)) = prepared.mocks.get(index) {
                 mock_view::paint(&ink.changed(change), node, *rect, shown, if dim { DIMMED } else { 1. }, now.is_some() && lit_here, window, cx);
+                if let Some(tab) = tab {
+                    paint_tab(&ink, tab, window, cx);
+                }
                 continue;
             }
             if let Some((mut sheet, alpha)) = sheet {
@@ -826,9 +876,16 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                     let radius = f32::from(look.length(token::RADIUS_SM));
                     window.paint_quad(quad(view.rect(ring), view.len(radius + 2.), gpui::transparent_black(), view.len(2.), look.color(token::EDGE_FOCUS), BorderStyle::Solid));
                 }
+                if let Some(tab) = tab {
+                    paint_tab(&ink, tab, window, cx);
+                }
                 continue;
             }
-            paint_node(&ink.changed(change), node, *rect, if dim { DIMMED } else { 1. }, window, cx);
+            let node_ink = ink.changed(change);
+            paint_node(&if tab.is_some() { node_ink.started(node) } else { node_ink }, node, *rect, if dim { DIMMED } else { 1. }, window, cx);
+            if let Some(tab) = tab {
+                paint_tab(&ink, tab, window, cx);
+            }
             if now.is_some() && !dim {
                 let radius = match shaped(node) {
                     Some(SceneShape::Pill) => rect.h / 2.,
@@ -842,14 +899,20 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
         for stroke in &scene.strokes {
             paint_ink(&ink, &stroke.points.iter().map(|p| Pt { x: p.x as f32, y: p.y as f32 }).collect::<Vec<_>>(), window);
         }
+        notes::paint(&ink, &prepared.placed, &prepared.marks, window, cx);
         // A reading view names each part as Electron's does, its change first, so a walk can ring one.
         if fit == Fit::Reading {
-            for (node, rect) in scene.nodes.iter().zip(&laid.rects) {
+            for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
                 let name = match node_change(node) {
                     Some(change) => format!("{}, {}", change.said(), part_label(node)),
                     None => part_label(node).to_string(),
                 };
+                let name = if laid.tabs.get(index).is_some_and(Option::is_some) { format!("{}, {name}", start::TAB_WORD) } else { name };
                 crate::labels::note(gpui::Role::Group, name, view.rect(*rect), Some(view.len(RADIUS)), window, cx);
+            }
+            // An element of a mock's page is named too, so a note aims at it as at a node.
+            for one in prepared.placed.iter().filter(|one| !one.node) {
+                crate::labels::note(gpui::Role::Group, one.part.label.clone(), view.rect(one.rect), None, window, cx);
             }
         }
         if let Some(now) = &now {
@@ -886,6 +949,15 @@ fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mu
     window.paint_quad(quad(view.rect(band), corners, hue, px(0.), gpui::transparent_black(), BorderStyle::Solid));
     let ink_on = look.color(token::FG_INVERSE);
     ink.words(title, Pt { x: band.x + PAD_X, y: band.y + PAD_Y }, None, TEXT, 600., false, ink_on.opacity(ink_on.a * alpha), TextAlign::Left, window, cx);
+}
+
+/// The "Start" tab on a node's top edge: the accent with its word on it. It is drawn at full strength whatever step plays.
+fn paint_tab(ink: &Ink, tab: Rect, window: &mut Window, cx: &mut App) {
+    let (look, view) = (ink.look, ink.view);
+    let corners = Corners { top_left: view.len(RADIUS), top_right: view.len(RADIUS), bottom_right: px(0.), bottom_left: px(0.) };
+    window.paint_quad(quad(view.rect(tab), corners, look.color(token::ACCENT), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    let at = f32::from(look.length(token::TEXT_2XS));
+    ink.words(start::TAB_WORD, Pt { x: tab.x + start::TAB_PAD, y: tab.y }, None, at, look.number(token::WEIGHT_HEADING), false, look.color(token::TEXT_ON_ACCENT), TextAlign::Left, window, cx);
 }
 
 fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {

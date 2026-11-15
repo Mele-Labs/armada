@@ -1,16 +1,11 @@
-//! An error Bridge showed the person, as it reaches the Operator: once for the same fault in a local
-//! day, first in the order, and asking before it acts as a bug report does. Nothing arrives while the
-//! Operator is off.
+//! An error Bridge showed the person, as it reaches the Operator: with the Operator's session not running it
+//! reaches nobody and stays where it is, and the same fault is one id in a local day.
 
-use ipc::operator_board::OperatorBoardKind;
 use ipc::operator_errors::{BridgeErrorField, ReportBridgeError};
 
 use super::autopilot_decisions_repository::jobs_titled;
-use super::operator_board::waiting;
-use super::operator_notes::filing;
-use super::operator_sources::{rulings, switched, Answers};
-use super::rule_acting::notices_in;
-use super::session_host::{eventually, Rig};
+use super::operator_sources::{rulings, switched};
+use super::session_host::rig_fitted;
 use crate::operator::fingerprint;
 
 const SUBJECT: &str = "Build failed: restart exited 1";
@@ -28,15 +23,11 @@ fn card(code: &str, message: &str, job: Option<&str>) -> ReportBridgeError {
     }
 }
 
-/// A Job ruled to start, which needs no near Job: ways are 1. file, 2. new job, 3. raise.
-const START: &str = "item: 1\nway: 2\nbecause: no Job is near it";
-const RAISE: &str = "item: 1\nway: 3\nbecause: it is for him to read";
-
 #[test]
 fn what_differs_between_two_of_the_same_fault_is_not_in_its_fingerprint() {
     let same = |one: &str, other: &str| assert_eq!(fingerprint("c", one), fingerprint("c", other), "{one} / {other}");
     same("Build failed: restart exited 1", "Build failed: restart exited 137");
-    same("Cannot read /Users/nick/a/run.log", "Cannot read /tmp/b.log");
+    same("Cannot read /Users/user/a/run.log", "Cannot read /tmp/b.log");
     same("Worktree 01JABC123XYZ is gone", "Worktree 01JQQQ999ZZZ is gone");
     same("Commit deadbeef12 is missing", "Commit cafebabe99 is missing");
     same("Retry 3 of 5 failed", "Retry 4 of 5 failed");
@@ -48,138 +39,29 @@ fn what_differs_between_two_of_the_same_fault_is_not_in_its_fingerprint() {
 }
 
 #[tokio::test]
-async fn a_reported_error_arrives_once_with_the_cards_facts_and_the_same_error_again_does_not_but_another_does() {
-    let rig = filing().await;
-    let call = Answers::with(&[RAISE, RAISE]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
+async fn an_error_is_taken_and_reaches_nobody_while_the_operators_session_is_not_running() {
+    let rig = rig_fitted(|_| {});
+    rig.agents_start("at_once");
+    switched(&rig, "features.operator", true).await;
 
     let taken = rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     assert!(!taken.repeated);
     let parts: Vec<&str> = taken.id.split(':').collect();
     assert!(parts.len() == 3 && parts[0] == "error" && parts[1].len() == 16 && parts[2].len() == 10, "{}", taken.id);
-    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1, "{asked:#?}");
-    for part in [
-        "Bridge showed the person an error, from Bridge: \"Build failed: restart exited 1\"",
-        "Code: bridge.fleet.build_failed",
-        "Message: Build failed: restart exited 1",
-        "Fields: exit: 1",
-        "1. restart exited 1 2. no such file",
-        "Logs: /tmp/restart.log",
-        "Commit: e1e0644c02",
-        "Time: 2026-11-06T09:00:00.000Z",
-        "1. file a new issue; 2. new job; 3. raise\n",
-    ] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
-    let log = rulings(&rig).await;
-    assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (taken.id.as_str(), "error", "raise"));
-
-    // The same fault, its number differing, is in the Log that day, so it is not handed again.
-    let again = rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", "Build failed: restart exited 137", None)).await;
-    assert_eq!((again.id.as_str(), again.repeated), (taken.id.as_str(), true));
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert_eq!(call.asked().len(), 1);
-    assert_eq!(rulings(&rig).await.len(), 1);
-
-    let other = rig.fleet.bridge_error_taken(card("bridge.not_sent", "No handler registered", None)).await;
-    assert!(!other.repeated && other.id != taken.id);
-    eventually(|| async { rulings(&rig).await.len() == 2 }).await;
-    assert_eq!(call.asked().len(), 2);
-}
-
-#[tokio::test]
-async fn an_error_goes_ahead_of_what_waits_and_shows_first_in_the_boards_next_and_two_keep_their_order() {
-    let waiting = waiting(&[], &[]).await;
-    assert_eq!(waiting.next().await, ["report:second", "report:third"]);
-
-    let first = waiting.rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
-    waiting.waits_for(3).await;
-    let second = waiting.rig.fleet.bridge_error_taken(card("bridge.not_sent", "No handler registered", None)).await;
-    waiting.waits_for(4).await;
-
-    assert_eq!(waiting.next().await, [first.id.as_str(), second.id.as_str(), "report:second", "report:third"]);
-    let board = waiting.rig.fleet.operator_board_wire().await.expect("read");
-    assert_eq!((board.next[0].kind, board.next[0].title.as_str()), (OperatorBoardKind::Report, SUBJECT));
-
-    // Waiting already, the same error is not put in twice.
-    let repeated = waiting.rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", "Build failed: restart exited 2", None)).await;
-    assert_eq!((repeated.id.as_str(), repeated.repeated), (first.id.as_str(), true));
-    assert_eq!(waiting.next().await.len(), 4);
-}
-
-#[tokio::test]
-async fn an_error_ruled_a_new_job_starts_the_job_at_once_and_keeps_no_go_ahead() {
-    let rig = filing().await;
-    rig.agents_start("at_once");
-    assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
-
-    rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
-
-    eventually(|| async { jobs_titled(&rig, SUBJECT).await == 1 }).await;
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "a new Job is started, not asked");
-}
-
-#[tokio::test]
-async fn the_job_an_error_starts_is_briefed_with_every_word_of_the_card() {
-    let rig = filing().await;
-    rig.agents_start("at_once");
-    assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
-
-    rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
-
-    eventually(|| async { jobs_titled(&rig, SUBJECT).await == 1 }).await;
-    let job = {
-        let store = rig.fleet.store().lock().await;
-        let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: None, text: None }).expect("read");
-        found.into_iter().find(|one| one.title.as_deref() == Some(SUBJECT)).expect("a Job").id
-    };
-    let brief = eventually_told(&rig, &job).await;
-    for part in ["Code: bridge.fleet.build_failed", "exit: 1", "no such file", "/tmp/restart.log", "Commit: e1e0644c02"] {
-        assert!(brief.contains(part), "{part}:\n{brief}");
-    }
-}
-
-async fn eventually_told(rig: &Rig, job: &str) -> String {
-    let id = ipc::SessionId::carried(job);
-    eventually(|| async { notices_in(rig, &id).await.iter().any(|(_, text)| text.contains("Code: bridge.fleet.build_failed")) }).await;
-    notices_in(rig, &id).await.into_iter().map(|(_, text)| text).collect::<Vec<_>>().join("\n")
-}
-
-#[tokio::test]
-async fn an_error_raised_in_a_live_job_is_weighed_against_it_and_handed_to_it_only_on_do_it() {
-    let rig = filing().await;
-    let near = rig.start_titled(Some("Terminal scrollback loss")).await;
-    let ruling = format!("item: 1\nway: 2\njob: {}\nshared: terminal, scrollback\nbecause: its work caused it", near.as_str());
-    let call = Answers::with(&[ruling.as_str()]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
-
-    rig.fleet.bridge_error_taken(card("bridge.panes.crashed", "The pane exited early", Some(near.as_str()))).await;
-
-    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
-    assert!(!notices_in(&rig, &near).await.iter().any(|(_, text)| text.contains("The Operator handed you an error")), "nobody is told until he presses");
-    let kept = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").remove(0);
-    let _ = std::sync::Arc::clone(&rig.fleet).suggestion_chosen(&kept.session_id, &format!("suggestion:{}", kept.n), Some(0)).await;
-
-    eventually(|| async { notices_in(&rig, &near).await.iter().any(|(_, text)| text.contains("The Operator handed you an error") && text.contains("Code: bridge.panes.crashed")) }).await;
-    let asked = call.asked();
-    assert!(asked[0].contains("Raised in Job") && asked[0].contains("Terminal scrollback loss"), "{}", asked[0]);
-    assert!(asked[0].contains("2. existing job"), "{}", asked[0]);
+    assert!(rulings(&rig).await.is_empty());
+    assert_eq!(jobs_titled(&rig, SUBJECT).await, 0, "no Job starts from an error");
 }
 
 #[tokio::test]
 async fn while_the_operator_is_off_an_error_is_accepted_and_nothing_arrives() {
-    let rig = filing().await;
-    let call = Answers::with(&[RAISE]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let rig = rig_fitted(|_| {});
     switched(&rig, "features.operator", false).await;
 
     let taken = rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     assert!(!taken.repeated);
-    assert!(call.asked().is_empty());
     assert!(rulings(&rig).await.is_empty());
 }

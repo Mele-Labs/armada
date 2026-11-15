@@ -27,6 +27,8 @@ use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use reqwest::redirect::Policy;
 use serde::Deserialize;
 
+use crate::sign_in_app::AppUrls;
+
 const DEVICE_URL: &str = "https://github.com/login/device/code";
 const TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
 const USER_URL: &str = "https://api.github.com/user";
@@ -216,6 +218,8 @@ pub struct ForgeSignIn {
     device_url: String,
     token_url: String,
     user_url: String,
+    /// Where the sign-in app is registered. [`crate::sign_in_app`].
+    pub(crate) apps: AppUrls,
 }
 
 fn bearer_of(token: &Secret<String>) -> Result<HeaderValue, SignInError> {
@@ -231,7 +235,19 @@ impl ForgeSignIn {
     }
 
     pub(crate) fn against(device: &str, token: &str, user: &str, timeout: Duration) -> ForgeSignIn {
-        ForgeSignIn { timeout, device_url: device.to_string(), token_url: token.to_string(), user_url: user.to_string() }
+        ForgeSignIn {
+            timeout,
+            device_url: device.to_string(),
+            token_url: token.to_string(),
+            user_url: user.to_string(),
+            apps: AppUrls::github(),
+        }
+    }
+
+    /// The same client registering the sign-in app at `apps` in place of GitHub.
+    #[cfg(test)]
+    pub(crate) fn registering_at(self, apps: AppUrls) -> ForgeSignIn {
+        ForgeSignIn { apps, ..self }
     }
 
     fn client(&self) -> Result<Client, SignInError> {
@@ -244,7 +260,7 @@ impl ForgeSignIn {
             .map_err(|why| SignInError::Refused(format!("The sign-in client could not be made: {why}")))
     }
 
-    fn send(
+    pub(crate) fn send(
         &self,
         build: impl FnOnce(&Client) -> reqwest::blocking::RequestBuilder,
     ) -> Result<Reply, SignInError> {

@@ -200,14 +200,6 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::operator_page::OperatorAnswerPress,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
 
-    /// `operator_undo_ruling`: take back a ruling the Operator made by following something he said.
-    /// [`Refusal::NotFound`] where no precedent ruling has the id, [`Refusal::Unacceptable`] where it is taken
-    /// back already or its Job has ended.
-    fn operator_undo_ruling(
-        self: Arc<Self>,
-        undo: ipc::operator_page::OperatorUndoRuling,
-    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
-
     /// `operator_turn_order`: Your turn as he dragged it.
     fn operator_turn_order(
         self: Arc<Self>,
@@ -221,29 +213,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         later: ipc::operator_page::OperatorLater,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
 
-    /// `get_operator_board`: what the Operator is ruling on, what waits and what it settled.
-    fn get_operator_board(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
-    /// `move_on_operator_board`: one press reorders what waits. [`Refusal::NotFound`] where the item,
-    /// or the one it goes before, is not waiting. Answers the board.
-    fn move_on_operator_board(
-        self: Arc<Self>,
-        moved: ipc::operator_board::MoveOnOperatorBoard,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
     /// `report_bridge_error`: an error Bridge showed the person, handed to the Operator. Never refused for
     /// the Operator being off: it is let go and `repeated` is `false`.
     fn report_bridge_error(
         self: Arc<Self>,
         error: ipc::operator_errors::ReportBridgeError,
     ) -> impl Future<Output = Result<ipc::operator_errors::BridgeErrorTaken, Refusal>> + Send;
-
-    /// `answer_operator_suggestion`: one press on a suggestion no Job holds. [`Refusal::NotFound`] where
-    /// none has that id, [`Refusal::IllegalMove`] where it is settled already. Answers the board.
-    fn answer_operator_suggestion(
-        self: Arc<Self>,
-        answer: ipc::operator_board::AnswerOperatorSuggestion,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 
     /// `confirm_operator_order`: the person presses to have an order stand. [`Refusal::Unacceptable`]
     /// while the Operator is off, or where the form names what Fleet does not know.

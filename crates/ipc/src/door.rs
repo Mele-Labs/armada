@@ -546,6 +546,7 @@ fn tool(shape: &Shape, always_loads: Option<&str>) -> Value {
     let row = REACHABLE
         .iter()
         .chain(ON_YOUR_WORDS.iter())
+        .chain(OPERATOR.iter())
         .find(|row| row.operation == shape.operation);
     let described = row.map(|row| row.description).unwrap_or_default();
     let mut properties = Map::new();

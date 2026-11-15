@@ -36,6 +36,14 @@ pub(super) struct PictureKey {
     pub dark: bool,
 }
 
+/// The width a page is laid out at for its card, in CSS points: the width a page reads at, whatever the well's own.
+const READING_WIDTH: f32 = 960.;
+
+/// How much the page laid out at the reading width is scaled to fill a well `width` points across, so every line shows whole.
+fn fit_scale(width: u32) -> f32 {
+    width.max(1) as f32 / READING_WIDTH
+}
+
 /// How many first screens are made at once: a thread of twelve pages opens two web views, not twelve.
 const MAKING: usize = 2;
 
@@ -312,7 +320,8 @@ impl JobView {
         );
     }
 
-    /// The sealed page drawn once at the card's width by the web view the app lends, which runs none of its script.
+    /// The sealed page drawn once by the web view the app lends, which runs none of its script. It is laid out at the reading
+    /// width and the whole picture is scaled to the card's width, so the well shows the first screen small and whole.
     fn paint_picture(&mut self, key: PictureKey, html: Result<String, String>, window: &mut Window, cx: &mut Context<Self>) {
         use crate::scene::mock_view::Appearance;
         let painter = crate::scene::mock_view::painter(cx);
@@ -321,19 +330,21 @@ impl JobView {
             return;
         };
         let appearance = if key.dark { Appearance::Dark } else { Appearance::Light };
-        let task = painter(html, key.width as f32, window.scale_factor(), appearance, cx);
+        let fit = fit_scale(key.width);
+        let task = painter(html, READING_WIDTH, window.scale_factor() * fit, appearance, cx);
         cx.spawn_in(window, async move |this, cx| {
-            let made = task.await;
+            // The picture's height comes in points at the reading width; it is drawn at the well's.
+            let made = task.await.map(|(image, height, parts)| (image, height * fit, parts));
             let _ = this.update_in(cx, |this, window, cx| this.picture_made(key, made, window, cx));
         })
         .detach();
     }
 
-    fn picture_made(&mut self, key: PictureKey, made: Result<(Arc<RenderImage>, f32), String>, window: &mut Window, cx: &mut Context<Self>) {
+    fn picture_made(&mut self, key: PictureKey, made: Result<crate::scene::mock_view::Picture, String>, window: &mut Window, cx: &mut Context<Self>) {
         self.artifacts.making = self.artifacts.making.saturating_sub(1);
         // An older width or theme of the same revision is let go.
         self.artifacts.pictures.retain(|held, _| held == &key || !(held.job == key.job && held.page == key.page && held.revision == key.revision));
-        self.artifacts.pictures.insert(key, made.map_or(Picture::Failed, |(image, height)| Picture::Ready(image, height)));
+        self.artifacts.pictures.insert(key, made.map_or(Picture::Failed, |(image, height, _)| Picture::Ready(image, height)));
         self.pages.values().for_each(|page| page.list.remeasure());
         cx.notify();
         self.make_pictures(window, cx);
@@ -403,10 +414,11 @@ impl JobView {
         let said = last.map_or_else(String::new, |last| super::band_card::revision_said(last.number, last.by, last.at.as_str()));
         let line = one.for_line.as_ref().and_then(|line| line.text.clone()).filter(|text| !text.trim().is_empty());
         let column = |width: gpui::Pixels| div().flex_none().w(width).flex().items_center();
-        let (revision_w, state_w, time_w) = (look.length(token::SPACE_12) + look.length(token::SPACE_3), look.length(token::SPACE_12) * 2. + look.length(token::SPACE_4), look.length(token::SPACE_12) + look.length(token::SPACE_3));
+        let (revision_w, state_w, time_w) = (look.length(token::SPACE_12) + look.length(token::SPACE_3), look.length(token::SPACE_12) * 2. + look.length(token::SPACE_4), look.length(token::SPACE_12) * 2.);
         let row = div()
             .id(SharedString::from(format!("artifact-row:{key}")))
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
@@ -421,7 +433,7 @@ impl JobView {
             .child(
                 div()
                     .flex_1()
-                    .min_w_0()
+                    .min_w(look.length(token::SPACE_12) * 2.)
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
@@ -629,5 +641,14 @@ mod tests {
     fn artifacts_is_a_tab_a_pane_can_hold_and_a_zone_that_draws_it() {
         assert!(super::super::pane_tree::is_tab_kind("artifacts"));
         assert_eq!(super::super::panes_place::zone_of("artifacts").map(super::super::side::Zone::id), Some("artifacts"));
+    }
+
+    #[test]
+    fn a_page_is_scaled_from_the_reading_width_to_the_wells() {
+        assert_eq!(fit_scale(480), 0.5, "half as wide: every line at half size");
+        assert_eq!(fit_scale(960), 1.);
+        assert!(fit_scale(1100) > 1., "a wide well magnifies the whole page, not a corner of it");
+        assert!(fit_scale(0) > 0., "a zero width never collapses the picture to nothing");
+        assert_eq!(READING_WIDTH * fit_scale(600), 600., "the scaled page is exactly the well's width");
     }
 }

@@ -281,8 +281,8 @@ impl Build {
         let idle_on_main = self.report.on == BuildSource::Main && !working && self.aligned;
         let busy = working || self.report.reverting || self.report.swapping;
         let (label, tip) = match (target, working) {
-            (BuildSource::Preview, false) => ("Refresh preview", "Merge in-flight branches and restart on the preview"),
-            (BuildSource::Preview, true) => ("Refreshing preview", "Merge in-flight branches and restart on the preview"),
+            (BuildSource::Preview, false) => ("Refresh", "Merge the offered branches onto latest main and restart Fleet"),
+            (BuildSource::Preview, true) => ("Refreshing", "Merge the offered branches onto latest main and restart Fleet"),
             (BuildSource::Main, false) => ("Update to main", "Restart on latest main"),
             (BuildSource::Main, true) => ("Updating to main", "Restart on latest main"),
         };

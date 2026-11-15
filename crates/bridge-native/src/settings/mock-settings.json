@@ -203,26 +203,6 @@
    "overridden_by_env": null
   },
   {
-   "key": "limits.operatorPlanPause",
-   "group": "Fleet",
-   "section": "Limits",
-   "title": "Pause the Operator at",
-   "description": "How much of the weekly plan window must be used before the Operator makes no more calls until the window resets. Everything that needed a call goes to you.",
-   "tip": null,
-   "kind": {
-    "kind": "integer",
-    "min": 0,
-    "max": 100,
-    "unit": "percent"
-   },
-   "default": 80,
-   "value": 80,
-   "saved": null,
-   "applies": "live",
-   "pending_restart": false,
-   "overridden_by_env": null
-  },
-  {
    "key": "limits.contextWatch",
    "group": "Fleet",
    "section": "Limits",
@@ -792,6 +772,23 @@
    "section": "Features",
    "title": "Dispute reviews",
    "description": "A job that disputes a Fleet notice starts a review job in Armada, and Fleet reads replies for pushback. Off, the dispute is kept and nothing starts.",
+   "tip": null,
+   "kind": {
+    "kind": "boolean"
+   },
+   "default": false,
+   "value": false,
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
+   "key": "features.operator",
+   "group": "Features",
+   "section": "Features",
+   "title": "Operator",
+   "description": "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start, plan and quiet Job goes on as it did before the Operator.",
    "tip": null,
    "kind": {
     "kind": "boolean"

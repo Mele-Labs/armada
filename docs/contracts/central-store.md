@@ -27,7 +27,7 @@ Why: Bridge holds one connection, to Fleet.
 
 | Held | Keyed by | Value |
 |---|---|---|
-| Device | device id | public key, machine name |
+| Device | device id | public key, machine name, kind (`mac` or `phone`), address |
 | Claim | repository hash, kind and key hash | holder |
 | Holder | holder kind, id and machine | the person's name, the Job's title, when it last renewed |
 | Contender | repository hash, kind and key hash of a held claim, and the asker's holder kind, id and machine | the asker's name, title and `since`, when it last asked, and whether its claim's holder was told |
@@ -77,12 +77,16 @@ The same key under two kinds is two claims.
 
 ## Wire
 
-All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `PUT /runs/{repo}`. Every request but `enrol` is signed.
+All paths are under `/v1`. A body is JSON, at most 4096 bytes, and 131072 for `PUT /runs/{repo}`. Every request but `enrol`, `sign_in` and `sign_in/poll` is signed.
 
 | Request | Body | Answers |
 |---|---|---|
 | `POST /enrol` | `token`, `public_key`, `machine` | `200 {device}` |
+| `POST /sign_in` | `client_id` | `200 {device_code, user_code, verification_uri, interval, expires_in}` |
+| `POST /sign_in/poll` | `client_id`, `device_code`, `public_key`, `machine` | `200 {device}`, `202 {waiting}`, `410 expired`, `403 denied` |
 | `GET /devices` | none | `200 {devices}`, each `device` and `machine`, oldest enrolment first |
+| `PUT /presence` | `kind`, `address` | `204` |
+| `GET /peers` | none | `200 {devices}`, each `device`, `machine`, `kind`, `address` and `public_key`, oldest enrolment first |
 | `DELETE /devices/{device}` | none | `204`, `404 no_device` |
 | `POST /claims` | `repo`, `kind`, `key`, `holder` | `200 {holder, renewed}` won, `409 {holder, renewed}` held |
 | `GET /claims` | none | `200 {holders}`, each `holder`, `renewed`, `claims` and `waits` |
@@ -210,7 +214,7 @@ The device id is the account id, a dot, and 32 hex characters, so the Worker fin
 | 502 | `forge_unreachable` | The forge did not answer |
 | 502 | `forge_unreadable` | The forge answered with no usable numeric id |
 | 400 | `invalid_public_key` | The key is not a P-256 public key |
-| 429 | `enrol_rate_limited` | The address used its enrolments for the minute, [Limits](#limits) |
+| 429 | `enrol_rate_limited` | The address used its enrolments and sign-in starts for the minute, [Limits](#limits) |
 | 413 | `devices_full` | The account already has 16 devices, or the team store 256 |
 
 **Rule.** Any device of an account may sign out another device of that account.
@@ -218,6 +222,57 @@ Why: a machine that is lost cannot sign itself out.
 
 **Rule.** `GET /devices` answers every device of the object the caller signs into, with the Mac's name it enrolled as and never its key.
 Why: the store setting says which Macs are signed in.
+
+## Presence and peers
+
+**Rule.** A device row holds `kind`, `mac` or `phone`, and `address`, where it can be reached.
+`enrol` registers a `mac` with no address, and a phone signs in as a `phone` ([A phone's sign-in](#a-phones-sign-in)).
+`PUT /presence` takes exactly `kind` and `address` and sets the caller's own row, and no other device's.
+Why: a Mac's tunnel address changes, and the devices that are his find each other by it.
+
+**Rule.** `address` is empty, or an origin: `https://`, a host, and a port if there is one from 1 to 65535, with no userinfo, path, query or fragment, at most 200 characters.
+Anything else is refused `400 invalid_body`.
+Why: the address is somewhere another device will call, so it holds nothing it could be told to call beyond a host.
+
+**Rule.** `GET /peers` answers every device whose id starts with the caller's account id and a dot, which is the part of the caller's device id before its first `.`, except the caller, with its `public_key` as it enrolled.
+A team store holds every member's devices in one object, and it never lists one member's devices to another.
+Why: devices are listed only within the forge account that enrolled them, so a device that finds a peer and is vouched for by the store is his and nobody else's.
+Decided by the owner, 13 Nov 2026 (`armada-zasx.5`).
+
+## A phone's sign-in
+
+**Rule.** The Worker runs the forge's device flow for a phone: `POST /sign_in` asks the forge for a code, and `POST /sign_in/poll` asks whether it was entered.
+Why: the forge's sign-in endpoints answer a page on another origin with no CORS headers, so a phone's page cannot call them, and the token must not reach the phone either.
+
+**Rule.** `sign_in` takes `client_id`, 1 to 64 letters, digits, `.`, `_` and `-`, posts it to the forge's device-code endpoint, and answers the forge's `device_code`, `user_code`, `verification_uri`, `interval` and `expires_in`.
+It is counted by `ENROL_LIMIT` as an enrolment is, before it calls the forge.
+
+**Rule.** `sign_in/poll` takes `client_id`, `device_code` of 1 to 128 printable characters, and `public_key` and `machine` as `enrol` does.
+It asks the forge's access-token endpoint once per call, and the phone paces itself by `interval`.
+A poll is not counted by `ENROL_LIMIT`.
+Why: the forge's own `slow_down` bounds how often a code is asked about, and a limit of ten a minute would refuse a phone that is only waiting.
+
+**Rule.** Once the forge answers a token, the poll does what `enrol` does from the token on: the account's id from the user endpoint, the membership check on a team store, and the device registered, with the kind `phone`.
+It answers `200 {device}`.
+The token is never stored, logged or passed to the Durable Object, and the phone never sees it.
+
+| Status | `error` or `waiting` | When |
+|---|---|---|
+| 202 | `waiting: pending` | The code has not been entered yet |
+| 202 | `waiting: slow_down`, with `interval` | The phone polled too soon: the forge's longer `interval`, or 10 seconds where it names none |
+| 410 | `expired` | The code ran out |
+| 403 | `denied` | The person refused |
+| 400 | `forge_refused`, with `reason` where the forge gave one | The forge refused the client id or the code, such as `device_flow_disabled` |
+| 502 | `forge_unreachable`, `forge_unreadable` | The forge did not answer, or answered with no usable code or token |
+
+A poll that reaches a token answers what `enrol` answers for it, including `not_a_member` and `org_restricted` on a team store.
+
+## CORS
+
+**Rule.** Every answer under `/v1`, a refusal included, carries `Access-Control-Allow-Origin: *` and `Access-Control-Expose-Headers: Retry-After`.
+An `OPTIONS` request to any `/v1` path answers `204` with `Access-Control-Allow-Methods: GET, POST, PUT, DELETE`, `Access-Control-Allow-Headers` naming `Content-Type` and the four `X-Armada-*` signing headers, and `Access-Control-Max-Age: 600`.
+No answer allows credentials.
+Why: a phone's page calls the store from another origin, every call is signed or holds a one-time code, none uses a cookie, and a refusal it cannot read is a failure it cannot name.
 
 **Rule.** On a team store, enrol also asks the forge whether the token's account belongs: `GET /user/memberships/orgs/<org>` for an org, `GET /orgs/<org>/teams/<team>/memberships/<login>` for a team, at the origin of the user endpoint.
 A member is a `200` whose `state` is `active`.
@@ -238,7 +293,7 @@ The store is the default for every Armada user, so no one account may run up the
 
 | Limit | Number | Refused with |
 |---|---|---|
-| Enrolments per address per minute | 10 | `429 enrol_rate_limited` |
+| Enrolments and sign-in starts per address per minute | 10 | `429 enrol_rate_limited` |
 | Devices per account | 16 | `413 devices_full` |
 | Devices per team store | 256 | `413 devices_full` |
 | Claims per account | 10,000 | `413 claims_full` |
@@ -251,8 +306,8 @@ The store is the default for every Armada user, so no one account may run up the
 | A claim after its holder's last renewal | 30 minutes | Dropped, `404 no_claim` |
 | A contender after its asker last asked | 30 minutes | Dropped, absent from `waits` |
 
-**Rule.** `enrol` counts the client address, from `CF-Connecting-IP`, before it asks the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
-Why: every enrolment that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
+**Rule.** `enrol` and `sign_in` count the client address, from `CF-Connecting-IP`, before they ask the forge, using the Workers Rate Limiting binding `ENROL_LIMIT` in `wrangler.jsonc`.
+Why: every enrolment or sign-in start that gets past the body checks costs a call to the forge, and the binding keeps its count in Cloudflare, so no object is made for an address.
 
 **Rule.** A Worker deployed without `ENROL_LIMIT` admits every enrolment and counts none.
 A deploy goes without it only where Cloudflare refused it, and the project's file then says `joins_unlimited: true`.
@@ -276,6 +331,9 @@ Why: an account that enrolled before the table existed never enrols again, and a
 
 **Rule.** A `contenders` table made before it had `told` gets `told INTEGER NOT NULL DEFAULT 0` added by the first verified request, and keeps its rows, none of them told.
 Why: an account that enrolled before the column existed never enrols again, and a contender it holds is told once on its holder's next renewal.
+
+**Rule.** A `devices` table made before it had `kind` and `address` gets `kind TEXT NOT NULL DEFAULT 'mac'` and `address TEXT NOT NULL DEFAULT ''` added by the first verified request, and keeps its rows, each a Mac with no address.
+Why: an account that enrolled before the columns existed never enrols again, and its Macs are Macs.
 
 **Rule.** A `claims` table keyed `(repo, red)` is dropped by the first verified request, with its rows, and made again keyed `(repo, kind, key)`.
 Why: those rows name no person or title and nothing renews them, so the lapse would drop them anyway; the Mac that held one claims it again.
@@ -382,4 +440,4 @@ Why: runs are a note of how a repository runs, not a lock, so a store that is do
 
 Nothing in this repository deploys the Worker to a shared account: each person deploys his own from Bridge, [Deploying a store](#deploying-a-store).
 A self-hosted store keeps the limits above and may change the numbers in `apps/store/src/rows.ts` and the `ratelimits` entry of `wrangler.jsonc`.
-`FORGE_USER_URL` overrides the user endpoint, which is how the tests answer for the forge.
+`FORGE_USER_URL` overrides the user endpoint, and `FORGE_LOGIN_URL` the address a phone's sign-in starts at, which is how the tests answer for the forge.

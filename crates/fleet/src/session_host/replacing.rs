@@ -294,23 +294,26 @@ where
         }
         // The new Job is for the old one's project, from its start, so it takes the project's values as any Job does.
         let project = self.started_project(old, hosting.project.clone(), &hosting.manifest_id).await;
-        let made = self
-            .start_session(StartSession {
-                project,
-                manifest_id: ManifestId::carried(&hosting.manifest_id),
-                title: session.title.clone(),
-                model: hosting.model.clone(),
-                effort: hosting.effort.clone(),
-                mode: Some(mode_of(&hosting.mode)),
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await
+        let begun = StartSession {
+            project,
+            manifest_id: ManifestId::carried(&hosting.manifest_id),
+            title: session.title.clone(),
+            model: hosting.model.clone(),
+            effort: hosting.effort.clone(),
+            mode: Some(mode_of(&hosting.mode)),
+            root: None,
+            fork: None,
+            request: None,
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+            on_your_words: None,
+        };
+        // The Operator's successor is the Operator's: no repository to start in, and the mark carried.
+        let made = match hosting.operator {
+            true => self.started_hosted(begun, super::Marked::Operator).await,
+            false => self.start_session(begun).await,
+        }
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;
         let new = made.id.as_str().to_string();
         self.settings_carried(&hosting, &new).await;

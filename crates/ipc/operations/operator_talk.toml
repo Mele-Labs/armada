@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "No"
 description = "The conversation with the Operator so far"
 notes = """
-`GET /operator/talk`, answered with `OperatorTalk`: the last twenty messages, oldest first, each with the `about` it was said about, where it named one. Kept in the store, so it survives a restart.
+`GET /operator/talk`, answered with `OperatorTalk`: the last twenty messages of the old chat, oldest first, each with the `about` it was said about, where it named one. Kept in the store, so it survives a restart. **Nothing writes to it now**: his words go to the Operator's session, whose thread is the talk.
 """

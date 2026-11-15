@@ -45,6 +45,8 @@ pub enum Body {
     Repository,
     /// A page of values a project, or every project, sets: every project beside the project picked (`project.rs`).
     Values(super::project::Page),
+    /// The store a project's Jobs send their claims to: its address, the Macs signed in, Deploy and Join (`store.rs`).
+    Store,
     /// Every act with a key, each key a control (`KeyboardSettings`).
     Keyboard,
     /// The theme field, then the theme mods (`ThemeSettings`, `ModList`).
@@ -86,7 +88,7 @@ pub enum Side {
 /// A page goes under the project picked where a project layer can set anything it holds: a value of
 /// `ValuesSet`, the project's share switch, or a workflow (a project's own workflows come with #3505).
 pub fn side(entry: &Entry) -> Side {
-    let project = !super::project::keys_of(entry.body).is_empty() || entry.body == Body::Workflows;
+    let project = !super::project::keys_of(entry.body).is_empty() || matches!(entry.body, Body::Workflows | Body::Store);
     if project {
         Side::Project
     } else {
@@ -148,6 +150,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
     Section { id: "pull-requests", label: "Pull requests", palette: "Pull requests", words: &["How work lands", "delivery", "auto land", "draft", "ready", "merging", "merge", "review model", "reviews", "plans", "walks", "project"] },
     Section { id: "starting-jobs", label: "Starting Jobs", palette: "Starting Jobs", words: &["Starting Jobs", "start at once", "ask me", "operator", "tracker", "issues", "linear", "beads", "project"] },
+    Section { id: "claims-store", label: "Claims store", palette: "Claims store", words: &["Claims store", "claims", "store", "deploy", "join", "cloudflare", "token", "address", "team", "macs", "signed in", "project"] },
     Section { id: "look", label: "Look", palette: "Look", words: &["Look", "theme", "layout", "spacing", "density", "project"] },
 ];
 
@@ -156,6 +159,7 @@ pub const ENTRIES: &[Entry] = &[
     page("values:pull-requests", "Pull requests", Group::Project, Body::Values(super::project::Page::PullRequests), "git-merge", RUNNING),
     page("values:starting-jobs", "Starting Jobs", Group::Project, Body::Values(super::project::Page::StartingJobs), "play", SUCCESS),
     page("values:look", "Look", Group::Project, Body::Values(super::project::Page::Look), "layers", REVIEW),
+    page("project:claims-store", "Claims store", Group::Project, Body::Store, "database", DELIVERY),
     page("kit:workflows", "Workflows", Group::Kit, Body::Workflows, "git-branch", DELIVERY),
     page("kit:models", "Models", Group::Kit, Body::Models, "bot", ESCALATED),
     page("kit:prompts", "Prompts", Group::Kit, Body::Schema(&["prompts"]), "message-square", REVIEW),
@@ -208,10 +212,10 @@ pub fn section_id(section: &str) -> String {
     id.trim_matches('-').to_string()
 }
 
-/// A setting the generic form draws: a Json value is drawn by a pane of its own, and the Operator's are drawn on
-/// its page (`drawn`, `sections.ts`).
+/// A setting the generic form draws: a Json value is drawn by a pane of its own, and the Operator's models and
+/// pause are drawn on their own pages (`drawn`, `sections.ts`). The Operator's switch is a plain Features switch.
 pub fn drawn(setting: &Setting) -> bool {
-    let operators = setting.key.split_once('.').is_some_and(|(_, rest)| rest.starts_with("operator"));
+    let operators = setting.key != "features.operator" && setting.key.split_once('.').is_some_and(|(_, rest)| rest.starts_with("operator"));
     !matches!(setting.kind, SettingKind::Json) && !operators
 }
 
@@ -239,6 +243,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Mods(Some(ipc::ModKind::Words)) => &["words"],
         Body::Mods(Some(_)) => &["fleet-mods"],
         Body::Macs => &["macs"],
+        Body::Store => &["claims-store"],
         Body::Layout => &["layout"],
         Body::Time => &["time"],
         Body::Ways => &["ways"],
@@ -320,7 +325,7 @@ mod tests {
     #[test]
     fn the_projects_pages_are_those_a_project_layer_sets_and_this_mac_holds_the_rest_in_order() {
         let ids = |side_of: Side| ENTRIES.iter().filter(|one| side(one) == side_of).map(|one| one.id).collect::<Vec<_>>();
-        assert_eq!(ids(Side::Project), ["values:pull-requests", "values:starting-jobs", "values:look", "kit:workflows", "bridge:macs"]);
+        assert_eq!(ids(Side::Project), ["values:pull-requests", "values:starting-jobs", "values:look", "project:claims-store", "kit:workflows", "bridge:macs"]);
         let mac = ids(Side::Mac);
         assert_eq!(
             mac,
@@ -356,5 +361,16 @@ mod tests {
         let list = list();
         assert!(list.settings.iter().any(|one| !drawn(one)), "the mock holds one the form leaves out");
         assert!(settings_in(&list, "limits").iter().all(|one| drawn(one)));
+    }
+
+    #[test]
+    fn features_lists_the_operator_switch_with_fleets_own_words() {
+        let list = list();
+        let features = settings_in(&list, "features");
+        let operator = features.iter().find(|one| one.key == "features.operator").expect("Features lists the Operator");
+        assert_eq!(operator.title, "Operator");
+        assert!(matches!(operator.kind, SettingKind::Boolean));
+        assert!(operator.description.starts_with("The Operator rules on the work that arrives"));
+        assert!(drawn(operator));
     }
 }

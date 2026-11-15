@@ -193,10 +193,11 @@ impl SlotQueue {
         waiting.entries.remove(session).is_some_and(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
     }
 
-    /// What the person chose for the session, if it is in a line and he has answered.
-    pub(crate) fn chosen(&self, session: &str) -> Option<Choice> {
+    /// Whether the session waits for a slot: in a line, or its `armada worktree lease` still asking.
+    pub(crate) fn waits(&self, session: &str) -> bool {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
-        waiting.entries.get(session).map(|one| one.choice)
+        let now = std::time::Instant::now();
+        waiting.entries.contains_key(session) || waiting.wants.get(session).is_some_and(|want| want.fresh(now))
     }
 
     /// The session's call, while the person has not answered it or a slot he asked for is being

@@ -54,6 +54,17 @@ pub(crate) fn store_directory(profile: &Path, address: &StoreAddress) -> PathBuf
     profile.join("stores").join(name)
 }
 
+/// A store a project here names that this Mac joined, as the Phone Gateway reaches it for pairing through his
+/// store.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JoinedStore {
+    pub address: String,
+    /// The project names a team for it, so it is not his alone.
+    pub team: bool,
+    /// The folder of the first profile joined to it: its key and device id.
+    pub directory: PathBuf,
+}
+
 /// The profiles the repositories at `roots` are bound to, each once, in the order of `roots`: **who this
 /// Mac joins as**, since each repository's claims go as its own profile. Blocking, as reading a
 /// repository's name may run `git`.
@@ -152,6 +163,26 @@ where
                 None
             }
         }
+    }
+
+    /// Every store the projects here name that this Mac joined, in project order, each once. Reads files only.
+    pub fn stores_joined_here(&self) -> Vec<JoinedStore> {
+        let held = self.projects_held();
+        let mut joined: Vec<JoinedStore> = Vec::new();
+        for store in held.running().filter_map(core_model::Project::store) {
+            if joined.iter().any(|one| one.address == store.address.as_str()) {
+                continue;
+            }
+            if let Some(directory) = self.signing_in().joined_directory(&store.address) {
+                joined.push(JoinedStore { address: store.address.as_str().to_string(), team: store.team.is_some(), directory });
+            }
+        }
+        joined
+    }
+
+    /// The sign-in app's client id, as the machine's settings hold it now. Blank where none is set.
+    pub fn sign_in_client_id(&self) -> String {
+        self.machine_settings().now().get(keys::ACCOUNT_CLIENT_ID)
     }
 
     /// Name `store` as project `project`'s, or none, in its file, and answer the projects as every
@@ -266,7 +297,12 @@ where
         })
         .await
         .unwrap_or_else(|why| Err(Joining::Store(StoreError::Unreachable(format!("the join was abandoned: {why}")))));
-        joined.map_err(|why| self.join_refusal(why))
+        joined.map_err(|why| self.join_refusal(why))?;
+        // The Gateway says where this Mac is reached to the store it joined, so his other devices find it.
+        if let Ok(switch) = self.phone_switch() {
+            switch.stores_joined();
+        }
+        Ok(())
     }
 
     fn store_malformed(&self, why: &MalformedStore) -> Refusal {

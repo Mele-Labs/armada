@@ -97,6 +97,23 @@ async fn wait_leaves_the_command_looking_and_takes_the_call_off() {
     assert_eq!(rig.fleet.vcs().slot_holders(&rig.root).len(), 8, "no slot was made");
 }
 
+/// A Job whose lease still asks waits for a slot, so its quiet turn is no stop.
+#[tokio::test]
+async fn a_job_whose_lease_still_asks_is_not_owed_a_stop() {
+    let rig = rig_placing(None);
+    for n in 1..=8 {
+        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+    }
+    let id = idle_without_a_slot(&rig).await;
+    asking(&rig, &id, AskForSlotAct::Ask).await;
+    choose(&rig, &id, 0).await;
+    super::session_stops::aged(&rig, &id).await;
+
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "the call is off his list");
+    assert!(record.stop_told_by.is_none(), "its lease is still asking");
+}
+
 #[tokio::test]
 async fn add_holds_the_new_slot_for_the_command_ahead_of_the_line_until_it_is_done() {
     let (rig, _holder) = with_slot_one_held().await;

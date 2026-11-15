@@ -45,6 +45,7 @@ where
         let (manifest, cwd) = match (marked, start.root.take()) {
             _ if loose.is_some() => (None, loose.clone().unwrap_or_default()),
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
+            (Marked::Operator, _) => (None, self.operator_dir().to_string_lossy().into_owned()),
             (_, Some(root)) => {
                 let repository = self.repository_named(Some(&root))?;
                 let manifest = repository
@@ -152,6 +153,7 @@ where
                     project,
                     side_job: side.is_some(),
                     terminal_dir: side.and_then(|side| side.terminal_dir),
+                    operator: marked == Marked::Operator,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             if holds_lifecycles {

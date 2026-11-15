@@ -81,8 +81,10 @@ address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 
 **A full pool queues the job, and asks the owner what to do about it.** Every
 slot held, the write is refused with the job's place in its repository's
-line, the news that the owner is being asked, and the instruction to stop for the
-turn. The line is in Fleet's memory, first come first served, and a job is in
+line and the instruction to end the turn and say nothing to the owner about it.
+**While a job waits for a slot Fleet tells it nothing**, whether it is in the line
+or its `armada worktree lease` is still asking: every notice for it reads as unheard,
+so its caller tells it once the job is moved in, and its quiet is no stop. The line is in Fleet's memory, first come first served, and a job is in
 it once; a job behind others is not leased a slot a moment before the one
 ahead of it. **The owner's call is `slot_choice`**, a derived waiting item with
 id `slot-choice`, text *Every slot is in use* and two options, *Wait for a slot*

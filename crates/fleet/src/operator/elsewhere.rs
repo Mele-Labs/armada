@@ -16,22 +16,138 @@ use core_model::Actor;
 use ipc::{Notice, PlanOverlap, SessionId, SessionRecord, SessionState};
 use store::{FromMac, Store};
 
-use super::arriving::{Arrival, Arrived, LiveJob, Source};
-use super::candidates::{near, shared_paths, Near};
-use super::ruling::{Outcome, Way};
-use super::thening::paths_in;
-use super::Logged;
+use super::{Logged, Outcome};
 use crate::daemon::Fleet;
-use crate::session_issues::ISSUE;
 
 /// How long a Mac may be asleep, in seconds, before its rows are left out.
 pub(crate) const ASLEEP_PAST: i64 = 2 * 60 * 60;
 
-/// A live Job another Mac shares, as the Operator weighs it.
+/// A live Job another Mac shares, as a start is weighed against it.
 pub(crate) struct ElsewhereJob {
     mac: String,
     mac_name: String,
-    job: LiveJob,
+    job: SharedJob,
+}
+
+/// A Job on another Mac: its plan's paths, the issues it holds and its words.
+struct SharedJob {
+    session_id: String,
+    title: String,
+    manifest_id: String,
+    words: String,
+    paths: Vec<String>,
+}
+
+/// What a Job on another Mac shares with a start.
+struct Near {
+    paths: Vec<String>,
+    words: Vec<String>,
+}
+
+impl Near {
+    fn said(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.paths.is_empty() {
+            parts.push(format!("paths {}", self.paths.join(", ")));
+        }
+        if !self.words.is_empty() {
+            parts.push(format!("words {}", self.words.join(", ")));
+        }
+        parts.join("; ")
+    }
+}
+
+/// Words this short, or this common in a request, say nothing about what the work is.
+const SHORTEST_WORD: usize = 5;
+const COMMON: &[&str] = &[
+    "about", "after", "again", "agent", "before", "being", "build", "change", "could", "every", "fixed", "first", "issue", "should",
+    "their", "there", "these", "thing", "think", "those", "where", "which", "while", "would", "write", "armada",
+];
+/// Shared words that make two Jobs near, where nothing else does.
+const WORDS_NEAR: usize = 2;
+/// The most shared words shown for one pair.
+const WORDS_SHOWN: usize = 5;
+
+/// What `job` shares with a start's `paths` and words, where it shares anything.
+fn near(paths: &[String], subject: &str, words: &str, job: &SharedJob) -> Option<Near> {
+    let ours = uncommon(&format!("{subject} {words}"));
+    let paths = shared_paths(paths, &job.paths);
+    let theirs = uncommon(&format!("{} {}", job.title, job.words));
+    let mut shared: Vec<String> = ours.intersection(&theirs).cloned().collect();
+    if shared.len() < WORDS_NEAR {
+        shared.clear();
+    }
+    shared.truncate(WORDS_SHOWN);
+    (!paths.is_empty() || !shared.is_empty()).then_some(Near { paths, words: shared })
+}
+
+/// The paths `text` names: words with a `/` in them that end in a file's extension or a folder's slash.
+fn paths_in(text: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for word in text.split(|one: char| one.is_whitespace() || matches!(one, ',' | ';' | ':' | '(' | ')' | '"' | '\'' | '`' | '<' | '>' | '[' | ']')) {
+        let path = word.trim_end_matches('.').trim_start_matches("./");
+        let last = path.rsplit('/').next().unwrap_or_default();
+        if path.contains('/') && !path.contains("//") && (path.ends_with('/') || last.contains('.')) && !found.iter().any(|one| one == path) {
+            found.push(path.to_string());
+        }
+    }
+    found
+}
+
+/// Each of `ours` that meets one of `theirs`, the more exact of the two named.
+pub(crate) fn shared_paths(ours: &[String], theirs: &[String]) -> Vec<String> {
+    let mut shared = BTreeSet::new();
+    for one in ours {
+        for other in theirs {
+            if let Some(met) = met(one, other) {
+                shared.insert(met.to_string());
+            }
+        }
+    }
+    shared.into_iter().collect()
+}
+
+/// Where two paths meet: the same file, a file under a folder the other names, or under a pattern's
+/// fixed start. The longer of the two, which names the place more exactly.
+fn met<'a>(one: &'a str, other: &'a str) -> Option<&'a str> {
+    let (a, b) = (fixed(one), fixed(other));
+    if a.0.is_empty() || b.0.is_empty() {
+        return None;
+    }
+    let under = |path: (&str, bool), place: (&str, bool)| {
+        path.0 == place.0 || (place.1 && path.0.starts_with(place.0)) || (path.0.starts_with(place.0) && path.0[place.0.len()..].starts_with('/'))
+    };
+    if under(a, b) {
+        Some(one)
+    } else if under(b, a) {
+        Some(other)
+    } else {
+        None
+    }
+}
+
+/// A path up to its first pattern character, without a leading `./` or a trailing `/`, and whether it was a pattern.
+fn fixed(path: &str) -> (&str, bool) {
+    let path = path.trim().trim_start_matches("./");
+    match path.find(['*', '?', '[', '{']) {
+        Some(at) => (&path[..at], true),
+        None => (path.trim_end_matches('/'), false),
+    }
+}
+
+/// The uncommon words of `text`, lowercased, with a plural's `s` dropped.
+fn uncommon(text: &str) -> BTreeSet<String> {
+    text.split(|one: char| !one.is_alphanumeric())
+        .filter(|word| word.chars().count() >= SHORTEST_WORD)
+        .map(|word| {
+            let word = word.to_lowercase();
+            match word.strip_suffix('s') {
+                Some(single) if single.chars().count() >= SHORTEST_WORD && !single.ends_with('s') => single.to_string(),
+                _ => word,
+            }
+        })
+        .filter(|word| !COMMON.contains(&word.as_str()) && !word.chars().all(|one| one.is_ascii_digit()))
+        .collect()
 }
 
 /// A paired Mac whose rows were left out, asleep for `for_secs`.
@@ -122,30 +238,23 @@ pub(crate) fn elsewhere(store: &Store, now: i64) -> Elsewhere {
     found
 }
 
-/// A row from another Mac as a live Job is weighed: its plan's paths, the issues it holds or its plan works, and
-/// its words, which are its plan's summary and group titles.
-fn weighed(record: &SessionRecord) -> LiveJob {
+/// A row from another Mac as a Job is weighed: its plan's paths and its words, which are its plan's summary and group titles.
+fn weighed(record: &SessionRecord) -> SharedJob {
     let mut paths = BTreeSet::new();
-    let mut issues = BTreeSet::new();
     let mut words = Vec::new();
     if let Some(plan) = &record.plan {
         words.push(plan.summary.clone());
         for group in &plan.groups {
             paths.extend(group.paths.iter().cloned());
-            issues.extend(group.issue.iter().cloned());
             words.push(group.title.clone());
         }
     }
-    issues.extend(record.attachments.iter().filter(|one| one.kind == ISSUE).map(|one| one.target.clone()));
-    LiveJob {
+    SharedJob {
         session_id: record.id.as_str().to_string(),
         title: record.title.clone().unwrap_or_else(|| record.id.as_str().to_string()),
         manifest_id: record.manifest_id.as_ref().map(|id| id.as_str().to_string()).unwrap_or_default(),
         words: words.join(". "),
         paths: paths.into_iter().collect(),
-        issues: issues.into_iter().collect(),
-        running: Vec::new(),
-        started_by: Vec::new(),
     }
 }
 
@@ -182,23 +291,12 @@ where
             return FoundElsewhere::default();
         }
         let Elsewhere { jobs, asleep } = elsewhere(&*self.store().lock().await, self.unix_seconds());
-        let arrival = Arrival {
-            id: String::new(),
-            arrived: Arrived::Start,
-            source: Source::Fleet,
-            session_id: String::new(),
-            manifest_id: manifest.to_string(),
-            subject: subject.to_string(),
-            words: words.to_string(),
-            paths: paths_in(words),
-            issues: Vec::new(),
-            ways: Vec::new(),
-            open: Vec::new(),
-        };
+        let paths = paths_in(words);
         let near = jobs
             .into_iter()
+            .filter(|one| one.job.manifest_id == manifest)
             .filter_map(|one| {
-                let found = near(&arrival, std::slice::from_ref(&one.job)).into_iter().next()?;
+                let found = near(&paths, subject, words, &one.job)?;
                 Some((one, found))
             })
             .collect();
@@ -220,11 +318,10 @@ where
         if found.is_empty() {
             return;
         }
-        let mut row = Logged::about(job, manifest, subject, Outcome::Ruled(Way::NewJob), Actor::Operator, self.now());
+        let mut row = Logged::about(job, manifest, subject, Outcome::Started, Actor::Operator, self.now());
         row.arrival = format!("elsewhere:{job}");
         row.shared = found.near.iter().flat_map(|(_, near)| near.paths.iter().cloned()).collect();
         row.because = found.because();
         self.operator_logged(row).await;
-        self.operator_board_changed();
     }
 }

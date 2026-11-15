@@ -1,35 +1,21 @@
-//! The Operator's [`Desk`] on a running Fleet: its clock, its settings and its store.
-
-use std::collections::BTreeSet;
-use std::sync::{Arc, Weak};
+//! What the Operator reads of a running Fleet: its switch, the live Jobs, a repository's name and what went
+//! wrong, in Fleet's log.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::Timestamp;
-use ipc::{SessionRow, SessionVoice};
-use store::{AttachmentState, Holder};
+use config::settings as keys;
+use core_model::{Component, Envelope, FieldValue, Level};
 
-use super::{Desk, Done, InLine, LiveJob, Logged, Paused};
-use crate::session_issues::ISSUE;
-use crate::adrift::Adrift;
+use super::LiveJob;
 use crate::daemon::Fleet;
 
-/// The attachment on a started Job that names the Job that started it.
-const STARTED_BY: &str = "started_by";
+/// The most of a first line a title made of words keeps.
+const TITLE_CHARS: usize = 60;
 
-/// Fleet as the Operator reaches it. A store failure is said through `adrift`. **Held weakly**, since Fleet holds the
-/// Operator that holds this: a Fleet that is gone has no Jobs and makes no calls.
-pub struct FleetDesk<H, V, W> {
-    fleet: Weak<Fleet<H, V, W>>,
-    adrift: Box<dyn Fn(Adrift) + Send + Sync>,
+pub(super) fn first_line(words: &str) -> String {
+    words.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default().chars().take(TITLE_CHARS).collect()
 }
 
-impl<H, V, W> FleetDesk<H, V, W> {
-    pub fn on(fleet: &Arc<Fleet<H, V, W>>, adrift: impl Fn(Adrift) + Send + Sync + 'static) -> FleetDesk<H, V, W> {
-        FleetDesk { fleet: Arc::downgrade(fleet), adrift: Box::new(adrift) }
-    }
-}
-
-impl<H, V, W> Desk for FleetDesk<H, V, W>
+impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
     H::Error: std::error::Error + Send + Sync + 'static,
@@ -39,170 +25,61 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn now(&self) -> Timestamp {
-        match self.fleet.upgrade() {
-            Some(fleet) => fleet.now(),
-            None => Timestamp::from_rfc3339(crate::clock::rfc3339_utc(0)),
+    /// The Operator's own switch, as settings.json reads now. Off is Fleet as it was before it.
+    pub(crate) fn operator_on(&self) -> bool {
+        self.machine_settings().now().get(keys::OPERATOR)
+    }
+
+    pub(super) async fn title_of(&self, id: &str) -> String {
+        let session = self.store().lock().await.session(id).ok().flatten();
+        session.and_then(|one| one.title).unwrap_or_else(|| id.to_string())
+    }
+
+    /// Every hosted Job not ended.
+    pub(super) async fn live_jobs(&self) -> Vec<LiveJob> {
+        let store = self.store().lock().await;
+        let Ok(hostings) = store.hostings() else { return Vec::new() };
+        hostings
+            .into_iter()
+            .filter_map(|hosting| {
+                let session = store.session(&hosting.session_id).ok().flatten().filter(|session| session.state != store::SessionState::Ended)?;
+                Some(LiveJob { title: session.title.unwrap_or_else(|| session.id.clone()), session_id: session.id, manifest_id: hosting.manifest_id })
+            })
+            .collect()
+    }
+
+    /// The name a repository goes by on the page, from the root's last folder.
+    pub(super) fn board_repository(&self, manifest_id: &str) -> Option<String> {
+        self.repositories().hosted().into_iter().find(|one| one.manifest().id().as_str() == manifest_id).map(|one| {
+            let root = one.root();
+            std::path::Path::new(root).file_name().map_or_else(|| root.to_string(), |name| name.to_string_lossy().to_string())
+        })
+    }
+
+    /// The master switch was possibly moved by a save or a hand edit: keep the moment where it differs
+    /// from `was_on`, and tell Bridge to read the page again. A save that left it alone keeps and tells nothing.
+    pub(crate) async fn operator_switched(&self, was_on: bool) {
+        let on = self.operator_on();
+        if on == was_on {
+            return;
         }
-    }
-
-    fn plan_pause(&self) -> Done<'_, Option<Paused>> {
-        Box::pin(async move {
-            let fleet = self.fleet.upgrade()?;
-            fleet.operator_paused().await
-        })
-    }
-
-    /// Every hosted Job not ended, with what Fleet holds of its work: its plan's
-    /// paths and the files it has written, the issues it holds or its plan works, and its words,
-    /// which are its plan where it has one and its first message where it has not.
-    fn live(&self) -> Done<'_, Vec<LiveJob>> {
-        Box::pin(async move {
-            let Some(fleet) = self.fleet.upgrade() else { return Vec::new() };
-            let store = fleet.store().lock().await;
-            let hostings = match store.hostings() {
-                Ok(hostings) => hostings,
-                Err(why) => {
-                    (self.adrift)(Adrift::Writing(why));
-                    return Vec::new();
-                }
-            };
-            let mut live = Vec::new();
-            for hosting in hostings.into_iter() {
-                let Ok(Some(session)) = store.session(&hosting.session_id) else { continue };
-                if session.state == store::SessionState::Ended {
-                    continue;
-                }
-                let (paths, issues, words) = held_of(&store, &session.id);
-                let held = store.attachments_of(&Holder::session(&session.id)).unwrap_or_default();
-                let running = fleet.running_of(&session.id, &held);
-                let started_by = started_by_chain(&store, &session.id);
-                live.push(LiveJob {
-                    title: session.title.unwrap_or_else(|| session.id.clone()),
-                    session_id: session.id,
-                    manifest_id: hosting.manifest_id,
-                    words,
-                    paths,
-                    issues,
-                    running,
-                    started_by,
-                });
-            }
-            live
-        })
-    }
-
-    fn waiting(&self) -> Done<'_, Vec<InLine>> {
-        Box::pin(async move {
-            match self.fleet.upgrade() {
-                Some(fleet) => fleet.waiting_to_start().await,
-                None => Vec::new(),
-            }
-        })
-    }
-
-    fn board(&self) -> Done<'_, super::Board> {
-        Box::pin(async move {
-            match self.fleet.upgrade() {
-                Some(fleet) => fleet.operator_board().await,
-                None => super::Board::default(),
-            }
-        })
-    }
-
-    fn jobs_read(&self, live: &[LiveJob]) -> Done<'_, Vec<super::talking::JobRead>> {
-        let ids: Vec<String> = live.iter().map(|one| one.session_id.clone()).collect();
-        Box::pin(async move {
-            match self.fleet.upgrade() {
-                Some(fleet) => fleet.operator_jobs_read(&ids).await,
-                None => Vec::new(),
-            }
-        })
-    }
-
-    fn to_read(&self, live: &[LiveJob], needs: &[super::NeedsYou]) -> Done<'_, Option<super::ToRead>> {
-        let (live, needs) = (live.to_vec(), needs.to_vec());
-        Box::pin(async move {
-            let fleet = self.fleet.upgrade()?;
-            Some(fleet.operator_to_read(&live, &needs).await)
-        })
-    }
-
-    fn board_changed(&self) {
-        if let Some(fleet) = self.fleet.upgrade() {
-            fleet.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));
+        self.operator_page_changed();
+        let kept = self.store().lock().await.add_operator_switch(&store::KeptSwitch { on, at: self.now().as_str().to_string() });
+        if let Err(why) = kept {
+            self.operator_warned("a move of the Operator's switch was not kept", why);
+            return;
         }
+        self.operator_board_changed();
     }
 
-    fn keep(&self, row: Logged) -> Done<'_, ()> {
-        Box::pin(async move {
-            // A call out when the Operator was turned off is recorded nowhere, as if it had not been made.
-            let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_on()) else { return };
-            let kept = fleet.store().lock().await.add_operator_ruling(&row.kept());
-            if let Err(why) = kept {
-                (self.adrift)(Adrift::Writing(why));
-                return;
-            }
-            let subject = row.subject.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
-            fleet.operator_journaled(&format!("Ruled: \"{subject}\" went {}. {}", row.outcome.word(), row.because)).await;
-        })
+    /// The switch moved: the page's `on` is read again.
+    pub(super) fn operator_board_changed(&self) {
+        self.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));
     }
-}
 
-/// Who started `id`, nearest first and up to the root: `(id, title)` of its starter, then of the
-/// starter's. Read from each Job's own `started_by` attachment, which is the row already read for
-/// its issues, so no new read. An ended starter still counts; a repeat ends the walk.
-pub(super) fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, String)> {
-    let mut chain: Vec<(String, String)> = Vec::new();
-    let mut at = id.to_string();
-    loop {
-        let held = store.attachments_of(&Holder::session(&at)).unwrap_or_default();
-        let Some(starter) = held.into_iter().find(|one| one.kind == STARTED_BY).map(|one| one.target) else { break };
-        if starter == id || chain.iter().any(|(seen, _)| *seen == starter) {
-            break;
-        }
-        let title = store.session(&starter).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| starter.clone());
-        chain.push((starter.clone(), title));
-        at = starter;
+    /// What went wrong for the Operator, in Fleet's log.
+    pub(super) fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg).with_field("why", FieldValue::Str(why.to_string()));
+        crate::transcript::note_aloud(&envelope);
     }
-    chain
-}
-
-/// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
-pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
-    let mut paths = BTreeSet::new();
-    let mut issues = BTreeSet::new();
-    let plan = store.session_plan(id).ok().flatten();
-    let words = match &plan {
-        Some(plan) => {
-            let mut words = vec![plan.summary.clone()];
-            for group in &plan.groups {
-                paths.extend(group.paths.iter().cloned());
-                issues.extend(group.issue.iter().cloned());
-                words.push(group.title.clone());
-            }
-            words.join(". ")
-        }
-        None => first_words(store, id),
-    };
-    paths.extend(store.session_touches(id).unwrap_or_default().into_iter().map(|touch| touch.path));
-    let held = store.attachments_of(&Holder::session(id)).unwrap_or_default();
-    issues.extend(held.into_iter().filter(|one| one.kind == ISSUE && one.state != AttachmentState::GivenBack).map(|one| one.target));
-    (paths.into_iter().collect(), issues.into_iter().collect(), words)
-}
-
-/// The first message in a Job's thread that is not its agent's: the dispatch, or the brief the
-/// Job that started it wrote.
-pub(super) fn first_words(store: &store::Store, id: &str) -> String {
-    store
-        .session_rows(id)
-        .unwrap_or_default()
-        .iter()
-        .filter(|body| body.contains("\"message\""))
-        .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
-        .find_map(|row| match row {
-            SessionRow::Message { from, text, notice: None, .. } if from != SessionVoice::Agent => Some(text),
-            _ => None,
-        })
-        .unwrap_or_default()
 }

@@ -219,7 +219,7 @@ WebSocket event stream, read this first.
 | [A Job's wait on a held item: `SessionRecord.claim_waits`, `claims_unsent`](protocol/a-jobs-wait-on-a-held-item.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
-| [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
+| [The Operator's page, kept by Fleet: `operator_page`, the card acts and `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
 | [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
 | [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
 | [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
@@ -1604,6 +1604,10 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
+**A record of what was.** Fleet keeps no suggestion now: the Operator rules nothing, and no row is raised with `WaitingSource::OperatorSuggestion` except Fleet's own red main and disk hold on the Operator's page.
+Pressing an old one is refused with `fleet.session_waiting_empty`.
+`WaitingItem.operator_read` is never set.
+
 An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
@@ -1617,6 +1621,10 @@ A suggestion on a report with no Job behind it, or on a note the person left on 
 A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
 ## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
+
+**What stands now.** `talk_to_operator` delivers his words to the Operator's own session and answers an empty `OperatorSaid`; it is refused with `fleet.operator_session_not_running` while none runs.
+`operator_talk` reads the old conversation back and nothing writes to it.
+The call that read his words, `cites`, `job`, `started`, `forgot`, `lifted` and the other fields of the answer are gone from what Fleet fills; the holds and `confirm_operator_order` stand as below.
 
 The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
@@ -1635,6 +1643,9 @@ The box at the foot of the Operator panel, and the holds it turns words into. No
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
 ## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion`, `report_bridge_error` and `operator.board_changed`
+
+**A record of what was**, save `report_bridge_error` and `operator.board_changed`.
+`get_operator_board`, `move_on_operator_board` and `answer_operator_suggestion` are removed with their types, and the router answers 404. `report_bridge_error` now tells the Operator's session, and `operator.board_changed` is published when the switch moves.
 
 The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 
@@ -2030,3 +2041,42 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
+
+## What the running build holds: `FleetBuildReport.holds`
+
+Since 14 Nov 2026.
+**Additive only**: one field on an existing type, one optional field on `OriginBranch`, and the type `holds` carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `HeldBranch` and `OriginBranch.title` in `packages/protocol/src/building.ts`, written by hand, field for field.
+Electron reads none of it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `FleetBuildReport` (`get_fleet_build`) | Fleet writes, Bridge reads | Gains `holds`, absent when empty: the `[[job]]` rows of `builds/current`, whatever Keep or a pick said |
+| `HeldBranch` | Fleet writes | `{ branch, title?, landed? }`. `landed` is left out when false |
+| `OriginBranch` | Fleet writes | Gains `title?`, the Job here that held the branch last, ended Jobs included |
+
+**`trying` empties after Keep and `picked` follows the person's picks**, so neither says what the running build holds; `holds` does.
+`title` is the live Job holding the branch, else the Job whose ledger `branch` row was settled last, which outlives the Job.
+A branch no Job here ever held, such as one worked in a worktree cut by hand, has none.
+`landed` is the tip the build recorded for the row being on `origin/main` as last fetched, so a branch deleted once it merged still reads landed.
+`origin` no longer lists plumbing: the merge queue's `gh-readonly-queue/*`, beads' `__dolt_remote_info__`, and each Mac's `preview/*`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event.
+## The signed-out account's name: `AgentSignIn.account`
+
+Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge names the account with it on the signed-out toast, and says "the agent" where it is absent.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `AgentSignIn` (`get_agent_sign_in`, `start_agent_sign_in`, `agent_sign_in.changed`) | Fleet writes, Bridge reads | Gains `account`, absent when empty: the account's name as a person knows it, from the harness's adapter |
+
+**So Bridge names the account without spelling it.** A vendor's name lives in `adapters` alone, and Fleet fills the field from there on every state it sends.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.

@@ -543,7 +543,7 @@ impl SettingsOverlay {
                 window,
             );
             let control = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(line(look).child(labelled(control, Role::Switch, one.title.clone())).children(reset)).children(refused_line);
-            return split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, control: control.into_any_element() }, first).into_any_element();
+            return split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, glyph: None, control: control.into_any_element() }, first).into_any_element();
         }
 
         let typed_field: AnyElement = match (&one.kind, self.typed.get(&key)) {
@@ -681,7 +681,7 @@ impl SettingsOverlay {
             .child(control)
             .children(range_said.map(|said| labelled(refusal(look, said.clone()).id(SharedString::from(format!("range-{key}"))), Role::Alert, said)))
             .children(refused_line);
-        split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, control: control.into_any_element() }, first).into_any_element()
+        split_row(look, spread, Row { id: SharedString::from(format!("row-{key}")), title, tip: Some(tip_said), chips, says: words, changed, glyph: None, control: control.into_any_element() }, first).into_any_element()
     }
 
     pub(super) fn save_button(&self, one: &Setting, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -887,7 +887,7 @@ impl SettingsOverlay {
         }
         let words = (!one.description.is_empty()).then(|| says(look, one.description.clone()).into_any_element()).into_iter().collect();
         let control = div().flex().flex_col().gap(look.length(token::SPACE_2)).children(body);
-        let row = split_row(look, spread, Row { id: "row-reach".into(), title: "Folders jobs reach".into(), tip: Some(REACH_FOLDERS.into()), chips: Vec::new(), says: words, changed: false, control: control.into_any_element() }, true);
+        let row = split_row(look, spread, Row { id: "row-reach".into(), title: "Folders jobs reach".into(), tip: Some(REACH_FOLDERS.into()), chips: Vec::new(), says: words, changed: false, glyph: None, control: control.into_any_element() }, true);
         Some(labelled(rows_card(look, "settings-card-reach", vec![row.into_any_element()]), Role::Region, "Folders jobs reach").into_any_element())
     }
 
@@ -951,6 +951,9 @@ impl SettingsOverlay {
         if let Some((entry, Body::Values(page))) = shown.map(|one| (one, one.body)) {
             return super::project::page(self, entry, page, look, window, cx);
         }
+        if let Some(entry) = shown.filter(|one| one.body == Body::Store) {
+            return self.render_store(entry, look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
@@ -968,7 +971,7 @@ impl SettingsOverlay {
             }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
             Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
-            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Time) => {}
+            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Store | Body::Time) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
@@ -999,6 +1002,12 @@ impl SettingsOverlay {
             self.workflow_keys(cx);
             self.detail_keys(window, cx);
             self.read_lanes(window, cx);
+        }
+        if self.shown(cx).is_some_and(|one| one.body == Body::Store) {
+            self.read_store(window, cx);
+            self.store_keys(cx);
+        } else {
+            self.store.reopen();
         }
         if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
             self.read_macs(window, cx);

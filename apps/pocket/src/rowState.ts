@@ -1,11 +1,12 @@
 // What a row on Home says of a Job. Rows hold what the Gateway lists, not the whole Job, so this reads those fields in
 // `jobStateOf`'s order, with its words.
 
-import { limitHeldSaid, type SessionState } from "@armada/components";
+import { bucketOf, limitHeldSaid, type SessionState } from "@armada/components";
 import type { HeldOpenBy } from "@armada/protocol";
 import { repairSaid, restartSaid, stoppedSaid, waitOf } from "@armada/screens/src/session-state";
 import { startsWhenSaid } from "@armada/screens/src/session-waits";
 
+import type { Item } from "./fleet";
 import type { PhoneHold, PhoneSession } from "./gateway";
 
 const heldOf = (one: PhoneHold): HeldOpenBy =>
@@ -139,4 +140,42 @@ export function rowStateOf(session: PhoneSession): {
     state: "idle",
     said: "Idle",
   };
+}
+
+export type Lamp = "needs" | "failed" | "running" | "done" | "idle";
+
+/** The row's lamp: Fleet's where the Gateway sends its mark, else read off the state as Fleet reads it. */
+export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
+  if (item.session.mark !== undefined) return item.session.mark.lamp;
+  const { state } = item;
+  if (state === "failing" || state === "unstarted") return "failed";
+  if (state === "done") return "done";
+  const bucket = bucketOf(state);
+  return bucket === "needs" ? "needs" : bucket === "working" ? "running" : "idle";
+}
+
+/** Where a Job stands in its project, as native's `standing_of`: Needs you first, then the loudest inside it. */
+export function standingOf(item: Pick<Item, "session" | "state">): [
+  number,
+  number,
+] {
+  const lamp = lampOf(item);
+  const group =
+    item.session.mark?.group ??
+    (bucketOf(item.state) === "needs"
+      ? "needs"
+      : bucketOf(item.state) === "working"
+        ? "working"
+        : bucketOf(item.state) === "waiting" || item.state === "paused"
+          ? "held"
+          : "done");
+  return [
+    {
+      needs: 0,
+      working: 1,
+      held: 2,
+      done: 3,
+    }[group],
+    lamp === "failed" ? 0 : lamp === "needs" ? 1 : 2,
+  ];
 }
