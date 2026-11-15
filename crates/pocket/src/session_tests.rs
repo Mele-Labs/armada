@@ -834,3 +834,66 @@ fn a_row_with_none_of_them_leaves_their_keys_out() {
         assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
     }
 }
+
+/// One signed call through the Gateway, with the `Content-Type` it came back as: `send` drops it.
+async fn typed(app: &App, method: Method, path: &str, body: &str) -> (StatusCode, String, String) {
+    use tower::ServiceExt;
+    let time = app.rig.now.fetch_add(1, Ordering::Relaxed) + 1;
+    let mut request = axum::http::Request::builder().method(method.clone()).uri(path);
+    for (name, value) in signed(&app.device, method.as_str(), path, time, body) {
+        request = request.header(name, value);
+    }
+    let answer = app.rig.app.clone().oneshot(request.body(axum::body::Body::from(body.to_string())).unwrap()).await.unwrap();
+    let kind = answer.headers().get("content-type").and_then(|value| value.to_str().ok()).unwrap_or_default().to_string();
+    let status = answer.status();
+    let body = axum::body::to_bytes(answer.into_body(), 1 << 20).await.unwrap();
+    (status, kind, String::from_utf8(body.to_vec()).unwrap())
+}
+
+#[tokio::test]
+async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as_listed() {
+    let calls = Seen::default();
+    let recorded = calls.clone();
+    // Fleet, answering by path: the page as sealed HTML, the file as a refusal, the rest as JSON.
+    let fleet = Router::new().fallback(move |method: Method, uri: axum::http::Uri, body: String| async move {
+        let target = uri.path_and_query().map(ToString::to_string).unwrap_or_default();
+        recorded.lock().unwrap().push((format!("{method} {target}"), body));
+        match uri.path() {
+            "/sessions/artifacts/page" => (StatusCode::OK, [("content-type", "text/html; charset=utf-8")], "<p>page</p>".to_string()),
+            "/sessions/repository_file" => (StatusCode::NOT_FOUND, [("content-type", "application/json")], r#"{"code":"fleet.no_file"}"#.to_string()),
+            _ => (StatusCode::OK, [("content-type", "application/json")], r#"{"ok":true}"#.to_string()),
+        }
+    });
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, fleet).await });
+    let app = on(port).await;
+
+    let json = "application/json";
+    let ok = r#"{"ok":true}"#;
+    let table: [(Method, &str, &str, StatusCode, &str, &str); 9] = [
+        (Method::GET, "/api/sessions/artifacts?session_id=s1", "", StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/artifacts/page?session_id=s1&artifact=a1&revision=3", "", StatusCode::OK, "text/html; charset=utf-8", "<p>page</p>"),
+        (Method::POST, "/api/sessions/artifacts/part/answer", r#"{"session_id":"s1","part":"p1"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/press", r#"{"session_id":"s1","action":"go"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/vote", r#"{"session_id":"s1","vote":"up"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/seen", r#"{"session_id":"s1","artifact":"a1"}"#, StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/thread?session_id=s1&limit=20&before=r9", "", StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/repository_file?session_id=s1&path=src%2Flib.rs", "", StatusCode::NOT_FOUND, json, r#"{"code":"fleet.no_file"}"#),
+        (Method::POST, "/api/sessions/ready_to_try/answer", r#"{"session_id":"s1","card":"c1"}"#, StatusCode::OK, json, ok),
+    ];
+    for (method, path, body, status, kind, answer) in table {
+        let before = calls.lock().unwrap().len();
+        let got = typed(&app, method.clone(), path, body).await;
+        assert_eq!(got, (status, kind.to_string(), answer.to_string()), "{method} {path}");
+        let seen = calls.lock().unwrap()[before..].to_vec();
+        let at_fleet = path.strip_prefix("/api").unwrap();
+        assert_eq!(seen, [(format!("{method} {at_fleet}"), body.to_string())], "{method} {path}");
+
+        // The other method is not on the list: unlisted, and Fleet is not asked.
+        let other = if method == Method::GET { Method::POST } else { Method::GET };
+        let refused = typed(&app, other.clone(), path, "").await;
+        assert_eq!(refused.0, StatusCode::NOT_FOUND, "{other} {path}");
+        assert_eq!(calls.lock().unwrap().len(), before + 1, "{other} {path} reached Fleet");
+    }
+}
