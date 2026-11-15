@@ -17,7 +17,7 @@ use gpui::{
     Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
+use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState, WaitingSource};
 
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
@@ -451,6 +451,25 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
     Some(placed)
 }
 
+/// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
+/// by its kind where its words do not. Otherwise what it is doing now, or what it last summed up.
+fn now_of(job: &SessionRecord) -> Option<String> {
+    let waits = job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
+    let waiting = job.waiting_for.iter().find(|item| item.source != WaitingSource::Done).filter(|_| waits).map(|item| {
+        let kind = match item.source {
+            WaitingSource::Walk => "Walk",
+            WaitingSource::Sketch => "Sketch",
+            WaitingSource::Draft => "Draft",
+            WaitingSource::Document => "Document",
+            _ => "",
+        };
+        let named = kind.is_empty() || item.text.to_lowercase().starts_with(&kind.to_lowercase());
+        if named { item.text.clone() } else { format!("{kind}: {}", item.text) }
+    });
+    let line = waiting.or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
+    Some(crate::job_view::plain_of(&line)).filter(|line| !line.is_empty())
+}
+
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
     lines_within(jobs, ideas, scope, query, order, names, None)
 }
@@ -593,7 +612,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 (number.into(), title.into())
             }),
             flow: flow_of(job),
-            now: job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()).map(Into::into),
+            now: now_of(job).map(Into::into),
             queued: None,
             place: places.contains(job.id.as_str()),
             mac: job.mac.clone().map(Into::into),
@@ -3590,9 +3609,31 @@ mod tests {
         });
         assert_eq!(flow, Some(Some(("Ship a screen".into(), "Build".into()))));
         assert_eq!(first.flow, None);
-        assert_eq!(first.now.as_deref(), Some("Asked which chip colour the stale state takes"));
+        // Waiting on him, a row says the first thing it waits on him for, not what it last did.
+        assert_eq!(first.now.as_deref(), Some("Plan to approve"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
+    }
+
+    #[test]
+    fn a_waiting_row_names_what_it_waits_on_him_for_in_plain_words() {
+        let jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let mut job = jobs.into_iter().find(|job| job.id.as_str() == "mock-01").expect("mock-01 waits on him");
+        let item = |id: &str, text: &str, source: &str| -> ipc::WaitingItem {
+            serde_json::from_value(serde_json::json!({"id": id, "text": text, "since": "2026-11-09T14:00:00Z", "source": source})).expect("an item decodes")
+        };
+        job.waiting_for = vec![item("done:1", "Done", "done"), item("walk:u", "Macs and Models layout", "walk")];
+        assert_eq!(now_of(&job).as_deref(), Some("Walk: Macs and Models layout"), "a walk is named as one; Done is no wait");
+        job.waiting_for = vec![item("walk:u", "Walk the chip states", "walk")];
+        assert_eq!(now_of(&job).as_deref(), Some("Walk the chip states"), "words that already say walk are not said twice");
+        job.waiting_for = vec![item("sketch:t", "Tail layout", "sketch")];
+        assert_eq!(now_of(&job).as_deref(), Some("Sketch: Tail layout"));
+        job.waiting_for = vec![item("agent-1", "Land [#3680](https://github.com/x/y/pull/3680) with `gh pr merge`?", "agent")];
+        assert_eq!(now_of(&job).as_deref(), Some("Land #3680 with gh pr merge?"), "markdown is drawn as plain words");
+        // Not waiting on him: what it is doing, still in plain words.
+        job.mark = job.mark.map(|mark| JobMark { lamp: JobLamp::Running, ..mark });
+        job.activity = serde_json::from_value(serde_json::json!({"now": "Running `gh pr view`"})).expect("activity decodes");
+        assert_eq!(now_of(&job).as_deref(), Some("Running gh pr view"));
     }
 
     #[test]

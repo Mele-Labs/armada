@@ -92,7 +92,15 @@ impl TitleBar {
                 let Usage::Limits(limits) = &self.face.usage else { return None };
                 (self.at.meter.get()?, self.usage_card(limits, look, cx))
             }
-            Popup::Fleet => (self.at.fleet.get()?, self.fleet_panel(look, cx)),
+            // The Fleet panel keeps its own height to the room, as its lists scroll and its foot stays.
+            Popup::Fleet => {
+                let from = self.at.fleet.get()?;
+                let margin = look.length(token::SPACE_1);
+                let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + margin);
+                let room = (window.viewport_size().height - at.y - margin).max(px(0.));
+                let body = self.fleet_panel(look, room, cx);
+                return Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(margin).child(body)).with_priority(over).into_any_element());
+            }
             // The switcher hangs from its trigger's left edge, where the bar starts.
             Popup::Projects => {
                 let from = self.at.repository.get()?;
@@ -159,7 +167,7 @@ impl TitleBar {
 
     /// The Fleet panel: the head with the build, what runs and what waits, then the rows at its foot: Add a
     /// branch, Disk, Doctor and Copy debug info.
-    fn fleet_panel(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn fleet_panel(&self, look: &Look, room: gpui::Pixels, cx: &Context<Self>) -> AnyElement {
         let fleet = &self.face.fleet;
         let statement = fleet.connection.statement();
         // pid, port and protocol are Copy debug info's while Fleet answers; the panel says them only while it does not.
@@ -172,6 +180,7 @@ impl TitleBar {
         let held = self.face.build.as_ref();
         let work = held.map(|held| super::story::held(&held.report, self.face.offers.as_ref())).unwrap_or_default();
         let added = held.map(|held| super::story::added(&held.report, &work)).unwrap_or_default();
+        let (lists, presses) = held.map(|held| self.build_section(held, look, cx)).unzip();
         let branches = held.filter(|held| !held.report.origin.is_empty() || !added.is_empty()).map(|held| {
             let open = self.folds.branches;
             div()
@@ -262,6 +271,17 @@ impl TitleBar {
                     if event.keystroke.key == "escape" {
                         this.escape(window, cx);
                         cx.stop_propagation();
+                    } else if event.keystroke.key == "tab" {
+                        // Once Tab has moved focus: a press in the scrolled lists comes into view.
+                        let scroll = this.fleet_lists.clone();
+                        let (top, foot) = ([this.list_stops.keep.clone(), this.list_stops.revert.clone()], this.list_stops.swap.clone());
+                        window.defer(cx, move |window, _| {
+                            if top.iter().any(|stop| stop.is_focused(window)) {
+                                scroll.set_offset(gpui::Point::default());
+                            } else if foot.is_focused(window) {
+                                scroll.scroll_to_bottom();
+                            }
+                        });
                     } else if event.keystroke.key == "b" && bare && !this.typing_branch(window, cx) {
                         this.branches_toggled(window, cx);
                         cx.stop_propagation();
@@ -276,6 +296,7 @@ impl TitleBar {
                 .child(
                     card(look)
                         .w(look.length(token::W_MENU) + look.length(token::SPACE_12) * 2.)
+                        .max_h(room)
                         .gap(look.length(token::SPACE_3))
                         .p(look.length(token::SPACE_4))
                         .child(
@@ -288,7 +309,17 @@ impl TitleBar {
                                 .child(div().flex_1())
                                 .child(div().flex_none().size(look.length(token::DOT)).rounded_full().bg(self.panel_ink(look).unwrap_or_else(|| dot_tone(statement.dot, look)))),
                         )
-                        .children(held.map(|held| self.build_section(held, look, cx)))
+                        // Only the lists scroll: the head above and the presses and rows below stay in view.
+                        .children(lists.map(|lists| {
+                            div()
+                                .id("fleet-lists")
+                                .flex_1()
+                                .min_h_0()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.fleet_lists)
+                                .child(lists)
+                        }))
+                        .children(presses.map(|presses| div().flex_none().child(presses)))
                         .children((!figures.is_empty()).then(|| {
                             div().flex().flex_col().gap(look.length(token::SPACE_1)).children(figures.into_iter().map(|(term, value)| {
                                 small(look)
@@ -304,6 +335,7 @@ impl TitleBar {
                         }))
                         .child(
                             div()
+                                .flex_none()
                                 .flex()
                                 .flex_col()
                                 .gap(look.length(token::SPACE_1))
