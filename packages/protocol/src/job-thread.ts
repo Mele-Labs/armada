@@ -309,3 +309,29 @@ export type CardSettled = {
 
 /** A value of a Job the person can change from its panel: `workflow`, `model` or `effort`. */
 export type ChangedValue = string;
+
+/**
+ * `POST /sessions/ready_to_try/answer`: his answer on the card of this (branch, tip), answered with the card as it now
+ * stands. 404 `fleet.ready_to_try_unknown`, 409 `fleet.ready_to_try_settled`, 422 `fleet.build_note_words_empty` and
+ * `fleet.ready_to_try_remind_past`. `crates/ipc/src/preview.rs`.
+ */
+export type AnswerReadyToTry = {
+  session_id: string;
+  branch: string;
+  tip: string;
+  answer: ReadyAnswer;
+};
+
+/** What he pressed: Looks good, Needs rework with his words, or Remind me at a time the client worked out from the Later ladder. */
+export type ReadyAnswer =
+  | {
+      kind: "looks_good";
+    }
+  | {
+      kind: "needs_rework";
+      words: string;
+    }
+  | {
+      kind: "remind";
+      until: string;
+    };

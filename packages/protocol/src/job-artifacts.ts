@@ -97,6 +97,107 @@ export type JobArtifact = {
   votes?: VoteCast[];
   /** The newest revision he opened, as `mark_artifact_seen` kept it. Absent while he opened none. Only moves forward. */
   seen?: number;
+  /**
+   * What it holds, in the order the Job added it. Each part asks and settles on its own, and the artifact settles once
+   * every part that asks is answered. Absent for a page that holds none of the Job's parts and a workflow change's draft.
+   * `crates/ipc/src/artifact_parts.rs`.
+   */
+  parts?: ArtifactPart[];
+};
+
+/** Where a part stands. A part that does not ask stays `open`. `picked` is a takes part answered with a pick. */
+export type PartState = "open" | "approved" | "sent_back" | "picked" | "withdrawn";
+
+/** One take of a takes part. `scene` is the picture as a scene's JSON text, a mock being a scene of one `mock` node. */
+export type PartTake = {
+  id: string;
+  title: string;
+  scene?: string;
+};
+
+/** One button of a buttons part. Fleet keeps the acts, as for a page. */
+export type PartAction = {
+  id: string;
+  act: PageAct;
+  label: string;
+  item?: string;
+  /** `start`: what the new Job is asked. */
+  brief?: string;
+  repository?: string;
+  /** `answer`: the Job's ask, by its waiting id. */
+  ask?: string;
+  option?: string;
+};
+
+/** What a part holds, tagged by `kind`. */
+export type PartContent =
+  | {
+      kind: "drawing";
+      /** The scene as JSON text. */
+      scene: string;
+    }
+  | {
+      kind: "words";
+      /** Markdown. */
+      text: string;
+    }
+  | {
+      kind: "takes";
+      question?: string;
+      form: VoteForm;
+      takes: PartTake[];
+      /** A `score` vote's named parts. */
+      parts?: string[];
+    }
+  | {
+      kind: "buttons";
+      actions: PartAction[];
+    }
+  | {
+      kind: "page";
+      /** The page's path. The part's `revision` is the page's newest. */
+      path: string;
+    };
+
+/** How he answered a part. */
+export type PartAnswer = {
+  words?: string;
+  take?: string;
+  notes?: Record<string, string>;
+  at?: string;
+};
+
+/** One part of an artifact. */
+export type ArtifactPart = PartContent & {
+  /** Unique in its Job: a ledger id for a drawing, draft or page that joined, else the id the Job gave. */
+  id: string;
+  /** Put to him. A part that only informs has nothing to answer. */
+  asks: boolean;
+  state: PartState;
+  /** How many times the Job put this part under its id. A redraw asks again. */
+  revision: number;
+  /** New on every revision, named back by `answer_part`. */
+  drawn: string;
+  added: string;
+  answer?: PartAnswer;
+};
+
+/** How he answered a part: `approved` or `sent_back` for words, a drawing or a page, `picked` for a pick vote. */
+export type PartHow = "approved" | "sent_back" | "picked";
+
+/**
+ * `POST /sessions/artifacts/part/answer`: one asking part answered on its own, answered with the `JobArtifact`. A
+ * `sent_back` needs `words`, `picked` needs `take`. 409 `fleet.part_redrawn` where the part was put again since `drawn`.
+ */
+export type AnswerPart = {
+  session_id: string;
+  artifact: string;
+  part: string;
+  drawn: string;
+  how: PartHow;
+  take?: string;
+  words?: string;
+  notes?: Record<string, string>;
 };
 
 /**

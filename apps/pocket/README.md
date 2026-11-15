@@ -17,7 +17,8 @@ goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Done, Waiting,
 the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
 `?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at
-`/file?path=…`, `/sketch?id=…` and `/document?page=…`. A draft Job, one held on its start card,
+`/file?path=…`, `/sketch?id=…` and `/document?page=…`. An artifact the Job built of parts opens at
+`/artifact?id=…`, every part answered there, and a build offered to try at `/try?id=…`. A draft Job, one held on its start card,
 opens at `/drafts/<Mac origin, encoded>/<id>`: its brief to edit, how the work
 lands where its workflow asks, Send and Discard. A Job that has begun opens as
 a Job from there, and a held one opens as a draft from `/jobs/…`.

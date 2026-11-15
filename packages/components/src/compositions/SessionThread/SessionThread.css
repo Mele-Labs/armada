@@ -1667,3 +1667,28 @@
     transform: translateY(var(--space-2));
   }
 }
+
+/* An artifact he answered, folded to one line: its title, then how it settled in the muted voice. */
+.armada-session-artifact .armada-session-fold__head {
+  min-width: 0;
+}
+
+.armada-session-artifact[data-how="approved"] svg {
+  color: var(--status-completed-success);
+}
+
+.armada-session-artifact[data-how="sent_back"] svg {
+  color: var(--status-awaiting-review);
+}
+
+.armada-session-artifact__title {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+
+.armada-session-artifact__said {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
