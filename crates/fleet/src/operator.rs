@@ -41,6 +41,8 @@ use core_model::{Actor, Timestamp};
 
 pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
 pub(crate) use elsewhere::plan_overlap;
+#[cfg(test)]
+pub(crate) use erroring::fingerprint;
 pub use hearing::keep_the_ends_told;
 pub use orders::{Order, Orders};
 pub use placing::{Outcome, Place};
