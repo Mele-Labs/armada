@@ -38,6 +38,11 @@ pub(super) enum RAct {
     Discard,
 }
 
+/// What the revision picker reads: the word, two spaces and the number, never "of" the newest.
+pub(super) fn revision_said(shown: u32) -> String {
+    format!("Revision  {shown}")
+}
+
 /// The revisions a menu can name: ids a menu entry may carry.
 const REVS: [&str; 24] = ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23", "r24"];
 const HEADS: [&str; 40] = [
@@ -159,7 +164,9 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The header band: where it stands fills it, and his colour fills it while he edits.
+    /// The header band: where it stands fills it, and his colour fills it while he edits. Two lines that never wrap: the
+    /// kind, the title, the revision and where it stands, with the answers at the right; then the For line cut to one
+    /// line, with what else is his to press at the right. The title gives way first.
     #[allow(clippy::too_many_arguments)]
     fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let editing = held.edit.is_some();
@@ -168,29 +175,65 @@ impl JobView {
         let shown = held.viewing.unwrap_or(subject.newest);
         let last = subject.revisions.last();
         let yours = last.filter(|last| last.by == ArtifactBy::Owner && last.number == subject.newest && !editing).map(|last| format!("r{} is your edit", last.number));
-        let picker = self.reader_picker(id, name, shown, subject, look, cx);
+        let picker = self.reader_picker(id, name, shown, look, cx);
         let switch = (!subject.closed && !earlier && subject.form == ArtifactForm::Draft).then(|| self.reader_switch(id, name, editing, look, cx));
+        let (words, discard, save) = if editing { self.reader_edit_acts(id, name, held, look, cx) } else { (None, None, None) };
+        let asking = subject.asking && !earlier && !editing;
+        let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind| -> AnyElement {
+            let (job, name_c) = (id.clone(), name.to_string());
+            labelled(
+                act(look, format!("reader-{label}:{name}"), label, kind, key, true)
+                    .tooltip(tip(said))
+                    .on_click(cx.listener(move |this, _, window, cx| this.reader_act(&job, &name_c, which, window, cx))),
+                Role::Button,
+                label,
+            )
+            .into_any_element()
+        };
+        let title = SharedString::from(subject.title.clone());
         let top = div()
             .flex()
-            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .child(tile(look, subject.form))
             .child(
                 div()
-                    .flex_grow(1.)
+                    .id(SharedString::from(format!("reader-title:{name}")))
+                    .flex_1()
                     .min_w_0()
+                    .truncate()
                     .text_size(look.length(token::TEXT_XL))
                     .line_height(look.length(token::LEADING_XL))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                     .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(subject.title.clone())),
+                    .tooltip(tip(title.clone()))
+                    .child(title),
             )
             .child(picker)
-            .children(yours.map(|said| super::band_card::yours_pill(look, format!("reader-yours:{name}"), said)))
             .children((!editing).then(|| state_chip(look, format!("reader-state:{name}"), subject.stand, subject.words.as_deref(), None)))
-            .children(switch);
-        let under = if editing { self.reader_edit_row(id, name, held, look, cx) } else { self.reader_acts_row(id, name, subject, earlier, look, cx) };
+            .children(asking.then(|| go(RAct::Ask, "Ask for changes", "C", "Send it back with your notes", Kind::Secondary)))
+            .children(asking.then(|| go(RAct::Approve, "Approve", "A", "Approve it as it stands, with your notes", Kind::Approve)))
+            .children(discard)
+            .children(save);
+        // What he can do besides answering: Edit, and putting it away.
+        let away = if subject.asking && !earlier && !editing {
+            Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost))
+        } else if !subject.archived && !earlier && !editing && !subject.asking {
+            Some(go(RAct::Archive, "Archive", "D", "Fold it away from your list", Kind::Ghost))
+        } else {
+            None
+        };
+        let line = subject.for_line.as_ref().filter(|line| line.text.as_deref().is_some_and(|text| !text.trim().is_empty()) || !line.links.is_empty());
+        let line = if editing { words } else { line.map(|line| self.reader_for_line(name, line, look)) };
+        let under = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .child(div().flex_1().min_w_0().overflow_hidden().children(line))
+            .children(yours.map(|said| super::band_card::yours_pill(look, format!("reader-yours:{name}"), said)))
+            .children(switch)
+            .children(away)
+            .child(self.reader_notes_button(id, name, held.notes_on, look, cx));
         div()
             .flex_none()
             .flex()
@@ -206,60 +249,48 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The For line at the left of the acts.
-    fn reader_acts_row(&self, id: &SharedString, name: &str, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind, on: bool| -> AnyElement {
-            let (job, name_c) = (id.clone(), name.to_string());
-            let button = act(look, format!("reader-{label}:{name}"), label, kind, key, on).tooltip(tip(said));
-            labelled(
-                button.when(on, |button| button.on_click(cx.listener(move |this, _, window, cx| this.reader_act(&job, &name_c, which, window, cx)))),
-                Role::Button,
-                label,
-            )
-            .into_any_element()
-        };
-        let asking = subject.asking && !earlier;
-        let away = if asking {
-            Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost, true))
-        } else if !subject.archived && !earlier {
-            Some(go(RAct::Archive, "Archive", "D", "Fold it away from your list", Kind::Ghost, true))
-        } else {
-            None
-        };
-        let line = subject.for_line.as_ref().filter(|line| line.text.as_deref().is_some_and(|text| !text.trim().is_empty()) || !line.links.is_empty());
-        let line = line.map(|line| {
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .text_color(look.color(token::FG_MUTED))
-                .child(
-                    div()
-                        .flex()
-                        .gap(look.length(token::SPACE_1))
-                        .min_w_0()
-                        .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
-                        .children(line.text.clone().map(|text| div().flex_1().min_w_0().child(SharedString::from(text)))),
-                )
-                .children(line.links.iter().map(|link| link_chip(look, link)))
-        });
+    /// The For line on one line, cut with an ellipsis where it does not fit, its whole words in a tooltip.
+    fn reader_for_line(&self, name: &str, line: &ipc::ArtifactFor, look: &Look) -> AnyElement {
+        let text = line.text.clone().unwrap_or_default();
+        let whole = SharedString::from(text.clone());
         div()
             .flex()
-            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(div().flex_1().min_w(look.length(token::SPACE_12) * 3.).children(line))
-            .children(away)
-            .children(asking.then(|| go(RAct::Ask, "Ask for changes", "C", "Send it back with your notes", Kind::Secondary, true)))
-            .children(asking.then(|| go(RAct::Approve, "Approve", "A", "Approve it as it stands, with your notes", Kind::Approve, true)))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(
+                div()
+                    .id(SharedString::from(format!("reader-for:{name}")))
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .gap(look.length(token::SPACE_1))
+                    .when(!text.trim().is_empty(), |one| one.tooltip(tip(whole.clone())))
+                    .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
+                    .child(div().flex_1().min_w_0().truncate().child(whole)),
+            )
+            .children(line.links.iter().map(|link| link_chip(look, link)))
             .into_any_element()
     }
 
+    /// The notes' margin on or off, as the registry gives a document's head: the glyph shows what a press does.
+    fn reader_notes_button(&self, id: &SharedString, name: &str, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let (job, name_c) = (id.clone(), name.to_string());
+        let said = if on { "Hide the notes margin" } else { "Show the notes margin" };
+        labelled(
+            super::head::icon_button(look, "reader-notes", if on { "panel-right-close" } else { "panel-right-open" }, format!("{said}, N").into(), on, false)
+                .id(SharedString::from(format!("reader-notes:{name}")))
+                .on_click(cx.listener(move |this, _, _, cx| this.reader_toggle_notes(&job, &name_c, cx))),
+            Role::Switch,
+            "Notes",
+        )
+        .into_any_element()
+    }
+
     /// While he edits: what he is editing, Discard and Save.
-    fn reader_edit_row(&self, id: &SharedString, name: &str, held: &Reader, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn reader_edit_acts(&self, id: &SharedString, name: &str, held: &Reader, look: &Look, cx: &Context<Self>) -> (Option<AnyElement>, Option<AnyElement>, Option<AnyElement>) {
         let revision = held.viewing.map_or_else(|| held.marked.unwrap_or(1), |at| at);
         let saving = held.saving;
         let (job, name_c, job2, name2) = (id.clone(), name.to_string(), id.clone(), name.to_string());
@@ -310,15 +341,8 @@ impl JobView {
             Role::Button,
             "Save",
         );
-        div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(format!("Editing r{revision}"))))
-            .child(discard)
-            .child(save)
-            .into_any_element()
+        let words = div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(format!("Editing r{revision}"))).into_any_element();
+        (Some(words), Some(discard.into_any_element()), Some(save.into_any_element()))
     }
 
     /// The Edit switch: a track and a knob, in his colour while it is on.
@@ -364,10 +388,10 @@ impl JobView {
         .into_any_element()
     }
 
-    /// `r3 of 3` and a menu of every revision, newest first.
-    fn reader_picker(&self, id: &SharedString, name: &str, shown: u32, subject: &Subject, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// `Revision  3` and a chevron, over a menu of every revision, newest first: the numbers are in the menu.
+    fn reader_picker(&self, id: &SharedString, name: &str, shown: u32, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (job, name_c) = (id.clone(), name.to_string());
-        let said = format!("r{shown} of {}", subject.newest);
+        let said = revision_said(shown);
         labelled(
             div()
                 .id(SharedString::from(format!("reader-revisions:{name}")))
@@ -375,23 +399,24 @@ impl JobView {
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_1))
+                .h(look.length(token::H_CONTROL))
                 .px(look.length(token::SPACE_2))
-                .py(look.length(token::SPACE_1) / 2.)
                 .rounded(look.length(token::RADIUS_MD))
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_OVERLAY))
-                .font_family(mono(look))
-                .text_size(look.length(token::TEXT_2XS))
-                .line_height(look.length(token::LEADING_2XS))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_DEFAULT))
                 .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tooltip(tip("Read an earlier revision"))
                 .child(SharedString::from(said.clone()))
-                .child(gpui::svg().path(crate::assets::icon_path("chevron-down")).flex_none().size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)))
+                .child(gpui::svg().path(crate::assets::icon_path("chevron-down")).flex_none().size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)))
                 .on_click(cx.listener(move |this, _, window, cx| this.reader_revisions(&job, &name_c, window.mouse_position(), false, window, cx))),
             Role::Button,
-            format!("Revision {said}"),
+            said,
         )
         .into_any_element()
     }
@@ -561,7 +586,7 @@ impl JobView {
                 .notes
                 .iter()
                 .enumerate()
-                .filter(|(_, note)| note.block == one.block.id)
+                .filter(|(_, note)| held.notes_on && note.block == one.block.id)
                 .map(|(place, note)| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx))
                 .collect();
             let words = match (editing, &one.block.kind) {
@@ -600,20 +625,21 @@ impl JobView {
             } else {
                 words
             };
-            let wide = room.gutter() && editing.is_none() && one.block.kind != BlockKind::Table;
+            let margin = super::reader::notes_margin(held.notes_on, room, look);
+            let wide = margin > px(0.) && editing.is_none() && one.block.kind != BlockKind::Table;
             let hint = (Some(at) == first_text && editing.is_none() && !subject.closed).then(|| self.reader_hint(look));
             let bounds = one.bounds.clone();
             let measure = gpui::canvas(move |b, _, _| bounds.set(b), |_, _, _, _| {}).absolute().top_0().left_0().size_full();
             let block = div().relative().flex_1().min_w_0().child(words).child(measure);
             let row = div().flex().items_start().gap(look.length(token::SPACE_6)).w_full().child(block);
             let row = if wide {
-                row.child(div().flex_none().w(look.length(token::SPACE_12) * 4. + look.length(token::SPACE_1)).flex().flex_col().gap(look.length(token::SPACE_2)).children(notes).children(hint))
+                row.child(div().flex_none().w(margin - look.length(token::SPACE_6)).flex().flex_col().gap(look.length(token::SPACE_2)).children(notes).children(hint))
             } else if notes.is_empty() {
                 row
             } else {
                 row
             };
-            let under = (!wide && editing.is_none()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_2)).children(notes_under(&held.notes, &one.block.id, |place, note| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx))));
+            let under = (held.notes_on && !wide && editing.is_none()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_2)).children(notes_under(&held.notes, &one.block.id, |place, note| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx))));
             let under = under.filter(|_| !room.gutter() || one.block.kind == BlockKind::Table);
             let mut stack = div().flex().flex_col().w_full().gap(look.length(token::SPACE_1)).child(row);
             if let Some(under) = under {

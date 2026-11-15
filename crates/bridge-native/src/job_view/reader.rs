@@ -62,6 +62,16 @@ impl Room {
     }
 }
 
+/// The width the notes' margin takes beside the words: none while notes are off, and none where there is no room for it.
+pub(super) fn notes_margin(on: bool, room: Room, look: &crate::look::Look) -> Pixels {
+    use crate::look::token;
+    if on && room.gutter() {
+        look.length(token::SPACE_12) * 4. + look.length(token::SPACE_1) + look.length(token::SPACE_6)
+    } else {
+        gpui::px(0.)
+    }
+}
+
 // ---- the words, as blocks -------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -328,6 +338,8 @@ pub(super) struct Reader {
     /// Which blocks moved since the revision he last opened.
     pub moved: Vec<bool>,
     pub notes: Vec<NoteBox>,
+    /// N turns the notes' margin on: while it is off the page takes the whole width.
+    pub notes_on: bool,
     /// The note J and K are on.
     pub on: Option<usize>,
     /// The revision he chose to read, or the newest.
@@ -359,6 +371,7 @@ impl Reader {
             blocks: Vec::new(),
             moved: Vec::new(),
             notes: Vec::new(),
+            notes_on: false,
             on: None,
             viewing: None,
             base: None,
@@ -465,6 +478,7 @@ impl JobView {
         let place = |one: &NoteBox| block_number(&one.block).unwrap_or(usize::MAX);
         let index = held.notes.iter().position(|one| at.is_some_and(|at| place(one) > at)).unwrap_or(held.notes.len());
         held.notes.insert(index, NoteBox { quote, block, area: area.clone(), _typing: typing });
+        held.notes_on = true;
         held.on = Some(index);
         if let Some(at) = at.filter(|_| held.kind == RowKind::Draft) {
             held.scroll.scroll_to_item(at);
@@ -481,7 +495,7 @@ impl JobView {
         }
         // A page's words are in its web view, which says what he selected.
         if held.kind == RowKind::Document {
-            self.reader_page_note(id, reader, window, cx);
+            self.reader_page_note(id, reader, true, window, cx);
             return;
         }
         // The block that holds a selection says so itself.
@@ -489,16 +503,25 @@ impl JobView {
             let words = one.state.as_ref().map(|state| state.read(cx).selected_text()).unwrap_or_default();
             (!words.trim().is_empty()).then(|| (words, one.block.id.clone()))
         });
-        let (quote, block) = picked.unwrap_or_else(|| {
-            let at = held.on.and_then(|at| held.notes.get(at)).map(|one| one.block.clone());
-            (String::new(), at.unwrap_or_else(|| held.blocks.iter().find(|one| one.block.kind == BlockKind::Text).map(|one| one.block.id.clone()).unwrap_or_default()))
-        });
+        // With nothing picked N is the switch of the margin.
+        let Some((quote, block)) = picked else {
+            self.reader_toggle_notes(id, reader, cx);
+            return;
+        };
         let states: Vec<_> = self.reader_of(id, reader).map(|held| held.blocks.iter().filter_map(|one| one.state.clone()).collect()).unwrap_or_default();
         for state in states {
             state.update(cx, |state, cx| state.clear_selection(cx));
         }
         gpui_base::TextSelection::clear(window, cx);
         self.reader_add_note(id, reader, quote.trim().to_string(), block, window, cx);
+    }
+
+    /// The notes' margin on or off: off, the words take the whole width.
+    pub(super) fn reader_toggle_notes(&mut self, id: &SharedString, reader: &str, cx: &mut Context<Self>) {
+        if let Some(held) = self.reader_mut(id, reader) {
+            held.notes_on = !held.notes_on;
+            cx.notify();
+        }
     }
 
     /// J and K: the next note or the one before, brought into view.
@@ -757,6 +780,8 @@ impl JobView {
                     let (area, typing) = self.note_area(&name, &note.text, window, cx);
                     if let Some(held) = self.reader_mut(id, &name) {
                         held.notes.push(NoteBox { quote: note.quote, block: note.block, area, _typing: typing });
+                        // Notes he wrote stay in sight, so none is sent unseen.
+                        held.notes_on = true;
                     }
                 }
             }

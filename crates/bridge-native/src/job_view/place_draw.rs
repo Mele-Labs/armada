@@ -82,13 +82,32 @@ impl JobView {
             self.spine.left();
         }
         let mut frame = Frame { job: id.clone(), thread_body, popups, host: host.clone(), zoomed: zoomed.clone() };
-        let drawn = match &zoomed {
-            Some(zoomed) => {
+        // A reader in front folds the right column to a rail, by state: the arrangement is not touched.
+        if self.arranged.over.is_some() && !self.reader_open(cx) {
+            self.arranged.over = None;
+        }
+        let fold = self.right_fold(&arrangement, cx).cloned();
+        let drawn = match (&zoomed, &fold) {
+            (Some(zoomed), _) => {
                 let one = tree::pane_by_id(&arrangement, zoomed).cloned();
                 one.map(|one| self.draw_pane(&one, None, &mut frame, look, window, cx))
             }
-            None => Some(self.draw_node(&arrangement.root, None, &mut frame, look, window, cx)),
+            (None, Some(split)) => Some(self.draw_node(&split.a, None, &mut frame, look, window, cx)),
+            (None, None) => Some(self.draw_node(&arrangement.root, None, &mut frame, look, window, cx)),
         };
+        let (drawn, rail) = match &fold {
+            Some(split) => {
+                let over = (self.arranged.over == Some(super::fold::Side::Right)).then(|| {
+                    let mut beside = Frame { job: id.clone(), thread_body: None, popups: Vec::new(), host: None, zoomed: None };
+                    let column = self.draw_node(&split.b, None, &mut beside, look, window, cx);
+                    self.right_over(column, split, look, cx)
+                });
+                let rail = self.right_rail(id, window, look, cx);
+                (Some(div().relative().flex_1().min_w_0().h_full().children(drawn).children(over).into_any_element()), Some(rail))
+            }
+            None => (drawn, None),
+        };
+        let shut_id = id.clone();
         if self.spine.settle.take() {
             window.request_animation_frame();
         }
@@ -114,7 +133,10 @@ impl JobView {
             .on_drag_move(cx.listener(Self::drag_tab_over))
             .on_drop(cx.listener(|this, drag: &TabDrag, window, cx| this.drop_tab(drag, window, cx)))
             .capture_key_down(cx.listener(Self::drag_key))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.shut_key(&shut_id, event, window, cx)))
+            .when(rail.is_some(), |root| root.gap(look.length(token::GAP_PANEL)))
             .children(drawn)
+            .children(rail)
             .children(self.end_drop_mark(look))
             // What is left over when no pane holds the thread: the sheets and menus lie over the whole area.
             .when(host.is_none(), |root| root.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer).children(std::mem::take(&mut frame.popups)))

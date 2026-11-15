@@ -43,11 +43,15 @@ impl JobView {
         let view = div().id(SharedString::from(format!("reader-page:{name}"))).flex_1().min_w_0().min_h_0().relative().children(page);
         let pins: Vec<AnyElement> = held.notes.iter().enumerate().map(|(place, note)| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx)).collect();
         let add = (!subject.closed).then(|| self.reader_add_button(id, name, look, cx));
+        // Notes off: no margin and nothing under the page, so the page takes the width.
+        if !held.notes_on {
+            return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
+        }
         if room.gutter() {
             let gutter = div()
                 .id(SharedString::from(format!("reader-gutter:{name}")))
                 .flex_none()
-                .w(look.length(token::SPACE_12) * 4. + look.length(token::SPACE_1) + look.length(token::SPACE_6))
+                .w(super::reader::notes_margin(held.notes_on, room, look))
                 .min_h_0()
                 .flex()
                 .flex_col()
@@ -98,7 +102,7 @@ impl JobView {
                 .tooltip(tip("Make a note on the words selected in the page"))
                 .child(kbd(look, "N"))
                 .child("add a note")
-                .on_click(cx.listener(move |this, _, window, cx| this.reader_page_note(&job, &name_c, window, cx))),
+                .on_click(cx.listener(move |this, _, window, cx| this.reader_page_note(&job, &name_c, false, window, cx))),
             Role::Button,
             "Add a note",
         )
@@ -107,13 +111,20 @@ impl JobView {
 
     /// N on a page: the page says what he selected, and the note is made on it with the caret in it. With nothing selected the
     /// note is on the block at the top of the view.
-    pub(super) fn reader_page_note(&mut self, id: &SharedString, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn reader_page_note(&mut self, id: &SharedString, name: &str, toggle: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(tab) = self.reader_page(id, name) else { return };
         let asked = tab.read(cx).ask(&ask::selection(), cx);
         let (job, reader) = (id.clone(), name.to_string());
         cx.spawn_in(window, async move |this, cx| {
             let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or(ask::Picked { quote: String::new(), block: String::new() });
-            let _ = this.update_in(cx, |this, window, cx| this.reader_add_note(&job, &reader, picked.quote, picked.block, window, cx));
+            let _ = this.update_in(cx, |this, window, cx| {
+                // With nothing selected, N is the switch of the margin; the margin's own button always makes a note.
+                if toggle && picked.quote.trim().is_empty() {
+                    this.reader_toggle_notes(&job, &reader, cx);
+                } else {
+                    this.reader_add_note(&job, &reader, picked.quote, picked.block, window, cx);
+                }
+            });
         })
         .detach();
     }
