@@ -126,11 +126,24 @@ fn a_401_or_a_403_sign_in_error_is_refused_in_cloudflares_words() {
 
 #[test]
 fn a_403_whatever_its_code_is_a_token_without_the_rights() {
-    for code in [10021, 0] {
+    for code in [10003, 0] {
         let said = cloudflare_api::refusal(&reply(403, &refused_with(code, "No access to the specified resource")), false);
         assert_eq!(said, CloudflareError::Refused("No access to the specified resource".to_string()), "{code}");
     }
     assert_eq!(cloudflare_api::refusal(&reply(403, ""), false), CloudflareError::Refused("status 403".to_string()));
+}
+
+#[test]
+fn a_403_that_says_the_worker_is_wrong_failed() {
+    let said = cloudflare_api::refusal(&reply(403, &refused_with(10021, "Script validation failed")), false);
+    assert_eq!(said, CloudflareError::Failed("status 403: Script validation failed".to_string()));
+}
+
+#[test]
+fn a_403_refusing_the_limit_is_limit_refused_where_it_was_sent() {
+    let refused = reply(403, &refused_with(0, "rate limit bindings are not enabled"));
+    assert_eq!(cloudflare_api::refusal(&refused, true), CloudflareError::LimitRefused("rate limit bindings are not enabled".to_string()));
+    assert_eq!(cloudflare_api::refusal(&refused, false), CloudflareError::Refused("rate limit bindings are not enabled".to_string()));
 }
 
 #[test]
