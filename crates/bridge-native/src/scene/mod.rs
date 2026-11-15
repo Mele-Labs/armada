@@ -33,7 +33,7 @@ use ipc::{Scene, SceneColor, SceneKind, SceneNode, ScreenElement, WirePart};
 use lyon::tessellation::{LineCap, LineJoin};
 
 use crate::look::{token, Look};
-pub(crate) use notes::{bounds_of, nodes, part_at, Mark, Marks, Part};
+pub(crate) use notes::{bounds_of, fit_of, nodes, part_at, Mark, Marks, Part};
 use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
@@ -85,12 +85,9 @@ impl Fit {
         }
     }
 
-    fn min_zoom(self) -> f32 {
-        match self {
-            Fit::Preview => 0.02,
-            Fit::Reading => 0.2,
-        }
-    }
+    /// The least a scene is drawn at: so small that only a drawing past fifty screens is held at it, and a reading view never
+    /// starts at a corner of one.
+    const MIN_ZOOM: f32 = 0.02;
 
     /// Room kept clear on every side inside the box, in window pixels: `--space-4`, so nothing touches the frame.
     fn inset(self) -> f32 {
@@ -429,6 +426,33 @@ fn size_of(node: &SceneNode, facts: Facts, measure: &Measure, (floor, ceiling): 
     }
 }
 
+/// How far a hand line's ink reaches past its points.
+const INK_REACH: f32 = 4.;
+
+/// The canvas the drawing stands on: every node (at any side of zero), its mark and badge, every arrow's way and its words, and
+/// every hand line, with air round it. What the fit shows, so nothing of the drawing is left outside it.
+fn canvas_of(rects: &[Rect], marks: &[Option<Rect>], badges: &[Option<(Rect, String)>], ways: &[Option<Way>], scene: &Scene) -> Rect {
+    let reach = |way: &Way| {
+        let points = route::polyline(&way.path);
+        let (xs, ys): (Vec<f32>, Vec<f32>) = points.iter().map(|p| (p.x, p.y)).unzip();
+        let least = |all: &[f32]| all.iter().copied().fold(f32::INFINITY, f32::min);
+        let most = |all: &[f32]| all.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        (!points.is_empty()).then(|| Rect { x: least(&xs), y: least(&ys), w: most(&xs) - least(&xs), h: most(&ys) - least(&ys) })
+    };
+    let ink = scene.strokes.iter().flat_map(|stroke| stroke.points.iter()).map(|p| Rect { x: p.x as f32 - INK_REACH, y: p.y as f32 - INK_REACH, w: 2. * INK_REACH, h: 2. * INK_REACH });
+    let held = rects
+        .iter()
+        .copied()
+        .chain(marks.iter().flatten().copied())
+        .chain(badges.iter().flatten().map(|(rect, _)| *rect))
+        .chain(ways.iter().flatten().filter_map(reach))
+        .chain(ways.iter().flatten().filter_map(|way| way.words.as_ref().map(|(rect, _)| *rect)))
+        .chain(ink)
+        .reduce(union)
+        .unwrap_or_default();
+    Rect { x: held.x - tile::CANVAS_PAD, y: held.y - tile::CANVAS_PAD, w: held.w + 2. * tile::CANVAS_PAD, h: held.h + 2. * tile::CANVAS_PAD }
+}
+
 fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32, f32)>], mocks: Vec<Option<f32>>, look: &Look, window: &Window) -> Laid {
     let measure = Measure {
         window,
@@ -446,24 +470,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let pill_w = measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT);
     let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(node, *rect, pill_w))).collect();
     let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
-    // The canvas holds every node, its mark and badge, every arrow's way and its words, with air round it.
-    let reach = |way: &Way| {
-        let points = route::polyline(&way.path);
-        let (xs, ys): (Vec<f32>, Vec<f32>) = points.iter().map(|p| (p.x, p.y)).unzip();
-        let least = |all: &[f32]| all.iter().copied().fold(f32::INFINITY, f32::min);
-        let most = |all: &[f32]| all.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        (!points.is_empty()).then(|| Rect { x: least(&xs), y: least(&ys), w: most(&xs) - least(&xs), h: most(&ys) - least(&ys) })
-    };
-    let held = rects
-        .iter()
-        .copied()
-        .chain(marks.iter().flatten().copied())
-        .chain(badges.iter().flatten().map(|(rect, _)| *rect))
-        .chain(ways.iter().flatten().filter_map(reach))
-        .chain(ways.iter().flatten().filter_map(|way| way.words.as_ref().map(|(rect, _)| *rect)))
-        .reduce(union)
-        .unwrap_or_default();
-    let bounds = Rect { x: held.x - tile::CANVAS_PAD, y: held.y - tile::CANVAS_PAD, w: held.w + 2. * tile::CANVAS_PAD, h: held.h + 2. * tile::CANVAS_PAD };
+    let bounds = canvas_of(&rects, &marks, &badges, &ways, scene);
     // A lane is a row of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
     let lanes: Vec<usize> = scene.nodes.iter().enumerate().filter(|(_, node)| node.kind == SceneKind::Lane).map(|(at, _)| at).collect();
     let top = lanes.iter().copied().min_by(|a, b| rects[*a].y.total_cmp(&rects[*b].y));
@@ -628,26 +635,20 @@ struct View {
 }
 
 impl View {
-    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
+    /// The zoom that fits the whole scene inside `bounds`, less the fit's air and inset, never above 1. There is no floor above
+    /// the least a scene may be drawn at, so a wide or tall drawing is shrunk whole and never started at its corner.
+    fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit) -> f32 {
         let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
         let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
         let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
-        let base = across.min(down).clamp(fit.min_zoom(), 1.);
-        let zoom = base * lens.zoom;
-        // Where even the smallest zoom leaves the scene past the inset box, an axis starts at the box's top-left, a
-        // margin in, so the start of the flow is whole; the rest is reached by panning. What fits stays centred.
-        let anchored = |scene_len: f32, len: f32| fit.inset() > 0. && lens.zoom == 1. && scene_len * base + 2. * fit.inset() > len + 0.5;
-        let (mut origin, mut centre) = (bounds.center(), Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. });
-        if anchored(scene.w, w) {
-            origin.x = bounds.left() + px(fit.inset());
-            centre.x = scene.x;
-        }
-        if anchored(scene.h, h) {
-            origin.y = bounds.top() + px(fit.inset());
-            centre.y = scene.y;
-        }
-        View { zoom, origin: origin + point(px(lens.pan.0), px(lens.pan.1)), centre }
+        across.min(down).clamp(Fit::MIN_ZOOM, 1.)
+    }
+
+    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
+        let zoom = Self::base(bounds, scene, fit) * lens.zoom;
+        let centre = Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. };
+        View { zoom, origin: bounds.center() + point(px(lens.pan.0), px(lens.pan.1)), centre }
     }
 
     fn at(&self, p: Pt) -> Point<Pixels> {
@@ -856,7 +857,8 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     });
     let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
     if fit == Fit::Reading {
-        notes::keep(key, notes::Probe { view, placed: placed.clone() });
+        let base = View::base(bounds, laid.bounds, fit);
+        notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(laid.bounds.w * base, laid.bounds.h * base), base });
     }
     Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }
@@ -1381,4 +1383,63 @@ fn ease([x1, y1, x2, y2]: [f32; 4], t: f32) -> f32 {
         }
     }
     curve(y1, y2, (lo + hi) / 2.)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scene(text: &str) -> Scene {
+        serde_json::from_str(text).expect("a scene")
+    }
+
+    fn inside(outer: Rect, inner: Rect) -> bool {
+        inner.x >= outer.x - 0.01 && inner.y >= outer.y - 0.01 && inner.x + inner.w <= outer.x + outer.w + 0.01 && inner.y + inner.h <= outer.y + outer.h + 0.01
+    }
+
+    #[test]
+    fn the_canvas_reaches_a_node_left_of_zero_a_node_above_it_and_a_hand_line_past_both() {
+        let rects = [Rect { x: -200., y: 10., w: 100., h: 50. }, Rect { x: 300., y: -90., w: 100., h: 50. }];
+        let drawn = scene(r#"{"nodes":[],"edges":[],"strokes":[{"id":"s","points":[{"x":-420,"y":20},{"x":-380,"y":260}]}]}"#);
+        let canvas = canvas_of(&rects, &[None, None], &[None, None], &[None, None], &drawn);
+        assert!(canvas.x <= -420. - INK_REACH - tile::CANVAS_PAD + 0.01, "the left edge reaches the hand line at -420, not the node at -200: {canvas:?}");
+        assert!(canvas.y <= -90. - tile::CANVAS_PAD + 0.01, "the top edge reaches the node above zero");
+        assert!(canvas.x + canvas.w >= 400. + tile::CANVAS_PAD - 0.01 && canvas.y + canvas.h >= 260. + INK_REACH + tile::CANVAS_PAD - 0.01);
+        assert!(rects.iter().all(|rect| inside(canvas, *rect)));
+    }
+
+    #[gpui::test]
+    fn the_fit_holds_a_scene_whose_leftmost_node_is_at_x_minus_two_hundred_with_its_arrow_words(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let text = r#"{"nodes":[
+            {"id":"far","kind":"box","x":-200,"y":-120,"title":"Leftmost"},
+            {"id":"mid","kind":"box","x":300,"y":0,"title":"Middle"},
+            {"id":"low","kind":"box","x":900,"y":400,"title":"Rightmost and lowest"}],
+            "edges":[{"id":"e1","from":"far","to":"mid","label":"a long arrow label that sits between them"},{"id":"e2","from":"mid","to":"low","label":"another label"}]}"#;
+        let raw: ipc::RawScene = serde_json::from_str(text).expect("a raw scene");
+        let drawn = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let (laid, view) = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            let laid = laid(&SharedString::from("far-left"), &drawn, &look, window, cx);
+            let bounds = Bounds::new(point(px(0.), px(0.)), size(px(900.), px(600.)));
+            (laid.clone(), View::fit(bounds, laid.bounds, Fit::Reading, Lens::default()))
+        });
+        let leftmost = laid.rects.iter().map(|rect| rect.x).fold(f32::INFINITY, f32::min);
+        assert!(leftmost < 0., "the leftmost node stays left of zero: {leftmost}");
+        for rect in &laid.rects {
+            assert!(inside(laid.bounds, *rect), "every node is in the canvas: {rect:?} in {:?}", laid.bounds);
+        }
+        for (rect, _) in laid.ways.iter().flatten().filter_map(|way| way.words.as_ref()) {
+            assert!(inside(laid.bounds, *rect), "an arrow's words are in the canvas: {rect:?}");
+        }
+        // And the canvas is drawn whole inside the view it is fitted to.
+        let drawn_at = view.rect(laid.bounds);
+        assert!(drawn_at.left() >= px(0.) && drawn_at.top() >= px(0.) && drawn_at.right() <= px(900.) && drawn_at.bottom() <= px(600.), "fitted: {drawn_at:?}");
+        let corner = view.rect(*laid.rects.iter().min_by(|a, b| a.x.total_cmp(&b.x)).expect("a node"));
+        assert!(corner.left() >= px(0.), "the leftmost node is inside the view: {corner:?}");
+    }
 }

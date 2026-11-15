@@ -24,7 +24,6 @@ use super::sketch_card::{act, mixed, Kind};
 use super::{Extra, JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use super::sketch_keys::{moved, Looking, KEY_STEP};
 use crate::scene::{Clock, Fit, Lens};
 
 /// The route `answer_part` is posted to.
@@ -57,8 +56,6 @@ pub(super) struct PartsState {
     sent: HashMap<String, (String, PartState, PartAnswer)>,
     /// What a button said when pressed, by part and action, until Fleet's press says it.
     went: HashMap<String, String>,
-    /// How a drawing part is zoomed and moved in the artifact's tab, by part.
-    lens: HashMap<String, Lens>,
     /// The one-line note on a pick, by takes part.
     notes: HashMap<String, Entity<InputState>>,
     typing: HashMap<String, gpui::Subscription>,
@@ -420,21 +417,6 @@ impl JobView {
         let Some(take) = page.cards.parts.chosen.get(key).and_then(|chosen| takes.get(*chosen)).map(|take| take.id.clone()) else { return };
         let words = page.cards.parts.notes.get(key).map(|input| input.read(cx).value().trim().to_string()).filter(|words| !words.is_empty());
         self.answer_part(&artifact, &held, PartHow::Picked, Some(take), words, window, cx);
-    }
-
-    /// The drawing of an artifact's tab zoomed, moved or fitted again.
-    pub(super) fn zoom_part(&mut self, key: &str, by: Looking, cx: &mut Context<Self>) {
-        if let Some(state) = self.parts_state_mut() {
-            let lens = state.lens.get(key).copied().unwrap_or_default();
-            state.lens.insert(key.to_string(), moved(lens, by));
-        }
-        match split_key(key) {
-            Some((artifact, _)) => {
-                let artifact = artifact.to_string();
-                self.parts_changed(&artifact, cx);
-            }
-            None => cx.notify(),
-        }
     }
 
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
@@ -1140,7 +1122,7 @@ impl JobView {
         let look = c.look;
         let held = format!("part:{}:{key}:{}", c.job, part.drawn);
         if c.tab {
-            return self.drawing_large(c, key, &held, scene, cx);
+            return self.drawing_large(c, key, &held, scene);
         }
         let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
         let artifact = c.id.to_string();
@@ -1191,41 +1173,11 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The drawing read large in the artifact's tab, with its zoom: the pinch, the buttons and the keys over it (`artifact_key`).
-    fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
+    /// The drawing read large in the artifact's tab.
+    fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str) -> AnyElement {
         let look = c.look;
-        let lens = c.state().lens.get(key).copied().unwrap_or_default();
-        let Some(drawn) = self.scene_in(held, scene, look.length(token::SPACE_12) * 10., look, Fit::Reading, lens) else { return div().into_any_element() };
-        let button = |id: &'static str, said: &'static str, cap: &'static str, by: Looking| {
-            let held = key.to_string();
-            labelled(
-                act(look, format!("{id}:{key}"), said, Kind::Ghost, cap, true).tooltip(tip(said)).on_click(cx.listener(move |this, _, _, cx| this.zoom_part(&held, by, cx))),
-                Role::Button,
-                said,
-            )
-        };
-        let pinched = key.to_string();
-        labelled(
-            div()
-                .id(SharedString::from(format!("drawing:{key}")))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .child(div().w_full().on_pinch(cx.listener(move |this, event: &gpui::PinchEvent, _, cx| this.zoom_part(&pinched, Looking::Zoom((1. + event.delta).max(0.05)), cx))).child(drawn))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap(look.length(token::SPACE_2))
-                        .child(button("zoom-out", "Zoom out", "\u{2318}\u{2212}", Looking::Zoom(1. / KEY_STEP)))
-                        .child(button("zoom-in", "Zoom in", "\u{2318}+", Looking::Zoom(KEY_STEP)))
-                        .child(button("zoom-fit", "Fit", "\u{2318}0", Looking::Fit)),
-                ),
-            Role::Group,
-            "Drawing",
-        )
-        .into_any_element()
+        let Some(drawn) = self.scene_in(held, scene, look.length(token::SPACE_12) * 10., look, Fit::Reading, Lens::default()) else { return div().into_any_element() };
+        labelled(div().id(SharedString::from(format!("drawing:{key}"))).w_full().child(drawn), Role::Group, "Drawing").into_any_element()
     }
 
     /// Buttons in the Kept look: a row each, its words at the left and the button in a column of its own at the right. A

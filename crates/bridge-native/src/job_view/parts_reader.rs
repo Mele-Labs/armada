@@ -1,12 +1,11 @@
 //! An artifact of parts read whole in a tab of its own, as a page and a draft are read in theirs. Every part is answered
 //! there as it is on the card (`parts_card`): takes with 1 to 4 and Send pick, words with Approve and Ask for changes, buttons
-//! pressed. The drawing is large, with ⌘+, ⌘−, ⌘0 and the pinch; the card there never folds, so what he answered stays to read.
+//! pressed. The drawing is large; the card there never folds, so what he answered stays to read.
 
 use gpui::{div, prelude::*, AnyElement, Context, KeyDownEvent, Window};
 
 use super::acts::SHEET;
 use super::row_tabs::RowTab;
-use super::sketch_keys::lens_key;
 use super::JobView;
 use crate::look::{token, Look};
 
@@ -33,15 +32,9 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The keys over the open artifact: ⌘+ and ⌘− zoom the drawing and ⌘0 fits it. The rest are the card's own.
+    /// The keys over the open artifact: paging the column. The rest are the card's own.
     fn artifact_key(&mut self, artifact: &str, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
         if event.keystroke.modifiers.platform {
-            let drawing = self.artifact_of(&job, artifact).and_then(|one| one.parts.iter().find(|part| matches!(part.content, ipc::PartContent::Drawing { .. })).map(|part| part.id.clone()));
-            if let (Some(by), Some(part)) = (lens_key(&event.keystroke), drawing) {
-                self.zoom_part(&super::parts_card::part_key(artifact, &part), by, cx);
-                cx.stop_propagation();
-            }
             return;
         }
         let mods = event.keystroke.modifiers;

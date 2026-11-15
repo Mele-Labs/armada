@@ -9,8 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    anchored, deferred, div, img, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, ObjectFit, Role,
-    ScrollDelta, ScrollEvent, SharedString, Window,
+    anchored, deferred, div, img, prelude::*, Anchor, AnyElement, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, Role, SharedString, Window,
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
 
@@ -18,7 +17,7 @@ use super::acts::SHEET;
 use super::cards::{settled_of, Subject};
 
 use super::cards::{picked_revision, shown_against, shown_scene};
-use super::sketch_keys::{lens_key, moved, Looking, KEY_STEP};
+use super::zoomer::{self, Stage, Zoomer, KEY_STEP};
 use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -79,11 +78,8 @@ pub(super) struct Reading {
     opened: Instant,
     pub(super) focus: FocusHandle,
     back: Option<FocusHandle>,
-    pub(super) lens: Lens,
-    /// The press held, and where the pointer was last.
-    drag: Option<gpui::Point<f32>>,
-    /// Where the press began, and whether it travelled: a press that did not picks the part under it.
-    down: Option<(gpui::Point<f32>, bool)>,
+    /// How far the drawing is zoomed past its fit, and moved.
+    pub(super) zoom: Zoomer,
     /// What a save or a copy came to, said in the band for a moment.
     said: Option<SharedString>,
     handed: Option<Handed>,
@@ -96,10 +92,10 @@ impl Reading {
     }
 }
 
-const WHEEL_SPEED: f32 = 0.002;
-const LINE_HEIGHT: f32 = 16.;
-/// How far a press may travel and still be a press, in points.
-const TAP_SLOP: f32 = 4.;
+/// The scene's lens for a zoom: how far past the fit, and moved.
+fn lens_of(zoom: &Zoomer) -> Lens {
+    Lens { zoom: zoom.scale, pan: (zoom.pan.x, zoom.pan.y) }
+}
 
 /// The card with this id: the pinned one, else the one in the thread.
 pub(super) fn card_of<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
@@ -156,9 +152,7 @@ impl JobView {
             opened: Instant::now(),
             focus,
             back,
-            lens: Lens::default(),
-            drag: None,
-            down: None,
+            zoom: Zoomer::default(),
             said: None,
             handed: None,
         };
@@ -335,30 +329,11 @@ impl JobView {
         .detach();
     }
 
-    fn move_sketch_view(&mut self, by: Looking, cx: &mut Context<Self>) {
-        if let Some(reading) = self.sketch_reading.as_mut() {
-            reading.lens = moved(reading.lens, by);
-        }
-        cx.notify();
-    }
-
-    fn fit_sketch(&mut self, cx: &mut Context<Self>) {
-        self.move_sketch_view(Looking::Fit, cx);
-    }
-
     fn close_reading(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(back) = self.sketch_reading.take().and_then(|reading| reading.back) {
             window.focus(&back, cx);
         }
         cx.notify();
-    }
-
-    fn zoom_sketch(&mut self, by: f32, cx: &mut Context<Self>) {
-        self.move_sketch_view(Looking::Zoom(by), cx);
-    }
-
-    fn pan_sketch(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        self.move_sketch_view(Looking::Pan(x, y), cx);
     }
 
     fn sketch_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
@@ -374,8 +349,7 @@ impl JobView {
             }
             return;
         }
-        if let Some(by) = lens_key(key) {
-            self.move_sketch_view(by, cx);
+        if zoomer::keyed(self, key, window, cx) {
             cx.stop_propagation();
             return;
         }
@@ -579,61 +553,28 @@ impl JobView {
                 "sketch-view-acts",
                 "How you are looking at this",
                 vec![
-                    rail_button("sketch-zoom-out", Face::Sign("−"), "Zoom out", Some("-"), None, None, |this, _, cx| this.zoom_sketch(1. / KEY_STEP, cx)).into_any_element(),
-                    rail_button("sketch-zoom-in", Face::Sign("+"), "Zoom in", Some("+"), None, None, |this, _, cx| this.zoom_sketch(KEY_STEP, cx)).into_any_element(),
-                    rail_button("sketch-fit", Face::Glyph("maximize"), "Fit", Some("0"), None, None, |this, _, cx| this.fit_sketch(cx)).into_any_element(),
+                    rail_button("sketch-zoom-out", Face::Sign("−"), "Zoom out", Some("-"), None, None, |this, window, cx| zoomer::step(this, 1. / KEY_STEP, window, cx)).into_any_element(),
+                    rail_button("sketch-zoom-in", Face::Sign("+"), "Zoom in", Some("+"), None, None, |this, window, cx| zoomer::step(this, KEY_STEP, window, cx)).into_any_element(),
+                    rail_button("sketch-fit", Face::Glyph("maximize"), "Fit", Some("0"), None, None, |this, _, cx| zoomer::refit(this, cx)).into_any_element(),
                 ],
             ));
-        let pane = div()
-            .id("sketch-drawing")
-            .flex_1()
-            .min_w_0()
-            .overflow_hidden()
-            .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, _, cx| {
-                if let Some(reading) = this.sketch_reading.as_mut() {
-                    let at = point(f32::from(event.position.x), f32::from(event.position.y));
-                    reading.drag = Some(at);
-                    reading.down = Some((at, false));
-                }
-                cx.stop_propagation();
-            }))
-            // A right press names the part under it: the menu offers Add note about it.
-            .on_mouse_down(MouseButton::Right, cx.listener(|this, event: &MouseDownEvent, window, cx| {
-                let part = this.sketch_reading.as_ref().and_then(|reading| crate::scene::part_at(&Self::drawn_key(reading), event.position)).map(|(part, _)| part);
-                this.note_menu(event.position, part, window, cx);
-                cx.stop_propagation();
-            }))
-            .on_pinch(cx.listener(|this, event: &gpui::PinchEvent, _, cx| this.zoom_sketch((1. + event.delta).max(0.05), cx)))
-            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                let Some(was) = this.sketch_reading.as_ref().and_then(|reading| reading.drag) else { return };
-                if event.pressed_button != Some(MouseButton::Left) {
-                    return;
-                }
-                let now = point(f32::from(event.position.x), f32::from(event.position.y));
-                if let Some(reading) = this.sketch_reading.as_mut() {
-                    reading.drag = Some(now);
-                    if let Some((from, moved)) = reading.down.as_mut() {
-                        *moved |= (now.x - from.x).hypot(now.y - from.y) > TAP_SLOP;
-                    }
-                }
-                this.pan_sketch(now.x - was.x, now.y - was.y, cx);
-            }))
-            .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                let Some(reading) = this.sketch_reading.as_mut() else { return };
-                reading.drag = None;
+        let corner = reading.zoom.view().zip(crate::scene::fit_of(&Self::drawn_key(reading))).map(|(view, (fit, actual))| reading.zoom.readout(Stage { view, fit, actual }));
+        let pane = zoomer::bind(
+            div().id("sketch-drawing").relative().flex_1().min_w_0().overflow_hidden(),
+            cx,
+            |this, at, _, cx| {
                 // A press that did not travel picks the part under it, as Classic's click picks a node.
-                if reading.down.take().is_some_and(|(_, moved)| !moved) {
-                    let part = crate::scene::part_at(&Self::drawn_key(reading), event.position).map(|(part, _)| part);
-                    this.pick_part(part, cx);
-                }
-            }))
-            .on_scroll(cx.listener(|this, event: &ScrollEvent, _, cx| {
-                let delta = match event.delta {
-                    ScrollDelta::Pixels(by) => f32::from(by.y),
-                    ScrollDelta::Lines(by) => by.y * LINE_HEIGHT,
-                };
-                this.zoom_sketch((delta * WHEEL_SPEED).exp(), cx);
-            }))
+                let part = this.sketch_reading.as_ref().and_then(|reading| crate::scene::part_at(&Self::drawn_key(reading), at)).map(|(part, _)| part);
+                this.pick_part(part, cx);
+            },
+        )
+        // A right press names the part under it: the menu offers Add note about it.
+        .on_mouse_down(MouseButton::Right, cx.listener(|this, event: &MouseDownEvent, window, cx| {
+            let part = this.sketch_reading.as_ref().and_then(|reading| crate::scene::part_at(&Self::drawn_key(reading), event.position)).map(|(part, _)| part);
+            this.note_menu(event.position, part, window, cx);
+            cx.stop_propagation();
+        }))
+        .child(reading.zoom.probe())
             .child({
                 let clock = Clock { steps: reading.steps, flows: Some(reading.opened) };
                 let marks = self.marks_of(reading);
@@ -641,11 +582,12 @@ impl JobView {
                     Some((_, before)) => {
                         let key = format!("{}:changes", reading.key);
                         let (scene, changes) = crate::scene::against(&key, before, &reading.scene);
-                        crate::scene::view_marked(key.into(), scene, Some(changes), Fit::Reading, clock, reading.lens, marks).into_any_element()
+                        crate::scene::view_marked(key.into(), scene, Some(changes), Fit::Reading, clock, lens_of(&reading.zoom), marks).into_any_element()
                     }
-                    None => crate::scene::view_marked(reading.key.clone().into(), reading.scene.clone(), None, Fit::Reading, clock, reading.lens, marks).into_any_element(),
+                    None => crate::scene::view_marked(reading.key.clone().into(), reading.scene.clone(), None, Fit::Reading, clock, lens_of(&reading.zoom), marks).into_any_element(),
                 }
-            });
+            })
+            .children(corner.map(|readout| zoomer::corner(look, readout, |this, _, cx| zoomer::refit(this, cx), cx)));
         // `SketchReading`'s band: what the sketch is read against, and Changes or Whole.
         let against = reading.against.as_ref().map(|(title, _)| {
             let read = |id: &'static str, said: &'static str, on: bool, changes: bool| {
