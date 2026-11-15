@@ -14,11 +14,16 @@ const LAST: &str = "Rate limits per token have no default";
 const IDEA: &str = "Checkout shows the total twice after a coupon";
 const HOLD: &str = "Hold Pocket until Jobs screens pushes, Pocket waits about 20 min";
 const BOTH: &str = "Let both run, A conflict to fix, about 10 min";
+/// The card the walk's Fleet has the Operator working on, its option and its title as the feed's row names it.
+const WORKING_TITLE: &str = "Retry the flaky login test or skip it";
+const WORKING: &str = "Retry it once, Retry the flaky login test or skip it";
+/// The row the press on the first option adds to the feed.
+const JUST_PICKED: &str = "Hold Pocket until Jobs screens pushes, Two Jobs are changing paging.rs";
 const ACTS: &str = "What the Operator does unasked, by project";
 /// Fleet's why for a Snooze whose time has passed, as the scene `late` has it refuse.
 const LATE: &str = "That time has passed. Pick a later one.";
 
-pub static STEPS: [Step; 38] = [
+pub static STEPS: [Step; 44] = [
     step("The head: Operator, the red main as a pill, and at the right what the Operator does unasked, by project, since the window is on All", Verb::Look, "button", ACTS),
     step("Its menu has each project as a header with its three values under it: Act then tell, Ask before starting or Only when told, ticked where set", Verb::Open("button", ACTS), "menuitemcheckbox", "Ask before starting"),
     step("A press sets that project's value at once", Verb::Open("menuitemcheckbox", "Ask before starting"), "button", ACTS),
@@ -56,6 +61,12 @@ pub static STEPS: [Step; 38] = [
     step("Retry sends it again, and the card settles", Verb::Open("button", "Retry"), "article", NEXT),
     answer("The Operator switched off: nothing is queued, and the page says so with the switch", "off", "region", "The Operator is off"),
     step("Switch on is the setting Electron's Permissions tab saves, and the page reads on at once", Verb::Open("button", "Switch the Operator on"), "article", FRONT),
-    step("The keys: 1 to 4 settle the card with that option, A or Enter its pick, / Discuss, S Snooze, ↓ ↑ or j k bring the next or the last queued card, Esc leaves the box, Next up or a kept idea, Tab moves through the page and Enter or Space presses what it is on", Verb::Look, "heading", "Operator"),
+    step("1 settles the card, and it moves into the feed as working at once, its option as the title: the next card is in front before Fleet has said anything", Verb::Key("1"), "button", JUST_PICKED),
+    step("The next card is in front", Verb::Look, "article", NEXT),
+    step("The Operator's earlier card is working at the top of the feed: a turning ring in the accent, the option he picked in bold, the card's title under it, and each step it reported, a check on the done ones and the ring on the newest", Verb::Look, "button", WORKING),
+    step("A press on it brings the card to the front to read: its read, every option with his pick marked and none to press, and its steps under them", Verb::Open("button", WORKING), "article", WORKING_TITLE),
+    step("Esc puts the card that was in front back", Verb::Key("escape"), "article", NEXT),
+    answer("The Operator reports the retry failed: the card comes back in front, with its kind chip reading Did not settle in red and a red frame, and its read starting with what he picked and why", "returns", "article", WORKING_TITLE),
+    step("The keys: 1 to 4 settle the card with that option, A or Enter its pick, / Discuss, S Snooze, ↓ ↑ or j k bring the next or the last queued card, Esc leaves the box, Next up, a kept idea or a picked card, Tab moves through the page and Enter or Space presses what it is on", Verb::Look, "heading", "Operator"),
 ];
 

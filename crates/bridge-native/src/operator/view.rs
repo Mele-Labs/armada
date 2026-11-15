@@ -456,9 +456,11 @@ impl OperatorPageView {
         parts.extend(self.pairing_cards(look, cx));
         parts.extend(off);
         // A kept idea brought from Next up stands in front in the Operator's card's place.
-        match self.front_idea(cx) {
-            Some(idea) => parts.push(self.idea_card(&idea, window, look, cx)),
-            None => parts.extend(self.open_item().map(|turn| self.card(turn, false, window, look, cx))),
+        // A card from the feed's working entries stands there too, to be read: it is picked, so it takes no press.
+        match (self.front_idea(cx), self.front_working()) {
+            (Some(idea), _) => parts.push(self.idea_card(&idea, window, look, cx)),
+            (None, Some(turn)) => parts.push(self.working_card(turn, look, cx)),
+            (None, None) => parts.extend(self.open_item().map(|turn| self.card(turn, false, window, look, cx))),
         }
         parts.push(self.composer.clone().into_any_element());
         div()

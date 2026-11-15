@@ -126,8 +126,12 @@ impl MockFleet {
                 None => answered.open = turn.item.act.clone().filter(|act: &WaitingAct| act.kind != ipc::WaitingActKind::Answer),
             }
         }
-        if answered.open.is_some() {
-            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
+        // A press on a card picks it: it leaves the front for `working` until the Operator settles it.
+        let option = press.option.clone().or_else(|| super::face::pick_of(&turn).map(|pick| pick.to_string()));
+        match (answered.open.is_some(), option.and_then(|option| super::face::picked_card(&turn, &option, now().to_rfc3339().as_str()))) {
+            (false, Some(picked)) => self.page.working.insert(0, picked),
+            (true, _) => self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn),
+            (false, None) => {}
         }
         answered.page = self.page.clone();
         Ok(answered)
@@ -156,6 +160,7 @@ impl MockFleet {
         self.page.on = on;
         if !on {
             self.page.turn.clear();
+            self.page.working.clear();
             self.page.on_it = None;
             self.page.top = None;
         } else if self.page.turn.is_empty() {
@@ -197,6 +202,17 @@ impl MockFleet {
                 self.page.turn.push(turn);
             }
         }
+        Some(())
+    }
+
+    /// The Operator reports the oldest card it is working on failed: the card comes back first in the queue, with its
+    /// steps and why.
+    pub fn returns(&mut self) -> Option<()> {
+        let mut turn = self.page.working.pop()?;
+        if let Some(card) = turn.card.as_mut() {
+            card.returned = Some(ipc::OperatorCardReturned { why: "The retry Job stopped before it finished".into(), at: ipc::Instant::carried("2026-11-11T13:06:00-05:00") });
+        }
+        self.page.turn.insert(0, turn);
         Some(())
     }
 

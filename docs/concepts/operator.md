@@ -47,20 +47,24 @@ A card never holds a count or a status report.
 
 | You do | What happens |
 |---|---|
-| Press an option, or its key | The card leaves the front and the next one comes up. The Operator is told which card and which option, and does it now |
+| Press an option, or its key | The card leaves the front for the top of the feed at once and the next one comes up, before Fleet has answered. If Fleet refuses, the card comes back in front with Fleet's reason. The Operator is told which card and which option, and does it now |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | The card folds to one line and the talk runs below it, until the item settles or the Operator puts up a new card |
 | Snooze (`S`) | The card goes back until its time, hidden until then |
 | Open Next up, at the top of the right side | The cards queued behind the one in front, then the ideas the Operator kept, newest first. Pressing a card brings it to the front. The keys go into it: ↓ and ↑ move, Enter brings, Esc folds it |
+| Press a card working at the top of the feed | The card comes to the front to be read: its read, every option with your pick marked and none to press, and its steps. It has no Snooze and no Discuss. Esc puts the card that was in front back |
 | Press a kept idea in Next up | The idea comes to the front as a card with two options: Start it, which sends it as a dispatch, and Remove, which drops it. It has no Discuss and no Snooze. Esc puts the Operator's own card back |
 
 **A card you picked is at the top of the feed until it is settled.**
-It shows its title, the option you picked, and a line for each step the Operator reports, such as a Job started, a pull request opened or a merge.
+It shows the option you picked as its title, the card's own title under it, and a line for each step the Operator reports, such as a Job started, a pull request opened or a merge.
+A turning ring marks it as live, a check marks each step done, and the newest step keeps the ring.
 When the Operator settles it, the feed shows it settled.
 
 **A picked card comes back to the front when it cannot be done.**
 The Operator reports that it failed, with the reason, or nothing settles it within 15 minutes of your press.
 It comes back ahead of every other card with the reason on it, and you pick again.
+Its kind chip reads Did not settle in red, its frame is red, and its read starts with one line: what you picked, then why it came back.
+Its options are live, and Next up shows the same chip on its row.
 A picked card is never lost: until it is settled it is at the top of the feed or back in front.
 
 **A talk about a card ends in one of two ways.**

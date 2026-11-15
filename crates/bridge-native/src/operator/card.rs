@@ -13,7 +13,7 @@ use super::page::OperatorPageView;
 use super::view::{chip, kind_chip, measured, press, pressed, round, Weight};
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use crate::titlebar::parts::{glyph, kbd, tip};
+use crate::titlebar::parts::{glyph, kbd, spinner, tip};
 
 /// An option's name for a reader: its label, then its cost.
 pub(super) fn option_name(label: &SharedString, cost: Option<&SharedString>) -> String {
@@ -155,14 +155,65 @@ impl OperatorPageView {
     pub(super) fn card(&self, turn: &OperatorTurnItem, inset: bool, window: &Window, look: &Look, cx: &Context<Self>) -> AnyElement {
         let title = face::card_title(turn);
         let target = self.target().is_some_and(|target| target.id == turn.id);
-        let head = card_head(face::kind_of(turn), title.clone(), look).children(self.names(turn, true, look, cx));
-        let card = card_frame(&turn.id, inset, look).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
+        let danger = look.color(token::STATUS_COMPLETED_FAILED);
+        let returned = face::returned(turn);
+        let head = card_head(face::kind_of(turn), title.clone(), look).when(returned, |head| head.border_color(danger)).children(self.names(turn, true, look, cx));
+        let card = card_frame(&turn.id, inset, look).when(returned, |card| card.border_color(danger)).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
         labelled(card, Role::Article, title).into_any_element()
+    }
+
+    /// A card he picked, brought to the front from the feed to be read: its read, every option with his pick marked and none
+    /// to press, and what the Operator did on it. It has no Snooze and no Discuss.
+    pub(super) fn working_card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let title = face::card_title(turn);
+        let head = card_head(face::kind_of(turn), title.clone(), look).children(self.names(turn, true, look, cx));
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_4))
+            .children(self.asks(turn, look))
+            .children(self.my_read(turn, look))
+            .child(self.options_picked(turn, look))
+            .children(self.steps_list("card", turn, look, cx).map(|steps| div().mt(look.length(token::SPACE_1)).child(steps)));
+        labelled(card_frame(&turn.id, false, look).child(head).child(body), Role::Article, title).into_any_element()
+    }
+
+    /// What the card says it asks, under the title, where the title is the Job's.
+    fn asks(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
+        face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks))
+    }
+
+    /// The read section: on a card that came back, the line of what he picked and why, then My read.
+    fn my_read(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
+        let danger = look.color(token::STATUS_COMPLETED_FAILED);
+        let lead = face::returned_lead(turn).map(|said| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("returned-{}", turn.id)))
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG) * 1.25)
+                    .bg(look.color(token::STATUS_COMPLETED_FAILED_BG))
+                    .text_color(danger)
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph("circle-alert", look.length(token::SPACE_4), danger)))
+                    .child(div().flex_1().min_w_0().child(said.clone())),
+                Role::Status,
+                said,
+            )
+        });
+        let read = turn.read.as_ref().filter(|read| !read.read.is_empty()).map(|read| read_block("My read", "bot", read.read.clone().into(), look));
+        (lead.is_some() || read.is_some()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).children(lead).children(read))
     }
 
     /// My read, the options and Fleet's refusal.
     fn card_body(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Div {
-        let read = turn.read.as_ref().filter(|read| !read.read.is_empty()).map(|read| read_block("My read", "bot", read.read.clone().into(), look));
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -184,10 +235,77 @@ impl OperatorPageView {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
-            .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
-            .children(read)
+            .children(self.asks(turn, look))
+            .children(self.my_read(turn, look))
             .child(self.options(turn, keyed, window, look, cx))
             .children(refused)
+    }
+
+    /// The options of a card he has picked on, none to press: his pick lit in the accent with Picked at its right, the rest
+    /// dimmed.
+    fn options_picked(&self, turn: &OperatorTurnItem, look: &Look) -> impl IntoElement {
+        let picked = face::picked_option(turn);
+        let accent = look.color(token::ACCENT);
+        let rows = self.offers(turn).into_iter().enumerate().map(|(at, offer)| {
+            let mine = picked.as_ref().is_some_and(|picked| *picked == offer.label);
+            let name = option_name(&offer.label, offer.cost.as_ref());
+            let row = div()
+                .id(SharedString::from(format!("picked-{}-{at}", turn.id)))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_3))
+                .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_LG) * 1.25)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if mine { accent } else { look.color(token::BORDER_DEFAULT) })
+                .bg(look.color(if mine { token::ACCENT_FAINT } else { token::BG_OVERLAY }))
+                .text_size(look.length(token::TEXT_SM))
+                .when(!mine, |row| row.opacity(0.5))
+                .tooltip(tip(if mine { "Your pick" } else { "Already picked" }))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(offer.label.clone()))
+                        .children(offer.cost.clone().map(|cost| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(cost))),
+                )
+                .when(mine, |row| row.child(chip("Picked", look.color(token::TEXT_ON_ACCENT), accent, look).child(glyph("check", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))));
+            labelled(row, Role::ListItem, if mine { format!("{name}, picked") } else { name })
+        });
+        self.option_group(&turn.id, rows, look)
+    }
+
+    /// What the Operator did on a picked card, oldest first: a check on each step done, and a turning ring on the newest.
+    /// `scope` keeps a card's list apart from its feed row's.
+    pub(super) fn steps_list(&self, scope: &str, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> Option<crate::labels::Labelled> {
+        let steps = &turn.card.as_ref()?.steps;
+        let last = steps.len().checked_sub(1)?;
+        let size = look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4.;
+        let lines = steps.iter().enumerate().map(|(at, step)| {
+            let id = SharedString::from(format!("{scope}-step-{}-{at}", turn.id));
+            let (mark, said) = if at == last {
+                (spinner(SharedString::from(format!("{scope}-spin-{}-{at}", turn.id)), size, look.color(token::ACCENT), cx).into_any_element(), "Working on it")
+            } else {
+                (glyph("check", size, look.color(token::STATUS_COMPLETED_SUCCESS)).into_any_element(), "Done")
+            };
+            labelled(
+                div()
+                    .id(id.clone())
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(div().id(SharedString::from(format!("{id}-mark"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().tooltip(tip(said)).child(mark))
+                    .child(div().flex_1().min_w_0().child(step.said.clone())),
+                Role::ListItem,
+                step.said.clone(),
+            )
+        });
+        Some(labelled(div().id(SharedString::from(format!("{scope}-steps-{}", turn.id))).flex().flex_col().gap(look.length(token::SPACE_1)).children(lines), Role::List, "Steps"))
     }
 
     /// Each option a full-width row: its key at the left, the label with its cost under it, My pick on the first. A hover or
