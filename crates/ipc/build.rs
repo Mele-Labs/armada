@@ -83,16 +83,17 @@ fn read_operations(dir: &Path) -> String {
     text
 }
 
-/// Every row whose `agent_access` is `Yes`, as a table, and every row reading
-/// `On your words` as a second.
+/// Every row whose `agent_access` is `Yes`, as a table, every row reading
+/// `On your words` as a second, and every row reading `Operator` as a third.
 ///
-/// **Two tables, never one with a flag.** `REACHABLE` is what the door offers
+/// **Three tables, never one with a flag.** `REACHABLE` is what the door offers
 /// any agent; `ON_YOUR_WORDS` is offered to a Job on your words alone for everything a
 /// person may ask it to do (`#1150`) — so a reader that forgot a flag could not
 /// hand either to a caller it was not written for.
 fn reachable(inventory: &str, source: &Path) -> String {
     let mut rows = String::new();
     let mut on_your_words = String::new();
+    let mut operator = String::new();
     let mut found = 0usize;
     for block in inventory.split("\n[operations.") {
         let Some((header, body)) = block.split_once(']') else {
@@ -110,6 +111,7 @@ fn reachable(inventory: &str, source: &Path) -> String {
                 &mut rows
             }
             Some("On your words") => &mut on_your_words,
+            Some("Operator") => &mut operator,
             _ => continue,
         };
         let kind = field(body, "kind").unwrap_or_default();
@@ -132,7 +134,8 @@ fn reachable(inventory: &str, source: &Path) -> String {
     );
     format!(
         "pub const REACHABLE: &[Reachable] = &[\n{rows}];\n\
-         pub const ON_YOUR_WORDS: &[Reachable] = &[\n{on_your_words}];\n"
+         pub const ON_YOUR_WORDS: &[Reachable] = &[\n{on_your_words}];\n\
+         pub const OPERATOR: &[Reachable] = &[\n{operator}];\n"
     )
 }
 

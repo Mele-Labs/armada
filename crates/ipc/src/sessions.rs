@@ -1526,6 +1526,10 @@ pub struct SessionRecord {
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub side_job: bool,
+    /// The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+    /// Bridge keeps out of the Jobs list. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub operator: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

@@ -68,6 +68,103 @@ export type OperatorTurnItem = {
   conflict?: OperatorConflict;
   /** On a `job_held` item: the pull request or branch asked about, and the Job that asked. Since 14 Nov 2026. */
   held?: OperatorHeld;
+  /** On a card the Operator's own session raised: its kind and what it carries on from. Since 14 Nov 2026. */
+  card?: OperatorCard;
+};
+
+/** A card's kind: a `deal` is something the Operator did or will do, a `raise` is something it needs from him. */
+export type OperatorCardKind = "deal" | "raise";
+
+/** What marks a turn item as a card the Operator's own session raised. */
+export type OperatorCard = {
+  kind: OperatorCardKind;
+  /** The card this one carries the talk on from, `turn:<n>`. */
+  talk_of?: string;
+  /** The Jobs it is about. */
+  sessions?: string[];
+};
+
+/** One option of a card, with what it spends or risks. */
+export type CardOption = {
+  label: string;
+  cost: string;
+};
+
+/** What happened since he looked that needs no decision from him. */
+export type OperatorFeedKind = "dispatched" | "merged" | "ended" | "asked" | "told" | "settled";
+
+/** One line of the feed. Since 14 Nov 2026. */
+export type OperatorFeedEntry = {
+  /** RFC 3339. */
+  at: string;
+  kind: OperatorFeedKind;
+  title: string;
+  session_id?: string;
+  /** The pull request's number, on a `merged` entry. */
+  number?: string;
+  /** What was said: how a card was settled, what a Job asked or sent. */
+  said?: string;
+};
+
+/** What the Operator may do unasked in a project. Unset is a state of its own: the field is absent. */
+export type OperatorActs = "act_then_tell" | "ask_before_starting" | "only_when_told";
+
+/** One served project and its `operator_acts`. */
+export type ProjectOperatorActs = {
+  project: string;
+  name: string;
+  acts?: OperatorActs;
+};
+
+/** `list_operator_acts` and `set_operator_acts`' answer. */
+export type OperatorActsList = {
+  projects: ProjectOperatorActs[];
+};
+
+/** `set_operator_acts`: absent `acts` clears the value. */
+export type SetOperatorActs = {
+  project: string;
+  acts?: OperatorActs;
+};
+
+/** `raise_card`, for the Operator's own session. */
+export type RaiseCard = {
+  kind: OperatorCardKind;
+  title: string;
+  read: string;
+  /** Two to four; the first is the pick. */
+  options: CardOption[];
+  sessions?: string[];
+  repository?: string;
+  talk_of?: string;
+};
+
+/** What `raise_card` did. */
+export type CardRaised = {
+  card: string;
+};
+
+/** `revise_card`. */
+export type ReviseCard = {
+  card: string;
+  read?: string;
+  options?: CardOption[];
+};
+
+/** What `revise_card` did. */
+export type CardRevised = {
+  card: string;
+};
+
+/** `settle_card`. */
+export type SettleCard = {
+  card: string;
+  said: string;
+};
+
+/** What `settle_card` did. */
+export type OperatorCardSettled = {
+  card: string;
 };
 
 /** A Job on a card of Your turn, as a chip: its title and its address. */
@@ -298,13 +395,19 @@ export type OperatorPage = {
   looked_at?: string;
   /** Present while the Operator is reading something to review. */
   on_it?: OperatorOnIt;
-  /** Your turn, in the order he left it, with what he put Later last. */
+  /** Your turn, in the order he left it. A card put Later, and a resting Job's items, are left out until they are due. */
   turn: OperatorTurnItem[];
   digest: OperatorDigest;
   /** Each repository Fleet serves, first first. Absent when none. */
   mains?: OperatorMain[];
   /** Absent where no pool is read. */
   slots?: OperatorSlots;
+  /** What happened since `looked_at` that needs no decision, newest first. Absent when nothing did. Since 14 Nov 2026. */
+  feed?: OperatorFeedEntry[];
+  /** The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026. */
+  session_id?: string;
+  /** What the Operator may do unasked in each served project. Since 14 Nov 2026. */
+  operator_acts?: ProjectOperatorActs[];
 };
 
 /** `operator_answer` (`POST /operator/page/answer`): one press on an item. */

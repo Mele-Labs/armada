@@ -93,6 +93,8 @@ pub(crate) enum Marked {
     /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
     /// Manifest, and so never leases a slot or cuts a branch.
     ModsFolder,
+    /// The Operator's own session: no repository, no slot and no Manifest, in a folder of its own.
+    Operator,
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {

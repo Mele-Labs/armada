@@ -16,8 +16,11 @@ Bridge's half is `packages/protocol/src/job-dispatch.ts` and `DispatchWay` in `o
 
 **A dispatch that is not the Operator's case is `start_session`.**
 A body with `held`, `fork`, `root` or `after`, or no `request`, and every dispatch while the Operator is off or not seated, is started as `start_session` starts it, its `then` sent, and answered with `session`.
-**With the Operator on and seated the work goes to it first.**
-The Operator is put the dispatch with the live Jobs near it, even where none is, and rules: start a Job, fold it into the live one, keep it for later, or ask him with `Hand to <Job>` or `Keep both`.
+**With the Operator's session running the work goes to it first.**
+The dispatch is told to the session as a message, and the Operator starts the Job itself, hands the words to a live Job, or raises a card, by the project's `operator_acts`.
+The answer is `operator`, the dispatch's id, and Fleet keeps nothing more of it.
+A dispatch carrying `then` is started as asked, since its sends need the Job they were set up for.
+A session that is not running, or cannot be told, leaves the dispatch to the old path below.
 **`kind` is a hint, and the Operator is told it in one line.**
 It never picks a way, a workflow or whether a call is made, and a dispatch with none is as valid as one with any.
 It stays on the stored dispatch, so it rides onto the Job or the idea kept for later.

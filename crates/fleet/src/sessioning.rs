@@ -1086,6 +1086,26 @@ where
         self.conflict_raised(caller, conflict).await
     }
 
+    async fn raise_card(self: Arc<Self>, caller: Option<api::Caller>, card: ipc::RaiseCard) -> Result<ipc::CardRaised, Refusal> {
+        self.card_raised(caller, card).await
+    }
+
+    async fn revise_card(self: Arc<Self>, caller: Option<api::Caller>, revise: ipc::ReviseCard) -> Result<ipc::CardRevised, Refusal> {
+        self.card_revised(caller, revise).await
+    }
+
+    async fn settle_card(self: Arc<Self>, caller: Option<api::Caller>, settle: ipc::SettleCard) -> Result<ipc::OperatorCardSettled, Refusal> {
+        self.card_settled(caller, settle).await
+    }
+
+    async fn list_operator_acts(&self) -> Result<ipc::OperatorActsList, Refusal> {
+        self.operator_acts_listed().await
+    }
+
+    async fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> Result<ipc::OperatorActsList, Refusal> {
+        self.operator_acts_set(set).await
+    }
+
     async fn ask_held(
         self: Arc<Self>,
         caller: Option<api::Caller>,
