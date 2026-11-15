@@ -340,19 +340,6 @@ pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Serv
     }
 }
 
-/// A precedent ruling taken back. 200 with the page; 404 where no precedent ruling has the id, 422 where it is
-/// taken back already or its Job has ended.
-pub(crate) async fn operator_undo_ruling<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
-    let undo: ipc::operator_page::OperatorUndoRuling = match ipc::decode_body("a ruling taken back", &body) {
-        Ok(undo) => undo,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().operator_undo_ruling(undo).await {
-        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 /// Your turn as he dragged it. 200 with the page.
 pub(crate) async fn operator_turn_order<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let order: ipc::operator_page::OperatorTurnOrder = match ipc::decode_body("an order of Your turn", &body) {
@@ -385,29 +372,6 @@ pub(crate) async fn operator_in_front<D: HostedSessions>(State(served): State<Se
     }
 }
 
-/// What the Operator is ruling on, what waits for it and what it settled.
-pub(crate) async fn get_operator_board<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
-    match served.shared().get_operator_board().await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// One press moves an item among those waiting. 200 with the board; 404 where it is not waiting.
-pub(crate) async fn move_on_operator_board<D: HostedSessions>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let moved: ipc::operator_board::MoveOnOperatorBoard = match ipc::decode_body("a move on the Operator's board", &body) {
-        Ok(moved) => moved,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().move_on_operator_board(moved).await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 /// An error Bridge showed the person, handed to the Operator. 200 whatever became of it: `repeated` says
 /// whether it was already with the Operator that day.
 pub(crate) async fn report_bridge_error<D: HostedSessions>(
@@ -420,22 +384,6 @@ pub(crate) async fn report_bridge_error<D: HostedSessions>(
     };
     match served.shared().report_bridge_error(error).await {
         Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// One press settles a suggestion no Job holds. 200 with the board; 404 where none has the id, 409 where it
-/// is settled already.
-pub(crate) async fn answer_operator_suggestion<D: HostedSessions>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let press: ipc::operator_board::AnswerOperatorSuggestion = match ipc::decode_body("an answer to an Operator suggestion", &body) {
-        Ok(press) => press,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().answer_operator_suggestion(press).await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

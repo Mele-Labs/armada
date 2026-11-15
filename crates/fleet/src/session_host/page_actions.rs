@@ -251,7 +251,7 @@ where
             project: hosting.project.clone().filter(|_| own),
         };
         let then = vec![DispatchThen::Message(DispatchMessage { text: brief, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
-        let record = self.dispatch_started(DispatchJob { start, kind: None, then }, true).await?;
+        let record = self.dispatch_started(DispatchJob { start, kind: None, then }).await?;
         Ok(record.id)
     }
 

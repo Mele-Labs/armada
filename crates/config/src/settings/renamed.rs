@@ -3,13 +3,12 @@
 
 use store::settings_file::SettingsDocument;
 
-use super::{ASK_HOLD_SECONDS, PROMPT_THOUGHT_ROUTE, WORDS_CAN_ACT};
+use super::{ASK_HOLD_SECONDS, WORDS_CAN_ACT};
 
 /// `(old, new)`, for every key renamed when the Helm Job went.
 pub const RENAMED: &[(&str, &str)] = &[
     ("features.helmCanAct", WORDS_CAN_ACT.0),
     ("timeouts.helmAskHoldSeconds", ASK_HOLD_SECONDS.0),
-    ("prompts.helmRoute", PROMPT_THOUGHT_ROUTE.0),
 ];
 
 /// `document` with each old key moved under its new name, and whether any was. **A value already

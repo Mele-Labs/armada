@@ -79,15 +79,14 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     fn words_reach_at(&self, caller: Caller) -> Option<WordsReach> {
-        let (_, on_your_words) = self.session_placed(&caller)?;
-        if !on_your_words {
-            return Some(WordsReach::of_a_hosted_session());
-        }
-        let authority = self.action_authority();
-        Some(WordsReach::deciding(
-            |row| may(authority, row),
-            otherwise(authority),
-        ))
+        let (id, on_your_words) = self.session_placed(&caller)?;
+        let reach = if on_your_words {
+            let authority = self.action_authority();
+            WordsReach::deciding(|row| may(authority, row), otherwise(authority))
+        } else {
+            WordsReach::of_a_hosted_session()
+        };
+        Some(if self.session_is_the_operator(&id) { reach.the_operator() } else { reach })
     }
 
     fn always_loads(&self) -> Option<&'static str> {

@@ -110,6 +110,7 @@ pub(crate) mod slot_asking;
 mod slot_holders;
 pub(crate) mod releasing;
 mod rows;
+pub(crate) use rows::new_id;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 pub(crate) mod signed_out;
@@ -575,6 +576,8 @@ pub(crate) struct State {
     pub pages: HashMap<String, String>,
     /// The Job was started on your words: its door is the placed one, which narrows its calls.
     pub on_your_words: bool,
+    /// The Operator's own session, set when its process is placed.
+    pub operator: bool,
     /// What its tool calls show it doing. In memory.
     pub activity: activity::Activity,
     /// Whether the proposer is reading the request it was dispatched with, and the turns that
@@ -685,6 +688,7 @@ impl State {
             carded: false,
             pages: HashMap::new(),
             on_your_words: false,
+            operator: false,
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),

@@ -2,7 +2,7 @@
 kind = "event"
 transport = "WebSocket"
 agent_access = "Bridge only"
-description = "What the Operator did with a dispatch it held"
+description = "A dispatch an earlier Fleet held was started as asked"
 notes = """
-Published for each `dispatch_job` the Operator held, when it is ruled, and for one that began at once because no live Job was near its words. The body is `OperatorDispatched`: `dispatch_id` (the `operator` `dispatch_job` answered with, or a fresh id for the one that began at once, or the idea's id for one kept at once), `manifest_id`, `way` (`started`, `handed`, `asked` or `parked`), and `session_id` and `title` of the Job started or the live Job the work was folded into, absent while `asked`. With `parked` it is the idea's id that `dispatch_id` names, `title` is its first line, and `list_parked_ideas` holds it. Bridge draws a toast from it. Not replayed.
+Published when a dispatch kept for the Operator is started as it was asked, which is what an earlier Fleet's held dispatch becomes when Fleet starts. The body is `OperatorDispatched`: `dispatch_id` (the id the dispatch was kept under), `manifest_id`, `way` (`started`; `handed`, `asked` and `parked` are no longer sent), and `session_id` and `title` of the Job started. Bridge draws a toast from it. Not replayed.
 """

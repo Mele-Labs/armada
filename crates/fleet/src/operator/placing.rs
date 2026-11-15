@@ -1,5 +1,5 @@
 //! The person's drag of a Job in Waiting to start, kept in the Operator's Log as a correction.
-//! **The Operator no longer orders the line**, so with it off the line is first come, first served.
+//! With the Operator off the line is first come, first served.
 
 use std::sync::Arc;
 
@@ -7,8 +7,68 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Actor;
 
-use super::{Logged, Outcome, Place, Source};
+use super::{Logged, Source};
 use crate::daemon::Fleet;
+
+/// Where a Job goes in Waiting to start, among the Jobs waiting there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Place {
+    Ahead(String),
+    Behind(String),
+    Last,
+}
+
+impl Place {
+    /// As the store keeps it.
+    pub fn word(&self) -> String {
+        match self {
+            Place::Ahead(id) => format!("ahead:{id}"),
+            Place::Behind(id) => format!("behind:{id}"),
+            Place::Last => "last".to_string(),
+        }
+    }
+}
+
+impl Place {
+    /// The Job it is placed against, where it names one.
+    pub fn against(&self) -> Option<&str> {
+        match self {
+            Place::Ahead(id) | Place::Behind(id) => Some(id),
+            Place::Last => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Place {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Place::Ahead(id) => write!(out, "ahead of {id}"),
+            Place::Behind(id) => write!(out, "behind {id}"),
+            Place::Last => write!(out, "last"),
+        }
+    }
+}
+
+/// The Log's word for what a row Fleet keeps now records. Rows kept before the session are read as words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Outcome {
+    /// A Job started with work near it on another Mac, as `new_job`.
+    Started,
+    /// The person moved a Job in Waiting to start.
+    Corrected,
+    /// A hold of a standing order lifted: the Job it waited on moved as the order said.
+    HoldLifted,
+}
+
+impl Outcome {
+    pub fn word(self) -> &'static str {
+        match self {
+            Outcome::Started => "new_job",
+            Outcome::Corrected => "corrected",
+            Outcome::HoldLifted => "hold_lifted",
+        }
+    }
+}
 
 const LINE_UNORDERED: &str = "fleet.line_unordered";
 const LINE_NOT_WAITING: &str = "fleet.line_not_waiting";
@@ -75,12 +135,10 @@ impl Logged {
             other: None,
             shared: Vec::new(),
             because: String::new(),
-            call: None,
             by,
             handed: at.clone(),
             at,
             place: None,
-            refused: Vec::new(),
             issue: None,
         }
     }

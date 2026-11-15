@@ -195,7 +195,7 @@ impl TitleBar {
         let swap = (snapshot.state == SnapshotState::Ready).then(|| {
             let off = report.swapping || report.reverting || report.restarting.is_some();
             let label = if report.swapping { "Swapping" } else { "Swap" };
-            let button = Btn::new("swap-build", label, Weight::Secondary).pending(report.swapping).disabled(off).draw(look, cx).tooltip(tip("Restart Fleet on the build of the picked branches"));
+            let button = Btn::new("swap-build", label, Weight::Secondary).pending(report.swapping).disabled(off).draw(look, cx).track_focus(&self.list_stops.swap).tooltip(tip("Restart Fleet on the build of the picked branches"));
             let button = if off { button } else { button.on_click(cx.listener(|this, _, _, cx| this.swap_pressed(cx))) };
             labelled(button, Role::Button, label).into_any_element()
         });

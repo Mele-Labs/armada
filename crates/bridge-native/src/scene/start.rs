@@ -1,4 +1,4 @@
-//! Which node a sketch starts at, and where its "Start" tab sits. One rule, shared by the drawing in the
+//! Which node a sketch starts at, and where its "Start" pill sits. One rule, shared by the drawing in the
 //! app, the page and the picture a sketch exports as, so the mark is the same wherever it is drawn.
 
 use std::collections::HashSet;
@@ -6,14 +6,9 @@ use std::collections::HashSet;
 use ipc::{Scene, SceneKind, SceneNode, SceneShape};
 
 use super::geometry::Rect;
+use super::tile;
 
-/// The tab's height: one line, so its word stands on the line box it is drawn in.
-pub(super) const TAB_H: f32 = 18.;
-/// Room each side of the word inside the tab.
-pub(super) const TAB_PAD: f32 = 8.;
-/// What the tab rises above the node's top edge: it stands on the edge and shares the frame's border.
-pub(super) const TAB_RISE: f32 = TAB_H - super::BORDER;
-/// The word on the tab.
+/// The word the mark is named by, for a reader and a walk; on the pill it is set in capitals.
 pub(super) const TAB_WORD: &str = "Start";
 
 /// A group, a lane and a label are the page the nodes stand on, never a step in the flow.
@@ -65,18 +60,16 @@ fn only(found: Vec<&SceneNode>) -> Option<&str> {
     }
 }
 
-/// Where the tab stands for a node at `rect`, its word `word_w` wide. At the top left of the frame, past its
-/// corner; a circle, a diamond and a cylinder have no flat top edge, so it stands over their top.
-pub(super) fn tab(node: &SceneNode, rect: Rect, word_w: f32) -> Rect {
-    let w = word_w + 2. * TAB_PAD;
-    let shape = (node.kind == SceneKind::Box).then_some(node.shape).flatten();
-    let x = match shape {
-        Some(SceneShape::Circle | SceneShape::Diamond | SceneShape::Cylinder) => rect.x + (rect.w - w) / 2.,
-        Some(SceneShape::Pill) => rect.x + rect.h / 2.,
-        Some(SceneShape::Hexagon) => rect.x + rect.w * 0.12,
-        _ => rect.x + super::RADIUS,
-    };
-    Rect { x, y: rect.y + super::BORDER - TAB_H, w, h: TAB_H }
+/// Where the pill stands for a node at `rect`, its word `word_w` wide. A tile carries it in its head band, at the right and
+/// clear of the step's badge when it has one; any other node has no band, so it stands over the node's top left.
+pub(super) fn pill(node: &SceneNode, rect: Rect, word_w: f32) -> Rect {
+    let w = word_w + 2. * tile::PILL_PAD;
+    if tile::is_tile(node) {
+        let clear = if node.step.is_some() { tile::PILL_CLEAR } else { 0. };
+        Rect { x: rect.x + rect.w - tile::BAND_PAD - clear - w, y: rect.y + (tile::BAND_H - tile::PILL_H) / 2., w, h: tile::PILL_H }
+    } else {
+        Rect { x: rect.x, y: rect.y - tile::PILL_H - tile::PILL_RISE, w, h: tile::PILL_H }
+    }
 }
 
 #[cfg(test)]
@@ -174,14 +167,19 @@ mod tests {
     }
 
     #[test]
-    fn the_tab_stands_on_the_top_edge_at_the_left_or_over_a_round_top() {
-        let node = |shape: &str| scene(&format!(r#"{{"nodes":[{{"id":"a","kind":"box","shape":"{shape}","x":0,"y":0}}],"edges":[]}}"#)).nodes.remove(0);
-        let rect = Rect { x: 100., y: 50., w: 200., h: 60. };
-        let plain = tab(&node("box"), rect, 30.);
-        assert_eq!((plain.x, plain.w, plain.h), (106., 46., TAB_H));
-        // Its foot shares the frame's border, so the two read as one.
-        assert_eq!(plain.y + plain.h, 50. + crate::scene::BORDER);
-        assert_eq!(tab(&node("pill"), rect, 30.).x, 130.);
-        assert_eq!(tab(&node("circle"), rect, 30.).x, 100. + (200. - 46.) / 2.);
+    fn the_pill_stands_in_the_head_band_at_the_right_or_over_a_node_with_none() {
+        let node = |kind: &str, step: &str| scene(&format!(r#"{{"nodes":[{{"id":"a","kind":"{kind}","x":0,"y":0{step}}}],"edges":[]}}"#)).nodes.remove(0);
+        let rect = Rect { x: 100., y: 50., w: 200., h: 80. };
+        let plain = pill(&node("box", ""), rect, 30.);
+        assert_eq!((plain.w, plain.h), (30. + 2. * tile::PILL_PAD, tile::PILL_H));
+        // At the right of the band, a band's padding in, and in the band's height.
+        assert_eq!(plain.x + plain.w, 300. - tile::BAND_PAD);
+        assert!(plain.y >= 50. && plain.y + plain.h <= 50. + tile::BAND_H);
+        // A step's badge stands in from the corner, so the pill keeps clear of it.
+        let stepped = pill(&node("code", r#","step":1"#), rect, 30.);
+        assert_eq!(stepped.x + stepped.w, plain.x + plain.w - tile::PILL_CLEAR);
+        // A node with no band has it over its top left.
+        let over = pill(&node("mock", ""), rect, 30.);
+        assert_eq!((over.x, over.y + over.h < 50.), (100., true));
     }
 }

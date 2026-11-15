@@ -12,18 +12,26 @@
 //! out, a Skip, and a dispatch still kept when Fleet starts each start the Job as it was asked. The body is
 //! taken from the store by whoever acts on it, so the Job is started once.
 
+//! The person's dispatch (`dispatch_job`).
+//!
+//! **With the Operator's session running, a plain dispatch is told to it**: it starts the Job, folds the work
+//! into a live one or asks him on a card, with its own tools. **Otherwise the Job starts as he asked**, which is
+//! what the Operator being off does. A dispatch he held, forked, rooted or made to wait, and one carrying `then`,
+//! is a plain start, since the notes and messages to follow need the Job they were set up for.
+//!
+//! **His work is never lost.** A dispatch a Fleet that ruled on dispatches kept, and one whose start failed, is
+//! started as it was asked when Fleet starts. The body is taken from the store by whoever acts on it, so the Job is
+//! started once. Parked ideas are Fleet's own list (`parked_ideas`).
+
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
-use ipc::{DispatchJob, DispatchThen, Event, JobDispatched, Notice, ParkedIdea, ParkedIdeas, SendSessionNotes, SessionId, SessionRecord, WireError};
+use ipc::{DispatchJob, DispatchThen, Event, JobDispatched, ParkedIdea, ParkedIdeas, SendSessionNotes, SessionId, SessionRecord, WireError};
 
 use super::arriving::{Arrival, Arrived, Source};
-use super::candidates::near;
-use super::duplicating::first_line;
-use super::thening::paths_in;
-use super::{Ruled, Ruling, Way, NEEDS_YOU_WAIT};
+use super::desk::first_line;
 use crate::daemon::Fleet;
 
 /// What a held dispatch's arrival id begins with: `start:dispatch:<ulid>`.
@@ -40,42 +48,26 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `dispatch_job`. **A dispatch he held, forked, rooted or made to wait is a plain start**, and so is every
-    /// dispatch while the Operator is off or not seated.
+    /// dispatch while the Operator's session is not running.
     pub(crate) async fn job_dispatched(self: &Arc<Self>, dispatch: DispatchJob) -> Result<JobDispatched, Refusal> {
         let start = &dispatch.start;
         let request = start.request.as_deref().map(str::trim).filter(|words| !words.is_empty()).map(str::to_string);
         let plain = start.fork.is_none() && start.root.is_none() && start.after.is_none() && !start.held;
-        let operator = self.operator_seat().operator().filter(|_| self.operator_on());
-        let (Some(request), true, Some(_)) = (request, plain, operator) else {
-            let session = self.dispatch_started(dispatch, true).await?;
-            return Ok(JobDispatched { session: Some(session), operator: None, parked: None });
-        };
-        let id = format!("{DISPATCH}{}", self.mint().ulid().as_str().to_lowercase());
-        // Read here, in the request: the ruling runs on a task of its own, which does not know where it came from.
-        let arrival = dispatch_arrival(&id, &dispatch, &request, crate::share::from_phone_or_other_mac());
-        let body = ipc::encode(&dispatch).map_err(|why| self.hosted_refusal("fleet.dispatch_unencodable", &why.to_string()))?;
-        let at = self.now();
-        if let Err(why) = self.store().lock().await.keep_operator_dispatch(&id, &body, at.as_str()) {
-            return Err(self.ledger_fault(why));
+        if let (Some(request), true) = (request, plain) {
+            let id = format!("{DISPATCH}{}", self.mint().ulid().as_str().to_lowercase());
+            let arrival = dispatch_arrival(&id, &dispatch, &request, crate::share::from_phone_or_other_mac());
+            // **A session that cannot be told leaves the dispatch started as he asked**, as the Operator being off does.
+            // So does one carrying `then`: the notes and messages to follow need the Job they were set up for.
+            if self.operator_on() && dispatch.then.is_empty() && self.arrival_told(&arrival).await {
+                return Ok(JobDispatched { session: None, operator: Some(id), parked: None });
+            }
         }
-        let fleet = Arc::clone(self);
-        tokio::spawn(async move { fleet.dispatch_ruled(arrival).await });
-        Ok(JobDispatched { session: None, operator: Some(id), parked: None })
+        let session = self.dispatch_started(dispatch).await?;
+        Ok(JobDispatched { session: Some(session), operator: None, parked: None })
     }
 
-    /// The Operator's ruling on a held dispatch, waited for. Anything but a ruling that was carried out starts it.
-    async fn dispatch_ruled(self: Arc<Self>, arrival: Arrival) {
-        let id = arrival.id.clone();
-        let ruled = match self.operator_seat().operator() {
-            Some(operator) => operator.ruled(arrival, NEEDS_YOU_WAIT).await,
-            None => Ruled::PassedOn(super::PassedOn::Failed("no Operator is seated".into())),
-        };
-        if !matches!(ruled, Ruled::Ruled(_)) {
-            self.dispatch_released(&id).await;
-        }
-    }
-
-    /// Every dispatch kept when Fleet stopped and not waiting on his go-ahead, started as it was asked.
+    /// Every dispatch kept when Fleet stopped and not waiting on his go-ahead, started as it was asked: those an
+    /// earlier Fleet held for its ruling.
     pub async fn dispatches_resumed(self: &Arc<Self>) {
         let kept = self.store().lock().await.operator_dispatches().unwrap_or_default();
         for one in kept.into_iter().filter(|one| !one.asked) {
@@ -95,7 +87,7 @@ where
     pub(super) async fn dispatch_started_as_asked(self: &Arc<Self>, id: &str) -> Result<(), String> {
         let Some(dispatch) = self.dispatch_taken(id).await else { return Ok(()) };
         let manifest = dispatch.start.manifest_id.as_str().to_string();
-        match Box::pin(self.dispatch_started(dispatch.clone(), false)).await {
+        match Box::pin(self.dispatch_started(dispatch.clone())).await {
             Ok(record) => {
                 self.dispatch_told(id, &manifest, DispatchWay::Started, Some(record.id), None).await;
                 Ok(())
@@ -107,85 +99,18 @@ where
         }
     }
 
-    /// The dispatch `id` handed to live Job `into`: its words told to it, and what followed sent into it.
-    /// **A Job that does not take it leaves the dispatch started as it was asked**, so it is not lost.
-    pub(super) async fn dispatch_handed(self: &Arc<Self>, id: &str, into: &str) -> Result<(), String> {
-        let Some(body) = self.store().lock().await.operator_dispatch(id).ok().flatten() else { return Ok(()) };
-        let Ok(dispatch) = ipc::decode::<DispatchJob>("a dispatch the Operator holds", body.as_bytes()) else {
-            return Err("the dispatch does not read".to_string());
-        };
-        let words = dispatch.start.request.clone().unwrap_or_default();
-        let text = format!("The Operator handed you work the person dispatched, as yours is already on it:\n\n{words}\n\nDo it as part of your work, or say why it is not yours.");
-        if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            Box::pin(self.dispatch_released(id)).await;
-            return Err("the Job did not take it".to_string());
-        }
-        if self.dispatch_taken(id).await.is_none() {
-            return Ok(());
-        }
-        self.dispatch_sent(&SessionId::carried(into), dispatch.then).await;
-        self.dispatch_told(id, dispatch.start.manifest_id.as_str(), DispatchWay::Handed, Some(SessionId::carried(into)), None).await;
-        Ok(())
-    }
-
-    /// The dispatch the Operator would hand to a live Job but is not sure of: kept as a go-ahead, `Hand to <Job>` or
-    /// `Keep both`, and waiting for it. **A repeat of one answered before, or no Job near, starts it.**
-    pub(super) async fn dispatch_asked(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
-        let live = self.live_now().await;
-        let Some(first) = near(arrival, &live).into_iter().next() else { return self.dispatch_started_as_asked(&arrival.id).await };
-        let offer = Ruling { other: Some(first.job.session_id.clone()), shared: first.paths.clone(), ..Ruling::alone(Way::ExistingJob, ruling.because.clone()) };
-        if self.operator_suggested(arrival, &offer).await?.is_some() {
-            return self.dispatch_started_as_asked(&arrival.id).await;
-        }
-        let marked = self.store().lock().await.operator_dispatch_asked(&arrival.id);
-        if marked.is_err() {
-            return Err("the dispatch was not marked as waiting on him".to_string());
-        }
-        self.dispatch_told(&arrival.id, &arrival.manifest_id, DispatchWay::Asked, None, None).await;
-        Ok(())
-    }
-
-    /// What a ruling on a held dispatch did: start it, hand it over, or ask him.
-    pub(super) async fn dispatch_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
-        match (ruling.way, ruling.other.as_deref()) {
-            (Way::NewJob, _) => Box::pin(self.dispatch_started_as_asked(&arrival.id)).await,
-            (Way::ExistingJob, Some(into)) => Box::pin(self.dispatch_handed(&arrival.id, into)).await,
-            (Way::Raise, _) => Box::pin(self.dispatch_asked(arrival, ruling)).await,
-            (Way::Park, _) => self.dispatch_parked(&arrival.id, &arrival.subject).await,
-            _ => Err("the dispatch was ruled a way it is not offered".to_string()),
-        }
-    }
-
-    /// The Job `dispatch` makes, and what followed it sent into it. `overlap` is whether the Operator weighs the
-    /// Job against the live ones once it exists, which a dispatch it has ruled on already is not.
-    pub(crate) async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob, overlap: bool) -> Result<SessionRecord, Refusal> {
+    /// The Job `dispatch` makes, and what followed it sent into it.
+    pub(crate) async fn dispatch_started(self: &Arc<Self>, dispatch: DispatchJob) -> Result<SessionRecord, Refusal> {
         let DispatchJob { start, then, .. } = dispatch;
         let manifest = start.manifest_id.as_str().to_string();
         let words = start.request.clone().unwrap_or_default();
         let subject = start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(&words));
         let found = self.found_elsewhere(&manifest, &subject, &words).await;
-        let record = Arc::clone(self).started_reading_with(start, overlap).await?;
+        let record = Arc::clone(self).started_reading(start).await?;
         self.dispatch_sent(&record.id, then).await;
         // Told after his own words, so they stay his first message as he wrote them.
         self.elsewhere_told(record.id.as_str(), &manifest, &subject, &found).await;
         Ok(record)
-    }
-
-    /// The held dispatch `id`, kept for later as an idea in place of a Job: **taken from the Operator's hold and
-    /// written to the list in one step each**, so it is in one of them whatever fails.
-    pub(super) async fn dispatch_parked(self: &Arc<Self>, id: &str, subject: &str) -> Result<(), String> {
-        let at = self.now();
-        let manifest = {
-            let mut store = self.store().lock().await;
-            let Some(body) = store.take_operator_dispatch(id).ok().flatten() else { return Ok(()) };
-            if store.keep_parked_idea(id, &body, at.as_str()).is_err() {
-                let _ = store.keep_operator_dispatch(id, &body, at.as_str());
-                return Err("the idea was not kept".to_string());
-            }
-            ipc::decode::<DispatchJob>("a dispatch the Operator holds", body.as_bytes()).map(|one| one.start.manifest_id.as_str().to_string()).unwrap_or_default()
-        };
-        self.dispatch_told(id, &manifest, DispatchWay::Parked, None, Some(subject.to_string())).await;
-        Ok(())
     }
 
     /// `list_parked_ideas`.
@@ -260,20 +185,15 @@ where
     }
 }
 
-/// The dispatch as the Operator reads it: work no Job holds, which it may start, fold into a live Job or ask about.
-/// `away` where he made it on his phone or another Mac.
+/// The dispatch as the session is told it: work no Job holds. `away` where he made it on his phone or another Mac.
 fn dispatch_arrival(id: &str, dispatch: &DispatchJob, request: &str, away: bool) -> Arrival {
     Arrival {
         id: id.to_string(),
         arrived: Arrived::Start,
-        source: Source::Dispatch { kind: dispatch.kind, away },
+        source: Source::Dispatch { away },
         session_id: String::new(),
         manifest_id: dispatch.start.manifest_id.as_str().to_string(),
         subject: dispatch.start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(request)),
         words: request.to_string(),
-        paths: paths_in(request),
-        issues: Vec::new(),
-        ways: vec![Way::NewJob, Way::ExistingJob, Way::Raise, Way::Park],
-        open: Vec::new(),
     }
 }

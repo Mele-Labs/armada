@@ -139,6 +139,8 @@ export type SessionRecord = {
   mod_of_bay?: true;
   /** A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
   side_job?: true;
+  /** The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest. Bridge keeps it out of the Jobs list. Absent on every other session. */
+  operator?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */

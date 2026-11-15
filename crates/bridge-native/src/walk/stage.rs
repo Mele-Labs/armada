@@ -160,6 +160,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_LONG {
+                    over.update(cx, |over, cx| over.long_names(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
@@ -410,7 +413,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             // Its own, drawn after it: a scrolled element's bounds can reach under a bar drawn later.
             let button = drawn[at..]
                 .iter()
-                .find(|one| one.role == gpui::Role::Button && one.name == on && outer.bounds.contains(&one.bounds.center()))
+                .find(|one| matches!(one.role, gpui::Role::Button | gpui::Role::RadioButton) && one.name == on && outer.bounds.contains(&one.bounds.center()))
                 .cloned()
                 .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{within}\"")))?;
             press(MouseButton::Left, aim(&reveal(button, window, cx)), window, cx);
@@ -769,6 +772,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             }
             Ok(())
         }
+        Verb::NoWiderThan(points) => {
+            let wide = f32::from(find(step, window, cx)?.bounds.size.width);
+            if wide > points as f32 {
+                return Err(Missed(format!("the {} \"{}\" is {wide} points wide, past the {points} it may be", step.target.role, step.target.name)));
+            }
+            Ok(())
+        }
         Verb::Absent(role, name) => {
             let absent_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             if cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), absent_role, name)).is_some() {
@@ -884,7 +894,9 @@ fn uncover(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let cover = cx.try_global::<LabelBook>().and_then(|book| {
         let drawn = book.drawn(id);
         let mine = drawn.iter().position(|one| one.role == target.role && one.name == target.name && one.bounds == target.bounds)?;
-        drawn[mine + 1..].iter().find(|one| shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
+        // Painted after it, which is not where the book lists it: a scene's parts are written down as the scene paints.
+        let after = drawn[mine].painted;
+        drawn.iter().find(|one| one.painted > after && shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
     });
     let Some(cover) = cover else { return target };
     let by = point(px(0.), cover.shown.top() - px(24.) - target.bounds.bottom());

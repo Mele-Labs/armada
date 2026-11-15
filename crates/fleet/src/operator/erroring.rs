@@ -1,15 +1,12 @@
-//! An error Bridge showed the person, handed to the Operator and done as ruled. **One error is one
-//! item**: its id is the error's fingerprint and the local day, so the same error is not handed again
-//! while it waits, is out on a call or is in the Log that day. It goes first in the Operator's queue,
-//! and is asked about as a bug report is: a go-ahead, unless a rule he kept covers it.
+//! An error Bridge showed the person, told to the Operator's session. **One error is one item**: its id is
+//! the error's fingerprint and the local day, so the same error is not told again that day.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::operator_errors::{BridgeErrorTaken, ReportBridgeError};
-use ipc::{ManifestId, Notice};
 
-use super::{held, Arrival, BridgeError};
+use super::BridgeError;
 use crate::daemon::Fleet;
 
 /// The shortest a token of hex digits is read as an id.
@@ -76,18 +73,14 @@ where
         crate::clock::rfc3339_utc(began + HALF_DAY).chars().take(10).collect()
     }
 
-    /// `report_bridge_error`: hand the error to the Operator once for the local day. **Never fails**:
-    /// while the Operator is off, or where Fleet serves no repository to put it in, it is let go and
-    /// `repeated` is `false`.
-    pub(crate) async fn bridge_error_taken(&self, error: ReportBridgeError) -> BridgeErrorTaken {
+    /// `report_bridge_error`: tell the Operator's session of the error once for the local day. **Never fails**:
+    /// while the Operator is off or its session is not running, or where Fleet serves no repository to put it in,
+    /// it is let go and `repeated` is `false`.
+    pub(crate) async fn bridge_error_taken(self: &Arc<Self>, error: ReportBridgeError) -> BridgeErrorTaken {
         let id = format!("error:{}:{}", fingerprint(&error.code, &error.message), self.local_day().await);
         let taken = |repeated: bool| BridgeErrorTaken { id: id.clone(), repeated };
         if !self.operator_on() {
             return taken(false);
-        }
-        let seat = self.operator_seat();
-        if seat.is_out(&id) || self.store().lock().await.operator_ruled(&id).unwrap_or(true) {
-            return taken(true);
         }
         let (manifest, job) = {
             let store = self.store().lock().await;
@@ -102,8 +95,6 @@ where
                 Err(_) => return taken(false),
             },
         };
-        let open = self.open_of(&manifest).await;
-        let files = self.served_named(Some(&ManifestId::carried(&manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some());
         let arrival = BridgeError {
             id: id.clone(),
             manifest_id: manifest,
@@ -115,41 +106,8 @@ where
             commit: error.commit,
             job,
             at: error.at,
-            open,
-            files,
         }
         .arrival();
-        let handed = self.hand_once(arrival).await;
-        taken(!handed)
-    }
-
-    /// An error no open issue covers, filed in the repository's beads with its words. The issue it
-    /// was filed as.
-    pub(super) async fn operator_filed_error(&self, manifest: &str, arrival: &Arrival) -> Option<String> {
-        let served = self.served_named(Some(&ManifestId::carried(manifest))).ok()?;
-        let backlog = self.backlog_of(&served)?;
-        let (root, title) = (served.root().to_string(), arrival.subject.clone());
-        let body = format!("{}\n\nFiled by the Operator from an error Bridge showed the person.", arrival.words);
-        let filed = tokio::task::spawn_blocking(move || backlog.file(&root, &title, &body)).await;
-        let Ok(Ok(reference)) = filed else { return None };
-        held(&self.operator_seat().sources.filed).insert(reference.clone());
-        self.tracking().forget(manifest);
-        Some(reference)
-    }
-
-    /// An error the Operator ruled a Job of its own: started on it and briefed with every word the
-    /// card carried. The Job's id.
-    pub(super) async fn operator_started_error(self: &Arc<Self>, manifest: &str, arrival: &Arrival) -> Option<String> {
-        let brief = format!("Bridge showed the person this error. Find its cause and fix it.\n\n{}", arrival.words);
-        self.operator_job_started(manifest, &arrival.subject, &brief).await.ok()
-    }
-
-    /// An error the Operator ruled to live Job `into`, whose work is near it: told it.
-    pub(super) async fn operator_told_error(self: &Arc<Self>, arrival: &Arrival, into: &str) -> Result<(), String> {
-        let text = format!("The Operator handed you an error Bridge showed the person, as your work is near it:\n\n{}\n\nFix it as part of your work, or say why it is not yours.", arrival.words);
-        match self.told_by_fleet(into, &text, Notice::Operator).await {
-            Ok(true) => Ok(()),
-            _ => Err("the Job did not take the error".to_string()),
-        }
+        taken(self.arrival_handed(&arrival).await == super::session::Handed::Before)
     }
 }

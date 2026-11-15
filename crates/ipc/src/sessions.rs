@@ -881,7 +881,7 @@ pub enum WaitingSource {
     /// as skipped. Neither sends the agent a word of its own, since the close tells it. Words alone go
     /// to the agent as a message. Gone when the gate closes or the hold clears. Dismissing it is refused.
     Gate,
-    /// Fleet: the person took back a ruling the Operator made by following something he said (`operator_undo_ruling`),
+    /// Fleet: the person took back a ruling the Operator made by following something he said (an old `operator_undo_ruling`),
     /// so the question is his. Derived on every read from the kept ruling, never kept in the Job's list: id
     /// `undone:<n>`, `<n>` being the ruling's row, text the question, the options the question had, and an `answer`
     /// act whose `target` is the id. Answering it is answering an agent's item: the agent is sent `Re: <question>`
@@ -1526,6 +1526,10 @@ pub struct SessionRecord {
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub side_job: bool,
+    /// The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+    /// Bridge keeps out of the Jobs list. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub operator: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

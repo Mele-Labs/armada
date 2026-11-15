@@ -156,6 +156,11 @@ where
 {
     /// The Context rule's act for Job `session` at `tokens`.
     pub(crate) async fn context_act_of(&self, session: &str, tokens: f64, due: bool) -> ContextAct {
+        // The Operator hands on to a fresh copy when its context fills, with no card and whatever the setting says:
+        // there is no person on its card to press.
+        if self.session_is_the_operator(session) {
+            return if due { ContextAct::Hand } else { ContextAct::Nothing };
+        }
         let setting: String = self.machine_settings().now().get(keys::PLAN_CONTEXT_HANDOFF);
         let held = self.store().lock().await.attachments_of(&Holder::session(session)).unwrap_or_default();
         let quiet = held.iter().any(|one| one.kind == QUIET && one.state == AttachmentState::Spent);

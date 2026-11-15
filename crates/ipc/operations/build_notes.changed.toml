@@ -1,0 +1,12 @@
+[operations."build_notes.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The notes of the running preview build moved, and this is the answer now"
+notes = """
+Carries `BuildNotes` itself, the answer to `get_build_notes`, for `preview_offers.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet publishes it when the answer differs from the one last sent**: the owner marked a note looked at, a Job whose note the build holds ended, or the running build changed, whether the preview was restarted onto or Fleet came up on one. The first answer after Fleet starts is always sent.
+
+A resync does not carry it. A Bridge that missed one, or reconnects, reads `get_build_notes` again on the resync that follows a `Missed`.
+"""

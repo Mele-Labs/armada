@@ -102,18 +102,18 @@ pub static OPERATOR_FLOW: [Step; 21] = [
 
 /// The box at the Operator page's foot: an idea sent with no chip, a bug sent with one, and an idea the Operator kept started.
 pub static COMPOSER_FLOW: [Step; 14] = [
-    step("The Operator's page: the message box atop the left column, Your turn under it, the ideas it kept under that", Verb::Look, "group", "Message box"),
+    step("The Operator's page: the card in front, the message box right under it, the ideas it kept under that", Verb::Look, "group", "Message box"),
     step("⌥M puts the caret in the box from anywhere on the page", Verb::Key("alt-m"), "textbox", "Message"),
     step("An idea typed, with no chip picked: Send is lit", Verb::Typed("Let the sheet remember its last model"), "button", "Send"),
-    step("⌘↩ sends it as a dispatch. The box empties and the toast says what the Operator did, standing clear of the box", Verb::Key("cmd-enter"), "alert", "Toast: Operator kept it as an idea"),
-    answer("The page scrolls to the foot of Your turn, where the ideas the Operator kept are listed", "rest", "heading", "Ideas"),
+    step("⌘↩ sends it as a dispatch. The box empties, and the Operator keeps it as an idea: the page holds it, so no toast stands over it", Verb::Key("cmd-enter"), "listitem", "Let the sheet remember its last model"),
+    answer("The page scrolls to the ideas the Operator kept", "rest", "heading", "Ideas"),
     step("The idea is first in Ideas, newest first, with its age and its two acts", Verb::Look, "listitem", "Let the sheet remember its last model"),
     step("A second thought, which is a bug", Verb::Typed("The slot meter jumps when a Job ends"), "checkbox", "Bug"),
     step("Bug is picked, filled in its hue; a second press unpicks it", Verb::Press, "checkbox", "Bug"),
-    press_on("Send posts it with the kind Bug. The Operator started a Job at once, and the toast names it", "button", "Send", "alert", "Toast: Operator started The slot meter jumps when a Job ends"),
+    press_on("Send posts it with the kind Bug. The Operator started a Job at once, and the box is empty", "button", "Send", "checkbox", "Idea"),
     step("The box is empty and no chip is picked", Verb::Look, "checkbox", "Idea"),
     step("Hover an idea's age for the time it was kept", Verb::Hover, "listitem", "Keep the scrollback between terminal runs"),
-    press_on("Start on a kept idea sends it as a dispatch, unheld, and the toast names the Job", "button", "Start Keep the scrollback between terminal runs", "alert", "Toast: Operator started Keep the scrollback between terminal runs"),
+    press_on("Start on a kept idea sends it as a dispatch, unheld", "button", "Start Keep the scrollback between terminal runs", "listitem", "Group the palette's recent rows by project"),
     step("It left the list once Fleet had it; the rest stand", Verb::Look, "listitem", "Group the palette's recent rows by project"),
     step("Remove lets an idea go", Verb::Gone, "button", "Remove Group the palette's recent rows by project"),
 ];
