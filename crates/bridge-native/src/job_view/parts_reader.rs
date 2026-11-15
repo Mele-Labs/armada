@@ -18,17 +18,18 @@ impl JobView {
         let Some(newest) = one.revisions.last().map(|last| last.number) else { return empty() };
         let card = self.parts_card(SHEET, &tab.key, newest, true, page, look, cx);
         let artifact = tab.key.clone();
+        // The scroller holds one block and no flex row: a row stretches its child to the pane's height, so a card taller than the
+        // pane never overflowed it and nothing scrolled.
         div()
             .id("row-tab-body")
             .track_focus(&self.row_focus)
+            .track_scroll(&self.body_scroll)
             .size_full()
             .overflow_y_scroll()
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
-            .flex()
-            .justify_center()
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.artifact_key(&artifact, event, window, cx)))
-            .child(div().w_full().min_w_0().max_w(self.column(look)).children(card))
+            .child(div().w_full().flex().justify_center().child(div().w_full().min_w_0().max_w(self.column(look)).children(card)))
             .into_any_element()
     }
 
@@ -42,6 +43,22 @@ impl JobView {
                 cx.stop_propagation();
             }
             return;
+        }
+        let mods = event.keystroke.modifiers;
+        if !mods.modified() && !self.parts_typing(artifact, window, cx) {
+            let page = self.body_scroll.bounds().size.height * 0.9;
+            let by = match event.keystroke.key.as_str() {
+                "pagedown" | "space" => Some(-page),
+                "pageup" => Some(page),
+                _ => None,
+            };
+            if let Some(by) = by {
+                let top = (self.body_scroll.offset().y + by).clamp(-self.body_scroll.max_offset().y, gpui::px(0.));
+                self.body_scroll.set_offset(gpui::point(gpui::px(0.), top));
+                cx.stop_propagation();
+                cx.notify();
+                return;
+            }
         }
         self.parts_key(artifact, event, window, cx);
     }
