@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEEP = os.path.join(HERE, "scripts", "keep-build")
 NATIVE_APP = os.path.join(HERE, "scripts", "native-app")
 LOCK = "aaaaaaaaaaaaaaaa"
-# A native Bridge is signed ad hoc as it is kept, and only a Mac has codesign: CI runs this on Linux.
+# A native Bridge and Fleet's binary are signed as they are kept, and only a Mac has codesign: CI runs this on Linux.
 SIGNS = unittest.skipUnless(shutil.which("codesign"), "the native bundle is signed, and only a Mac can")
 
 
@@ -53,6 +53,9 @@ class KeepBuild(unittest.TestCase):
         self.keep = os.path.join(scripts, "keep-build")
         shutil.copy2(KEEP, self.keep)
         shutil.copy2(NATIVE_APP, os.path.join(scripts, "native-app"))
+        shutil.copy2(os.path.join(HERE, "scripts", "signing-identity"), os.path.join(scripts, "signing-identity"))
+        # `native-app` takes the notification tones from beside its own folder.
+        shutil.copytree(os.path.join(HERE, "apps", "desktop", "sounds"), os.path.join(self.tmp, "apps", "desktop", "sounds"))
         self.electron_calls = os.path.join(scripts, "armada-electron.calls")
         self.write(os.path.join(scripts, "armada-electron"), (
             "#!/bin/sh\n"
@@ -204,13 +207,27 @@ class KeepBuild(unittest.TestCase):
         self.assertNotIn(info["CFBundleIdentifier"], ("com.github.Electron", "dev.armada.bridge"))
 
     @SIGNS
-    def test_the_native_bridge_is_signed_ad_hoc_and_the_signature_holds_after_the_rename(self):
+    def test_the_native_bridge_is_signed_and_the_signature_holds_after_the_rename(self):
         snapshot = self.make(native=self.native_binary())
         app = os.path.join(snapshot, "Armada.app")
         verified = subprocess.run(["codesign", "--verify", "--strict", app], capture_output=True, text=True)
         self.assertEqual(verified.returncode, 0, verified.stderr)
         shown = subprocess.run(["codesign", "-dv", app], capture_output=True, text=True)
-        self.assertIn("Signature=adhoc", shown.stderr)
+        # Ad hoc, or with this Mac's certificate where `scripts/signing-identity` made one.
+        self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
+
+    @SIGNS
+    def test_fleets_binary_is_signed_as_dev_armada_fleet_and_its_source_is_left_alone(self):
+        self.armada = self.native_binary("armada-built")
+        with open(self.armada, "rb") as f:
+            built = f.read()
+        snapshot = self.make()
+        kept = os.path.join(snapshot, "armada")
+        shown = subprocess.run(["codesign", "-dv", kept], capture_output=True, text=True)
+        self.assertIn("Identifier=dev.armada.fleet", shown.stderr)
+        self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
+        with open(self.armada, "rb") as f:
+            self.assertEqual(f.read(), built)
 
     def test_a_build_without_a_native_binary_has_no_app_and_no_native_key(self):
         snapshot = self.make()
