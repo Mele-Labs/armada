@@ -90,6 +90,7 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
         | ThreadItem::Change { at, .. }
         | ThreadItem::NotStarted { at, .. }
         | ThreadItem::Judged { at, .. } => Some(at),
+        ThreadItem::ReadyToTry(card) => Some(&card.at),
         ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
     }
 }
@@ -671,6 +672,8 @@ impl JobView {
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
+            // The Ready to try card is Jobs screens' to draw; until it lands the thread skips it.
+            ThreadItem::ReadyToTry(_) => return None,
         })
     }
 

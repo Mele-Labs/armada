@@ -219,6 +219,14 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::SendBuildNoteFeedback,
     ) -> impl Future<Output = Result<ipc::BuildNoteFeedbackSent, Refusal>> + Send;
 
+    /// `answer_ready_to_try` — his answer on a Ready to try card: the note's verdict and what follows it, or a
+    /// time it comes back. **Not `&self`**: telling the Job and starting one take the `Arc` it is hosted by.
+    /// [`Refusal::NotFound`] where the thread holds no such card; [`Refusal::IllegalMove`] where it is settled.
+    fn answer_ready_to_try(
+        self: Arc<Self>,
+        asked: ipc::AnswerReadyToTry,
+    ) -> impl Future<Output = Result<ipc::ThreadReadyToTry, Refusal>> + Send;
+
     /// `swap_fleet_build` — start `builds/current/armada build swap` detached, so that it outlives
     /// the Fleet it stops and can swap back from one that does not answer, and answer that it has
     /// begun.

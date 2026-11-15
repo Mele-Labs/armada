@@ -169,6 +169,8 @@ pub(crate) struct WaitingReads {
     seen: Vec<store::KeptArtifactSeen>,
     /// The ids of its archived artifacts.
     archived: Vec<String>,
+    /// The notes it offered, which its Ready to try cards are.
+    ready: Vec<store::KeptBuildNote>,
 }
 
 impl WaitingReads {
@@ -242,6 +244,7 @@ pub(crate) fn waiting_reads(
         job_asks: store.raised_job_asks_of(&session.id)?,
         seen: store.artifact_seen(&session.id)?,
         archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
+        ready: store.build_notes_of_session(&session.id)?,
     })
 }
 
@@ -538,7 +541,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -756,6 +759,8 @@ where
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A page that asks nothing waits to be read, until he opens its newest revision.
             items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
+            // A Ready to try card waits on him while it is open: answered on the card, back when a reminder comes due.
+            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str()).filter(|one| !dismissed.contains(&one.id)));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
@@ -1384,6 +1389,10 @@ where
             WaitingSource::Document => Err(self.hosted_refusal(
                 SESSION_WAITING_EMPTY,
                 "a document is approved, or sent back, from its own card",
+            )),
+            WaitingSource::ReadyToTry => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a Ready to try card is answered from its own card",
             )),
             // The tab settles it as it was answered here; Fleet raised it for Bridge, so the agent is told nothing.
             WaitingSource::BrowserAsk => match said.choice {

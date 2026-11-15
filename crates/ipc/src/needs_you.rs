@@ -16,12 +16,12 @@ pub struct NeedsYou {
     /// In the order the band draws them: Questions, To do, To review, Walks, Commands, PRs, then Restart and
     /// Done. A section with no row is left out.
     pub sections: Vec<NeedsYouSection>,
-    /// Whether the band has a list to open: a row in Questions, To do, Walks, Commands or PRs. False when only
-    /// pages to review, a restart key or a done are owed.
+    /// Whether the band has a list to open: a row in Questions, To do, Walks, Commands or PRs, or a Ready to
+    /// try card. False when only other pages to review, a restart key or a done are owed.
     pub fold: bool,
-    /// Whether the band offers the review sheet: more than one page is owed, or a Document is the only
-    /// thing owed. False, a lone plan, sketch or draft stays on the thread's card, and `glyphs` leaves
-    /// the review marks out. The To review section still lists it.
+    /// Whether the band offers the review sheet: more than one page is owed, a Document is the only
+    /// thing owed, or a Ready to try card is open. False, a lone plan, sketch or draft stays on the
+    /// thread's card, and `glyphs` leaves the review marks out. The To review section still lists it.
     pub review_in_band: bool,
     /// The marks on the band's head, in order: each row of Questions, To do, Walks, Commands and PRs, named by
     /// its text, then, where `review_in_band`, each row of To review, named by what it is.

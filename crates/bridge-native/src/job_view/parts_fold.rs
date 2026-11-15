@@ -41,6 +41,7 @@ fn started(item: &ThreadItem) -> Option<&Instant> {
         ThreadItem::FleetTurn { notice, .. } => Some(notice.at()),
         ThreadItem::Sketch(card) => Some(&card.at),
         ThreadItem::Document(card) => Some(&card.at),
+        ThreadItem::ReadyToTry(card) => Some(&card.at),
         ThreadItem::Plan(_) => None,
     }
 }

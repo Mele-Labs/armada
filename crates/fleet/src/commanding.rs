@@ -134,6 +134,11 @@ where
         self.build_note_answered(asked).await
     }
 
+    /// His answer on a Ready to try card — [`crate::build_noting`].
+    async fn answer_ready_to_try(self: Arc<Self>, asked: ipc::AnswerReadyToTry) -> Result<ipc::ThreadReadyToTry, Refusal> {
+        self.ready_to_try_answered(asked).await
+    }
+
     /// Start the swap onto the snapshot — [`crate::building`]. **Not `budgeted`**, `revert_fleet_build`'s reason.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         self.swap_fleet_build_now()

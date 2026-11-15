@@ -62,7 +62,7 @@ pub(super) struct Doing<'a> {
 
 /// An RFC 3339 instant in milliseconds since the epoch, its zone read: `Z`, or `+HH:MM` and `-HH:MM`
 /// as a zone Bridge sends from his clock. `None` where it does not read.
-fn utc_millis(text: &str) -> Option<i64> {
+pub(crate) fn utc_millis(text: &str) -> Option<i64> {
     let at = core_model::Timestamp::from_rfc3339(text).epoch_millis()?;
     let zone = text.get(19..)?.trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
     let offset = match zone.as_bytes() {

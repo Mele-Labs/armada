@@ -355,7 +355,8 @@ where
         if changed {
             self.publish(Event::PreviewOffersChanged(now));
         }
-        self.build_notes_moved().await;
+        // An offer or a withdrawal moves its own Job's cards; what else moved here is not on a card.
+        self.build_notes_published().await;
     }
 }
 

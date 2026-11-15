@@ -124,6 +124,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
+An open Ready to try card is always in the band, alone or not: `fold` and `review_in_band` are true, and `glyphs` carries its mark, `Ready to try`.
 A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
 Where it is not `none`, `dismiss_waiting` takes the item.
@@ -159,6 +160,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 | `job_conflict` | questions | none: Fleet refuses it |
 | `job_held` | questions | none: Fleet refuses it |
+| `ready_to_try` | to_review | plain; the Job is told nothing, and its card answers it |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.

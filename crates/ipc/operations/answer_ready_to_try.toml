@@ -1,0 +1,24 @@
+[operations.answer_ready_to_try]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer a Ready to try card in a Job's thread: Looks good, Needs rework with his words, or Remind me at a time"
+notes = """
+`POST /sessions/ready_to_try/answer`, body `AnswerReadyToTry {session_id, branch, tip, answer}`, the `session_id`, `branch` and `tip` of a `ready_to_try` item of the Job's thread (`get_job_thread`). Answered with the card as it stands after, `ThreadReadyToTry`, and the thread moves as `job_thread.tail`.
+
+**A card is the build note of its (branch, tip), seen from the Job's thread**, so an answer here is the note's answer in `get_build_notes`, and a mark on the note answers the card. `answer` is tagged by `kind`:
+
+- `looks_good`: the note's verdict is `good`, kept as `mark_build_note_looked_at` keeps it, and the Job, where it is live, is told the owner tried the branch at that tip and it looks good, so land it.
+- `needs_rework` with `words`: the note's verdict is `needs_work`, and his words go as `send_build_note_feedback` sends them: to the Job's thread as his message, or to a new Job started at once where that one has ended.
+- `remind` with `until`, the instant the card comes back: **Bridge works out `until`** from the Later choice he pressed (an hour, three hours, tomorrow morning, next week), as `operator_later` does. The card is `later` until then, and at `until` it comes back, `open`, drawn at that instant, which is the end of the thread. A second `remind` moves the time.
+
+**An `open` card waits in the Job's Needs you** as a `ready_to_try` item, id the card's, text `Try: <about>` and `artifact` the card's id: it goes on any answer, on a withdrawal or a replacement, and while a `remind` holds it, and comes back when the reminder comes due. `answer_waiting` refuses it, and Approve all passes it by.
+
+Show me how needs nothing from Fleet: the card carries the note's `look` and `steps`.
+
+**What a card shows as its `state`**, read in this order: `answered` where the note has a verdict; `withdrawn` where the Job took the offer back with `withdraw_preview`; `replaced` where the Job offered the branch again at a newer tip, whose card asks instead; `later` while a `remind` time is ahead; else `open`. Only an `open` or `later` card takes an answer.
+
+Refused 404 `fleet.ready_to_try_unknown` where the Job's thread holds no card for that (branch, tip); 409 `fleet.ready_to_try_settled` where the card is `answered`, `withdrawn` or `replaced`, naming which; 422 `fleet.build_note_words_empty` for `needs_rework` words with nothing in them; 422 `fleet.ready_to_try_remind_past` where `until` has passed or does not read as a time. Nothing changes on a refusal.
+
+`agent_access` is `No`, and from inside a Job the route is a 403 `api.the_persons_own`: the answer is his.
+"""

@@ -150,6 +150,13 @@ note a Job: the look, the steps with each act's key and a Go press that runs it,
 that sends to your thread, and Good and Needs work. Good tells you the work is fine. Needs work
 tells you to wait: his words on it follow as a message.
 
+**A visual offer attaches a picture and names what he approved.** The offer raises a Ready to try
+card in your thread that sets the two side by side. `approved` is the sketch or page he approved,
+by its artifact id or title, with the `revision` he approved. `pictures` are up to four shots of
+what you built, paths in your checkout (a Playwright shot lands in `.playwright-mcp/`). `words`
+are his words that asked for the work. Looks good on the card tells you to land; Needs rework
+sends his words.
+
 ```json
 {
   "about": "Toast pile: the newest toast on top, three at most",
@@ -158,7 +165,10 @@ tells you to wait: his words on it follow as a message.
     { "say": "Open the toast history", "act": "toast_history" },
     { "say": "Start a Job so a toast arrives", "act": "new_job" },
     { "say": "Look at the order of the toasts" }
-  ]
+  ],
+  "approved": { "artifact": "sketch:Toast pile", "revision": 2 },
+  "pictures": [".playwright-mcp/toast-pile.png"],
+  "words": "Newest toast on top, and never more than three."
 }
 ```
 
