@@ -177,9 +177,11 @@ where
         }
     }
 
-    /// Whether the phone sees Job `job`: one of this Mac's in a shared project, or one held from another Mac.
+    /// Whether the phone sees Job `job`: one of this Mac's in a shared project or in none, or one held from another
+    /// Mac. **A Job in no project shows under All** (15 Nov): almost every Job starts in none, so without it the
+    /// phone listed nothing. Another Mac still sees only [`Fleet::job_shared`].
     pub async fn job_for_phone(&self, job: &str) -> bool {
-        self.mac_holding(job).await.is_some() || self.job_shared(job).await
+        self.mac_holding(job).await.is_some() || self.project_of_job(job).await.is_none() || self.job_shared(job).await
     }
 
     /// Whether the phone sees terminal run `run_id`: one of a Job it sees. A run of no Job, and one this Fleet does

@@ -1,5 +1,5 @@
 //! The phone's door: every route the Phone Gateway calls as the phone, ruled on by name, so the phone sees only
-//! Jobs in a project he shares. The rulings are the daemon's share filter; this says which route needs which.
+//! Jobs in a project he shares or in none. The rulings are the daemon's share filter; this says which route needs which.
 //! `docs/concepts/pocket.md`, *What the phone sees*.
 //!
 //! **A Job the phone does not see is answered as a Job that does not exist, by the route itself**: it is asked
