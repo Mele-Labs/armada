@@ -63,6 +63,7 @@ mod refs;
 mod review;
 mod row_tabs;
 mod page_tab;
+mod page_sketches;
 mod reader;
 mod reader_draw;
 mod reader_edit;

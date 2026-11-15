@@ -155,7 +155,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
         "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
-        "drafts" | "reader" => include_bytes!("../fixtures/jobs-drafts.json"),
+        "drafts" | "reader" | "reader-sketches" => include_bytes!("../fixtures/jobs-drafts.json"),
         // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
         // one that was answered with a figure to be asked again at.
         "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
@@ -533,6 +533,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
         "reader" => include_bytes!("../fixtures/reader-threads.json"),
+        // One Job holding a page whose own drawing and whose vote's takes each hold a sketch.
+        "reader-sketches" => include_bytes!("../fixtures/reader-sketches-threads.json"),
         "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
@@ -714,18 +716,29 @@ pub fn walk_refused(url: &str) -> Option<String> {
 const SEALED_PAGE: &str = include_str!("../fixtures/page-actions.html");
 /// The record Fleet sealed it with, which the mock swaps for what was pressed and voted on it.
 const SEALED_RECORD: &str = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
+/// A second page: `Stale marks`, whose own drawing and whose two takes each hold an `<armada-sketch>`, sealed round the body
+/// `fixtures/page-sketches-source.html` holds, with the kit Fleet seals the first page with.
+const SKETCHED_PAGE: &str = include_str!("../fixtures/page-sketches.html");
+const SKETCHED_RECORD: &str = r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#;
 /// When the mock Fleet says a press or a vote was kept.
 const PAGE_AT: &str = "2026-11-14T09:00:00Z";
 
 /// `get_artifact_page` on the mock: the design page as Fleet serves it, its record holding the presses and the newest cast
 /// of each vote made on it, or Fleet's refusal of a revision it never kept.
 pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
-    if page != "design" || revision != 2 {
+    if page == "marks" && revision == 1 {
+        let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
+        let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+        return Ok(SKETCHED_PAGE.replacen(SKETCHED_RECORD, &record, 1));
+    }
+    if page != "design" || !(1..=2).contains(&revision) {
         return Err(format!("revision {revision} of `{page}` is not kept"));
     }
     let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
-    let record = format!(r#"{{"artifact":"design","revision":2,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
-    Ok(SEALED_PAGE.replacen(SEALED_RECORD, &record, 1))
+    let record = format!(r#"{{"artifact":"design","revision":{revision},"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+    let sealed = SEALED_PAGE.replacen(SEALED_RECORD, &record, 1);
+    // The first revision counted three branches where the second counts four.
+    Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
 }
 
 /// The mock Fleet's answer to a press or a vote on the design page, as `press_page_action` and `cast_page_vote` answer:

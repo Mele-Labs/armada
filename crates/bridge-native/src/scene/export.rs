@@ -1156,6 +1156,13 @@ pub(crate) fn svg(key: &SharedString, scene: &Scene, window: &mut Window, cx: &m
     drawing(key, scene, "Sketch", Mode::Picture, window, cx)
 }
 
+/// The drawing as markup for a page that holds it among its own words: the page's player left out, every step lit, and the
+/// arrows that flow crawling by their own rules. **The scene stays as Save as web page draws it**, with no `xmlns`, so it
+/// goes inside an HTML page and nowhere else.
+pub(crate) fn inline(key: &SharedString, scene: &Scene, title: &str, window: &mut Window, cx: &mut App) -> String {
+    drawing(key, scene, if title.trim().is_empty() { "Sketch" } else { title }, Mode::Page, window, cx)
+}
+
 // ---- the page ------------------------------------------------------------------------------------
 
 /// The words the page's controls carry: the canvas rail's own, so the two read the same.

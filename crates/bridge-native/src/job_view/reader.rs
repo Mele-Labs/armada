@@ -263,6 +263,11 @@ pub(super) fn notes_read(kept: &str) -> Vec<Note> {
     ipc::decode::<Vec<Note>>("kept notes", kept.as_bytes()).unwrap_or_default()
 }
 
+/// Where a block stands among its page's or draft's blocks: `b3` is the fourth.
+pub(super) fn block_number(block: &str) -> Option<usize> {
+    block.strip_prefix('b')?.parse().ok()
+}
+
 /// A note's place among the others: by the block it is on, then the order he made them in.
 pub(super) fn place_of(blocks: &[Block], notes: &[Note], note: &Note) -> usize {
     let _ = notes;
@@ -337,6 +342,8 @@ pub(super) struct Reader {
     pub width: Rc<Cell<Pixels>>,
     /// The contents entry the words are at, for a page set by the page and for a draft by the scroll.
     pub said: Option<SharedString>,
+    /// The heading of a page the contents mark: the one last gone to, since the page scrolls inside its own view.
+    pub at_head: usize,
 }
 
 impl Reader {
@@ -359,6 +366,7 @@ impl Reader {
             scroll: ScrollHandle::new(),
             width: Rc::new(Cell::new(gpui::px(0.))),
             said: None,
+            at_head: 0,
         }
     }
 
@@ -449,13 +457,13 @@ impl JobView {
     pub(super) fn reader_add_note(&mut self, id: &SharedString, reader: &str, quote: String, block: String, window: &mut Window, cx: &mut Context<Self>) {
         let (area, typing) = self.note_area(reader, "", window, cx);
         let Some(held) = self.reader_mut(id, reader) else { return };
-        let at = held.blocks.iter().position(|one| one.block.id == block);
+        let at = block_number(&block);
         // After the notes already on its block, before those on a later one.
-        let place = |one: &NoteBox| held.blocks.iter().position(|b| b.block.id == one.block).unwrap_or(usize::MAX);
+        let place = |one: &NoteBox| block_number(&one.block).unwrap_or(usize::MAX);
         let index = held.notes.iter().position(|one| at.is_some_and(|at| place(one) > at)).unwrap_or(held.notes.len());
         held.notes.insert(index, NoteBox { quote, block, area: area.clone(), _typing: typing });
         held.on = Some(index);
-        if let Some(at) = at {
+        if let Some(at) = at.filter(|_| held.kind == RowKind::Draft) {
             held.scroll.scroll_to_item(at);
         }
         area.update(cx, |area, cx| area.focus(window, cx));
@@ -466,6 +474,11 @@ impl JobView {
     pub(super) fn reader_note_key(&mut self, id: &SharedString, reader: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(held) = self.reader_of(id, reader) else { return };
         if held.edit.is_some() {
+            return;
+        }
+        // A page's words are in its web view, which says what he selected.
+        if held.kind == RowKind::Document {
+            self.reader_page_note(id, reader, window, cx);
             return;
         }
         // The block that holds a selection says so itself.
@@ -500,6 +513,22 @@ impl JobView {
         };
         held.on = Some(at);
         let block = held.blocks.iter().position(|one| one.block.id == held.notes[at].block);
+        if let Some(block) = block {
+            held.scroll.scroll_to_item(block);
+        }
+        self.reader_show_note(id, reader, at, cx);
+        cx.notify();
+    }
+
+    /// A note's words shown where they stand: a draft scrolls to their block, a page selects them.
+    pub(super) fn reader_show_note(&mut self, id: &SharedString, reader: &str, place: usize, cx: &mut Context<Self>) {
+        let Some(held) = self.reader_mut(id, reader) else { return };
+        held.on = Some(place);
+        if held.kind == RowKind::Document {
+            self.reader_page_show(id, reader, place, cx);
+            return;
+        }
+        let block = held.notes.get(place).and_then(|note| held.blocks.iter().position(|one| one.block.id == note.block));
         if let Some(block) = block {
             held.scroll.scroll_to_item(block);
         }
@@ -911,6 +940,11 @@ mod tests {
     }
 
     #[test]
+    fn a_block_is_numbered_by_its_name() {
+        assert_eq!((block_number("b0"), block_number("b12"), block_number("x"), block_number("")), (Some(0), Some(12), None, None));
+    }
+
+    #[test]
     fn notes_are_kept_and_read_back_and_none_keeps_nothing() {
         let notes = vec![Note { quote: "a".into(), block: "b0".into(), text: "b".into() }];
         assert_eq!(notes_read(&notes_kept(&notes)), notes);
@@ -944,7 +978,7 @@ impl JobView {
             held.text.clear();
         }
         if kind == RowKind::Document {
-            self.reader_page_revision(id, number, window, cx);
+            self.reader_page_revision(id, name, number, window, cx);
         }
         cx.notify();
     }
@@ -952,6 +986,10 @@ impl JobView {
     /// A heading of the contents: the words scroll to it.
     pub(super) fn reader_go(&mut self, id: &SharedString, name: &str, head: usize, cx: &mut Context<Self>) {
         let Some(held) = self.reader_of(id, name) else { return };
+        if held.kind == RowKind::Document {
+            self.reader_page_go(id, name, head, cx);
+            return;
+        }
         let Some((block, _, _)) = held.heads().get(head).cloned() else { return };
         held.scroll.scroll_to_top_of_item(block);
         cx.notify();

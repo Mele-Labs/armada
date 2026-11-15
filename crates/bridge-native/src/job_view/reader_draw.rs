@@ -251,7 +251,7 @@ impl JobView {
             .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(div().flex_1().min_w_0().children(line))
+            .child(div().flex_1().min_w(look.length(token::SPACE_12) * 3.).children(line))
             .children(away)
             .children(asking.then(|| go(RAct::Ask, "Ask for changes", "C", "Send it back with your notes", Kind::Secondary, true)))
             .children(asking.then(|| go(RAct::Approve, "Approve", "A", "Approve it as it stands, with your notes", Kind::Approve, true)))
@@ -425,7 +425,7 @@ impl JobView {
 
     /// The contents as a menu, where there is no room for them at the left.
     fn reader_strip(&self, id: &SharedString, name: &str, held: &Reader, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let heads = held.heads();
+        let heads = self.reader_heads(id, held, cx);
         if heads.is_empty() {
             return None;
         }
@@ -472,7 +472,7 @@ impl JobView {
     /// The contents as a menu of the headings.
     pub(super) fn reader_contents(&mut self, id: &SharedString, name: &str, at: gpui::Point<gpui::Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(held) = self.reader_of(id, name) else { return };
-        let heads = held.heads();
+        let heads = self.reader_heads(id, held, cx);
         let entries: Vec<Entry> = heads.iter().zip(HEADS.iter()).map(|((_, _, words), slot)| Entry::Act { id: slot, label: words.clone().into(), icon: None, danger: false }).collect();
         if entries.is_empty() {
             return;
@@ -488,6 +488,9 @@ impl JobView {
 
     /// The heading the words are at: the last that has reached the top of the column.
     fn reader_on_head(&self, held: &Reader, heads: &[(usize, u8, String)]) -> usize {
+        if held.kind == super::row_tabs::RowKind::Document {
+            return held.at_head.min(heads.len().saturating_sub(1));
+        }
         let top = held.scroll.bounds().top();
         let mut on = 0;
         for (at, (block, _, _)) in heads.iter().enumerate() {
@@ -500,7 +503,7 @@ impl JobView {
 
     /// The contents rail: the headings, the one the words are at drawn on.
     fn reader_rail(&self, id: &SharedString, name: &str, held: &Reader, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let heads = held.heads();
+        let heads = self.reader_heads(id, held, cx);
         let on = self.reader_on_head(held, &heads);
         let entries = heads.into_iter().enumerate().map(|(at, (_, level, words))| {
             let (job, name_c) = (id.clone(), name.to_string());
@@ -655,11 +658,12 @@ impl JobView {
 
     /// One note pinned in the gutter: the words it points at, and a box for what he says of them.
     #[allow(clippy::too_many_arguments)]
-    fn reader_pin(&self, id: &SharedString, name: &str, place: usize, note: &super::reader::NoteBox, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn reader_pin(&self, id: &SharedString, name: &str, place: usize, note: &super::reader::NoteBox, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let you: Hsla = look.color(token::YOU);
         let quote = note.quote.trim();
         let said = if quote.is_empty() { "Note".to_string() } else { format!("on \u{201c}{}\u{201d}", cut(quote, 80)) };
         let (job, name_c, job2, name2) = (id.clone(), name.to_string(), id.clone(), name.to_string());
+        let (job3, name3) = (id.clone(), name.to_string());
         let area = note.area.clone();
         let blank = note.area.read(cx).value().trim().is_empty();
         labelled(
@@ -694,7 +698,18 @@ impl JobView {
                         this.reader_key(&job2, &name2, RKey::Act(RAct::Ask), window, cx);
                     }
                 }))
-                .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(said.clone())))
+                .child(
+                    div()
+                        .id(SharedString::from(format!("reader-note-quote:{name}:{place}")))
+                        .min_w_0()
+                        .truncate()
+                        .cursor_pointer()
+                        .text_size(look.length(token::TEXT_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .tooltip(tip("Show it in the words"))
+                        .child(SharedString::from(said.clone()))
+                        .on_click(cx.listener(move |this, _, _, cx| this.reader_show_note(&job3, &name3, place, cx))),
+                )
                 .child(labelled(
                     div().id(SharedString::from(format!("reader-note-box:{name}:{place}"))).key_context(crate::keymap::TEXT_BOX).child(Textarea::new(&area).appearance(false).aria_label("Note")),
                     Role::TextInput,

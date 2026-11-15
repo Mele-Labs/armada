@@ -155,6 +155,8 @@ pub enum Verb {
     /// targets, scrolled to the middle and ringed, and pressed where the aim says, as a click the page hears. The step
     /// fails where the page holds no such element within five seconds. Its own target is then ringed as any other.
     InPage(PageAim),
+    /// As [`Verb::InPage`], then the words of the element found are selected, as a person drags over them. Its press is off.
+    InPageSelect(PageAim),
 }
 
 /// What a step aims at inside a page: an element's role and name, the element of that role and name it sits in, and
@@ -264,6 +266,11 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
 /// region is ringed.
 const fn in_page(say: &'static str, role: &'static str, name: &'static str, within: Option<(&'static str, &'static str)>, press: bool) -> Step {
     Step { say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
+}
+
+/// A step that selects the words of an element inside the page, as a person drags over them.
+const fn in_page_select(say: &'static str, role: &'static str, name: &'static str) -> Step {
+    Step { say, verb: Verb::InPageSelect(PageAim { role, name, within: None, press: false }), target: Target { role: "region", name: "Page" } }
 }
 
 /// The hand off marks, played alone and in today's walk.
@@ -525,16 +532,16 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-tabs",
         steps: &[
             press_on("A Job that owes you two walks of native screens: each arrives as a tab behind the thread, pulsing until you have had it in front", "row", "Fix the merge line freshness chip", "tab", "Job tab: Chip colours"),
-            press_on("A draft in Needs you opens its card as a tab named for it, in front of the thread", "button", "Open Comment on #3290", "article", "Draft: Comment on #3290"),
+            press_on("A draft in Needs you opens its card as a tab named for it, in front of the thread", "button", "Open Comment on #3290", "region", "Reader: Comment on #3290"),
             press_on("A walk's tab: its name, what the Job said to look at, and Open", "tab", "Job tab: Merge line chip: stale state", "region", "Merge line chip: stale state"),
             press_on("Open asks Fleet to start the walk in a window of its own", "button", "Open", "status", "Open in its own window"),
             press_on("The other walk", "tab", "Job tab: Chip colours", "region", "Chip colours"),
             press_on("A walk Fleet cannot start says Fleet's words beside Open", "button", "Open", "alert", "Build the walk first: cargo build in crates/bridge-native in slot-4"),
-            press_on("Closing the tab in front brings the next one forward", "button", "Close Chip colours", "article", "Draft: Comment on #3290"),
+            press_on("Closing the tab in front brings the next one forward", "button", "Close Chip colours", "region", "Reader: Comment on #3290"),
             press_on("Closing the last brings the one before it", "button", "Close Comment on #3290", "region", "Merge line chip: stale state"),
             press_on("Closing that one brings the thread back. A walk closed with its × does not come back", "button", "Close Merge line chip: stale state", "region", "Thread"),
             press_on("A Job that owes you a page and nothing else", "row", "Quiet the write-clash notices", "button", "Needs you"),
-            press_on("The page opens in its own tab, its card with Approve and Ask for changes", "button", "Needs you", "article", "Document: Stale branch design, Revision 2"),
+            press_on("The page opens in its own tab, read in the reader with Approve and Ask for changes in its band", "button", "Needs you", "region", "Reader: Stale branch design"),
             press_on("A draft whose row has gone from the thread", "row", "Audit the docs index", "button", "Needs you"),
             press_on("A press on it opens no tab: the thread stays in front", "button", "Needs you", "region", "Thread"),
         ],
@@ -1494,6 +1501,45 @@ pub static WALKS: &[Walk] = &[
             step("His words are typed into the first block", Verb::Typed(" Rows keep their time."), "button", "Save"),
             step("Save keeps them as the next revision, his", Verb::Open("button", "Save"), "label", "Your edit"),
             step("Ask for changes sends the notes with the verdict", Verb::Open("button", "Ask for changes"), "status", "Sent back"),
+        ],
+    },
+    Walk {
+        name: "native-reader-page",
+        title: "The reader: a page with its notes beside it",
+        screen: Screen::Jobs,
+        scenario: "reader",
+        steps: &[
+            press_on("A Job that put a page to him and a draft", "row", "Draft the release note", "article", "Draft: Release note for 0.42"),
+            step("The page's card stands above the draft", Verb::Wheel("region", "Thread", -300), "article", "Document: Stale branch design, Revision 2"),
+            step("A wide window leaves room for the contents and the gutter", Verb::Widen(2400), "region", "Thread"),
+            step("Open reads it on its own: the page as Fleet serves it, the acts in the band", Verb::OpenIn("Document: Stale branch design, Revision 2", "Open"), "region", "Reader: Stale branch design"),
+            step("The contents are the page's headings", Verb::Look, "button", "Go to Stale branches"),
+            in_page("The page's own buttons work in the reader: Discuss opens a box for words under its row", "button", "Discuss", None, true),
+            in_page_select("Select words in the page", "cell", "web/dark-mode"),
+            step("N makes a note on them, with the caret in it", Verb::Key("n"), "textbox", "Note"),
+            step("The note is typed", Verb::Typed("Why three days?"), "textbox", "Note"),
+            step("Esc leaves the note and gives the keys back to the reader", Verb::Key("escape"), "region", "Reader: Stale branch design"),
+            press_on("The revision menu lists every revision the page was kept as", "button", "Revision r2 of 2", "menu", "Revisions"),
+            step("Two downs and Return pick the first revision, read from Fleet in place of the second: its acts are off", Verb::Keys(&["down", "down", "enter"]), "button", "Revision r1 of 2"),
+            step("Its own words: the page counted three branches then", Verb::Look, "region", "Page"),
+            step("A narrow window folds the contents into a menu and puts the notes under the page", Verb::Width(820), "button", "Contents"),
+        ],
+    },
+    Walk {
+        name: "native-reader-sketches",
+        title: "The reader: a page's sketches, and a vote whose takes each hold one",
+        screen: Screen::Jobs,
+        scenario: "reader-sketches",
+        steps: &[
+            press_on("A Job that put a page to him: it holds a drawing of its own and a vote whose two takes each hold a drawing", "row", "Draft the release note", "article", "Document: Stale marks, Revision 1"),
+            step("A wide window leaves room for the contents and the gutter", Verb::Widen(2400), "region", "Thread"),
+            step("Open reads it on its own", Verb::OpenIn("Document: Stale marks, Revision 1", "Open"), "region", "Reader: Stale marks"),
+            in_page("The page's own sketch is drawn in the page, as the thread draws it, every step lit", "group", "Where the mark is set", None, false),
+            in_page("The vote's takes stand side by side, each with its drawing", "group", "Amber chip", Some(("group", "Which mark?")), false),
+            in_page("The second take's drawing beside the first", "group", "Faded row", Some(("group", "Which mark?")), false),
+            in_page("A pick: Faded row", "radio", "Pick Faded row", None, true),
+            in_page("Send casts the pick", "button", "Send", Some(("region", "Pick a mark")), true),
+            step("A narrow window folds the contents into a menu and puts the notes under the page", Verb::Width(820), "button", "Contents"),
         ],
     },
     Walk {
