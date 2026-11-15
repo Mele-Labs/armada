@@ -115,6 +115,8 @@ pub(crate) struct Side {
     port: u16,
     pub(crate) address: String,
     pub(crate) keys: Arc<MemoryMacKeys>,
+    /// His stores, for pairing through them. `crate::vouched_tests`.
+    pub(crate) stores: Option<Arc<dyn crate::HisStores>>,
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
 }
 
@@ -151,7 +153,7 @@ impl Side {
             way_in: crate::setup::quiet_way_in(),
             macs: Macs::with_timing(keys.clone(), QUICK).unwrap(),
         };
-        let mut side = Side { gateway, fleet, port, address, keys, running: None };
+        let mut side = Side { gateway, fleet, port, address, keys, stores: None, running: None };
         side.start();
         side
     }
@@ -168,7 +170,11 @@ impl Side {
 
     /// Serve, and link, as `pocketing` does: a fresh `Macs` each start, over the same keys.
     pub(crate) fn start(&mut self) {
-        self.gateway.macs = Macs::with_timing(self.keys.clone(), QUICK).unwrap();
+        let macs = Macs::with_timing(self.keys.clone(), QUICK).unwrap();
+        self.gateway.macs = match &self.stores {
+            Some(stores) => macs.reaching_stores(stores.clone()),
+            None => macs,
+        };
         let listener = crate::bind_now(self.port).unwrap();
         let (stop, stopped) = oneshot::channel::<()>();
         let app = router(self.gateway.clone());
@@ -214,7 +220,7 @@ impl Side {
     }
 
     /// A signed call from this Mac to `other`, as the link makes one.
-    async fn call(&self, other: &Side, method: &str, target: &str) -> (u16, String) {
+    pub(crate) async fn call(&self, other: &Side, method: &str, target: &str) -> (u16, String) {
         let came = crate::mac_client::signed_whole(&self.gateway, &other.id(), &other.address, method, target, None)
             .await
             .unwrap();

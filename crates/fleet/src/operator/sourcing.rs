@@ -151,9 +151,13 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Hand `arrival` to the Operator, unless the Log already holds it or it is waiting. Whether it was handed.
-    pub(crate) async fn hand_once(&self, arrival: Arrival) -> bool {
+    pub(crate) async fn hand_once(self: &Arc<Self>, arrival: Arrival) -> bool {
         if self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true) {
             return false;
+        }
+        // While the Operator's session runs it is told, and Fleet rules nothing.
+        if self.arrival_told(&arrival).await {
+            return true;
         }
         self.operator_seat().hand_sourced(arrival)
     }
@@ -194,6 +198,12 @@ where
         for ask in asks {
             let arrival = super::sources::ask_arrival(&ask);
             let seat = self.operator_seat();
+            // The Operator's session is told it and answers the Job itself, so the ask stands answered here.
+            if self.operator_on() && self.arrival_told(&arrival).await {
+                let at = self.now().as_str().to_string();
+                let _ = self.store().lock().await.answer_job_ask(&ask.id, "told the Operator", &at);
+                continue;
+            }
             let operator = seat.operator().filter(|_| self.operator_on());
             let ruled = self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true);
             let Some(operator) = operator.filter(|_| !ruled) else {
@@ -298,7 +308,7 @@ where
     /// A note the person sent to a Job: his send is a row of the Log, signed by him, and then the
     /// Operator is handed the note as its own arrival, to move or leave. **Nothing is kept where the
     /// Log already holds the note**, such as one handed on as it stood.
-    async fn note_sent_kept(&self, sent: Sent) {
+    async fn note_sent_kept(self: &Arc<Self>, sent: Sent) {
         let unsent = sent.note.arrival();
         if self.store().lock().await.operator_ruled(&unsent.id).unwrap_or(true) {
             return;
@@ -356,6 +366,12 @@ where
         let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
         let mut made = Sourced::default();
         let undone = |what: &str| Err(what.to_string());
+        // Read again as it is carried out, so a project turned off while the call ran is not reached.
+        if let Some(into) = ruling.other.as_deref().filter(|_| arrival.reaches_only_shared()) {
+            if !self.job_shared(into).await {
+                return undone("the Job it named is not in a shared project");
+            }
+        }
         match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
             (Arrived::Report, Way::Link, _, Some(issue)) => {
                 if self.store().lock().await.link_bug_report(last, issue).is_err() {

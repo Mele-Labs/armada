@@ -199,6 +199,13 @@ impl SlotQueue {
         waiting.entries.get(session).map(|one| one.choice)
     }
 
+    /// Whether the session waits for a slot: in a line, or its `armada worktree lease` still asking.
+    pub(crate) fn waits(&self, session: &str) -> bool {
+        let waiting = self.waiting.lock().expect("the line is not held across a panic");
+        let now = std::time::Instant::now();
+        waiting.entries.contains_key(session) || waiting.wants.get(session).is_some_and(|want| want.fresh(now))
+    }
+
     /// The session's call, while the person has not answered it or a slot he asked for is being
     /// made. **One call**: the line's where the session is in it, and otherwise its command's, if
     /// that is still heard from. A command's call has no rows and nothing being made.

@@ -116,6 +116,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("pick_fleet_build_job", "chooses the build Fleet runs"),
     ("skip_preview_refresh", "chooses the build Fleet runs"),
     ("start_sign_in", "signs this Mac in and out"),
+    ("register_sign_in_app", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),
     // What his other Macs hold, as this Mac's Phone Gateway hands it in: a Job planting rows would be drawn
     // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.

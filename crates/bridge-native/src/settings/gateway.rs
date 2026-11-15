@@ -349,6 +349,7 @@ impl MockGateway {
             paired,
             build: Some("2930ac0".into()),
             nearby,
+            older_build: false,
         };
         let mut gateway = MockGateway::new();
         gateway.found = vec![

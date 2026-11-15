@@ -279,6 +279,18 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     let fleet = Arc::new(fleet);
     // The Phone Gateway, on a listener of its own, while the Mac is opted in.
     let phone = Arc::new(crate::pocketing::Phone::new(&machine, bound.port()));
+    // Pairing through his store: the stores Fleet's projects name that this Mac joined. Weak, as Fleet holds the
+    // Phone in turn.
+    phone.reaching_stores_with(Arc::new(crate::pocketing::StoresFromFleet {
+        joined: {
+            let fleet = Arc::downgrade(&fleet);
+            Arc::new(move || fleet.upgrade().map(|fleet| fleet.stores_joined_here()).unwrap_or_default())
+        },
+        client_id: {
+            let fleet = Arc::downgrade(&fleet);
+            Arc::new(move || fleet.upgrade().map(|fleet| fleet.sign_in_client_id()).unwrap_or_default())
+        },
+    }));
     fleet.switching_phone_with(Arc::clone(&phone) as Arc<dyn fleet::phone::PhoneSwitch>);
     phone.start_if_marked();
     // The shared home's clone sits in the machine directory, beside the mods it carries.

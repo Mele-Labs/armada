@@ -1,0 +1,12 @@
+[operations.raise_card]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Put one decision in front of the person on a card. Give kind (deal or raise), title, read (the facts he needs to decide) and two to four options, each with a label and a cost, your pick first. Optional: sessions (Job ids it is about), repository (its name), talk_of (a card id this one carries on from). One card is one decision: never a count, a status report or chatter. Answers the card's id"
+notes = """
+Since 14 Nov 2026. `POST /operator/cards`, body `RaiseCard`: `kind` (`deal` or `raise`), `title`, `read`, `options` (`[{ label, cost }]`, two to four, **the first is the Operator's pick** and each carries a cost), and optionally `sessions`, `repository` and `talk_of`. Answered with `CardRaised`: `card`, `turn:<n>`, the id every act on the page names.
+
+**Only the Operator's own session may raise one.** The session is placed by its connection, as `all_done`'s is; any other caller is refused 422 `fleet.not_the_operator` with a sentence, and the Operator's tool list is the only one that offers it. **Fleet refuses, with `fleet.card_refused` and a sentence naming the part,** where the title or the read is empty, there are not two to four options, an option has no label or no cost, two options share a label, `repository` is no repository Fleet serves, a session is no Job Fleet knows, or `talk_of` is no card.
+
+**A card is a row of Your turn** (`OperatorTurnItem.card`), the options its item's with the cost as each one's `description` and the read and pick as its `read`. His press, his Later and his talk reach the Operator as messages carrying the card's id and title. Publishes `operator.page_changed`.
+"""

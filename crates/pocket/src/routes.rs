@@ -14,7 +14,7 @@ use tower_http::compression::CompressionLayer;
 
 use crate::{
     admin, cors, fleet_client, forward, mac_ask_routes, mac_pages, mac_pair_routes, mac_routes, mac_terminals, machine, pair_routes, phone_terminals, push, reads, session_routes, setup,
-    shown_address, signing, stat, thread_window,
+    shown_address, signing, stat, thread_window, vouched_routes,
 };
 
 /// Where Fleet is now: its port out of the runtime file, read afresh each time
@@ -67,6 +67,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/admin/macs/forget", post(mac_pair_routes::forget))
         .route("/admin/macs/found", get(mac_ask_routes::found))
         .route("/admin/macs/pair/ask", post(mac_ask_routes::ask))
+        .route("/admin/macs/pair/vouched", post(vouched_routes::pair_mac))
         .route("/admin/pair/start", post(pair_routes::start))
         .route("/admin/pair/pending", get(pair_routes::pending))
         .route("/admin/pair/confirm", post(pair_routes::confirm))
@@ -101,6 +102,10 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/pair/mac/ask", post(mac_ask_routes::asked_here))
         .route("/pair/mac/reveal", post(mac_ask_routes::revealed_here))
         .route("/pair/mac/declined", post(mac_pair_routes::declined))
+        // His other devices, signed with their store keys: his store says they are his, so no code and no Confirm.
+        .route("/pair/mac/vouched", post(vouched_routes::mac_vouched_here))
+        .route("/pair/vouched", post(vouched_routes::phone_vouched_here))
+        .route("/pair/store", get(vouched_routes::store_for_phone))
         // Only a linked Mac, and never a phone: `signing::signed`.
         .route("/api/mac/hello", get(mac_routes::hello))
         .route("/api/mac/sessions", get(mac_routes::read))

@@ -19,6 +19,7 @@ mod door;
 mod fleet_client;
 mod fleet_events;
 mod forward;
+mod his_stores;
 mod live;
 mod mac_ask_routes;
 mod mac_client;
@@ -47,6 +48,9 @@ mod stat;
 mod thread_window;
 mod tunnel;
 mod vapid;
+mod vouched;
+mod vouched_found;
+mod vouched_routes;
 mod watch;
 mod webpush;
 
@@ -58,6 +62,7 @@ use tokio::net::TcpListener;
 pub use fleet_client::{Answer, Unreachable};
 pub use door::{bind_door, Door, DoorCert, CERT_FILE};
 pub use cloudflared::tunnel_sign_in;
+pub use his_stores::{HisStores, JoinedStore};
 pub use mac_keys::{sign, spki_hex, MacKeys, MemoryMacKeys};
 pub use mac_link::{link, read_other_mac, send_other_mac};
 pub use mac_pages::{open_other_mac_page, PageOpen};
@@ -72,6 +77,7 @@ pub use watch::follow;
 pub use routes::{router, Fleet, Gateway};
 pub use setup::{mac_way_in, Funnel, ThisBuild, WayIn};
 pub use tunnel::Tunnel;
+pub use vouched_routes::put_presence;
 
 /// Bind the Gateway's listener. **There is no host parameter**: the address is
 /// loopback by construction, so no setting can open it to a network.
@@ -112,3 +118,5 @@ mod tests;
 mod thread_tests;
 #[cfg(test)]
 mod tunnel_tests;
+#[cfg(test)]
+mod vouched_tests;

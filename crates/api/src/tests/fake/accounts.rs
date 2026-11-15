@@ -2,7 +2,10 @@
 //! starts, a code that is always the same, and an account it has not joined
 //! refused by name. What is polled, enrolled and written is `fleet::signing_in`'s.
 
-use ipc::{AccountFlow, Accounts as AccountsList, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SignOut, SignedOut};
+use ipc::{
+    AccountFlow, Accounts as AccountsList, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SignInAppRegistration, SignOut,
+    SignedOut,
+};
 
 use super::FakeDaemon;
 use crate::{Accounts, Refusal};
@@ -10,6 +13,20 @@ use crate::{Accounts, Refusal};
 /// The fake's machine before anyone signs in.
 pub(crate) fn signed_out() -> AccountsList {
     AccountsList { profiles: Vec::new(), unmatched: Vec::new(), flow: AccountFlow::Idle { ended: None } }
+}
+
+/// The one state the fake issues, and the one code it converts.
+pub(crate) const APP_STATE: &str = "fake-state";
+pub(crate) const APP_CODE: &str = "fake-code";
+/// Where the fake sends the browser once the app is registered.
+pub(crate) const APP_SETTINGS_PAGE: &str = "https://forge.test/settings/apps/armada-sign-in";
+
+fn state_unknown() -> Refusal {
+    Refusal::Unacceptable(ipc::WireError::raised(
+        "fleet.sign_in_app_state_unknown",
+        "This page has expired. Press Register in Armada again.".to_string(),
+        crate::tests::shapes::run_id(),
+    ))
 }
 
 fn not_joined(account_id: u64) -> Refusal {
@@ -33,6 +50,24 @@ impl Accounts for FakeDaemon {
             expires_in_seconds: 900,
         };
         Ok(held.clone())
+    }
+
+    async fn register_sign_in_app(&self) -> Result<SignInAppRegistration, Refusal> {
+        Ok(SignInAppRegistration { url: format!("http://127.0.0.1:7777/accounts/sign_in_app/form?state={APP_STATE}") })
+    }
+
+    async fn get_sign_in_app_form(&self, state: String) -> Result<String, Refusal> {
+        if state != APP_STATE {
+            return Err(state_unknown());
+        }
+        Ok("<!doctype html><form></form>".to_string())
+    }
+
+    async fn sign_in_app_registered(&self, code: String, state: String) -> Result<String, Refusal> {
+        if state != APP_STATE || code != APP_CODE {
+            return Err(state_unknown());
+        }
+        Ok(APP_SETTINGS_PAGE.to_string())
     }
 
     async fn sign_out(&self, sign_out: SignOut) -> Result<SignedOut, Refusal> {

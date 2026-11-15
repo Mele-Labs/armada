@@ -722,6 +722,31 @@ const ROUTES: &[Route] = &[
         path: "/operator/page/later",
     },
     Route {
+        operation: "raise_card",
+        method: "POST",
+        path: "/operator/cards",
+    },
+    Route {
+        operation: "revise_card",
+        method: "POST",
+        path: "/operator/cards/revise",
+    },
+    Route {
+        operation: "settle_card",
+        method: "POST",
+        path: "/operator/cards/settle",
+    },
+    Route {
+        operation: "list_operator_acts",
+        method: "GET",
+        path: "/operator/acts",
+    },
+    Route {
+        operation: "set_operator_acts",
+        method: "POST",
+        path: "/operator/acts",
+    },
+    Route {
         operation: "get_operator_board",
         method: "GET",
         path: "/operator/board",
