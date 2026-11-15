@@ -24,8 +24,8 @@ const COMPATIBILITY_DATE: &str = "2026-10-01";
 const MAIN_MODULE: &str = "worker.js";
 /// The longest Cloudflare's own words are kept.
 const SAID_AT_MOST: usize = 200;
-/// Cloudflare's codes for a token that may not sign in: `Authentication error`, and `Unauthorized to
-/// access requested resource`.
+/// Cloudflare's codes for a token that may not sign in, as they come on any status: `Authentication
+/// error`, and `Unauthorized to access requested resource`.
 const SIGN_IN_CODES: [u64; 2] = [10000, 9109];
 /// Cloudflare's code for an account with no `workers.dev` subdomain.
 const NO_SUBDOMAIN_CODE: u64 = 10007;
@@ -153,7 +153,9 @@ pub(crate) fn refusal(reply: &Reply, limit_sent: bool) -> CloudflareError {
         Err(_) => (Vec::new(), String::from_utf8_lossy(&reply.body).into_owned()),
     };
     let messages = at_most(&messages);
-    let signs_in = reply.status == 401 || (reply.status == 403 && codes.iter().any(|code: &u64| SIGN_IN_CODES.contains(code)));
+    // A 403 is a token without the rights, whatever its code: `No access to the specified resource` carries
+    // none this file knows. The next sign-in is tried, and then he is asked for a token.
+    let signs_in = reply.status == 401 || reply.status == 403 || codes.iter().any(|code: &u64| SIGN_IN_CODES.contains(code));
     if signs_in {
         return CloudflareError::Refused(if messages.is_empty() { format!("status {}", reply.status) } else { messages });
     }

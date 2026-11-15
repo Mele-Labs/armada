@@ -125,9 +125,18 @@ fn a_401_or_a_403_sign_in_error_is_refused_in_cloudflares_words() {
 }
 
 #[test]
-fn a_403_that_is_not_a_sign_in_error_failed() {
-    let said = cloudflare_api::refusal(&reply(403, &refused_with(10021, "Script validation failed")), false);
-    assert_eq!(said, CloudflareError::Failed("status 403: Script validation failed".to_string()));
+fn a_403_whatever_its_code_is_a_token_without_the_rights() {
+    for code in [10021, 0] {
+        let said = cloudflare_api::refusal(&reply(403, &refused_with(code, "No access to the specified resource")), false);
+        assert_eq!(said, CloudflareError::Refused("No access to the specified resource".to_string()), "{code}");
+    }
+    assert_eq!(cloudflare_api::refusal(&reply(403, ""), false), CloudflareError::Refused("status 403".to_string()));
+}
+
+#[test]
+fn a_400_that_is_not_a_sign_in_error_failed() {
+    let said = cloudflare_api::refusal(&reply(400, &refused_with(10021, "Script validation failed")), false);
+    assert_eq!(said, CloudflareError::Failed("status 400: Script validation failed".to_string()));
 }
 
 #[test]
