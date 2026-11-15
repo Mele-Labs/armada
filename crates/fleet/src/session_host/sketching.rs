@@ -38,6 +38,7 @@ const SKETCH_ANSWER_EMPTY: &str = "fleet.sketch_answer_empty";
 const SKETCH_WITHDRAW_UNNAMED: &str = "fleet.sketch_withdraw_unnamed";
 const SKETCH_WITHDRAW_NOT_SHOWN: &str = "fleet.sketch_withdraw_not_shown";
 const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
+pub(crate) const SKETCH_TAKES: &str = "fleet.sketch_takes";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
 pub(crate) const TARGET_PREFIX: &str = "sketch:";
@@ -60,6 +61,9 @@ where
         let sketch = show
             .checked()
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
+        if let Some(why) = takes_refused(&sketch.scene) {
+            return Err(self.hosted_refusal(SKETCH_TAKES, &format!("the sketch was not drawn: {why}")));
+        }
         let against = show
             .against_title()
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
@@ -285,7 +289,7 @@ pub(crate) fn picked(title: &str, take: &str) -> String {
 /// and only a scene of two or more mocks or screens has takes.
 pub(crate) fn take_picked(scene: &str, note: &str) -> Option<String> {
     let scene: ipc::Scene = ipc::decode("a sketch's scene", scene.as_bytes()).ok()?;
-    let pictures = |node: &&ipc::SceneNode| matches!(node.kind, ipc::SceneKind::Mock | ipc::SceneKind::Screen);
+    let pictures = |node: &&ipc::SceneNode| is_picture(node);
     if scene.nodes.iter().filter(pictures).count() < 2 {
         return None;
     }
@@ -318,10 +322,75 @@ pub(crate) fn take_picked(scene: &str, note: &str) -> Option<String> {
 fn take_name(said: &str) -> String {
     let said = said.trim().trim_matches(['"', '\'', '`', '*']).trim_end_matches(['.', '!']).trim().to_lowercase();
     let mut said = said.as_str();
-    for lead in ["i pick ", "pick ", "go with ", "take ", "option "] {
+    for lead in TAKE_LEADS {
         said = said.strip_prefix(lead).unwrap_or(said).trim_start();
     }
     said.to_string()
+}
+
+/// The words that only introduce a take's name, lowercased.
+const TAKE_LEADS: [&str; 5] = ["i pick ", "pick ", "go with ", "take ", "option "];
+
+/// A mock or a screen: what a take is drawn as. Boxes and arrows draw no takes.
+fn is_picture(node: &ipc::SceneNode) -> bool {
+    matches!(node.kind, ipc::SceneKind::Mock | ipc::SceneKind::Screen)
+}
+
+/// How far above a picture's top, in scene units, a label still names it.
+const LABEL_REACH: f64 = 200.0;
+
+/// Why `scene` is refused as takes drawn side by side for Approve to stand in for a pick, or `None`. **Two or
+/// more mocks or screens are takes** when two of them lead with different take letters (`A · …`, `B: …`), by
+/// their own title or a label's just above them, or one says `(my pick)`. His ruling of 14 Nov: takes are a
+/// vote, so they go in a `takes` part he answers with a pick.
+pub(crate) fn takes_refused(scene: &str) -> Option<String> {
+    let scene: ipc::Scene = ipc::decode("a sketch's scene", scene.as_bytes()).ok()?;
+    let pictures: Vec<&ipc::SceneNode> = scene.nodes.iter().filter(|node| is_picture(node)).collect();
+    if pictures.len() < 2 {
+        return None;
+    }
+    let labels: Vec<&ipc::SceneNode> = scene.nodes.iter().filter(|node| matches!(node.kind, ipc::SceneKind::Label)).collect();
+    let mut letters = BTreeSet::new();
+    let mut picked = false;
+    let mut titles = Vec::new();
+    for picture in pictures {
+        let wide = picture.w.unwrap_or(240.0);
+        let above = labels
+            .iter()
+            .filter(|label| label.y < picture.y && picture.y - label.y <= LABEL_REACH && label.x >= picture.x - 40.0 && label.x < picture.x + wide)
+            .max_by(|one, two| one.y.total_cmp(&two.y))
+            .and_then(|label| label.title.as_deref().or(label.body.as_deref()));
+        for title in [picture.title.as_deref(), above].into_iter().flatten() {
+            let letter = take_letter(title);
+            let mine = title.to_lowercase().contains("(my pick)");
+            if letter.is_some() || mine {
+                letters.extend(letter);
+                picked |= mine;
+                titles.push(format!("`{}`", title.trim()));
+                break;
+            }
+        }
+    }
+    if letters.len() < 2 && !picked {
+        return None;
+    }
+    Some(format!(
+        "{} are takes, so put them to him with add_part, `kind` `takes`, each take a scene, your pick first, and he picks one with Send pick; Approve never stands in for a pick",
+        titles.join(", ")
+    ))
+}
+
+/// The take letter `title` leads with, A to F, past any word that only introduces it: `B · Tabs`, `Take C: …`.
+fn take_letter(title: &str) -> Option<char> {
+    let mut rest = title.trim();
+    for lead in TAKE_LEADS {
+        if rest.get(..lead.len()).is_some_and(|start| start.eq_ignore_ascii_case(lead)) {
+            rest = rest[lead.len()..].trim_start();
+        }
+    }
+    let mut chars = rest.chars();
+    let letter = chars.next().filter(|one| ('A'..='F').contains(one))?;
+    chars.next().is_some_and(|after| matches!(after, ' ' | ':' | '·' | '.' | ')')).then_some(letter)
 }
 
 /// When the person last approved any sketch, or `None` while he has not. **Read off the thread**, as

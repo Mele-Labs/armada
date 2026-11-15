@@ -27,7 +27,7 @@ use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
 use crate::session_host::document_answers::{in_front_of_him, is_document};
 use crate::session_host::walking;
-use crate::session_host::sketching::{sketch_attachment, still_asks, TARGET_PREFIX};
+use crate::session_host::sketching::{sketch_attachment, still_asks, takes_refused, SKETCH_TAKES, TARGET_PREFIX};
 
 const PLAN_REFUSED: &str = "fleet.plan_refused";
 const PLAN_UNNAMED: &str = "fleet.plan_unnamed";
@@ -273,6 +273,9 @@ where
         let sketch = match checked.sketch {
             None => None,
             Some(sketch) => {
+                if let Some(why) = takes_refused(&sketch.scene) {
+                    return Err(self.hosted_refusal(SKETCH_TAKES, &format!("the plan was not recorded: {why}")));
+                }
                 let sketch = self.sketch_styled(&id, sketch, "record_plan").await?;
                 let named = (format!("{TARGET_PREFIX}{}", sketch.title), sketch.title.clone());
                 self.report_session(SessionReport {
