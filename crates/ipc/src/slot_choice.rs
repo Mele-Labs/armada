@@ -1,5 +1,5 @@
 //! What a full pool's call carries so the person can free a slot instead of waiting or adding one.
-//! `WaitingSource::SlotChoice`, `docs/concepts/session.md`, *A full pool asks*.
+//! `WaitingSource::SlotChoice`, `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
 //! **Fleet reads these and the person acts on them**: nothing here is sent by an agent, and no path
 //! of Fleet's frees a slot by itself. A slot is freed by `free_slot`, a press.

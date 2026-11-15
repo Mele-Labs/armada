@@ -1,5 +1,5 @@
 //! The slots a full pool is held by, on the call that asks the person what to do, and the press that
-//! frees one. `docs/concepts/session.md`, *A full pool asks*.
+//! frees one. `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
 //! **Read now and then, never on a publish.** Item derivation is hot and the dirty read is git, so
 //! the holders live on the line's entries: read when the keeper looks at the lines (a Job joining

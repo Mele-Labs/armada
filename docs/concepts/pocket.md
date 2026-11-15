@@ -186,7 +186,7 @@ The Jobs list, the repositories and the projects are cut to what the phone sees,
 A Job the phone starts goes into the first shared project of this Mac holding its repository, which the Gateway names, and Fleet refuses one into any other.
 
 **Waiting follows Bridge's order.** A Job is not waiting while it is paused, failed to start, waits on another Job, sits on its start card or is held by the plan's limit, whatever it owes.
-Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
+Otherwise an ask, the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
 A row carries what native's Jobs-list row reads: its mark, project, last turn, pull request, issue, workflow step and what it is doing now.
@@ -239,8 +239,8 @@ The workflow, model and effort it starts on stay on the Mac.
 The items it holds are answered under those facts, since a waiting Job does not reach Needs you.
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
-`delivery`, `slot_choice`, `task_done`, `rule_act` and `browser_ask` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
-A `slot_choice`'s slots to free stay on the Mac.
+`delivery`, `task_done`, `rule_act` and `browser_ask` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
+A Job waiting for a slot raises no item, and the slots to free stay on the Mac.
 A `sketch` and a `document` are answered from their cards in the thread, Approve or Send back with a note, and a `draft` the same from its card.
 A proposed workflow change is a draft whose card also offers Dismiss, the second option Fleet lists for it.
 A document also opens at its own page, read by the same reader Bridge uses, with Approve and Send back under it.
