@@ -35,6 +35,7 @@ fn a_refused_body_names_its_shape_after_serdes_own_words() {
 fn every_agent_body_reads_as_an_object_of_named_fields() {
     let shapes = [
         ("all_done", shape::of::<crate::AllDone>()),
+        ("add_part", shape::of::<crate::AddPart>()),
         ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
         ("call_test_flaky", shape::of::<crate::CallTestFlaky>()),

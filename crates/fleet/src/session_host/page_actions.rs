@@ -17,6 +17,7 @@ use store::KeptPress;
 
 use super::document_page::{actions_in, PageAction};
 use super::documents::revisions_named;
+use super::sketching::TARGET_PREFIX;
 use crate::daemon::Fleet;
 
 const PAGE_ACTION_UNKNOWN: &str = "fleet.page_action_unknown";
@@ -104,13 +105,18 @@ where
     pub(crate) async fn page_action_pressed(self: Arc<Self>, press: PressPageAction) -> Result<PagePress, Refusal> {
         let id = press.session_id.as_str().trim().to_string();
         let artifact = self.artifact_held(&id, &press.artifact).await?;
-        if artifact.form != ArtifactForm::Page {
-            return Err(self.hosted_refusal(PAGE_ACTION_UNKNOWN, &format!("`{}` is not a page, and only a page declares actions", artifact.title)));
-        }
-        if artifact.archived.is_some() {
-            return Err(self.hosted_refusal(PAGE_ARCHIVED, &format!("`{}` is archived. Restore it to press its actions", artifact.title)));
-        }
-        let action = self.action_kept(&id, &artifact.id, &artifact.title, press.revision, &press.action).await?;
+        let action = if artifact.id.starts_with(TARGET_PREFIX) {
+            // A buttons part of an artifact is pressed as a page's button is.
+            self.button_kept(&artifact, &press)?
+        } else {
+            if artifact.form != ArtifactForm::Page {
+                return Err(self.hosted_refusal(PAGE_ACTION_UNKNOWN, &format!("`{}` is not a page, and only a page declares actions", artifact.title)));
+            }
+            if artifact.archived.is_some() {
+                return Err(self.hosted_refusal(PAGE_ARCHIVED, &format!("`{}` is archived. Restore it to press its actions", artifact.title)));
+            }
+            self.action_kept(&id, &artifact.id, &artifact.title, press.revision, &press.action).await?
+        };
         let Some(act) = PageAct::named(&action.act) else {
             return Err(self.hosted_refusal(PAGE_ACT_REFUSED, OFF_THE_LIST));
         };
@@ -153,6 +159,48 @@ where
         self.store().lock().await.keep_page_press(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         self.published_hosted(&id).await?;
         Ok(PagePress { revision: press.revision, action: action.id, item, act, at, did })
+    }
+
+    /// The button `press` names, read off the buttons part of the artifact as it stands. **A press on a part put again
+    /// since is refused**, so it never lands on a button he did not read.
+    fn button_kept(&self, artifact: &ipc::JobArtifact, press: &PressPageAction) -> Result<PageAction, Refusal> {
+        if artifact.archived.is_some() {
+            return Err(self.hosted_refusal(PAGE_ARCHIVED, &format!("`{}` is archived. Restore it to press its actions", artifact.title)));
+        }
+        let named = press.action.trim();
+        let found = artifact.parts.iter().find_map(|part| match &part.content {
+            ipc::PartContent::Buttons { actions } => actions.iter().find(|one| one.id == named).map(|one| (part, one)),
+            _ => None,
+        });
+        let Some((part, button)) = found else {
+            let ids: Vec<&str> = artifact
+                .parts
+                .iter()
+                .filter_map(|part| match &part.content {
+                    ipc::PartContent::Buttons { actions } => Some(actions.iter().map(|one| one.id.as_str())),
+                    _ => None,
+                })
+                .flatten()
+                .take(MOST_NAMED)
+                .collect();
+            let holds = if ids.is_empty() { String::from("none") } else { ids.join(", ") };
+            return Err(self.hosted_refusal(PAGE_ACTION_UNKNOWN, &format!("`{}` holds no button `{named}`. Buttons it holds: {holds}", artifact.title)));
+        };
+        if press.revision != part.revision {
+            return Err(self.part_redrawn(&part.id));
+        }
+        let said = |field: &Option<String>| field.clone().unwrap_or_default();
+        Ok(PageAction {
+            id: button.id.clone(),
+            act: button.act.word().to_string(),
+            label: button.label.clone(),
+            item: said(&button.item),
+            brief: said(&button.brief),
+            repository: said(&button.repository),
+            ask: said(&button.ask),
+            option: said(&button.option),
+            row: String::new(),
+        })
     }
 
     /// The first action with id `named` in revision `revision` of the page at `path`, as Fleet kept it.

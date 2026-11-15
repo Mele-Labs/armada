@@ -25,6 +25,9 @@ pub const WIRE_PARTS: [&str; 6] = ["button", "input", "list", "card", "nav", "te
 /// The outline a `box` node's `shape` may name.
 pub const SCENE_SHAPES: [&str; 6] = ["box", "pill", "circle", "diamond", "cylinder", "hexagon"];
 
+/// What a node's `state` may say: where the thing it draws stands.
+pub const SCENE_STATES: [&str; 5] = ["done", "running", "checking", "waiting", "failed"];
+
 /// The colours a node's or an edge's `color` may name.
 pub const SCENE_COLORS: [&str; 7] = ["blue", "teal", "green", "amber", "orange", "red", "grey"];
 
@@ -69,9 +72,9 @@ pub const MOST_SCENE_BYTES: usize = 32 * 1024;
 pub const MOST_TITLE_CHARS: usize = 120;
 
 const TOP_FIELDS: [&str; 3] = ["nodes", "edges", "strokes"];
-pub(crate) const NODE_FIELDS: [&str; 18] = [
+pub(crate) const NODE_FIELDS: [&str; 19] = [
     "id", "kind", "x", "y", "w", "h", "title", "body", "icon", "lang", "wire", "screen", "html", "css", "styles", "step",
-    "shape", "color",
+    "shape", "color", "state",
 ];
 pub(crate) const EDGE_FIELDS: [&str; 10] = ["id", "from", "to", "label", "flow", "step", "color", "line", "head", "path"];
 /// The one node field Fleet writes and an agent may not: the hash of the kept style set a `mock`
@@ -396,6 +399,7 @@ fn node_problems(nodes: &[Value], problems: &mut Vec<String>) -> Vec<String> {
         one_of(fields.get("wire"), "wire", &WIRE_PARTS, &here, problems);
         one_of(fields.get("shape"), "shape", &SCENE_SHAPES, &here, problems);
         one_of(fields.get("color"), "color", &SCENE_COLORS, &here, problems);
+        one_of(fields.get("state"), "state", &SCENE_STATES, &here, problems);
         match (kind, fields.get("screen")) {
             (Some("screen"), Some(tree)) => screen::problems(tree, &format!("{here} screen"), problems),
             (Some("screen"), None) => problems.push(format!("{here}: a `screen` needs `screen`, its layout tree")),

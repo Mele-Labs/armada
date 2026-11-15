@@ -532,6 +532,8 @@ where
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
+        let open_drafts = super::artifact_parts::open_drafts(attachments, &rows);
+        let joined_drafts = super::artifact_parts::joined_drafts(attachments);
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -738,7 +740,7 @@ where
                     matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
                 })
                 .flatten();
-            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan)
+            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan, &open_drafts, &dismissed)
                 .filter(|one| !dismissed.contains(&one.id))
                 .partition(|one| super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref()));
             items.extend(raised);
@@ -785,6 +787,8 @@ where
                         operator_read: None,
                     })
                 }
+                // A draft that joined an artifact is asked for by the artifact.
+                SessionRow::Draft { ref id, settled: None, .. } if joined_drafts.contains(id) => None,
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
                     let open = change.map_or(true, |one| ready_changes.contains(&one));

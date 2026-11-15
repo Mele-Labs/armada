@@ -229,6 +229,7 @@ WebSocket event stream, read this first.
 | [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
 | [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
 | [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [Open questions](#open-questions) |
 

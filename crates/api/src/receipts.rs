@@ -39,6 +39,10 @@ enum Set<'a> {
     Sketch {
         sketch: &'a str,
     },
+    /// The id the part was kept under, which a later `add_part` with it revises.
+    Part {
+        part: String,
+    },
     File {
         path: &'a str,
     },
@@ -215,6 +219,17 @@ impl<'a> Receipt<'a> {
 
     pub(crate) fn draft_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawDraft) -> Self {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.draft.trim() })
+    }
+
+    pub(crate) fn part(record: &'a SessionRecord, add: &'a ipc::AddPart) -> Self {
+        let kind = match &add.part {
+            ipc::NewPart::Drawing { .. } => "drawing",
+            ipc::NewPart::Words { .. } => "words",
+            ipc::NewPart::Takes { .. } => "takes",
+            ipc::NewPart::Buttons { .. } => "buttons",
+        };
+        let part = add.part.id().map(str::trim).filter(|id| !id.is_empty()).unwrap_or(kind).to_string();
+        Receipt::of(record, Set::Part { part })
     }
 
     pub(crate) fn sketch(record: &'a SessionRecord, show: &'a ipc::ShowSketch) -> Self {

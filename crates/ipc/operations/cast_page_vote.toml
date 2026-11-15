@@ -23,5 +23,7 @@ Empty notes are left out. The message is sent first, so a send that fails keeps 
 
 Refused with 422: `fleet.page_vote_unknown` for a revision not kept, an artifact that is not a page, or a vote id the revision does not hold, naming at most 20 it does; `fleet.page_vote_form` for a `result` whose form is not the one the vote declares, which a vote with a form off the three never matches; `fleet.page_vote_takes` for a take the vote does not hold, a part it does not name, a note on an unknown take, or an `order` that skips or repeats a take; `fleet.page_archived` for a page archived; `fleet.artifact_not_held` and `fleet.session_unnamed` as `archive_artifact` refuses them.
 
+**A takes part is voted on as a page's vote is.** `artifact` may be an artifact of parts, `sketch:<title>`, with the takes part's id as `vote` and the part's `revision` as `revision`; a revision that is not the part's now is a 409, `fleet.part_redrawn`. A pick settles the part `picked`, and the artifact settles once every ask on it is answered.
+
 `agent_access` is `No`: it is his vote.
 """
