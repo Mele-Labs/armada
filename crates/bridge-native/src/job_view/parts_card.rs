@@ -121,7 +121,9 @@ fn asked_of(parts: &[ArtifactPart]) -> Option<String> {
 pub(super) fn settles_line(parts: &[ArtifactPart]) -> Option<String> {
     let answered = parts.iter().any(|part| part.asks && matches!(part.state, PartState::Approved | PartState::SentBack | PartState::Picked));
     let asked = asked_of(parts)?;
-    Some(format!("Settles when {asked} are answered{}", if answered { " too" } else { "" }))
+    // `the drawing` and `the page` are one thing; `the words`, `the takes` and any pair are several.
+    let verb = if asked.contains(" and ") || asked.ends_with('s') { "are" } else { "is" };
+    Some(format!("Settles when {asked} {verb} answered{}", if answered { " too" } else { "" }))
 }
 
 /// The glyph and the name of a part's kind, which its caption draws.
