@@ -147,10 +147,6 @@ pub(crate) struct WaitingReads {
     word_asks: Vec<store::KeptWordAsk>,
     /// The notices a Fleet rule raised as calls on this Session.
     calls: Vec<store::KeptCall>,
-    /// What the Operator would do on this Session, waiting on one press.
-    suggestions: Vec<store::KeptSuggestion>,
-    /// The rulings of the Operator's that the person took back on this Session.
-    undone: Vec<store::KeptTurn>,
     /// The Job waits on its start card.
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
@@ -231,8 +227,6 @@ pub(crate) fn waiting_reads(
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
-        suggestions: store.operator_suggestions_of(&session.id)?,
-        undone: store.operator_turn_undone_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         checks_running: !store.running_session_checks(&session.id)?.is_empty(),
@@ -532,7 +526,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, undone, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -726,10 +720,6 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
-            // What a role at Suggest would do, until he takes it or skips it.
-            items.extend(crate::operator::suggestion_items(&suggestions));
-            // A ruling he took back is a question of his again, until he answers it or drops it.
-            items.extend(crate::operator::undone_items(&undone).filter(|one| !dismissed.contains(&one.id)));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
             // pending plan names waits with the plan instead, and its Approve settles it. One drawn in the turn still
             // running waits once it ends, so the result sketch `all_done` settles never shows and goes.
@@ -1217,8 +1207,6 @@ where
         };
         let mix = parts_line(&item, parts).map_err(|why| self.hosted_refusal(SESSION_WAITING_EMPTY, why))?;
         let line = said.mode.map(mode_line);
-        let answer_text = item.text.clone();
-        let answer_options = item.options.clone();
         // A pick with words says both: the words go with the pick, never in place of it. Parts picked come after.
         let both = match (picked.as_deref(), words) {
             (Some(pick), Some(words)) => Some(format!("{pick}\n{words}")),
@@ -1375,11 +1363,8 @@ where
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
             // Fleet's, so his press is the whole answer: the Jobs it names are told, and words alone are refused.
             WaitingSource::JobConflict | WaitingSource::JobHeld => self.job_ask_chosen(&id, &item.id, said.choice).await,
-            // Words with no choice are talk to the Operator about it, and the row stays.
-            WaitingSource::OperatorSuggestion => match (said.choice, words) {
-                (None, Some(words)) => self.suggestion_talked(&id, &item.id, words).await,
-                _ => self.suggestion_chosen(&id, &item.id, said.choice).await,
-            },
+            // A suggestion the Operator kept before its session is no longer offered a press.
+            WaitingSource::OperatorSuggestion => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "the Operator no longer keeps suggestions to press")),
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // The close tells the agent; words alone are a message to it, as for a done.
             WaitingSource::Gate => match said.choice {
@@ -1465,10 +1450,6 @@ where
             matches!(source, WaitingSource::AskCard | WaitingSource::Permission),
         ) {
             fleet.session_answered(record, says);
-        }
-        // His own answer is kept for the Operator to follow, and never one given in his place or to a draft.
-        if settled.is_ok() && by == Answerer::Him && source != WaitingSource::Draft {
-            fleet.operator_answer_kept(&id, &answer_text, &answer_options, &said.item_id, picked.as_deref(), words, "job").await;
         }
         settled
     }
@@ -1564,10 +1545,6 @@ where
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
-        }
-        // Dismissing what the Operator would do is Skip.
-        if item.source == WaitingSource::OperatorSuggestion {
-            self.suggestion_chosen(&id, &item.id, Some(crate::operator::SKIP)).await?;
         }
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {

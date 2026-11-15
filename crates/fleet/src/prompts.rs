@@ -42,10 +42,6 @@ fn shipped_texts() -> Vec<(Words, String)> {
         (keys::PROMPT_LOGBOOK_DISTIL, crate::logbook::QUESTION.to_string()),
         (keys::PROMPT_TEACHING_READ, crate::teaching::QUESTION.to_string()),
         (
-            keys::PROMPT_THOUGHT_ROUTE,
-            crate::operator::shortlist::QUESTION.to_string(),
-        ),
-        (
             keys::PROMPT_AUTOPILOT_SENTENCE,
             crate::autopilot::sentence::QUESTION.to_string(),
         ),

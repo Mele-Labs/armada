@@ -462,7 +462,8 @@ pub struct OperatorAnswered {
     pub page: OperatorPage,
 }
 
-/// `operator_undo_ruling`: take back a ruling the Operator made by following something he said. Since 13 Nov 2026.
+/// Taking back a ruling the Operator made. **No route answers it any more**: the Operator rules nothing, and
+/// `POST /operator/page/undo` is gone. Kept for a client that still builds it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorUndoRuling {
     /// The ruling's `id`, `turn:<n>`, as `OperatorRuled` names it.

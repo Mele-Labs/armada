@@ -1604,6 +1604,10 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
+**A record of what was.** Fleet keeps no suggestion now: the Operator rules nothing, and no row is raised with `WaitingSource::OperatorSuggestion` except Fleet's own red main and disk hold on the Operator's page.
+Pressing an old one is refused with `fleet.session_waiting_empty`.
+`WaitingItem.operator_read` is never set.
+
 An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
@@ -1617,6 +1621,10 @@ A suggestion on a report with no Job behind it, or on a note the person left on 
 A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
 ## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
+
+**What stands now.** `talk_to_operator` delivers his words to the Operator's own session and answers an empty `OperatorSaid`; it is refused with `fleet.operator_session_not_running` while none runs.
+`operator_talk` reads the old conversation back and nothing writes to it.
+The call that read his words, `cites`, `job`, `started`, `forgot`, `lifted` and the other fields of the answer are gone from what Fleet fills; the holds and `confirm_operator_order` stand as below.
 
 The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
@@ -1635,6 +1643,9 @@ The box at the foot of the Operator panel, and the holds it turns words into. No
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
 ## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion`, `report_bridge_error` and `operator.board_changed`
+
+**A record of what was**, save `report_bridge_error` and `operator.board_changed`.
+`get_operator_board`, `move_on_operator_board` and `answer_operator_suggestion` are removed with their types, and the router answers 404. `report_bridge_error` now tells the Operator's session, and `operator.board_changed` is published when the switch moves.
 
 The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 

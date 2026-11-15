@@ -4,12 +4,11 @@
 
 use std::sync::Arc;
 
-use api::{HostedSessions, Projects, Refusal};
+use api::{HostedSessions, Projects, Refusal, Sessions};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorFeedKind, OperatorLater};
-use ipc::{CardOption, CloseSession, Instant, NewProject, OperatorActs, OperatorCardKind, ProjectMember, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+use ipc::{CardOption, CloseSession, Instant, NewProject, OperatorActs, OperatorCardKind, ProjectMember, RaiseCard, ReviseCard, SessionId, SetOperatorActs, SetWaitingFor, SettleCard, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
 
 use super::operator_dispatches::the_dispatch;
-use super::operator_raises::{code, page, question, queued, seated, waiting};
 use super::operator_session::{live, switched};
 use super::peer::Placing;
 use super::session_host::{eventually, rig_placing, Rig};
@@ -23,6 +22,30 @@ fn rig() -> Rig {
     let peers = Placing::nothing();
     peers.holding(1000, OPERATOR_PORT, HOST_PORT);
     rig_placing(Some(peers))
+}
+
+fn code(refused: Refusal) -> (u16, String) {
+    (refused.status(), refused.error().code.clone())
+}
+
+async fn page(rig: &Rig) -> ipc::operator_page::OperatorPage {
+    rig.fleet.operator_page_wire().await.expect("read")
+}
+
+fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
+    WaitingInput {
+        approves: false,
+        id: id.into(),
+        text: text.into(),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.into() }),
+        options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
+        steps: Vec::new(),
+    }
+}
+
+/// `job`'s list, as its agent sets it whole.
+async fn waiting(rig: &Rig, job: &SessionId, items: Vec<WaitingInput>) {
+    rig.fleet.waiting_for(None, SetWaitingFor { items, session_id: Some(job.clone()) }).await.expect("set");
 }
 
 fn the_operator() -> Option<api::Caller> {
@@ -180,10 +203,6 @@ fn arrival(id: &str, subject: &str) -> Arrival {
         manifest_id: String::new(),
         subject: subject.into(),
         words: "The scrollback is lost on a resize.".into(),
-        paths: Vec::new(),
-        issues: Vec::new(),
-        ways: Vec::new(),
-        open: Vec::new(),
     }
 }
 
@@ -218,27 +237,10 @@ async fn while_the_operators_session_runs_what_arrives_is_told_to_it_once_and_fl
 #[tokio::test]
 async fn while_the_operators_session_runs_no_jobs_item_is_queued_into_your_turn() {
     let rig = rig();
-    let asked = seated(&rig, &[None]).await;
     started(&rig).await;
     let job = rig.start_titled(Some("Build the pane")).await;
     waiting(&rig, &job, vec![question("a", "First?", &["Yes", "No"])]).await;
     keep_the_raises(Arc::clone(&rig.fleet)).await;
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     assert!(page(&rig).await.turn.is_empty(), "the session reads what waits on Jobs itself");
-    assert!(asked.asked().is_empty(), "and no review call was made");
-}
-
-#[tokio::test]
-async fn a_resting_jobs_item_is_off_the_page_until_it_wakes() {
-    let rig = rig_placing(None);
-    seated(&rig, &[Some("item: 1\nread: A.\npick: Yes\n\njournal: Reviewed one.")]).await;
-    let job = rig.start_titled(Some("Build the pane")).await;
-    waiting(&rig, &job, vec![question("a", "First?", &["Yes", "No"])]).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
-    queued(&rig, &job, "a").await;
-
-    rig.fleet.store().lock().await.keep_session_snooze(job.as_str(), Some("2099-01-01T00:00:00.000Z")).expect("snoozed");
-    assert!(page(&rig).await.turn.is_empty(), "a snoozed Job's item is not his to answer");
-    rig.fleet.store().lock().await.keep_session_snooze(job.as_str(), None).expect("woken");
-    assert_eq!(page(&rig).await.turn.len(), 1, "back when it wakes");
 }

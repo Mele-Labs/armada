@@ -933,7 +933,8 @@ impl JobsList {
             this.follow_scope(cx);
             let held = fleet.read(cx).held();
             let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-            let mut jobs = held.jobs.clone();
+            // The Operator's own session is never a Job in the list: its page is the Operator's.
+            let mut jobs: Vec<SessionRecord> = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
             this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs || names != this.names {
                 this.jobs = jobs;
@@ -949,7 +950,7 @@ impl JobsList {
         crate::queued::begin(true, cx);
         let held = fleet.read(cx).held();
         let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-        let jobs = held.jobs.clone();
+        let jobs = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
         Self::with(jobs, names, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
@@ -2786,6 +2787,14 @@ impl JobsScreen {
                 match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
                     Some(fleet) => fleet.update(cx, |fleet, cx| fleet.skip_offers(id.clone(), cx)),
                     None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/offers/skip").emit(),
+                }
+                return;
+            }
+            // The crash panel started a Job to fix the crash: it opens.
+            if let crate::titlebar::Asked::OpenJob(id) = asked {
+                if let Some(list) = fleet_of.upgrade() {
+                    let id = id.clone();
+                    cx.defer(move |cx| list.update(cx, |list, cx| list.open(id.into(), cx)));
                 }
                 return;
             }

@@ -1,5 +1,5 @@
 // The Operator's page — Bridge's mirror of `crates/ipc/src/operator_page.rs`.
-// `crates/ipc/operations/operator_page.toml`, `operator_answer.toml`, `operator_later.toml`, `operator_undo_ruling.toml`,
+// `crates/ipc/operations/operator_page.toml`, `operator_answer.toml`, `operator_later.toml`,
 // `operator_turn_order.toml`, `operator.page_changed.toml` and `operator_in_front.toml`.
 
 import type { OperatorRead, WaitingAct, WaitingItem } from "./sessions";
@@ -437,7 +437,7 @@ export type OperatorAnswered = {
   page: OperatorPage;
 };
 
-/** `operator_undo_ruling` (`POST /operator/page/undo`): take back a ruling the Operator made by following something he said. Answers `OperatorPage`. Since 13 Nov 2026. */
+/** Taking back a ruling the Operator made. **No route answers it any more**: the Operator rules nothing, and `POST /operator/page/undo` is gone. Kept for a client that still builds it. */
 export type OperatorUndoRuling = {
   /** The ruling's `OperatorRuled.id`, `turn:<n>`. */
   id: string;

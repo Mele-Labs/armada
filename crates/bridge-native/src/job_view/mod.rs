@@ -76,6 +76,8 @@ mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
+mod sketch_keys;
+mod sketch_notes;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
@@ -454,6 +456,8 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
+    /// His notes on a sketch's parts, held until he sends them, by the sketch they are on (`sketch:<job>:<card>`).
+    sketch_notes: HashMap<String, Vec<sketch_notes::Held>>,
     /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
     /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
@@ -646,6 +650,7 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
+            sketch_notes: HashMap::new(),
             subagents_read: Vec::new(),
             subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
-use ipc::{CloseSession, ManifestId, Notice, SessionId, SessionVoice, StartSession};
+use ipc::{CloseSession, ManifestId, SessionId, SessionVoice, StartSession};
 use store::{MainCi, TakenHow};
 
 use crate::daemon::Fleet;
@@ -110,13 +110,6 @@ where
         Some((served, main))
     }
 
-    /// The Operator ruled a new Job for the red: Autopilot's own start, in the Operator's name.
-    pub(crate) async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
-        let Some((served, main)) = self.red_still(manifest, commit).await else { return };
-        let held = self.agent_start_held(None, manifest).await;
-        self.red_started(&served, &main, OPERATOR, "", held).await;
-    }
-
     /// Whether `commit`'s red in `manifest` stands with no Job on it.
     pub(crate) async fn red_is_standing(&self, manifest: &str, commit: &str) -> bool {
         self.red_still(manifest, commit).await.is_some()
@@ -128,22 +121,5 @@ where
         let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
         let how = "\n\nJust get the fix in and have a pull request ready. There is no plan step: do not write a plan or wait for one to be approved.";
         self.red_started(&served, &main, OPERATOR, how, false).await.ok_or_else(|| "the Job did not start".to_string())
-    }
-
-    /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for
-    /// it, and it is told, as `take_main_red` would have it. Why not, where it was not.
-    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) -> Result<(), String> {
-        let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
-        if self.red_is_free(&main, false).await.is_err() || self.claim_red(&main, &Taker::Session(job.to_string()), false).await.is_err() {
-            return Err("the red could not be taken for that Job".to_string());
-        }
-        let facts = self.with_the_log(&served, &main, brief_of(&main)).await;
-        let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
-        if !matches!(self.told_by_fleet(job, &said, Notice::Operator).await, Ok(true)) {
-            self.release_red(&main).await;
-            return Err("the Job did not take the red".to_string());
-        }
-        self.recorded_session_take(&main, job, TakenHow::SentBack, None).await;
-        Ok(())
     }
 }

@@ -3,8 +3,9 @@
 
 use gpui::{App, AppContext, Entity, Task};
 use ipc::operator_board::OperatorDispatched;
-use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage, OperatorTurnOrder, OperatorUndoRuling};
-use ipc::operator_talk::{OperatorOrders, OperatorSaid, OperatorTalk, RemoveOperatorOrder, TalkToOperator};
+use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage};
+use ipc::operator_talk::{OperatorSaid, TalkToOperator};
+use ipc::{OperatorActs, OperatorActsList, SetOperatorActs};
 use ipc::{DispatchJob, JobDispatched, ParkedIdeas, RemoveParkedIdea};
 use serde::de::DeserializeOwned;
 
@@ -110,15 +111,6 @@ impl Wire {
         self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", cx))
     }
 
-    /// `POST /operator/page/order`.
-    pub fn order(&mut self, ids: Vec<String>, cx: &App) -> Task<Result<OperatorPage, String>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(Ok(mock.order(&ids)));
-        }
-        let said = body(&OperatorTurnOrder { ids });
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/order", said), "OperatorPage", cx))
-    }
-
     /// `POST /operator/front`, which takes no body.
     pub fn in_front(&mut self, cx: &App) -> Task<Result<OperatorInFront, String>> {
         if let Wire::Mock(mock) = self {
@@ -144,43 +136,6 @@ impl Wire {
         cx.background_spawn(async move { saved.await.map(|_| ()) })
     }
 
-    /// `POST /operator/orders/remove`: a rule or a hold stops standing. Fleet sends `operator.page_changed`,
-    /// which redraws the page; the mock has no event, so it answers with its page.
-    pub fn forget(&mut self, id: i64, cx: &App) -> Task<Result<Option<OperatorPage>, String>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(mock.forget(id).map(Some));
-        }
-        let said = body(&RemoveOperatorOrder { id });
-        let Some(port) = self.port(cx) else { return Self::unreachable() };
-        let removed = request::<OperatorOrders>(port, Ask::Post("/operator/orders/remove", said), "OperatorOrders", cx);
-        cx.background_spawn(async move { removed.await.map(|_| None) })
-    }
-
-    /// `POST /operator/page/undo`: a ruling the Operator made by following him is taken back.
-    pub fn undo(&mut self, id: &str, cx: &App) -> Task<Result<OperatorPage, String>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(mock.undo(id));
-        }
-        let said = body(&OperatorUndoRuling { id: id.to_string() });
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/undo", said), "OperatorPage", cx))
-    }
-
-    /// The week's Log, from the file `digest.handled.log.path` names on this machine; the mock holds its own.
-    pub fn log(&mut self, path: String, cx: &App) -> Task<Result<String, String>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(Ok(mock.log.clone()));
-        }
-        cx.background_spawn(async move { std::fs::read_to_string(&path).map_err(|why| why.to_string()) })
-    }
-
-    /// `GET /operator/talk`.
-    pub fn talk(&mut self, cx: &App) -> Task<Result<OperatorTalk, String>> {
-        if let Wire::Mock(mock) = self {
-            return Task::ready(Ok(mock.talk.clone()));
-        }
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/operator/talk"), "OperatorTalk", cx))
-    }
-
     /// `POST /operator/talk`. The mock holds its answer until a scene gives one, so the wait is seen.
     pub fn say(&mut self, words: String, about: Option<String>, cx: &App) -> Option<Task<Result<OperatorSaid, String>>> {
         if let Wire::Mock(mock) = self {
@@ -189,6 +144,16 @@ impl Wire {
         }
         let said = body(&TalkToOperator { words, about });
         Some(self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/talk", said), "OperatorSaid", cx)))
+    }
+
+    /// `POST /operator/acts`: what the Operator may do unasked in one project, or unset with none. The answer is every
+    /// project's value.
+    pub fn set_acts(&mut self, project: String, acts: Option<OperatorActs>, cx: &App) -> Task<Result<OperatorActsList, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_acts(&project, acts));
+        }
+        let said = body(&SetOperatorActs { project, acts });
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/acts", said), "OperatorActsList", cx))
     }
 
     /// `POST /sessions/dispatch`: the composer's send and a parked idea's start. The mock answers at once, and with

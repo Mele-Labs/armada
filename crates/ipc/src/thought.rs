@@ -1,7 +1,6 @@
-//! The Operator's first shortlist of Jobs for words a person typed, and the words sent on.
+//! The words sent on to a live Job.
 //!
-//! **Two operations.** `read_thought` takes the words a person typed and answers which running Job
-//! they are for, if any. `tell_session` is a Job on your words passing words to a live Job: Fleet
+//! `tell_session` is a Job on your words passing words to a live Job: Fleet
 //! sends them as Bridge's own send does and publishes `operator.words_sent`. The thread of the Job
 //! that sent them keeps a `sent` row only in the old threads the Helm Job kept
 //! (`SessionRow::Sent`), which stay readable.
@@ -10,12 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{Instant, ManifestId};
 use crate::sessions::SessionId;
-
-/// `read_thought` (`POST /operator/read_thought`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadThought {
-    pub text: String,
-}
 
 /// What a thought may go to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,20 +31,6 @@ pub struct ThoughtTarget {
     /// The slot it holds, where it holds one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
-}
-
-/// What `read_thought` answers: **a question is the answer whenever Fleet could not say
-/// otherwise**, so the words are never taken for a thought about a Job that is not there.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum ThoughtReading {
-    /// Not about a running Job.
-    Question,
-    /// For other work. Without a `target`, nothing running is about it.
-    Thought {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        target: Option<ThoughtTarget>,
-    },
 }
 
 /// `tell_session` (`POST /operator/tell_session?manifest_id=`), an `On your words` act: words a person asked

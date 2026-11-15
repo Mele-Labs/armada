@@ -163,7 +163,7 @@ pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
-/// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
+/// The Operator's events: the page changed, and what became of a dispatch. `crates/ipc/operations/operator.board_changed.toml`.
 pub mod operator_board;
 /// An error Bridge showed the person, sent to the Operator. `crates/ipc/operations/report_bridge_error.toml`.
 pub mod operator_errors;
@@ -437,7 +437,7 @@ pub use health::{
     FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
-    WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    WordsSent, TellSession, ThoughtKind,
     ThoughtTarget,
 };
 pub use session_system::{

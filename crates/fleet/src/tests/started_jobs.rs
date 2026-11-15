@@ -16,7 +16,6 @@ use ipc::{
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTrackers};
 
 use super::agent_starts::{begins, caller, rig, rigged, rigged_fitted, Rig};
-use crate::operator::{Desk, FleetDesk};
 use crate::tests::backlog::{actor, BEADS};
 use crate::tests::peer::Placing;
 
@@ -438,38 +437,6 @@ async fn a_job_reads_the_whole_tree_below_it_each_child_before_its_own_and_each_
         assert!(code(&answers[0]).contains("fleet.started_not_yours"), "a command stays for a direct child: {}", code(&answers[0]));
     }
     assert_eq!(rig.record(&great).await.state, SessionState::Live);
-}
-
-#[tokio::test]
-async fn the_operators_live_list_names_who_started_a_job_up_to_the_root_and_an_ended_starter_still_counts() {
-    let (rig, top, [first, _second], grandchild, great) = a_tree().await;
-    let desk = FleetDesk::on(&rig.fleet, |_| {});
-    let titled = |record: SessionRecord| record.title.expect("titled");
-    let (top_title, first_title, grandchild_title) = (
-        titled(rig.record(&top).await),
-        titled(rig.record(&first).await),
-        titled(rig.record(&grandchild).await),
-    );
-
-    let live = desk.live().await;
-    let started_by = |id: &SessionId| live.iter().find(|one| one.session_id == id.as_str()).unwrap_or_else(|| panic!("{id:?} is live")).started_by.clone();
-    assert!(started_by(&top).is_empty(), "the person started it");
-    assert_eq!(started_by(&first), [(top.as_str().to_string(), top_title.clone())]);
-    assert_eq!(
-        started_by(&great),
-        [
-            (grandchild.as_str().to_string(), grandchild_title.clone()),
-            (first.as_str().to_string(), first_title.clone()),
-            (top.as_str().to_string(), top_title.clone()),
-        ],
-        "nearest first, up to the root"
-    );
-
-    rig.commanded(vec![ending(&first, "no longer needed")]).await;
-    let live = desk.live().await;
-    assert!(live.iter().all(|one| one.session_id != first.as_str()), "it ended");
-    let chain = live.iter().find(|one| one.session_id == great.as_str()).expect("live").started_by.clone();
-    assert_eq!(chain.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), [grandchild.as_str(), first.as_str(), top.as_str()], "an ended starter is named too");
 }
 
 /// `message_reach`: a Job writes to any live Job, in its tree or beside it, and is refused an ended
