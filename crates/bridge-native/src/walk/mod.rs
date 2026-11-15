@@ -1585,6 +1585,21 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-take-nav",
+        title: "An enlarged take: its long title has a line of its own, and the neighbours are named in columns it never enters",
+        screen: Screen::Jobs,
+        scenario: "artifact-parts",
+        steps: &[
+            press_on("A Job's one artifact stands in its thread", "row", "Edit the merge line", "status", "Asking"),
+            step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
+            press_on("Needs you holds the question about it", "button", "Needs you", "label", "No longer held"),
+            press_on("A press on the question's words opens the artifact whole, in a tab of its own", "button", "Open Step bar for Jobs", "status", "Asking"),
+            step("A take with a title of 120 characters opens larger", Verb::Open("button", "See C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second larger"), "button", "Back"),
+            step("The title wraps to two lines at most and ends in an ellipsis, the whole of it in its tooltip", Verb::Look, "heading", "C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second"),
+            step("The neighbour before is named by its own name, and ← steps to it", Verb::Look, "button", "B \u{b7} Rail"),
+        ],
+    },
+    Walk {
         name: "native-artifact-folds",
         title: "An answered artifact folds to one line, each revision stands where it was kept, and every artifact opens whole",
         screen: Screen::Jobs,
