@@ -43,6 +43,8 @@ pub struct KeptTurn {
     pub follows: Option<String>,
     /// When the person took a precedent ruling back, which left its question to him. Since 13 Nov 2026.
     pub undone_at: Option<String>,
+    /// `ipc::OperatorCard`, as JSON, on a card the Operator's own session raised. Since 14 Nov 2026.
+    pub card: Option<String>,
 }
 
 /// What the page remembers between two looks.
@@ -57,7 +59,7 @@ pub struct KeptPage {
     pub top_at: Option<String>,
 }
 
-const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at";
+const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at, card";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
     Ok(KeptTurn {
@@ -80,6 +82,7 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
         call: row.get(16)?,
         follows: row.get(17)?,
         undone_at: row.get(18)?,
+        card: row.get(19)?,
     })
 }
 
@@ -93,9 +96,9 @@ impl Store {
         let doing = "keeping an item of the person's Your turn";
         let ord: i64 = self.conn.query_row("SELECT coalesce(max(ord), 0) + 1 FROM operator_turn", [], |row| row.get(0)).map_err(failed(doing))?;
         let kept = self.conn.execute(
-            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
-            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.left_at, one.call, one.follows],
+            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, card) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.left_at, one.call, one.follows, one.card],
         );
         match kept.map_err(failed(doing))? {
             0 => Ok(None),
@@ -166,6 +169,14 @@ impl Store {
             .execute("UPDATE operator_turn SET answer = ?2 WHERE n = ?1 AND settled_at IS NULL", params![n, answer])
             .map(|changed| changed > 0)
             .map_err(failed("keeping a press on an item of the person's Your turn"))
+    }
+
+    /// What open card `n` says: its body, the read and the pick. `false` where it is settled or not there.
+    pub fn revise_operator_turn(&mut self, n: i64, body: &str, read_text: Option<&str>, pick: Option<&str>) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE operator_turn SET body = ?2, read_text = ?3, pick = ?4 WHERE n = ?1 AND settled_at IS NULL", params![n, body, read_text, pick])
+            .map(|changed| changed > 0)
+            .map_err(failed("revising a card of the person's Your turn"))
     }
 
     /// Open item `n` goes last until `until`.

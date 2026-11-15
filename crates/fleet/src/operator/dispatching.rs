@@ -45,14 +45,24 @@ where
         let start = &dispatch.start;
         let request = start.request.as_deref().map(str::trim).filter(|words| !words.is_empty()).map(str::to_string);
         let plain = start.fork.is_none() && start.root.is_none() && start.after.is_none() && !start.held;
-        let operator = self.operator_seat().operator().filter(|_| self.operator_on());
-        let (Some(request), true, Some(_)) = (request, plain, operator) else {
+        let seated = self.operator_seat().operator().filter(|_| self.operator_on()).is_some();
+        let (Some(request), true) = (request, plain) else {
             let session = self.dispatch_started(dispatch, true).await?;
             return Ok(JobDispatched { session: Some(session), operator: None, parked: None });
         };
         let id = format!("{DISPATCH}{}", self.mint().ulid().as_str().to_lowercase());
         // Read here, in the request: the ruling runs on a task of its own, which does not know where it came from.
         let arrival = dispatch_arrival(&id, &dispatch, &request, crate::share::from_phone_or_other_mac());
+        // The Operator's own session holds it: told what he dispatched, it starts or hands it on with its own tools.
+        // **A session that cannot be told leaves the dispatch started as he asked**, as the Operator being off does.
+        // So does one carrying `then`: the notes and messages to follow need the Job they were set up for.
+        if self.operator_on() && dispatch.then.is_empty() && self.arrival_told(&arrival).await {
+            return Ok(JobDispatched { session: None, operator: Some(id), parked: None });
+        }
+        if !seated {
+            let session = self.dispatch_started(dispatch, true).await?;
+            return Ok(JobDispatched { session: Some(session), operator: None, parked: None });
+        }
         let body = ipc::encode(&dispatch).map_err(|why| self.hosted_refusal("fleet.dispatch_unencodable", &why.to_string()))?;
         let at = self.now();
         if let Err(why) = self.store().lock().await.keep_operator_dispatch(&id, &body, at.as_str()) {

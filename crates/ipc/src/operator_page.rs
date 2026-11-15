@@ -169,6 +169,10 @@ pub struct OperatorTurnItem {
     /// On a `job_held` item: the pull request or branch asked about, and the Job that asked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held: Option<crate::OperatorHeld>,
+    /// On a card the Operator's own session raised: its kind and what it carries on from. Absent on every
+    /// other item. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card: Option<crate::OperatorCard>,
 }
 
 /// What the Operator is reading now.
@@ -348,6 +352,40 @@ pub struct OperatorSlots {
     pub total: u32,
 }
 
+/// What one entry of the feed says happened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorFeedKind {
+    /// The Operator started a Job.
+    Dispatched,
+    /// A pull request merged.
+    Merged,
+    /// A Job ended.
+    Ended,
+    /// A Job asked the Operator something: a conflict or a landing question.
+    Asked,
+    /// A Job messaged the Operator.
+    Told,
+    /// The Operator settled a card.
+    Settled,
+}
+
+/// One line of what happened since he last looked, which needs no decision from him. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorFeedEntry {
+    pub at: Instant,
+    pub kind: OperatorFeedKind,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The pull request's number, on a `merged` entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// What was said: how a card was settled, what a Job asked or sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+}
+
 /// `operator_page`: the whole page.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorPage {
@@ -373,6 +411,16 @@ pub struct OperatorPage {
     /// Absent where no pool is read. Since 10 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slots: Option<OperatorSlots>,
+    /// What happened since `looked_at` that needs no decision, newest first. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub feed: Vec<OperatorFeedEntry>,
+    /// The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// What the Operator may do unasked in each served project, `acts` absent where he has not said.
+    /// Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operator_acts: Vec<crate::ProjectOperatorActs>,
 }
 
 /// `operator_answer`: one press on an item.

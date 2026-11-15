@@ -79,7 +79,7 @@ where
     /// `report_bridge_error`: hand the error to the Operator once for the local day. **Never fails**:
     /// while the Operator is off, or where Fleet serves no repository to put it in, it is let go and
     /// `repeated` is `false`.
-    pub(crate) async fn bridge_error_taken(&self, error: ReportBridgeError) -> BridgeErrorTaken {
+    pub(crate) async fn bridge_error_taken(self: &Arc<Self>, error: ReportBridgeError) -> BridgeErrorTaken {
         let id = format!("error:{}:{}", fingerprint(&error.code, &error.message), self.local_day().await);
         let taken = |repeated: bool| BridgeErrorTaken { id: id.clone(), repeated };
         if !self.operator_on() {

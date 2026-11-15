@@ -176,7 +176,7 @@ where
         Refusal::NotFound(WireError::raised(TURN_UNKNOWN, format!("{id} is not an item waiting in Your turn"), self.run_id()))
     }
 
-    async fn turn_open(&self, id: &str) -> Result<KeptTurn, Refusal> {
+    pub(super) async fn turn_open(&self, id: &str) -> Result<KeptTurn, Refusal> {
         let n = turn_number(id).ok_or_else(|| self.turn_unknown(id))?;
         let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?;
         row.filter(|row| row.settled_at.is_none()).ok_or_else(|| self.turn_unknown(id))
@@ -366,6 +366,9 @@ where
             Err(refused) if matches!(press.answer, OperatorAnswer::AlwaysHere | OperatorAnswer::Always) => return Box::pin(self.always_after_yes(&press, refused)).await,
             Err(refused) => return Err(refused),
         };
+        if row.card.is_some() {
+            return self.card_answered(&row, &press).await;
+        }
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
         // The option he named, where it is one the item offers: absent takes the Operator's pick.
@@ -432,6 +435,17 @@ where
         self.operator_page_changed();
         let page = self.operator_page_wire().await?;
         Ok(OperatorAnswered { open: done.open, started: done.started.as_deref().map(SessionId::carried), filed: done.filed, handed_to: done.handed_to.as_deref().map(SessionId::carried), page })
+    }
+
+    /// One press on a card: the option he named, else the Operator's pick, settles it and tells the Operator.
+    /// A card is answered by an option alone, so No and the Always presses are not offered on it.
+    async fn card_answered(self: &Arc<Self>, row: &KeptTurn, press: &OperatorAnswerPress) -> Result<OperatorAnswered, Refusal> {
+        if press.answer != OperatorAnswer::Yes {
+            return Err(self.hosted_refusal(NOT_OFFERED, "a card is answered with one of its options, or put Later"));
+        }
+        self.card_pressed(row, press.option.as_deref().map(str::trim).filter(|label| !label.is_empty())).await?;
+        let page = self.operator_page_wire().await?;
+        Ok(OperatorAnswered { open: None, started: None, filed: None, handed_to: None, page })
     }
 
     /// Where an Always here or an Always on `row` holds: the project the page is filtered to, else the
@@ -560,11 +574,14 @@ where
             }
         };
         self.turn_put_later(row.n, &until).await?;
+        if row.card.is_some() {
+            self.card_sent_later(&row, &until).await;
+        }
         self.operator_page_wire().await
     }
 
     /// Row `n` last until `until`, and the page told now and again when it runs out.
-    async fn turn_put_later(self: &Arc<Self>, n: i64, until: &str) -> Result<(), Refusal> {
+    pub(super) async fn turn_put_later(self: &Arc<Self>, n: i64, until: &str) -> Result<(), Refusal> {
         self.store().lock().await.later_operator_turn(n, until).map_err(|why| self.ledger_fault(why))?;
         if let Some(next) = held(&self.operator_seat().next_later).as_mut() {
             if next.as_deref().is_none_or(|soonest| until < soonest) {
