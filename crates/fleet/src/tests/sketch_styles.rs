@@ -491,6 +491,24 @@ fn a_mock_with_nothing_usable_and_no_css_is_sent_to_a_screen_and_one_with_css_is
 }
 
 #[test]
+fn work_with_no_stylesheet_near_it_draws_its_mocks_with_the_checkouts_own_token_sheets() {
+    let repo = repo(&[
+        ("package.json", r#"{"name":"root","private":true}"#),
+        ("apps/a/package.json", r#"{"name":"a"}"#),
+        ("packages/tokens/package.json", r#"{"name":"tokens"}"#),
+        ("packages/tokens/tokens.css", ":root { --bg-raised: #222; --fg: #eee; --gap: 4px }"),
+        ("crates/core/src/lib.rs", "pub fn f() {}"),
+    ]);
+    // The Job works in Rust: the walk from its work finds no stylesheet, and the mock's `css` uses the tokens.
+    let tiers = [vec![String::from("crates/core")]];
+    let (home, styled) = choose(&repo, &tiers, &[mock("own", &[], true), mock("bare", &[], false)]);
+    assert!(styled.refused.is_empty(), "{:?}", styled.refused);
+    let set = keeping::read(&keeping::folder(home.path().to_str().unwrap()), &styled.kept["own"]).unwrap();
+    assert_eq!(set.sheets.iter().map(|one| one.path.as_str()).collect::<Vec<_>>(), ["packages/tokens/tokens.css"]);
+    assert_eq!(styled.kept["bare"], styled.kept["own"]);
+}
+
+#[test]
 fn several_packages_and_no_starting_point_refuse_the_mock_and_list_the_packages() {
     let repo = repo(&[
         ("package.json", r#"{"name":"root"}"#),
