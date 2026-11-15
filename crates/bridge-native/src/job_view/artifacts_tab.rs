@@ -886,4 +886,26 @@ mod tests {
         }
         assert_eq!(posts(&view, cx), [("design".to_string(), 2), ("design".to_string(), 1)], "an older revision posts its own number, once");
     }
+
+    #[gpui::test]
+    fn an_artifact_tab_of_several_parts_scrolls_to_its_last_part(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = parts_job(cx);
+        cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(520.)));
+        let held = crate::mock_parts::ID;
+        view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let (room, offset) = view.read_with(cx, |view, _| (view.body_scroll.max_offset().y, view.body_scroll.offset().y));
+        assert!(room > gpui::px(0.), "the tab's body is taller than its pane, so it has room to scroll: {room:?}");
+        assert_eq!(offset, gpui::px(0.));
+        // Wherever the pointer is: over the words, the takes' pictures, the drawing or the gaps between.
+        for y in (100..500).step_by(40) {
+            view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.))));
+            cx.simulate_event(gpui::ScrollWheelEvent { position: gpui::point(gpui::px(500.), gpui::px(y as f32)), delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-300.))), ..Default::default() });
+            cx.run_until_parked();
+            let moved = view.read_with(cx, |view, _| view.body_scroll.offset().y);
+            assert!(moved < gpui::px(0.), "the wheel with the pointer {y} down scrolls the tab: {moved:?}");
+        }
+    }
 }

@@ -16,6 +16,7 @@ pub mod bar;
 pub mod check;
 pub mod dispatch;
 pub mod fleet;
+pub mod move_to_project;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
@@ -1568,6 +1569,22 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-artifact-scroll",
+        title: "An artifact of several parts scrolls, and Ask for changes brings its box and Send into view",
+        screen: Screen::Jobs,
+        scenario: "artifact-parts",
+        steps: &[
+            press_on("A Job's one artifact stands in its thread: words that ask, takes, a drawing, buttons and a page", "row", "Edit the merge line", "status", "Asking"),
+            step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
+            press_on("Needs you holds the question about it", "button", "Needs you", "label", "No longer held"),
+            press_on("A press on the question's words opens the artifact whole, in a tab of its own", "button", "Open Step bar for Jobs", "status", "Asking"),
+            step("Page Down scrolls the tab a page, and Page Up brings it back", Verb::Keys(&["pagedown", "pageup"]), "button", "Ask for changes"),
+            step("Ask for changes opens the note under the words", Verb::PressWithin("region", "Reader: Step bar for Jobs, Revision 2", "Ask for changes"), "textbox", "What should change?"),
+            step("The note is typed", Verb::Typed("Make the drawing larger."), "button", "Send"),
+            step("Send is on screen, and a press on it sends the words back", Verb::PressWithin("region", "Reader: Step bar for Jobs, Revision 2", "Send"), "status", "Words sent back"),
+        ],
+    },
+    Walk {
         name: "native-artifact-folds",
         title: "An answered artifact folds to one line, each revision stands where it was kept, and every artifact opens whole",
         screen: Screen::Jobs,
@@ -2000,6 +2017,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "project-filter",
         steps: &project_filter::STEPS,
+    },
+    Walk {
+        name: "native-move-job-to-project",
+        title: "Select two Jobs, move them into Storefront, then take one out",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &move_to_project::STEPS,
     },
     Walk {
         name: "jobs-ended-glyph",

@@ -67,6 +67,12 @@ fn the_disk_row_opens_its_section() {
     plays("native-fleet-disk");
 }
 
+/// Two Jobs selected with ⇧↓ move into Storefront from the row's menu, and the Job's own menu takes one out to no project.
+#[test]
+fn two_selected_jobs_move_into_a_project_and_one_moves_out() {
+    plays("native-move-job-to-project");
+}
+
 /// For you lists what waits on the Job's owner, what it is building and what is landing; the keys move over the rows,
 /// Option Down moves a waiting row, Enter opens one and Backspace withdraws it.
 #[test]
