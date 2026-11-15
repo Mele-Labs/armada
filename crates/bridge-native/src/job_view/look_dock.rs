@@ -331,7 +331,7 @@ impl JobView {
         };
         let pinned = held.is_some_and(|held| held.head.sketch.as_ref().is_some_and(|pin| pin.id == card.id));
         let key = if pinned { format!("pin:{}", card.id) } else { card.id.clone() };
-        let settled = settled_of(card.settled.as_ref(), page.cards.answers.get(&key));
+        let settled = settled_of(card.settled.as_ref(), page.cards.pressed(&key, card));
         let open = settled.is_none() && !card.replaced;
         let (scene_key, scene) = shown_scene(card, None);
         let drawn = self.drawn_of(&card.sketch, cx);

@@ -51,7 +51,8 @@ where
             return Ok(JobDispatched { session: Some(session), operator: None, parked: None });
         };
         let id = format!("{DISPATCH}{}", self.mint().ulid().as_str().to_lowercase());
-        let arrival = dispatch_arrival(&id, &dispatch, &request);
+        // Read here, in the request: the ruling runs on a task of its own, which does not know where it came from.
+        let arrival = dispatch_arrival(&id, &dispatch, &request, crate::share::from_phone_or_other_mac());
         let body = ipc::encode(&dispatch).map_err(|why| self.hosted_refusal("fleet.dispatch_unencodable", &why.to_string()))?;
         let at = self.now();
         if let Err(why) = self.store().lock().await.keep_operator_dispatch(&id, &body, at.as_str()) {
@@ -260,11 +261,12 @@ where
 }
 
 /// The dispatch as the Operator reads it: work no Job holds, which it may start, fold into a live Job or ask about.
-fn dispatch_arrival(id: &str, dispatch: &DispatchJob, request: &str) -> Arrival {
+/// `away` where he made it on his phone or another Mac.
+fn dispatch_arrival(id: &str, dispatch: &DispatchJob, request: &str, away: bool) -> Arrival {
     Arrival {
         id: id.to_string(),
         arrived: Arrived::Start,
-        source: Source::Dispatch(dispatch.kind),
+        source: Source::Dispatch { kind: dispatch.kind, away },
         session_id: String::new(),
         manifest_id: dispatch.start.manifest_id.as_str().to_string(),
         subject: dispatch.start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(request)),

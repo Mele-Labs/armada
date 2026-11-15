@@ -86,7 +86,13 @@ where
                     issues,
                     running,
                     started_by,
+                    shared: false,
                 });
+            }
+            // Read once the store is let go, which the share filter takes too.
+            drop(store);
+            for one in &mut live {
+                one.shared = fleet.job_shared(&one.session_id).await;
             }
             live
         })

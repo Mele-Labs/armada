@@ -550,3 +550,45 @@ fn the_signed_in_devices_are_read_in_the_stores_order_and_a_refusal_is_not_an_em
     assert!(store::devices_held(&reply(401, r#"{"error":"unknown_device"}"#)).is_err());
     assert!(store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa"}]}"#)).is_err(), "a device with no Mac is not read as one");
 }
+
+#[test]
+fn peers_are_read_in_the_stores_order_and_a_kind_this_build_does_not_know_is_left_out() {
+    let (url, server) = serve(vec![(
+        200,
+        r#"{"devices":[{"device":"7.aa","machine":"Work","kind":"mac","address":"https://work.example.com","public_key":"QQ=="},{"device":"7.bb","machine":"iPhone","kind":"phone","address":"","public_key":"Qg=="},{"device":"7.cc","machine":"Car","kind":"car","address":"","public_key":"Qw=="}]}"#,
+    )]);
+    let peers = store_at(&url).peers().unwrap();
+    let seen = &server.join().unwrap()[0];
+    assert_eq!((seen.method.as_str(), seen.target.as_str()), ("GET", "/v1/peers"));
+    let named: Vec<(&str, adapter_traits::DeviceKind, &str)> = peers.iter().map(|one| (one.device.as_str(), one.kind, one.address.as_str())).collect();
+    assert_eq!(
+        named,
+        [("7.aa", adapter_traits::DeviceKind::Mac, "https://work.example.com"), ("7.bb", adapter_traits::DeviceKind::Phone, "")]
+    );
+}
+
+#[test]
+fn presence_is_put_signed_with_the_kind_and_address_only() {
+    let (url, server) = serve(vec![(204, ""), (400, r#"{"error":"invalid_body"}"#)]);
+    let store = store_at(&url);
+    store.put_presence(adapter_traits::DeviceKind::Mac, "https://home.example.com").unwrap();
+    assert!(!store.put_presence(adapter_traits::DeviceKind::Mac, "nowhere").unwrap_err().is_unreachable());
+    let seen = &server.join().unwrap()[0];
+    assert_eq!((seen.method.as_str(), seen.target.as_str()), ("PUT", "/v1/presence"));
+    assert_eq!(String::from_utf8(seen.body.clone()).unwrap(), r#"{"kind":"mac","address":"https://home.example.com"}"#);
+    let text = store_signing::signed_text(&seen.method, &seen.target, at(), NONCE, &seen.body);
+    assert!(verifies(&key().public_key(), &text, seen.header("x-armada-signature").unwrap()));
+}
+
+#[test]
+fn a_request_to_another_device_is_signed_with_the_stores_key_and_device_and_needs_a_join() {
+    let dir = scratch("peer-signed");
+    assert!(crate::signed_for_peer(&dir, "POST", "/pair/mac/vouched", b"{}").is_err(), "not joined, nothing to sign as");
+    store_device::remember_device(&dir, "7.aa").unwrap();
+    let headers = crate::signed_for_peer(&dir, "POST", "/pair/mac/vouched", b"{}").unwrap();
+    let [(_, device), (_, time), (_, nonce), (_, signature)] = &headers;
+    assert_eq!((headers[0].0, device.as_str()), ("X-Armada-Device", "7.aa"));
+    let text = store_signing::signed_text("POST", "/pair/mac/vouched", time.parse().unwrap(), nonce, b"{}");
+    assert!(verifies(&DeviceKey::open(&dir).unwrap().public_key(), &text, signature));
+    std::fs::remove_dir_all(&dir).ok();
+}
