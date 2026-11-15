@@ -249,6 +249,8 @@ export type SessionRecord = {
    * `waiting_for`. Absent or empty is none.
    */
   held_open_by?: HeldOpenBy[];
+  /** Waiting for a worktree slot, in its repository's line or its lease asking. Absent otherwise. Since 14 Nov 2026. */
+  slot_wait?: SlotWait;
   /** Why it stopped, with `standing` `stopped`. Absent otherwise. */
   stopped?: SessionStopped;
   /** The repair Fleet is running on it now, in any state. Absent while none runs. */
@@ -719,6 +721,18 @@ export type SlotHolder = {
   /** When the holder last finished a turn, and its lease time where it has not. */
   quiet_since: string;
   keeps?: "running" | "uncommitted";
+};
+
+/** A Job waiting for a worktree slot. Nobody is asked: Add is `answer_waiting` on `slot-choice` with choice 1, and Free is `free_slot`. */
+export type SlotWait = {
+  since: string;
+  /** How many Jobs are ahead of it in its repository's line. */
+  ahead: number;
+  holders?: SlotHolder[];
+  /** When the slot the person asked for was begun, while it is being made. */
+  creating_since?: string;
+  /** Why the last slot he asked for was not made, until the next Add. */
+  create_refused?: string;
 };
 
 /** Where a Job goes in Waiting to start, against another Job waiting there. */

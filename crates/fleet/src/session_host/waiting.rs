@@ -714,13 +714,6 @@ where
             items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // A page in the Job's browser asks him something: Bridge told Fleet, and the agent is told nothing.
             items.extend(self.browser_ask_items(&session.id));
-            // Every slot is held and it is in the line for one: Wait or Add, until he says.
-            items.extend(
-                self.hosts()
-                    .slot_queue()
-                    .pending(&session.id)
-                    .map(super::queueing::slot_choice_item),
-            );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
                 plan.as_ref()

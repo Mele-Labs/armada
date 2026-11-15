@@ -27,7 +27,6 @@ impl SlotQueue {
         let mut open: Vec<String> = waiting
             .entries
             .values()
-            .filter(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
             .map(|one| one.manifest.clone())
             .collect();
         open.sort();
@@ -45,9 +44,7 @@ impl SlotQueue {
                 continue;
             }
             entry.holders = holders.to_vec();
-            if matches!(entry.choice, Choice::Pending | Choice::Adding) {
-                changed.push(id.clone());
-            }
+            changed.push(id.clone());
         }
         changed
     }
@@ -59,7 +56,6 @@ impl SlotQueue {
         let entry = waiting
             .entries
             .get(session)
-            .filter(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
             .ok_or(false)?;
         let row = entry.holders.iter().find(|one| one.slot == slot).ok_or(true)?;
         Ok((entry.manifest.clone(), row.clone()))

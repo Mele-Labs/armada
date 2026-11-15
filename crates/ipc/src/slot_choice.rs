@@ -39,6 +39,23 @@ pub struct SlotHolder {
     pub keeps: Option<SlotKeeps>,
 }
 
+/// A Job waiting for a worktree slot, on its record. **Waiting is the default, so nobody is asked**:
+/// the person may press Add (`answer_waiting` on `slot-choice`, choice 1) or Free (`free_slot`) from it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotWait {
+    pub since: Instant,
+    /// How many Jobs are ahead of it in its repository's line.
+    pub ahead: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holders: Vec<SlotHolder>,
+    /// When the slot the person asked for was begun, while it is being made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creating_since: Option<Instant>,
+    /// Why the last slot he asked for was not made, until the next Add.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_refused: Option<String>,
+}
+
 /// Where a Job goes in Waiting to start, against another Job waiting there.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

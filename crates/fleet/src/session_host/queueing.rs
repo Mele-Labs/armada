@@ -46,37 +46,6 @@ pub const EVERY: Duration = Duration::from_secs(15);
 /// The id of the call Fleet raises for a session that found every slot held.
 pub(crate) const SLOT_CHOICE_ITEM: &str = "slot-choice";
 
-/// A session's open `slot_choice` call, as the item is drawn from it.
-pub(crate) struct SlotCall {
-    pub(crate) since: Instant,
-    pub(crate) holders: Vec<SlotHolder>,
-    pub(crate) creating_since: Option<Instant>,
-    pub(crate) create_refused: Option<String>,
-}
-
-/// What the person is asked when a session finds every worktree slot held. Choice 0 and 1 are the
-/// options in this order: `answer_waiting` takes the index. **Both are always sent**, whether or not
-/// there are rows to free: a client that draws no rows keeps its Add.
-pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
-    WaitingItem {
-        approves: false,
-        id: SLOT_CHOICE_ITEM.to_string(),
-        text: String::from("Every slot is in use"),
-        since: call.since,
-        source: WaitingSource::SlotChoice,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: SLOT_CHOICE_ITEM.to_string() }),
-        options: vec![option("Wait for a slot"), option("Add a slot")],
-        steps: Vec::new(),
-        place: None,
-        confirmed: false,
-        holders: call.holders,
-        creating_since: call.creating_since,
-        create_refused: call.create_refused,
-        operator_read: None,
-    }
-}
-
 /// What the person has said about a session in the line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Choice {
@@ -190,7 +159,7 @@ impl SlotQueue {
             line.retain(|one| one != session);
             !line.is_empty()
         });
-        waiting.entries.remove(session).is_some_and(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
+        waiting.entries.remove(session).is_some()
     }
 
     /// What the person chose for the session, if it is in a line and he has answered.
@@ -206,25 +175,29 @@ impl SlotQueue {
         waiting.entries.contains_key(session) || waiting.wants.get(session).is_some_and(|want| want.fresh(now))
     }
 
-    /// The session's call, while the person has not answered it or a slot he asked for is being
-    /// made. **One call**: the line's where the session is in it, and otherwise its command's, if
-    /// that is still heard from. A command's call has no rows and nothing being made.
-    pub(crate) fn pending(&self, session: &str) -> Option<SlotCall> {
+    /// The session's wait for a slot, as its record shows it: the line's where it is in one, and
+    /// otherwise its command's, while that is still heard from. A command's wait has no rows and
+    /// nothing being made.
+    pub(crate) fn slot_wait(&self, session: &str) -> Option<ipc::SlotWait> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
+        let ahead = |manifest: &str| {
+            let line = waiting.by_manifest.get(manifest);
+            let at = line.and_then(|line| line.iter().position(|one| one == session));
+            u32::try_from(at.or(line.map(|line| line.len())).unwrap_or(0)).unwrap_or(u32::MAX)
+        };
         if let Some(entry) = waiting.entries.get(session) {
-            return match entry.choice {
-                Choice::Pending | Choice::Adding => Some(SlotCall {
-                    since: entry.since.clone(),
-                    holders: entry.holders.clone(),
-                    creating_since: entry.creating_since.clone().filter(|_| entry.choice == Choice::Adding),
-                    create_refused: entry.create_refused.clone(),
-                }),
-                _ => None,
-            };
+            return Some(ipc::SlotWait {
+                since: entry.since.clone(),
+                ahead: ahead(&entry.manifest),
+                holders: entry.holders.clone(),
+                creating_since: entry.creating_since.clone().filter(|_| entry.choice == Choice::Adding),
+                create_refused: entry.create_refused.clone(),
+            });
         }
         let now = std::time::Instant::now();
-        waiting.wants.get(session).filter(|want| want.fresh(now) && want.choice == Choice::Pending).map(|want| SlotCall {
+        waiting.wants.get(session).filter(|want| want.fresh(now)).map(|want| ipc::SlotWait {
             since: want.since.clone(),
+            ahead: ahead(&want.manifest),
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
