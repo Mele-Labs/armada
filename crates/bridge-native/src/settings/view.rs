@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, svg, AnyElement, App, Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, Stateful, Div, Toggled, Window,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Role, SharedString, Stateful, Div, Toggled, Window,
 };
 use gpui_component::input::{Input, Textarea};
 use ipc::{Setting, SettingKind, SettingValue};
@@ -21,10 +21,8 @@ use crate::look::{token, ActiveLook, Look};
 pub const CONNECTORS_OFF: &str = "tokens.connectorsOff";
 /// The folders every Job may reach, and may not, past its slots (`REACH_FOLDERS_KEY`).
 pub const REACH_FOLDERS: &str = "features.reachFolders";
-/// A range this narrow is dragged, with its figure still typed; a wider one, such as a port, is only typed.
+/// A range this narrow is a meter, dragged or typed; a wider one, such as a port, is only typed.
 const DRAGGED_SPAN: i64 = 1000;
-/// A mark at each step, until they would crowd.
-const MARKED_STEPS: i64 = 32;
 /// Why nothing can be sent.
 pub(super) const NOT_LIVE: &str = "Fleet is not connected, so nothing can be changed.";
 
@@ -32,10 +30,14 @@ pub(super) const NOT_LIVE: &str = "Fleet is not connected, so nothing can be cha
 /// a 1000 wide overlay less its nav), so a wide window leaves room at the right instead of spreading each row.
 const PAGE_MAX: f32 = 720.;
 
-/// How wide a slider and a choice are drawn, so the figure typed, or the word picked, stays by its title.
+/// How wide a meter and a choice are drawn, so the figure typed, or the word picked, stays by its title.
 const CONTROL_W: f32 = 320.;
 
+/// Whether a setting is drawn as a meter. Limits draws its own figures, so it is left out.
 pub fn slides(one: &Setting) -> bool {
+    if super::limits::holds(one) {
+        return false;
+    }
     match one.kind {
         SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max } => max - min <= DRAGGED_SPAN,
         _ => false,
@@ -613,6 +615,8 @@ impl SettingsOverlay {
                     .child(Textarea::new(state).appearance(false).bordered(false).disabled(off));
                 labelled(ringed(look, frame, &focus, window), Role::TextInput, one.title.clone()).into_any_element()
             }
+            // A figure that slides is one meter, drawn with what is typed below.
+            (_, Some(Typed::Line(_))) if slides(one) => div().into_any_element(),
             (_, Some(Typed::Line(state))) if matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. }) => {
                 let _ = state;
                 self.number_field(one, changed, off, saving, px(FIELD_W), true, look, window, cx)
@@ -653,13 +657,18 @@ impl SettingsOverlay {
         };
         let figure = matches!(one.kind, SettingKind::Integer { .. } | SettingKind::Seconds { .. });
         let control: AnyElement = if figure {
-            let across = if slides(one) { Some(self.render_slider(one, &typed_text, in_range, off, look, window, cx)) } else { None };
-            line(look)
-                .child(typed_field)
-                .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
-                .children(reset)
-                .children(across.map(|slider| div().flex_none().w(px(CONTROL_W)).max_w_full().child(slider)))
-                .into_any_element()
+            let save = (dirty || saving).then(|| self.save_button(one, look, window, cx));
+            if slides(one) {
+                let range_open = dirty && !in_range;
+                line(look)
+                    .child(self.render_meter(one, &typed_text, in_range, range_open, changed, off, look, window, cx))
+                    .children(save)
+                    .children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED))))
+                    .children(reset)
+                    .into_any_element()
+            } else {
+                line(look).child(typed_field).children(seconds_said.map(|said| small(look, said, look.color(token::FG_MUTED)))).children(reset).into_any_element()
+            }
         } else if matches!(one.kind, SettingKind::Prompt | SettingKind::TextList) {
             let below = dirty || saving || reset.is_some();
             div()
@@ -703,38 +712,75 @@ impl SettingsOverlay {
         labelled(button, Role::Button, format!("Save {}", one.title)).into_any_element()
     }
 
-    /// A figure's slider: the track takes the slack, a mark at each step while they do not crowd. It moves what
-    /// is typed; Save sends it.
-    fn render_slider(&self, one: &Setting, typed: &str, in_range: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    /// A figure that slides, as one meter: a fill from the left to the value's share, the figure in it with its
+    /// unit, and "of" the most at the right. Dragging across sets the value by its share; a click, or Tab, types it,
+    /// and ← and → step it. It moves what is typed; Save sends it.
+    fn render_meter(&self, one: &Setting, typed: &str, in_range: bool, range_open: bool, lit: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let (SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max }) = one.kind else { return div().into_any_element() };
         let Some(stops) = self.stops.get(&one.key) else { return div().into_any_element() };
+        let Some(field @ Typed::Line(state)) = self.typed.get(&one.key) else { return div().into_any_element() };
+        let key = one.key.clone();
+        let entry = field.focus(cx);
+        let typing = !off && entry.is_focused(window);
+        let focused = stops.slider.is_focused(window) || entry.is_focused(window);
         let held = if let SettingValue::Integer(n) = *super::limits::current(one) { n } else { min };
         let at = if in_range { typed.trim().parse::<i64>().unwrap_or(held) } else { held };
-        let fill = if max > min { (at - min) as f32 / (max - min) as f32 } else { 0. };
-        let steps = max - min + 1;
+        let share = if max > min { ((at - min) as f32 / (max - min) as f32).clamp(0., 1.) } else { 0. };
+        let unit = match &one.kind {
+            SettingKind::Seconds { .. } => Some("s"),
+            SettingKind::Integer { unit, .. } => unit.as_deref().map(super::limits::unit_shown).filter(|unit| !unit.is_empty()),
+            _ => None,
+        };
+        let (ink, _) = super::limits::frame_ink(look, lit);
+        let (wash, edge) = if off { (look.color(token::FG_SUBTLE).opacity(0.25), look.color(token::FG_SUBTLE)) } else { (look.color(token::ACCENT_FAINT), look.color(token::ACCENT)) };
+        let group = SharedString::from(format!("meter-group-{key}"));
         let tracks = self.tracks.clone();
-        let key = one.key.clone();
-        let rail = look.length(token::SPACE_1) + look.length(token::BORDER_WIDTH);
-        let knob = look.length(token::SPACE_4);
-        let ink = if off { look.color(token::FG_SUBTLE) } else { look.color(token::ACCENT) };
         let slide_to = move |bounds: Option<Bounds<Pixels>>, x: Pixels| -> Option<i64> {
             let bounds = bounds?;
             let share = ((x - bounds.origin.x) / bounds.size.width).clamp(0., 1.);
             Some(min + ((max - min) as f32 * share).round() as i64)
         };
-        let marks = (steps <= MARKED_STEPS).then(|| {
-            div().absolute().left_0().right_0().top(knob / 2. + rail).flex().justify_between().children((0..steps).map(|step| {
-                div().w(look.length(token::BORDER_WIDTH)).h(look.length(token::SPACE_1)).bg(if min + step <= at { ink } else { look.color(token::BORDER_DEFAULT) })
-            }))
-        });
-        let element = div()
+        let figure = if typing {
+            let width = look.length(token::SPACE_3) * typed.trim().len().max(1) as f32 + look.length(token::SPACE_4);
+            labelled(
+                div()
+                    .id(SharedString::from(format!("line-{key}")))
+                    .key_context(crate::keymap::TEXT_BOX)
+                    .flex_none()
+                    .w(width)
+                    .text_size(look.length(token::TEXT_BASE))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(ink)
+                    .child(Input::new(state).appearance(false).bordered(false).text_color(ink)),
+                Role::TextInput,
+                one.title.clone(),
+            )
+            .into_any_element()
+        } else {
+            div()
+                .flex_none()
+                .text_size(look.length(token::TEXT_BASE))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(if off { look.color(token::FG_SUBTLE) } else { ink })
+                .child(SharedString::from(typed.trim().to_string()))
+                .into_any_element()
+        };
+        let bar = div()
             .id(SharedString::from(format!("slider-{key}")))
             .track_focus(&stops.slider)
             .relative()
-            .flex_1()
-            .min_w_0()
-            .h(knob + look.length(token::SPACE_3))
-            .when(!off, |slider| slider.cursor_pointer())
+            .overflow_hidden()
+            .w_full()
+            .h(look.length(token::H_CONTROL))
+            .px(look.length(token::SPACE_3))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_SUNKEN))
+            .when(!off && !typing, |bar| bar.cursor_ew_resize())
             .child(canvas({
                 let tracks = tracks.clone();
                 let key = key.clone();
@@ -742,45 +788,45 @@ impl SettingsOverlay {
                     tracks.borrow_mut().insert(key.clone(), bounds);
                 }
             }, |_, _, _, _| {}).absolute().left_0().top_0().size_full())
-            .child(div().absolute().left_0().right_0().top(knob / 2. - rail / 2.).h(rail).rounded(rail).bg(look.color(token::BG_SUNKEN)))
-            .child(div().absolute().left_0().top(knob / 2. - rail / 2.).h(rail).rounded(rail).w(gpui::relative(fill)).bg(ink))
-            .children(marks)
-            .child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left(gpui::relative(fill))
-                    .ml(-knob / 2.)
-                    .size(knob)
-                    .rounded_full()
-                    .border(look.length(token::BORDER_WIDTH) * 2.)
-                    .border_color(ink)
-                    .bg(look.color(token::BG_BASE))
-                    .when(stops.slider.is_focused(window), |knob| knob.border_color(ring_colour(look))),
-            )
-            .when(!off, |slider| {
-                let (down_key, move_key, down_tracks, move_tracks) = (key.clone(), key.clone(), tracks.clone(), tracks.clone());
-                slider
-                    .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                        let bounds = down_tracks.borrow().get(&down_key).copied();
-                        if let Some(to) = slide_to(bounds, event.position.x) {
-                            this.slide(&down_key, to, window, cx);
-                        }
-                        if let Some(stops) = this.stops.get(&down_key) {
-                            window.focus(&stops.slider, cx);
-                        }
-                    }))
-                    .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, window, cx| {
-                        if event.pressed_button != Some(MouseButton::Left) {
-                            return;
-                        }
-                        let bounds = move_tracks.borrow().get(&move_key).copied();
-                        if let Some(to) = slide_to(bounds, event.position.x) {
-                            this.slide(&move_key, to, window, cx);
-                        }
-                    }))
-            });
-        labelled(element, Role::Slider, format!("{} slider", one.title)).into_any_element()
+            .child(div().absolute().left_0().top_0().bottom_0().w(gpui::relative(share)).bg(wash).child(div().absolute().right_0().top_0().bottom_0().w(look.length(token::BORDER_WIDTH) * 2.).bg(edge)))
+            .child(div().relative().flex().items_center().gap(look.length(token::SPACE_1)).child(figure).children(unit.map(|unit| {
+                div().flex_none().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(unit.to_string()))
+            })))
+            .child(div().relative().ml_auto().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(format!("of {max}"))));
+        let bar = ringed(look, ringed(look, bar, &stops.slider, window), &entry, window).when(!off && !typing, |bar| {
+            let (down_key, move_key, up_key, out_key) = (key.clone(), key.clone(), key.clone(), key.clone());
+            let move_tracks = tracks.clone();
+            bar.on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| this.meter_down(&down_key, event.position.x, window, cx)))
+                .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, window, cx| {
+                    if event.pressed_button != Some(MouseButton::Left) {
+                        return;
+                    }
+                    let to = slide_to(move_tracks.borrow().get(&move_key).copied(), event.position.x);
+                    this.meter_moved(&move_key, event.position.x, to, window, cx);
+                }))
+                .on_mouse_up(MouseButton::Left, cx.listener(move |this, _: &MouseUpEvent, window, cx| this.meter_up(&up_key, window, cx)))
+                .on_mouse_up_out(MouseButton::Left, cx.listener(move |this, _: &MouseUpEvent, _, _| {
+                    if this.meter.as_ref().is_some_and(|press| press.key == out_key) {
+                        this.meter = None;
+                    }
+                }))
+        });
+        let bar = labelled(bar, Role::Slider, format!("{} slider", one.title));
+        let hint = small(look, "Drag across, or type a number", look.color(token::FG_SUBTLE))
+            .when(!(focused || range_open || off), |hint| hint.invisible().group_hover(group.clone(), |style| style.visible()))
+            .when(range_open || off, |hint| hint.invisible());
+        div()
+            .id(SharedString::from(format!("meter-{key}")))
+            .group(group)
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .w(px(CONTROL_W))
+            .max_w_full()
+            .child(bar)
+            .child(hint)
+            .into_any_element()
     }
 
     // ---- a page -------------------------------------------------------------------------------

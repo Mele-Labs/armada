@@ -62,8 +62,9 @@ out.
 Buttons and takes do not need a page. Add them to the artifact you are
 showing with `add_part`: `kind` `buttons` for buttons he presses, and `kind`
 `takes` for takes he picks between. A takes part is a vote. Put your pick
-first, and draw each take plain: a few labelled blocks with placeholder text,
-never a screen of real data. He answers with a pick, and Approve never stands
+first. Draw a take about a screen as a `mock` of that screen with short,
+plausible content and its parts named by `data-part`, and labelled blocks only
+for a choice that is not a screen. He answers with a pick, and Approve never stands
 in for it. Words and a drawing ask for Approve or Ask for changes, takes ask
 for a pick, buttons act when pressed, and `asks: false` makes words an aside.
 Say in the opening sentence which parts ask and which only inform.
@@ -98,7 +99,7 @@ that will not run when it keeps the page.
 ## Votes inside a page
 
 A vote inside a page asks him to choose between two or more takes of one thing.
-Put any page content in a take, drawn plain as above. His vote comes back to you
+Put any page content in a take, drawn as above. His vote comes back to you
 as a message with every note he wrote.
 
 ```html
