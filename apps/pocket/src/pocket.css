@@ -978,6 +978,16 @@ button.pk-send__title {
   background: transparent;
   color: inherit;
 }
+/* A long project name gives way to the search. */
+.pk-scope--project {
+  min-width: 0;
+  max-width: 40%;
+}
+.pk-scope--project select {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
 .pk-scope svg {
   position: absolute;
   right: var(--space-2);

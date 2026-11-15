@@ -644,7 +644,9 @@ Only this repository has one.
 **An offer also says what the owner should look at and how to get there.**
 `look` is one line of at most 300 characters.
 `steps` are at most 9, because Bridge binds the keys 1 to 9, each a `say` of one line and at most 120 characters and an `act` where one takes him there.
-An `act` is an id in `crates/core-model/domain/actions.toml`, which Fleet reads from a copy built in, so a step names an act Bridge knows or the offer is refused (`fleet.preview_look_invalid`, `fleet.preview_steps_invalid`, `fleet.preview_step_act_unknown`).
+An `act` is an id in `crates/core-model/domain/actions.toml` as the offered tip holds it, since that is the tree his preview build runs, so an act the branch adds counts; Fleet falls back to the copy built in where the tip's cannot be read.
+A step that names an act the registry lacks is refused (`fleet.preview_look_invalid`, `fleet.preview_steps_invalid`, `fleet.preview_step_act_unknown`).
+An offer kept with no `look` is told so in its Job's thread, as `build_moved`, and asked to offer again with one.
 A re-offer that leaves `look` or `steps` out keeps the ones it had, an empty `look` clears it and an empty list clears the steps.
 
 **One check at a time, for the whole Fleet, in one kept worktree** at `<checkout>/.armada/preview-check`, made once and moved onto each merged commit.

@@ -155,6 +155,8 @@ struct Item<'a> {
     approves: bool,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     steps: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    artifact: Option<&'a str>,
 }
 
 /// An item Fleet put on the list, as the agent reads it: what kind, and its one line. Never the agent's.
@@ -180,6 +182,7 @@ impl<'a> Receipt<'a> {
                 options: &item.options,
                 approves: item.approves,
                 steps: &item.steps,
+                artifact: item.artifact.as_deref(),
             })
             .collect();
         let fleet = record

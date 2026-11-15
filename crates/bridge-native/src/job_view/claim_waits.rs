@@ -4,18 +4,37 @@
 
 use chrono::{DateTime, Local, Utc};
 use gpui::{div, prelude::*, AnyElement, Context, Hsla, Role, SharedString};
-use ipc::{ClaimWait, ClaimWaitEnds, Instant};
+use ipc::{ClaimWait, ClaimWaitEnds, Instant, Mac};
 
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
-/// The line a wait reads: who holds the item, then the holding Job's title, or the item where it has none.
-pub(super) fn wait_said(wait: &ClaimWait) -> String {
+/// A Mac as the person knows it: the paired Mac the host's name matches, by the name he gave it, and where none
+/// matches the host's name without a trailing `.local`. A paired Mac is matched with its `.local` left off too.
+fn mac_called<'a>(macs: &'a [Mac], host: &'a str) -> (&'a str, Option<&'a Mac>) {
+    let bare = |name: &'a str| {
+        let name = name.trim();
+        let cut = name.len().checked_sub(".local".len()).filter(|cut| name.is_char_boundary(*cut) && name[*cut..].eq_ignore_ascii_case(".local"));
+        cut.map_or(name, |cut| &name[..cut])
+    };
+    match macs.iter().find(|one| bare(&one.name).eq_ignore_ascii_case(bare(host))) {
+        Some(one) => (one.name.trim(), Some(one)),
+        None => (bare(host), None),
+    }
+}
+
+/// The line a wait reads: who holds the item, then the holding Job's title, or the item where it has none. A Job of
+/// this Mac's is named as a Job, never by the Mac the person sits at.
+pub(super) fn wait_said(wait: &ClaimWait, macs: &[Mac]) -> String {
     let holder = wait.holder.trim();
-    let mac = wait.machine.as_deref().map(str::trim).filter(|mac| !mac.is_empty());
+    let mac = wait.machine.as_deref().map(str::trim).filter(|mac| !mac.is_empty()).map(|mac| mac_called(macs, mac).0);
     let who = match (holder, mac) {
+        _ if wait.this_mac => match wait.ends {
+            ClaimWaitEnds::FixMerges => "the Job fixing it".to_string(),
+            _ => "another Job".to_string(),
+        },
         ("", Some(mac)) => mac.to_string(),
         (holder, Some(mac)) => format!("{holder}'s Mac {mac}"),
         ("", None) => match wait.ends {
@@ -99,7 +118,8 @@ impl JobView {
 
     /// One wait: the dot, who holds the item and the holding Job's title, its Mac's chip and how long; what ends it under.
     fn claim_wait_row(&self, at: usize, wait: &ClaimWait, now: DateTime<Utc>, narrow: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let said = wait_said(wait);
+        let macs = crate::pairing::macs(cx);
+        let said = wait_said(wait, macs);
         let dot = div()
             .id(SharedString::from(format!("claim-wait-mark:{at}")))
             .flex_none()
@@ -109,10 +129,12 @@ impl JobView {
             .justify_center()
             .child(dot(look, look.color(token::STATUS_AWAITING_REVIEW)))
             .tooltip(tip("Waiting"));
-        let chip = wait.machine.as_deref().map(str::trim).filter(|mac| !mac.is_empty()).map(|mac| {
-            // A Mac paired with this one draws in its own colour; a teammate's in the accent, as the design has it.
-            let hue = crate::pairing::macs(cx).iter().find(|one| one.name.eq_ignore_ascii_case(mac)).map_or_else(|| look.color(token::ACCENT), |one| crate::settings::macs::colour_of(look, one.colour));
-            crate::pairing::pill_in(look, SharedString::from(format!("claim-wait-mac:{at}")), mac, hue)
+        // A Job of this Mac's has no chip: the person is on that Mac. Another Mac's draws in its own colour where it is
+        // paired with this one, a teammate's in the accent, as the design has it.
+        let chip = wait.machine.as_deref().map(str::trim).filter(|mac| !mac.is_empty() && !wait.this_mac).map(|mac| {
+            let (name, paired) = mac_called(macs, mac);
+            let hue = paired.map_or_else(|| look.color(token::ACCENT), |one| crate::settings::macs::colour_of(look, one.colour));
+            crate::pairing::pill_in(look, SharedString::from(format!("claim-wait-mac:{at}")), name, hue)
         });
         let since = waited(&wait.since, now).map(|figure| {
             let from = DateTime::parse_from_rfc3339(wait.since.as_str()).ok().map(|at| crate::settings::time::stamp(at.with_timezone(&Local))).unwrap_or_default();
@@ -128,7 +150,22 @@ impl JobView {
         });
         let id = SharedString::from(format!("claim-wait:{at}"));
         let tail = (chip.is_some() || since.is_some()).then(|| div().flex_none().flex().items_center().gap(look.length(token::SPACE_3)).h(look.length(token::LEADING_SM)).children(chip).children(since).into_any_element());
-        labelled(line(look, id, dot.into_any_element(), &said, tail, &ends_said(wait), true, narrow), Role::Row, said.clone()).into_any_element()
+        let row = line(look, id, dot.into_any_element(), &said, tail, &ends_said(wait), true, narrow);
+        // A wait on a Job of this Mac's opens that Job, on a press or Enter and Space where it holds focus.
+        match wait.job.clone().filter(|_| wait.this_mac) {
+            Some(job) => labelled(
+                row.cursor_pointer()
+                    .tab_index(0)
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                    .tooltip(tip("Open the Job"))
+                    .on_click(cx.listener(move |this, _, _, cx| this.open_job(job.clone(), cx))),
+                Role::Button,
+                said.clone(),
+            )
+            .into_any_element(),
+            None => labelled(row, Role::Row, said.clone()).into_any_element(),
+        }
     }
 }
 
@@ -188,6 +225,8 @@ mod tests {
             holder: holder.into(),
             machine: machine.map(str::to_string),
             title: title.map(str::to_string),
+            this_mac: false,
+            job: None,
             since: Instant::carried("2026-11-14T10:00:00Z"),
             ends,
         }
@@ -196,37 +235,61 @@ mod tests {
     #[test]
     fn a_wait_on_another_job_names_its_mac_and_title() {
         let one = wait("nick", Some("Home"), Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds);
-        assert_eq!(wait_said(&one), "Waiting on nick's Mac Home: Fix the flaky queue test");
+        assert_eq!(wait_said(&one, &[]), "Waiting on nick's Mac Home: Fix the flaky queue test");
         assert_eq!(ends_said(&one), "Carries on when the other Job's claim ends");
     }
 
     #[test]
     fn a_wait_on_a_person_in_beads_names_them_and_the_item() {
         let one = wait("alice", None, None, ClaimWaitEnds::Unassigned);
-        assert_eq!(wait_said(&one), "Waiting on alice: armada-zasx.3");
+        assert_eq!(wait_said(&one, &[]), "Waiting on alice: armada-zasx.3");
         assert_eq!(ends_said(&one), "Carries on when alice is unassigned");
     }
 
     #[test]
     fn a_wait_missing_its_title_or_mac_falls_back() {
-        assert_eq!(wait_said(&wait("nick", Some("Home"), None, ClaimWaitEnds::ClaimEnds)), "Waiting on nick's Mac Home: armada-zasx.3", "no title: the item");
-        assert_eq!(wait_said(&wait("nick", None, Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds)), "Waiting on nick: Fix the flaky queue test", "no Mac: the holder");
-        assert_eq!(wait_said(&wait("", Some("Home"), Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds)), "Waiting on Home: Fix the flaky queue test", "no holder: the Mac");
-        assert_eq!(wait_said(&wait(" ", Some(" "), Some(""), ClaimWaitEnds::ClaimEnds)), "Waiting on another Job: armada-zasx.3", "nothing named");
+        assert_eq!(wait_said(&wait("nick", Some("Home"), None, ClaimWaitEnds::ClaimEnds), &[]), "Waiting on nick's Mac Home: armada-zasx.3", "no title: the item");
+        assert_eq!(wait_said(&wait("nick", None, Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds), &[]), "Waiting on nick: Fix the flaky queue test", "no Mac: the holder");
+        assert_eq!(wait_said(&wait("", Some("Home"), Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds), &[]), "Waiting on Home: Fix the flaky queue test", "no holder: the Mac");
+        assert_eq!(wait_said(&wait(" ", Some(" "), Some(""), ClaimWaitEnds::ClaimEnds), &[]), "Waiting on another Job: armada-zasx.3", "nothing named");
         let nobody = wait("", None, None, ClaimWaitEnds::Unassigned);
-        assert_eq!(wait_said(&nobody), "Waiting on its assignee in beads: armada-zasx.3");
+        assert_eq!(wait_said(&nobody, &[]), "Waiting on its assignee in beads: armada-zasx.3");
         assert_eq!(ends_said(&nobody), "Carries on when the item is unassigned");
     }
 
     #[test]
     fn a_wait_on_a_failing_tests_fix_names_the_fixer_or_main_and_requeues() {
         let elsewhere = ClaimWait { item: "queue::settles".into(), ..wait("nick", Some("Home"), Some("Fix the flaky test settles"), ClaimWaitEnds::FixMerges) };
-        assert_eq!(wait_said(&elsewhere), "Waiting on nick's Mac Home: Fix the flaky test settles");
+        assert_eq!(wait_said(&elsewhere, &[]), "Waiting on nick's Mac Home: Fix the flaky test settles");
         assert_eq!(ends_said(&elsewhere), "Requeues when the fix merges");
         let unnamed = ClaimWait { item: "queue::settles".into(), ..wait("", None, Some("Fix the flaky test settles"), ClaimWaitEnds::FixMerges) };
-        assert_eq!(wait_said(&unnamed), "Waiting on the Job fixing it: Fix the flaky test settles");
+        assert_eq!(wait_said(&unnamed, &[]), "Waiting on the Job fixing it: Fix the flaky test settles");
         let main = ClaimWait { item: "queue::settles".into(), ..wait("", None, None, ClaimWaitEnds::FixMerges) };
-        assert_eq!(wait_said(&main), "Waiting on main's own fix: queue::settles");
+        assert_eq!(wait_said(&main, &[]), "Waiting on main's own fix: queue::settles");
+    }
+
+    #[test]
+    fn a_wait_on_a_job_of_this_mac_names_the_job_not_the_mac() {
+        let here = |ends, holder: &str| ClaimWait { this_mac: true, job: Some("5aaa472e".into()), ..wait(holder, Some("Nicks-MacBook-Pro-2026.local"), Some("Fix the flaky test settles"), ends) };
+        let fixing = here(ClaimWaitEnds::FixMerges, "nick");
+        assert_eq!(wait_said(&fixing, &[]), "Waiting on the Job fixing it: Fix the flaky test settles");
+        assert_eq!(wait_said(&here(ClaimWaitEnds::ClaimEnds, "nick"), &[]), "Waiting on another Job: Fix the flaky test settles");
+        let untitled = ClaimWait { title: None, ..fixing };
+        assert_eq!(wait_said(&untitled, &[]), "Waiting on the Job fixing it: armada-zasx.3", "no title: the item");
+        for said in [wait_said(&untitled, &[]), wait_said(&here(ClaimWaitEnds::ClaimEnds, ""), &[])] {
+            assert!(!said.contains("local") && !said.contains("Mac"), "{said}");
+        }
+    }
+
+    #[test]
+    fn a_wait_on_another_mac_names_the_paired_mac_and_drops_a_local_host() {
+        let paired = [Mac { id: "studio".into(), name: "Studio".into(), colour: ipc::MacColour::Teal, ..Mac::default() }];
+        let there = wait("nick", Some("studio.local"), Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds);
+        assert_eq!(wait_said(&there, &paired), "Waiting on nick's Mac Studio: Fix the flaky queue test", "the paired name, not the host");
+        assert_eq!(mac_called(&paired, "STUDIO.LOCAL").1.map(|one| one.colour), Some(ipc::MacColour::Teal), "the chip finds the same Mac");
+        let unpaired = wait("nick", Some("Nicks-MacBook-Pro-2026.local"), Some("Fix the flaky queue test"), ClaimWaitEnds::ClaimEnds);
+        assert_eq!(wait_said(&unpaired, &paired), "Waiting on nick's Mac Nicks-MacBook-Pro-2026: Fix the flaky queue test", "no paired Mac: the host without .local");
+        assert_eq!(mac_called(&[], "Home").0, "Home", "a name with no .local stays whole");
     }
 
     #[test]

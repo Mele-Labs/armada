@@ -22,6 +22,19 @@ PLIST = (
     "<key>CFBundlePackageType</key><string>APPL</string></dict></plist>"
 )
 BRAND_ICON = os.path.join(HERE, "packages", "brand", "macos", "AppIcon.icns")
+SIGNING_IDENTITY = os.path.join(HERE, "scripts", "signing-identity")
+
+
+def requirement(path):
+    """The designated requirement `codesign -d -r-` names: what macOS keeps a privacy grant against."""
+    shown = subprocess.run(["codesign", "-d", "-r-", path], capture_output=True, text=True)
+    return shown.stdout.strip().removeprefix("# ").removeprefix("designated => ")
+
+
+def signed_either_way(test, path):
+    """Ad hoc, or with this Mac's "Armada Local Signing" certificate where `scripts/signing-identity` made one."""
+    shown = subprocess.run(["codesign", "-dv", path], capture_output=True, text=True)
+    test.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
 
 
 @unittest.skipUnless(shutil.which("codesign"), "the bundle is signed, and only a Mac can")
@@ -81,12 +94,50 @@ class NativeApp(unittest.TestCase):
         self.assertEqual(info["CFBundleIdentifier"], "dev.armada.bridge.native")
         self.assertNotIn(info["CFBundleIdentifier"], ("com.github.Electron", "dev.armada.bridge"))
 
-    def test_it_is_signed_ad_hoc_and_the_signature_holds(self):
+    def test_it_is_signed_and_the_signature_holds(self):
         app = self.make()
         verified = subprocess.run(["codesign", "--verify", "--deep", "--strict", app], capture_output=True, text=True)
         self.assertEqual(verified.returncode, 0, verified.stderr)
-        shown = subprocess.run(["codesign", "-dv", app], capture_output=True, text=True)
-        self.assertIn("Signature=adhoc", shown.stderr)
+        signed_either_way(self, app)
+
+    def test_without_the_certificate_it_is_ad_hoc_and_each_build_has_its_own_requirement(self):
+        env = {**os.environ, "ARMADA_SIGNING_KEYCHAIN": os.path.join(self.tmp, "none.keychain-db")}
+        first = self.run_script(self.binary, self.out, env=env)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        before = requirement(first.stdout.strip())
+        self.assertTrue(before.startswith("cdhash"), before)
+        shutil.copyfile("/usr/bin/false", self.binary)
+        self.assertEqual(self.run_script(self.binary, self.out, env=env).returncode, 0)
+        self.assertNotEqual(requirement(first.stdout.strip()), before)
+
+    def test_with_the_certificate_two_builds_keep_one_requirement(self):
+        # A scratch keychain, made by the script the person runs, so the login keychain is never touched.
+        keychain = os.path.join(self.tmp, "signing.keychain-db")
+        subprocess.run(["security", "create-keychain", "-p", "pw", keychain], check=True, capture_output=True)
+        self.addCleanup(subprocess.run, ["security", "delete-keychain", keychain], capture_output=True)
+        subprocess.run(["security", "unlock-keychain", "-p", "pw", keychain], check=True, capture_output=True)
+        # No auto-lock: a locked scratch keychain would make codesign ask for its password on screen.
+        subprocess.run(["security", "set-keychain-settings", keychain], check=True, capture_output=True)
+        env ={**os.environ, "ARMADA_SIGNING_KEYCHAIN": keychain, "ARMADA_SIGNING_KEYCHAIN_PASSWORD": "pw"}
+        made = subprocess.run([SIGNING_IDENTITY], env=env, capture_output=True, text=True)
+        self.assertEqual(made.returncode, 0, made.stderr)
+        again = subprocess.run([SIGNING_IDENTITY], env=env, capture_output=True, text=True)
+        self.assertIn("already", again.stdout)
+        first = self.run_script(self.binary, self.out, env=env)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        app = first.stdout.strip()
+        before = requirement(app)
+        self.assertRegex(before, r'^identifier "dev\.armada\.bridge\.native" and certificate leaf = H"[0-9a-f]{40}"$')
+        shutil.copyfile("/usr/bin/false", self.binary)
+        self.assertEqual(self.run_script(self.binary, self.out, env=env).returncode, 0)
+        self.assertEqual(requirement(app), before)
+        verified = subprocess.run(["codesign", "--verify", "--strict", app], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
+        # Locked, it is ad hoc and says so, rather than codesign asking for the password on screen.
+        subprocess.run(["security", "lock-keychain", keychain], check=True, capture_output=True)
+        locked = self.run_script(self.binary, self.out, env=env)
+        self.assertEqual(locked.returncode, 0, locked.stderr)
+        self.assertTrue(requirement(app).startswith("cdhash"), requirement(app))
 
     def test_making_it_again_replaces_it(self):
         app = self.make()

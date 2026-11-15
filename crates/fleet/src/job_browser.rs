@@ -417,6 +417,7 @@ fn page_ask_item(ask: PageAsk) -> ipc::WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 

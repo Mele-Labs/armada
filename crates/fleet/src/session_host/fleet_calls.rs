@@ -26,6 +26,7 @@ pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 

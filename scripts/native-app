@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Make the native Bridge's `Armada.app`, signed ad hoc, from its cargo binary:
+# Make the native Bridge's `Armada.app` from its cargo binary, signed by `scripts/signing-identity`: with this
+# Mac's "Armada Local Signing" certificate where it has one, so macOS keeps its grants across builds, else ad hoc:
 #
 #   native-app <binary> <out dir> [<AppIcon.icns>]
 #
@@ -79,5 +80,5 @@ plistlib.dump(
     open(sys.argv[1], "wb"),
 )
 PY
-codesign --force -s - "$app" >/dev/null 2>&1 || fail "could not sign $app"
+"$here/signing-identity" sign "$app" >/dev/null 2>&1 || fail "could not sign $app"
 echo "$app"
