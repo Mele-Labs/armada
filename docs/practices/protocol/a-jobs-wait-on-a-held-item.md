@@ -13,7 +13,7 @@ Electron Bridge reads neither field; native Bridge draws the wait line.
 | --- | --- | --- |
 | `SessionRecord.claim_waits` | Fleet answers | `ClaimWait[]`, each item the Job waits on. Absent where it waits on none |
 | `SessionRecord.claims_unsent` | Fleet answers | `true` where the Job holds claims its project's store has not taken, because the store did not answer. Absent where all are sent |
-| `ClaimWait` | Fleet writes | `item`, the tracker's name for it; `holder`, the holding Job's forge login or the beads assignee; `machine` and `title`, the holding Job's Mac and title, absent for a person; `since`, when the wait began; `ends` |
+| `ClaimWait` | Fleet writes | `item`, the tracker's name for it; `holder`, the holding Job's forge login or the beads assignee; `machine` and `title`, the holding Job's Mac and title, absent for a person; `this_mac`, `true` where the holding Job is one of this Mac's, and `job`, its id, absent for a person and for main's own fix; `since`, when the wait began; `ends` |
 | `ClaimWaitEnds` | Fleet writes | `claim_ends` for another Job's claim, `unassigned` for a person in beads |
 | `Notice` `claims` | Fleet writes | The kind of each word Fleet tells a Job about its claims: a wait begun or ended, or a file another Job writes too |
 
