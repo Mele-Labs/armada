@@ -317,6 +317,20 @@ where
     }
 }
 
+/// The casts revision `number` of a page draws, `html` being that revision: the newest cast of each vote made on it or
+/// an earlier one, where the vote is still on it in the same form and the cast's takes still hold. **A revision that
+/// rewrote other sections keeps the votes he cast**; a cast from an earlier revision says so by its `revision`.
+pub(crate) fn votes_standing(kept: &[KeptVote], artifact: &str, html: &str, number: u32) -> Vec<VoteCast> {
+    let on_page = votes_in(html);
+    let earlier: Vec<KeptVote> = kept.iter().filter(|one| one.revision <= number).cloned().collect();
+    votes_of(&earlier, artifact)
+        .into_iter()
+        .filter(|cast| {
+            on_page.iter().any(|vote| vote.id == cast.vote && VoteForm::named(&vote.form) == Some(cast.form) && takes_refused(vote, &cast.result).is_none())
+        })
+        .collect()
+}
+
 /// The newest cast of each vote kept for a page, in the order each vote was first cast. One whose result no
 /// longer reads is left out.
 pub(crate) fn votes_of(kept: &[KeptVote], artifact: &str) -> Vec<VoteCast> {
