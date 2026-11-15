@@ -3,7 +3,8 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 14 Nov 2026. One artifact that grows: a Job adds the parts it needs and he answers each part that asks on its own. `docs/concepts/artifact.md`, *Parts*.
-**Additive, with one field on an existing type read differently**: three operations, three routes, their body and answer types, `parts` on `JobArtifact`, and `state` on a scene node. No event kind is new.
+**Additive, with one field on an existing type read differently**: three operations, three routes, their body and answer types, `parts` on `JobArtifact`, and `state` on a scene node.
+No event kind is new.
 Bridge's half is written by hand in `packages/protocol/src/job-artifacts.ts` where a client needs it, and Classic does not call any of it. Native draws the parts and builds the page reader.
 
 | Where | Side | Carries |
@@ -18,7 +19,8 @@ Bridge's half is written by hand in `packages/protocol/src/job-artifacts.ts` whe
 **`drawn` is the revision he read.** A part put again is a new revision with a new `drawn`, and an answer that carries the old one is a 409, so he never answers what the Job has replaced.
 **A takes part is a vote.** `how` `approved` or `sent_back` on it is refused with `fleet.part_how`, saying to send a pick, and a `rank` or `score` part is cast with `cast_page_vote`.
 **`form` stays readable**: it is the first part's kind as `sketch`, `draft` or `page`, so a client that reads no parts still draws the artifact.
-**A part's id is its address.** A sketch, draft or page that joined is named by its own id, `sketch:<title>`, `draft:<title>` or the page's path, and a part `add_part` made by the id the Job gave it. Votes and presses on a part name the artifact's id and the part's id.
+**A part's id is its address.** A sketch, draft or page that joined is named by its own id, `sketch:<title>`, `draft:<title>` or the page's path, and a part `add_part` made by the id the Job gave it.
+Votes and presses on a part name the artifact's id and the part's id.
 
 **The event stream.** No new event: an add or an answer publishes `session.changed` on the Job once, as an answer to a sketch does.
 Nothing here adds a stream or a per-part event, so the unmeasured sink risk is neither better nor worse.
