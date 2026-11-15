@@ -12,7 +12,7 @@
 //! the answer arrives as a [`WordsReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
-use ipc::door::{Reachable, ON_YOUR_WORDS, REACHABLE};
+use ipc::door::{Reachable, ON_YOUR_WORDS, OPERATOR, REACHABLE};
 
 use crate::mcp::Caller;
 
@@ -45,6 +45,7 @@ pub struct WordsReach {
     may: Vec<&'static str>,
     otherwise: &'static str,
     session: bool,
+    operator: bool,
 }
 
 impl WordsReach {
@@ -58,6 +59,7 @@ impl WordsReach {
                 .collect(),
             otherwise,
             session: false,
+            operator: false,
         }
     }
 
@@ -75,7 +77,20 @@ impl WordsReach {
             may,
             otherwise: "a job is offered what any agent of the person's is, and no more",
             session: true,
+            operator: false,
         }
+    }
+
+    /// This session is the Operator's own: what it is offered at the door beyond a hosted session's is
+    /// the `Operator` rows and the reads and acts across repositories its rules name.
+    pub fn the_operator(mut self) -> WordsReach {
+        self.operator = true;
+        self
+    }
+
+    /// Whether the caller is the Operator's session, which Fleet placed by its connection.
+    pub fn is_the_operator(&self) -> bool {
+        self.operator
     }
 
     /// Whether this is a hosted session's reach rather than a Job on your words.
@@ -133,4 +148,9 @@ pub fn offerable() -> impl Iterator<Item = &'static Reachable> {
     REACHABLE
         .iter()
         .chain(ON_YOUR_WORDS.iter())
+}
+
+/// The rows only the Operator's session is offered: its cards and its per-project values.
+pub fn operator_rows() -> impl Iterator<Item = &'static Reachable> {
+    OPERATOR.iter()
 }

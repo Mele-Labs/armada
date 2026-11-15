@@ -303,6 +303,43 @@ pub struct StoreDevice {
     pub machine: String,
 }
 
+/// What a device signed in to a store is: a Mac, or a phone signed in from Pocket.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeviceKind {
+    Mac,
+    Phone,
+}
+
+impl DeviceKind {
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            DeviceKind::Mac => "mac",
+            DeviceKind::Phone => "phone",
+        }
+    }
+
+    pub fn from_wire(word: &str) -> Option<DeviceKind> {
+        match word {
+            "mac" => Some(DeviceKind::Mac),
+            "phone" => Some(DeviceKind::Phone),
+            _ => None,
+        }
+    }
+}
+
+/// Another device of the same account on a store, as `GET /v1/peers` lists it: **the store's word that it is
+/// his**, and the key its requests to his other devices are signed with.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorePeer {
+    pub device: String,
+    pub machine: String,
+    pub kind: DeviceKind,
+    /// The origin it put as its presence, or empty where it put none.
+    pub address: String,
+    /// Base64 of its SPKI, as it enrolled.
+    pub public_key: String,
+}
+
 pub trait Store {
     /// Take the thing if nobody holds it. **One call, answered atomically by the
     /// store**: of two machines racing, the first wins and the other is told who.
@@ -351,6 +388,13 @@ pub trait Store {
     /// Every device signed in to the store this one signs into, oldest first: the account's on a store
     /// of one's own, every member's on a team store.
     fn signed_in_devices(&self) -> Result<Vec<StoreDevice>, StoreError>;
+
+    /// The other devices of this one's own account, oldest enrolment first, never another member's on a team
+    /// store.
+    fn peers(&self) -> Result<Vec<StorePeer>, StoreError>;
+
+    /// Say what this device is and where it is reached: `address` is an `https://` origin, or empty for none.
+    fn put_presence(&self, kind: DeviceKind, address: &str) -> Result<(), StoreError>;
 
     /// Replace every run the store holds for a repository. The caller has read and merged first, so
     /// a fact another machine added stays. An empty list leaves the store holding none.

@@ -7,7 +7,7 @@
 //! **This file is the record.** The answers are in [`shapes`](super::shapes)
 //! and the surfaces are the modules below, one per trait.
 
-mod accounts;
+pub(crate) mod accounts;
 mod judge;
 mod app_runs;
 mod authoring;

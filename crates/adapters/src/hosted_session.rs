@@ -74,6 +74,10 @@ const OWN_SKILLS: &str = "armada:";
 /// `docs/contracts/agent-prompt.md`, *The session rules*.
 pub const SESSION_RULES: &str = include_str!("session_rules.md");
 
+/// The Operator's rules: what it watches, how it puts a decision to him on a card, and what it may do
+/// unasked. Told in place of [`SESSION_RULES`] to the Operator's own session and to no other.
+pub const OPERATOR_RULES: &str = include_str!("operator_rules.md");
+
 /// What a Job is told of its own id. **Here and not only in the mod's `armadaSession` note**, because
 /// an organization's Claude Code can pass over the mod's prompt hooks, and a start argument is
 /// Fleet's own. `docs/contracts/agent-prompt/5f-the-job-rules.md`.
@@ -118,6 +122,8 @@ pub struct HostedLaunch {
     skills_off: Vec<String>,
     /// Whether the CLI is asked for its thinking summaries.
     thinking_summaries: bool,
+    /// The Operator's own session, told [`OPERATOR_RULES`] where a Job is told [`SESSION_RULES`].
+    operator: bool,
 }
 
 impl HostedLaunch {
@@ -185,6 +191,7 @@ impl HostedLaunch {
             compaction_window: None,
             skills_off: Vec::new(),
             thinking_summaries: false,
+            operator: false,
         })
     }
 }
@@ -238,6 +245,12 @@ impl HostedLaunch {
     /// Measured on 2.1.310.
     pub fn limited_to(mut self, models: &[String]) -> HostedLaunch {
         self.models = models.to_vec();
+        self
+    }
+
+    /// This is the Operator's session: its system prompt carries the Operator's rules and not a Job's.
+    pub fn as_operator(mut self) -> HostedLaunch {
+        self.operator = true;
         self
     }
 
@@ -384,7 +397,8 @@ impl HeadlessAgent {
         ];
         // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note and a fork's note add to them.
         let named = job_named(&hosted.session);
-        let told: Vec<&str> = [Some(SESSION_RULES.trim()), Some(named.as_str()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
+        let rules = if hosted.operator { OPERATOR_RULES } else { SESSION_RULES };
+        let told: Vec<&str> = [Some(rules.trim()), Some(named.as_str()), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()
             .flatten()
             .collect();

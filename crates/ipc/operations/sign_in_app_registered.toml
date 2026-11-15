@@ -1,0 +1,12 @@
+[operations.sign_in_app_registered]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Where the forge sends the browser back after registering the sign-in app: the app's client id is kept, and the browser goes on to its settings page"
+notes = """
+`GET /accounts/sign_in_app/registered?code=&state=`. **A `GET` because the forge's redirect is one**, and it changes a setting: it is the second half of `register_sign_in_app`, and does nothing without a state that command issued. The state is used up before the forge is asked, so a second visit with it is refused whatever the first came to.
+
+Fleet converts `code` with the forge, writes the app's client id into `account.clientId` as a save of settings would, and answers 303 to the app's settings page on the forge, where the person turns the device flow on: the one thing a manifest cannot set. **The client secret, private key and webhook secret the forge answers with are never read**, so none reaches a file, a log, a setting or this answer.
+
+Refused, as plain text a person reads in the browser: 422 `fleet.sign_in_app_state_unknown` for a state Fleet did not issue, one used or one past its hour, converting nothing; 422 `fleet.sign_in_app_not_registered` where the forge would not convert the code or could not be reached, in its words, leaving `account.clientId` as it was; and 400 for a missing `code` or `state`. `agent_access` is `No`.
+"""

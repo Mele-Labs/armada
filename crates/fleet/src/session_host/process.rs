@@ -64,6 +64,8 @@ pub struct Start {
     /// Whether the process is asked for its thinking summaries: `harness.thinkingSummaries` as it
     /// stood when the process started.
     pub thinking_summaries: bool,
+    /// The Operator's own session, told the Operator's rules in place of a Job's.
+    pub operator: bool,
 }
 
 /// What a process says, in the order it said it.
@@ -316,6 +318,10 @@ impl Processes for ProcessHost {
         let hosted = match &start.note {
             Some(note) => hosted.noting(note),
             None => hosted,
+        };
+        let hosted = match start.operator {
+            true => hosted.as_operator(),
+            false => hosted,
         };
         let hosted = match start.connectors {
             true => hosted,

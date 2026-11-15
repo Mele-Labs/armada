@@ -427,8 +427,6 @@ impl TitleBar {
     pub(super) fn link_layer(&self, look: &Look, room: Bounds<Pixels>, cx: &Context<Self>) -> Option<AnyElement> {
         let panel = self.link.panel.as_ref()?;
         let (ink, ground) = tone_of(Some(panel.tone), look);
-        // The dim starts under the title row, which stays live: its face and menu still answer.
-        let top = self.at.row.get().map_or(px(0.), |row| (row.origin.y + row.size.height - room.origin.y).max(px(0.)));
         let width = (look.length(token::W_DIALOG_WIDE) + look.length(token::SPACE_8) * 2.).min(room.size.width - look.length(token::SPACE_6) * 2.);
         let head_glyph: AnyElement = match panel.tone {
             Tone::Restarting => spinner("link-panel-turning", look.length(token::SPACE_4), ink, cx).into_any_element(),
@@ -538,7 +536,7 @@ impl TitleBar {
         let (left_note, right_note) = if panel.act.is_some() { (note, None) } else { (None, note) };
         let log = panel.log.map(|_| {
             let button = self
-                .panel_button("link-panel-open-log", "Open log", glyph("file-text", look.length(token::SPACE_4), look.color(token::FG_DEFAULT)).into_any_element(), None, &self.link.log_focus, look)
+                .panel_button("link-panel-open-log", "Open log", Some(glyph("file-text", look.length(token::SPACE_4), look.color(token::FG_DEFAULT)).into_any_element()), None, &self.link.log_focus, look)
                 .on_click(cx.listener(|this, _, _, cx| this.open_log(cx)));
             labelled(button, Role::Button, "Open log").into_any_element()
         });
@@ -551,7 +549,7 @@ impl TitleBar {
             } else {
                 glyph(act.glyph(), look.length(token::SPACE_4), ink).into_any_element()
             };
-            let mut button = self.panel_button(SharedString::from(format!("link-panel-{}", act.glyph())), label, mark, Some((ink, ground)), &self.link.act_focus, look);
+            let mut button = self.panel_button(SharedString::from(format!("link-panel-{}", act.glyph())), label, Some(mark), Some((ink, ground)), &self.link.act_focus, look);
             if !pending {
                 button = button.child(kbd("⏎", look)).cursor_pointer().on_click(cx.listener(move |this, _, _, cx| this.panel_pressed(act, cx)));
             }
@@ -593,12 +591,19 @@ impl TitleBar {
             Role::Dialog,
             panel.title,
         );
+        Some(self.dim_over("link-panel-scrim", look, room, card.into_any_element()))
+    }
+
+    /// The dim below the title row with `card` in its middle: the Fleet panel's and the crash panel's own ground.
+    pub(super) fn dim_over(&self, id: &'static str, look: &Look, room: Bounds<Pixels>, card: AnyElement) -> AnyElement {
+        // The dim starts under the title row, which stays live: its face and menu still answer.
+        let top = self.at.row.get().map_or(px(0.), |row| (row.origin.y + row.size.height - room.origin.y).max(px(0.)));
         // The design fades the screen and then lays black at 0.55 over it. The scrim token is the fade;
         // the overlay shadow's black is the 0.55. Either alone leaves the dark theme's list near full
         // strength, and a screen that is not live has to read as off.
         let black = look.shadows(token::SHADOW_OVERLAY).first().map(|layer| layer.color);
         let scrim = div()
-            .id("link-panel-scrim")
+            .id(id)
             .absolute()
             .top(top)
             .left_0()
@@ -607,15 +612,13 @@ impl TitleBar {
             .bg(look.color(token::SCRIM))
             .occlude()
             .child(div().size_full().flex().items_center().justify_center().when_some(black, |dim, black| dim.bg(black)).child(card));
-        Some(
-            deferred(anchored().position(room.origin).anchor(Anchor::TopLeft).child(div().relative().w(room.size.width).h(room.size.height).child(scrim)))
-                .with_priority(LAYER)
-                .into_any_element(),
-        )
+        deferred(anchored().position(room.origin).anchor(Anchor::TopLeft).child(div().relative().w(room.size.width).h(room.size.height).child(scrim)))
+            .with_priority(LAYER)
+            .into_any_element()
     }
 
     /// A button of the foot: in the state's colours where `tone` is given, else plain.
-    fn panel_button(&self, id: impl Into<gpui::ElementId>, label: &'static str, mark: AnyElement, tone: Option<(Hsla, Hsla)>, focus: &FocusHandle, look: &Look) -> Stateful<Div> {
+    pub(super) fn panel_button(&self, id: impl Into<gpui::ElementId>, label: &'static str, mark: Option<AnyElement>, tone: Option<(Hsla, Hsla)>, focus: &FocusHandle, look: &Look) -> Stateful<Div> {
         let (ink, ground, edge) = match tone {
             Some((ink, ground)) => (ink, ground, ink),
             None => (look.color(token::FG_DEFAULT), look.color(token::BG_HOVER), look.color(token::BORDER_DEFAULT)),
@@ -645,7 +648,7 @@ impl TitleBar {
             .text_color(ink)
             .focus(move |style| style.shadow(rings))
             .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
-            .child(mark)
+            .children(mark)
             .child(label)
     }
 

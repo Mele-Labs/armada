@@ -650,6 +650,38 @@ pub trait Sessions: Send + Sync + 'static {
         conflict: ipc::RaiseConflict,
     ) -> impl Future<Output = Result<ipc::ConflictRaised, Refusal>> + Send;
 
+    /// `raise_card` — the Operator's own session puts one decision in front of the person. `caller` places the
+    /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a caller that is not the Operator's session,
+    /// a card with fewer than two or more than four options, an option with no label or no cost, or a title or read
+    /// that is empty.
+    fn raise_card(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        card: ipc::RaiseCard,
+    ) -> impl Future<Output = Result<ipc::CardRaised, Refusal>> + Send;
+
+    /// `revise_card` — the Operator changes what an open card says. Refused as `raise_card` is, and
+    /// [`Refusal::NotFound`] where no open card has the id.
+    fn revise_card(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        revise: ipc::ReviseCard,
+    ) -> impl Future<Output = Result<ipc::CardRevised, Refusal>> + Send;
+
+    /// `settle_card` — the Operator settles an open card, and says how. Refused as `raise_card` is, and
+    /// [`Refusal::NotFound`] where no open card has the id.
+    fn settle_card(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        settle: ipc::SettleCard,
+    ) -> impl Future<Output = Result<ipc::OperatorCardSettled, Refusal>> + Send;
+
+    /// `list_operator_acts` — what the Operator may do unasked in each project.
+    fn list_operator_acts(&self) -> impl Future<Output = Result<ipc::OperatorActsList, Refusal>> + Send;
+
+    /// `set_operator_acts` — one project's value, or unset. [`Refusal::NotFound`] for a project he has none of.
+    fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> impl Future<Output = Result<ipc::OperatorActsList, Refusal>> + Send;
+
     /// `ask_held` — the agent asks whether a pull request or a branch should land. `caller` places a hosted
     /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
     /// neither or both of `pull` and `branch`, or one the Job's repository does not have.

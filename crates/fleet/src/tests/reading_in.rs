@@ -173,6 +173,7 @@ async fn a_thread_on_your_words(fleet: &Arc<Reading>, manifest: &str, said: &[(i
             from_job: None,
             from_tab: None,
             mod_of_bay: false,
+            operator: false,
             side_job: false,
             terminal_dir: None,
         })

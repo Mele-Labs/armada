@@ -1,5 +1,5 @@
-//! What a project's settings say beyond its file: a `delivery` Fleet learned from the person's first answer, and
-//! what a value the project overrides would be without it. `docs/practices/protocol/projects.md`, *Values*.
+//! What a project's settings say beyond its file: a `delivery` Fleet learned from the person's first answer, what the
+//! Operator may do there unasked (`operator_acts`), and what a value the project overrides would be without it. `docs/practices/protocol/projects.md`, *Values*.
 //!
 //! **The learned note is never in the project's file**: it is a row in the store, kept when the learning writes
 //! the file and dropped as soon as a write by another path leaves the key absent or a different word.
@@ -12,8 +12,10 @@ use ipc::ManifestId;
 use crate::daemon::Fleet;
 use crate::values::resolved_wire;
 
-/// The key of the one value Fleet learns.
+/// The key of `delivery`, the value Fleet learns from a project's file.
 pub(crate) const LEARNED_KEY: &str = "delivery";
+/// The key of what the Operator may do unasked in a project. **Learned only**: no file of the project names it.
+pub(crate) const OPERATOR_ACTS_KEY: &str = "operator_acts";
 
 /// Where `value` came from the project, the answer below it: its word and layer, `default` where no layer below
 /// sets a word.
@@ -90,10 +92,10 @@ where
         Ok(wire)
     }
 
-    /// Keep that `project`'s delivery was learned as `word`.
-    pub(crate) async fn project_learned_kept(&self, project: &str, word: &str) {
+    /// Keep that `project`'s `key` was learned as `word`.
+    pub(crate) async fn project_learned_kept(&self, project: &str, key: &str, word: &str) {
         let at = self.now();
-        if let Err(why) = self.store().lock().await.keep_project_learned(project, LEARNED_KEY, word, at.as_str()) {
+        if let Err(why) = self.store().lock().await.keep_project_learned(project, key, word, at.as_str()) {
             self.values_warned("what a project learned was not kept", Some(project), format!("{why:?}"));
         }
     }
@@ -109,5 +111,49 @@ where
         if let Err(why) = store.clear_project_learned(project, LEARNED_KEY) {
             self.values_warned("what a project learned was not cleared", Some(project), format!("{why:?}"));
         }
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// What the Operator may do unasked in each of his projects, `acts` absent where he has not said.
+    pub(crate) async fn operator_acts_listed(&self) -> Result<ipc::OperatorActsList, Refusal> {
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        let projects = self.projects_on_the_wire(kept).await.projects;
+        let store = self.store().lock().await;
+        let projects = projects
+            .into_iter()
+            .map(|one| {
+                let acts = store.project_learned(&one.id, OPERATOR_ACTS_KEY).ok().flatten().and_then(|word| ipc::OperatorActs::from_wire(&word));
+                ipc::ProjectOperatorActs { project: one.id, name: one.name, acts }
+            })
+            .collect();
+        Ok(ipc::OperatorActsList { projects })
+    }
+
+    /// One project's value, or unset where `acts` is absent. Refused for a project he has none of.
+    pub(crate) async fn operator_acts_set(&self, set: ipc::SetOperatorActs) -> Result<ipc::OperatorActsList, Refusal> {
+        let known = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        if !self.projects_on_the_wire(known).await.projects.iter().any(|one| one.id == set.project) {
+            return Err(Refusal::NotFound(ipc::WireError::raised(crate::projects::NO_SUCH_PROJECT, format!("there is no project {}", set.project), self.run_id())));
+        }
+        match set.acts {
+            Some(acts) => self.project_learned_kept(&set.project, OPERATOR_ACTS_KEY, acts.as_wire()).await,
+            None => {
+                if let Err(why) = self.store().lock().await.clear_project_learned(&set.project, OPERATOR_ACTS_KEY) {
+                    return Err(self.ledger_fault(why));
+                }
+            }
+        }
+        self.operator_page_changed();
+        self.operator_acts_listed().await
     }
 }

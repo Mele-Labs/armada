@@ -62,6 +62,8 @@ Through the door the answer is a receipt of `session_id` and `sketch`.
 
 **Every sketch shown is put to the person on its card**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
 He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
+A note that only names one of the sketch's takes, such as `B` or `Take 2`, is a pick: it settles the sketch as approved and tells the job which take to go on from.
+A take is named by the lead of a mock's, a screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id, in a sketch of two or more mocks or screens.
 Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiting on the person](waiting-on-the-person.md)); the job never lists it in `waiting_for`.
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
