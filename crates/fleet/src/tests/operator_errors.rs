@@ -27,7 +27,7 @@ fn card(code: &str, message: &str, job: Option<&str>) -> ReportBridgeError {
 fn what_differs_between_two_of_the_same_fault_is_not_in_its_fingerprint() {
     let same = |one: &str, other: &str| assert_eq!(fingerprint("c", one), fingerprint("c", other), "{one} / {other}");
     same("Build failed: restart exited 1", "Build failed: restart exited 137");
-    same("Cannot read /Users/nick/a/run.log", "Cannot read /tmp/b.log");
+    same("Cannot read /Users/user/a/run.log", "Cannot read /tmp/b.log");
     same("Worktree 01JABC123XYZ is gone", "Worktree 01JQQQ999ZZZ is gone");
     same("Commit deadbeef12 is missing", "Commit cafebabe99 is missing");
     same("Retry 3 of 5 failed", "Retry 4 of 5 failed");
