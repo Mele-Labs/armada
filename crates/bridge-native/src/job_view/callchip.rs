@@ -72,25 +72,11 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::job_view::parts_fold::redraw;
 
     /// A thread at its tail with a plan set aside and a sketch pinned after it, on a window tall enough for the card.
     #[gpui::test]
     fn the_height_a_pinned_sketch_is_cut_to_settles_while_the_chip_may_come_and_go(cx: &mut gpui::TestAppContext) {
-        cx.update(|cx| {
-            gpui_component::init(cx);
-            crate::look::init(cx);
-        });
-        let jobs = crate::mock::jobs("thread-jump").expect("the fixture decodes");
-        let threads = crate::mock::threads("thread-jump").expect("the threads decode");
-        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
-        let (view, cx) = cx.add_window_view({
-            let list = list.clone();
-            move |window, cx| JobView::new(list, Some(threads), window, cx)
-        });
-        cx.simulate_resize(gpui::size(gpui::px(1624.), gpui::px(1061.)));
-        list.update(cx, |list, cx| list.open("tool-edit".into(), cx));
-        redraw(cx);
+        let (view, cx) = crate::job_view::parts_fold::rooted_job(cx, "thread-jump", "tool-edit", gpui::size(gpui::px(1624.), gpui::px(1061.)), |_| {});
         let mut heights = Vec::new();
         let mut chips = Vec::new();
         for _ in 0..24 {

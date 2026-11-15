@@ -72,7 +72,7 @@ mod page_tab;
 mod parts_card;
 mod parts_fold;
 mod parts_reader;
-mod live_line;
+mod live_pill;
 mod page_sketches;
 mod reader;
 mod reader_draw;
@@ -1304,7 +1304,6 @@ impl Render for JobView {
                 .children(origin)
                 .children(find)
                 .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
-                .children(self.render_live_line(&id, cx))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()

@@ -271,20 +271,45 @@ impl JobView {
 /// The folds' Job on screen in a window tall enough to draw its whole thread, its thread read and drawn.
 #[cfg(test)]
 pub(super) fn folds_job<'a>(cx: &'a mut gpui::TestAppContext, tune: impl FnOnce(&mut Vec<ipc::SessionRecord>)) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+    rooted_job(cx, "artifact-folds", crate::mock_parts::JOB, gpui::size(gpui::px(1400.), gpui::px(6000.)), tune)
+}
+
+/// A window's one view, drawn under the label root as the app draws it: the book of what was drawn is cleared each frame,
+/// so a test can ask that something is not drawn.
+#[cfg(test)]
+pub(super) struct Rooted(gpui::Entity<JobView>);
+
+#[cfg(test)]
+impl gpui::Render for Rooted {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        crate::labels::label_root(div().size_full().child(self.0.clone()))
+    }
+}
+
+/// A scenario's Job on screen at `size` under the label root, its thread read and drawn.
+#[cfg(test)]
+pub(super) fn rooted_job<'a>(
+    cx: &'a mut gpui::TestAppContext,
+    scenario: &str,
+    job: &str,
+    size: gpui::Size<gpui::Pixels>,
+    tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
+) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
     });
-    let mut jobs = crate::mock::jobs("artifact-folds").expect("the fixture decodes");
+    let mut jobs = crate::mock::jobs(scenario).expect("the fixture decodes");
     tune(&mut jobs);
-    let threads = crate::mock::threads("artifact-folds").expect("the threads decode");
+    let threads = crate::mock::threads(scenario).expect("the threads decode");
     let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
-    let (view, cx) = cx.add_window_view({
+    let (root, cx) = cx.add_window_view({
         let list = list.clone();
-        move |window, cx| JobView::new(list, Some(threads), window, cx)
+        move |window, cx| Rooted(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
     });
-    cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
-    list.update(cx, |list, cx| list.open(crate::mock_parts::JOB.into(), cx));
+    let view = root.read_with(cx, |root, _| root.0.clone());
+    cx.simulate_resize(size);
+    list.update(cx, |list, cx| list.open(job.into(), cx));
     redraw(cx);
     (view, cx)
 }
@@ -453,34 +478,5 @@ mod tests {
             let kind = if form == ArtifactForm::Page { RowKind::Document } else { RowKind::Draft };
             view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == kind), "a {form:?} opens in its own tab"));
         }
-    }
-
-    #[gpui::test]
-    fn the_live_line_says_what_the_job_is_doing_above_the_composer(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |_| {});
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx).as_deref(), Some("Reading page_votes.rs")));
-        assert!(drawn(cx, Role::Status, "Now: Reading page_votes.rs"));
-    }
-
-    #[gpui::test]
-    fn the_live_line_is_hidden_when_the_job_is_idle(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |jobs| {
-            let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
-            one.mark = Some(ipc::JobMark { state: ipc::JobState::Idle, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Held });
-            one.hosted = None;
-        });
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx), None));
-        assert!(drawn_like(cx, Role::Status, "Now: ").is_empty());
-    }
-
-    #[gpui::test]
-    fn the_live_line_is_hidden_while_the_job_waits_on_him(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |jobs| {
-            let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
-            one.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
-            one.hosted = None;
-        });
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx), None));
-        assert!(drawn_like(cx, Role::Status, "Now: ").is_empty());
     }
 }
