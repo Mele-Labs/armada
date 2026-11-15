@@ -147,7 +147,8 @@ how he gets there, at most nine, each a `say` as he reads it and, where an act t
 its `act` id: a `[actions.<id>]` table in `crates/core-model/domain/actions.toml` as your branch
 holds it, so an act the branch adds counts. His preview opens an In this build sheet with one
 note a Job: the look, the steps with each act's key and a Go press that runs it, a feedback box
-that sends to your thread, and Looked at.
+that sends to your thread, and Good and Needs work. Good tells you the work is fine. Needs work
+tells you to wait: his words on it follow as a message.
 
 ```json
 {

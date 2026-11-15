@@ -1202,8 +1202,8 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
-| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at}` and a step is `{say, act?}` |
-| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
+| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at, verdict?}`, `verdict` `good` or `needs_work`, and a step is `{say, act?}` |
+| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip, verdict? }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
 | `build_notes.changed` | Fleet writes, Bridge reads | `BuildNotes`, whole, published when the answer differs from the last one sent |
 | Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
 
