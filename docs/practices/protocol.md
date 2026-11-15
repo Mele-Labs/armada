@@ -191,6 +191,7 @@ WebSocket event stream, read this first.
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
+| [An aside to a Job: `ask_aside`, `list_asides`, `tell_aside`, `session.aside`](protocol/an-aside-to-a-job.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |

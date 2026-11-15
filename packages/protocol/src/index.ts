@@ -72,6 +72,7 @@ export * from "./pull-requests";
 export * from "./pull-review-memory";
 export * from "./pull-reviews";
 export * from "./judge";
+export * from "./asides";
 export * from "./review-runs";
 export * from "./review-walks";
 export * from "./issues";

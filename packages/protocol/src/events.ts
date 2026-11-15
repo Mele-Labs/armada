@@ -35,6 +35,7 @@ import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
 import type { JobThreadChanged, JobThreadTail } from "./job-thread";
 import type { KeepDraftsChanged } from "./job-copy";
+import type { Aside } from "./asides";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioJobActed } from "./studio";
@@ -151,6 +152,10 @@ export type Event =
   | ({
       kind: "session.row";
     } & SessionRowChanged)
+  /** One aside of a Job, whole, as its answer grows, ends or is told: replace the one held by `aside_id`. Since 15 Nov 2026. */
+  | ({
+      kind: "session.aside";
+    } & Aside)
   /** A subagent's own thread moved: read `get_session_subagent` again with its `subagent_id`. */
   | ({
       kind: "session.subagent";
