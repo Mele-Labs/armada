@@ -455,7 +455,7 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
 
 /// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
 /// by its kind where its words do not. Otherwise what it is doing now, or what it last summed up.
-fn now_of(job: &SessionRecord) -> Option<String> {
+pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
     let waits = job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let waiting = job.waiting_for.iter().find(|item| item.source != WaitingSource::Done).filter(|_| waits).map(|item| {
         let kind = match item.source {

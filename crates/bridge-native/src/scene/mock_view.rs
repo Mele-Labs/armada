@@ -397,6 +397,54 @@ fn html_body(page: &str) -> String {
     page.get(start..end.max(start)).unwrap_or_default().to_string()
 }
 
+/// A walk's stand-in for a whole page's first screen, which no web view lays out there: a heading, a line under it, one
+/// card for each part the page reports and the page's buttons, drawn `width` points across at `scale` pixels to the point,
+/// so a well that fits it never magnifies it. Answers the picture and its height in points.
+fn page_stand_in(width: f32, scale: f32, dark: bool, blocks: usize) -> (Arc<RenderImage>, f32) {
+    let height = (width * 0.7).round();
+    let (across, down) = ((width * scale).round().max(1.) as u32, (height * scale).round().max(1.) as u32);
+    let (ground, card, ink, quiet, accent) = if dark {
+        ([14u8, 17, 23], [24u8, 29, 38], [226u8, 231, 238], [96u8, 106, 120], [74u8, 144, 226])
+    } else {
+        ([250, 251, 252], [255, 255, 255], [28, 33, 40], [170, 178, 190], [37, 99, 235])
+    };
+    let mut image = image::RgbaImage::from_pixel(across, down, image::Rgba([ground[0], ground[1], ground[2], 255]));
+    let mut fill = |x: f32, y: f32, w: f32, h: f32, rgb: [u8; 3]| {
+        let (x0, y0) = ((x * scale) as u32, (y * scale) as u32);
+        let (x1, y1) = ((((x + w) * scale) as u32).min(across), (((y + h) * scale) as u32).min(down));
+        for py in y0..y1 {
+            for px in x0..x1 {
+                image.put_pixel(px, py, image::Rgba([rgb[0], rgb[1], rgb[2], 255]));
+            }
+        }
+    };
+    let margin = width * 0.05;
+    let wide = width - margin * 2.;
+    fill(margin, margin, wide * 0.34, 22., ink);
+    fill(margin, margin + 34., wide * 0.58, 8., quiet);
+    let rows = blocks.clamp(2, 4);
+    let top = margin + 64.;
+    let room = (height - top - margin - 36.).max(40.);
+    let each = (room / rows as f32).min(86.);
+    for row in 0..rows {
+        let y = top + each * row as f32;
+        fill(margin, y, wide, each - 10., card);
+        fill(margin + 16., y + 14., wide * 0.22, 9., ink);
+        fill(margin + 16., y + 32., wide * 0.6, 7., quiet);
+        if each > 64. {
+            fill(margin + 16., y + 46., wide * 0.45, 7., quiet);
+        }
+    }
+    let y = (top + each * rows as f32 + 2.).min(height - margin - 24.);
+    for chip in 0..3 {
+        fill(margin + (wide * 0.14 + 12.) * chip as f32, y, wide * 0.14, 24., accent);
+    }
+    for pixel in image.pixels_mut() {
+        pixel.0.swap(0, 2);
+    }
+    (Arc::new(RenderImage::new(vec![image::Frame::new(image)])), height)
+}
+
 /// A walk's web view: every page is the fixture picture, as tall as its shape gives at the width asked.
 pub fn hold_walk(cx: &mut App) {
     let fixture = include_bytes!("../../fixtures/mock-chip.png");
@@ -410,11 +458,13 @@ pub fn hold_walk(cx: &mut App) {
         }
         Arc::new(RenderImage::new(vec![image::Frame::new(bgra)]))
     };
-    let painter: Painter = Rc::new(move |html, width, _scale, _appearance, cx: &mut App| {
+    let painter: Painter = Rc::new(move |html, width, scale, appearance, cx: &mut App| {
         let _ = cx;
-        let height = (width * down / across).round();
-        // No web view lays the page out, so its parts stand one under another, each a share of the picture's height.
+        // A whole page, as a card's first screen is, has a picture of a page's size; a node's words a small one.
+        let page = html.trim_start().to_ascii_lowercase().starts_with("<!doctype");
         let outline = super::mock_page::outline(&html_body(&html));
+        let (image, height) = if page { page_stand_in(width, scale, appearance == Appearance::Dark, outline.len()) } else { (image.clone(), (width * down / across).round()) };
+        // No web view lays the page out, so its parts stand one under another, each a share of the picture's height.
         let share = height / outline.len().max(1) as f32;
         let parts = outline.into_iter().enumerate().map(|(at, one)| PagePart { key: one.key, label: one.label, x: 0., y: share * at as f32, w: width, h: share, depth: one.depth }).collect();
         Task::ready(Ok((image.clone(), height, Arc::new(parts))))

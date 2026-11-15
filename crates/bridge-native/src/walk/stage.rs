@@ -254,7 +254,7 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
         // The walk window has pressed in the page already, and waited for it (`WalkWindow::play_to`).
-        Verb::Look | Verb::Later(_) | Verb::InPage(_) => Ok(()),
+        Verb::Look | Verb::Later(_) | Verb::InPage(_) | Verb::InPageSelect(_) => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
         Verb::Fresh | Verb::FreshIn(..) | Verb::Reopen => Ok(()),
         Verb::Width(points) => {
