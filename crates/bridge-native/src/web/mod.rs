@@ -24,5 +24,5 @@ mod render;
 mod wk;
 
 pub use page::{after_frame, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
-pub use render::{render_html, Appearance};
+pub use render::{render_html, Appearance, PagePart};
 pub use wk::{in_use, pending, pump};
