@@ -15,7 +15,7 @@ The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `packages/p
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`. Gains `feed`, `session_id`, each project's `operator_acts` and `working`. `turn` is the card in front, then the Waiting cards; `working` is the cards he picked that are not settled |
+| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`. Gains `feed`, `session_id`, each project's `operator_acts` and `working`. `turn` is the card in front, then the cards queued behind it; `working` is the cards he picked that are not settled |
 | `raise_card` (`POST /operator/cards`) | The Operator's session writes | `RaiseCard` `{ kind, title, read, options, sessions?, repository?, talk_of? }`. Answers `CardRaised` `{ card }` |
 | `revise_card` (`POST /operator/cards/revise`) | The Operator's session writes | `ReviseCard` `{ card, read?, options? }`. Answers `CardRevised` `{ card }` |
 | `report_card` (`POST /operator/cards/report`) | The Operator's session writes | `ReportCard` `{ card, step?, failed? }`, exactly one of `step` and `failed`. Answers `CardRevised` `{ card }` |
@@ -41,7 +41,7 @@ A card has two to four options, and each has a `cost`.
 `talk_of` names the card a new one follows from, so a talk that ends in a new card is one thread.
 
 **Every later act names the card.**
-`revise_card`, `report_card` and `settle_card` name it, and so do his press, Later and the composer.
+`revise_card`, `report_card` and `settle_card` name it, and so do his press, Snooze and the composer.
 `revise_card` changes the read or the options of a card that stands, and the same card stays in front.
 `settle_card` closes it with `said`, what he chose or what was done, and it leaves the page.
 
@@ -54,16 +54,16 @@ A card raised before these fields reads as not picked.
 
 ## The page
 
-**`turn` is the card in front, then the Waiting cards.**
-The first element is the card in front, and the rest are queued behind it, with a card he sent back by Discuss later left out until its time.
-The head draws the count of the rest as Waiting and opens their list.
+**`turn` is the card in front, then the cards queued behind it.**
+The first element is the card in front, and the rest are queued behind it, with a card he sent back by Snooze left out until its time.
+The right side draws them as Next up, folded, with their count beside it and the ideas the Operator kept after them, and opens their list.
 A press on one brings it to the front.
 A card has what it was raised with, its `id`, when it was raised, and `later_until` while it is sent back.
 It carries no count of other cards.
 
 **`working` is the cards he picked that are not settled, newest pick first.**
 Bridge draws each at the top of the feed, with its title, `picked.option` and a line for each of `steps`.
-A Later does not hide one.
+A Snooze does not hide one.
 **A picked card is never lost**: until it is settled it is in `working` or back in `turn`.
 
 **A picked card comes back first in `turn`.**
@@ -85,7 +85,7 @@ Both are read from what Fleet already keeps, so the page makes no call and adds 
 
 ## What his hands do
 
-**His press, Later and each composer send reach the session as messages that name the card.**
+**His press, Snooze and each composer send reach the session as messages that name the card.**
 Fleet writes the message and puts it in the Operator's session, and the Operator acts on it.
 There is no answer that does the pick for him, no Always and no rule kept: a press is a message, and the Operator does what the option said and settles the card.
 **A press also picks the card**: it leaves `turn` for `working`, so the next card is in front at once.
@@ -95,7 +95,7 @@ A press on a card that is in `working` is refused with `fleet.operator_answer_no
 | --- | --- |
 | Presses an option, or keys 1 to 4 | The card and the option, and to act now: report each step, settle when done, report `failed` the moment it cannot be done |
 | Presses Discuss (`/`) and sends | The card and his words. The card folds to one line and the talk runs below it |
-| Presses Discuss later (`L`) | The card and when it comes back. The card is hidden until then |
+| Presses Snooze (`S`) | The card and when it comes back. The card is hidden until then |
 
 **A talk ends by settling the card or putting up a new one.**
 Until then the page keeps the card folded in front, and the talk below it.
@@ -121,18 +121,16 @@ A Job's question stays in that Job's own Needs you and is not sent.
 
 ## The event stream
 
-`operator.page_changed` is sent when a card is raised, revised, picked, reported on, returned or settled, when a card goes Later or comes back, when the feed gains an entry, when a project's value changes, and when a repository's main turns red or green.
+`operator.page_changed` is sent when a card is raised, revised, picked, reported on, returned or settled, when a card is snoozed or comes back, when the feed gains an entry, when a project's value changes, and when a repository's main turns red or green.
 It is not sent when the slot count moves, since Bridge reads `slots` with the page.
 It carries nothing beyond the stream's cursor: Bridge reads `operator_page` again.
 A client that missed one reads the page again on reconnecting.
 
 ## What goes from the wire
 
-These left with the old machinery: `operator_undo_ruling` (its route and its operation), `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion` and `read_thought`, each now answered 404.
-`operator_answer` stays for a press on a card, a red main or a disk hold, and refuses Always here and Always with `fleet.operator_answer_not_offered`.
-The Then offers, `follows`, `ruled`, `learned`, `handled.acts` and the per-item review's read on an item stay on the wire as plain fields, always empty or absent, so a client that reads them still decodes the page.
-`kind` on a dispatch is a plain field that picks nothing.
-`operator_later` is replaced by Discuss later as a message naming the card.
+These leave with the old machinery, and a later change removes them: `operator_answer` and its Yes, Always here, Always and No, `operator_undo_ruling`, `operator_turn_order`, the Then offers, `follows` and `ruled`, the kind-chip hint on a dispatch, and the per-item review's read and pick on an item.
+Until then each behaves as it does now.
+`operator_later` is replaced by Snooze as a message naming the card.
 
 ## Skew
 

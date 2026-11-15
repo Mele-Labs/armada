@@ -533,6 +533,18 @@ destructive = false
 confirms = false
 notes = "Puts the call in front at the back of the stack of waiting calls. `Esc` does the same while a call is in front, and is not a second row because `Esc` is the Global close above and means the same thing there: step back from what is in front."
 
+[actions.call_snooze]
+kind = "Action"
+tier = "Contextual"
+verb = "Snooze"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "call"
+destructive = false
+confirms = false
+notes = "On the Operator's page: opens Snooze's menu of when the card in front comes back, and the keys rest on its first choice. The page's own row, so `call_later` keeps `l` in the Classic call pane. Added 14 Nov 2026 on the owner's note that Discuss later is Snooze."
+
 [actions.call_dismiss]
 kind = "Action"
 tier = "Contextual"
