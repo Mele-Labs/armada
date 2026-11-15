@@ -46,7 +46,7 @@
 #
 # **The native Bridge is kept as `Armada.app`**, when a binary is given, made by `scripts/native-app`,
 # which the release makes its app with too: the cargo binary renamed to `Contents/MacOS/Armada`, an
-# `Info.plist`, the brand icon, and an ad hoc signature. `native` in `build.toml` is the first 16 hex
+# `Info.plist`, the brand icon, and the signature `scripts/signing-identity` gives. `native` in `build.toml` is the first 16 hex
 # of one sha256 over the binary and the icon, so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
 # **Launch Services is told a bundle is gone**: `point` runs `lsregister -u` on a pruned build's `Armada.app`
 # first, because a notification press launches whatever bundle it still lists under the bundle id. The live app
@@ -160,6 +160,12 @@ make() {
   rm -rf "$making"
   mkdir -p "$making/bridge"
   clone "$armada_bin" "$making/armada"
+  # Fleet opens Pocket's door to the network, so macOS asks it for Local Network. Signed with a fixed identifier,
+  # and the Mac's certificate where it has one, the grant outlasts the build (`scripts/signing-identity`). The clone
+  # is signed, never the binary it came from. Only a Mac has codesign: CI runs this on Linux.
+  if command -v codesign >/dev/null; then
+    "$here/signing-identity" sign "$making/armada" dev.armada.fleet >/dev/null 2>&1 || fail "could not sign $making/armada"
+  fi
   cp "$src/apps/desktop/package.json" "$making/bridge/package.json"
   clone "$src/apps/desktop/out" "$making/bridge/out"
   # The restart's own stamps say when `out/` was built from that tree, not what it holds.

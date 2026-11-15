@@ -128,12 +128,12 @@ A dry run and `--keep-only` stop no Fleet and run as they are.
 
 **Bridge is launched from a copy of Electron's app named Armada Classic**, made under
 `node_modules/.cache/armada-bridge/` with a changed `Info.plist`, the grey
-`ClassicIcon.icns` in place of Electron's icon, and an ad hoc
-signature (no Apple certificate), and handed to `electron-vite preview` as
+`ClassicIcon.icns` in place of Electron's icon, and the signature
+`scripts/signing-identity` gives (no Apple certificate either way), and handed to `electron-vite preview` as
 `ELECTRON_EXEC_PATH`. That is what puts "Armada Classic" in the menu bar, Dock and app
 switcher of an unpackaged Bridge, apart from the native Armada. The name has a space, so every script quotes the path.
 It is rebuilt only when Electron's version
-changes or the name or icon does.
+changes, the name or icon does, or what signs it does.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
@@ -294,7 +294,22 @@ Electron is kept once per version under `Armada/electron/<version>/`, and `launc
 `scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node apps/desktop/native/voice/build.mjs` when `Armada Voice.app` is missing from `apps/desktop/native/voice/build/` or older than a file in that folder.
 It needs Xcode's command line tools (`swiftc`); where the build fails it prints one line saying so and makes the app without the helper, so Talk falls back to macOS Dictation.
 `NATIVE_APP_TREE` names another tree to build and take the helper from, which `scripts/keep-build` sets to the tree it keeps, so a preview's helper is its own.
-Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed ad hoc.
+Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed by `scripts/signing-identity`.
+
+**Builds are signed with this Mac's own certificate, "Armada Local Signing", where it has one, so macOS remembers what was allowed.**
+macOS keeps a privacy grant, such as Local Network, against an app's designated requirement, and an ad hoc signature's requirement is its code hash, which every build changes, so each new build asked again.
+Signed with the certificate, the requirement is the identifier and the certificate, which stay the same from build to build.
+Fleet is the one that asks for Local Network, since Pocket's door listens on the network and advertises itself over Bonjour, so `scripts/keep-build` signs the kept `armada` binary as `dev.armada.fleet`; `scripts/native-app`, `scripts/armada-electron` and Armada Voice's `build.mjs` sign their apps the same way.
+
+| Command | What it does | Needs | What comes back |
+|---|---|---|---|
+| `scripts/signing-identity` | Makes the certificate and its key in the login keychain, once, then lets `codesign` use the key without a dialog. Run it by hand, once per Mac | Your login password, typed in the terminal | `Done.` and the name, or that it is already there; with no certificate every build is ad hoc as before |
+| `scripts/signing-identity sign <path> [<identifier>]` | Signs with the certificate, else ad hoc. The build scripts run it; a person never needs to | Nothing; it never asks | Nothing on success. Where the keychain is locked it signs ad hoc and says so, rather than `codesign` putting a password dialog on screen |
+| `scripts/signing-identity which` | Prints the certificate's SHA-1, or `-` where there is none | Nothing | A 40-hex hash or `-` |
+
+`codesign -d -r- <app>` shows which: `identifier "dev.armada.bridge.native" and certificate leaf = H"…"` with the certificate, the same on every build, and `cdhash H"…"` ad hoc, different on every build.
+The first build signed with the certificate asks once more, since its requirement is new, and every build after keeps the answer.
+Deleting the certificate in Keychain Access puts builds back to ad hoc.
 `build.toml` holds a `native` hash of the binary and the icon, and a build kept before the native Bridge has neither.
 A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.
 
