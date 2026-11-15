@@ -335,7 +335,7 @@ impl JobView {
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
-    fn parts_typing(&self, artifact: &str, window: &Window, cx: &gpui::App) -> bool {
+    pub(super) fn parts_typing(&self, artifact: &str, window: &Window, cx: &gpui::App) -> bool {
         let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) else { return false };
         let prefix = format!("{artifact}{JOIN}");
         page.cards.parts.notes.iter().any(|(key, input)| key.starts_with(&prefix) && input.read(cx).focus_handle(cx).is_focused(window)) || page.cards.modes.keys().any(|key| key.starts_with(&prefix))

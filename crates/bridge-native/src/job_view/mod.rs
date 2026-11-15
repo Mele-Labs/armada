@@ -429,6 +429,8 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
+    /// The scroll of an artifact's tab body: its parts and the note under one are read by scrolling it.
+    body_scroll: gpui::ScrollHandle,
     /// Where he left off, kept between runs.
     place: place::Place,
     focus: FocusHandle,
@@ -648,6 +650,7 @@ impl JobView {
             view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
+            body_scroll: gpui::ScrollHandle::new(),
             place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
