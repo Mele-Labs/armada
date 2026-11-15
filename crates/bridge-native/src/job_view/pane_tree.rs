@@ -461,7 +461,7 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
 }
 
 /// Today's Job arrangement: the thread, and to its right For you, Open, Done and Deferred as tabs of one pane over Now (Classic's
-/// `defaultArrangement`, with For you first in the column). Open stays in front: For you is read where it is pressed.
+/// `defaultArrangement`, with For you first and in front in the column).
 pub(crate) fn default_arrangement() -> Arrangement {
     build(
         &Shape::split(
@@ -470,7 +470,7 @@ pub(crate) fn default_arrangement() -> Arrangement {
             Shape::pane(&["thread"]),
             Shape::split(Dir::Column, 0.4, Shape::pane(&["for_you", "open", "done", "deferred"]), Shape::pane(&["now"])),
         ),
-        Some("open"),
+        None,
         &[],
     )
 }

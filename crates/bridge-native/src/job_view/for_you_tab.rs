@@ -404,7 +404,7 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(eyebrow(look, part.word()).text_color(hue))
+                    .child(labelled(eyebrow(look, part.word()).id(SharedString::from(format!("for-you-head:{}", part.word()))).px(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(hue), Role::Heading, part.word()))
                     .children(cards),
                 Role::Group,
                 part.word(),
