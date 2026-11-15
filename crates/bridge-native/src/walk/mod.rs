@@ -3375,6 +3375,27 @@ pub static WALKS: &[Walk] = &[
             step("⌘K again: its acts offer Move to Air, with ⌥⌘M", Verb::Key("cmd-k"), "menuitem", "Move to Air"),
         ],
     },
+    Walk {
+        name: "crash-panel",
+        title: "Armada quit on an error",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            scene("Armada quit on an error and reopened: the screen dims below the title row, and one red panel stands in its middle", "crash-panel", "dialog", "Armada quit"),
+            step("The panic and where it was", Verb::Look, "status", "already mutably borrowed: BorrowError, crates/bridge-native/src/toasts/view.rs:412:18"),
+            step("What he had typed is back where it was, each by the place that kept it", Verb::Look, "list", "Kept"),
+            step("The Job gets the crash file and macOS's own report", Verb::Look, "list", "The Job gets"),
+            step("Start a Job to fix it has the keys, so Return presses it", Verb::Look, "button", "Start a Job to fix it"),
+            step("Tab goes to Open crash file", Verb::Key("tab"), "button", "Open crash file"),
+            step("Tab goes to Later", Verb::Key("tab"), "button", "Later"),
+            step("Tab comes back to Start a Job to fix it", Verb::Key("tab"), "button", "Start a Job to fix it"),
+            step("Return presses it: the Job starts with both files, and it opens", Verb::Key("enter"), "tab", "Job column: Open"),
+            step("The panel is gone", Verb::Absent("dialog", "Armada quit"), "tab", "Job column: Open"),
+            scene("Start refused", "crash-panel-refused", "dialog", "Armada quit"),
+            step("Return presses Start a Job to fix it; what Fleet said stands under the files, and the panel stays", Verb::Key("enter"), "status", "Fleet serves no repository named armada"),
+            step("Esc is Later: the panel goes", Verb::Key("escape"), "tab", "Job column: Open"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
