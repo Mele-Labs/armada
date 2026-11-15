@@ -516,11 +516,16 @@ impl JobView {
                 }
             }
             ArtifactForm::Sketch => {
+                // By its ledger id, else by its newest title: a sketch retitled `against` an earlier one keeps the
+                // first title's id while its newest card carries the new title's.
                 let card = self.thread(job, cx).and_then(|held| {
-                    held.items.iter().rev().find_map(|item| match item {
-                        ThreadItem::Sketch(card) if card.sketch == one.id => Some(card.id.clone()),
-                        _ => None,
-                    })
+                    let newest = |hit: &dyn Fn(&ipc::ThreadSketch) -> bool| {
+                        held.items.iter().rev().find_map(|item| match item {
+                            ThreadItem::Sketch(card) if hit(card) => Some(card.id.clone()),
+                            _ => None,
+                        })
+                    };
+                    newest(&|card| card.sketch == one.id).or_else(|| newest(&|card| card.title == one.title))
                 });
                 if let Some(card) = card {
                     self.read_sketch(&card, &card, window, cx);
