@@ -90,6 +90,17 @@ async fn an_overloaded_page_that_asks_is_kept_but_not_put_to_him_and_the_job_is_
     assert_eq!(super::documents::asked(&record_of(&rig, &id).await, &path).as_deref(), Some("true"));
 }
 
+/// **A vote asks him without an Approve mark**, so a page that buries one is named to its Job as well.
+#[tokio::test]
+async fn an_overloaded_page_with_a_vote_and_no_approve_mark_is_named_to_the_job() {
+    let rig = rig_placing(None);
+    let (id, at) = super::documents::a_job(&rig).await;
+    let (file, path) = super::documents::page_at_root(&rig, "takes.html");
+    std::fs::write(&file, page(&format!(r#"<h1>Takes</h1><p>{}</p><armada-vote id="v" form="pick"></armada-vote>"#, words(300)))).unwrap();
+    super::documents::writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { rig.rows(&id).await.iter().any(|row| matches!(row, ipc::SessionRow::Message { notice: Some(word), text, .. } if word == "document_sketch" && text.contains("300 words come before the first <armada-vote>"))) }).await;
+}
+
 fn is_told_about_the_ask(row: &ipc::SessionRow) -> bool {
     matches!(row, ipc::SessionRow::Message { notice: Some(word), text, .. } if word == "document_sketch" && text.contains("300 words come before the first <h2>"))
 }

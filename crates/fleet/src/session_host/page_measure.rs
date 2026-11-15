@@ -14,7 +14,7 @@ const NOT_BODY_TEXT: [&str; 11] = ["head", "script", "style", "template", "h1", 
 
 /// What is wrong with a page that asks, as one sentence for its Job, or `None` where its ask is up front: some
 /// opening words before the first block that holds the ask, and no more than [`MOST_WORDS_BEFORE_THE_ASK`].
-/// Called only for a page that asks. Nothing is read of a page that does not.
+/// Called only for a page that asks, by its Approve mark, a vote or buttons. Nothing is read of a page that does not.
 pub(crate) fn buried_ask(html: &str, path: &str) -> Option<String> {
     let lower = html.to_ascii_lowercase();
     let from = open_tag(&lower, "body", 0).map_or(0, |(_, after)| after);

@@ -79,7 +79,9 @@ where
         let styles = self.page_styles(id, html).await;
         let asks = asks_approval(html) || self.approval_gate_waits(id, PlanGate::DocumentApproved, rail_ends::End::DocumentApproved).await;
         // A page that buries its ask is kept and does not reach him: it reads, and the Job is told what to move.
-        let buried = if asks && measured { buried_ask(html, path) } else { None };
+        // A vote or buttons ask him too, on a page with no Approve mark.
+        let presses = { let lower = html.to_ascii_lowercase(); lower.contains("<armada-vote") || lower.contains("<armada-action") };
+        let buried = if (asks || presses) && measured { buried_ask(html, path) } else { None };
         let asks = asks && buried.is_none();
         let (text, links) = for_of(html);
         let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
