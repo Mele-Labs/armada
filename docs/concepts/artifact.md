@@ -113,6 +113,8 @@ Words and a drawing that only inform get nothing, and buttons act when pressed.
 A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
 A `rank` or `score` takes part is cast with `cast_page_vote`.
 A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
+`show_sketch` and `record_plan` refuse takes drawn side by side in one sketch with 422 `fleet.sketch_takes`, saying to put them in a takes part ([Drawing a sketch](session/drawing-a-sketch.md)).
+A take's mocks are kept with their style set, as a sketch's are, so they draw in the app's styles.
 
 **Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
 It grows one artifact for each question and never shows a new sketch, draft or page beside it.

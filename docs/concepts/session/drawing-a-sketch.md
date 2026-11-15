@@ -22,6 +22,7 @@ A visual change still gets its walk after the sketch is approved.
 
 **Fleet finds the stylesheets, and `get_style_sources` only helps.** With `styles` left out Fleet walks from the Job's work to the closest ones, and `get_style_sources` (an optional `path`) lists them with token names and values, never file text.
 Where it lists several packages the agent names one by a `path` inside it.
+Where the walk finds no usable sheet, as from a Job whose work is all Rust, the mock takes the checkout's usable sheets that set the most colours and sizes, so its tokens still read.
 A sheet past the size cap once its imports are inlined is listed as not usable, so a mock of several components names each component's sheet in `styles`.
 `css` holds the rules the stylesheets lack.
 Where a file is not usable (SCSS, Less, a theme module), or Tailwind has no build output, the agent writes them from the tokens listed, because no build runs for a sketch.
@@ -45,6 +46,8 @@ The `show_sketch` description and the writing-a-document skill tell an agent to 
 
 **A mock is refused with what to change** when it sends `kept`, when it has no usable stylesheet and no `css` (the answer says to draw a `screen`), when the repository holds several packages and nothing shows which is the Job's, or when a `styles` path is outside the checkout or not usable.
 A sketch holds at most 12 mocks, and `html` and `css` count toward the byte cap.
+A take of a takes part that `add_part` puts is kept the same way, each take's mocks with their style set, so native draws it in the app's styles.
+A drawing or a take a Fleet kept before its mocks carried `kept` is styled the first time `get_job_artifacts` reads it, and written back.
 The node and its routes are in [A sketch draws HTML in the repository's styles](../../practices/protocol/a-sketch-draws-html-the-mock-node.md), and the icons a mock may name in `<i data-icon>` are in `packages/components/src/compositions/SketchScene/mock-icons.ts`.
 
 | Cap | Holds |
@@ -66,6 +69,13 @@ Through the door the answer is a receipt of `session_id` and `sketch`.
 He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
 A note that only names one of the sketch's takes, such as `B` or `Take 2`, is a pick: it settles the sketch as approved and tells the job which take to go on from.
 A take is named by the lead of a mock's, a screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id, in a sketch of two or more mocks or screens.
+Those cards pre-date the rule below, and a Fleet that holds one still answers it.
+
+**Takes drawn as one sketch are refused**, so Approve never stands in for a pick (the owner, 14 Nov 2026).
+A scene of two or more mocks or screens is refused with 422 `fleet.sketch_takes` where two of them lead with different take letters, by their own title or by a label's just above them, or where one says `(my pick)`.
+A take letter is `A` to `F`, past an introducing `Take` or `Option`, followed by a space, `:`, `·`, `.` or `)`.
+The refusal names the titles and says to put them with `add_part`, `kind` `takes`, each take a scene and the Job's pick first, for him to answer with Send pick.
+A plan's sketch in `record_plan` is held to the same rule, and boxes titled like a take are drawn.
 Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiting on the person](waiting-on-the-person.md)); the job never lists it in `waiting_for`.
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.

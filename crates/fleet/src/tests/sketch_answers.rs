@@ -6,10 +6,10 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Refusal, Sessions};
-use ipc::{AnswerSketch, Attachment, DismissWaiting, Instant, SessionId, SessionRow, SessionVoice, ShowSketch, SketchHow, WithdrawSketch};
+use ipc::{AnswerSketch, Attachment, DismissWaiting, Instant, SessionFact, SessionId, SessionReport, SessionRow, SessionVoice, ShowSketch, SketchHow, WithdrawSketch};
 
 use super::session_host::{rig_placing, Rig};
-use crate::session_host::sketching::sketch_approved;
+use crate::session_host::sketching::{sketch_approved, sketch_attachment};
 
 const TITLE: &str = "Request flow";
 const TARGET: &str = "sketch:Request flow";
@@ -114,21 +114,32 @@ async fn sending_a_sketch_back_tells_the_job_his_note_and_keeps_it() {
     assert_eq!(sketch_approved(&rows), None, "a send-back is not an approval");
 }
 
-/// A sketch of two takes drawn as screens, the first the job's pick.
-fn takes(id: &SessionId) -> ShowSketch {
+/// A sketch of two takes drawn as screens, the first the job's pick, held as a Fleet before the takes rule kept
+/// one: `show_sketch` refuses it now, and he can still answer one already on his list. Answered with its `drawn`.
+async fn takes_held(rig: &Rig, id: &SessionId) -> (ipc::SessionRecord, String) {
     let screen = |node: &str, x: u32, title: &str| {
         format!(r#"{{"id":"{node}","kind":"screen","x":{x},"y":0,"title":"{title}","screen":{{"type":"column","children":[]}}}}"#)
     };
     let scene = format!(r#"{{"nodes":[{},{}],"edges":[]}}"#, screen("a", 0, "A (my pick): one rail"), screen("b", 400, "B: two panes"));
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
+    let shown: ShowSketch =
+        ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap();
+    let mut attachment = sketch_attachment(shown.checked().unwrap());
+    let drawn = format!("{}-legacy-1", id.as_str());
+    attachment.detail.insert("asked".into(), "true".into());
+    attachment.detail.insert("drawn".into(), drawn.clone());
+    let record = rig
+        .fleet
+        .report_session(SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact: SessionFact::Attached { attachment } })
+        .await
+        .expect("held");
+    (record, drawn)
 }
 
 #[tokio::test]
 async fn a_note_that_only_picks_a_take_settles_the_sketch_and_tells_the_job_which_take() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let record = rig.fleet.show_sketch(None, takes(&id)).await.unwrap();
-    let drawn = the_sketch(&record).detail["drawn"].clone();
+    let (_, drawn) = takes_held(&rig, &id).await;
     let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some("B"))).await.unwrap();
 
     let rows = rig.rows(&id).await;
@@ -146,8 +157,7 @@ async fn a_note_that_only_picks_a_take_settles_the_sketch_and_tells_the_job_whic
 async fn a_note_that_picks_a_take_and_asks_for_more_is_still_sent_back() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let record = rig.fleet.show_sketch(None, takes(&id)).await.unwrap();
-    let drawn = the_sketch(&record).detail["drawn"].clone();
+    let (_, drawn) = takes_held(&rig, &id).await;
     let note = "B, with the rail wider";
     let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some(note))).await.unwrap();
 
