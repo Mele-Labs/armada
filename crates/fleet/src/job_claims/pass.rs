@@ -145,6 +145,9 @@ where
     pub(crate) async fn claims_passed(self: &Arc<Self>) {
         let now = self.now().epoch_millis().unwrap_or_default();
         let since = self.now().as_str().to_string();
+        let configured: String = self.machine_settings().now().get(config::settings::MACHINE_NAME);
+        let machine = tokio::task::spawn_blocking(move || crate::signing_in::this_machine(&configured)).await.unwrap_or_default();
+        self.job_claims().with(|kept| kept.machine = machine);
         let mut jobs = self.jobs_read().await;
         self.fixes_ended(&mut jobs).await;
         let live_here: BTreeSet<String> = jobs.iter().map(|job| job.id.clone()).collect();

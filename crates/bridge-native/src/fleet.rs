@@ -142,6 +142,8 @@ pub struct Held {
     /// Whether `features.workflows` is off, so Jobs follow no workflow (`workflowsOffIn`). Off only once
     /// Fleet's settings say so.
     pub workflows_off: bool,
+    /// How many times Fleet's settings have been read or have changed, so Settings reads them again when they do.
+    pub settings_stamp: u64,
     /// Whether `bridge.openGroup` is on: a Job's open work is drawn as one group after its last step.
     /// On until Fleet's settings say false, as Classic reads it (`useOpenGroupShown`).
     pub open_group: bool,
@@ -208,6 +210,7 @@ impl Held {
             dropped: None,
             notifications: true,
             workflows_off: false,
+            settings_stamp: 0,
             open_group: true,
             workflows: None,
             subagents_moved: Vec::new(),
@@ -367,6 +370,7 @@ impl Held {
     }
 
     fn set_settings(&mut self, list: &SettingsList) {
+        self.settings_stamp += 1;
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
         self.notifications = switch != Some(&SettingValue::Bool(false));
         let value = |key: &str| list.settings.iter().find(|one| one.key == key).map(|one| &one.value);

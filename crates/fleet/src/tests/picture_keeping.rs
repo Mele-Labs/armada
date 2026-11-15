@@ -63,6 +63,7 @@ fn asking(id: &SessionId, picture: OptionPicture) -> SetWaitingFor {
                 WaitingOption { label: "Words only".into(), description: None, picture: None },
             ],
             steps: Vec::new(),
+            artifact: None,
         }],
     }
 }

@@ -317,6 +317,7 @@ async fn waits_to_run(rig: &Rig, command: &str) -> Vec<ipc::WaitingItem> {
                     act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),
                     options: Vec::new(),
                     steps: Vec::new(),
+                    artifact: None,
                 }],
             },
         )
@@ -366,6 +367,7 @@ async fn a_clean_run_of_a_step_command_leaves_the_item_with_steps_standing() {
                     act: Some(WaitingAct { kind: WaitingActKind::Run, target: "echo built".into() }),
                     options: Vec::new(),
                     steps: vec!["Build it: `echo built`".into(), "Check it".into()],
+                    artifact: None,
                 }],
             },
         )

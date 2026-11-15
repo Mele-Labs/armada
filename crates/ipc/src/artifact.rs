@@ -15,7 +15,8 @@ pub struct JobArtifact {
     pub id: String,
     /// The newest revision's title.
     pub title: String,
-    /// The newest revision's form.
+    /// The first part's kind read as the old forms: a drawing or takes `sketch`, words `draft`, buttons or a page
+    /// `page`. Kept for a client that reads no parts.
     pub form: ArtifactForm,
     /// Oldest first. Never empty.
     pub revisions: Vec<ArtifactRevision>,
@@ -24,8 +25,9 @@ pub struct JobArtifact {
     /// His note on a send back, his words with an approval, or his reason with a draft's dismissal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<String>,
-    /// The Needs you item that answers it now: `sketch:<title>`, `document:<path>`, `draft:<row id>`, or
-    /// `plan:<version>` for a sketch the pending plan names. Absent where nothing waits on him.
+    /// The Needs you item that answers it now: `sketch:<title>` (one item for the artifact, whatever it holds),
+    /// `document:<path>`, `draft:<row id>`, or `plan:<version>` for a sketch the pending plan names. Absent where
+    /// nothing waits on him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
     /// The plan version it goes with: the pending one that names it, so the plan's Approve settles it, or
@@ -38,16 +40,21 @@ pub struct JobArtifact {
     /// What the newest revision is for, and what it links to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_line: Option<ArtifactFor>,
-    /// Every press of a page's action, oldest first. Empty for a sketch, a draft, and a page never pressed.
+    /// Every press of a page's action or a buttons part's, oldest first. Empty where nothing was pressed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub presses: Vec<PagePress>,
-    /// The newest cast of each vote a page declares, in the order first cast. Empty for every form but a page,
-    /// and for a page never voted on.
+    /// The newest cast of each vote a page declares or a takes part holds, in the order first cast. Empty where
+    /// nothing was voted on.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub votes: Vec<VoteCast>,
     /// The newest revision he opened. Absent where he opened none. Only moves forward.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seen: Option<u32>,
+    /// What it holds, in the order the Job added it: a drawing, words, takes, buttons, a page. Each asks on its
+    /// own and settles on its own, and the artifact settles once every part that asks is answered. Empty for a
+    /// page that holds none of the Job's parts and a draft Fleet raised for a workflow change.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<crate::ArtifactPart>,
 }
 
 /// `mark_artifact_seen`: he opened revision `revision` of an artifact. `crates/ipc/operations/mark_artifact_seen.toml`.

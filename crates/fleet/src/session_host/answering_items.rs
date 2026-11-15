@@ -7,9 +7,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    AnswerDocument, AnswerItems, AnswerSketch, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemNote,
-    ItemOutcome, ItemSettled, ItemsSettled, SendSessionMessage, SessionId, SketchHow, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
-    DOCUMENT_REVISION, SKETCH_DRAWN,
+    AnswerDocument, AnswerItems, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemNote,
+    ItemOutcome, ItemSettled, ItemsSettled, SendSessionMessage, SessionId, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
+    DOCUMENT_REVISION,
 };
 
 use super::waiting::{APPROVE, ASK_FOR_CHANGES, SESSION_WAITING_UNNAMED};
@@ -113,14 +113,11 @@ where
         let words = as_words(&notes);
         let session_id = SessionId::carried(&id);
         let settled = match item.source {
-            WaitingSource::Sketch => {
-                let drawn = match self.sketch_held(&id, &item.id).await {
-                    Ok((_, held)) => held.and_then(|one| one.detail.get(SKETCH_DRAWN).cloned()).unwrap_or_default(),
-                    Err(refusal) => return refused(&refusal),
-                };
-                let how = if approve { SketchHow::Approved } else { SketchHow::SentBack };
-                self.sketch_answered(AnswerSketch { session_id, sketch: item.id.clone(), drawn, how, words }).await
-            }
+            // An artifact is answered part by part, each as it would be on its own.
+            WaitingSource::Sketch => match Arc::clone(&self).artifact_answered_all(&id, &item.id, approve, words).await {
+                Ok(_) => self.published_hosted(&id).await,
+                Err(refusal) => Err(refusal),
+            },
             WaitingSource::Document => {
                 let path = item.id.strip_prefix(DOCUMENT_ITEM_PREFIX).unwrap_or(&item.id).to_string();
                 let revision = match self.document_held(&id, &path).await {

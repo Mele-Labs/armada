@@ -28,6 +28,7 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -127,7 +128,7 @@ async fn an_agent_item_marked_as_misread_is_refused_and_stands() {
     let id = rig.start().await;
     let set = SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
     };
     rig.fleet.waiting_for(None, set).await.expect("kept");
     assert!(Arc::clone(&rig.fleet).dismiss_waiting(misread(&id, "a")).await.is_err());
@@ -166,7 +167,7 @@ async fn an_agent_item_confirmed_is_refused_and_stands_unconfirmed() {
     let id = rig.start().await;
     let set = SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
     };
     rig.fleet.waiting_for(None, set).await.expect("kept");
     assert!(Arc::clone(&rig.fleet).confirm_waiting(confirm(&id, "a")).await.is_err());

@@ -109,6 +109,7 @@ async fn a_second_job_on_a_held_item_waits_naming_the_first_and_carries_on_once_
     assert_eq!((wait.item.as_str(), wait.holder.as_str()), (item.as_str(), "octocat"));
     assert_eq!((wait.machine.as_deref(), wait.title.as_deref()), (Some("home"), Some("Fix the flaky queue test")));
     assert_eq!(wait.ends, ClaimWaitEnds::ClaimEnds);
+    assert_eq!((wait.this_mac, wait.job.as_deref()), (false, Some(first.as_str())), "a Job of the other Mac, named by its id");
     let told = work.told(&second).await;
     assert!(told.len() == 1 && told[0].contains("Job \"Fix the flaky queue test\" on octocat's Mac home"), "{told:?}");
     assert!(home.record(&first).await.claim_waits.is_empty(), "the holder waits on nothing");
@@ -122,6 +123,24 @@ async fn a_second_job_on_a_held_item_waits_naming_the_first_and_carries_on_once_
     assert!(work.record(&second).await.claim_waits.is_empty(), "the wait ends");
     let told = work.told(&second).await;
     assert_eq!(told.last().map(String::as_str), Some(format!("{item} is free now. Carry on with it.").as_str()), "{told:?}");
+}
+
+#[tokio::test]
+async fn a_wait_on_a_job_of_this_mac_says_so_and_names_the_job() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let home = mac("home", &shared, &remote).await;
+    let item = home.copy.create("Fix the flaky queue test");
+    let first = home.job("Fix the flaky queue test").await;
+    let second = home.job("Land the queue race fix").await;
+    home.works(&first, &item).await;
+    home.works(&second, &item).await;
+
+    home.pass(1).await;
+
+    let waits = home.record(&second).await.claim_waits;
+    let [wait] = waits.as_slice() else { panic!("one wait: {waits:?}") };
+    assert_eq!((wait.this_mac, wait.job.as_deref(), wait.machine.as_deref()), (true, Some(first.as_str()), Some("home")), "the Job is of this Mac, and its id opens it");
+    assert!(home.record(&first).await.claim_waits.is_empty(), "the holder waits on nothing");
 }
 
 #[tokio::test]
@@ -142,6 +161,7 @@ async fn an_item_assigned_to_a_person_in_beads_is_not_taken() {
     let waits = home.record(&job).await.claim_waits;
     let [wait] = waits.as_slice() else { panic!("one wait: {waits:?}") };
     assert_eq!((wait.holder.as_str(), wait.machine.as_ref(), wait.ends), ("nick", None, ClaimWaitEnds::Unassigned));
+    assert_eq!((wait.this_mac, wait.job.as_deref()), (false, None), "a person is no Job of this Mac's");
     assert!(home.told(&job).await[0].contains("assigned to nick in beads"));
 
     home.copy.release("/", &item, "nick", "").expect("unassigned");

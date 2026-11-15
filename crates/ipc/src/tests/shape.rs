@@ -17,7 +17,7 @@ fn a_nested_list_an_optional_object_and_an_enum_read_whole() {
         shape::of::<SetWaitingFor>(),
         "{items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}, \
          options?: [{label: string, description?: string, picture?: {image: string, width: number, height: number, \
-         parts?: [object]}}], approves?: boolean, steps?: [string]}], session_id?: string}"
+         parts?: [object]}}], approves?: boolean, steps?: [string], artifact?: string}], session_id?: string}"
     );
 }
 
@@ -35,6 +35,7 @@ fn a_refused_body_names_its_shape_after_serdes_own_words() {
 fn every_agent_body_reads_as_an_object_of_named_fields() {
     let shapes = [
         ("all_done", shape::of::<crate::AllDone>()),
+        ("add_part", shape::of::<crate::AddPart>()),
         ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
         ("call_test_flaky", shape::of::<crate::CallTestFlaky>()),

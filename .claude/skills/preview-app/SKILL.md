@@ -140,13 +140,34 @@ Bridge asks before `--adopt`, listing the working Jobs. It runs
 `scripts/restart-build`, which retries a stale `libsqlite3-sys`, or a broken native incremental cache, once itself.
 `docs/practices/running-locally.md`, *Restarting from Bridge*.
 
-**To put a branch in his preview, call `offer_preview` with an `about` line** when the branch is
-ready to be tried: one line on what it holds, at most 120 characters. Fleet checks it with
-the other offers and tells the Job in its thread: on the list, off it with why and the
+**To put a branch in his preview, call `offer_preview` with `about`, `look` and `steps`** when
+the branch is ready to be tried. `about` is one line on what it holds, at most 120 characters.
+`look` is one line on what he should look at once the build holds it, at most 300. `steps` are
+how he gets there, at most nine, each a `say` as he reads it and, where an act takes him there,
+its `act` id: a `[actions.<id>]` table in `crates/core-model/domain/actions.toml` as your branch
+holds it, so an act the branch adds counts. His preview opens an In this build sheet with one
+note a Job: the look, the steps with each act's key and a Go press that runs it, a feedback box
+that sends to your thread, and Looked at.
+
+```json
+{
+  "about": "Toast pile: the newest toast on top, three at most",
+  "look": "The toast pile at the bottom right: the newest toast is on top and older ones fold under it.",
+  "steps": [
+    { "say": "Open the toast history", "act": "toast_history" },
+    { "say": "Start a Job so a toast arrives", "act": "new_job" },
+    { "say": "Look at the order of the toasts" }
+  ]
+}
+```
+
+An offer with no `look` is kept, and Fleet asks you for one in your thread. Fleet checks the offer
+with the other offers and tells the Job in its thread: on the list, off it with why and the
 files, or moved, so offer again. Offer again after the branch moves or a check fails and the cause
-is fixed. `withdraw_preview` takes the offer back. He presses Refresh preview from his one row,
-which names each offered branch, its Job and its `about`. A Job hands him no
-`scripts/preview --restart`, as a `run` item, a shell block or a sentence.
+is fixed; an offer that leaves `look` or `steps` out keeps the ones it had. `withdraw_preview`
+takes the offer back. He presses Refresh preview from his one row, which names each offered
+branch, its Job and its `about`. A Job hands him no `scripts/preview --restart`, as a `run` item,
+a shell block or a sentence.
 
 A shell run from Bridge or Pocket is Fleet's child, so the scripts run their work in a session of
 their own and log it to `~/Library/Logs/Armada/restart.log` (13 Nov 2026: Pocket's Run died between

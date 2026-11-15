@@ -1041,6 +1041,10 @@ pub struct WaitingItem {
     /// the option it would pick. His press on that option is the one press. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operator_read: Option<OperatorRead>,
+    /// The id of one of the Job's artifacts this item is about, for a client to name and open. Only an agent's
+    /// item carries one, from `WaitingInput::artifact`. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// What the Operator made of a question it would answer.
@@ -1068,6 +1072,10 @@ pub struct WaitingInput {
     /// The procedure the person follows, in order; its press opens them as steps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<String>,
+    /// One of the Job's artifacts this item is about, by its id or its title. Fleet checks it against what the Job
+    /// holds, refuses an unknown one, and keeps the id, so Bridge names the artifact and opens it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// `waiting_for`: the agent sets the whole list of what it needs from the person. An empty list clears it.
@@ -1585,6 +1593,10 @@ pub struct SessionRecord {
     /// you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_open_by: Vec<HeldOpenBy>,
+    /// Waiting for a worktree slot: in its repository's line, or its `armada worktree lease` asking.
+    /// Absent otherwise. Since 14 Nov 2026, in place of the `slot_choice` item.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_wait: Option<crate::SlotWait>,
     /// Why it stopped, with `standing` `stopped`. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<SessionStopped>,
@@ -1680,6 +1692,14 @@ pub struct ClaimWait {
     /// The holding Job's title. Absent for a person in beads, and for a Job with none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Whether the holding Job is one of this Mac's, so its Mac is the one the person is on. Absent where it is
+    /// not, and for a person in beads. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub this_mac: bool,
+    /// The holding Job's id on its Mac, which opens it where `this_mac`. Absent for a person in beads and
+    /// where main's own fix ends the wait. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
     /// When the wait began.
     pub since: Instant,
     /// What ends the wait.

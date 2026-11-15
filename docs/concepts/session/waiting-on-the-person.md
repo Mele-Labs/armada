@@ -2,10 +2,15 @@
 
 **Part of:** [Job](../session.md).
 
-**A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, and optional `steps`, a list of short lines); an empty list clears it.
+**A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, optional `steps`, a list of short lines, and an optional `artifact`); an empty list clears it.
 Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
 **`task_done:<project>` is answered with Mark done or Keep open**, through `answer_waiting`, and the choice settles every task the job asked in that project without sending the agent a message.
 Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
+**An item about one of the Job's artifacts names it** with `artifact`, the artifact's id or its title.
+Fleet resolves it against what the Job holds, refuses one it holds none of (`fleet.artifact_not_held`, naming the ids it does hold), and keeps and serves the id as `WaitingItem.artifact`, on the open item and the closed one, through a restart and a reopen.
+Bridge shows the item with the artifact's name and opens that artifact on a press.
+The owner ruled on 14 Nov 2026 that a Job presents one clean thing, so a need about an artifact points at it and does not describe it again.
+Native's press is the Jobs screens' work (`docs/concepts/artifact.md`).
 **`waiting_for` refuses an item with a `walk` act**, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
 On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
 Only the act says it (`walk_asks.rs`); Fleet does not read the item's words, and an item kept before the rule is left off every read.
@@ -71,7 +76,8 @@ It waits again, with its `since` at that instant, only when the job shows it aga
 It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk.
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
-**Every sketch a job shows waits until the person answers it.** One item per title, `sketch:<title>`, source `sketch`, its text the title and its act `message` on the job, for each sketch put to him whose `detail.settled` is unset.
+**Every sketch a job shows waits until the person answers it.** One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
+Its text is the title for a lone sketch, else the title and the parts still open, never a count ([Artifact](../artifact.md), *Parts*).
 His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
 `answer_waiting` on it is refused: the card answers it.
 Drawing the title again lifts the dismissal, so the redrawn sketch waits again.
@@ -131,7 +137,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `replied` | by act: a pull request to open is plain, any other is a sentence | not_a_question |
 | `done` | done | plain |
 | `plan` | to_review | plain |
-| `slot_choice` | questions | none: Fleet refuses it |
+| `slot_choice` | questions | none: Fleet refuses it, and no longer raises it |
 | `delivery` | questions | none: Fleet refuses it |
 | `words_address` | questions | plain |
 | `fleet_call` | questions | plain |

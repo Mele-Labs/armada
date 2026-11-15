@@ -33,6 +33,18 @@ const STEPS_AT_MOST: usize = 9;
 /// The most a step says.
 const STEP_AT_MOST: usize = 120;
 
+/// What a Job is told when it offers a branch with no `look`.
+fn look_wanted(branch: &str) -> String {
+    format!(
+        "Your offer of {branch} has no look, so his preview note says nothing on where to look. Offer it again with `look`, one line on what he should look at, and `steps`, each a `say` and the `act` id from {REGISTRY} that takes him there. The preview-app skill has an example."
+    )
+}
+
+/// Where the acts registry is, in the repository.
+const REGISTRY: &str = "crates/core-model/domain/actions.toml";
+/// The most of the registry read from a branch; it is well under this.
+const REGISTRY_AT_MOST: usize = 4 << 20;
+
 /// The ids of the acts registry, `crates/core-model/domain/actions.toml`, read once from the copy built in: each
 /// `[actions.<id>]` header, read by line as the gate's `rules_actions` reads it.
 fn act_ids() -> &'static BTreeSet<String> {
@@ -79,10 +91,16 @@ where
             }
         }
         let (root, branch) = (checkout, held.clone());
-        let (tip, ahead) = tokio::task::spawn_blocking(move || {
+        let (tip, ahead, acts) = tokio::task::spawn_blocking(move || {
             let tip = adapters::branch_tip(&root.to_string_lossy(), &branch)?;
             let ahead = !adapters::onto_base::is_ancestor(&root, &tip, MAIN);
-            Some((tip, ahead))
+            // The registry as the branch holds it, since that is the tree his preview build runs.
+            let acts = adapters::territory::text_at(&root, &tip, REGISTRY, REGISTRY_AT_MOST)
+                .ok()
+                .flatten()
+                .filter(|read| !read.cut)
+                .map(|read| act_ids_in(&read.text));
+            Some((tip, ahead, acts))
         })
         .await
         .ok()
@@ -92,13 +110,18 @@ where
             return Err(self.hosted_refusal(NOT_AHEAD, &format!("a branch with commits main lacks: {held} has none past main")));
         }
         let about = self.preview_about(&id, &held, offer.about.as_deref()).await?;
-        let (look, steps) = self.preview_note(&id, &held, offer.look.as_deref(), offer.steps.as_deref()).await?;
+        let acts = acts.unwrap_or_else(|| act_ids().clone());
+        let (look, steps) = self.preview_note(&id, &held, offer.look.as_deref(), offer.steps.as_deref(), &acts).await?;
         let at = self.now().as_str().to_string();
         self.store()
             .lock()
             .await
             .keep_preview_offered(&id, &held, &tip, &about, look.as_deref(), &steps, &at)
             .map_err(|why| self.ledger_fault(why))?;
+        // An offer with nothing to look at leaves his preview note empty: the Job is asked for one.
+        if look.is_none() {
+            let _ = self.told_by_fleet(&id, &look_wanted(&held), ipc::Notice::BuildMoved).await;
+        }
         self.preview_moved().await;
         self.preview_check_wanted();
         Ok(PreviewOffered { branch: held, tip, state: PreviewState::Checking })
@@ -137,14 +160,14 @@ where
 
     /// What to look at and the steps there: the ones given, checked, else the ones the last offer kept. **An empty
     /// `look` clears it and an empty list of steps clears them**; none given keeps.
-    async fn preview_note(&self, id: &str, branch: &str, look: Option<&str>, steps: Option<&[PreviewStep]>) -> Result<(Option<String>, Vec<KeptStep>), Refusal> {
+    async fn preview_note(&self, id: &str, branch: &str, look: Option<&str>, steps: Option<&[PreviewStep]>, acts: &BTreeSet<String>) -> Result<(Option<String>, Vec<KeptStep>), Refusal> {
         let look = match look.map(str::trim) {
             Some(look) if look.chars().count() > LOOK_AT_MOST || look.contains(['\n', '\r']) => {
                 return Err(self.hosted_refusal(LOOK_INVALID, &format!("look as one line of at most {LOOK_AT_MOST} characters")));
             }
             given => given,
         };
-        let given = steps.map(|steps| self.preview_steps(steps)).transpose()?;
+        let given = steps.map(|steps| self.preview_steps(steps, acts)).transpose()?;
         let kept = self.store().lock().await.preview_offered_of(id, branch).map_err(|why| self.ledger_fault(why))?;
         let look = match look {
             Some(look) => Some(look.to_string()).filter(|look| !look.is_empty()),
@@ -154,8 +177,8 @@ where
         Ok((look, steps))
     }
 
-    /// `steps` as kept, or the refusal naming what is wrong with them.
-    fn preview_steps(&self, steps: &[PreviewStep]) -> Result<Vec<KeptStep>, Refusal> {
+    /// `steps` as kept, or the refusal naming what is wrong with them. `acts` are the registry's ids at the offered tip.
+    fn preview_steps(&self, steps: &[PreviewStep], acts: &BTreeSet<String>) -> Result<Vec<KeptStep>, Refusal> {
         if steps.len() > STEPS_AT_MOST {
             return Err(self.hosted_refusal(STEPS_INVALID, &format!("at most {STEPS_AT_MOST} steps: {} were given", steps.len())));
         }
@@ -166,8 +189,8 @@ where
                 return Err(self.hosted_refusal(STEPS_INVALID, &format!("step {} with a `say` of one line of at most {STEP_AT_MOST} characters", at + 1)));
             }
             let act = step.act.as_deref().map(str::trim).filter(|act| !act.is_empty());
-            if let Some(act) = act.filter(|act| !act_ids().contains(*act)) {
-                return Err(self.hosted_refusal(STEP_ACT_UNKNOWN, &format!("an act id from crates/core-model/domain/actions.toml: step {} names `{act}`", at + 1)));
+            if let Some(act) = act.filter(|act| !acts.contains(*act)) {
+                return Err(self.hosted_refusal(STEP_ACT_UNKNOWN, &format!("an act id from {REGISTRY} on the offered branch: step {} names `{act}`", at + 1)));
             }
             kept.push(KeptStep { say: say.to_string(), act: act.map(str::to_string) });
         }

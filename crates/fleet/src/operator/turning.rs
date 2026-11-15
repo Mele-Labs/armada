@@ -317,6 +317,7 @@ where
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         };
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;

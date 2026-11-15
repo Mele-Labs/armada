@@ -13,13 +13,14 @@ Electron Bridge reads neither field; native Bridge draws the wait line.
 | --- | --- | --- |
 | `SessionRecord.claim_waits` | Fleet answers | `ClaimWait[]`, each item the Job waits on. Absent where it waits on none |
 | `SessionRecord.claims_unsent` | Fleet answers | `true` where the Job holds claims its project's store has not taken, because the store did not answer. Absent where all are sent |
-| `ClaimWait` | Fleet writes | `item`, the tracker's name for it; `holder`, the holding Job's forge login or the beads assignee; `machine` and `title`, the holding Job's Mac and title, absent for a person; `since`, when the wait began; `ends` |
+| `ClaimWait` | Fleet writes | `item`, the tracker's name for it; `holder`, the holding Job's forge login or the beads assignee; `machine` and `title`, the holding Job's Mac and title, absent for a person; `this_mac`, `true` where the holding Job is one of this Mac's, and `job`, its id, absent for a person and for main's own fix; `since`, when the wait began; `ends` |
 | `ClaimWaitEnds` | Fleet writes | `claim_ends` for another Job's claim, `unassigned` for a person in beads |
 | `Notice` `claims` | Fleet writes | The kind of each word Fleet tells a Job about its claims: a wait begun or ended, or a file another Job writes too |
 
 **How long it has waited is `since`**, and the client counts from it.
 **What ends it is `ends`**, without words, so the client says it in its own.
 Either way Fleet wakes the Job with a word when the wait ends; there is no act on the line.
+A client may open the holding Job from a line that carries `job`; that is the client's own, and Fleet takes no act.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** `session.changed` already carries the record whole, and a pass publishes it only where a wait or `claims_unsent` moved.

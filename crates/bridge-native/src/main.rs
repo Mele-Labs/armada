@@ -72,6 +72,7 @@ mod runtime_file;
 mod scene;
 mod settings;
 mod sketch;
+mod slot_wait;
 mod snooze;
 mod sketch_png;
 mod terminal;

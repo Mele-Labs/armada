@@ -1,5 +1,5 @@
 //! The slots a full pool is held by, on the call that asks the person what to do, and the press that
-//! frees one. `docs/concepts/session.md`, *A full pool asks*.
+//! frees one. `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
 //! **Read now and then, never on a publish.** Item derivation is hot and the dirty read is git, so
 //! the holders live on the line's entries: read when the keeper looks at the lines (a Job joining
@@ -16,7 +16,7 @@ use adapter_traits::{AgentHarness, Delivery, SlotHeld, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{FreeSlot, Instant, ManifestId, SessionRecord, SessionTurn, SlotHolder, SlotHolderJob, SlotKeeps, WireError};
 
-use super::queueing::{Choice, SlotQueue, SLOT_CHOICE_ITEM};
+use super::queueing::{SlotQueue, SLOT_CHOICE_ITEM};
 use crate::daemon::Fleet;
 use crate::leasing::{pool_of, SLOT_HOLDER_CHANGED};
 
@@ -27,7 +27,6 @@ impl SlotQueue {
         let mut open: Vec<String> = waiting
             .entries
             .values()
-            .filter(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
             .map(|one| one.manifest.clone())
             .collect();
         open.sort();
@@ -45,9 +44,7 @@ impl SlotQueue {
                 continue;
             }
             entry.holders = holders.to_vec();
-            if matches!(entry.choice, Choice::Pending | Choice::Adding) {
-                changed.push(id.clone());
-            }
+            changed.push(id.clone());
         }
         changed
     }
@@ -59,7 +56,6 @@ impl SlotQueue {
         let entry = waiting
             .entries
             .get(session)
-            .filter(|one| matches!(one.choice, Choice::Pending | Choice::Adding))
             .ok_or(false)?;
         let row = entry.holders.iter().find(|one| one.slot == slot).ok_or(true)?;
         Ok((entry.manifest.clone(), row.clone()))

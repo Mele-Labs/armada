@@ -1,5 +1,5 @@
-//! What a full pool's call carries so the person can free a slot instead of waiting or adding one.
-//! `WaitingSource::SlotChoice`, `docs/concepts/session.md`, *A full pool asks*.
+//! What a Job's slot wait carries so the person can free a slot or add one instead of waiting.
+//! `SessionRecord.slot_wait`, `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
 //! **Fleet reads these and the person acts on them**: nothing here is sent by an agent, and no path
 //! of Fleet's frees a slot by itself. A slot is freed by `free_slot`, a press.
@@ -37,6 +37,23 @@ pub struct SlotHolder {
     /// Why Free is off, where it is. Absent where the slot can be freed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keeps: Option<SlotKeeps>,
+}
+
+/// A Job waiting for a worktree slot, on its record. **Waiting is the default, so nobody is asked**:
+/// the person may press Add (`answer_waiting` on `slot-choice`, choice 1) or Free (`free_slot`) from it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotWait {
+    pub since: Instant,
+    /// How many Jobs are ahead of it in its repository's line.
+    pub ahead: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holders: Vec<SlotHolder>,
+    /// When the slot the person asked for was begun, while it is being made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creating_since: Option<Instant>,
+    /// Why the last slot he asked for was not made, until the next Add.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_refused: Option<String>,
 }
 
 /// Where a Job goes in Waiting to start, against another Job waiting there.

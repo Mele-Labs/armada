@@ -159,7 +159,7 @@ WebSocket event stream, read this first.
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
 | [A Job waits on another](protocol/a-job-waits-on-another.md) |
 | [A Job reads and commands the Jobs it started](protocol/a-job-reads-and-commands-the-jobs-it-started.md) |
-| [A full pool asks the person: `slot_choice`](protocol/a-full-pool-asks-the-person-slot-choice.md) |
+| [A full pool shows a wait: `slot_wait`](protocol/a-full-pool-shows-a-wait-slot-wait.md) |
 | [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
@@ -229,6 +229,7 @@ WebSocket event stream, read this first.
 | [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
 | [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
 | [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [Open questions](#open-questions) |
 

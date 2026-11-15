@@ -40,7 +40,7 @@ pub(super) fn pinned_of(record: &SessionRecord, revisions: &Revisions) -> Option
     let waits = |id: &str| {
         raised(id) || (record.done_since.is_none() && !crate::session_host::sketching::drawn_in_turn(&record.attachments, id, began))
     };
-    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan).find(|item| waits(&item.id))?;
+    let item = crate::session_host::sketching::sketch_items(&record.attachments, record.id.as_str(), &in_plan, &Default::default(), &[]).find(|item| waits(&item.id))?;
     let held = record.attachments.iter().find(|one| form_of(one) == Some("sketch") && one.target == item.id)?;
     // Fleet refuses a sketch whose scene will not draw, so a kept one always reads.
     let drawing = held.detail.get("scene").and_then(|scene| ipc::scene_of_detail(scene))?;

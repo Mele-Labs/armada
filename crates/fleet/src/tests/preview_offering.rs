@@ -66,7 +66,8 @@ async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&st
                 session_id: Some(SessionId::carried(session)),
                 branch: branch.map(str::to_string),
                 about: about.map(str::to_string),
-                look: None,
+                // A look, so the tests of the check read only what the check tells the Job.
+                look: Some("Look at it".to_string()),
                 steps: None,
             },
         )
@@ -579,4 +580,33 @@ async fn feedback_on_a_note_goes_to_its_live_job_and_starts_a_new_job_where_it_h
         assert!(brief.contains(held), "the new Job's first message names {held}: {brief}");
     }
     assert_eq!(rig.thread_of(&session).await.len(), 2, "nothing more went to the ended Job");
+}
+
+#[tokio::test]
+async fn an_offer_with_no_look_asks_its_job_for_one_and_one_with_a_look_does_not() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+
+    offer_noting(&rig, &session, Some("Keeps one thing"), None, None).await.expect("offered");
+    let thread = rig.thread_of(&session).await;
+    assert_eq!(thread.len(), 1, "one ask: {thread:?}");
+    assert!(thread[0].starts_with("Your offer of armada/one has no look"), "{thread:?}");
+
+    offer_noting(&rig, &session, None, Some("The toasts stack"), None).await.expect("offered again");
+    assert_eq!(rig.thread_of(&session).await.len(), 1, "an offer with a look asks nothing");
+}
+
+#[tokio::test]
+async fn a_step_names_an_act_from_the_registry_the_offered_branch_holds() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    branch_with(&rig, "armada/one", "armada/one", "crates/core-model/domain/actions.toml", "[actions.call_snooze]\nkind = \"Action\"\n");
+    let about = Some("Keeps one thing");
+
+    let added = vec![step("Press Snooze", Some("call_snooze"))];
+    assert!(offer_noting(&rig, &session, about, Some("Look"), Some(added)).await.is_ok(), "an act the branch adds is known");
+    let gone = vec![step("Open Settings", Some("open_settings"))];
+    assert_eq!(code(offer_noting(&rig, &session, about, Some("Look"), Some(gone)).await), "fleet.preview_step_act_unknown", "the branch's registry is the one read");
 }

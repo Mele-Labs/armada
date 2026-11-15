@@ -59,6 +59,7 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -520,8 +521,18 @@ where
             let Some(mut sketch) = held.filter(|sketch| sketch.detail.get(SKETCH_DRAWN) == one.drawn.as_ref() && still_asks(sketch)) else {
                 continue;
             };
-            sketch.detail.insert(SKETCH_SETTLED.into(), ipc::SketchHow::Approved.word().into());
-            sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
+            let now = self.instant();
+            if sketch.detail.get(ipc::SKETCH_ASKED).map(String::as_str) == Some("true") {
+                sketch.detail.insert(SKETCH_SETTLED.into(), ipc::SketchHow::Approved.word().into());
+                sketch.detail.insert(SKETCH_SETTLED_AT.into(), now.as_str().to_string());
+            }
+            // The words it holds are approved with it too. A pick is not one: a takes part waits for his.
+            let mut parts = crate::session_host::artifact_parts::stored(&sketch.detail);
+            for part in parts.iter_mut().filter(|part| part.is_open_ask() && part.content.kind() != ipc::PartKind::Takes) {
+                part.state = ipc::PartState::Approved;
+                part.answer = Some(ipc::PartAnswer { at: Some(now.clone()), ..ipc::PartAnswer::default() });
+            }
+            crate::session_host::artifact_parts::keep_stored(&mut sketch.detail, &parts);
             sketch.detail.insert(SKETCH_IN_PLAN.into(), version.to_string());
             self.report_session(SessionReport {
                 harness,
