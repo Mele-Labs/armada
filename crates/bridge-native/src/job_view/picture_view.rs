@@ -464,4 +464,33 @@ mod tests {
         redraw(cx);
         assert!(drawn(cx, Role::Dialog, A), "a press on the picture opens it over the reader");
     }
+
+    #[gpui::test]
+    fn a_drawing_in_a_thread_card_fills_the_card_with_no_frame_of_its_own_and_a_press_opens_it_large(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let card = bounds_of(cx, Role::Article, "Artifact: Step bar for Jobs, Revision 2");
+        let drawing = bounds_of(cx, Role::Button, "Drawing");
+        let pad = cx.update(|_, cx| cx.look().length(token::SPACE_4));
+        assert!(drawing.size.width >= card.size.width - pad * 2. - px(4.), "the drawing takes the card's inner width: {drawing:?} in {card:?}");
+        let old_height = cx.update(|_, cx| cx.look().length(token::SPACE_12) * 3.);
+        assert!(drawing.size.height != old_height, "its height is the scene's own shape, not a fixed box: {drawing:?}");
+        let _ = view;
+        cx.simulate_click(drawing.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Fit"), "a press on it opens the app-filling view");
+    }
+
+    #[gpui::test]
+    fn a_tall_take_is_held_to_three_fifths_of_the_pane_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1100.), px(700.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_artifact_tab(ID, window, cx));
+        redraw(cx);
+        let pane = view.read_with(cx, |view, _| view.body_scroll.bounds().size.height);
+        assert!(pane > px(0.), "the reader's pane has a height");
+        let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {B} (Job's pick)"));
+        let picture = bounds_of(cx, Role::Button, &format!("Picture: {B}"));
+        assert!(picture.size.height <= pane * 0.6 + px(1.), "no taller than three fifths of the pane: {picture:?} in a pane {pane:?} high");
+        assert!((picture.size.height - pane * 0.6).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
+        assert!((picture.center().x - tile.center().x).abs() < px(2.), "and stands in the middle of its tile: {picture:?} in {tile:?}");
+    }
 }

@@ -1744,10 +1744,12 @@ pub static WALKS: &[Walk] = &[
         scenario: "artifact-parts",
         steps: &[
             press_on("A Job's one artifact stands in its thread, with a drawing, takes and words that ask", "row", "Edit the merge line", "status", "Asking"),
+            step("A drawing in a thread card fills the card's width, its height from the scene's own bounds, and a press on it opens it large", Verb::Wheel("region", "Thread", -480), "button", "Drawing"),
             step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
             press_on("Needs you holds the question about it", "button", "Needs you", "label", "No longer held"),
             press_on("A press on the question's words opens the artifact alone: the message box, Needs you and the pane's tabs have folded away, and a quiet way back names the Job", "button", "Open Step bar for Jobs", "button", "Back to Edit the merge line"),
             step("Its acts are pinned at the foot, Dismiss with what settles it", Verb::Look, "button", "Dismiss"),
+            step("Page Down reads on: a tall take stops at three fifths of the pane and stands in the middle of its tile", Verb::Keys(&["pagedown"]), "button", "Picture: B \u{b7} Rail"),
             step("Page Down reads on to the drawing, as wide as the column and as tall as its own shape asks", Verb::Keys(&["pagedown"]), "button", "Drawing"),
             press_on("A press on the drawing opens it large, filling the app below the title bar", "button", "Drawing", "button", "Fit"),
             step("\u{2318}+ zooms about the middle, and the pinch zooms about the pointer", Verb::Key("cmd-="), "button", "Fit"),

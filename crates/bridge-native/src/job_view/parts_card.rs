@@ -37,7 +37,7 @@ const ACROSS: usize = 3;
 /// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
 const SIDE_BY_SIDE: f32 = 520.;
 /// How tall a picture may stand in the reading column, against the pane it is read in.
-const TALL_SHARE: f32 = 0.8;
+const TALL_SHARE: f32 = 0.6;
 
 /// How many takes one row holds in a body `room` points wide with `gap` between: as many as would each be `SIDE_BY_SIDE` wide, and
 /// never more than `ACROSS`. Four stand two and two.
@@ -1053,7 +1053,7 @@ impl JobView {
         (card - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.))
     }
 
-    /// The tallest a picture stands in the reading column: four fifths of the pane it is read in.
+    /// The tallest a picture stands in the reading column: three fifths of the pane it is read in.
     fn tall_most(&self) -> gpui::Pixels {
         let pane = self.body_scroll.bounds().size.height;
         let pane = if pane > px(0.) { pane } else { self.pane_height.unwrap_or(px(600.)) };
@@ -1270,7 +1270,7 @@ impl JobView {
         if c.tab {
             return self.drawing_large(c, key, &held, scene, cx);
         }
-        let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(), look) else { return div().into_any_element() };
         let (artifact, press) = (c.id.to_string(), key.to_string());
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
