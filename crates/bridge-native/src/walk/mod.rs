@@ -1528,6 +1528,9 @@ pub static WALKS: &[Walk] = &[
         scenario: "artifact-parts",
         steps: &[
             press_on("A Job's one artifact stands in its thread: words that ask, takes, a drawing, buttons and a page, in the order it added them, the band reading Asking", "row", "Edit the merge line", "status", "Asking"),
+            press_on("Needs you holds the question about it, and an item whose artifact the Job no longer holds says so in a muted line", "button", "Needs you", "label", "No longer held"),
+            step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Open Step bar for Jobs"),
+            press_on("A press on the question's words opens the artifact it names, over the question's own press that answers it: the card is in front again", "button", "Open Step bar for Jobs", "status", "Asking"),
             step("Each part has its caption and a tag: the words and the takes ask, in amber", Verb::Look, "label", "Asks you"),
             step("The takes stand side by side, a radio and a picture each, the Job's pick marked on the second", Verb::Look, "radio", "Pick B \u{b7} Rail (Job's pick)"),
             press_on("A press inside the card gives it the keys", "heading", "Takes", "heading", "Takes"),

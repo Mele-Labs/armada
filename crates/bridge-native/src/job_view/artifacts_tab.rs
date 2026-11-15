@@ -68,6 +68,8 @@ pub(super) struct Artifacts {
     /// parts of it, and every `answer_part` it was sent, in order.
     mock_parts: Option<JobArtifact>,
     mock_posts: Vec<ipc::AnswerPart>,
+    /// Every `mark_artifact_seen` the mock Fleet was sent, in order.
+    mock_seen: Vec<ipc::MarkArtifactSeen>,
 }
 
 struct Read {
@@ -185,6 +187,67 @@ impl JobView {
     /// The artifact of Job `job` by its id, as Fleet last listed it.
     pub(super) fn artifact_of(&self, job: &str, id: &str) -> Option<&JobArtifact> {
         self.artifacts.read.get(job)?.rows.as_ref()?.iter().find(|one| one.id == id)
+    }
+
+    /// The artifact a waiting item of Job `job` names, from the item as Fleet kept it: the id of one of the Job's artifacts.
+    pub(super) fn row_artifact(&self, job: &str, item: &str, cx: &gpui::App) -> Option<String> {
+        self.record(job, cx)?.waiting_for.iter().find(|one| one.id == item)?.artifact.clone()
+    }
+
+    /// Whether Fleet has listed Job `job`'s artifacts and `artifact` is not among them: it no longer holds it. Until the list
+    /// is read nothing is said to be gone.
+    pub(super) fn artifact_gone(&self, job: &str, artifact: &str) -> bool {
+        self.artifacts.read.get(job).is_some_and(|read| read.rows.as_ref().is_some_and(|rows| rows.iter().all(|one| one.id != artifact)))
+    }
+
+    /// The words of a Needs you row whose press keeps its own act: a press on them opens the artifact the item names. A tab stop
+    /// that Enter presses, named for the artifact.
+    pub(super) fn artifact_words(&self, job: &str, artifact: &str, text: String, truncate: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let title = self.artifact_of(job, artifact).map_or_else(|| artifact.to_string(), |one| one.title.clone());
+        let named = artifact.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("needs-artifact:{artifact}")))
+                .flex_1()
+                .min_w_0()
+                .rounded(look.length(token::RADIUS_SM))
+                .cursor_pointer()
+                .tab_index(0)
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                .hover(|style| style.text_color(look.color(token::ACCENT)))
+                .tooltip(tip(format!("Open {title}")))
+                .when(truncate, |words| words.truncate())
+                .child(SharedString::from(text))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.open_named(&named, window, cx);
+                })),
+            Role::Button,
+            format!("Open {title}"),
+        )
+        .into_any_element()
+    }
+
+    /// Open the artifact of the shown Job where it is read, as the thread's own card opens it: an artifact of parts is brought
+    /// into view with the keys; a page is read in its tab, a draft in its own, a sketch over the window. Returns whether the
+    /// Job holds it: one it no longer holds opens nothing.
+    pub(super) fn open_named(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(job) = self.shown.clone() else { return false };
+        let Some(held) = self.artifact_of(&job, artifact).cloned() else { return false };
+        self.set_needs(false, None, window, cx);
+        if !held.parts.is_empty() && held.archived.is_none() {
+            if let Some(ix) = self.parts_ix(artifact) {
+                self.reveal_card(ix, cx);
+            }
+            if let Some(spot) = self.pages.get(&job).and_then(|page| page.keys.spot_of(&format!("card:{artifact}"))) {
+                window.focus(&spot.focus, cx);
+            }
+        } else {
+            // The Artifacts tab's own press: a page in its tab, a draft in its tab, a sketch over the window.
+            self.open_artifact(&job, artifact, window, cx);
+        }
+        cx.notify();
+        true
     }
 
     /// Every artifact of Job `job`, as Fleet last listed them.
@@ -307,12 +370,26 @@ impl JobView {
         }
     }
 
-    /// He opened this revision, on mock data: it is the newest he has opened from here on.
+    /// He opened this revision, on mock data: it is the newest he has opened from here on, an older one moving nothing.
     pub(super) fn seen_here(&mut self, job: &str, artifact: &str, revision: u32) {
-        self.artifacts.seen_here.insert((job.to_string(), artifact.to_string()), revision);
+        let kept = self.artifacts.seen_here.entry((job.to_string(), artifact.to_string())).or_default();
+        *kept = (*kept).max(revision);
+        let kept = *kept;
         if let Some(one) = self.artifacts.read.get_mut(job).and_then(|read| read.rows.as_mut()).and_then(|rows| rows.iter_mut().find(|one| one.id == artifact)) {
-            one.seen = Some(revision);
+            one.seen = Some(kept);
         }
+    }
+
+    /// The mock Fleet takes that he opened a revision: it keeps the post, and the revision is seen as Fleet would keep it.
+    pub(super) fn artifacts_seen_post(&mut self, job: &str, artifact: &str, revision: u32) {
+        self.artifacts.mock_seen.push(ipc::MarkArtifactSeen { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), revision });
+        self.seen_here(job, artifact, revision);
+    }
+
+    /// Every `mark_artifact_seen` the mock Fleet was sent, oldest first.
+    #[cfg(test)]
+    pub(super) fn mock_seen_posts(&self) -> &[ipc::MarkArtifactSeen] {
+        &self.artifacts.mock_seen
     }
 
     /// He saved an edit, on mock data: one more revision, his.
@@ -712,5 +789,80 @@ mod tests {
         assert!(fit_scale(1100) > 1., "a wide well magnifies the whole page, not a corner of it");
         assert!(fit_scale(0) > 0., "a zero width never collapses the picture to nothing");
         assert_eq!(READING_WIDTH * fit_scale(600), 600., "the scaled page is exactly the well's width");
+    }
+
+    /// The artifact-parts Job on screen with its thread read, drawn once, and Needs you open.
+    fn parts_job<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("artifact-parts").expect("the fixture decodes");
+        let threads = crate::mock::threads("artifact-parts").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        list.update(cx, |list, cx| list.open(crate::mock_parts::JOB.into(), cx));
+        cx.run_until_parked();
+        view.update_in(cx, |view, window, cx| view.set_needs(true, None, window, cx));
+        cx.run_until_parked();
+        (view, cx)
+    }
+
+    #[gpui::test]
+    fn an_item_that_names_an_artifact_opens_it_and_an_unknown_one_opens_nothing(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = parts_job(cx);
+        let job = crate::mock_parts::JOB;
+        let (held, retired) = (crate::mock_parts::ID, "sketch:Retired step bar");
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.row_artifact(job, "agent-parts", cx).as_deref(), Some(held), "the item carries the id Fleet kept");
+            assert!(!view.artifact_gone(job, held));
+            assert!(view.artifact_gone(job, retired), "an id the Job does not hold reads as no longer held");
+        });
+        let open = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.dock_of(job).and_then(|dock| dock.open));
+        assert_eq!(open(&view, cx), Some(true), "Needs you is open");
+        let opened = view.update_in(cx, |view, window, cx| view.open_named(retired, window, cx));
+        assert!(!opened, "the Job holds no such artifact");
+        assert_eq!(open(&view, cx), Some(true), "nothing moved");
+        let opened = view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        assert!(opened);
+        assert_eq!(open(&view, cx), Some(false), "Needs you gives way to the artifact");
+    }
+
+    #[gpui::test]
+    fn showing_a_revision_tells_fleet_once_however_often_it_draws(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("reader").expect("the fixture decodes");
+        let threads = crate::mock::threads("reader").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        list.update(cx, |list, cx| list.open("draft-job".into(), cx));
+        cx.run_until_parked();
+        view.update_in(cx, |view, window, cx| view.open_document_tab("design", window, cx));
+        cx.run_until_parked();
+        let posts = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, _| view.mock_seen_posts().iter().map(|one| (one.artifact.clone(), one.revision)).collect::<Vec<_>>())
+        };
+        assert_eq!(posts(&view, cx), [("design".to_string(), 2)], "the newest revision shown is told at once");
+        for _ in 0..3 {
+            cx.update(|window, _| window.refresh());
+            cx.run_until_parked();
+        }
+        assert_eq!(posts(&view, cx), [("design".to_string(), 2)], "a redraw tells nothing again");
+        let name = super::super::reader::reader_id(super::super::row_tabs::RowKind::Document, "design");
+        view.update_in(cx, |view, window, cx| view.reader_view(&"draft-job".into(), &name, 1, window, cx));
+        for _ in 0..3 {
+            cx.update(|window, _| window.refresh());
+            cx.run_until_parked();
+        }
+        assert_eq!(posts(&view, cx), [("design".to_string(), 2), ("design".to_string(), 1)], "an older revision posts its own number, once");
     }
 }

@@ -152,11 +152,13 @@ impl Tag {
         }
     }
 
+    /// The word of a tag that is the same for every part. An answered part says how it stands instead (`stands`).
     fn word(self) -> &'static str {
         match self {
             Tag::Informs => "Informs",
-            Tag::Asks | Tag::Asked => "Asks you",
+            Tag::Asks => "Asks you",
             Tag::Acts => "Acts",
+            Tag::Asked => "Answered",
         }
     }
 
@@ -168,6 +170,39 @@ impl Tag {
             Tag::Acts => "Each button acts when you press it",
         }
     }
+}
+
+/// How an answered part stands, in the glyph, hue, word and tooltip its one-line answer and its tag share.
+fn stands(state: PartState) -> (&'static str, crate::look::Token, &'static str, &'static str) {
+    match state {
+        PartState::Approved => ("badge-check", token::STATUS_COMPLETED_SUCCESS, "Approved", "You approved it"),
+        PartState::SentBack => ("reply", token::STATUS_REJECTED, "Sent back", "You sent it back with changes"),
+        PartState::Picked => ("check", token::STATUS_COMPLETED_SUCCESS, "Picked", "You picked a take"),
+        PartState::Withdrawn => ("ban", token::STATUS_KILLED, "Taken back", "The Job took it back"),
+        PartState::Open => ("circle-dot", token::STATUS_AWAITING_REVIEW, "Asking", "Waiting on your answer"),
+    }
+}
+
+/// The take a part's answer picked, by the words its tile carries.
+fn picked_take(part: &ArtifactPart) -> Option<String> {
+    match (&part.content, part.answer.as_ref().and_then(|answer| answer.take.as_deref())) {
+        (PartContent::Takes { takes, .. }, Some(id)) => takes.iter().find(|one| one.id == id).map(|one| pick_mark(&one.title).0.to_string()),
+        _ => None,
+    }
+}
+
+/// What a part's tag says and its hue: where it has been answered, how, in the one-line answer's words and colour.
+fn tag_of(part: &ArtifactPart) -> (String, Option<crate::look::Token>) {
+    let tag = Tag::of(part);
+    if tag != Tag::Asked {
+        return (tag.word().to_string(), None);
+    }
+    let (_, ink, word, _) = stands(part.state);
+    let word = match (part.state, picked_take(part)) {
+        (PartState::Picked, Some(take)) => format!("{word} {take}"),
+        _ => word.to_string(),
+    };
+    (word, Some(ink))
 }
 
 /// What the card needs while it draws one part.
@@ -223,7 +258,7 @@ impl JobView {
     }
 
     /// The list place of an artifact's card: after the thread's items, where the extras stand.
-    fn parts_ix(&self, artifact: &str) -> Option<usize> {
+    pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
         let page = self.shown.as_ref().and_then(|job| self.pages.get(job))?;
         page.extras.iter().position(|extra| matches!(extra, Extra::Parts(id) if id == artifact)).map(|at| page.items + at)
     }
@@ -610,10 +645,12 @@ impl JobView {
     fn caption(&self, c: &Ctx, key: &str, mark: &'static str, name: &'static str, part: &ArtifactPart) -> AnyElement {
         let look = c.look;
         let tag = Tag::of(part);
-        let ink = match tag {
-            Tag::Asks => look.color(token::STATUS_AWAITING_REVIEW),
-            Tag::Acts => look.color(token::KIND_SETUP),
-            Tag::Informs | Tag::Asked => look.color(token::FG_MUTED),
+        let (said, answered) = tag_of(part);
+        let ink = match (tag, answered) {
+            (_, Some(token)) => look.color(token),
+            (Tag::Asks, _) => look.color(token::STATUS_AWAITING_REVIEW),
+            (Tag::Acts, _) => look.color(token::KIND_SETUP),
+            _ => look.color(token::FG_MUTED),
         };
         let pill = labelled(
             div()
@@ -622,15 +659,15 @@ impl JobView {
                 .px(look.length(token::SPACE_2))
                 .rounded_full()
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(if matches!(tag, Tag::Asks | Tag::Acts) { ink.opacity(0.5) } else { look.color(token::BORDER_DEFAULT) })
+                .border_color(if matches!(tag, Tag::Asks | Tag::Acts | Tag::Asked) { ink.opacity(0.5) } else { look.color(token::BORDER_DEFAULT) })
                 .when(tag == Tag::Asks, |pill| pill.bg(ink.opacity(0.12)))
                 .text_size(look.length(token::TEXT_2XS))
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(ink)
-                .tooltip(tip(tag.tip()))
-                .child(tag.word()),
+                .tooltip(tip(if answered.is_some() { stands(part.state).3 } else { tag.tip() }))
+                .child(SharedString::from(said.clone())),
             Role::Label,
-            tag.word(),
+            said,
         );
         let caption = div()
             .id(SharedString::from(format!("caption:{key}")))
@@ -719,17 +756,8 @@ impl JobView {
     /// What he answered, on one line where the buttons were: its glyph and word in the state's colour, and his words.
     fn answered_line(&self, c: &Ctx, key: &str, part: &ArtifactPart) -> AnyElement {
         let look = c.look;
-        let (mark, ink, word, tipped) = match part.state {
-            PartState::Approved => ("badge-check", token::STATUS_COMPLETED_SUCCESS, "Approved", "You approved it"),
-            PartState::SentBack => ("reply", token::STATUS_REJECTED, "Sent back", "You sent it back with changes"),
-            PartState::Picked => ("check", token::STATUS_COMPLETED_SUCCESS, "Picked", "You picked a take"),
-            PartState::Withdrawn => ("ban", token::STATUS_KILLED, "Taken back", "The Job took it back"),
-            PartState::Open => ("circle-dot", token::STATUS_AWAITING_REVIEW, "Asking", "Waiting on your answer"),
-        };
-        let take = match (&part.content, part.answer.as_ref().and_then(|answer| answer.take.as_deref())) {
-            (PartContent::Takes { takes, .. }, Some(id)) => takes.iter().find(|one| one.id == id).map(|one| pick_mark(&one.title).0.to_string()),
-            _ => None,
-        };
+        let (mark, ink, word, tipped) = stands(part.state);
+        let take = picked_take(part);
         let words = part.answer.as_ref().and_then(|answer| answer.words.as_deref()).map(|words| words.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|words| !words.is_empty());
         let said = [take, words].into_iter().flatten().collect::<Vec<_>>().join(": ");
         let (_, kind) = kind_look(part.content.kind());
@@ -1219,6 +1247,18 @@ mod tests {
         assert_eq!(Tag::of(&words("w", true, PartState::Approved)), Tag::Asked, "answered, it is no longer the amber ask");
         assert_eq!(Tag::of(&part("b", PartContent::Buttons { actions: Vec::new() }, false, PartState::Open)), Tag::Acts);
         assert_eq!([Tag::Informs, Tag::Asks, Tag::Acts].map(Tag::word), ["Informs", "Asks you", "Acts"]);
+    }
+
+    #[test]
+    fn an_answered_part_tags_how_it_stands_and_never_asks_you() {
+        let answered = crate::mock_parts::artifact(true);
+        let tags: Vec<(String, String)> = answered.parts.iter().filter(|part| part.asks).map(|part| (part.id.clone(), tag_of(part).0)).collect();
+        assert_eq!(tags, [("intro".to_string(), "Approved".to_string()), ("bar".to_string(), "Picked B \u{b7} Rail".to_string()), ("flow".to_string(), "Approved".to_string())]);
+        assert!(answered.parts.iter().all(|part| tag_of(part).0 != "Asks you"), "no answered part is still the amber ask");
+        let (_, green) = tag_of(&answered.parts[0]);
+        assert_eq!(green, Some(token::STATUS_COMPLETED_SUCCESS), "approved in the one-line answer's green");
+        assert_eq!(tag_of(&words("w", true, PartState::SentBack)), ("Sent back".to_string(), Some(token::STATUS_REJECTED)));
+        assert_eq!(tag_of(&words("w", true, PartState::Open)), ("Asks you".to_string(), None), "one still asking keeps its amber tag");
     }
 
     #[test]

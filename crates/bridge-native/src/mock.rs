@@ -311,6 +311,16 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    // The Job's one artifact of parts is what the question asks about, named by its id; the second item names one it no longer holds.
+    if scenario == "artifact-parts" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            let wire = format!(
+                r#"[{{"id":"agent-parts","text":"Which step bar do you want?","since":"2026-11-14T10:05:00Z","source":"agent","options":[{{"label":"Bar under the title"}},{{"label":"Rail beside it"}}],"artifact":"{}"}},{{"id":"agent-retired","text":"Check the old step bar sketch","since":"2026-11-14T10:02:00Z","source":"agent","artifact":"sketch:Retired step bar"}}]"#,
+                crate::mock_parts::ID
+            );
+            one.waiting_for.extend(ipc::decode::<Vec<WaitingItem>>("artifact items", wire.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
     // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
     if scenario == "jobs-snoozed" {
         if let (Some(one), Some(now)) = (sessions.iter_mut().find(|one| one.id.as_str() == "mock-01"), fixed_now()) {
@@ -1299,7 +1309,7 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
     let pressed = match item.source {
         WaitingSource::Plan => NeedsYouAct::OpenPlan,
         WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
-        WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
+        WaitingSource::Document => NeedsYouAct::OpenDocument { path: item.id.strip_prefix("read:").map_or_else(|| named(DOCUMENT_ITEM_PREFIX), str::to_string) },
         WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
         // Fleet's handoff card takes no words.
         _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: item.source != WaitingSource::Handoff },

@@ -560,7 +560,7 @@ impl JobView {
     }
 
     /// The card is whole in the thread again, now that it has its new height.
-    fn reveal_card(&mut self, ix: usize, cx: &mut Context<Self>) {
+    pub(super) fn reveal_card(&mut self, ix: usize, cx: &mut Context<Self>) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
             if ix != super::acts::SHEET {
                 page.list.scroll_to_reveal_item(page.entry(ix));

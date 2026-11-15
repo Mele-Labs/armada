@@ -336,6 +336,8 @@ pub(super) struct Reader {
     pub base: Option<u32>,
     /// The newest revision marked seen, so it is marked once.
     pub marked: Option<u32>,
+    /// Every revision Fleet was told he opened from here, so one is told once however often it draws.
+    pub told: std::collections::BTreeSet<u32>,
     pub edit: Option<Edit>,
     pub saving: bool,
     pub scroll: ScrollHandle,
@@ -361,6 +363,7 @@ impl Reader {
             viewing: None,
             base: None,
             marked: None,
+            told: std::collections::BTreeSet::new(),
             edit: None,
             saving: false,
             scroll: ScrollHandle::new(),
@@ -835,32 +838,53 @@ impl JobView {
         let _ = current;
     }
 
-    /// He opened the newest revision: Fleet is told, so what moved is told from this one the next time.
+    /// He opened a revision: Fleet is told which, once for each, so it closes the Read item where it was the newest and decides
+    /// from the number where it was an older one. A refusal is logged and changes nothing on screen.
     fn reader_seen(&mut self, id: &SharedString, name: &str, subject: &Subject, window: &mut Window, cx: &mut Context<Self>) {
         let Some(held) = self.reader_mut(id, name) else { return };
-        if held.marked == Some(subject.newest) || held.viewing.is_some_and(|at| at != subject.newest) || subject.revisions.is_empty() {
+        if subject.revisions.is_empty() {
             return;
         }
-        // A newer revision arrived while it was open: it moved from the one he had in front of him.
-        if let Some(before) = held.marked.filter(|marked| *marked < subject.newest) {
-            held.base = Some(before);
-            if held.kind == RowKind::Draft {
-                let text = subject.text.clone().unwrap_or_default();
-                held.text.clear();
-                held.blocks.clear();
-                let _ = text;
+        let older = held.viewing.filter(|at| *at != subject.newest);
+        let shown = older.unwrap_or(subject.newest);
+        if older.is_some() {
+            if !held.told.insert(shown) {
+                return;
+            }
+        } else {
+            if held.marked == Some(subject.newest) {
+                return;
+            }
+            // A newer revision arrived while it was open: it moved from the one he had in front of him.
+            if let Some(before) = held.marked.filter(|marked| *marked < subject.newest) {
+                held.base = Some(before);
+                if held.kind == RowKind::Draft {
+                    held.text.clear();
+                    held.blocks.clear();
+                }
+            }
+            held.marked = Some(subject.newest);
+            if !held.told.insert(shown) || subject.seen.is_some_and(|seen| seen >= shown) {
+                return;
             }
         }
-        held.marked = Some(subject.newest);
-        if subject.seen.is_some_and(|seen| seen >= subject.newest) {
-            return;
-        }
-        let body = ipc::encode(&ipc::MarkArtifactSeen { session_id: SessionId::carried(id.to_string()), artifact: subject.artifact.clone(), revision: subject.newest });
+        let body = ipc::encode(&ipc::MarkArtifactSeen { session_id: SessionId::carried(id.to_string()), artifact: subject.artifact.clone(), revision: shown });
         if self.fleet.is_none() {
-            self.seen_here(id, &subject.artifact, subject.newest);
+            self.artifacts_seen_post(id, &subject.artifact, shown);
             return;
         }
-        self.post("/sessions/artifacts/seen".to_string(), body, window, cx, Box::new(|_, _, _, _| {}));
+        let artifact = subject.artifact.clone();
+        self.post(
+            "/sessions/artifacts/seen".to_string(),
+            body,
+            window,
+            cx,
+            Box::new(move |_, answer, _, _| {
+                if let Err(why) = answer {
+                    crate::log::Note::warn("Fleet did not take that he opened a revision").field("artifact", artifact).field("revision", shown).field("why", why).emit();
+                }
+            }),
+        );
     }
 }
 

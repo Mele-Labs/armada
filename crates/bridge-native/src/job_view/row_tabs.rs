@@ -289,7 +289,7 @@ impl JobView {
     /// The page a Job owes him alone, read in its own tab (`soleDocument`).
     pub(super) fn sole_document(&self, id: &str, cx: &gpui::App) -> Option<String> {
         match self.record(id, cx)?.waiting_for.as_slice() {
-            [only] if only.source == WaitingSource::Document => Some(only.id.strip_prefix("document:").unwrap_or(&only.id).to_string()),
+            [only] if only.source == WaitingSource::Document => Some(super::review::page_of_item(&only.id).unwrap_or(&only.id).to_string()),
             _ => None,
         }
     }
