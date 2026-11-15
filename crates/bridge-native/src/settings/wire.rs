@@ -685,6 +685,37 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, String::new()), "Projects", cx))
     }
 
+    /// `GET /projects/project/:project/store`: the store the project names, the Macs signed in to it, and whether a
+    /// deploy or a join can run now.
+    pub fn project_store(&mut self, project: &str, cx: &App) -> Task<Result<ipc::ProjectStoreState, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.project_store(project));
+        }
+        let path = format!("/projects/project/{}/store", crate::link::percent_encoded(project));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "ProjectStoreState", cx))
+    }
+
+    /// `POST /projects/project/:project/store`: join the store at an address, or none where `store` is absent.
+    pub fn set_project_store(&mut self, project: &str, store: Option<ipc::JoinStore>, cx: &App) -> Task<Result<ipc::ProjectStoreState, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_project_store(project, store));
+        }
+        let path = format!("/projects/project/{}/store", crate::link::percent_encoded(project));
+        let said = body(&ipc::SetProjectStore { store });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "ProjectStoreState", cx))
+    }
+
+    /// `POST /projects/project/:project/store/deploy`: the Worker put up on his Cloudflare account, with the token he
+    /// pasted where he did. The token is in the body and nowhere else: it is not logged here.
+    pub fn deploy_project_store(&mut self, project: &str, deploy: ipc::DeployProjectStore, cx: &App) -> Task<Result<ipc::StoreDeployed, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.deploy_project_store(project, deploy));
+        }
+        let path = format!("/projects/project/{}/store/deploy", crate::link::percent_encoded(project));
+        let said = body(&deploy);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "StoreDeployed", cx))
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {

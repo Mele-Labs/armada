@@ -1953,6 +1953,7 @@ name = "pocket"
 version = "0.0.0"
 dependencies = [
  "adapter-traits",
+ "adapters",
  "aes-gcm",
  "axum",
  "base64",
@@ -1970,6 +1971,7 @@ dependencies = [
  "serde",
  "sha2",
  "store",
+ "testkit",
  "tokio",
  "tokio-rustls",
  "tower",

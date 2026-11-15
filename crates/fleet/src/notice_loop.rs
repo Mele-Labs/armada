@@ -106,6 +106,8 @@ where
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
+            // The Operator's own session, started while its switch is on and ended once it is off.
+            fleet.operator_session_kept().await;
             // Snoozed Jobs whose time has come, back in front of the person.
             fleet.snoozes_ended().await;
             // Jobs a terminal Job's answer signed back in, woken with `Continue`.

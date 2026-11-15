@@ -100,6 +100,12 @@ impl Store for Viewed {
     fn signed_in_devices(&self) -> Result<Vec<adapter_traits::StoreDevice>, adapter_traits::StoreError> {
         self.0.signed_in_devices()
     }
+    fn peers(&self) -> Result<Vec<adapter_traits::StorePeer>, adapter_traits::StoreError> {
+        self.0.peers()
+    }
+    fn put_presence(&self, kind: adapter_traits::DeviceKind, address: &str) -> Result<(), adapter_traits::StoreError> {
+        self.0.put_presence(kind, address)
+    }
     fn put_runs(&self, repository: &adapter_traits::RepositoryKey, runs: &[adapter_traits::RunRow]) -> Result<(), adapter_traits::StoreError> {
         self.0.put_runs(repository, runs)
     }

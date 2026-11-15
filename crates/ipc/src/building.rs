@@ -140,6 +140,10 @@ pub struct FleetBuildReport {
     /// last fetched, so a Mac with no Job on a branch can still try it. Since 13 Nov 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub origin: Vec<OriginBranch>,
+    /// The branches the running build holds, as `builds/current` records them, whether or not Keep was
+    /// pressed or a pick made. Empty on a build that holds none. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holds: Vec<HeldBranch>,
 }
 
 /// A branch on origin a snapshot can take, and when its tip was committed.
@@ -147,6 +151,23 @@ pub struct FleetBuildReport {
 pub struct OriginBranch {
     pub branch: String,
     pub committed_at: Instant,
+    /// The title of the Job on this Fleet that held the branch last, ended Jobs included. Absent
+    /// where none did. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+/// A branch the running build holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldBranch {
+    pub branch: String,
+    /// The title of the Job that held the branch: a live one first, else the one that held it
+    /// last, ended Jobs included. Absent where no Job on this Fleet did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// The tip the build took of it is on `origin/main` as last fetched. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub landed: bool,
 }
 
 /// A branch picked for the next snapshot.

@@ -54,7 +54,7 @@ pub fn follow(cx: &mut App) {
 /// A walk's Macs: the pairing scenario's two, and none for any other, so one walk never leaves chips for the next.
 pub fn begin_mock(scenario: &str, cx: &mut App) {
     crate::move_to_mac::refuse_next(false);
-    hold(if scenario == "jobs-pairing" { mock_macs(true) } else { Vec::new() }, cx);
+    hold(if matches!(scenario, "jobs-pairing" | "jobs-other-mac") { mock_macs(true) } else { Vec::new() }, cx);
 }
 
 /// Studio, this Mac, and Air, which fell asleep at 09:12 that morning; or Studio alone.

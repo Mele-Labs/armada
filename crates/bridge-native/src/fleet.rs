@@ -125,6 +125,9 @@ pub struct Held {
     pub plan_usage: Option<ipc::PlanUsage>,
     /// Where the step down stands, as Fleet last said, held across a drop. `None` until Fleet has answered.
     pub downshift: Option<ipc::ModelDownshiftState>,
+    /// Whether the agents' account is signed out for every Job, and whether Fleet is signing it in, held across a drop.
+    /// `None` until Fleet has answered.
+    pub agent_sign_in: Option<ipc::AgentSignIn>,
     /// Every standing write clash, as Fleet last said. `None` until Fleet has answered, and again once the
     /// connection drops, as Electron clears its marks: a clash Fleet cannot vouch for is not drawn.
     pub clashes: Option<ipc::AllWriteClashes>,
@@ -197,6 +200,7 @@ impl Held {
             merge_lines: None,
             plan_usage: None,
             downshift: None,
+            agent_sign_in: None,
             clashes: None,
             presence: None,
             silent_since: None,
@@ -458,6 +462,8 @@ impl Held {
                 Signal::PlanUsageFailed(why) => lines.push(Note::warn("the plan usage could not be read").field("why", why)),
                 Signal::Downshift(state) => self.downshift = Some(state),
                 Signal::DownshiftFailed(why) => lines.push(Note::warn("the step down could not be read").field("why", why)),
+                Signal::AgentSignIn(state) => self.agent_sign_in = Some(state),
+                Signal::AgentSignInFailed(why) => lines.push(Note::warn("the agents' sign-in could not be read").field("why", why)),
                 Signal::Offers(offers) => self.offers = Some(offers),
                 Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
                 Signal::BuildNotes(notes) => self.build_notes = Some(notes),
@@ -523,6 +529,7 @@ impl Held {
                         Event::WriteClashesChanged(all) => self.clashes = Some(all),
                         Event::PlanUsageChanged(usage) => self.plan_usage = Some(usage),
                         Event::ModelDownshiftChanged(state) => self.downshift = Some(state),
+                        Event::AgentSignInChanged(state) => self.agent_sign_in = Some(state),
                         // The offers arrive whole and replace the ones held.
                         Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
                         // The notes arrive whole and replace the ones held.
@@ -1206,6 +1213,24 @@ impl FleetConnection {
             following: None,
             changes_asked: BTreeSet::new(),
             _drain: drain,
+        }
+    }
+}
+
+/// A connection with no link behind it, for a test that emits its events itself.
+#[cfg(test)]
+impl FleetConnection {
+    pub fn idle(_: &mut Context<Self>) -> Self {
+        FleetConnection {
+            held: Held::new(),
+            reading: BTreeSet::new(),
+            earlier: BTreeSet::new(),
+            failed: BTreeSet::new(),
+            needs_reading: BTreeMap::new(),
+            needs_failed: BTreeMap::new(),
+            following: None,
+            changes_asked: BTreeSet::new(),
+            _drain: Task::ready(()),
         }
     }
 }

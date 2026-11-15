@@ -67,12 +67,14 @@ pub struct KeptHosting {
     /// The folder under the repository's root the Job's terminals open in, as `crates/fleet`. `None`
     /// is the root, or the slot's worktree once one is held.
     pub terminal_dir: Option<String>,
+    /// The Operator's own session: one per Mac, which has no repository, no slot and no Manifest.
+    pub operator: bool,
 }
 
 const COLUMNS: &str =
     "session_id, manifest_id, model, effort, mode, ran, lease_slot, lease_branch, fork_of, on_your_words, \
      setup, workflow, proposed, turn_model, turn_effort, paused_at, paused_resuming, auto_land, \
-     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project, side_job, terminal_dir";
+     mod_job, start_held, workflow_chosen, from_job, from_tab, mod_of_bay, project, side_job, terminal_dir, operator";
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
     Ok(KeptHosting {
@@ -103,6 +105,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptHosting> {
         project: row.get(24)?,
         side_job: row.get::<_, i64>(25)? != 0,
         terminal_dir: row.get(26)?,
+        operator: row.get::<_, i64>(27)? != 0,
     })
 }
 
@@ -112,7 +115,7 @@ impl Store {
             .execute(
                 &format!(
                     "INSERT OR REPLACE INTO hosted_sessions ({COLUMNS})
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)"
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)"
                 ),
                 params![
                     hosting.session_id,
@@ -142,6 +145,7 @@ impl Store {
                     hosting.project,
                     i64::from(hosting.side_job),
                     hosting.terminal_dir,
+                    i64::from(hosting.operator),
                 ],
             )
             .map(|_| ())
@@ -199,6 +203,28 @@ impl Store {
             .map_err(WriteError::Database)?;
         rows.collect::<Result<_, _>>()
             .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
+    /// The live Operator session, if one runs: the newest hosting marked `operator` whose session has not ended.
+    pub fn live_operator_hosting(&self) -> Result<Option<KeptHosting>, WriteError> {
+        let columns = COLUMNS
+            .split(", ")
+            .map(|column| format!("h.{column}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.conn
+            .query_row(
+                &format!(
+                    "SELECT {columns} FROM hosted_sessions h JOIN sessions s ON s.id = h.session_id
+                     WHERE h.operator = 1 AND s.state <> 'ended'
+                     ORDER BY s.started_at DESC, s.id DESC LIMIT 1"
+                ),
+                [],
+                kept,
+            )
+            .optional()
+            .map_err(fault("reading the Operator's session"))
             .map_err(WriteError::Database)
     }
 

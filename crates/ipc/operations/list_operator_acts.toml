@@ -1,0 +1,8 @@
+[operations.list_operator_acts]
+kind = "query"
+transport = "HTTP"
+agent_access = "Operator"
+description = "What you may do unasked in each project: act_then_tell, ask_before_starting or only_when_told, absent where he has not said. Ask him once in a project where it is absent and save his answer with set_operator_acts"
+notes = """
+Since 14 Nov 2026. `GET /operator/acts`, answered with `OperatorActsList`: `projects`, each `{ project, name, acts? }`. `acts` is absent where he has not said, which is a real state and not a default. Kept as a learned value of the project, beside its learned `delivery`.
+"""

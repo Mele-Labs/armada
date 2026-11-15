@@ -281,8 +281,8 @@ impl Build {
         let idle_on_main = self.report.on == BuildSource::Main && !working && self.aligned;
         let busy = working || self.report.reverting || self.report.swapping;
         let (label, tip) = match (target, working) {
-            (BuildSource::Preview, false) => ("Refresh preview", "Merge in-flight branches and restart on the preview"),
-            (BuildSource::Preview, true) => ("Refreshing preview", "Merge in-flight branches and restart on the preview"),
+            (BuildSource::Preview, false) => ("Refresh", "Merge the offered branches onto latest main and restart Fleet"),
+            (BuildSource::Preview, true) => ("Refreshing", "Merge the offered branches onto latest main and restart Fleet"),
             (BuildSource::Main, false) => ("Update to main", "Restart on latest main"),
             (BuildSource::Main, true) => ("Updating to main", "Restart on latest main"),
         };
@@ -862,6 +862,11 @@ impl Face {
             None if self.repositories.is_empty() => ("No repository read yet".into(), None),
             None => ("All".into(), None),
         }
+    }
+
+    /// Fleet's id of the project the window is scoped to, which the Jobs list filters by. None on All and on one repository.
+    pub fn scoped_project(&self) -> Option<&str> {
+        self.scoped.and_then(|at| self.projects.get(at)).map(|one| one.id.as_ref())
     }
 
     /// The repositories a project draws on, each once, in the order its members name them.

@@ -101,6 +101,7 @@ mod scratch;
 mod session_folders;
 mod session_runs;
 mod sign_in;
+mod sign_in_app;
 mod starting;
 mod requests;
 mod request_secrets;

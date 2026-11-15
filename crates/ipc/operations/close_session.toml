@@ -1,7 +1,7 @@
 [operations.close_session]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Operator"
 description = "Close a job: end its process, give back the slot it holds and end its row. A terminal job is ended by its mod"
 notes = """
 `POST /sessions/close`, body `CloseSession`. Since 23.49. The slot is parked, which commits what is in it to the job's own branch and pushes nothing, so closing loses no work.
