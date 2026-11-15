@@ -70,25 +70,25 @@ fn with_places(mut face: Face, here: Front, reviews: bool) -> Face {
 
 impl OperatorScreen {
     pub fn live(jobs: Entity<JobsScreen>, fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::live(fleet, false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
         Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
     /// On the walk's Fleet, with the page in front.
     pub fn mock(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         Self::new(jobs, page, Front::Operator, None, window, cx)
     }
 
     /// On the walk's Fleet, with the Jobs screen in front.
     pub fn mock_behind(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
     /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock.
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::mock(window, cx));
         Self::new(jobs, page, Front::Jobs, Some(reviews), window, cx)
     }
@@ -149,7 +149,12 @@ impl OperatorScreen {
             .filter(|job| job.state != ipc::SessionState::Ended)
             .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
             .collect();
-        self.page.update(cx, |page, cx| page.set_jobs(named, cx));
+        // A card's chips name every Job it is about, ended ones too.
+        let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
+        self.page.update(cx, |page, cx| {
+            page.set_jobs(named, cx);
+            page.set_titles(titles, cx);
+        });
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.

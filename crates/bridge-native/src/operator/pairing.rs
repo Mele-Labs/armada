@@ -13,7 +13,7 @@ use super::view::{kind_chip, press, pressed, round, Weight};
 use super::wire::Wire;
 use crate::labels::labelled;
 use crate::log::Note;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 use crate::titlebar::parts::{glyph, tip};
 
 const PAIRING: Kind = Kind { word: "Mac pairing", glyph: "monitor", hue: token::STATUS_AWAITING_REVIEW, ground: token::STATUS_AWAITING_REVIEW_BG };
@@ -189,7 +189,7 @@ mod tests {
             crate::look::init(cx);
             crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
         });
-        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(false, window, cx));
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
         page.update(cx, |page, _| {
             let mock = page.mock_fleet().expect("the walk's Fleet");
             mock.pairings = vec![waiting("0a0b", "Work", "4821", "2025-11-01T12:26:40.000Z")];

@@ -40,6 +40,11 @@ pub(crate) fn file() -> Option<PathBuf> {
     crate::jobs::deck_file().map(|deck| deck.with_file_name("native-drafts.json"))
 }
 
+/// What the file holds now, by key.
+pub(crate) fn read_file(path: &Path) -> HashMap<String, String> {
+    read(path)
+}
+
 /// The words kept under `key`, if any stand.
 pub fn kept(key: &str, cx: &App) -> Option<String> {
     cx.try_global::<Kept>().and_then(|kept| kept.words.get(key)).filter(|words| !words.is_empty()).cloned()
@@ -53,9 +58,15 @@ pub fn keep(key: &str, words: &str, cx: &mut App) {
     } else {
         kept.words.insert(key.to_string(), words.to_string()).as_deref() != Some(words)
     };
-    if changed && kept.file.is_some() {
-        kept.unwritten = true;
-        write_soon(cx);
+    if changed {
+        if let Some(file) = kept.file.clone() {
+            kept.unwritten = true;
+            // Held for a panic's hook to write, until the file holds it.
+            if let Some(text) = encoded(&kept.words) {
+                crate::crash::hold(&file, text);
+            }
+            write_soon(cx);
+        }
     }
 }
 
@@ -106,12 +117,16 @@ fn read(path: &Path) -> HashMap<String, String> {
     }
 }
 
+/// The file's whole text.
+fn encoded(words: &HashMap<String, String>) -> Option<String> {
+    let entries: HashMap<String, &String> = words.iter().map(|(key, words)| (format!("{PREFIX}{key}"), words)).collect();
+    ipc::encode(&entries).ok()
+}
+
 /// The whole file, to a temp file beside it and then over it, so a crash part way leaves the old one whole.
 fn write(path: &Path, words: &HashMap<String, String>) {
-    let entries: HashMap<String, &String> = words.iter().map(|(key, words)| (format!("{PREFIX}{key}"), words)).collect();
-    let result = ipc::encode(&entries).map_err(|why| why.to_string()).and_then(|text| {
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, text).and_then(|()| std::fs::rename(&temp, path)).map_err(|why| why.to_string())
+    let result = encoded(words).ok_or_else(|| "the drafts did not encode".to_string()).and_then(|text| {
+        crate::crash::write_atomic(path, &text).map(|()| crate::crash::settle(path, &text)).map_err(|why| why.to_string())
     });
     if let Err(why) = result {
         Note::warn("the kept drafts were not written").field("why", why).emit();
@@ -166,6 +181,44 @@ mod tests {
             assert_eq!(kept("dispatch:request", cx).as_deref(), Some("Half a thought"));
             assert_eq!(kept("operator:compose", cx), None);
         });
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[gpui::test]
+    fn the_sheet_the_operator_a_note_and_a_walk_note_all_come_back_after_a_restart(cx: &mut TestAppContext) {
+        let path = std::env::temp_dir().join(format!("armada-drafts-kinds-test-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let kinds = [("dispatch:request", "Fix the toast\nand the sheet"), ("operator:compose", "{\"text\":\"Ask\",\"tags\":[]}"), ("annotate:note", "The gap is wrong"), ("walk-note:dispatch", "Too tight")];
+        cx.update(|cx| {
+            persist(Some(path.clone()), cx);
+            for (key, words) in kinds {
+                keep(key, words, cx);
+            }
+        });
+        cx.executor().advance_clock(QUIET * 2);
+        cx.run_until_parked();
+        cx.update(|cx| {
+            forget_all(cx);
+            persist(Some(path.clone()), cx);
+            for (key, words) in kinds {
+                assert_eq!(kept(key, cx).as_deref(), Some(words), "{key}");
+            }
+        });
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[gpui::test]
+    fn words_typed_just_before_an_abort_are_written_from_what_is_held(cx: &mut TestAppContext) {
+        let path = std::env::temp_dir().join(format!("armada-drafts-abort-test-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        cx.update(|cx| {
+            persist(Some(path.clone()), cx);
+            keep("dispatch:request", "typed and then the app aborted", cx);
+        });
+        // The wait has not passed, so nothing is written; the hook's flush is what writes it.
+        assert!(!path.exists());
+        crate::crash::flush(false);
+        assert!(read(&path).get("dispatch:request").is_some_and(|words| words == "typed and then the app aborted"));
         let _ = std::fs::remove_file(&path);
     }
 }
