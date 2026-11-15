@@ -82,6 +82,34 @@ export type OperatorCard = {
   talk_of?: string;
   /** The Jobs it is about. */
   sessions?: string[];
+  /** The option he pressed and when, on a card in `working` and on one that came back. Absent before his press. Since 14 Nov 2026. */
+  picked?: OperatorCardPicked;
+  /** What the Operator reported doing on it since his press, oldest first. Since 14 Nov 2026. */
+  steps: OperatorCardStep[];
+  /** Why a picked card came back to the front, and when. Absent until it does; his next press clears it. Since 14 Nov 2026. */
+  returned?: OperatorCardReturned;
+};
+
+/** His press on a card. Since 14 Nov 2026. */
+export type OperatorCardPicked = {
+  /** The option's label. */
+  option: string;
+  /** RFC 3339. */
+  at: string;
+};
+
+/** One thing the Operator did on a picked card, as it reported it. Since 14 Nov 2026. */
+export type OperatorCardStep = {
+  /** RFC 3339. */
+  at: string;
+  said: string;
+};
+
+/** Why a picked card came back to the front: the Operator reported it failed, or nothing settled it in 15 min. Since 14 Nov 2026. */
+export type OperatorCardReturned = {
+  why: string;
+  /** RFC 3339. */
+  at: string;
 };
 
 /** One option of a card, with what it spends or risks. */
@@ -160,6 +188,15 @@ export type CardRevised = {
 export type SettleCard = {
   card: string;
   said: string;
+};
+
+/** `report_card`: exactly one of `step` and `failed`. Answered with `CardRevised`. Since 14 Nov 2026. */
+export type ReportCard = {
+  card: string;
+  /** One real step, such as a Job started, a pull request opened or a merge. */
+  step?: string;
+  /** Why the pick cannot be carried out. The card comes back first in `turn`. */
+  failed?: string;
 };
 
 /** What `settle_card` did. */
@@ -397,6 +434,8 @@ export type OperatorPage = {
   on_it?: OperatorOnIt;
   /** Your turn, in the order he left it. A card put Later, and a resting Job's items, are left out until they are due. */
   turn: OperatorTurnItem[];
+  /** The cards he pressed an option on that the Operator has not settled, newest pick first. Since 14 Nov 2026. */
+  working: OperatorTurnItem[];
   digest: OperatorDigest;
   /** Each repository Fleet serves, first first. Absent when none. */
   mains?: OperatorMain[];

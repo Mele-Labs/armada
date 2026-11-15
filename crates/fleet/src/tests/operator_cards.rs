@@ -1,17 +1,21 @@
 //! The claim, written before the code: **the Operator's own session puts cards in front of him and nothing else
 //! does, his press on one reaches that session as a message, and what arrives is told to the session while it runs.**
 //! A card put Later and a resting Job's item are off the page until they are due. `crates/ipc/operations/raise_card.toml`.
+//!
+//! **A pressed card is never lost**: until the session settles it, it is in the page's `working` or back first in
+//! `turn`, with why. `crates/ipc/operations/report_card.toml`.
 
 use std::sync::Arc;
 
 use api::{HostedSessions, Projects, Refusal, Sessions};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorFeedKind, OperatorLater};
-use ipc::{CardOption, CloseSession, Instant, NewProject, OperatorActs, OperatorCardKind, ProjectMember, RaiseCard, ReviseCard, SessionId, SetOperatorActs, SetWaitingFor, SettleCard, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
+use ipc::{CardOption, CloseSession, Instant, NewProject, OperatorActs, OperatorCardKind, ProjectMember, RaiseCard, ReportCard, ReviseCard, SessionId, SetOperatorActs, SetWaitingFor, SettleCard, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
 
 use super::operator_dispatches::the_dispatch;
 use super::operator_session::{live, switched};
 use super::peer::Placing;
-use super::session_host::{eventually, rig_placing, Rig};
+use super::planted::Held;
+use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
 use crate::operator::{keep_the_raises, Arrival, Arrived, Source};
 
 /// The first process the stand-in starts is pid 1000, and this connection is the one it holds.
@@ -22,6 +26,19 @@ fn rig() -> Rig {
     let peers = Placing::nothing();
     peers.holding(1000, OPERATOR_PORT, HOST_PORT);
     rig_placing(Some(peers))
+}
+
+/// [`rig`] on a clock the test moves.
+fn rig_held() -> (Rig, Arc<Held>) {
+    let peers = Placing::nothing();
+    peers.holding(1000, OPERATOR_PORT, HOST_PORT);
+    let clock = Arc::new(Held::started());
+    let held = Arc::clone(&clock);
+    let rig = rig_fitted(move |fittings| {
+        fittings.peers = peers;
+        fittings.clock = held;
+    });
+    (rig, clock)
 }
 
 fn code(refused: Refusal) -> (u16, String) {
@@ -129,7 +146,7 @@ async fn only_the_operators_own_session_raises_revises_and_settles_a_card_and_ea
 }
 
 #[tokio::test]
-async fn a_press_settles_the_card_and_tells_the_operator_which_option_and_is_refused_with_no_session() {
+async fn a_press_picks_the_card_and_tells_the_operator_which_option_and_is_refused_with_no_session() {
     let rig = rig();
     let id = started(&rig).await;
     let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
@@ -139,7 +156,8 @@ async fn a_press_settles_the_card_and_tells_the_operator_which_option_and_is_ref
     assert_eq!(page(&rig).await.turn.len(), 1, "nothing changed");
 
     let answered = rig.fleet.operator_answered(press(&raised, "Wait")).await.expect("pressed");
-    assert!(answered.page.turn.is_empty(), "settled");
+    assert!(answered.page.turn.is_empty(), "off the front");
+    assert_eq!(answered.page.working.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [raised.as_str()], "worked on");
     eventually(|| async { heard(&rig, "He chose") >= 1 }).await;
     assert_eq!(heard(&rig, "Wait"), 1, "the Operator is told which option");
     assert_eq!(heard(&rig, &raised), 1, "and which card");
@@ -243,4 +261,136 @@ async fn while_the_operators_session_runs_no_jobs_item_is_queued_into_your_turn(
     keep_the_raises(Arc::clone(&rig.fleet)).await;
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     assert!(page(&rig).await.turn.is_empty(), "the session reads what waits on Jobs itself");
+}
+
+fn report(card: &str, step: Option<&str>, failed: Option<&str>) -> ReportCard {
+    ReportCard { card: card.into(), step: step.map(str::to_string), failed: failed.map(str::to_string) }
+}
+
+fn titled(title: &str) -> RaiseCard {
+    RaiseCard { title: title.into(), ..card(two()) }
+}
+
+#[tokio::test]
+async fn a_press_moves_the_card_from_turn_to_working_and_the_next_card_comes_to_the_front() {
+    let rig = rig();
+    started(&rig).await;
+    let first = rig.fleet.card_raised(the_operator(), titled("Start the pane Job?")).await.expect("raised").card;
+    let second = rig.fleet.card_raised(the_operator(), titled("Merge #12?")).await.expect("raised").card;
+    assert_eq!(page(&rig).await.turn.first().map(|one| one.id.clone()), Some(first.clone()));
+
+    let answered = rig.fleet.operator_answered(press(&first, "Start it")).await.expect("pressed");
+    assert_eq!(answered.page.turn.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [second.as_str()], "the next card is in front at once");
+    let working = answered.page.working.first().expect("working");
+    assert_eq!(working.id, first);
+    let card = working.card.as_ref().expect("a card");
+    assert_eq!(card.picked.as_ref().map(|one| one.option.as_str()), Some("Start it"));
+    assert!(card.steps.is_empty() && card.returned.is_none(), "{card:?}");
+
+    let again = rig.fleet.operator_answered(press(&first, "Wait")).await.expect_err("picked already");
+    assert_eq!(code(again).1, "fleet.operator_answer_not_offered");
+
+    rig.fleet.operator_answered(press(&second, "Wait")).await.expect("pressed");
+    let after = page(&rig).await;
+    assert!(after.turn.is_empty());
+    assert_eq!(after.working.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [second.as_str(), first.as_str()], "newest pick first");
+}
+
+#[tokio::test]
+async fn report_card_step_appends_to_the_working_card() {
+    let rig = rig();
+    started(&rig).await;
+    let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
+    rig.fleet.operator_answered(press(&raised, "Start it")).await.expect("pressed");
+
+    let reported = rig.fleet.card_reported(the_operator(), report(&raised, Some("Started Build the pane"), None)).await.expect("reported");
+    assert_eq!(reported.card, raised);
+    rig.fleet.card_reported(the_operator(), report(&raised, Some("Opened #41"), None)).await.expect("reported");
+    let after = page(&rig).await;
+    let steps = &after.working.first().and_then(|one| one.card.as_ref()).expect("working").steps;
+    assert_eq!(steps.iter().map(|one| one.said.as_str()).collect::<Vec<_>>(), ["Started Build the pane", "Opened #41"]);
+    assert!(after.turn.is_empty(), "still worked on");
+}
+
+#[tokio::test]
+async fn report_card_failed_returns_the_card_to_the_front_of_turn_with_why_until_he_presses_again() {
+    let rig = rig();
+    started(&rig).await;
+    let failing = rig.fleet.card_raised(the_operator(), titled("Start the pane Job?")).await.expect("raised").card;
+    let other = rig.fleet.card_raised(the_operator(), titled("Merge #12?")).await.expect("raised").card;
+    rig.fleet.operator_answered(press(&failing, "Start it")).await.expect("pressed");
+
+    rig.fleet.card_reported(the_operator(), report(&failing, None, Some("No slot is free"))).await.expect("reported");
+    let after = page(&rig).await;
+    assert!(after.working.is_empty(), "out of working");
+    assert_eq!(after.turn.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [failing.as_str(), other.as_str()], "ahead of every other card");
+    let returned = after.turn[0].card.as_ref().and_then(|one| one.returned.as_ref()).expect("returned");
+    assert_eq!(returned.why, "No slot is free");
+
+    let refused = rig.fleet.card_reported(the_operator(), report(&failing, Some("Started"), None)).await.expect_err("not worked on now");
+    assert_eq!(code(refused).1, "fleet.card_refused");
+
+    let answered = rig.fleet.operator_answered(press(&failing, "Wait")).await.expect("pressed again");
+    let picked = answered.page.working.first().and_then(|one| one.card.as_ref()).expect("working");
+    assert_eq!((picked.picked.as_ref().map(|one| one.option.as_str()), picked.returned.is_none()), (Some("Wait"), true), "picked anew");
+}
+
+#[tokio::test]
+async fn a_picked_card_unsettled_for_15_minutes_returns_to_the_front_and_the_operator_is_told() {
+    let (rig, clock) = rig_held();
+    started(&rig).await;
+    let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
+    rig.fleet.operator_answered(press(&raised, "Start it")).await.expect("pressed");
+
+    clock.on(14 * 60);
+    rig.fleet.operator_session_kept().await;
+    assert_eq!(page(&rig).await.working.len(), 1, "not yet");
+
+    clock.on(2 * 60);
+    rig.fleet.operator_session_kept().await;
+    let after = page(&rig).await;
+    assert!(after.working.is_empty());
+    let back = after.turn.first().expect("back in front");
+    assert_eq!(back.id, raised);
+    assert_eq!(back.card.as_ref().and_then(|one| one.returned.as_ref()).map(|one| one.why.as_str()), Some("Nothing settled in 15 min"));
+    eventually(|| async { heard(&rig, "is back in front of him") >= 1 }).await;
+    assert_eq!(heard(&rig, &format!("Card {raised}")), 1, "naming the card");
+
+    rig.fleet.operator_session_kept().await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    assert_eq!(heard(&rig, "is back in front of him"), 1, "told once");
+}
+
+#[tokio::test]
+async fn settle_card_on_a_picked_card_clears_working_and_the_feed_says_it() {
+    let rig = rig();
+    started(&rig).await;
+    let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
+    rig.fleet.operator_answered(press(&raised, "Start it")).await.expect("pressed");
+    rig.fleet.card_settled(the_operator(), SettleCard { card: raised.clone(), said: "Started Build the pane.".into() }).await.expect("settled");
+    let after = page(&rig).await;
+    assert!(after.working.is_empty() && after.turn.is_empty(), "{after:?}");
+    assert!(after.feed.iter().any(|one| one.kind == OperatorFeedKind::Settled && one.said.as_deref() == Some("Started Build the pane.")));
+}
+
+#[tokio::test]
+async fn only_the_operator_reports_on_a_card_and_a_report_is_one_of_step_or_failed_on_a_picked_card() {
+    let rig = rig();
+    started(&rig).await;
+    let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
+
+    let refused = rig.fleet.card_reported(a_job(), report(&raised, Some("Started"), None)).await.expect_err("a Job is not the Operator");
+    assert_eq!(code(refused).1, "fleet.not_the_operator");
+    let refused = rig.fleet.card_reported(the_operator(), report(&raised, Some("Started"), None)).await.expect_err("not picked");
+    assert_eq!(code(refused).1, "fleet.card_refused");
+    let refused = rig.fleet.card_reported(the_operator(), report("turn:9999", Some("Started"), None)).await.expect_err("no such card");
+    assert_eq!(code(refused), (404, "fleet.card_unknown".to_string()));
+
+    rig.fleet.operator_answered(press(&raised, "Start it")).await.expect("pressed");
+    for (step, failed) in [(Some("Started"), Some("No slot")), (None, None), (Some("  "), None)] {
+        let refused = rig.fleet.card_reported(the_operator(), report(&raised, step, failed)).await.expect_err("one of the two");
+        assert_eq!(code(refused).1, "fleet.card_refused");
+    }
+    let after = page(&rig).await;
+    assert!(after.working[0].card.as_ref().is_some_and(|one| one.steps.is_empty() && one.returned.is_none()), "nothing changed");
 }

@@ -120,5 +120,6 @@ mod workflow_scope;
 mod operator_scopes;
 mod operator_errors;
 mod operator_talk;
+mod operator_picks;
 mod workflows_off;
 mod autopilot_boxes;
