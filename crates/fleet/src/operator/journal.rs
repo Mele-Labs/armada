@@ -14,7 +14,6 @@ use crate::clock::LocalReading;
 use crate::daemon::Fleet;
 
 pub(super) const WEEKDAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const WEEK: i64 = 7 * 86_400_000;
 
 /// The file of the week `at` falls in, as `2026-W46.md`.
 pub(crate) fn week_file(at: &LocalReading) -> String {
@@ -73,18 +72,5 @@ where
         if let Err(why) = written {
             self.operator_warned("a line of the Operator's journal was not written", why);
         }
-    }
-
-    /// This week's journal and last week's, each as a file name and its text, where written.
-    pub(crate) async fn operator_journal_files(&self) -> Vec<(String, String)> {
-        let now = self.now().epoch_millis().unwrap_or(0);
-        let mut files = Vec::new();
-        for at in [now - WEEK, now] {
-            let name = week_file(&crate::clock::local_reading(at).await);
-            if let Ok(text) = std::fs::read_to_string(self.journal_dir().join(&name)) {
-                files.push((format!("journal-{name}"), text));
-            }
-        }
-        files
     }
 }

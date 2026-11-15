@@ -13,6 +13,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::item_kept;
 use ipc::operator_page::OperatorFeedKind;
+use ipc::operator_talk::{OperatorSaid, OperatorTalk, OperatorTalkLine};
 use ipc::{CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use store::KeptTurn;
 
@@ -28,6 +29,9 @@ pub(crate) const SETTLED: &str = "settled:";
 
 const CARD_REFUSED: &str = "fleet.card_refused";
 const CARD_UNKNOWN: &str = "fleet.card_unknown";
+
+/// The most lines of the earlier conversation the page reads.
+const TALK_SHOWN: u32 = 20;
 
 /// The fewest and most options a card holds.
 const OPTIONS: std::ops::RangeInclusive<usize> = 2..=4;
@@ -217,21 +221,27 @@ where
         let _ = self.told_of_his_act(&session, &text).await;
     }
 
-    /// His words to the Operator, delivered to its session's thread as he wrote them: `None` where no session
-    /// runs and the words are about no card, and the old box answers them. **A card he talks about is named to
-    /// the session**, and words about one with no session running are refused, since nothing would hear them.
-    pub(crate) async fn talk_delivered(self: &Arc<Self>, words: &str, about: Option<&str>) -> Option<Result<(), Refusal>> {
+    /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **Refused with
+    /// `fleet.operator_session_not_running`** where no session runs, since nothing would hear them. A card he talks
+    /// about is named to the session. The session's answer is its thread, not this reply.
+    pub(crate) async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
         let running = self.operator_session_id().await.is_some();
         let card = match about {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,
         };
         match (running, card) {
-            (true, Some(card)) => Some(self.card_talked_about(card, words).await),
-            (true, None) => Some(self.operator_told_as_him(words).await),
-            (false, Some(_)) => Some(Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it"))),
-            (false, None) => None,
+            (true, Some(card)) => self.card_talked_about(card, words).await?,
+            (true, None) => self.operator_told_as_him(words).await?,
+            (false, _) => return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it")),
         }
+        Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
+    }
+
+    /// `operator_talk`: the conversation kept before the session, read as it was kept.
+    pub(crate) async fn operator_talk_wire(&self) -> Result<OperatorTalk, Refusal> {
+        let kept = self.store().lock().await.operator_talk(TALK_SHOWN).map_err(|why| self.ledger_fault(why))?;
+        Ok(OperatorTalk { lines: kept.into_iter().map(|one| OperatorTalkLine { from_person: one.from_person, text: one.text, at: one.at, about: one.about }).collect() })
     }
 
     /// His words about a card, as he wrote them, with a short tag naming it. Refused where the card is not

@@ -5,26 +5,12 @@ use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AskingToRun, ReadThought, TellSession};
+use ipc::{AskingToRun, TellSession};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Conversations;
 use crate::scoped::InManifest;
 use crate::served::Served;
-
-/// Read words for which running Job they are for. **Always 200**: a reading that could not be made
-/// is the answer `question`.
-pub(crate) async fn read_thought<D: Conversations>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let read: ReadThought = match ipc::decode_body("words to read", &body) {
-        Ok(read) => read,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    let reading = served.daemon().read_thought(read).await;
-    answer(StatusCode::OK, &reading, served.run_id())
-}
 
 /// A Job on your words passes words to a live Session. 200 with where they went; the send's own refusal otherwise.
 pub(crate) async fn tell_session<D: Conversations>(

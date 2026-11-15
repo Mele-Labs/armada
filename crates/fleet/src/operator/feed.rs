@@ -8,8 +8,38 @@ use ipc::operator_page::{OperatorFeedEntry, OperatorFeedKind};
 use ipc::{Instant, SessionId};
 use store::KeptFeed;
 
-use super::talking::moved_since;
 use crate::daemon::Fleet;
+
+/// The most pull requests one read of the merged shows.
+const MERGED_SHOWN: usize = 30;
+
+/// A pull request a hosted Job held that merged.
+pub(super) struct MergedPull {
+    pub(super) session_id: String,
+    pub(super) job: String,
+    pub(super) number: String,
+    pub(super) title: String,
+    /// When its attachment last changed, which for a merged one is when it merged. An RFC 3339 instant.
+    pub(super) at: String,
+}
+
+/// The pull requests hosted Jobs held that merged at or after `since`, newest first.
+pub(super) fn merged_since(store: &store::Store, since: &str) -> Vec<MergedPull> {
+    let mut merged: Vec<MergedPull> = Vec::new();
+    for hosting in store.hostings().unwrap_or_default() {
+        let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
+        for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
+            let spent = pull.state == store::AttachmentState::Spent;
+            if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= since {
+                let title = pull.detail.get("title").cloned().unwrap_or_default();
+                merged.push(MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title, at: pull.changed_at.clone() });
+            }
+        }
+    }
+    merged.sort_by(|a, b| b.at.cmp(&a.at));
+    merged.truncate(MERGED_SHOWN);
+    merged
+}
 
 /// The line a kind is kept under.
 fn word(kind: OperatorFeedKind) -> &'static str {
@@ -44,8 +74,7 @@ pub(super) fn feed_read(store: &store::Store, since: &str) -> Vec<OperatorFeedEn
             })
         })
         .collect();
-    let (_, merged) = moved_since(store, since);
-    lines.extend(merged.into_iter().map(|one| OperatorFeedEntry {
+    lines.extend(merged_since(store, since).into_iter().map(|one| OperatorFeedEntry {
         at: Instant::carried(&one.at),
         kind: OperatorFeedKind::Merged,
         title: one.title,

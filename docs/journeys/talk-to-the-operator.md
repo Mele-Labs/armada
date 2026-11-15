@@ -27,6 +27,9 @@ A card is in front → you press an option, or press Discuss and talk → the ca
 Say it where you talk to the Operator, and it sends the words to the Job they belong to.
 Work you ask for is started as a Job, or the Operator does it.
 
+**With no session running, nothing hears you.**
+The composer and a press on a card are refused with `fleet.operator_session_not_running`, and the card stands. A dispatch starts as you asked.
+
 **A question is answered by reading.**
 Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads the Job, the issue or the code across every project before it answers.
 

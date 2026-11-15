@@ -1,25 +1,24 @@
-//! The Operator's page as Fleet serves it: Your turn in the order he left it, and the digest Since you
-//! last looked. `crates/ipc/operations/operator_page.toml`.
+//! The Operator's page as Fleet serves it: Your turn in the order he left it, the feed, and the digest Since
+//! you last looked. `crates/ipc/operations/operator_page.toml`.
 //!
 //! **Everything is read off what Fleet keeps**: the queue and the page's state from the store, the pull
-//! requests that merged, the Log's rows and the rules from what was already kept, the live Jobs and
-//! those waiting to start from the ledger. Nothing here makes a call.
+//! requests that merged, the holds that stand, the live Jobs and those waiting to start from the ledger.
+//! Nothing here makes a call. The digest's `handled`, `learned` and `ruled` stay on the wire and are empty:
+//! what the Operator does is in the feed, and no rule is kept.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
-    item_read, OperatorComingUp, OperatorDigest, OperatorFollows, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRuled, OperatorRule, OperatorRunning,
-    OperatorSlots, OperatorTurnItem, OperatorTurnKind, OperatorUrgency,
+    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHold, OperatorLanded, OperatorLogFile, OperatorMain, OperatorPage, OperatorRunning, OperatorSlots, OperatorTurnItem, OperatorTurnKind,
+    OperatorUrgency,
 };
 use ipc::operator_talk::OperatorOrderForm;
 use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
 use store::KeptTurn;
 
-use super::boarding::{first_line, outcome_of};
-use super::suggesting::suggestion_number;
-use super::talking::{moved_since, TurnRead};
+use super::feed::merged_since;
 use super::turning::RED;
 use crate::daemon::Fleet;
 
@@ -35,8 +34,6 @@ fn urgency_of(row: &KeptTurn) -> OperatorUrgency {
         OperatorUrgency::Decision
     }
 }
-/// How many of the Log's rows the digest reads before keeping those since he looked.
-const HANDLED_READ: u32 = 60;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -48,21 +45,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Your turn as a message may be about it, newest decisions as he left them.
-    pub(super) fn turn_read(&self, store: &store::Store) -> Vec<TurnRead> {
-        store
-            .operator_turn_open()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|row| TurnRead {
-                id: format!("turn:{}", row.n),
-                job: row.job,
-                text: item_read(&row.body).map(|item| item.text).unwrap_or_default(),
-                read: row.read_text.map(|read| OperatorRead { read, pick: row.pick.unwrap_or_default() }),
-            })
-            .collect()
-    }
-
     /// `operator_page`: read now. **Off, Your turn is empty**: nothing is queued while the Operator is off.
     pub(crate) async fn operator_page_wire(self: &Arc<Self>) -> Result<OperatorPage, Refusal> {
         let on = self.operator_on();
@@ -72,10 +54,6 @@ where
         // A hold its Job has released is let go as the orders are read, so the page lists none that is over.
         self.operator_orders_wire().await;
         let now = self.now();
-        let live = match self.operator_seat().operator().filter(|_| on) {
-            Some(operator) => operator.live_jobs().await,
-            None => Vec::new(),
-        };
         let since = match self.store().lock().await.operator_page().map_err(|why| self.ledger_fault(why))?.looked_at {
             Some(at) => at,
             None => crate::clock::rfc3339_utc(crate::clock::local_day_began(now.epoch_millis().unwrap_or(0) - DAY).await),
@@ -87,7 +65,7 @@ where
             let resting = self.resting_jobs(&store);
             // A card put Later stays off the page until its time, and a resting Job's items stay off while it rests.
             let turn: Vec<OperatorTurnItem> =
-                rows.iter().filter(|row| !resting.contains(&row.session)).filter_map(|row| self.turn_item(&store, row, &live, now.as_str())).collect();
+                rows.iter().filter(|row| !resting.contains(&row.session)).filter_map(|row| self.turn_item(&store, row, now.as_str())).collect();
             let feed = if on { super::feed::feed_read(&store, &since) } else { Vec::new() };
             (grouped(turn), self.digest_read(&store, &since), kept, feed)
         };
@@ -99,7 +77,7 @@ where
             on,
             top: kept.top,
             looked_at: kept.looked_at.as_deref().map(Instant::carried),
-            on_it: self.operator_seat().raising.on_it().filter(|_| on),
+            on_it: None,
             turn,
             digest,
             mains: self.mains_read().await,
@@ -157,22 +135,11 @@ where
     }
 
     /// One row of Your turn as the wire has it. **A card put Later is left out until its time passes.**
-    fn turn_item(&self, store: &store::Store, row: &KeptTurn, live: &[super::arriving::LiveJob], now: &str) -> Option<OperatorTurnItem> {
+    fn turn_item(&self, store: &store::Store, row: &KeptTurn, now: &str) -> Option<OperatorTurnItem> {
         let item = item_read(&row.body)?;
         if row.later_until.as_deref().is_some_and(|until| until > now) {
             return None;
         }
-        let thens = suggestion_number(&row.item)
-            .and_then(|n| store.operator_suggestion(n).ok().flatten())
-            .map(|kept| super::thening::thens_of(&kept, live))
-            .unwrap_or_default()
-            .into_iter()
-            .map(|mut offer| {
-                offer.pick = row.then_pick.as_deref() == Some(super::raising::word(&offer.then).as_str());
-                offer
-            })
-            .collect();
-        let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some() || super::answering::what_of(&item).is_some());
         let ask = store.latest_job_ask(&row.item).ok().flatten().filter(|ask| ask.session_id == row.session);
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
@@ -186,17 +153,11 @@ where
             read: row.read_text.clone().map(|read| OperatorRead { read, pick: row.pick.clone().unwrap_or_default() }),
             raised_at: Instant::carried(&row.raised_at),
             later_until: None,
-            then: thens,
-            keeps,
-            also_raised_by: match &ask {
-                Some(ask) => ask.also_raised_by.clone(),
-                None => suggestion_number(&row.item)
-                    .and_then(|n| store.operator_suggestion(n).ok().flatten())
-                    .map(|kept| super::suggesting::folded_into(&kept, &store.operator_suggestions_of(&kept.session_id).unwrap_or_default()))
-                    .unwrap_or_default(),
-            },
+            then: Vec::new(),
+            keeps: false,
+            also_raised_by: ask.as_ref().map(|ask| ask.also_raised_by.clone()).unwrap_or_default(),
             group: None,
-            follows: row.follows.as_deref().and_then(|text| ipc::decode::<ipc::operator_page::OperatorFollows>("a citation", text.as_bytes()).ok()),
+            follows: None,
             conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
             held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
             card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()),
@@ -207,25 +168,10 @@ where
     /// The digest, counted from `since`.
     fn digest_read(&self, store: &store::Store, since: &str) -> OperatorDigest {
         let title_of = |id: &str| store.session(id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| id.to_string());
-        let summary_of = |id: &str| store.done_summary(id).ok().flatten();
-        let landed = moved_since(store, since)
-            .1
+        let landed = merged_since(store, since)
             .into_iter()
             .map(|one| OperatorLanded { session_id: SessionId::carried(&one.session_id), job: one.job, number: one.number, title: one.title, at: Instant::carried(&one.at) })
             .collect();
-        let mut acts: Vec<OperatorHandledAct> = store
-            .operator_rulings_signed(HANDLED_READ)
-            .unwrap_or_default()
-            .iter()
-            .filter(|row| row.by != "human" && row.at.as_str() >= since)
-            .map(|row| OperatorHandledAct { at: Instant::carried(&row.at), title: first_line(&row.subject), outcome: outcome_of(row, &title_of, &summary_of) })
-            .collect();
-        for row in store.operator_turn_settled_since(since).unwrap_or_default().iter().filter(|row| matches!(row.answer.as_deref(), Some("rule" | super::vetting::SETTING))) {
-            let title = item_read(&row.body).map(|item| first_line(&item.text)).unwrap_or_default();
-            let by = if row.answer.as_deref() == Some(super::vetting::SETTING) { "By a setting" } else { "By a rule" };
-            acts.push(OperatorHandledAct { at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)), title, outcome: format!("{by}: {}", row.pick.as_deref().unwrap_or_default()) });
-        }
-        acts.sort_by(|a, b| b.at.as_str().cmp(a.at.as_str()));
         let running = store
             .hostings()
             .unwrap_or_default()
@@ -239,16 +185,6 @@ where
             .into_iter()
             .map(|wait| OperatorComingUp { title: title_of(&wait.session_id), session_id: SessionId::carried(&wait.session_id), needs: wait.needs })
             .collect();
-        let learned = store
-            .operator_orders()
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|one| {
-                let OperatorRule::PickRule { scope, .. } = OperatorRule::read(&one.form)?;
-                let repository = self.scope_named(&scope);
-                Some(OperatorLearned { id: one.n, scope, repository, said: one.said, at: Instant::carried(&one.at) })
-            })
-            .collect();
         let holds = store
             .operator_orders()
             .unwrap_or_default()
@@ -259,29 +195,7 @@ where
                 Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, paths, job: Some(job), until: Some(until), at: Instant::carried(&one.at) })
             })
             .collect();
-        // The last seven days, whatever he last looked at: it is what he may take back.
-        let week_ago = self.now().epoch_millis().map(|now| crate::clock::rfc3339_utc(now - 7 * DAY)).unwrap_or_default();
-        let ruled = store
-            .operator_turn_settled_since(&week_ago)
-            .unwrap_or_default()
-            .iter()
-            .filter(|row| row.answer.as_deref() == Some("precedent"))
-            .filter_map(|row| {
-                let follows = row.follows.as_deref().and_then(|text| ipc::decode::<OperatorFollows>("a citation", text.as_bytes()).ok())?;
-                Some(OperatorRuled {
-                    id: format!("turn:{}", row.n),
-                    session_id: SessionId::carried(&row.session),
-                    job: row.job.clone(),
-                    question: item_read(&row.body).map(|item| first_line(&item.text)).unwrap_or_default(),
-                    pick: row.pick.clone().unwrap_or_default(),
-                    follows,
-                    at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)),
-                    undone_at: row.undone_at.as_deref().map(Instant::carried),
-                    undo: row.undone_at.is_none() && store.session(&row.session).ok().flatten().is_some_and(|session| session.state != store::SessionState::Ended),
-                })
-            })
-            .collect();
-        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds, ruled }
+        OperatorDigest { landed, handled: OperatorHandled { acts: Vec::new(), log: None }, running, coming_up, learned: Vec::new(), holds, ruled: Vec::new() }
     }
 
     /// This week's journal, where anything is written in it.

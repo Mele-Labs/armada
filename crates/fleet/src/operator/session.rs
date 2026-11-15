@@ -117,30 +117,35 @@ where
         matches!(self.told_by_fleet(&id, text, Notice::Operator).await, Ok(true))
     }
 
-    /// Tell the Operator's session of `arrival` instead of ruling on it, once. **`false` where no session runs, or it could
-    /// not be told**, and the caller goes on as it did before the session, so nothing that arrives is lost.
+    /// Tell the Operator's session of `arrival`, once. **`false` where no session runs, or it could not be told**,
+    /// and the caller goes on as it did with the Operator off.
     pub(crate) async fn arrival_told(self: &Arc<Self>, arrival: &Arrival) -> bool {
+        self.arrival_handed(arrival).await != Handed::NotRunning
+    }
+
+    /// [`arrival_told`](Self::arrival_told), saying whether the session was told now or had been before.
+    pub(crate) async fn arrival_handed(self: &Arc<Self>, arrival: &Arrival) -> Handed {
         if self.operator_session_id().await.is_none() {
-            return false;
+            return Handed::NotRunning;
         }
         let now = self.now();
         if !self.store().lock().await.keep_linked_told("operator", TOLD, &arrival.id, &now).unwrap_or(false) {
-            return true;
+            return Handed::Before;
         }
         let repository = self.board_repository(&arrival.manifest_id).map(|name| format!(" in {name}")).unwrap_or_default();
         let text = format!(
-            "{}{repository}: {}\n\n{}\n\nFleet does not rule on this while you run. Settle it with your own tools, or put a card in front of him where it is his to decide.",
+            "{}{repository}: {}\n\n{}\n\nSettle it with your own tools, or put a card in front of him where it is his to decide.",
             arrival.arrived.said(),
             arrival.subject,
             arrival.words
         );
         if !self.operator_told(&text).await {
-            return false;
+            return Handed::NotRunning;
         }
         let kind = if matches!(arrival.arrived, Arrived::Conflict | Arrived::Held) { OperatorFeedKind::Asked } else { OperatorFeedKind::Told };
         let session = Some(arrival.session_id.as_str()).filter(|id| !id.is_empty());
         self.feed_kept(kind, &arrival.subject, session, Some(arrival.arrived.said())).await;
-        true
+        Handed::Now
     }
 
     /// The person's words to the Operator's session, as he wrote them. A refusal says it is not running.
@@ -150,6 +155,17 @@ where
         };
         self.first_message_from(&id, SessionVoice::You, text).await
     }
+}
+
+/// How the session came to hear of an arrival.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Handed {
+    /// No session runs, or it could not be told.
+    NotRunning,
+    /// It was told now.
+    Now,
+    /// It had been told already.
+    Before,
 }
 
 /// What `keep_linked_told` files an arrival told to the Operator's session under.

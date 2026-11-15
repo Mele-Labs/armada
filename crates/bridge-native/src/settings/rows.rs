@@ -65,6 +65,8 @@ pub struct Row {
     /// The description, then any note, under the title.
     pub says: Vec<AnyElement>,
     pub changed: bool,
+    /// A registry glyph before the title, and the ink it is drawn in.
+    pub glyph: Option<(&'static str, Hsla)>,
     pub control: AnyElement,
 }
 
@@ -151,7 +153,17 @@ pub fn split_row(look: &Look, spread: Spread, row: Row, first: bool) -> Stateful
         .flex_col()
         .gap(look.length(token::SPACE_1) + edge * 2.)
         .min_w_0()
-        .child(div().flex().flex_wrap().items_center().gap_x(look.length(token::SPACE_2)).gap_y(look.length(token::SPACE_1)).child(title).children(row.chips))
+        .child(
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap_x(look.length(token::SPACE_2))
+                .gap_y(look.length(token::SPACE_1))
+                .children(row.glyph.map(|(glyph, ink)| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(ink)))
+                .child(title)
+                .children(row.chips),
+        )
         .children(row.says);
     let (left, right) = if spread.stacked {
         (div().min_w_0().w_full().child(words), div().min_w_0().w_full().child(row.control))
@@ -384,7 +396,7 @@ impl SettingsOverlay {
         let rows = (0..3).map(|n| {
             let says = vec![bone(look, px(160.), look.length(token::LEADING_SM)).into_any_element(), bone(look, px(280.), look.length(token::LEADING_XS)).into_any_element()];
             let control = bone(look, px(220.), look.length(token::H_CONTROL)).into_any_element();
-            let row = Row { id: SharedString::from(format!("settings-bone-row-{n}")), title: SharedString::default(), tip: None, chips: Vec::new(), says, changed: false, control };
+            let row = Row { id: SharedString::from(format!("settings-bone-row-{n}")), title: SharedString::default(), tip: None, chips: Vec::new(), says, changed: false, glyph: None, control };
             labelled(div().id(SharedString::from(format!("settings-bone-{n}"))).child(split_row(look, spread, row, n == 0)), Role::Image, "Loading").into_any_element()
         });
         rows_card(look, "settings-bones", rows.collect()).into_any_element()

@@ -117,7 +117,6 @@ mod workflow_versions;
 mod workflow_migrating;
 /// Where a workflow is kept: the words, and a project's object.
 mod workflow_scope;
-mod operator_board;
 mod operator_scopes;
 mod operator_errors;
 mod operator_talk;

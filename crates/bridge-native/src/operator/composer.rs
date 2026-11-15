@@ -12,6 +12,9 @@
 //!
 //! **The words are kept** under [`KEEP`], chips and all, so leaving the page does not lose them. They go when
 //! Fleet answers the send, and stay where it refuses.
+//!
+//! **Discuss puts a tag in the box**, naming the card he is talking about. A send with the tag is a talk about that
+//! card (`talk_to_operator`, `about` the card's id) and not a dispatch; dropping the tag makes it a dispatch again.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -49,6 +52,8 @@ pub struct Outgoing {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Composed {
     Send(Outgoing),
+    /// Words about the card the tag names, which go to the Operator as a talk.
+    Talk { words: String, about: String },
     /// Esc with nothing open: the keys go back to the page.
     Leave,
 }
@@ -72,6 +77,8 @@ pub struct OperatorComposer {
     refused: Option<SharedString>,
     /// The box is being set to a draft, which is not the person typing.
     setting: bool,
+    /// The card Discuss named: its id and title. A send with it is a talk about that card.
+    tag: Option<(String, SharedString)>,
     /// The Jobs `@` offers, by id and title.
     jobs: Vec<(String, String)>,
     fleet: Option<Entity<FleetConnection>>,
@@ -123,6 +130,7 @@ impl OperatorComposer {
             sending: false,
             refused: None,
             setting: false,
+            tag: None,
             jobs: Vec::new(),
             fleet,
             issues: HashMap::new(),
@@ -182,6 +190,25 @@ impl OperatorComposer {
 
     pub fn has_keys(&self, window: &Window, cx: &App) -> bool {
         self.input.read(cx).focus_handle(cx).contains_focused(window, cx)
+    }
+
+    /// Discuss: the box names the card in a tag, until he drops it or the talk ends.
+    pub fn tag(&mut self, id: String, title: SharedString, cx: &mut Context<Self>) {
+        self.tag = Some((id, title));
+        self.refused = None;
+        cx.notify();
+    }
+
+    /// The card the box is tagged with, and its title.
+    #[cfg(test)]
+    pub fn tagged(&self) -> Option<(String, SharedString)> {
+        self.tag.clone()
+    }
+
+    pub fn untag(&mut self, cx: &mut Context<Self>) {
+        if self.tag.take().is_some() {
+            cx.notify();
+        }
     }
 
     /// The caret goes in the box.
@@ -466,6 +493,21 @@ impl OperatorComposer {
         if self.sending || self.nothing(cx) {
             return;
         }
+        // A tagged send is a talk about that card: words only, and no repository is wanted.
+        if let Some((about, _)) = self.tag.clone() {
+            if !self.files.is_empty() {
+                self.refused = Some("A talk about a card carries words only".into());
+                cx.notify();
+                return;
+            }
+            let words = sent_text(self.kept(cx).text.trim());
+            self.sending = true;
+            self.refused = None;
+            self.offer = None;
+            cx.notify();
+            cx.emit(Composed::Talk { words, about });
+            return;
+        }
         // A target is wanted before the files are read, so a refusal costs nothing.
         if let Err(why) = self.outgoing(Vec::new(), cx) {
             self.refused = Some(why);
@@ -493,18 +535,28 @@ impl OperatorComposer {
 
     /// Fleet answered. A dispatch taken empties the box and drops the kind; a refusal keeps all of it, with why.
     pub fn answered(&mut self, answer: Result<&JobDispatched, String>, window: &mut Window, cx: &mut Context<Self>) {
-        self.sending = false;
         match answer {
-            Ok(_) => {
-                self.set_box(&Kept::default(), window, cx);
-                crate::drafts::clear(KEEP, cx);
-                self.files.clear();
-                self.kind = None;
-                self.refused = None;
-                self.offer = None;
-            }
-            Err(why) => self.refused = Some(why.into()),
+            Ok(_) => self.sent(window, cx),
+            Err(why) => self.refuse(why, cx),
         }
+    }
+
+    /// Fleet took the send, a dispatch or a talk: the box empties, and keeps its tag, so the next words are about the same card.
+    pub fn sent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.sending = false;
+        self.set_box(&Kept::default(), window, cx);
+        crate::drafts::clear(KEEP, cx);
+        self.files.clear();
+        self.kind = None;
+        self.refused = None;
+        self.offer = None;
+        cx.notify();
+    }
+
+    /// Fleet refused the send: the words stay, with why.
+    pub fn refuse(&mut self, why: String, cx: &mut Context<Self>) {
+        self.sending = false;
+        self.refused = Some(why.into());
         cx.notify();
     }
 
@@ -588,6 +640,62 @@ impl OperatorComposer {
         )
     }
 
+    /// The tag Discuss put in the box: a link glyph, the card's title and an x that drops it.
+    fn tag_chip(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let (_, title) = self.tag.as_ref()?;
+        let said = format!("About {title}");
+        let drop = labelled(
+            pressed(
+                div()
+                    .id("tag-drop")
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(look.length(token::SPACE_4))
+                    .rounded_full()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(cx.look().color(token::OPERATOR_FAINT)))
+                    .focusable()
+                    .tab_stop(true)
+                    .tooltip(tip("Send it as a message that is about no card".into()))
+                    .child(glyph("x", look.length(token::SPACE_3), look.color(token::OPERATOR))),
+                cx,
+                |this, _, cx| this.untag(cx),
+            ),
+            Role::Button,
+            "Drop the tag",
+        );
+        Some(
+            labelled(
+                div().id("tag").flex().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_3)).child(
+                    div()
+                        .flex_none()
+                        .max_w_full()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::H_CONTROL))
+                        .pl(look.length(token::SPACE_3))
+                        .pr(look.length(token::SPACE_1))
+                        .rounded_full()
+                        .bg(look.color(token::OPERATOR_MUTED))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::OPERATOR_EDGE))
+                        .text_color(look.color(token::OPERATOR))
+                        .text_size(look.length(token::TEXT_XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .child(glyph("link", look.length(token::SPACE_3) + look.length(token::SPACE_1), look.color(token::OPERATOR)))
+                        .child(div().min_w_0().truncate().child(title.clone()))
+                        .child(drop),
+                ),
+                Role::Group,
+                said,
+            )
+            .into_any_element(),
+        )
+    }
+
     fn tray(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if self.files.is_empty() {
             return None;
@@ -647,7 +755,7 @@ impl Render for OperatorComposer {
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(attach)
-            .child(self.kind_chips(look, cx))
+            .when(self.tag.is_none(), |bar| bar.child(self.kind_chips(look, cx)))
             .child(div().flex_1())
             .child(send);
         let refused = self.refused.clone().map(|why| {
@@ -679,7 +787,8 @@ impl Render for OperatorComposer {
                 .border_color(look.color(if focused { token::BORDER_DEFAULT } else { token::BORDER_SUBTLE }))
                 .bg(look.color(token::BG_SUNKEN))
                 .children(offer)
-                .children(self.project_chips(look, cx))
+                .children(self.tag_chip(look, cx))
+                .children(self.tag.is_none().then(|| self.project_chips(look, cx)).flatten())
                 .children(self.tray(look, cx))
                 .child(labelled(words, Role::TextInput, "Message"))
                 .child(bar),
@@ -690,7 +799,6 @@ impl Render for OperatorComposer {
             .flex_none()
             .flex()
             .justify_center()
-            .px(look.length(token::SPACE_6))
             .pt(look.length(token::SPACE_2))
             .pb(look.length(token::SPACE_4))
             .on_modifiers_changed(cx.listener(|_, _: &ModifiersChangedEvent, _, cx| cx.notify()))
@@ -749,6 +857,28 @@ mod tests {
         cx.run_until_parked();
         assert!(sent.borrow().is_empty());
         assert!(!composer.read_with(cx, |composer, _| composer.is_sending()));
+    }
+
+    #[gpui::test]
+    fn a_tagged_send_is_a_talk_about_its_card_with_words_only_and_keeps_the_tag(cx: &mut TestAppContext) {
+        let (composer, cx) = open(cx);
+        let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let seen = heard.clone();
+        let _held = cx.update(|_, cx| cx.subscribe(&composer, move |_, event: &Composed, _| seen.borrow_mut().push(event.clone())));
+        composer.update_in(cx, |composer, window, cx| {
+            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), cx);
+            composer.input.update(cx, |input, cx| input.set_value("Why hold Pocket?", window, cx));
+            composer.send(window, cx);
+        });
+        cx.run_until_parked();
+        assert!(matches!(heard.borrow().as_slice(), [Composed::Talk { words, about }] if words == "Why hold Pocket?" && about == "turn:31"));
+        composer.update_in(cx, |composer, window, cx| {
+            composer.sent(window, cx);
+            assert_eq!(composer.words(cx), "", "a sent talk empties the box");
+            assert!(composer.tagged().is_some(), "and keeps the tag, for the next words");
+            composer.untag(cx);
+            assert!(composer.tagged().is_none());
+        });
     }
 
     #[gpui::test]
