@@ -1585,6 +1585,10 @@ pub struct SessionRecord {
     /// you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_open_by: Vec<HeldOpenBy>,
+    /// Waiting for a worktree slot: in its repository's line, or its `armada worktree lease` asking.
+    /// Absent otherwise. Since 14 Nov 2026, in place of the `slot_choice` item.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_wait: Option<crate::SlotWait>,
     /// Why it stopped, with `standing` `stopped`. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<SessionStopped>,

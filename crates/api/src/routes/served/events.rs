@@ -40,6 +40,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What `get_build_notes` answers, whole, when a note was marked, a held note's Job ended, or the build changed.
+    Route {
+        operation: "build_notes.changed",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",

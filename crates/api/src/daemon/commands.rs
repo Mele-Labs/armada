@@ -203,6 +203,21 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::SkipPreviewRefresh,
     ) -> impl Future<Output = Result<ipc::PreviewRefreshSkipped, Refusal>> + Send;
 
+    /// `mark_build_note_looked_at` — keep the note of this (branch, tip) looked at, and answer the notes now.
+    /// [`Refusal::NotFound`] where no note is kept for it.
+    fn mark_build_note_looked_at(
+        &self,
+        asked: ipc::MarkBuildNoteLookedAt,
+    ) -> impl Future<Output = Result<ipc::BuildNotes, Refusal>> + Send;
+
+    /// `send_build_note_feedback` — the owner's words on a note, to its Job, or to a new Job started at once where
+    /// that one has ended. **Not `&self`**: sending to a Job and starting one take the `Arc` it is hosted by.
+    /// [`Refusal::NotFound`] where no note is kept; [`Refusal::Unacceptable`] for empty words.
+    fn send_build_note_feedback(
+        self: Arc<Self>,
+        asked: ipc::SendBuildNoteFeedback,
+    ) -> impl Future<Output = Result<ipc::BuildNoteFeedbackSent, Refusal>> + Send;
+
     /// `swap_fleet_build` — start `builds/current/armada build swap` detached, so that it outlives
     /// the Fleet it stops and can swap back from one that does not answer, and answer that it has
     /// begun.

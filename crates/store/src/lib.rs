@@ -108,6 +108,8 @@ mod fleet_calls;
 mod preview_offers;
 /// The branches Jobs offer for the owner's preview, and the Refresh row he skipped.
 mod preview_offered;
+/// What each offered branch told the owner to look at, kept for the build he runs.
+mod build_notes;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -283,7 +285,8 @@ pub use plan_beads::KeptBead;
 pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
-pub use preview_offered::KeptPreviewOffered;
+pub use preview_offered::{KeptPreviewOffered, KeptStep};
+pub use build_notes::KeptBuildNote;
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     Edited, KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,

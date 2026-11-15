@@ -58,7 +58,7 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
-    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// A press on the button, or the radio, of this name inside the element of this role and name: where its name is
     /// one the walk's own bar or another place also draws.
     PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
@@ -1137,6 +1137,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-slot-wait",
+        title: "A Job waiting for a worktree slot, asking nothing",
+        screen: Screen::Jobs,
+        scenario: "slot-wait",
+        steps: &[
+            step("A Job waiting for a slot wears a drive beside its state, its place in the tooltip", Verb::Hover, "img", "Waiting for a slot, 2nd in line"),
+            press_on("Its thread ends on the wait: its place, how long, and that it moves in by itself", "row", "Audit the docs index", "region", "Waiting for a slot"),
+            step("Add a slot has Fleet make one for this Job", Verb::Hover, "button", "Add a slot"),
+            step("Free gives this Job the slot of the quietest Job nothing keeps", Verb::Hover, "button", "Free slot 9"),
+            step("The card stays inside the thread", Verb::Fits("region", "Waiting for a slot"), "button", "Free slot 9"),
+            press_on("Now says it too", "tab", "Job column: Now", "group", "Waiting for a slot, 2nd in line"),
+        ],
+    },
+    Walk {
         name: "native-panes",
         title: "Splitting, sizing and closing a Job's panes",
         screen: Screen::Jobs,
@@ -1862,6 +1876,22 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &title_bar::PREVIEW_OFFERS,
+    },
+    Walk {
+        name: "native-waits-and-fleet-scroll",
+        title: "A waiting Job's row says what it waits on you for, and the Fleet panel scrolls its lists",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            right_on("A right press on a Job opens its menu, with the View group at its foot", "row", "Fix the merge line freshness chip", "menuitemcheckbox", "Now"),
+            press_on("Now puts a line under each title", "menuitemcheckbox", "Now", "menuitemcheckbox", "Now"),
+            step("A Job waiting on you says the first thing it waits for: Plan to approve, not what it last ran", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            step("A Job at work still says what it is doing", Verb::Look, "row", "Native Bridge foundation"),
+            scene("Ten branches are offered for the preview", "preview-offers-many", "button", "Fleet — Running"),
+            press_on("The panel stops at the window's edge. Refresh and Skip stay at its foot", "button", "Fleet — Running", "button", "Refresh"),
+            step("The lists scroll between the head and the foot", Verb::Wheel("group", "Waiting to be added", 320), "button", "Refresh"),
+            step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+        ],
     },
     Walk {
         name: "native-build-origin",
@@ -3127,6 +3157,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::LANES_ADD_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::LEARNED_LINKS,
+        title: "A learned setting links to its setting",
+        screen: Screen::Settings,
+        scenario: "delivery-line",
+        steps: crate::settings::walk::LEARNED_LINKS_STEPS,
     },
     Walk {
         name: crate::settings::walk::FOLLOWS_PICKER,
