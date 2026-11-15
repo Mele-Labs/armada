@@ -37,7 +37,7 @@ const ACROSS: usize = 3;
 /// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
 const SIDE_BY_SIDE: f32 = 520.;
 /// How tall a picture may stand in the reading column, against the pane it is read in.
-const TALL_SHARE: f32 = 0.8;
+const TALL_SHARE: f32 = 0.6;
 
 /// How many takes one row holds in a body `room` points wide with `gap` between: as many as would each be `SIDE_BY_SIDE` wide, and
 /// never more than `ACROSS`. Four stand two and two.
@@ -925,7 +925,7 @@ impl JobView {
             Some(at) => self.large_take_view(c, key, takes, at, chosen, open, cx),
             None => {
                 // A narrow thread leaves a take too little room for its title: they stand one under another there.
-                let across = if c.tab { across_in(f32::from(self.part_room(c)), f32::from(look.length(token::SPACE_3)), takes.len()) } else if self.band_narrow(look) { 1 } else if takes.len() == 4 { 2 } else { takes.len().clamp(1, ACROSS) };
+                let across = across_in(f32::from(self.part_room(c)), f32::from(look.length(token::SPACE_3)), takes.len());
                 let rows: Vec<AnyElement> = takes
                     .chunks(across)
                     .enumerate()
@@ -1005,7 +1005,8 @@ impl JobView {
                     .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child(" (Job's pick)"))),
             )
             .child(expand);
-        let thumb = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview).map(|picture| self.take_press(key, at, take, picture, cx)) }
+        let thumb = self
+            .take_flat(c, key, at, take, cx)
             .map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
         let (press_key, key_key) = (key.to_string(), key.to_string());
         let tile = div()
@@ -1038,24 +1039,17 @@ impl JobView {
         labelled(tile, Role::RadioButton, name).into_any_element()
     }
 
-    /// A take's picture, where it holds a scene that reads.
-    fn take_picture(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, height: gpui::Pixels, fit: Fit) -> Option<AnyElement> {
-        let text = take.scene.as_deref()?;
-        let held = format!("part:{}:{key}:{at}:{}", c.job, text.len());
-        self.scene_in(&held, text, height, c.look, fit, Lens::default())
-    }
-
-    /// What a part's body has to stand in, in the reader: the card's width less the part's own padding.
+    /// What a part's body has to stand in, in the reader or a thread card: the card's width less the part's own padding.
     fn part_room(&self, c: &Ctx) -> gpui::Pixels {
         let look = c.look;
-        let held = self.body_scroll.bounds().size.width;
+        let held = if c.tab { self.body_scroll.bounds().size.width } else { self.pane.unwrap_or(px(0.)) };
         let card = if held > px(0.) { (held - look.length(token::SPACE_4) * 2.).min(self.column(look)) } else { self.column(look) };
         (card - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.))
     }
 
-    /// The tallest a picture stands in the reading column: four fifths of the pane it is read in.
-    fn tall_most(&self) -> gpui::Pixels {
-        let pane = self.body_scroll.bounds().size.height;
+    /// The tallest a picture stands in the reading column: three fifths of the pane it is read in.
+    fn tall_most(&self, tab: bool) -> gpui::Pixels {
+        let pane = if tab { self.body_scroll.bounds().size.height } else { px(0.) };
         let pane = if pane > px(0.) { pane } else { self.pane_height.unwrap_or(px(600.)) };
         pane * TALL_SHARE
     }
@@ -1065,7 +1059,7 @@ impl JobView {
     fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, cx: &Context<Self>) -> Option<AnyElement> {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
-        let picture = self.scene_column(&held, text, self.tall_most(), c.look)?;
+        let picture = self.scene_column(&held, text, self.tall_most(c.tab), c.look)?;
         Some(self.take_press(key, at, take, picture, cx))
     }
 
@@ -1110,25 +1104,6 @@ impl JobView {
                         .rounded(look.length(token::RADIUS_MD))
                         .child(crate::scene::view(SharedString::from(key.to_string()), scene, Fit::Column, Clock::default(), Lens::default())),
                 )
-                .into_any_element(),
-        )
-    }
-
-    /// A scene's JSON drawn in a sunken box `height` tall, as a take's thumbnail and the drawing part are.
-    fn scene_in(&self, key: &str, text: &str, height: gpui::Pixels, look: &Look, fit: Fit, lens: Lens) -> Option<AnyElement> {
-        let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
-        let scene = crate::scene::read(key, &raw)?;
-        Some(
-            div()
-                .relative()
-                .w_full()
-                .h(height)
-                .overflow_hidden()
-                .rounded(look.length(token::RADIUS_MD))
-                .bg(look.color(token::BG_SUNKEN))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .child(crate::scene::view(SharedString::from(key.to_string()), scene, fit, Clock::default(), lens))
                 .into_any_element(),
         )
     }
@@ -1210,7 +1185,7 @@ impl JobView {
                         "Back",
                     )),
             );
-        let picture = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading).map(|picture| self.take_press(key, at, take, picture, cx)) };
+        let picture = self.take_flat(c, key, at, take, cx);
         let choose = open.then(|| {
             labelled(
                 act(look, format!("large-pick:{key}"), if on { "Chosen" } else { "Choose this take" }, Kind::Secondary, "", true)
@@ -1270,7 +1245,7 @@ impl JobView {
         if c.tab {
             return self.drawing_large(c, key, &held, scene, cx);
         }
-        let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c.tab), look) else { return div().into_any_element() };
         let (artifact, press) = (c.id.to_string(), key.to_string());
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
@@ -1319,7 +1294,7 @@ impl JobView {
 
     /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
-        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(), c.look) else { return div().into_any_element() };
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c.tab), c.look) else { return div().into_any_element() };
         let press = key.to_string();
         labelled(
             div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
