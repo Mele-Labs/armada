@@ -1876,7 +1876,7 @@ impl JobsList {
             }
         };
         self.card = None;
-        let menu = cx.new(|cx| Dropdown::new("Project", entries, at, corner, from_keys, cx).at_point(window, cx));
+        let menu = cx.new(|cx| Dropdown::new("Project", entries, at, corner, from_keys, cx));
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
             let Picked::Entry { id: row, .. } = picked;
             if let Some(project) = crate::move_to_project::project_of(row) {
