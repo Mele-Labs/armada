@@ -351,13 +351,12 @@ async fn a_free_is_refused_while_the_holder_runs_holds_uncommitted_work_or_lost_
 }
 
 #[tokio::test]
-async fn a_free_for_a_call_that_is_gone_is_the_settled_refusal() {
+async fn a_free_for_a_job_that_waits_for_no_slot_is_the_settled_refusal() {
     let rig = pool_for_holders(1);
-    holder(&rig, "first", true).await;
-    let (waiting, _) = waiting_with_rows(&rig).await;
-    choose(&rig, &waiting, 0).await.expect("waits");
+    let idle = holder(&rig, "first", true).await;
+    waiting_with_rows(&rig).await;
 
-    let refused = free(&rig, &waiting, 1).await.expect_err("refused");
+    let refused = free(&rig, &idle, 1).await.expect_err("refused");
 
     assert_eq!(refused.error().code, "fleet.session_waiting_unheld");
     assert!(rig.fleet.vcs().parked_slots().is_empty());
