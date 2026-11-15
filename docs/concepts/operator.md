@@ -42,16 +42,25 @@ The Operator is told what Fleet saw and is never asked whether something happene
 
 **One card is in front at a time.**
 A card is one decision: a title, its read, two to four options with the Operator's pick first, and a cost on each option.
-Keys 1 to 4 settle it.
+Keys 1 to 4 pick an option.
 A card never holds a count or a status report.
 
 | You do | What happens |
 |---|---|
-| Press an option, or its key | The Operator is told which card and which option. It does the thing and settles the card |
+| Press an option, or its key | The card leaves the front and the next one comes up. The Operator is told which card and which option, and does it now |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | The card folds to one line and the talk runs below it, until the item settles or the Operator puts up a new card |
 | Discuss later (`L`) | The card goes back until its time, hidden until then |
 | Press Waiting in the head | The list of the cards queued behind opens. Pressing one brings it to the front |
+
+**A card you picked is at the top of the feed until it is settled.**
+It shows its title, the option you picked, and a line for each step the Operator reports, such as a Job started, a pull request opened or a merge.
+When the Operator settles it, the feed shows it settled.
+
+**A picked card comes back to the front when it cannot be done.**
+The Operator reports that it failed, with the reason, or nothing settles it within 15 minutes of your press.
+It comes back ahead of every other card with the reason on it, and you pick again.
+A picked card is never lost: until it is settled it is at the top of the feed or back in front.
 
 **A talk about a card ends in one of two ways.**
 The Operator settles the card, or it puts up a new one.
@@ -126,6 +135,7 @@ It may answer in the Job's thread, or put up a card.
 |---|---|
 | `raise_card` | Puts a card in the queue: `kind` (`deal` or `raise`), `title`, `read`, two to four `options` each with a `label` and a `cost`, the first its pick, and optionally `sessions`, `repository` and `talk_of` |
 | `revise_card` | Changes a standing card's read or options |
+| `report_card` | On a card you picked: a `step` it took, or `failed` with why, which puts the card back in front of you |
 | `settle_card` | Closes a card with what was said |
 
 Only the Operator's session may call these.

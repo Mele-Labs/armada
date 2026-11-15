@@ -15,9 +15,10 @@ The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `packages/p
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`. Gains `feed`, `session_id` and each project's `operator_acts`. `turn` is the card in front, then the Waiting cards |
+| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`. Gains `feed`, `session_id`, each project's `operator_acts` and `working`. `turn` is the card in front, then the Waiting cards; `working` is the cards he picked that are not settled |
 | `raise_card` (`POST /operator/cards`) | The Operator's session writes | `RaiseCard` `{ kind, title, read, options, sessions?, repository?, talk_of? }`. Answers `CardRaised` `{ card }` |
 | `revise_card` (`POST /operator/cards/revise`) | The Operator's session writes | `ReviseCard` `{ card, read?, options? }`. Answers `CardRevised` `{ card }` |
+| `report_card` (`POST /operator/cards/report`) | The Operator's session writes | `ReportCard` `{ card, step?, failed? }`, exactly one of `step` and `failed`. Answers `CardRevised` `{ card }` |
 | `settle_card` (`POST /operator/cards/settle`) | The Operator's session writes | `SettleCard` `{ card, said }`. Answers `OperatorCardSettled` `{ card }` |
 | `list_operator_acts` (`GET /operator/acts`) | The Operator's session reads | `OperatorActsList` `{ projects: [{ project, name, acts? }] }` |
 | `set_operator_acts` (`POST /operator/acts`) | The Operator's session and Bridge write | `SetOperatorActs` `{ project, acts? }`, `acts` one of `act_then_tell`, `ask_before_starting`, `only_when_told`, absent to unset. Answers `OperatorActsList` |
@@ -26,6 +27,7 @@ The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `packages/p
 
 **The card acts are the Operator's alone.**
 Fleet refuses them from any other caller with `fleet.not_the_operator`, refuses a card it cannot take with `fleet.card_refused`, an unknown one with `fleet.card_unknown`, and a press on a card while the session is not running with `fleet.operator_session_not_running`.
+`report_card` is refused with `fleet.card_refused` on a card he has not picked or that came back, and for both or neither of `step` and `failed`.
 
 ## A card
 
@@ -39,9 +41,16 @@ A card has two to four options, and each has a `cost`.
 `talk_of` names the card a new one follows from, so a talk that ends in a new card is one thread.
 
 **Every later act names the card.**
-`revise_card` and `settle_card` name it, and so do his press, Later and the composer.
+`revise_card`, `report_card` and `settle_card` name it, and so do his press, Later and the composer.
 `revise_card` changes the read or the options of a card that stands, and the same card stays in front.
 `settle_card` closes it with `said`, what he chose or what was done, and it leaves the page.
+
+**A card he pressed carries three more fields.**
+`picked` is `{ option, at }`, the label he pressed and when.
+`steps` is `[{ at, said }]`, what the Operator reported doing since, oldest first, and is empty before a press.
+`returned` is `{ why, at }`, present while a picked card is back in front.
+A press clears `returned` and `steps` and sets `picked` anew.
+A card raised before these fields reads as not picked.
 
 ## The page
 
@@ -51,6 +60,16 @@ The head draws the count of the rest as Waiting and opens their list.
 A press on one brings it to the front.
 A card has what it was raised with, its `id`, when it was raised, and `later_until` while it is sent back.
 It carries no count of other cards.
+
+**`working` is the cards he picked that are not settled, newest pick first.**
+Bridge draws each at the top of the feed, with its title, `picked.option` and a line for each of `steps`.
+A Later does not hide one.
+**A picked card is never lost**: until it is settled it is in `working` or back in `turn`.
+
+**A picked card comes back first in `turn`.**
+It comes back when the Operator calls `report_card` with `failed`, which is `returned.why`, or when nothing settles it within 15 minutes of `picked.at`, with `returned.why` `Nothing settled in 15 min`.
+Fleet checks the 15 minutes on the Operator's tick, and tells the session which card came back.
+A card that came back stands ahead of every other card and stays out of `working` until he presses again.
 
 **`feed` is what happened since he last looked.**
 Each entry is information with no decision in it: what the Operator dispatched, a merge, a Job that ended, and what a Job asked or told the Operator.
@@ -69,10 +88,12 @@ Both are read from what Fleet already keeps, so the page makes no call and adds 
 **His press, Later and each composer send reach the session as messages that name the card.**
 Fleet writes the message and puts it in the Operator's session, and the Operator acts on it.
 There is no answer that does the pick for him, no Always and no rule kept: a press is a message, and the Operator does what the option said and settles the card.
+**A press also picks the card**: it leaves `turn` for `working`, so the next card is in front at once.
+A press on a card that is in `working` is refused with `fleet.operator_answer_not_offered`.
 
 | He does | The session is told |
 | --- | --- |
-| Presses an option, or keys 1 to 4 | The card and the option |
+| Presses an option, or keys 1 to 4 | The card and the option, and to act now: report each step, settle when done, report `failed` the moment it cannot be done |
 | Presses Discuss (`/`) and sends | The card and his words. The card folds to one line and the talk runs below it |
 | Presses Discuss later (`L`) | The card and when it comes back. The card is hidden until then |
 
@@ -100,7 +121,7 @@ A Job's question stays in that Job's own Needs you and is not sent.
 
 ## The event stream
 
-`operator.page_changed` is sent when a card is raised, revised or settled, when a card goes Later or comes back, when the feed gains an entry, when a project's value changes, and when a repository's main turns red or green.
+`operator.page_changed` is sent when a card is raised, revised, picked, reported on, returned or settled, when a card goes Later or comes back, when the feed gains an entry, when a project's value changes, and when a repository's main turns red or green.
 It is not sent when the slot count moves, since Bridge reads `slots` with the page.
 It carries nothing beyond the stream's cursor: Bridge reads `operator_page` again.
 A client that missed one reads the page again on reconnecting.
