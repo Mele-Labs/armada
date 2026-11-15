@@ -257,7 +257,7 @@ fn attribute(tag: &str, name: &str) -> Option<String> {
     None
 }
 
-fn without_tags(html: &str) -> String {
+pub(super) fn without_tags(html: &str) -> String {
     let mut text = String::with_capacity(html.len());
     let mut inside = false;
     for c in html.chars() {

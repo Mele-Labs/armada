@@ -26,6 +26,7 @@ use store::{Holder, KeptAttachment};
 use super::document_answers::is_document;
 use super::artifact_for::with_for;
 use super::page_actions::actions_that_will_not_run;
+use super::page_measure::buried_ask;
 use super::page_votes::votes_that_will_not_count;
 use super::document_page::{asks_approval, for_of, sketches_in, title_of};
 use crate::daemon::Fleet;
@@ -61,7 +62,7 @@ where
         .await;
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
-        let Some(told) = self.page_kept(id, &path, &html, &revisions).await else { return };
+        let Some(told) = self.page_kept(id, &path, &html, &revisions, true).await else { return };
         let (fleet, id) = (Arc::clone(self), id.to_string());
         // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
         tokio::spawn(async move {
@@ -70,12 +71,16 @@ where
     }
 
     /// The page at `path` was kept as its newest revision, `html`: its row says so, asking again where it asks.
-    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too.
-    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf]) -> Option<String> {
+    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too, and
+    /// `measured` is false for it: only the Job's own revision is held back for an ask it buried.
+    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf], measured: bool) -> Option<String> {
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let encoded = ipc::encode(&names).ok()?;
         let styles = self.page_styles(id, html).await;
         let asks = asks_approval(html) || self.approval_gate_waits(id, PlanGate::DocumentApproved, rail_ends::End::DocumentApproved).await;
+        // A page that buries its ask is kept and does not reach him: it reads, and the Job is told what to move.
+        let buried = if asks && measured { buried_ask(html, path) } else { None };
+        let asks = asks && buried.is_none();
         let (text, links) = for_of(html);
         let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
@@ -120,7 +125,7 @@ where
                 },
             })
             .await;
-        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path), votes_that_will_not_count(html, path)]
+        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path), votes_that_will_not_count(html, path), buried]
             .into_iter()
             .flatten()
             .reduce(|told, more| format!("{told} {more}"));

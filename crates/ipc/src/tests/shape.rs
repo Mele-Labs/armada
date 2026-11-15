@@ -17,7 +17,7 @@ fn a_nested_list_an_optional_object_and_an_enum_read_whole() {
         shape::of::<SetWaitingFor>(),
         "{items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}, \
          options?: [{label: string, description?: string, picture?: {image: string, width: number, height: number, \
-         parts?: [object]}}], approves?: boolean, steps?: [string]}], session_id?: string}"
+         parts?: [object]}}], approves?: boolean, steps?: [string], artifact?: string}], session_id?: string}"
     );
 }
 

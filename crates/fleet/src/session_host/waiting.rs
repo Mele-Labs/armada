@@ -279,6 +279,7 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -363,6 +364,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         };
     }
     WaitingItem {
@@ -390,6 +392,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -425,6 +428,7 @@ pub(crate) fn merged(
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -456,6 +460,7 @@ pub(crate) fn merged(
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: Some(one.artifact).filter(|named| !named.is_empty()),
         })
         .collect();
     items.extend(
@@ -513,6 +518,7 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: Some(one.artifact).filter(|named| !named.is_empty()),
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -617,6 +623,7 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: None,
                 });
             }
         }
@@ -704,6 +711,7 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
@@ -778,6 +786,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
                 // A draft that joined an artifact is asked for by the artifact.
@@ -807,6 +816,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
                 // Fleet's handoff card, while the Job is live to hand on.
@@ -830,6 +840,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
                 _ => None,
@@ -895,6 +906,13 @@ where
             }
         }
         self.options_refused(&set.items)?;
+        // An item about an artifact names one the Job holds, by its id or its title, and keeps its id.
+        let mut artifacts = std::collections::HashMap::new();
+        for item in &set.items {
+            if let Some(named) = item.artifact.as_deref().map(str::trim).filter(|named| !named.is_empty()) {
+                artifacts.insert(item.id.trim().to_string(), self.artifact_named(&id, named).await?);
+            }
+        }
         // Boxed: this settling is large already, and an unboxed future here overflowed a test thread's stack.
         Box::pin(self.pictures_kept(&id, &mut set.items)).await?;
         if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
@@ -950,6 +968,7 @@ where
                             false => one.options.into_iter().map(|o| o.label).collect(),
                         },
                         approves: one.approves,
+                        artifact: artifacts.get(one.id.trim()).cloned().unwrap_or_default(),
                         steps: one
                             .steps
                             .into_iter()
@@ -1589,6 +1608,7 @@ where
             act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
             options: item.options.iter().map(|option| option.label.clone()).collect(),
             pictures: pictures_kept(&item.options),
+            artifact: item.artifact.clone().unwrap_or_default(),
             steps: item.steps.clone(),
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
@@ -1676,6 +1696,7 @@ where
                 act: kept.act,
                 options: kept.options,
                 pictures: kept.pictures,
+                artifact: kept.artifact,
                 steps: kept.steps,
             })
         };

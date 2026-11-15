@@ -43,6 +43,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 

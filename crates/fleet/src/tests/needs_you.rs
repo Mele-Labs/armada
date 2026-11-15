@@ -34,6 +34,7 @@ fn item(id: &str, source: Source, act: Option<(WaitingActKind, &str)>, choices: 
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -485,7 +486,7 @@ const MAC: &str = "Restart the Mac, then check the armada rows in Files and Fold
 async fn stated(rig: &Rig, id: &SessionId) {
     let set = ipc::SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![ipc::WaitingInput { id: "mac".into(), text: MAC.into(), act: None, options: Vec::new(), steps: Vec::new(), approves: false }],
+        items: vec![ipc::WaitingInput { id: "mac".into(), text: MAC.into(), act: None, options: Vec::new(), steps: Vec::new(), approves: false, artifact: None }],
     };
     rig.fleet.waiting_for(None, set).await.expect("stated");
 }

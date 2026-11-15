@@ -58,6 +58,7 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 

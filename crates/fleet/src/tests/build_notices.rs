@@ -179,6 +179,7 @@ impl Rig {
                         act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),
                         options: Vec::new(),
                         steps: Vec::new(),
+                        artifact: None,
                     }],
                 },
             )

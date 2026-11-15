@@ -39,6 +39,7 @@ mod artifacts;
 mod archiving;
 mod answering_items;
 mod artifact_editing;
+pub(crate) mod page_measure;
 mod page_words;
 mod page_actions;
 mod page_votes;
