@@ -137,6 +137,22 @@ It never comments on, labels or edits an issue or a pull request for you.
 **It reads across repositories.**
 The work a thought belongs to is often in another repository, and one Operator serves the Mac.
 
+## With the session not running
+
+**Fleet then does what it did with the Operator off.**
+The switch, a session that has not started yet and one that has ended all read the same.
+
+| Arrives | What happens |
+|---|---|
+| A dispatch | The Job starts as he asked, with its sends |
+| A conflict or a landing question | It stands in the sending Job's own Needs you, as `job_conflict` or `job_held` |
+| A report, a note, an error, an issue and a red main | Nobody is told, and each stays where it is kept |
+| His words in the composer | Refused with `fleet.operator_session_not_running`, since nothing would hear them |
+| A press on a card | Refused with the same code, and the card stands |
+
+**Fleet's own items stay.**
+A red main nobody is on and a disk hold are in Your turn whether or not the session runs.
+
 ## Holds
 
 **The one standing order is a hold.**
@@ -169,7 +185,7 @@ It may add a proposed node and propose an edge without an ask, and starts a [Sco
 
 **These go from the Operator.**
 Why: they made it a Policy that made one call per arrival and a board of levels to tune, where the person wants one agent that watches and answers.
-The code that served them is removed by a later change, and until it is each behaves as it does now.
+The code that served them is removed, and Fleet rules nothing now.
 
 | Went | What it was | Replaced by |
 |---|---|---|
@@ -213,8 +229,7 @@ A call from a process Fleet does not host is denied at once.
 |---|---|
 | `operator_acts`, what it may do unasked, one of `act_then_tell`, `ask_before_starting` and `only_when_told` | Project, read and set from the page's wire |
 | `operator`, the Operator's own switch | Machine |
-| `operator-model`, `sonnet`, never the proposer's cheap tier | Machine |
-| `limits.operatorPlanPause`, the share of the week's plan where it stops | Machine |
+| `operator-model`, `sonnet`, the model of its own session, never the proposer's cheap tier | Machine |
 | `features.onYourWordsCanAct` | Machine |
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.

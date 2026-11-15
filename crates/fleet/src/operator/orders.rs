@@ -5,14 +5,13 @@
 //! from a file tool: a shell's writes cannot be read ahead of time and go through. A Job that ends
 //! releases its hold, and so does its push where the order said pushes, each with a Log row. The person
 //! can lift one by a press or in the chat. **A form that is not this one stands for nothing**, so a
-//! `role_off` or an `always_raise` kept before the levels went is read by nothing.
+//! `role_off`, an `always_raise` or a learned rule kept before the session is read by nothing.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Actor, Timestamp};
-use ipc::operator_page::OperatorRule;
 use ipc::operator_talk::{OperatorHoldUntil, OperatorOrder, OperatorOrderForm, OperatorOrders};
 use store::KeptOrder;
 
@@ -113,10 +112,10 @@ where
     /// `confirm_operator_order`: the form he saw stands from now on. **Refused** while the Operator
     /// is off, since nothing would go by it, and where it names what Fleet does not know.
     pub(crate) async fn operator_order_confirmed(self: &Arc<Self>, form: OperatorOrderForm) -> Result<OperatorOrders, Refusal> {
-        let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
+        if !self.operator_on() {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off, so nothing would go by a standing order"));
-        };
-        let live = operator.live_jobs().await;
+        }
+        let live = self.live_jobs().await;
         if let Err(why) = checked(&form, &live) {
             return Err(self.hosted_refusal(ORDER_NOT_A_FORM, &why));
         }
@@ -127,13 +126,10 @@ where
         Ok(self.operator_orders_wire().await)
     }
 
-    /// `remove_operator_order`: one press, on a hold or on a rule the Operator kept. A hold's Jobs write
-    /// again at once, and a rule's item asks again. **The page changes either way**, since both are on it.
+    /// `remove_operator_order`: one press, on a hold. Its Jobs write again at once. **The page changes**, since
+    /// the hold is on it.
     pub(crate) async fn operator_order_removed(self: &Arc<Self>, id: i64) -> Result<OperatorOrders, Refusal> {
-        let kept = self.order_dropped(id).await?;
-        if OperatorRule::read(&kept.form).is_some() {
-            self.operator_journaled(&format!("Forgot a rule on his press: {}", kept.said)).await;
-        }
+        self.order_dropped(id).await?;
         self.operator_page_changed();
         Ok(self.operator_orders_wire().await)
     }
@@ -148,29 +144,6 @@ where
             Some(kept) => Ok(kept),
             None => Err(self.hosted_refusal(ORDER_UNKNOWN, &format!("no standing order {id}"))),
         }
-    }
-
-    /// Hold `id` lifted on the person's word in the chat: its Jobs write again at once, and the Log says
-    /// whose word it was. `false` where no hold stands under that number.
-    pub(super) async fn hold_lifted_by_word(self: &Arc<Self>, id: i64) -> bool {
-        let Some(OperatorOrderForm::HoldPaths { manifest_id, paths, job, .. }) = self.hold_of(id).await else { return false };
-        if self.order_dropped(id).await.is_err() {
-            return false;
-        }
-        let subject = self.store().lock().await.session(job.as_str()).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| job.as_str().to_string());
-        let mut row = Logged::about(job.as_str(), &manifest_id, &subject, Outcome::HoldLifted, Actor::Human, self.now());
-        row.arrival = format!("order:{id}");
-        row.because = format!("The hold on {} was lifted on your word.", paths.join(", "));
-        row.shared = paths;
-        self.operator_logged(row).await;
-        self.operator_orders_read().await;
-        true
-    }
-
-    /// The hold standing under `id`, where one does.
-    async fn hold_of(&self, id: i64) -> Option<OperatorOrderForm> {
-        let kept = self.store().lock().await.operator_orders().ok()?;
-        kept.into_iter().find(|one| one.n == id).and_then(|one| OperatorOrderForm::read(&one.form))
     }
 
     /// `operator_orders`: the orders standing now. One for a day gone by, and a hold its Job has

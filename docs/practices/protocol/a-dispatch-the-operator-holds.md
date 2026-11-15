@@ -9,8 +9,8 @@ Bridge's half is `packages/protocol/src/job-dispatch.ts` and `DispatchWay` in `o
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `dispatch_job` (`POST /sessions/dispatch`) | Bridge calls | `DispatchJob`: every field of `StartSession`, flat, `kind?` (`idea`, `feature` or `bug`, a hint the Operator is told and nothing more) and `then?`, the sends made into the Job once it exists, each `{ notes: [SessionNote] }` or `{ message: { text, attachments?, mentions?, sketches? } }`. Answers `JobDispatched`, **exactly one of** `session` (the `SessionRecord` of the Job started) or `operator` (the dispatch's id while the Operator holds it). `parked` stays on `JobDispatched` and is not answered |
-| `operator.dispatched` (`/events`) | Fleet publishes | `OperatorDispatched`: `dispatch_id`, `manifest_id`, `way` (`started`, `handed`, `asked` or `parked`), `session_id?` and `title?`. Not replayed |
+| `dispatch_job` (`POST /sessions/dispatch`) | Bridge calls | `DispatchJob`: every field of `StartSession`, flat, `kind?` (`idea`, `feature` or `bug`, a plain field that nothing reads) and `then?`, the sends made into the Job once it exists, each `{ notes: [SessionNote] }` or `{ message: { text, attachments?, mentions?, sketches? } }`. Answers `JobDispatched`, **exactly one of** `session` (the `SessionRecord` of the Job started) or `operator` (the dispatch's id while the Operator holds it). `parked` stays on `JobDispatched` and is not answered |
+| `operator.dispatched` (`/events`) | Fleet publishes | `OperatorDispatched`: `dispatch_id`, `manifest_id`, `way` (`started`; the other three are no longer sent), `session_id?` and `title?`. Not replayed |
 | `list_parked_ideas` (`GET /sessions/parked`) | Bridge calls | `ParkedIdeas`: `ideas`, oldest first, each `{ id, dispatch, at }` with `dispatch` the `DispatchJob` as it was sent |
 | `remove_parked_idea` (`POST /sessions/parked/remove`) | Bridge calls | `RemoveParkedIdea` `{ id }`. Answers `ParkedIdeas`. 422 `fleet.parked_idea_unknown` where none is kept under the id |
 
@@ -20,15 +20,14 @@ A body with `held`, `fork`, `root` or `after`, or no `request`, and every dispat
 The dispatch is told to the session as a message, and the Operator starts the Job itself, hands the words to a live Job, or raises a card, by the project's `operator_acts`.
 The answer is `operator`, the dispatch's id, and Fleet keeps nothing more of it.
 A dispatch carrying `then` is started as asked, since its sends need the Job they were set up for.
-A session that is not running, or cannot be told, leaves the dispatch to the old path below.
-**`kind` is a hint, and the Operator is told it in one line.**
-It never picks a way, a workflow or whether a call is made, and a dispatch with none is as valid as one with any.
+A session that is not running, or cannot be told, starts the Job as he asked.
+**`kind` is a plain field.**
+It is not told to the session, picks no way and no workflow, and a dispatch with none is as valid as one with any.
 It stays on the stored dispatch, so it rides onto the Job or the idea kept for later.
-The answer is `operator`, and `operator.dispatched` says what came of it.
-`parked` is part of `JobDispatched` and is no longer answered by `dispatch_job`: an idea is kept only by the Operator's ruling, as `way` `parked`.
-**A start or a fold the Operator rules is done at once** and is not a suggestion to press; only the ask is a go-ahead, in the Operator's own list.
+`parked` is part of `JobDispatched` and is never answered by `dispatch_job`: nothing parks an idea now, and `list_parked_ideas` lists those an earlier Fleet kept.
+**`operator.dispatched`** is published only when a dispatch an earlier Fleet held is started as asked, with `way` `started`.
 **His work is never lost.**
-A ruling that does not come in a minute, a call that fails, an act that cannot be carried out, a Skip, and a dispatch still kept when Fleet starts each start the Job as it was asked, from the whole body kept in `operator_dispatches`.
+A session that cannot be told, and a dispatch still kept when Fleet starts, each start the Job as it was asked, from the whole body kept in `operator_dispatches`.
 
 **Why Fleet keeps the ideas.**
 The queued ideas Bridge keeps are in its own `localStorage` and in the native stack, so Fleet cannot write to either, and a Bridge that is closed when the Operator parks one would lose it.

@@ -1,10 +1,10 @@
-//! What the wire keeps true about a thought routed: the reading is told apart by `kind`, an absent
-//! field is left out and never `null`, and the audit event is spelled as `operations/` declares it.
+//! What the wire keeps true about words sent on: an absent field is left out and never `null`, and the audit
+//! event is spelled as `operations/` declares it.
 //! The `sent` row is `SessionRow::Sent`, held in `session_wire.rs`.
 
 use crate::{
-    decode, encode, Event, WordsSent, Instant, ManifestId, ReadThought, ThoughtKind,
-    ThoughtReading, ThoughtTarget,
+    decode, encode, Event, WordsSent, Instant, ManifestId, ThoughtKind,
+    ThoughtTarget,
 };
 
 fn a_session() -> ThoughtTarget {
@@ -15,25 +15,6 @@ fn a_session() -> ThoughtTarget {
         manifest_id: Some(ManifestId::carried("armada")),
         slot: Some(3),
     }
-}
-
-#[test]
-fn a_reading_is_told_apart_by_its_kind() {
-    assert_eq!(encode(&ThoughtReading::Question).expect("plain data"), r#"{"kind":"question"}"#);
-    assert_eq!(
-        encode(&ThoughtReading::Thought { target: None }).expect("plain data"),
-        r#"{"kind":"thought"}"#,
-        "no target is left out, never null"
-    );
-    let matched = ThoughtReading::Thought {
-        target: Some(a_session()),
-    };
-    let json = encode(&matched).expect("plain data");
-    assert_eq!(
-        json,
-        r#"{"kind":"thought","target":{"kind":"session","id":"01LISTVIEWSAAAAAAAAAAAAAAA","title":"Sessions list views","manifest_id":"armada","slot":3}}"#
-    );
-    assert_eq!(decode::<ThoughtReading>("a reading", json.as_bytes()).expect("round-trips"), matched);
 }
 
 #[test]
@@ -51,17 +32,8 @@ fn a_target_with_nothing_optional_leaves_both_out() {
 }
 
 #[test]
-fn a_reading_of_a_kind_nobody_sends_is_refused() {
-    assert!(decode::<ThoughtReading>("a reading", br#"{"kind":"banana"}"#).is_err());
+fn a_target_of_a_kind_nobody_sends_is_refused() {
     assert!(decode::<ThoughtTarget>("a target", br#"{"kind":"studio","id":"x","title":"t"}"#).is_err());
-}
-
-#[test]
-fn the_words_read_round_trip() {
-    let read = decode::<ReadThought>("words", br#"{"text":"retries should back off"}"#).expect("plain data");
-    assert_eq!(read.text, "retries should back off");
-    let json = encode(&read).expect("plain data");
-    assert_eq!(decode::<ReadThought>("words", json.as_bytes()).expect("round-trips"), read);
 }
 
 /// The audit event carries where and never the words.

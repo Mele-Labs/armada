@@ -26,7 +26,6 @@ use tokio::sync::{mpsc, Notify};
 use crate::daemon::Host;
 use crate::detach::Detached;
 use crate::drone::{environment, HostPaths};
-use crate::judging::CallFailed;
 
 /// How long a stopped scout has to end its turn before its group is ended.
 pub(crate) const GRACE: Duration = Duration::from_secs(10);
@@ -113,11 +112,6 @@ impl ScoutHost {
     /// Start one scout in `directory`, told `told` on its only turn.
     pub(crate) async fn start(&self, directory: &str, told: &str) -> Result<Started, String> {
         self.start_reading(&self.model, directory, &[], None, told).await
-    }
-
-    /// Where Fleet keeps what it writes for one call to read: beside the server files, never in a repository.
-    pub(crate) fn runtime_dir(&self) -> PathBuf {
-        self.servers.parent().map(Path::to_path_buf).unwrap_or_default()
     }
 
     /// Start one scout on `model` in `directory`, let read the `also` folders as well and take at most
@@ -305,59 +299,6 @@ impl ScoutHost {
                 cost_micros: cost,
             },
         )
-    }
-}
-
-/// Ends a started scout's group where it is dropped before it was read to its end: a call whose
-/// caller went away leaves no process behind.
-struct EndsWithIt(Option<NonZeroU32>);
-
-impl Drop for EndsWithIt {
-    fn drop(&mut self) {
-        if let Some(group) = self.0 {
-            crate::group::end_the_group(group);
-        }
-    }
-}
-
-impl ScoutHost {
-    /// One question put to a scout in `directory` that may read the `also` folders, answered with what
-    /// it said last. **Stopped at `within`**: interrupted, then ended after [`GRACE`], and that is
-    /// [`CallFailed::TimedOut`]. Nothing it read is reported.
-    pub(crate) async fn answer_reading(
-        &self,
-        model: &str,
-        directory: &str,
-        also: &[String],
-        turns: u32,
-        told: &str,
-        within: Duration,
-    ) -> Result<String, CallFailed> {
-        let started = self
-            .start_reading(model, directory, also, Some(turns), told)
-            .await
-            .map_err(|said| CallFailed::Refused { code: None, tail: String::new(), said })?;
-        let mut guard = EndsWithIt(started.pid);
-        let running = Running::default();
-        let (looked, _unheard) = mpsc::unbounded_channel();
-        let read = self.read(started, &running, looked);
-        tokio::pin!(read);
-        let mut timed_out = false;
-        let (learned, ended) = tokio::select! {
-            done = &mut read => done,
-            _ = tokio::time::sleep(within) => {
-                timed_out = true;
-                running.stop();
-                read.await
-            }
-        };
-        guard.0 = None;
-        match ended.outcome {
-            _ if timed_out => Err(CallFailed::TimedOut),
-            ScoutOutcome::Answered => learned.filter(|said| !said.trim().is_empty()).ok_or(CallFailed::SaidNothing),
-            ScoutOutcome::Stopped => Err(CallFailed::Stopped),
-            ScoutOutcome::Failed { why } => Err(CallFailed::Refused { code: None, tail: String::new(), said: why }),
-        }
     }
 }
 

@@ -10,7 +10,7 @@ use ipc::{AnswerSketch, ArtifactLink, ArtifactLinkKind, ArtifactRef, DismissWait
 
 use super::acts::{kbd, Answer, Mode};
 use super::cards::{drawn_against, quote, settled_of, shown_scene, Said};
-use super::rows::{mono, tip};
+use super::rows::{glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -30,14 +30,28 @@ enum Standing {
 }
 
 impl Standing {
-    fn of(card: &ThreadSketch, said: Option<Said>, with_plan: bool) -> Self {
+    fn of(card: &ThreadSketch, said: Option<Said>, with_plan: bool, put_away: bool) -> Self {
         match said {
             Some(Said::Approved) => Standing::Approved,
             Some(Said::SentBack) => Standing::SentBack,
-            None if card.withdrawn => Standing::Withdrawn,
+            None if card.withdrawn || put_away => Standing::Withdrawn,
             None if with_plan && card.asked && !card.replaced => Standing::WithPlan,
             None if card.asked && !card.replaced => Standing::Asking,
             None => Standing::Reading,
+        }
+    }
+
+    /// A verdict is in, so the card has nothing left to ask.
+    fn settled(self) -> bool {
+        matches!(self, Standing::Approved | Standing::SentBack | Standing::Withdrawn)
+    }
+
+    /// The registry glyph of a verdict, as the answered cards draw it.
+    fn mark(self) -> &'static str {
+        match self {
+            Standing::Approved => "badge-check",
+            Standing::SentBack => "reply",
+            _ => "ban",
         }
     }
 
@@ -71,6 +85,24 @@ impl Standing {
             Standing::Reading => "Shown to you, with no answer asked",
             Standing::Withdrawn => "The Job took it back",
         }
+    }
+}
+
+/// Whether a card draws as one line in the thread: its newest revision has a verdict. A card a later one replaced is
+/// the history of that one and keeps its drawing.
+fn folds(standing: Standing, replaced: bool) -> bool {
+    standing.settled() && !replaced
+}
+
+/// How many characters of his note the folded line holds before its ellipsis.
+const NOTE_START: usize = 80;
+
+/// The start of his note on one line, ending in an ellipsis where it goes on.
+fn note_start(words: &str) -> String {
+    let one: String = words.split_whitespace().collect::<Vec<_>>().join(" ");
+    match one.char_indices().nth(NOTE_START) {
+        Some((at, _)) => format!("{}\u{2026}", one[..at].trim_end()),
+        None => one,
     }
 }
 
@@ -201,7 +233,11 @@ impl JobView {
         let optimistic = page.cards.pressed(&key, card);
         let settled = settled_of(card.settled.as_ref(), optimistic);
         // One the waiting plan names is answered by the plan's Approve, so its card asks nothing of its own.
-        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
+        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx), optimistic == Some(&Answer::Withdrawn));
+        if folds(standing, card.replaced) {
+            let words = settled.as_ref().and_then(|(_, words)| words.as_deref());
+            return self.folded_sketch(ix, card, standing, words, page, look, cx);
+        }
         let revisions = card.revisions.len();
         let picked = super::cards::picked_revision(&page.cards.revision, &key, revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
@@ -243,12 +279,68 @@ impl JobView {
         .into_any_element()
     }
 
+    /// A card with a verdict, in one line: the sketch glyph, the title, the verdict with its word, and the start of his
+    /// note in muted text. A press opens the sketch, as a press on the whole card does.
+    #[allow(clippy::too_many_arguments)]
+    fn folded_sketch(&self, ix: usize, card: &ThreadSketch, standing: Standing, words: Option<&str>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = card.id.clone();
+        if self.holds_kept(&key) && !page.cards.modes.contains_key(&key) {
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, false));
+        }
+        let ink = look.color(standing.ink());
+        let verdict = div()
+            .id(SharedString::from(format!("settled-mark:{key}")))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(ink)
+            .child(glyph(look, standing.mark(), Size::Mark, ink))
+            .child(standing.word())
+            .tooltip(tip(standing.tip()));
+        let parts = vec![
+            div().max_w(gpui::relative(0.45)).min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(card.title.clone())).into_any_element(),
+            labelled(verdict, Role::Status, standing.word()).into_any_element(),
+            div()
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .children(words.filter(|words| !words.trim().is_empty()).map(|words| SharedString::from(note_start(words))))
+                .into_any_element(),
+        ];
+        let spot = page.keys.spot(&format!("sketch-press:{key}"), cx);
+        let acts = Acts { ix, key: key.clone(), sketch: card.sketch.clone(), drawn: None, asking: false };
+        let open_key = key.clone();
+        let line = self
+            .quiet_base(&format!("sketch:{key}"), "layers", parts, look)
+            .cursor_pointer()
+            .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
+            .track_focus(&spot.focus)
+            .tooltip(tip("Open the sketch"))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                if event.keystroke.modifiers.modified() {
+                    return;
+                }
+                match event.keystroke.key.as_str() {
+                    "enter" | "space" => this.read_sketch(&acts.key, &acts.key, window, cx),
+                    "d" => this.archive_sketch(&acts, window, cx),
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }))
+            .on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&open_key, &open_key, window, cx)));
+        labelled(line, Role::Button, format!("Open sketch {}", card.title)).into_any_element()
+    }
+
     /// A sketch a plan names, drawn inside the plan: its card's band and drawing, with no footer, since the plan's
     /// Approve answers it. A press opens it and the pointer on it plays its steps, as on its card. The drawing is
     /// sized from the plan column's width as it was last drawn, which is narrower than the thread's.
     pub(super) fn plan_sketch(&self, key: &str, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let settled = settled_of(card.settled.as_ref(), page.cards.pressed(&card.id, card));
-        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
+        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx), false);
         let acts = Acts { ix: 0, key: key.to_string(), sketch: card.sketch.clone(), drawn: None, asking: false };
         let (scene_key, scene) = shown_scene(card, None);
         let pointed = page.cards.pointed.as_deref() == Some(key) || page.cards.focused.as_deref() == Some(key);
@@ -736,5 +828,63 @@ impl JobView {
         let Some(job) = self.shown.clone() else { return };
         let body = ipc::encode(&ArtifactRef { artifact: acts.sketch.clone(), session_id: Some(self.sketch_session()) }).map_err(|why| format!("{why:?}"));
         self.post_card(job, acts.ix, acts.key.clone(), "/sessions/artifacts/archive", body, window, cx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(extra: &str) -> ThreadSketch {
+        let wire = format!(r#"{{"id":"sk-1","at":"2026-11-14T10:00:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{{"nodes":[],"edges":[]}}{extra}}}"#);
+        ipc::decode::<ThreadSketch>("a card", wire.as_bytes()).expect("a sketch card")
+    }
+
+    fn lines(card: &ThreadSketch, said: Option<Said>, with_plan: bool, put_away: bool) -> bool {
+        folds(Standing::of(card, said, with_plan, put_away), card.replaced)
+    }
+
+    #[test]
+    fn a_card_whose_newest_revision_has_a_verdict_is_one_line() {
+        let asked = card(r#","asked":true"#);
+        assert!(lines(&asked, Some(Said::Approved), false, false), "approved");
+        assert!(lines(&asked, Some(Said::SentBack), false, false), "sent back");
+        assert!(lines(&card(r#","asked":true,"withdrawn":true"#), None, false, false), "withdrawn by the Job");
+        assert!(lines(&asked, None, false, true), "dismissed by him");
+    }
+
+    #[test]
+    fn a_card_that_still_asks_or_asks_nothing_keeps_its_drawing() {
+        assert!(!lines(&card(r#","asked":true"#), None, false, false), "asking");
+        assert!(!lines(&card(r#","asked":true"#), None, true, false), "with the plan");
+        assert!(!lines(&card(""), None, false, false), "shown with no answer asked");
+    }
+
+    #[test]
+    fn a_card_a_later_one_replaced_keeps_its_drawing_as_history() {
+        assert!(!lines(&card(r#","asked":true,"replaced":true"#), Some(Said::SentBack), false, false));
+    }
+
+    #[test]
+    fn a_sent_back_sketch_drawn_again_asks_again_and_is_not_one_line() {
+        // Fleet writes the redraw's row without the verdict, so the newest card carries none.
+        let again = card(r#","asked":true"#);
+        assert!(!lines(&again, None, false, false));
+        assert!(Standing::of(&again, None, false, false) == Standing::Asking);
+    }
+
+    #[test]
+    fn the_start_of_his_note_ends_in_an_ellipsis_where_it_goes_on() {
+        assert_eq!(note_start("Grey the chip\n  once it is current"), "Grey the chip once it is current");
+        let long = "word ".repeat(40);
+        let cut = note_start(&long);
+        assert!(cut.ends_with('\u{2026}') && cut.chars().count() <= NOTE_START + 1, "{cut}");
+    }
+
+    #[test]
+    fn each_verdict_is_a_registry_glyph_with_its_word() {
+        assert_eq!((Standing::Approved.mark(), Standing::Approved.word()), ("badge-check", "Approved"));
+        assert_eq!((Standing::SentBack.mark(), Standing::SentBack.word()), ("reply", "Sent back"));
+        assert_eq!((Standing::Withdrawn.mark(), Standing::Withdrawn.word()), ("ban", "Withdrawn"));
     }
 }

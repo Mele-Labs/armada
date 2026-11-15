@@ -105,6 +105,110 @@ pub fn sanitise(html: &str) -> String {
     String::from_utf8(out).unwrap_or_default()
 }
 
+/// A part of a mock's markup a note may name, in the order the markup holds them, with no layout.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Outlined {
+    pub key: String,
+    pub label: String,
+    pub depth: u32,
+}
+
+/// The markup's parts as the page reports them (`PARTS` in `web/render.rs`): the nearest element carrying `data-part`, else the
+/// nearest with words, once each. A walk has no web view to measure them, so it stands them in a column.
+pub fn outline(html: &str) -> Vec<Outlined> {
+    let opts = ParseOpts { tree_builder: TreeBuilderOpts { scripting_enabled: false, ..Default::default() }, ..Default::default() };
+    let dom = parse_document(RcDom::default(), opts).one(format!("<!doctype html><body>{html}").as_str());
+    let Some(body) = first_element(&dom.document, "body") else { return Vec::new() };
+    clean(&body);
+    let mut found: Vec<Outlined> = Vec::new();
+    let mut named: Vec<(String, Handle)> = Vec::new();
+    collect_named(&body, &mut named);
+    visit(&body, &mut vec![body.clone()], &named, &mut found);
+    found
+}
+
+fn words_of(at: &Handle) -> String {
+    let mut text = String::new();
+    fn add(at: &Handle, text: &mut String) {
+        match &at.data {
+            NodeData::Text { contents } => text.push_str(&contents.borrow()),
+            _ => at.children.borrow().iter().for_each(|child| add(child, text)),
+        }
+    }
+    add(at, &mut text);
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn data_part(at: &Handle) -> Option<String> {
+    match &at.data {
+        NodeData::Element { attrs, .. } => value_of(&attrs.borrow(), "data-part"),
+        _ => None,
+    }
+}
+
+fn collect_named(at: &Handle, into: &mut Vec<(String, Handle)>) {
+    for child in at.children.borrow().iter() {
+        if let Some(name) = data_part(child) {
+            into.push((name, child.clone()));
+        }
+        collect_named(child, into);
+    }
+}
+
+fn has_own_words(at: &Handle) -> bool {
+    at.children.borrow().iter().any(|child| matches!(&child.data, NodeData::Text { contents } if !contents.borrow().trim().is_empty()))
+}
+
+/// `partKey`: a `data-part` (and its place among the same name where it repeats), else the path of `nth-child`s from the body.
+/// `chain` is the body and then each element down to the part.
+fn key_of(chain: &[Handle], named: &[(String, Handle)]) -> String {
+    let Some(part) = chain.last() else { return String::new() };
+    if let Some(name) = data_part(part) {
+        let same: Vec<_> = named.iter().filter(|(other, _)| *other == name).collect();
+        return match same.iter().position(|(_, one)| std::rc::Rc::ptr_eq(one, part)) {
+            Some(at) if same.len() > 1 => format!("{name}[{}]", at + 1),
+            _ => name,
+        };
+    }
+    let mut path = vec!["body".to_string()];
+    for pair in chain.windows(2) {
+        let (parent, one) = (&pair[0], &pair[1]);
+        let NodeData::Element { name, .. } = &one.data else { continue };
+        let nth = parent.children.borrow().iter().filter(|child| matches!(child.data, NodeData::Element { .. })).position(|child| std::rc::Rc::ptr_eq(child, one)).map_or(1, |index| index + 1);
+        path.push(format!("{}:nth-child({nth})", name.local));
+    }
+    path.join(" > ")
+}
+
+fn visit(at: &Handle, trail: &mut Vec<Handle>, named: &[(String, Handle)], found: &mut Vec<Outlined>) {
+    for child in at.children.borrow().iter() {
+        if !matches!(child.data, NodeData::Element { .. }) {
+            continue;
+        }
+        trail.push(child.clone());
+        if data_part(child).is_some() || has_own_words(child) {
+            // The nearest ancestor (or itself) naming a part, else the nearest with words.
+            let part = trail.iter().skip(1).rposition(|one| data_part(one).is_some()).or_else(|| trail.iter().skip(1).rposition(|one| !words_of(one).is_empty()));
+            if let Some(at) = part.map(|at| at + 1) {
+                let key = key_of(&trail[..=at], named);
+                if !found.iter().any(|one| one.key == key) {
+                    let label = data_part(&trail[at]).unwrap_or_else(|| {
+                        let said = words_of(&trail[at]);
+                        if said.chars().count() > 40 {
+                            format!("{}\u{2026}", said.chars().take(40).collect::<String>().trim_end())
+                        } else {
+                            said
+                        }
+                    });
+                    found.push(Outlined { key, label, depth: at as u32 });
+                }
+            }
+        }
+        visit(child, trail, named, found);
+        trail.pop();
+    }
+}
+
 /// The first element called `local` at or below `at`'s children, one level of `html` down.
 fn first_element(at: &Handle, local: &str) -> Option<Handle> {
     for child in at.children.borrow().iter() {
@@ -251,6 +355,24 @@ mod tests {
 
     fn sheet(css: &str) -> KeptSheet {
         KeptSheet { path: "a.css".into(), css: css.into(), edited: false }
+    }
+
+    #[test]
+    fn a_part_is_the_nearest_data_part_else_the_nearest_words() {
+        let parts = outline(r#"<div><span>2 behind</span><b data-part="Count">9</b></div><p>Pull <i>requests</i></p>"#);
+        let said: Vec<_> = parts.iter().map(|one| (one.key.as_str(), one.label.as_str())).collect();
+        assert_eq!(said, [
+                ("body > div:nth-child(1) > span:nth-child(1)", "2 behind"),
+                ("Count", "Count"),
+                ("body > p:nth-child(2)", "Pull requests"),
+                ("body > p:nth-child(2) > i:nth-child(1)", "requests")
+            ]);
+    }
+
+    #[test]
+    fn a_name_that_repeats_is_told_apart_by_its_place() {
+        let parts = outline(r#"<u data-part="Row">a</u><u data-part="Row">b</u>"#);
+        assert_eq!(parts.iter().map(|one| one.key.as_str()).collect::<Vec<_>>(), ["Row[1]", "Row[2]"]);
     }
 
     #[test]
