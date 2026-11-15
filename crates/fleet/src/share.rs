@@ -120,6 +120,7 @@ where
             | Event::MergeLineViewChanged(_)
             | Event::WriteClashesChanged(_)
             | Event::PreviewOffersChanged(_)
+            | Event::BuildNotesChanged(_)
             | Event::CallsChanged(_)
             | Event::ModsChanged(_)
             | Event::SettingsChanged(_)

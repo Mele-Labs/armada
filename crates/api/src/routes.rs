@@ -34,7 +34,7 @@ use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
     change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, update_mac,
-    skip_preview_refresh, swap_fleet_build,
+    skip_preview_refresh, swap_fleet_build, get_build_notes, mark_build_note_looked_at, send_build_note_feedback,
 };
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
@@ -853,6 +853,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/fleet/build/keep", post(keep_fleet_build::<D>))
         .route("/fleet/build/offers", get(get_preview_offers::<D>))
         .route("/fleet/build/offers/skip", post(skip_preview_refresh::<D>))
+        .route("/fleet/build/notes", get(get_build_notes::<D>))
+        .route("/fleet/build/notes/looked_at", post(mark_build_note_looked_at::<D>))
+        .route("/fleet/build/notes/feedback", post(send_build_note_feedback::<D>))
         .route("/limits", get(get_limits::<D>))
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))
