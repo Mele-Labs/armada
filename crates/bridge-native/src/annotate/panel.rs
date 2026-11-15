@@ -278,7 +278,7 @@ impl Layer {
                         "selection",
                         "Send selected notes to job",
                         busy || chosen_sendable.is_empty(),
-                        self.targets.is_empty(),
+                        self.no_target(),
                         None,
                         Rc::clone(&self.header_at),
                         None,
@@ -383,7 +383,7 @@ impl Layer {
         let busy = self.is_sending();
         let ticked = self.selected.contains(&id);
         let open = note.status == Status::Open;
-        let dispatchable = open && note.sent.is_none() && !self.targets.is_empty();
+        let dispatchable = open && note.sent.is_none() && !self.no_target();
         let shotless = !here;
         let armed = self.deleting_row == Some(id);
         let ids = vec![id];
