@@ -379,10 +379,11 @@ impl JobView {
         let said = last.map_or_else(String::new, |last| super::band_card::revision_said(last.number, last.by, last.at.as_str()));
         let line = one.for_line.as_ref().and_then(|line| line.text.clone()).filter(|text| !text.trim().is_empty());
         let column = |width: gpui::Pixels| div().flex_none().w(width).flex().items_center();
-        let (revision_w, state_w, time_w) = (look.length(token::SPACE_12) + look.length(token::SPACE_3), look.length(token::SPACE_12) * 2. + look.length(token::SPACE_4), look.length(token::SPACE_12) + look.length(token::SPACE_3));
+        let (revision_w, state_w, time_w) = (look.length(token::SPACE_12) + look.length(token::SPACE_3), look.length(token::SPACE_12) * 2. + look.length(token::SPACE_4), look.length(token::SPACE_12) * 2.);
         let row = div()
             .id(SharedString::from(format!("artifact-row:{key}")))
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
@@ -397,7 +398,7 @@ impl JobView {
             .child(
                 div()
                     .flex_1()
-                    .min_w_0()
+                    .min_w(look.length(token::SPACE_12) * 2.)
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
