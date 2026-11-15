@@ -688,6 +688,29 @@ Where the note's Job is live, the words reach its thread as his message, led by 
 Where it has ended, Fleet starts a new Job in the same repository, running at once because the press is his, whose request carries his words, the ended Job's title, the note's `look` and `steps`, and the branch and tip.
 A note, a mark or a tip Fleet does not know is a 404, `fleet.build_note_unknown`, and empty words are a 422, `fleet.build_note_words_empty`.
 
+#### Ready to try
+
+**Each note is also a Ready to try card in the thread of the Job that offered it**, so he answers the work where the Job talks to him.
+The card is a `ready_to_try` item of `get_job_thread`, id `try:<branch>@<tip>`, drawn at the offer.
+It carries the note, `in_build`, and what the offer gave the card beside the note.
+`approved` is the sketch or page he approved that the branch builds, named by the offer as an artifact id or title, at a revision (the newest where none is named), with its title, form and when he approved it.
+An artifact the Job does not hold is refused, `fleet.artifact_not_held`, and so is a revision it does not have, `fleet.preview_approved_revision_unknown`.
+`pictures` are at most four shots of the built work, picture files resolved against the Job's checkout, which `get_repository_file` reads wherever they are (`fleet.preview_pictures_invalid`).
+`words` are his words that asked for the work, at most 2000 characters, until the request record carries them (`fleet.preview_words_invalid`).
+A re-offer that leaves any of the three out keeps it, and an empty list or empty words clear it.
+
+**His answer on the card is the note's answer**, `answer_ready_to_try`, refused to a Job.
+Looks good keeps the verdict `good` and tells the Job, where it is live, `The owner tried <branch> at <tip> in his preview and says it looks good: "<about>". Land it.`
+Needs rework sends his words as `send_build_note_feedback` does, then keeps `needs_work`.
+Remind keeps the instant Bridge worked out from his Later choice, and the card waits until then.
+The notice loop brings it back at that instant, open again and drawn there, at the end of the thread.
+A mark on the note from his build answers the card, since the verdict is one.
+
+**A card's state is read in one order**: `answered` where the note has a verdict, `withdrawn` where the Job withdrew the offer, `replaced` where the Job offered the branch again at a newer tip, `later` while a reminder is ahead, else `open`.
+Only an open or later card takes an answer: any other is a 409, `fleet.ready_to_try_settled`.
+A card the Job's thread does not hold is a 404, `fleet.ready_to_try_unknown`, and a reminder time that has passed or does not read is a 422, `fleet.ready_to_try_remind_past`.
+An offer made again at the tip it was withdrawn at opens its card again.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted.

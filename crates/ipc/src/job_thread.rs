@@ -282,6 +282,9 @@ pub enum ThreadItem {
         artifact: JudgeArtifact,
         clean: bool,
     },
+    /// A branch the Job offered for his preview, as he tries it: one card a (branch, tip), placed at the offer,
+    /// or where a reminder brought it back. Since 15 Nov 2026.
+    ReadyToTry(crate::ThreadReadyToTry),
 }
 
 /// A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the
@@ -389,6 +392,7 @@ impl ThreadItem {
             ThreadItem::Sketch(sketch) => &sketch.id,
             ThreadItem::Document(document) => &document.id,
             ThreadItem::Plan(plan) => &plan.id,
+            ThreadItem::ReadyToTry(card) => &card.id,
         }
     }
 }

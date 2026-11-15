@@ -10,13 +10,13 @@ use std::sync::{Arc, Mutex};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{
     Event, JobThread, JobThreadChanged, JobThreadRead, JobThreadTail, SessionId, SessionRecord, SessionRow,
-    SessionState, SessionThread, ThreadHead, ThreadItem, TimelineEvent, TimelineKind, TimelineSubject,
+    SessionState, SessionThread, ThreadHead, ThreadItem, ThreadReadyToTry, TimelineEvent, TimelineKind, TimelineSubject,
 };
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::thread_view::{cut_after, folded, folded_cut, revision_paths, tail_of, window, Revisions};
+use crate::thread_view::{cut_after, folded_cut, folded_with, revision_paths, tail_of, window, Revisions};
 
 /// How many Jobs are held at once: the ones read most recently.
 pub(crate) const HELD_MOST: usize = 32;
@@ -32,11 +32,14 @@ pub(crate) enum Change {
     Row(SessionRow),
     Record(Box<SessionRecord>),
     Timeline(TimelineEvent),
+    /// The Job's Ready to try cards, whole, as they stand now: `crate::build_noting`.
+    Ready(Vec<ThreadReadyToTry>),
 }
 
 struct Reading {
     thread: SessionThread,
     timeline: Vec<TimelineEvent>,
+    ready: Vec<ThreadReadyToTry>,
     /// The sketch revisions read so far, each once: a kept revision never changes.
     revisions: Revisions,
     head: ThreadHead,
@@ -118,19 +121,20 @@ impl Held {
         id: &str,
         mut thread: SessionThread,
         mut timeline: Vec<TimelineEvent>,
+        mut ready: Vec<ThreadReadyToTry>,
     ) -> (ThreadHead, Vec<ThreadItem>) {
         let mut entries = self.entries.lock().await;
         let heard = entries.map.get_mut(id).and_then(|entry| entry.buffer.take()).unwrap_or_default();
         for change in heard {
-            apply(&mut thread, &mut timeline, change);
+            apply(&mut thread, &mut timeline, &mut ready, change);
         }
         let mut revisions = entries.map.get_mut(id).and_then(|entry| entry.reading.take()).map(|was| was.revisions).unwrap_or_default();
         revisions_read(&thread.session, &mut revisions).await;
-        let (head, items) = folded(&thread, &timeline, &revisions);
+        let (head, items) = folded_with(&thread, &timeline, &revisions, &ready);
         if thread.session.state == SessionState::Ended {
             self.forget(&mut entries, id);
         } else if let Some(entry) = entries.map.get_mut(id) {
-            entry.reading = Some(Reading { thread, timeline, revisions, head: head.clone(), items: items.clone() });
+            entry.reading = Some(Reading { thread, timeline, ready, revisions, head: head.clone(), items: items.clone() });
         }
         (head, items)
     }
@@ -152,7 +156,7 @@ impl Held {
         }
         let Some(reading) = entry.reading.as_mut() else { return Vec::new() };
         for change in changes {
-            apply(&mut reading.thread, &mut reading.timeline, change);
+            apply(&mut reading.thread, &mut reading.timeline, &mut reading.ready, change);
         }
         revisions_read(&reading.thread.session, &mut reading.revisions).await;
         let events = refolded(reading);
@@ -183,7 +187,7 @@ impl Held {
 
 /// Fold the held thread again, keep the result, and say what moved.
 fn refolded(reading: &mut Reading) -> Vec<Event> {
-    let (head, items) = folded(&reading.thread, &reading.timeline, &reading.revisions);
+    let (head, items) = folded_with(&reading.thread, &reading.timeline, &reading.revisions, &reading.ready);
     let events = events_of(&reading.thread.session.id, (&reading.head, &reading.items), (&head, &items));
     reading.head = head;
     reading.items = items;
@@ -211,7 +215,7 @@ async fn revisions_read(record: &SessionRecord, revisions: &mut Revisions) {
 }
 
 /// Apply one thing heard to a thread. A row is appended, or replaces the row with its id.
-fn apply(thread: &mut SessionThread, timeline: &mut Vec<TimelineEvent>, change: Change) {
+fn apply(thread: &mut SessionThread, timeline: &mut Vec<TimelineEvent>, ready: &mut Vec<ThreadReadyToTry>, change: Change) {
     match change {
         Change::Row(row) => match thread.rows.iter().position(|held| held.id() == row.id()) {
             Some(at) => thread.rows[at] = row,
@@ -224,6 +228,7 @@ fn apply(thread: &mut SessionThread, timeline: &mut Vec<TimelineEvent>, change: 
                 timeline.push(event);
             }
         }
+        Change::Ready(cards) => *ready = cards,
     }
 }
 
@@ -335,7 +340,8 @@ where
                 return Err(refusal);
             }
         };
-        let (head, items) = threads.read_through(id.as_str(), thread, timeline).await;
+        let ready = self.ready_cards_of(id.as_str()).await;
+        let (head, items) = threads.read_through(id.as_str(), thread, timeline, ready).await;
         match window(&items, read.before.as_deref(), read.limit) {
             Some((items, older)) => Ok(JobThread { session_id: id, head, items, older }),
             None => Err(self.hosted_refusal(THREAD_ITEM_UNKNOWN, "no item of that job's thread holds that id")),

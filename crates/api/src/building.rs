@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{ChangeFleetBuild, MarkBuildNoteLookedAt, PickFleetBuildJob, SendBuildNoteFeedback, SkipPreviewRefresh, UpdateMac};
+use ipc::{AnswerReadyToTry, ChangeFleetBuild, MarkBuildNoteLookedAt, PickFleetBuildJob, SendBuildNoteFeedback, SkipPreviewRefresh, UpdateMac};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -71,6 +71,18 @@ pub(crate) async fn send_build_note_feedback<D: Commands>(State(served): State<S
     };
     match served.shared().send_build_note_feedback(asked).await {
         Ok(sent) => answer(StatusCode::OK, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His answer on a Ready to try card in a Job's thread, and the card as it stands after.
+pub(crate) async fn answer_ready_to_try<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: AnswerReadyToTry = match ipc::decode_body("an answer on a ready to try card", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_ready_to_try(asked).await {
+        Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

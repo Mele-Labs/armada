@@ -34,6 +34,7 @@ mod sources;
 mod sourcing;
 mod telling;
 mod turning;
+pub(crate) use turning::utc_millis;
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 

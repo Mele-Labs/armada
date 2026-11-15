@@ -292,7 +292,7 @@ pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
 pub use preview_offered::{KeptPreviewOffered, KeptStep};
-pub use build_notes::KeptBuildNote;
+pub use build_notes::{KeptApproved, KeptBuildNote, KeptCard};
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     Edited, KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,

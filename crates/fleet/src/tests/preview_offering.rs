@@ -29,12 +29,12 @@ impl Compiler for Planted {
     }
 }
 
-fn root(rig: &Rig) -> PathBuf {
+pub(super) fn root(rig: &Rig) -> PathBuf {
     PathBuf::from(rig.fleet.repositories().first().expect("served").root())
 }
 
 /// The repository has a build to read and a `scripts/preview` to offer to, and nothing compiles for real.
-fn a_previewable_repository(rig: &Rig) {
+pub(super) fn a_previewable_repository(rig: &Rig) {
     let scripts = root(rig).join("scripts");
     fs::create_dir_all(&scripts).unwrap();
     fs::write(scripts.join("restart-build"), "#!/bin/sh\n").unwrap();
@@ -43,7 +43,7 @@ fn a_previewable_repository(rig: &Rig) {
 }
 
 /// A branch off `from` with one file committed on it, and its tip.
-fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
+pub(super) fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
     let root = root(rig);
     git(&root, &["checkout", "-q", "-B", branch, from]);
     let path = root.join(file);
@@ -54,7 +54,7 @@ fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) 
     git(&root, &["rev-parse", "HEAD"])
 }
 
-fn base(rig: &Rig) -> String {
+pub(super) fn base(rig: &Rig) -> String {
     git(&root(rig), &["rev-parse", "origin/main"])
 }
 
@@ -69,13 +69,16 @@ async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&st
                 // A look, so the tests of the check read only what the check tells the Job.
                 look: Some("Look at it".to_string()),
                 steps: None,
+                approved: None,
+                pictures: None,
+                words: None,
             },
         )
         .await
 }
 
 /// Every check asked for has run.
-async fn checked(rig: &Rig) {
+pub(super) async fn checked(rig: &Rig) {
     for _ in 0..3000 {
         if rig.fleet.previewing().idle() {
             return;
@@ -98,7 +101,7 @@ fn states(read: &PreviewOffers) -> Vec<(String, PreviewState)> {
 }
 
 /// A Job holding one branch with one file on it, offered with a line.
-async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
+pub(super) async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
     let session = rig.a_hosted_session().await;
     rig.holds_branch(&session, branch).await;
     let tip = branch_with(rig, branch, &base(rig), file, contents);
@@ -380,7 +383,7 @@ async fn the_moved_since_the_preview_left_it_out_row_is_no_longer_raised() {
     assert!(raised.is_empty(), "{raised:?}");
 }
 
-fn step(say: &str, act: Option<&str>) -> PreviewStep {
+pub(super) fn step(say: &str, act: Option<&str>) -> PreviewStep {
     PreviewStep { say: say.to_string(), act: act.map(str::to_string) }
 }
 
@@ -395,6 +398,9 @@ async fn offer_noting(rig: &Rig, session: &str, about: Option<&str>, look: Optio
                 about: about.map(str::to_string),
                 look: look.map(str::to_string),
                 steps,
+                approved: None,
+                pictures: None,
+                words: None,
             },
         )
         .await
@@ -404,7 +410,7 @@ async fn offer_kept(rig: &Rig, session: &str) -> store::KeptPreviewOffered {
     rig.fleet.store().lock().await.preview_offered_of(session, "armada/one").unwrap().expect("an offer")
 }
 
-fn code<T>(refused: Result<T, Refusal>) -> String {
+pub(super) fn code<T>(refused: Result<T, Refusal>) -> String {
     match refused {
         Ok(_) => panic!("expected a refusal"),
         Err(refusal) => refusal.error().code.clone(),
@@ -416,7 +422,7 @@ async fn notes(rig: &Rig) -> BuildNotes {
 }
 
 /// The running build is the preview and holds each (branch, tip) given.
-fn holding(rig: &Rig, held: &[(&str, &str)]) {
+pub(super) fn holding(rig: &Rig, held: &[(&str, &str)]) {
     rig.on_file(true);
     let lines: String = held.iter().map(|(branch, tip)| format!("{branch}\t{tip}\n")).collect();
     fs::write(rig.support().join("preview-held"), format!("{}\n{}\n{lines}", rig.build, base(rig))).unwrap();

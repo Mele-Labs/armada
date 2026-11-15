@@ -58,14 +58,15 @@ fn named(ledger: &[KeptAttachment], path: &str) -> bool {
 }
 
 /// Where on disk `path` is, or `None` where neither rule places it. Electron's second candidate, the
-/// main checkout, can never pass the inside-the-slot test, so it is left out.
-fn located(cwd: &str, ledger: &[KeptAttachment], path: &str) -> Option<PathBuf> {
+/// main checkout, can never pass the inside-the-slot test, so it is left out. `pictures` are the paths the Job's
+/// Ready to try cards hold, which are named as the ledger's are.
+fn located(cwd: &str, ledger: &[KeptAttachment], pictures: &[String], path: &str) -> Option<PathBuf> {
     if path.is_empty() {
         return None;
     }
     // An absolute path replaces the cwd in a join.
     let from_here = Path::new(cwd).join(path);
-    if named(ledger, path) {
+    if named(ledger, path) || pictures.iter().any(|one| one == path) {
         return Some(from_here);
     }
     let root = std::fs::canonicalize(cwd).ok()?;
@@ -87,9 +88,10 @@ fn type_of(path: &Path) -> &'static str {
     }
 }
 
-/// The file `path` names for a Job whose checkout is `cwd` and whose ledger is `ledger`. **Blocking**.
-pub(crate) fn read_repository_file(cwd: &str, ledger: &[KeptAttachment], path: &str) -> Result<RepositoryFile, Unread> {
-    let at = located(cwd, ledger, path).ok_or(Unread::NotAddressable)?;
+/// The file `path` names for a Job whose checkout is `cwd`, whose ledger is `ledger` and whose cards hold
+/// `pictures`. **Blocking**.
+pub(crate) fn read_repository_file(cwd: &str, ledger: &[KeptAttachment], pictures: &[String], path: &str) -> Result<RepositoryFile, Unread> {
+    let at = located(cwd, ledger, pictures, path).ok_or(Unread::NotAddressable)?;
     let unreadable = |why: std::io::Error| Unread::Unreadable(why.to_string());
     if std::fs::metadata(&at).map_err(unreadable)?.len() > MOST_BYTES {
         return Err(Unread::TooBig);
@@ -124,15 +126,16 @@ where
         id: SessionId,
         path: String,
     ) -> Result<RepositoryFile, Refusal> {
-        let (cwd, ledger) = {
+        let (cwd, ledger, pictures) = {
             let store = self.store().lock().await;
             let Some(session) = store.session(id.as_str()).map_err(|why| self.ledger_fault(why))? else {
                 return Err(self.hosted_refusal(REPOSITORY_FILE_NOT_ADDRESSABLE, "no job is named that"));
             };
             let held = store.attachments_of(&Holder::session(&session.id)).map_err(|why| self.ledger_fault(why))?;
-            (session.cwd, held)
+            let notes = store.build_notes_of_session(&session.id).map_err(|why| self.ledger_fault(why))?;
+            (session.cwd, held, notes.into_iter().flat_map(|note| note.card.pictures).collect::<Vec<_>>())
         };
-        let read = tokio::task::spawn_blocking(move || read_repository_file(&cwd, &ledger, &path))
+        let read = tokio::task::spawn_blocking(move || read_repository_file(&cwd, &ledger, &pictures, &path))
             .await
             .map_err(|why| self.hosted_fault(REPOSITORY_FILE_UNREADABLE, &why.to_string()))?;
         read.map_err(|why| match why {

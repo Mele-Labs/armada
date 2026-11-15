@@ -116,6 +116,11 @@ impl Commands for FakeDaemon {
         Ok(ipc::BuildNoteFeedbackSent { session_id: ipc::SessionId::carried("01JOB"), started: false })
     }
 
+    /// Refused as no card: the fake holds no thread.
+    async fn answer_ready_to_try(self: std::sync::Arc<Self>, _asked: ipc::AnswerReadyToTry) -> Result<ipc::ThreadReadyToTry, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.ready_to_try_unknown", "no card", crate::tests::shapes::run_id())))
+    }
+
     /// Counted and answered; nothing swaps.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         *self.swaps.lock().expect("not poisoned") += 1;
