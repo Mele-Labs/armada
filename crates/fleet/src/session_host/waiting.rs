@@ -532,6 +532,8 @@ where
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
+        let open_drafts = super::artifact_parts::open_drafts(attachments, &rows);
+        let joined_drafts = super::artifact_parts::joined_drafts(attachments);
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -708,13 +710,6 @@ where
             items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // A page in the Job's browser asks him something: Bridge told Fleet, and the agent is told nothing.
             items.extend(self.browser_ask_items(&session.id));
-            // Every slot is held and it is in the line for one: Wait or Add, until he says.
-            items.extend(
-                self.hosts()
-                    .slot_queue()
-                    .pending(&session.id)
-                    .map(super::queueing::slot_choice_item),
-            );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
                 plan.as_ref()
@@ -738,7 +733,7 @@ where
                     matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
                 })
                 .flatten();
-            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan)
+            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan, &open_drafts, &dismissed)
                 .filter(|one| !dismissed.contains(&one.id))
                 .partition(|one| super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref()));
             items.extend(raised);
@@ -785,6 +780,8 @@ where
                         operator_read: None,
                     })
                 }
+                // A draft that joined an artifact is asked for by the artifact.
+                SessionRow::Draft { ref id, settled: None, .. } if joined_drafts.contains(id) => None,
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
                     let open = change.map_or(true, |one| ready_changes.contains(&one));
@@ -1150,6 +1147,10 @@ where
         walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
+        // A slot wait is no listed item: Add and Wait are pressed on the record's `slot_wait`.
+        if said.item_id == super::queueing::SLOT_CHOICE_ITEM {
+            return self.slot_chosen(&id, said.choice).await;
+        }
         let terminal = self.terminal_session(&id).await?.is_some();
         if terminal {
             self.terminal_ask_standing(&id).await;

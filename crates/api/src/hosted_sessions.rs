@@ -913,6 +913,55 @@ pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Serve
     }
 }
 
+/// The Job puts a part on the artifact that asks him. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a
+/// part that breaks a rule, naming each, or a call that places no session. **The session is placed by the connection.**
+pub(crate) async fn add_part<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let add: ipc::AddPart = match ipc::decode_body("a part to add", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().add_part(crate::acting::asking(), add.clone()).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::part(&record, &add), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He answers one asking part of an artifact. 200 with the artifact; 409 for a part put again since he read it; 422 for a part
+/// not open to an answer, a way it does not take, or a send back with no note.
+pub(crate) async fn answer_part<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerPart = match ipc::decode_body("an answer to a part", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_part(said).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One kept revision of a page as the Job wrote it. 200 with the HTML as `text/html`; 422 for an artifact the Job does not
+/// hold as a page or a revision never kept.
+pub(crate) async fn get_artifact_page_source<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichPage>,
+) -> Response {
+    let asked = served.daemon().get_artifact_page_source(ipc::SessionId::carried(which.session_id), which.artifact, which.revision).await;
+    match asked {
+        Ok(html) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+            headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+            (StatusCode::OK, headers, html).into_response()
+        }
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// He opened a revision of an artifact. 200 with the newest he has opened, an older revision included; 422 for a
 /// revision never kept or an artifact not held.
 pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

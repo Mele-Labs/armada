@@ -43,6 +43,8 @@ thread_local! {
     /// The pages' views and the gpui views they sit in, for the key and pointer monitor.
     static HOSTED: RefCell<Vec<Hosted>> = const { RefCell::new(Vec::new()) };
     static MONITOR: RefCell<Option<Retained<AnyObject>>> = const { RefCell::new(None) };
+    /// Every gpui view a page has sat in, kept after the page goes: the view the keys go back to.
+    static PARENTS: RefCell<Vec<Retained<NSView>>> = const { RefCell::new(Vec::new()) };
 }
 
 struct Hosted {
@@ -378,6 +380,7 @@ impl Native {
 
     /// The page hidden, keeping its place, scroll and state, as Classic parks a walk's view.
     pub fn park(&self) {
+        give_keys_back(&self.view);
         self.view.setHidden(true);
         self.ring.setHidden(true);
     }
@@ -487,6 +490,7 @@ impl Drop for Native {
                 self.view.configuration().userContentController().removeScriptMessageHandlerForName(&NSString::from_str(KIT_HANDLER));
             }
         }
+        give_keys_back(&self.view);
         unregister(&self.view);
         self.ring.removeFromSuperview();
         self.view.removeFromSuperview();
@@ -499,7 +503,47 @@ fn register(view: &Retained<WKWebView>, parent: &Retained<NSView>, kit: bool) {
         hosted.retain(|one| Retained::as_ptr(&one.view) != Retained::as_ptr(view));
         hosted.push(Hosted { view: view.clone(), parent: parent.clone(), kit });
     });
+    PARENTS.with(|parents| {
+        let mut parents = parents.borrow_mut();
+        if !parents.iter().any(|one| Retained::as_ptr(one) == Retained::as_ptr(parent)) {
+            parents.push(parent.clone());
+        }
+    });
     install_monitor();
+}
+
+/// A page about to be hidden or let go that holds the keys gives them to the gpui view it sits in. AppKit
+/// would otherwise leave them with the window itself, where no view hears a key and every press beeps, and
+/// gpui's view never takes them back on a click.
+fn give_keys_back(view: &Retained<WKWebView>) {
+    let Some(window) = view.window() else { return };
+    let Some(responder) = window.firstResponder() else { return };
+    let focused: &NSResponder = &responder;
+    let page: &NSResponder = view;
+    let held = std::ptr::eq(page, focused) || focused.downcast_ref::<NSView>().is_some_and(|one| one.isDescendantOf(view));
+    // SAFETY: reads the view's superview, on the main thread.
+    if let Some(parent) = held.then(|| unsafe { view.superview() }).flatten() {
+        window.makeFirstResponder(Some(&parent));
+    }
+}
+
+/// Where the window itself has the keys, which a page let go of the wrong way leaves, the gpui view a page
+/// sat in takes them back before the event is handed on.
+fn heal_keys(window: &NSWindow) {
+    let held_by_window = window.firstResponder().is_none_or(|responder| {
+        let focused: &NSResponder = &responder;
+        let own: &NSResponder = window;
+        std::ptr::eq(focused, own)
+    });
+    if !held_by_window {
+        return;
+    }
+    let parent = PARENTS.with(|parents| {
+        parents.borrow().iter().find(|one| one.window().is_some_and(|theirs| std::ptr::eq(&*theirs, window))).cloned()
+    });
+    if let Some(parent) = parent {
+        window.makeFirstResponder(Some(&parent));
+    }
 }
 
 fn unregister(view: &Retained<WKWebView>) {
@@ -537,6 +581,7 @@ fn install_monitor() {
             let Some(mtm) = MainThreadMarker::new() else { return event.as_ptr() };
             let Some(window) = event_ref.window(mtm) else { return event.as_ptr() };
             let Some((page, parent, kit)) = page_with_keys(&window) else {
+                heal_keys(&window);
                 return event.as_ptr();
             };
             match event_ref.r#type() {

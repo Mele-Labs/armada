@@ -356,7 +356,7 @@ pub(super) fn paint(ink: &Ink, node: &SceneNode, rect: Rect, shown: &Shown, alph
     }
     let frame = frame_of(rect, node);
     let bounds: Bounds<gpui::Pixels> = view.rect(frame);
-    let radius = look.length(token::RADIUS_MD) * view.zoom;
+    let radius = view.len(super::tile::RADIUS);
     match &shown.image {
         Some(image) => {
             let _ = window.paint_image(bounds, bounds, Corners::all(radius), image.clone(), 0, false);
@@ -444,6 +444,7 @@ mod tests {
             step: None,
             shape: None,
             color: None,
+            state: None,
             html: Some(html.into()),
             css: None,
             styles: None,

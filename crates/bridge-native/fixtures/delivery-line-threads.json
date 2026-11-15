@@ -1,0 +1,76 @@
+{
+  "threads": [
+    {
+      "session_id": "mock-02",
+      "head": {
+        "trail": {
+          "started": "2026-11-11T02:00:00Z",
+          "bays": [
+            {
+              "slot": 10,
+              "from": "2026-11-11T02:00:00Z"
+            }
+          ]
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "y1",
+            "at": "2026-11-11T03:00:00Z",
+            "from": {
+              "kind": "you"
+            },
+            "text": "Find why webhook retries pile up in the delivery queue, and say what you change."
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "delivery",
+            "id": "d1",
+            "at": "2026-11-11T03:00:02Z",
+            "choice": "auto_land",
+            "said": "Kept for Armada: its Jobs land this way from now on. Change it in Settings, in the project's settings."
+          }
+        },
+        {
+          "kind": "calls",
+          "id": "t1",
+          "names": [
+            "Read",
+            "Grep"
+          ],
+          "rows": [
+            {
+              "kind": "tool",
+              "id": "t1",
+              "at": "2026-11-11T03:00:06Z",
+              "text": "Read crates/fleet/src/deliver.rs"
+            },
+            {
+              "kind": "tool",
+              "id": "t1b",
+              "at": "2026-11-11T03:00:08Z",
+              "text": "Grep retry_after crates/fleet/src"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "a1",
+            "at": "2026-11-11T03:00:12Z",
+            "from": {
+              "kind": "agent"
+            },
+            "text": "The retry timer restarts on every failed delivery, so a slow endpoint keeps a queue of retries alive."
+          }
+        }
+      ]
+    }
+  ]
+}

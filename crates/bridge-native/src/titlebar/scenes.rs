@@ -280,6 +280,38 @@ fn said(lines: &[&str]) -> String {
 }
 
 /// The Fleet panel's scenes: the link, and the disk the panel reads.
+/// The preview offers fixture's first offer, ready, under ten titles: what the panel lists when many Jobs offer.
+fn many_offers() -> ipc::PreviewOffers {
+    const TITLES: [&str; 10] = [
+        "Quiet the write-clash notices",
+        "Fix the merge line freshness chip",
+        "Audit the docs index",
+        "Macs and Models layout",
+        "Pocket sign-in on the phone",
+        "Retry webhooks on a 503",
+        "Paginate the audit log",
+        "Dark mode for the settings page",
+        "Rate limits per token",
+        "Upgrade the router",
+    ];
+    let mut offers = crate::mock::preview_offers(false);
+    let first = offers.offers[0].clone();
+    offers.offers = TITLES
+        .iter()
+        .enumerate()
+        .map(|(at, title)| {
+            let mut one = first.clone();
+            one.branch = format!("armada/session-{at:02}c0ffee");
+            one.title = (*title).to_string();
+            one
+        })
+        .collect();
+    if let Some(refresh) = offers.refresh.as_mut() {
+        refresh.branches = offers.offers.iter().map(|one| one.branch.clone()).collect();
+    }
+    offers
+}
+
 fn fleet_panel(name: &str) -> Option<LiveFleet> {
     use crate::link::LinkState;
     let down = |dropped: u64| face::LiveLink {
@@ -533,6 +565,11 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             face.offers = Some(crate::mock::preview_offers(false));
         },
         "preview-offers-skipped" => |face| face.offers = Some(crate::mock::preview_offers(true)),
+        // Ten ready offers: more than the panel has room for under the bar, so its lists scroll and its foot stays.
+        "preview-offers-many" => |face| {
+            face.build = build_live("build-live-main");
+            face.offers = Some(many_offers());
+        },
         other => return Err(format!("no scene named {other}")),
     };
     let bar = live(cx).ok_or("no title bar is drawn yet")?;

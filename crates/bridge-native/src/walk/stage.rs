@@ -160,6 +160,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_LONG {
+                    over.update(cx, |over, cx| over.long_names(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
@@ -410,7 +413,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             // Its own, drawn after it: a scrolled element's bounds can reach under a bar drawn later.
             let button = drawn[at..]
                 .iter()
-                .find(|one| one.role == gpui::Role::Button && one.name == on && outer.bounds.contains(&one.bounds.center()))
+                .find(|one| matches!(one.role, gpui::Role::Button | gpui::Role::RadioButton) && one.name == on && outer.bounds.contains(&one.bounds.center()))
                 .cloned()
                 .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{within}\"")))?;
             press(MouseButton::Left, aim(&reveal(button, window, cx)), window, cx);
@@ -766,6 +769,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     "the {} \"{}\" runs past the {role} \"{name}\": {:?} against {:?}",
                     step.target.role, step.target.name, (inner.left(), inner.right()), (outer.left(), outer.right())
                 )));
+            }
+            Ok(())
+        }
+        Verb::NoWiderThan(points) => {
+            let wide = f32::from(find(step, window, cx)?.bounds.size.width);
+            if wide > points as f32 {
+                return Err(Missed(format!("the {} \"{}\" is {wide} points wide, past the {points} it may be", step.target.role, step.target.name)));
             }
             Ok(())
         }
