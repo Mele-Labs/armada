@@ -65,6 +65,7 @@ mod plan_marks;
 mod plan_sketches;
 mod pop;
 mod quick;
+mod ready_card;
 mod teach;
 mod records;
 mod refs;
@@ -388,6 +389,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// The sends the mock keeps for a Mac asleep, as Fleet's `GET /queued` would answer.
     mock_queued: ipc::QueuedList,
+    /// Every answer to a Ready to try card the mock Fleet took, oldest first.
+    mock_ready: Vec<ipc::AnswerReadyToTry>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -629,6 +632,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
+            mock_ready: Vec::new(),
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,

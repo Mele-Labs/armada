@@ -568,7 +568,13 @@ impl JobView {
     pub(super) fn reveal_card(&mut self, ix: usize, cx: &mut Context<Self>) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
             if ix != super::acts::SHEET {
-                page.list.scroll_to_reveal_item(page.entry(ix));
+                let at = page.entry(ix);
+                // A card taller than the thread is its first visible item, so revealing it would only bring its top; its foot is what has grown.
+                let (view, card) = (page.list.viewport_bounds(), page.list.bounds_for_item(at));
+                match card {
+                    Some(card) if card.bottom() > view.bottom() => page.list.scroll_by(card.bottom() - view.bottom()),
+                    _ => page.list.scroll_to_reveal_item(at),
+                }
             }
         }
         cx.notify();

@@ -253,6 +253,11 @@ impl JobView {
                         .collect();
                     (!read.is_empty()).then_some((read, Some(true)))
                 }
+                // And the shots on a Ready to try card, read from the Job's own tree as a `Read` call's are.
+                Some(ThreadItem::ReadyToTry(card)) => {
+                    let shots: Vec<ipc::SentFile> = card.pictures.first().and_then(|path| super::pictures::read_picture(path)).into_iter().collect();
+                    (!shots.is_empty()).then_some((shots, Some(true)))
+                }
                 // And a picture the Job showed, as Fleet keeps it.
                 Some(ThreadItem::File { path, .. }) => super::pictures::read_picture(path).map(|picture| (vec![picture], None)),
                 _ => None,
@@ -672,8 +677,7 @@ impl JobView {
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
-            // The Ready to try card is Jobs screens' to draw; until it lands the thread skips it.
-            ThreadItem::ReadyToTry(_) => return None,
+            ThreadItem::ReadyToTry(card) => self.ready_card(ix, card, page, look, now, cx),
         })
     }
 

@@ -92,6 +92,7 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
         (WaitingSource::Sketch, _) => kind("Sketch", "pencil-ruler", REVIEW),
         (WaitingSource::Document, _) => kind("Document", "file-text", REVIEW),
         (WaitingSource::Draft, _) => kind("Draft", "file-pen-line", REVIEW),
+        (WaitingSource::ReadyToTry, _) => kind("Try", "bell-ring", REVIEW),
         (WaitingSource::Permission, _) => kind("Permission", "shield", REVIEW),
         (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => kind("Question", "message-circle-question-mark", REVIEW),
         _ if !item.options.is_empty() => kind("Question", "message-circle-question-mark", REVIEW),
