@@ -236,7 +236,10 @@ export type ThreadReadyToTry = {
   tip: string;
   about: string;
   look?: string;
-  steps?: { say: string; act?: string }[];
+  steps?: {
+    say: string;
+    act?: string;
+  }[];
   approved?: {
     artifact: string;
     title: string;
