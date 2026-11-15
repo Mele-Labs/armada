@@ -16,6 +16,7 @@ pub mod bar;
 pub mod check;
 pub mod dispatch;
 pub mod fleet;
+pub mod move_to_project;
 pub mod new_project;
 pub mod notes;
 pub mod operator;
@@ -1973,6 +1974,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "project-filter",
         steps: &project_filter::STEPS,
+    },
+    Walk {
+        name: "native-move-job-to-project",
+        title: "Select two Jobs, move them into Storefront, then take one out",
+        screen: Screen::App,
+        scenario: "project-filter",
+        steps: &move_to_project::STEPS,
     },
     Walk {
         name: "jobs-ended-glyph",

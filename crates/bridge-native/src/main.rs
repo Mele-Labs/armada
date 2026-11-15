@@ -58,6 +58,7 @@ mod option_pictures;
 mod mock;
 mod mock_parts;
 mod move_to_mac;
+mod move_to_project;
 mod new_project;
 mod notify;
 mod operator;
