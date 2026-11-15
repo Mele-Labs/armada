@@ -468,7 +468,7 @@ impl Wire {
         }
     }
 
-    pub fn gateway_found(&mut self, cx: &App) -> Task<Result<ipc::FoundMacs, String>> {
+    pub fn gateway_found(&mut self, cx: &App) -> Task<Result<ipc::VouchedMacs, String>> {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.read_found()),
             Wire::Live(_) => super::gateway::found(cx),
@@ -479,6 +479,13 @@ impl Wire {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.pair_ask(&tunnel)),
             Wire::Live(_) => super::gateway::pair_ask(tunnel, cx),
+        }
+    }
+
+    pub fn pair_vouched(&mut self, store: String, device: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_vouched(&ipc::PairVouchedMac { store, device })),
+            Wire::Live(_) => super::gateway::pair_vouched(store, device, cx),
         }
     }
 
