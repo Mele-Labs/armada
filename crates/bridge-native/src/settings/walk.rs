@@ -767,3 +767,14 @@ pub static CLAIMS_STORE_STEPS: &[Step] = &[
     step("Fleet's words stand under the press, the press is back, and what was typed is kept", Verb::Wheel("region", "Claims store", 600), "alert", "GitHub says you are not a member of acme/platform."),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
+
+/// `native-sign-in-app`: Settings › Account with no sign-in app yet. The one press asks GitHub to make the app on his
+/// account and opens its settings page, and draws busy while Fleet answers.
+pub const SIGN_IN_APP: &str = "native-sign-in-app";
+
+pub static SIGN_IN_APP_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Account: no sign-in app is registered, so the page opens with the press that registers one", "button", "Account", "button", "Register on GitHub"),
+    step("The pointer rests on it: GitHub makes the app on his account and opens its settings page, where he ticks Enable Device Flow", Verb::Hover, "button", "Register on GitHub"),
+    press_on("The press asks Fleet for the page that carries the app to GitHub, and draws busy while it answers", "button", "Register on GitHub", "button", "Opening"),
+];

@@ -832,7 +832,10 @@ impl SettingsOverlay {
             match &self.list {
                 None => cards.push(self.row_bones(look, spread)),
                 Some(list) => {
-                    let rows = entries::settings_in(list, id).into_iter().enumerate().map(|(n, one)| self.field_row(one, spread, n == 0, look, window, cx)).collect();
+                    // Account opens with the press that registers the sign-in app, until an app is registered.
+                    let registering = if id == "account" { self.sign_in_app_row(spread, look, window, cx) } else { None };
+                    let first = registering.is_none();
+                    let rows = registering.into_iter().chain(entries::settings_in(list, id).into_iter().enumerate().map(|(n, one)| self.field_row(one, spread, first && n == 0, look, window, cx))).collect();
                     cards.push(rows_card(look, SharedString::from(format!("settings-card-{id}")), rows).into_any_element());
                 }
             }

@@ -723,6 +723,24 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "StoreDeployed", cx))
     }
 
+    /// `POST /accounts/sign_in_app`, no body: the page that carries the app's manifest to GitHub, which Bridge opens.
+    pub fn register_sign_in_app(&mut self, cx: &App) -> Task<Result<ipc::SignInAppRegistration, Refused>> {
+        if let Wire::Mock(mock) = self {
+            let (answer, wait) = mock.sign_in_app.register();
+            return match wait {
+                None => Task::ready(answer),
+                Some(wait) => {
+                    let timer = cx.background_executor().timer(wait);
+                    cx.background_spawn(async move {
+                        timer.await;
+                        answer
+                    })
+                }
+            };
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/sign_in_app".into(), String::new()), "SignInAppRegistration", cx))
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {
