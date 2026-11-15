@@ -38,6 +38,8 @@ pub(super) enum RowKind {
     Document,
     Walk,
     Subagent,
+    /// An artifact of parts, read whole: every part answerable as on its card, a drawing large.
+    Artifact,
 }
 
 /// The word a kept tab names its kind by; a walk's tab is not kept.
@@ -46,6 +48,7 @@ pub(super) fn kind_id(kind: RowKind) -> Option<&'static str> {
         RowKind::Draft => Some("draft"),
         RowKind::Document => Some("document"),
         RowKind::Subagent => Some("subagent"),
+        RowKind::Artifact => Some("artifact"),
         RowKind::Walk => None,
     }
 }
@@ -58,6 +61,7 @@ impl RowKind {
             RowKind::Document => ("file-text", "Document"),
             RowKind::Walk => ("eye", "Walk"),
             RowKind::Subagent => ("drone", "Subagent"),
+            RowKind::Artifact => ("layers", "Artifact"),
         }
     }
 }
@@ -100,6 +104,8 @@ pub(super) struct RowTabs {
     pub(super) pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
     /// What the mock Fleet kept of the presses and votes on each page, for its record when the page is opened again.
     pub(super) mock_kept: HashMap<String, super::page_tab::Kept>,
+    /// The reader of each open draft and page, by its name (`reader::reader_id`): its notes, its blocks and its Edit.
+    pub(super) readers: HashMap<String, super::reader::Reader>,
 }
 
 impl RowTabs {
@@ -259,7 +265,7 @@ impl JobView {
     }
 
     /// A tab Job `id` held comes to the front of its pane, which takes the keys.
-    fn row_tab_front(&mut self, id: &SharedString, kind: RowKind, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn row_tab_front(&mut self, id: &SharedString, kind: RowKind, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.sync_row_tabs_into_panes(id, cx);
         let (kind_name, key) = (super::panes_place::row_kind_name(kind), key.to_string());
         let arrangement = self.arrangement_of(id).cloned();
@@ -287,7 +293,7 @@ impl JobView {
     /// The page a Job owes him alone, read in its own tab (`soleDocument`).
     pub(super) fn sole_document(&self, id: &str, cx: &gpui::App) -> Option<String> {
         match self.record(id, cx)?.waiting_for.as_slice() {
-            [only] if only.source == WaitingSource::Document => Some(only.id.strip_prefix("document:").unwrap_or(&only.id).to_string()),
+            [only] if only.source == WaitingSource::Document => Some(super::review::page_of_item(&only.id).unwrap_or(&only.id).to_string()),
             _ => None,
         }
     }
@@ -298,6 +304,14 @@ impl JobView {
         let Some(title) = self.thread(&id, cx).and_then(|held| super::review::document_card(&held.items, page)).map(|card| card.title.clone()) else { return };
         self.row_tabs_of(&id).focus(RowKind::Document, page, title);
         self.row_tab_front(&id, RowKind::Document, page, window, cx);
+    }
+
+    /// An artifact of parts as a tab named for it. One the Job no longer holds opens no tab.
+    pub(super) fn open_artifact_tab(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(title) = self.artifact_of(&id, artifact).map(|one| one.title.clone()) else { return };
+        self.row_tabs_of(&id).focus(RowKind::Artifact, artifact, title);
+        self.row_tab_front(&id, RowKind::Artifact, artifact, window, cx);
     }
 
     /// Subagent `subagent` of Job `id`, as its ledger holds it, else as the press on its row in the thread gave it.
@@ -409,6 +423,7 @@ impl JobView {
                         RowKind::Document => super::review::document_card(&held.items, &tab.key).is_some(),
                         RowKind::Walk => true,
                         RowKind::Subagent => subagents.contains(&tab.key),
+                        RowKind::Artifact => self.artifact_of(id, &tab.key).is_some_and(|one| !one.parts.is_empty()),
                     })
                     .map(|tab| (tab.kind, tab.key.clone()))
                     .collect()
@@ -552,6 +567,10 @@ impl JobView {
                 Some(card) => (RowKind::Document, card.title.clone()),
                 None => return,
             },
+            "artifact" => match self.artifact_of(id, &key) {
+                Some(one) => (RowKind::Artifact, one.title.clone()),
+                None => return,
+            },
             "subagent" => {
                 let Some(one) = self.subagent_held(id, &key, cx) else { return };
                 self.watch_subagent(&one, cx);
@@ -589,6 +608,11 @@ impl JobView {
     pub(super) fn row_tab_body(&self, id: &SharedString, tab: &RowTab, look: &Look, window: &mut Window, cx: &Context<Self>) -> AnyElement {
         let Some(page) = self.pages.get(id) else { return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element() };
         let now = chrono::Local::now();
+        // A draft that proposes no change and a page are read in the reader (`reader.rs`); a proposed workflow keeps its card.
+        let plain_draft = tab.kind == RowKind::Draft && self.thread(id, cx).and_then(|held| super::review::draft_row(&held.items, &tab.key)).is_some_and(|row| matches!(row, SessionRow::Draft { change: None, .. }));
+        if plain_draft || tab.kind == RowKind::Document {
+            return self.reader_body(id, tab, look, cx);
+        }
         let card = match tab.kind {
             RowKind::Draft => self.thread(id, cx).and_then(|held| super::review::draft_row(&held.items, &tab.key)).and_then(|row| match row {
                 SessionRow::Draft { id: row, at, title, text, before, settled, change, .. } => {
@@ -596,22 +620,8 @@ impl JobView {
                 }
                 _ => None,
             }),
-            // Its card, then the page itself under it, sealed, filling the rest (Classic's `DocumentTabBody`).
-            RowKind::Document => {
-                let Some(card) = self.thread(id, cx).and_then(|held| super::review::document_card(&held.items, &tab.key)).map(|card| self.document(SHEET, card, page, look, now, cx)) else {
-                    return div().id("row-tab-body").track_focus(&self.row_focus).size_full().into_any_element();
-                };
-                let sealed = self.row_tabs.get(id).and_then(|tabs| tabs.pages.get(&tab.key)).map(|(sealed, _)| sealed.clone());
-                return div()
-                    .id("row-tab-body")
-                    .track_focus(&self.row_focus)
-                    .size_full()
-                    .flex()
-                    .flex_col()
-                    .child(div().flex_none().p(look.length(token::SPACE_4)).child(card))
-                    .children(sealed.map(|sealed| div().flex_1().min_h(gpui::px(0.)).child(sealed)))
-                    .into_any_element();
-            }
+            RowKind::Document => None,
+            RowKind::Artifact => return self.artifact_body(id, tab, look, cx),
             // A web page's walk is its bar over its page, edge to edge; a native walk's is its name, brief and Open.
             RowKind::Walk if !is_native(&tab.key) => {
                 let web = self.row_tabs.get(id).and_then(|tabs| tabs.web.get(&tab.key)).map(|(web, _)| web.clone());

@@ -1,0 +1,51 @@
+{
+ "threads": [
+  {
+   "session_id": "draft-job",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 3,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Draft the release note for 0.42."
+     }
+    },
+    {
+     "kind": "document",
+     "id": "document:marks:r1",
+     "at": "2026-11-09T13:45:15Z",
+     "page": "marks",
+     "title": "Stale marks",
+     "revision": 1,
+     "asked": true,
+     "for_line": {
+      "text": "the stale mark under #3602.",
+      "links": [
+       {
+        "kind": "pull_request",
+        "label": "#3602",
+        "target": "#3602"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

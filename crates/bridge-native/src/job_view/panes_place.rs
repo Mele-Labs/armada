@@ -121,6 +121,7 @@ pub(super) fn row_kind_name(kind: RowKind) -> &'static str {
         RowKind::Document => "document",
         RowKind::Walk => "walk",
         RowKind::Subagent => "subagent",
+        RowKind::Artifact => "artifact",
     }
 }
 
@@ -130,6 +131,7 @@ pub(super) fn row_kind_of(kind: &str) -> Option<RowKind> {
         "document" => Some(RowKind::Document),
         "walk" => Some(RowKind::Walk),
         "subagent" => Some(RowKind::Subagent),
+        "artifact" => Some(RowKind::Artifact),
         _ => None,
     }
 }
@@ -660,7 +662,7 @@ mod tests {
         (root, top, foot)
     }
 
-    /// Today's screen: the thread, then a column of Open, Done and Deferred over Now, 0.62 across and 2:3 down.
+    /// Today's screen: the thread, then a column of For you, Open, Done and Deferred over Now, 0.62 across and 2:3 down.
     #[test]
     fn a_job_starts_with_the_screen_it_always_had() {
         let arrangement = tree::default_arrangement();
@@ -673,7 +675,7 @@ mod tests {
         assert_eq!(inner.dir, Dir::Column);
         // Top to Now is two parts to three.
         assert!((inner.ratio - 0.4).abs() < 1e-9);
-        assert_eq!(kinds(top), ["open", "done", "deferred"]);
+        assert_eq!(kinds(top), ["for_you", "open", "done", "deferred"]);
         assert_eq!(kinds(foot), ["now"]);
         assert_eq!(arrangement.focus, thread.id);
         // The three panes read by the names their strips and regions have always had.

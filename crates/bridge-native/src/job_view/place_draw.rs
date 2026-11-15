@@ -429,6 +429,7 @@ impl JobView {
                     Zone::Spine => Some(self.pane_spine(&id, look, cx)),
                     Zone::Judge => self.pane_judge(&id, look, cx),
                     Zone::Artifacts => self.pane_artifacts(&id, look, cx),
+                    Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                 };
                 // Changes, Files and the rest draw their own strip over a body that scrolls, as `.job-pane__pick` does.
                 let own_frame = matches!(zone, Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);
@@ -609,6 +610,8 @@ impl JobView {
         let Some(held) = self.tab_of(tab) else { return };
         if row_kind_of(&held.kind).is_some() {
             window.focus(&self.row_focus, cx);
+        } else if held.kind == "for_you" {
+            self.focus_for_you(window, cx);
         }
     }
 

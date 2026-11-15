@@ -2,11 +2,11 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Mark the note of a branch at a tip as looked at, so the next build shows only what is new"
+description = "Mark the note of a branch at a tip as looked at, good or needing work, so the next build shows only what is new"
 notes = """
-`POST /fleet/build/notes/looked_at`, body `MarkBuildNoteLookedAt {branch, tip}`, the `branch` and `tip` of a note of `get_build_notes`. Answered `BuildNotes`: the notes now.
+`POST /fleet/build/notes/looked_at`, body `MarkBuildNoteLookedAt {branch, tip, verdict?}`, the `branch` and `tip` of a note of `get_build_notes`, and `verdict` `good` or `needs_work` (since 15 Nov 2026). Answered `BuildNotes`: the notes now.
 
-Fleet keeps the mark against the (branch, tip), so it holds across a restart, and **a branch offered again at another tip is a new note, not looked at**. Marking twice keeps the first time. Publishes `build_notes.changed`.
+Fleet keeps the mark against the (branch, tip), so it holds across a restart, and **a branch offered again at another tip is a new note, not looked at**. Marking twice keeps the first time; a verdict replaces the one kept, and none keeps it. The first mark and each change of verdict tell the note's Job, where it is live, as `build_moved` news: good says its work is fine, and needs work tells it to wait for his words. Publishes `build_notes.changed`.
 
 Refused 404 `fleet.build_note_unknown` where no note is kept for that (branch, tip). The note need not be in the running build: a Bridge that is a build behind marks what it drew.
 

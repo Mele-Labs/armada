@@ -24,9 +24,9 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 }
 
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
-pub(crate) const JOB_TAB_KINDS: [&str; 28] = [
+pub(crate) const JOB_TAB_KINDS: [&str; 30] = [
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
-    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "custom", "draft", "walk", "document", "subagent",
+    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "custom", "draft", "walk", "document", "subagent", "artifact",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
 pub(crate) const PR_TAB_KINDS: [&str; 8] = ["pr-overview", "pr-files", "pr-checks", "pr-commits", "pr-review", "pr-tool", "pr-comments", "pr-ask"];
@@ -460,14 +460,15 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
     at
 }
 
-/// Today's Job arrangement: the thread, and to its right Open, Done and Deferred as tabs of one pane over Now (Classic's `defaultArrangement`).
+/// Today's Job arrangement: the thread, and to its right For you, Open, Done and Deferred as tabs of one pane over Now (Classic's
+/// `defaultArrangement`, with For you first and in front in the column).
 pub(crate) fn default_arrangement() -> Arrangement {
     build(
         &Shape::split(
             Dir::Row,
             0.62,
             Shape::pane(&["thread"]),
-            Shape::split(Dir::Column, 0.4, Shape::pane(&["open", "done", "deferred"]), Shape::pane(&["now"])),
+            Shape::split(Dir::Column, 0.4, Shape::pane(&["for_you", "open", "done", "deferred"]), Shape::pane(&["now"])),
         ),
         None,
         &[],

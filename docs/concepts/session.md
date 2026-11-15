@@ -42,6 +42,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [What Fleet tells a Job](session/what-fleet-tells-a-job.md) |
 | [Acts on a pull request](session/acts-on-a-pull-request.md) |
 | [A forked job](session/a-forked-job.md) |
+| [An aside](session/an-aside.md) |
 | [A moved job](session/a-moved-job.md) |
 | [A handed-off Job](session/a-handed-off-job.md) |
 | [A Job an agent started](session/a-job-an-agent-started.md) |

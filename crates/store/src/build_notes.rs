@@ -21,9 +21,11 @@ pub struct KeptBuildNote {
     pub offered_at: String,
     /// When the owner marked it looked at. Absent until he does.
     pub looked_at: Option<String>,
+    /// What he made of it, `good` or `needs_work`, as the wire spells it. Absent where he has not said.
+    pub verdict: Option<String>,
 }
 
-const COLUMNS: &str = "branch, tip, session_id, about, look, steps, offered_at, looked_at";
+const COLUMNS: &str = "branch, tip, session_id, about, look, steps, offered_at, looked_at, verdict";
 
 fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptBuildNote> {
     Ok(KeptBuildNote {
@@ -35,6 +37,7 @@ fn read(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptBuildNote> {
         steps: steps_read(&row.get::<_, String>(5)?),
         offered_at: row.get(6)?,
         looked_at: row.get(7)?,
+        verdict: row.get(8)?,
     })
 }
 
@@ -48,12 +51,15 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Mark the note of `branch` at `tip` looked at, **once**: a second mark keeps the first time. Whether there
-    /// is such a note.
-    pub fn keep_build_note_looked_at(&mut self, branch: &str, tip: &str, at: &str) -> Result<bool, WriteError> {
+    /// Mark the note of `branch` at `tip` looked at, **once**: a second mark keeps the first time. A `verdict`
+    /// replaces the one kept, and none keeps it. Whether there is such a note.
+    pub fn keep_build_note_looked_at(&mut self, branch: &str, tip: &str, at: &str, verdict: Option<&str>) -> Result<bool, WriteError> {
         let doing = "marking a note of the preview build looked at";
         self.conn
-            .execute("UPDATE build_notes SET looked_at = COALESCE(looked_at, ?3) WHERE branch = ?1 AND tip = ?2", params![branch, tip, at])
+            .execute(
+                "UPDATE build_notes SET looked_at = COALESCE(looked_at, ?3), verdict = COALESCE(?4, verdict) WHERE branch = ?1 AND tip = ?2",
+                params![branch, tip, at, verdict],
+            )
             .map(|touched| touched > 0)
             .map_err(fault(doing))
             .map_err(WriteError::Database)

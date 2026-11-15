@@ -57,7 +57,7 @@ pub(crate) async fn mark_build_note_looked_at<D: Commands>(State(served): State<
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().mark_build_note_looked_at(asked).await {
+    match served.shared().mark_build_note_looked_at(asked).await {
         Ok(notes) => answer(StatusCode::OK, &notes, served.run_id()),
         Err(refusal) => refused(refusal),
     }

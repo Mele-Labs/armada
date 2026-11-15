@@ -61,3 +61,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. Leads `you` under the state a ticket stands in once the rule that moves it to In progress has assigned it, tooltip `Assigned to you`. The glyph already means you; a ticket's assignee is the person who answers for it."
+
+[[icons.user-check.usage]]
+  means = "The For you tab of a Job's right column: what waits on the person"
+  group = "Job column"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 15 Nov 2026 for the walk `native-for-you`. The tab's glyph and its + entry, named For you. The glyph already means a person is required, which is what the tab lists."

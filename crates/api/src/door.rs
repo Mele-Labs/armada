@@ -67,6 +67,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_closed_waiting", &["session_id"]),
     ("get_job_lifecycles", &["session_id"]),
     ("get_job_copy", &["session_id"]),
+    ("get_for_you", &["session_id"]),
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["terminal", "lines", "session_id", "until", "regex", "wait_seconds"]),
     ("list_terminals", &["session_id"]),
@@ -200,6 +201,12 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The Jobs it started are read and commanded the same way.
     "list_started_sessions",
     "command_started_sessions",
+    // Its For you tab is its own, placed as `waiting_for` is.
+    "get_for_you",
+    "withdraw_for_you",
+    "order_for_you",
+    "line_for_you",
+    "add_for_you",
     // A watch is the Job's own, placed as `waiting_for` is.
     "start_watch",
     "try_watch",

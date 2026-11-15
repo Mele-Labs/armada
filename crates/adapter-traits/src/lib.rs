@@ -93,7 +93,7 @@ pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,
     Model, Prompt, SpawnConfigRefused,
 };
-pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
+pub use judge::{Ask, CallProgress, Fork, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{

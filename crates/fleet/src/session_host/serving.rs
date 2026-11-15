@@ -571,6 +571,8 @@ where
     }
 
     async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        // A failure here leaves the mocks as they were; `job_artifacts` says what is wrong with the Job.
+        self.old_mocks_styled(id.as_str()).await.ok();
         self.job_artifacts(id.as_str()).await
     }
 
@@ -679,6 +681,26 @@ where
 
     async fn change_job_copy(self: Arc<Self>, change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
         self.piece_changed(change).await
+    }
+
+    async fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_asked(session_id).await
+    }
+
+    async fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_withdrawn(withdraw).await
+    }
+
+    async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_ordered(order).await
+    }
+
+    async fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_lined(line).await
+    }
+
+    async fn add_for_you(self: Arc<Self>, add: ipc::AddForYou) -> Result<ipc::ForYouAdded, Refusal> {
+        self.for_you_added(add).await
     }
 
     async fn get_job_copy(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {

@@ -106,6 +106,9 @@ pub struct Held {
     /// The branches Jobs offered for the preview and the Refresh row, as Fleet last said them, **held across a
     /// drop** as the build is. `None` until Fleet has answered.
     pub offers: Option<ipc::PreviewOffers>,
+    /// The note of each branch the running preview build holds, as Fleet last said, **held across a drop** as the
+    /// offers are. `None` until Fleet has answered.
+    pub build_notes: Option<ipc::BuildNotes>,
     /// Every send waiting for another of his Macs, as Fleet last listed them, oldest first (`crate::waiting_sends`).
     /// `None` until Fleet has answered.
     pub queued: Option<ipc::QueuedList>,
@@ -148,6 +151,8 @@ pub struct Held {
     pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// The subagents whose own thread moved, folded since the last take, oldest first.
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
+    /// The Jobs whose For you moved, folded since the last take, oldest first.
+    for_you_moved: Vec<ipc::ForYouChanged>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
@@ -191,6 +196,7 @@ impl Held {
             build: None,
             disk: None,
             offers: None,
+            build_notes: None,
             queued: None,
             calls: None,
             repositories: None,
@@ -210,6 +216,7 @@ impl Held {
             open_group: true,
             workflows: None,
             subagents_moved: Vec::new(),
+            for_you_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
             dispatched: Vec::new(),
@@ -340,6 +347,11 @@ impl Held {
         std::mem::take(&mut self.subagents_moved)
     }
 
+    /// The Jobs whose For you moved, folded since the last take, oldest first.
+    pub fn take_for_you_moved(&mut self) -> Vec<ipc::ForYouChanged> {
+        std::mem::take(&mut self.for_you_moved)
+    }
+
     /// The shells' news folded since the last take, oldest first.
     pub fn take_shells(&mut self) -> Vec<ShellNews> {
         std::mem::take(&mut self.shells)
@@ -466,6 +478,8 @@ impl Held {
                 Signal::AgentSignInFailed(why) => lines.push(Note::warn("the agents' sign-in could not be read").field("why", why)),
                 Signal::Offers(offers) => self.offers = Some(offers),
                 Signal::OffersFailed(why) => lines.push(Note::warn("the preview offers could not be read").field("why", why)),
+                Signal::BuildNotes(notes) => self.build_notes = Some(notes),
+                Signal::BuildNotesFailed(why) => lines.push(Note::warn("the build notes could not be read").field("why", why)),
                 Signal::Queued(list) => self.queued = Some(list),
                 Signal::QueuedFailed(why) => lines.push(Note::warn("the sends waiting for another Mac could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
@@ -500,6 +514,7 @@ impl Held {
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
+                        Event::SessionForYou(moved) => self.for_you_moved.push(moved),
                         Event::JobThreadTail(tail) => {
                             if let Some(held) = self.threads.get_mut(tail.session_id.as_str()) {
                                 held.tailed(tail);
@@ -530,6 +545,8 @@ impl Held {
                         Event::AgentSignInChanged(state) => self.agent_sign_in = Some(state),
                         // The offers arrive whole and replace the ones held.
                         Event::PreviewOffersChanged(offers) => self.offers = Some(offers),
+                        // The notes arrive whole and replace the ones held.
+                        Event::BuildNotesChanged(notes) => self.build_notes = Some(notes),
                         // The sends waiting arrive whole, every Mac's, and replace the ones held.
                         Event::QueuedChanged(list) => self.queued = Some(list),
                         // A Job's watches arrive whole and replace the ones held.
@@ -621,6 +638,11 @@ impl EventEmitter<Dispatched> for FleetConnection {}
 pub struct SubagentsMoved(pub Vec<ipc::SessionSubagentChanged>);
 
 impl EventEmitter<SubagentsMoved> for FleetConnection {}
+
+/// The Jobs whose For you moved in one folded batch (`session.for_you`), for a view holding one to read it again.
+pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
+
+impl EventEmitter<ForYouMoved> for FleetConnection {}
 
 /// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1168,6 +1190,7 @@ impl FleetConnection {
                         this.read_thread(&id, true, cx);
                     }
                     let subagents = this.held.take_subagents_moved();
+                    let for_you = this.held.take_for_you_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
@@ -1187,6 +1210,9 @@ impl FleetConnection {
                     }
                     if !subagents.is_empty() {
                         cx.emit(SubagentsMoved(subagents));
+                    }
+                    if !for_you.is_empty() {
+                        cx.emit(ForYouMoved(for_you));
                     }
                     lines
                 });
@@ -1385,6 +1411,19 @@ mod tests {
     }
 
     #[test]
+    fn the_build_notes_are_held_whole_from_the_read_and_from_the_event() {
+        let notes = |commit: &str| ipc::decode::<ipc::BuildNotes>("BuildNotes", format!(r#"{{"commit":"{commit}","notes":[]}}"#).as_bytes()).expect("notes");
+        let mut held = Held::new();
+        assert_eq!(held.build_notes, None, "nothing is held before Fleet answers");
+        held.fold(vec![Signal::BuildNotes(notes("a"))]);
+        assert_eq!(held.build_notes, Some(notes("a")));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"build_notes.changed","commit":"b","notes":[]}}"#;
+        let event = crate::frames::decode(wire).expect("an event");
+        held.fold(vec![Signal::Stream(event)]);
+        assert_eq!(held.build_notes, Some(notes("b")), "the event replaces the notes whole");
+    }
+
+    #[test]
     fn the_sends_waiting_are_held_whole_from_the_read_and_from_the_event() {
         let list = |id: &str| {
             let raw = format!(r#"{{"queued":[{{"id":"{id}","mac":"air","act":{{"kind":"stop","body":{{"session_id":"mock-01"}}}},"since":1}}]}}"#);
@@ -1477,6 +1516,19 @@ mod tests {
         let told: Vec<(String, String)> = held.take_subagents_moved().into_iter().map(|one| (one.session_id.as_str().to_string(), one.subagent_id)).collect();
         assert_eq!(told, [("s0".to_string(), "a1".to_string()), ("s1".to_string(), "a2".to_string())]);
         assert!(held.take_subagents_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn a_job_whose_for_you_moved_is_handed_over_once_in_the_order_it_came() {
+        let moved = |job: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.for_you","session_id":"{job}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("s0"), moved("s1")]);
+        let told: Vec<String> = held.take_for_you_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
+        assert_eq!(told, ["s0", "s1"]);
+        assert!(held.take_for_you_moved().is_empty(), "news is told once");
     }
 
     #[test]
