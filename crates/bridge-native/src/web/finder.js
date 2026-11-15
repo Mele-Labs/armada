@@ -124,6 +124,16 @@
       held.click();
       return JSON.stringify(true);
     },
+    // The words of the held element selected, as a person drags over them: what a walk does before it makes a note on them.
+    select() {
+      if (!held || !held.isConnected) return JSON.stringify(false);
+      const range = document.createRange();
+      range.selectNodeContents(held);
+      const picked = getSelection();
+      picked.removeAllRanges();
+      picked.addRange(range);
+      return JSON.stringify(true);
+    },
   };
   globalThis.ArmadaFinder = { finder };
 })();

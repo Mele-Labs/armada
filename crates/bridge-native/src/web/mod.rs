@@ -20,6 +20,7 @@ pub mod frame;
 pub mod keys;
 pub mod kit;
 mod page;
+pub mod reader;
 mod render;
 mod wk;
 

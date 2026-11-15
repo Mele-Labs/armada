@@ -161,13 +161,13 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
         "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
-        "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
+        "drafts" | "reader" | "reader-sketches" => include_bytes!("../fixtures/jobs-drafts.json"),
         // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
         // one that was answered with a figure to be asked again at.
         "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
@@ -315,6 +315,22 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
                 let wire = format!(r#"{{"id":"sketch:{title}","text":"{title}","since":"{since}","source":"sketch","act":{{"kind":"message","target":"tool-edit"}}}}"#);
                 one.waiting_for.push(ipc::decode::<WaitingItem>("sketch item", wire.as_bytes()).map_err(|why| why.to_string())?);
             }
+        }
+    }
+    // The Job's one artifact of parts is what the question asks about, named by its id; the second item names one it no longer holds.
+    if scenario == "artifact-parts" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            let wire = format!(
+                r#"[{{"id":"agent-parts","text":"Which step bar do you want?","since":"2026-11-14T10:05:00Z","source":"agent","options":[{{"label":"Bar under the title"}},{{"label":"Rail beside it"}}],"artifact":"{}"}},{{"id":"agent-retired","text":"Check the old step bar sketch","since":"2026-11-14T10:02:00Z","source":"agent","artifact":"sketch:Retired step bar"}}]"#,
+                crate::mock_parts::ID
+            );
+            one.waiting_for.extend(ipc::decode::<Vec<WaitingItem>>("artifact items", wire.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
+    // The Job that holds the folds' artifacts is running a call, and says what it is doing in the words its row uses.
+    if scenario == "artifact-folds" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            one.activity = Some(ipc::SessionActivity { now: Some("Reading page_votes.rs".into()), ..Default::default() });
         }
     }
     // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
@@ -589,7 +605,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
-        "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
@@ -609,6 +625,10 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
         "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
+        // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
+        "reader" => include_bytes!("../fixtures/reader-threads.json"),
+        // One Job holding a page whose own drawing and whose vote's takes each hold a sketch.
+        "reader-sketches" => include_bytes!("../fixtures/reader-sketches-threads.json"),
         "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
@@ -621,6 +641,11 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
+    if scenario == "artifact-folds" {
+        if let Some(thread) = all.get_mut(crate::mock_parts::JOB) {
+            crate::mock_parts::extend_thread(thread);
+        }
+    }
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
@@ -791,18 +816,29 @@ pub fn walk_refused(url: &str) -> Option<String> {
 const SEALED_PAGE: &str = include_str!("../fixtures/page-actions.html");
 /// The record Fleet sealed it with, which the mock swaps for what was pressed and voted on it.
 const SEALED_RECORD: &str = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
+/// A second page: `Stale marks`, whose own drawing and whose two takes each hold an `<armada-sketch>`, sealed round the body
+/// `fixtures/page-sketches-source.html` holds, with the kit Fleet seals the first page with.
+const SKETCHED_PAGE: &str = include_str!("../fixtures/page-sketches.html");
+const SKETCHED_RECORD: &str = r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#;
 /// When the mock Fleet says a press or a vote was kept.
 const PAGE_AT: &str = "2026-11-14T09:00:00Z";
 
 /// `get_artifact_page` on the mock: the design page as Fleet serves it, its record holding the presses and the newest cast
 /// of each vote made on it, or Fleet's refusal of a revision it never kept.
 pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
-    if page != "design" || revision != 2 {
+    if page == "marks" && revision == 1 {
+        let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
+        let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+        return Ok(SKETCHED_PAGE.replacen(SKETCHED_RECORD, &record, 1));
+    }
+    if page != "design" || !(1..=2).contains(&revision) {
         return Err(format!("revision {revision} of `{page}` is not kept"));
     }
     let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
-    let record = format!(r#"{{"artifact":"design","revision":2,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
-    Ok(SEALED_PAGE.replacen(SEALED_RECORD, &record, 1))
+    let record = format!(r#"{{"artifact":"design","revision":{revision},"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+    let sealed = SEALED_PAGE.replacen(SEALED_RECORD, &record, 1);
+    // The first revision counted three branches where the second counts four.
+    Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
 }
 
 /// The mock Fleet's answer to a press or a vote on the design page, as `press_page_action` and `cast_page_vote` answer:
@@ -1290,7 +1326,7 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
     let pressed = match item.source {
         WaitingSource::Plan => NeedsYouAct::OpenPlan,
         WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
-        WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
+        WaitingSource::Document => NeedsYouAct::OpenDocument { path: item.id.strip_prefix("read:").map_or_else(|| named(DOCUMENT_ITEM_PREFIX), str::to_string) },
         WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
         // Fleet's handoff card takes no words.
         _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: item.source != WaitingSource::Handoff },

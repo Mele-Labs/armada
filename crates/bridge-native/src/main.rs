@@ -56,6 +56,7 @@ mod menu;
 mod merge_strip;
 mod option_pictures;
 mod mock;
+mod mock_parts;
 mod move_to_mac;
 mod new_project;
 mod notify;

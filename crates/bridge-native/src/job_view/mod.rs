@@ -69,6 +69,15 @@ mod review;
 mod row_tabs;
 mod web_pages;
 mod page_tab;
+mod parts_card;
+mod parts_fold;
+mod parts_reader;
+mod live_line;
+mod page_sketches;
+mod reader;
+mod reader_draw;
+mod reader_edit;
+mod reader_page;
 mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
@@ -189,6 +198,8 @@ pub(crate) enum Extra {
     SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
+    Parts(String, u32),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -227,6 +238,8 @@ struct Page {
     earlier_version: Option<u64>,
     count: usize,
     extras: Vec<Extra>,
+    /// The cards of artifacts of parts kept before later items of the thread, each drawn under the item it follows.
+    anchors: Vec<parts_fold::Anchor>,
     /// The thread version the list was last measured for.
     version: Option<u64>,
     /// The folds the person opened, by item id.
@@ -266,7 +279,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -940,6 +953,13 @@ impl JobView {
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
         let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
+        // Each revision of an artifact that holds parts has a card where it was kept: under the item before later ones, else before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
+        let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
+        let (anchors, tail) = parts_fold::place(&held.items, &kept);
+        let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        extras.splice(stands..stands, cards);
+        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -968,11 +988,13 @@ impl JobView {
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
-        if page.version == Some(version) && page.extras == extras && dirty.is_none() && above == above_was {
+        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was {
             return;
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
+        // A card kept under an item that is not new changes that item's element, so the list measures from there.
+        let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
@@ -993,6 +1015,7 @@ impl JobView {
         page.lead = lead;
         page.count = total;
         page.extras = extras;
+        page.anchors = anchors;
         page.version = Some(version);
         if first {
             // Within a screen of the top, the older items are read: the row says so when it draws.
@@ -1203,6 +1226,7 @@ impl Render for JobView {
         self.sync_page_tabs(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
+        self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
@@ -1277,6 +1301,7 @@ impl Render for JobView {
                 .children(origin)
                 .children(find)
                 .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .children(self.render_live_line(&id, cx))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()

@@ -165,6 +165,10 @@ pub(crate) struct WaitingReads {
     rule_acts: Vec<store::KeptRuleAct>,
     /// The asks it made the Operator that stand on its Needs you, or in Your turn.
     job_asks: Vec<store::KeptJobAsk>,
+    /// The newest revision he opened of each of its artifacts.
+    seen: Vec<store::KeptArtifactSeen>,
+    /// The ids of its archived artifacts.
+    archived: Vec<String>,
 }
 
 impl WaitingReads {
@@ -236,6 +240,8 @@ pub(crate) fn waiting_reads(
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
         job_asks: store.raised_job_asks_of(&session.id)?,
+        seen: store.artifact_seen(&session.id)?,
+        archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
     })
 }
 
@@ -532,7 +538,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -748,6 +754,8 @@ where
             held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
+            // A page that asks nothing waits to be read, until he opens its newest revision.
+            items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
@@ -849,8 +857,9 @@ where
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
             // repeat of a listed command is folded below.
+            // A page waiting to be read asked nothing.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
-                matches!(
+                !super::document_answers::is_read_item(one) && matches!(
                     one.source,
                     WaitingSource::Agent
                         | WaitingSource::AskCard
@@ -1519,6 +1528,8 @@ where
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {
+            // A page waiting to be read asked the Job for nothing, so his dismissal tells it nothing.
+            _ if super::document_answers::is_read_item(&item) => None,
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),

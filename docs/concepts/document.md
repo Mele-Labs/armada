@@ -77,8 +77,15 @@ His own Edit is never measured.
 The owner, 14 Nov 2026, of Jobs' pages: "holy shit talk about text overload. MY EYES... I have no idea what to look at here."
 
 **Rule.** A reading page's revision reaches the thread as its card with Open and notes, and no Approve.
-It is not in his Needs you, holds no plan, and an answer to it is refused: the page is for reading.
+It holds no plan, and an answer to it is refused: the page is for reading.
 His notes on it still reach the Job as numbered notes.
+
+**Rule.** A reading page waits in his Needs you as `Read: <title>` until he opens its newest revision ([Waiting on the person](session/waiting-on-the-person.md)).
+Opening it is the answer, and the Job is told nothing.
+A new revision waits again, and the Job archiving the page withdraws it.
+Only the Job's own revision of a page that asks nothing waits so: one that buried its ask goes back to the Job, and his own Edit he has read.
+It asks no verdict, joins no artifact and holds nothing back.
+The owner's ruling, 15 Nov 2026: "Waits as Read".
 
 **Rule.** Whether a page asks is decided when the revision is kept.
 A page written before its plan names a `document_approved` gate asks from its next revision.
