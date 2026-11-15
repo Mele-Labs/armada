@@ -230,6 +230,7 @@ fn glyph_of(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         WaitingSource::Document => return glyph(Kind::Document, "Document"),
         WaitingSource::Done => return glyph(Kind::Done, "Done"),
         WaitingSource::OperatorSuggestion => return glyph(Kind::Operator, "What the Operator would do"),
+        WaitingSource::ReadyToTry => return glyph(Kind::Message, "Ready to try"),
         _ => {}
     }
     let asks = matches!(act, NeedsYouAct::Answer { options, .. } if !options.is_empty());
@@ -303,7 +304,9 @@ pub(crate) fn needs_you_of(job: &str, items: &[WaitingItem]) -> NeedsYou {
     let owed = rows.iter().filter(|(section, _)| *section != Section::Done).count();
     let reviewing = rows.iter().filter(|(section, _)| *section == Section::ToReview).count();
     let alone_is_a_document = owed == 1 && rows.iter().any(|(_, row)| row.source == WaitingSource::Document);
-    let review_in_band = reviewing > 1 || alone_is_a_document;
+    // A branch to try has no other place he would find it, so its card is always in the band.
+    let to_try = rows.iter().any(|(_, row)| row.source == WaitingSource::ReadyToTry);
+    let review_in_band = reviewing > 1 || alone_is_a_document || to_try;
     let listed = |section: Section| matches!(section, Section::Questions | Section::ToDo | Section::Walks | Section::Commands | Section::PullRequests);
 
     let mut glyphs: Vec<NeedsYouGlyph> =
@@ -313,7 +316,7 @@ pub(crate) fn needs_you_of(job: &str, items: &[WaitingItem]) -> NeedsYou {
         pages.sort_by(|a, b| a.since.as_str().cmp(b.since.as_str()));
         glyphs.extend(pages.into_iter().map(|row| row.glyph.clone()));
     }
-    let fold = rows.iter().any(|(section, _)| listed(*section));
+    let fold = to_try || rows.iter().any(|(section, _)| listed(*section));
     let sections = ORDER
         .iter()
         .filter_map(|(kind, label)| {

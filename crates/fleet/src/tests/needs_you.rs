@@ -254,6 +254,18 @@ fn needs_you_review_is_in_the_band_for_one_document_alone_but_not_one_plan() {
 }
 
 #[test]
+fn needs_you_puts_a_ready_to_try_card_in_the_band_alone_or_not() {
+    let card = item("try:armada/one@abc", Source::ReadyToTry, Some((WaitingActKind::Message, JOB)), &[], &[]);
+    let alone = view_of(std::slice::from_ref(&card));
+    assert!(alone.fold && alone.review_in_band, "a lone card is in the band");
+    assert_eq!(alone.glyphs.iter().map(|one| one.said.as_str()).collect::<Vec<_>>(), ["Ready to try"]);
+    let asks = item("a", Source::Agent, None, &[], &[]);
+    let with = view_of(&[card, asks]);
+    assert!(with.fold && with.review_in_band);
+    assert_eq!(with.glyphs.len(), 2, "the question's mark and the card's");
+}
+
+#[test]
 fn needs_you_acts_read_as_the_bridges_read_them() {
     let sections = |items: &[WaitingItem]| view_of(items);
     let command = item("run", Source::Agent, Some((WaitingActKind::Run, "cargo xtask verify-foundations")), &[], &[]);
