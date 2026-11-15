@@ -418,6 +418,48 @@ where
         Ok(checked)
     }
 
+    /// **Takes a Fleet kept before `takes_styled` are styled once, the first time they are read**: each take's mocks
+    /// with no `kept` are kept with their style set and the part is written back, so they stop drawing blank. A take
+    /// that cannot be styled now is left as it was.
+    pub(crate) async fn old_takes_styled(&self, id: &str) -> Result<(), Refusal> {
+        let unkept = |scene: &str| {
+            ipc::decode::<ipc::Scene>("a take's scene", scene.as_bytes())
+                .is_ok_and(|scene| scene.nodes.iter().any(|node| matches!(node.kind, ipc::SceneKind::Mock) && node.kept.is_none()))
+        };
+        let held = self.held_rows(id).await?;
+        for row in held.into_iter().filter(is_sketch) {
+            let mut parts = stored(&row.detail);
+            let mut changed = false;
+            for part in parts.iter_mut() {
+                let PartContent::Takes { takes, .. } = &mut part.content else { continue };
+                for take in takes.iter_mut() {
+                    let Some(scene) = take.scene.clone().filter(|scene| unkept(scene)) else { continue };
+                    let sketch = ipc::Sketch { title: take.title.clone(), scene: scene.clone(), nodes: 0, edges: 0, against: None };
+                    if let Ok(styled) = self.sketch_styled(id, sketch, "add_part").await {
+                        changed |= styled.scene != scene;
+                        take.scene = Some(styled.scene);
+                    }
+                }
+            }
+            if !changed {
+                continue;
+            }
+            let harness = {
+                let store = self.store().lock().await;
+                store.session(id).map_err(|why| self.ledger_fault(why))?.map(|session| session.harness).unwrap_or_default()
+            };
+            let mut detail = row.detail;
+            store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
+            self.report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached { attachment: AttachmentReport { kind: row.kind, target: row.target, detail } },
+            })
+            .await?;
+        }
+        Ok(())
+    }
+
     /// `checked` put on the artifact at `target`, kept, and the artifact asked again where the part asks.
     pub(crate) async fn part_put(&self, id: &str, harness: &str, target: &str, checked: &ipc::CheckedPart, said: Option<ipc::ArtifactFor>) -> Result<SessionRecord, Refusal> {
         let held = self.held_rows(id).await?;
