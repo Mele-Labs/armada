@@ -219,7 +219,7 @@ WebSocket event stream, read this first.
 | [A Job's wait on a held item: `SessionRecord.claim_waits`, `claims_unsent`](protocol/a-jobs-wait-on-a-held-item.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
-| [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
+| [The Operator's page, kept by Fleet: `operator_page`, the card acts and `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
 | [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
 | [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
 | [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
@@ -2053,3 +2053,19 @@ A branch no Job here ever held, such as one worked in a worktree cut by hand, ha
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event.
+## The signed-out account's name: `AgentSignIn.account`
+
+Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge names the account with it on the signed-out toast, and says "the agent" where it is absent.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `AgentSignIn` (`get_agent_sign_in`, `start_agent_sign_in`, `agent_sign_in.changed`) | Fleet writes, Bridge reads | Gains `account`, absent when empty: the account's name as a person knows it, from the harness's adapter |
+
+**So Bridge names the account without spelling it.** A vendor's name lives in `adapters` alone, and Fleet fills the field from there on every state it sends.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.

@@ -322,6 +322,7 @@ where
                     compaction_window,
                     skills_off,
                     thinking_summaries,
+                    operator: hosting.operator,
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {
@@ -339,6 +340,7 @@ where
             let mut state = runtime.state();
             state.process = Some(process);
             state.on_your_words = hosting.on_your_words;
+            state.operator = hosting.operator;
             state.directory = directory;
             state.last_active = std::time::Instant::now();
             state.generation

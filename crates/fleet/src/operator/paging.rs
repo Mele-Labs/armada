@@ -80,15 +80,19 @@ where
             Some(at) => at,
             None => crate::clock::rfc3339_utc(crate::clock::local_day_began(now.epoch_millis().unwrap_or(0) - DAY).await),
         };
-        let (turn, digest, kept) = {
+        let (turn, digest, kept, feed) = {
             let store = self.store().lock().await;
             let kept = store.operator_page().map_err(|why| self.ledger_fault(why))?;
             let rows = if on { store.operator_turn_open().map_err(|why| self.ledger_fault(why))? } else { Vec::new() };
-            let mut turn: Vec<(bool, OperatorTurnItem)> = rows.iter().filter_map(|row| self.turn_item(&store, row, &live, now.as_str())).collect();
-            // Later puts an item after the rest, and the sort is stable, so each group keeps his order.
-            turn.sort_by_key(|(later, _)| *later);
-            (grouped(turn), self.digest_read(&store, &since), kept)
+            let resting = self.resting_jobs(&store);
+            // A card put Later stays off the page until its time, and a resting Job's items stay off while it rests.
+            let turn: Vec<OperatorTurnItem> =
+                rows.iter().filter(|row| !resting.contains(&row.session)).filter_map(|row| self.turn_item(&store, row, &live, now.as_str())).collect();
+            let feed = if on { super::feed::feed_read(&store, &since) } else { Vec::new() };
+            (grouped(turn), self.digest_read(&store, &since), kept, feed)
         };
+        let acts = self.operator_acts_listed().await.map(|list| list.projects).unwrap_or_default();
+        let session_id = if on { self.operator_session_id().await.map(|id| SessionId::carried(&id)) } else { None };
         let mut digest = digest;
         digest.handled.log = self.journal_file_now().await;
         Ok(OperatorPage {
@@ -100,7 +104,21 @@ where
             digest,
             mains: self.mains_read().await,
             slots: self.slots_read().await,
+            feed,
+            session_id,
+            operator_acts: acts,
         })
+    }
+
+    /// The Jobs that are paused or snoozed: what they wait on is not his to answer until they wake.
+    fn resting_jobs(&self, store: &store::Store) -> std::collections::BTreeSet<String> {
+        let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: Some(store::SessionState::Live), text: None }).unwrap_or_default();
+        found
+            .iter()
+            .filter(|session| store.hosting(&session.id).ok().flatten().is_some())
+            .filter(|session| self.ledger_row(store, session).map_or(true, |record| super::raising::resting(&record)))
+            .map(|session| session.id.clone())
+            .collect()
     }
 
     /// Each served repository's main, as `main_ci` last kept it: the row `red_item_offered` and the
@@ -138,10 +156,12 @@ where
         Some(OperatorSlots { used: used as u32, total: held.slots.len() as u32 }).filter(|slots| slots.total > 0)
     }
 
-    /// One row of Your turn as the wire has it, and whether it is put Later at `now`.
-    fn turn_item(&self, store: &store::Store, row: &KeptTurn, live: &[super::arriving::LiveJob], now: &str) -> Option<(bool, OperatorTurnItem)> {
+    /// One row of Your turn as the wire has it. **A card put Later is left out until its time passes.**
+    fn turn_item(&self, store: &store::Store, row: &KeptTurn, live: &[super::arriving::LiveJob], now: &str) -> Option<OperatorTurnItem> {
         let item = item_read(&row.body)?;
-        let later = row.later_until.as_deref().filter(|until| *until > now);
+        if row.later_until.as_deref().is_some_and(|until| until > now) {
+            return None;
+        }
         let thens = suggestion_number(&row.item)
             .and_then(|n| store.operator_suggestion(n).ok().flatten())
             .map(|kept| super::thening::thens_of(&kept, live))
@@ -165,7 +185,7 @@ where
             item,
             read: row.read_text.clone().map(|read| OperatorRead { read, pick: row.pick.clone().unwrap_or_default() }),
             raised_at: Instant::carried(&row.raised_at),
-            later_until: later.map(Instant::carried),
+            later_until: None,
             then: thens,
             keeps,
             also_raised_by: match &ask {
@@ -179,8 +199,9 @@ where
             follows: row.follows.as_deref().and_then(|text| ipc::decode::<ipc::operator_page::OperatorFollows>("a citation", text.as_bytes()).ok()),
             conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
             held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
+            card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()),
         };
-        Some((later.is_some(), shown))
+        Some(shown)
     }
 
     /// The digest, counted from `since`.
@@ -274,10 +295,10 @@ where
 
 /// Your turn with each Job's asks together. **Where a Job has two or more waiting they share its id as
 /// `group`**, and stand at the place of the first of them in his order, in the order the Job raised
-/// them, so naming any one of them in an order moves them all. Those put Later group among themselves.
-fn grouped(turn: Vec<(bool, OperatorTurnItem)>) -> Vec<OperatorTurnItem> {
-    let key = |(later, one): &(bool, OperatorTurnItem)| one.session_id.as_ref().map(|id| (*later, id.as_str().to_string()));
-    let mut counts: std::collections::BTreeMap<(bool, String), usize> = std::collections::BTreeMap::new();
+/// them, so naming any one of them in an order moves them all.
+fn grouped(turn: Vec<OperatorTurnItem>) -> Vec<OperatorTurnItem> {
+    let key = |one: &OperatorTurnItem| one.session_id.as_ref().map(|id| id.as_str().to_string());
+    let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     for one in &turn {
         if let Some(key) = key(one) {
             *counts.entry(key).or_default() += 1;
@@ -287,15 +308,14 @@ fn grouped(turn: Vec<(bool, OperatorTurnItem)>) -> Vec<OperatorTurnItem> {
     let mut out = Vec::with_capacity(turn.len());
     for one in &turn {
         match key(one).filter(|key| counts[key] > 1) {
-            None => out.push(one.1.clone()),
+            None => out.push(one.clone()),
             Some(group) if placed.insert(group.clone()) => {
-                let mut asks: Vec<OperatorTurnItem> = turn.iter().filter(|other| key(other).as_ref() == Some(&group)).map(|other| other.1.clone()).collect();
+                let mut asks: Vec<OperatorTurnItem> = turn.iter().filter(|other| key(other).as_ref() == Some(&group)).cloned().collect();
                 asks.sort_by(|a, b| a.raised_at.as_str().cmp(b.raised_at.as_str()));
-                out.extend(asks.into_iter().map(|ask| OperatorTurnItem { group: Some(group.1.clone()), ..ask }));
+                out.extend(asks.into_iter().map(|ask| OperatorTurnItem { group: Some(group.clone()), ..ask }));
             }
             Some(_) => {}
         }
     }
     out
 }
-

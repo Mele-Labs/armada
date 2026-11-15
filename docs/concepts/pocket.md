@@ -308,7 +308,7 @@ What crosses has passed the share filter of the Fleet that holds the Job: `/othe
 | Step | Route | What happens |
 |---|---|---|
 | 0. Set up | Fleet's `POST /phone/setup`, no body | One press for the whole setup: the Gateway on, as `set_phone` turns it on, then the tunnel's press in the background. Answers `MacSetup { step, working, login?, why?, address? }`, and `GET /phone/setup` reads it with the Gateway off. `step` is `gateway`, `sign_in`, `tunnel` or `done`. `working` has nothing to press, `login` is the page to sign in on, and `why` is the setup to press again. A tunnel that is made but not connected is `working` for 30 seconds before it says why |
-| 1. Work lists his other Macs | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds, then each Mac Bonjour sees nearby. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build?, nearby }`: `online` is the tunnel connected or the Mac seen nearby, `nearby` is Bonjour seeing it now, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three and nothing else. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
+| 1. Work lists his other Macs | `GET /admin/macs/found` | `FoundMacs { macs, why? }`. The `armada-*` tunnels on the account other than this Mac's, from Cloudflare's tunnel list and the domain's records, read again after 4 seconds, then each Mac Bonjour sees nearby. Each `FoundMac { tunnel, name, colour?, address?, online, paired, build?, nearby, older_build }`: `online` is the tunnel connected or the Mac seen nearby, `nearby` is Bonjour seeing it now, and `name`, `colour` and `build` are what the Mac said on `GET /pair/mac/hello`, unsigned, which answers those three, the `wire` and `built_at` of its build, and nothing else. Bonjour's TXT record carries the same two. `older_build` is that wire and build time read by the rule that freezes a link: another wire and no later than this Mac's, or no wire named, is older, the same wire never is, and a Mac nothing was heard from stays false. An asleep Mac keeps the name it was last read with, else its paired row's, else its address's first label. An account that cannot be read answers `why` with what was read before |
 | 2. Work asks | `POST /admin/macs/pair/ask { tunnel }` | At home's Wi-Fi door while Bonjour sees it, else at its tunnel. Work makes its key and back code as for a claim, and a random half it keeps, and posts `{ mac, spki_hex, back_code, commit }` to home's `POST /pair/mac/ask`, unsigned, `commit` the SHA-256 of its half. Home answers 202 with itself and its own random half, `nonce`, and holds the ask unlisted. Work refuses a Mac that answers with an id that is not its tunnel name's, or, at a door, that names another certificate than the one it showed |
 | 2b. Work reveals | `POST /pair/mac/reveal { mac, reveal }` | Home takes the half only where it hashes to `commit`, and lists the ask. Each side draws the same four digits from work's key, both doors' certificates and both halves. Work keeps home as `confirm_waiting` with `code` |
 | 3. Home lists the ask | `GET /admin/macs` | Work, `claim_waiting`, with the same `code` and `why` `Work wants to pair. Confirm if it shows 4821.` |
@@ -445,6 +445,22 @@ A Mac where it is denied finds no Mac nearby, and the Cloudflare list still work
 A network that drops multicast, as some work networks and VPNs do, hides a Mac the same way.
 
 **A phone cannot use this.** A web app cannot browse the network.
+
+## Through his store
+
+**A Mac or phone signed in to his claims store pairs with his other devices with one press, and no code and no Confirm.**
+The store has proved each device is his GitHub account's, so nothing is left for the four digits to prove.
+The link, the ask with digits, Bonjour and the phone's code all stay as they are.
+
+| Piece | What it does |
+|---|---|
+| Presence | Each Mac puts `PUT /v1/presence { kind: "mac", address }` to every store a project names that it joined: when the Gateway starts, after a join, and when its address changes, read each minute. A store that did not take it is tried again then |
+| The found list | `GET /admin/macs/found` adds each Mac his stores list with an address, from `GET /v1/peers`, greeted at `GET /pair/mac/hello`, which now names its tunnel too. Each row carries `vouched`, `store` and `device` (`ipc::VouchedMac`). A Mac the account or Bonjour shows as well, by tunnel name or address, is one row |
+| A signed request | Signed as a store request is, with the sender's key for that store and the four `X-Armada-*` headers, plus `X-Armada-Store` naming the store. The receiver takes it only where it joined that store, the time is within a minute, the nonce is unseen in the last two, and its own `GET /v1/peers` lists the sender with the key that signed. Anything else is `403 {"error":"not_vouched"}`, and nothing is kept |
+| Pair on a Mac | `POST /admin/macs/pair/vouched { store, device }`. This Mac makes a fresh key and posts `{ mac, public_key }`, signed, to the other's `POST /pair/mac/vouched`. The other keeps this Mac linked at once and answers its own hello and key, signed the same way on the answer's headers. This Mac checks the answer against its own peers before it keeps the other linked, and answers it as a `Mac` |
+| A phone | `GET /pair/store`, unsigned, answers `{ store, client_id }`: the first store joined that names no team, and the sign-in app's client id, each `null` where there is none. A phone signed in to that store posts `{ name, spki_hex }`, signed with its store key, to `POST /pair/vouched`, and is a device at once: `{ device_id }` |
+
+**A team store keeps members apart.** `GET /v1/peers` lists only the caller's own account's devices, so a teammate's Mac is never listed and never vouched.
 
 ## What pushes
 

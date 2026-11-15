@@ -21,6 +21,8 @@ pub(crate) struct Seat {
     pub(super) journal: tokio::sync::Mutex<()>,
     /// The page's top line is being rewritten.
     pub(super) rewriting: AtomicBool,
+    /// One start or end of the Operator's own session at a time.
+    pub(super) session: tokio::sync::Mutex<()>,
     /// When the soonest Later runs out: `None` until the store is first read, then `Some(None)` where
     /// no item is Later.
     pub(super) next_later: Mutex<Option<Option<String>>>,

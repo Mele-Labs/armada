@@ -69,8 +69,7 @@ async fn a_later_with_a_time_sits_last_until_then_and_the_page_is_told_both_time
 
     // An hour on, as Bridge sends it from his zone: kept as the same instant.
     let later = rig.fleet.operator_turn_later(OperatorLater { id: a.id.clone(), until: Some(Instant::carried("2026-11-10T08:00:00-05:00")) }).await.expect("later");
-    assert_eq!(ids(&later), ["b", "a"], "Later puts it last");
-    assert_eq!(later.turn[1].later_until, Some(Instant::carried("2026-11-10T13:00:00.000Z")));
+    assert_eq!(ids(&later), ["b"], "a card put Later is off the page until its time");
     assert_eq!(changes(&mut watching).await, 1, "told when it went Later");
 
     rig.fleet.laters_run_out().await;
@@ -124,9 +123,7 @@ item: 3\nread: He restarts the Mac first.\npick: Later\n\njournal: Reviewed thre
 
     let answered = rig.fleet.operator_answered(press(&restart, OperatorAnswer::Yes, None)).await.expect("Yes does Later");
     assert!(answered.open.is_none());
-    let put = answered.page.turn.iter().find(|one| one.item.id == "restart").expect("it stands");
-    assert!(put.later_until.is_some(), "{answered:#?}");
-    assert_eq!(answered.page.turn.last().map(|one| one.item.id.as_str()), Some("restart"), "last");
+    assert!(answered.page.turn.iter().all(|one| one.item.id != "restart"), "Later: off the page until its time: {answered:#?}");
 }
 
 #[tokio::test]

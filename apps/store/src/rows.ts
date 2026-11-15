@@ -67,6 +67,29 @@ export function holderOf(value: unknown): Holder | null {
   };
 }
 
+/** What a device is: a Mac, or a phone that signed in through the Worker. */
+export const DEVICE_KINDS = [
+  "mac",
+  "phone",
+] as const;
+export type DeviceKind = (typeof DEVICE_KINDS)[number];
+
+export const deviceKindOf = (value: unknown): DeviceKind | null =>
+  DEVICE_KINDS.includes(value as DeviceKind) ? (value as DeviceKind) : null;
+
+// An origin and nothing after it: `https://`, a host, an optional port. No userinfo, path, query or fragment.
+const ADDRESS = /^https:\/\/[A-Za-z0-9](?:[A-Za-z0-9.-]{0,198}[A-Za-z0-9])?(?::([0-9]{1,5}))?$/;
+
+/** A device's address as it is kept: `""` for none, else an origin of at most 200 characters, or `null` when it is neither. */
+export function addressOf(value: unknown): string | null {
+  if (value === "") return "";
+  if (typeof value !== "string" || value.length > 200) return null;
+  const port = ADDRESS.exec(value)?.[1];
+  if (!ADDRESS.test(value) || (port !== undefined && (Number(port) < 1 || Number(port) > 65535)))
+    return null;
+  return value;
+}
+
 /** What a claim is on. Its key is a hash, and the same hash under two kinds is two claims. */
 export const CLAIM_KINDS = [
   "item",

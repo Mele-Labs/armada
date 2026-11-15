@@ -159,6 +159,7 @@ async fn a_run_on_a_jobs_worktree_names_the_job_its_branch_and_its_bay() {
             from_job: None,
             from_tab: None,
             mod_of_bay: false,
+            operator: false,
             side_job: false,
             terminal_dir: None,
         };

@@ -1,4 +1,4 @@
-import { exactly, MACHINE, MAX_BODY_BYTES, parseJson } from "./rows";
+import { exactly, MACHINE, MAX_BODY_BYTES, parseJson, type DeviceKind } from "./rows";
 import { fromBase64, hex, importPublicKey } from "./signing";
 import { MAX_DEVICES, MAX_TEAM_DEVICES } from "./rows";
 import { teamObjectName, teamOf, type Team } from "./team";
@@ -6,8 +6,10 @@ import { teamObjectName, teamOf, type Team } from "./team";
 // The one file that names the forge: the account's id comes from its user endpoint.
 // `FORGE_USER_URL` overrides it, which is how the tests stand in for the forge.
 const FORGE_USER_URL = "https://api.github.com/user";
+/** Where the device flow starts, for the phone's sign-in. `FORGE_LOGIN_URL` overrides it. */
+export const FORGE_LOGIN_URL = "https://github.com";
 
-const refuse = (status: number, error: string): Response =>
+export const refuse = (status: number, error: string): Response =>
   Response.json(
     {
       error,
@@ -84,11 +86,53 @@ async function refuseNonMember(
   return membership?.state === "active" ? null : refuse(403, "not_a_member");
 }
 
+/** The refusal when this client address has used its minute of calls that reach the forge, or `null` (also where the binding is absent). */
+export async function refuseIfCounted(request: Request, env: Env): Promise<Response | null> {
+  const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (
+    env.ENROL_LIMIT &&
+    !(
+      await env.ENROL_LIMIT.limit({
+        key: address,
+      })
+    ).success
+  )
+    return refuse(429, "enrol_rate_limited");
+  return null;
+}
+
 /**
  * Registers a device's public key under the account its token names, or under the team's one object on a team store
  * once the token's owner is checked to be a member. The token is read for the id and the membership and goes no
  * further: not to the Durable Object, not to storage, not to a log.
  */
+export async function registerToken(
+  token: string,
+  publicKey: string,
+  machine: string,
+  kind: DeviceKind,
+  team: Team | null,
+  env: Env,
+): Promise<Response> {
+  const account = await accountOf(token, env);
+  if (account instanceof Response) return account;
+
+  if (team) {
+    const refused = await refuseNonMember(token, account.login, team, env);
+    if (refused) return refused;
+  }
+
+  const device = `${account.id}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
+  const placed = await env.ACCOUNT.get(
+    env.ACCOUNT.idFromName(team ? teamObjectName(team) : String(account.id)),
+  ).register(device, publicKey, machine, team ? MAX_TEAM_DEVICES : MAX_DEVICES, kind);
+  if (placed === "full") return refuse(413, "devices_full");
+  return Response.json({
+    device,
+  });
+}
+
+/** Registers a Mac, from a token it got by the device flow on its own. */
 export async function enrol(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return refuse(405, "bad_method");
   const team = teamOf(env);
@@ -111,39 +155,21 @@ export async function enrol(request: Request, env: Env): Promise<Response> {
   ) {
     return refuse(400, "invalid_body");
   }
-  const spki = fromBase64(publicKey);
-  try {
-    await importPublicKey(spki ?? new Uint8Array());
-  } catch {
-    return refuse(400, "invalid_public_key");
-  }
+  if (!(await isP256Key(publicKey))) return refuse(400, "invalid_public_key");
 
   // Past this point every request costs a call to the forge, so this is where an address is counted.
-  const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  if (
-    env.ENROL_LIMIT &&
-    !(
-      await env.ENROL_LIMIT.limit({
-        key: address,
-      })
-    ).success
-  )
-    return refuse(429, "enrol_rate_limited");
+  const counted = await refuseIfCounted(request, env);
+  if (counted) return counted;
 
-  const account = await accountOf(token, env);
-  if (account instanceof Response) return account;
+  return registerToken(token, publicKey, machine, "mac", team, env);
+}
 
-  if (team) {
-    const refused = await refuseNonMember(token, account.login, team, env);
-    if (refused) return refused;
+/** Whether `publicKey` is the base64 SPKI of a P-256 public key. */
+export async function isP256Key(publicKey: string): Promise<boolean> {
+  try {
+    await importPublicKey(fromBase64(publicKey) ?? new Uint8Array());
+    return true;
+  } catch {
+    return false;
   }
-
-  const device = `${account.id}.${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
-  const placed = await env.ACCOUNT.get(
-    env.ACCOUNT.idFromName(team ? teamObjectName(team) : String(account.id)),
-  ).register(device, publicKey, machine, team ? MAX_TEAM_DEVICES : MAX_DEVICES);
-  if (placed === "full") return refuse(413, "devices_full");
-  return Response.json({
-    device,
-  });
 }

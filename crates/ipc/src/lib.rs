@@ -171,6 +171,8 @@ pub mod operator_errors;
 pub mod operator_talk;
 /// The Operator's page: Your turn and the digest beside it. `crates/ipc/operations/operator_page.toml`.
 pub mod operator_page;
+/// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
+pub mod operator_cards;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -356,6 +358,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
@@ -837,7 +840,7 @@ pub use plan_usage::{
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
-    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
@@ -880,7 +883,7 @@ pub use underway::{
 pub use protocol_id::ProtocolId;
 // The Macs setup that leads him: its one press, the Macs on his account, and pairing one without a link.
 pub use phone::{MacSetup, MacSetupStep};
-pub use macs::{AskMacPair, FoundMac, FoundMacs};
+pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, VouchedMacs};
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };

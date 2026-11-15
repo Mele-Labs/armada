@@ -120,6 +120,15 @@ pub struct MacGreeting {
     pub colour: MacColour,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
+    /// The protocol ID its build speaks. A build from before Macs compared them sends none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_at: Option<String>,
+    /// Its tunnel's name, which its id draws whether or not it made one: how a Mac his store lists is known for the
+    /// one Cloudflare or Bonjour shows. Public already, as the tunnel's name on his account.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tunnel: Option<String>,
 }
 
 /// The four digits both Macs show for an ask: from the asking Mac's key, each Mac's door certificate as
@@ -197,7 +206,14 @@ pub(crate) struct FoundKept {
     pub at: Option<std::time::Instant>,
     pub macs: Vec<ipc::FoundMac>,
     pub why: Option<String>,
+    /// The Macs his stores list, read apart from the account's, and why a store could not be read.
+    pub store_at: Option<std::time::Instant>,
+    pub store_macs: Vec<ipc::VouchedMac>,
+    pub store_why: Option<String>,
 }
+
+/// How long a store request's nonce is remembered: twice the minute either side a signature's time may be off.
+const NONCE_KEPT: i64 = 120;
 
 /// This Gateway's half of its links to other Macs.
 #[derive(Clone)]
@@ -221,6 +237,12 @@ pub struct Macs {
     pinned: Arc<Mutex<HashMap<String, reqwest::Client>>>,
     /// The loopback ports opened for other Macs' pages. `crate::mac_pages`.
     pub(crate) pages: crate::mac_pages::Opened,
+    /// The claims stores this Mac joined, for pairing through his store. `None` pairs only by code.
+    pub(crate) stores: Option<Arc<dyn crate::HisStores>>,
+    /// The nonces of signed store requests from his devices, to when each was taken. `crate::vouched`.
+    nonces: Arc<Mutex<HashMap<String, i64>>>,
+    /// Wakes the presence task: this Mac joined a store. `crate::vouched_routes::put_presence`.
+    pub(crate) presence: Arc<Notify>,
 }
 
 impl Macs {
@@ -247,7 +269,33 @@ impl Macs {
             nearby: Default::default(),
             pinned: Arc::default(),
             pages: Default::default(),
+            stores: None,
+            nonces: Arc::default(),
+            presence: Arc::new(Notify::new()),
         })
+    }
+
+    /// Pair through the stores `stores` names, as well as by code.
+    pub fn reaching_stores(mut self, stores: Arc<dyn crate::HisStores>) -> Macs {
+        self.stores = Some(stores);
+        self
+    }
+
+    /// This Mac joined a store: its presence is put there now.
+    pub fn stores_joined(&self) {
+        self.presence.notify_one();
+    }
+
+    /// Whether `nonce` was taken in the last [`NONCE_KEPT`] seconds, without taking it.
+    pub(crate) fn nonce_seen(&self, nonce: &str, now: i64) -> bool {
+        self.nonces.lock().unwrap().get(nonce).is_some_and(|at| *at > now - NONCE_KEPT)
+    }
+
+    /// Take `nonce` at `now`. `false` where it was taken already.
+    pub(crate) fn take_nonce(&self, nonce: &str, now: i64) -> bool {
+        let mut nonces = self.nonces.lock().unwrap();
+        nonces.retain(|_, at| *at > now - NONCE_KEPT);
+        nonces.insert(nonce.to_string(), now).is_none()
     }
 
     /// The client that reaches a door only where its certificate is `pin`.
@@ -405,12 +453,21 @@ pub(crate) fn frozen(me: &crate::WayIn, row: &store::PairedMac) -> Option<MacLin
     if row.state != store::MacState::Linked || row.wire.as_deref() == Some(me.wire.as_str()) {
         return None;
     }
-    let older = match (row.wire.as_ref(), row.built_at.as_deref(), me.built_at.as_deref()) {
+    Some(if older_build(row.wire.as_deref(), row.built_at.as_deref(), me) { MacLink::OlderBuild } else { MacLink::NewerBuild })
+}
+
+/// Whether a Mac that named `wire` and `built_at` runs an older build than `me`. **The same wire is never
+/// older.** On another, a Mac that named no wire or no build time is older, since it predates both, and
+/// one that named both is older where its build time is not after this Mac's.
+pub(crate) fn older_build(wire: Option<&str>, built_at: Option<&str>, me: &crate::WayIn) -> bool {
+    if wire == Some(me.wire.as_str()) {
+        return false;
+    }
+    match (wire, built_at, me.built_at.as_deref()) {
         (None, _, _) | (_, None, _) => true,
         (_, Some(_), None) => false,
         (_, Some(theirs), Some(mine)) => theirs <= mine,
-    };
-    Some(if older { MacLink::OlderBuild } else { MacLink::NewerBuild })
+    }
 }
 
 /// The sentence a frozen link carries as `why`.

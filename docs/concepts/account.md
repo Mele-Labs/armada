@@ -18,7 +18,11 @@ Defines the account. The shared home it sets up is [Kit](kit.md); the registry i
 | 2 | The person types it at `github.com/login/device` |
 | 3 | Fleet polls GitHub and finishes |
 
-The GitHub app needs the device flow enabled, and Armada holds no client secret.
+**The GitHub app sign-in uses is registered with one press in Settings, then one tick.**
+The press opens the browser on a page Fleet serves, which posts the app's manifest to GitHub, and the person presses Create there.
+GitHub sends the browser back to Fleet, which keeps the app's client id in `account.clientId` and never reads the client secret, private key or webhook secret that come with it.
+The browser then lands on the app's settings page, where the person ticks Enable Device Flow, the one setting a manifest cannot carry.
+Armada holds no client secret.
 **The flow asks for one scope, `read:org`**, which lets the token list the account's organisations and nothing else; the token is used once, at sign-in, and dropped.
 
 **Rule.** The identity is the GitHub account's numeric id.

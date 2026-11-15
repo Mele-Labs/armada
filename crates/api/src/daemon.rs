@@ -53,7 +53,7 @@ mod studios;
 mod watches;
 
 pub use accounts::Accounts;
-pub use admitting::{offerable, Admitting, WordsReach, Redirector, Steerer};
+pub use admitting::{offerable, operator_rows, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
 pub use commands::Commands;
