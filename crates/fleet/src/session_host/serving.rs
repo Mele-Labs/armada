@@ -93,6 +93,8 @@ pub(crate) enum Marked {
     /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
     /// Manifest, and so never leases a slot or cuts a branch.
     ModsFolder,
+    /// The Operator's own session: no repository, no slot and no Manifest, in a folder of its own.
+    Operator,
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
@@ -318,10 +320,6 @@ where
         self.operator_answered(press).await
     }
 
-    async fn operator_undo_ruling(self: Arc<Self>, undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
-        self.operator_ruling_undone(undo).await
-    }
-
     async fn operator_turn_order(self: Arc<Self>, order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         self.operator_turn_ordered(order).await
     }
@@ -330,20 +328,8 @@ where
         self.operator_turn_later(later).await
     }
 
-    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.operator_board_wire().await
-    }
-
-    async fn move_on_operator_board(self: Arc<Self>, moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.operator_board_moved(moved).await
-    }
-
     async fn report_bridge_error(self: Arc<Self>, error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
         Ok(self.bridge_error_taken(error).await)
-    }
-
-    async fn answer_operator_suggestion(self: Arc<Self>, answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.suggestion_answered(answer).await
     }
 
     async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {

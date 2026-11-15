@@ -150,12 +150,6 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/fleet/build/keep",
     },
-    // Words typed for a running Job, read for which Job they are for.
-    Route {
-        operation: "read_thought",
-        method: "POST",
-        path: "/operator/read_thought",
-    },
     // The permission path, `#1389`: the door calls it, and a hosted Job's answer is `answer_session_ask`.
     Route {
         operation: "ask_the_person",
@@ -707,11 +701,6 @@ const ROUTES: &[Route] = &[
         path: "/operator/page/answer",
     },
     Route {
-        operation: "operator_undo_ruling",
-        method: "POST",
-        path: "/operator/page/undo",
-    },
-    Route {
         operation: "operator_turn_order",
         method: "POST",
         path: "/operator/page/order",
@@ -722,24 +711,34 @@ const ROUTES: &[Route] = &[
         path: "/operator/page/later",
     },
     Route {
-        operation: "get_operator_board",
-        method: "GET",
-        path: "/operator/board",
+        operation: "raise_card",
+        method: "POST",
+        path: "/operator/cards",
     },
     Route {
-        operation: "move_on_operator_board",
+        operation: "revise_card",
         method: "POST",
-        path: "/operator/board/move",
+        path: "/operator/cards/revise",
+    },
+    Route {
+        operation: "settle_card",
+        method: "POST",
+        path: "/operator/cards/settle",
+    },
+    Route {
+        operation: "list_operator_acts",
+        method: "GET",
+        path: "/operator/acts",
+    },
+    Route {
+        operation: "set_operator_acts",
+        method: "POST",
+        path: "/operator/acts",
     },
     Route {
         operation: "report_bridge_error",
         method: "POST",
         path: "/operator/errors",
-    },
-    Route {
-        operation: "answer_operator_suggestion",
-        method: "POST",
-        path: "/operator/suggestions/answer",
     },
     Route {
         operation: "confirm_operator_order",

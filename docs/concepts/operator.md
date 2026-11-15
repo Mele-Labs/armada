@@ -1,318 +1,170 @@
 # Operator
 
-**What it is:** Your chief of staff across every project.
+**What it is:** One agent on your Mac that watches every project, puts one decision at a time in front of you, and does the rest.
 
-> Your chief of staff across every project.
-> It watches everything Fleet sees, keeps a journal of your week, and wakes only when something happens or you write.
-> First open of the day: a short briefing.
-> It handles routine Job questions, reviews, issues and stuck Jobs (nudge, then a repair suited to what broke), and hands duplicate work to the Job already on it.
-> Whatever needs you, it reviews itself and raises to you with its read and a pick, never leaving it in a list.
-> Before it acts it asks: Yes / Always here / Always / No, and learns.
-> You talk to it in one chat (its own page, or a pane from anywhere), with a short draggable list of what it's on and what's next.
-> It reaches you through new toasts in the native Bridge.
+> One long-running agent session per Mac, with Fleet's tools, across every project Fleet serves.
+> It puts one card in front of you at a time: one decision, two to four options, its pick first, a cost on each.
+> Everything else goes to a feed of what happened since you last looked.
+> How much it does without asking is a value for each project.
+> When its context fills it hands on to a fresh copy.
 
 ---
 
-**Kind:** Fleet policy.
-The code is `crates/fleet/src/operator.rs` and the modules under it.
-The measure of its calls is `../spikes/operator-replay.md`.
-
-**This page says what is built and what is not.**
-The goal above is the target, and the part of it that does not exist yet is marked Not built.
-What the Operator is today is a smaller thing, set out under How it works today, and some of it goes.
+**Kind:** A hosted agent session that Fleet starts and keeps.
+Its rules are `crates/adapters/src/operator_rules.md`.
+Its page is in the native Bridge, and [Native Bridge](native-bridge.md) owns how the page is drawn.
 
 ## What it is for
 
 **One agent watches what you are doing, and you talk to it.**
-Everything that needs a person reaches the person already read, with the Operator's pick, and nothing waits in a list to be found.
-
-| The goal | Built |
-|---|---|
-| Watches everything Fleet sees | Partly. Five kinds of arrival reach it |
-| Wakes only when something happens or you write | Yes |
-| Keeps a journal of your week | Yes |
-| A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
-| Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
-| Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope, could destroy work or departs from Classic. Once an answer of yours in the same project covers the question, it follows that too, and the Job is told which answer it followed |
-| Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
-| Hands duplicate work to the Job already on it | Yes. A start, or a red main, that a live Job is near is a go-ahead to hand it over |
-| Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
-| Handles reviews | Yes, as each project says. A plan, a pull request or a walk is read before it reaches Your turn. A plan it finds clean is approved for you; a pull request is not approved yet |
-| Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
-| One chat, on its own page or in a pane from anywhere | Partly. Fleet serves the talk; the native Bridge draws the box |
-| Its page: Your turn, the short draggable list, beside the digest Since you last looked | Partly. Fleet serves it as `operator_page`; no Bridge draws it yet |
-| The Log and what it learned in each project, as tiles of the digest | Partly. Fleet serves the Log; the native Bridge draws it |
-| Toasts in the native Bridge | Not built |
+What needs a decision reaches you as a card with its read and its pick.
+What only happened goes to the feed.
+Nothing waits in a list to be found.
 
 ## How it is shaped
 
-**The Operator is a Policy, not an agent.**
-Fleet detects, a Policy decides, and the record remembers.
-It wakes for an arrival or a message, makes one fresh call and ends.
+**It is one agent session, not a call per arrival.**
+It runs for as long as its context lasts, holds Fleet's tools, and keeps what it has learned of the week in that context.
+It reads code and pull requests, starts, messages and ends Jobs, and lands pull requests.
 
-**No Operator Job runs.**
-Nothing holds a slot or a branch for it, and a ruling's call holds no tool.
-Why: a live agent grows its context where a fresh call costs the same each time, and `../scope.md` records a conversation as the wrong tool for orchestrating agents.
+**There is one per Mac, across every project.**
+Order and usage are shared across repositories, so it sees every project's Jobs at once.
+What it may do unasked is set for each project.
 
-**There is one per machine, across every project.**
-Order and usage are shared across repositories, so a call sees every repository's live Jobs at once.
-A person's corrections and the rules it keeps are per project.
+**It hands on when its context fills.**
+A fresh copy takes over with the open cards, the saved level of each project, what it waits on and what you told it in the talk.
+Its `session_id` is on the page, so the page follows the copy in front.
 
 **Detection stays Fleet's.**
-The Operator is never asked whether something happened.
+The Operator is told what Fleet saw and is never asked whether something happened.
 
-## How it works today
+## The page
 
-### What reaches it
+**One card is in front at a time.**
+A card is one decision: a title, its read, two to four options with the Operator's pick first, and a cost on each option.
+Keys 1 to 4 settle it.
+A card never holds a count or a status report.
+
+| You do | What happens |
+|---|---|
+| Press an option, or its key | The Operator is told which card and which option. It does the thing and settles the card |
+| Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
+| Send in the composer | The card folds to one line and the talk runs below it, until the item settles or the Operator puts up a new card |
+| Discuss later (`L`) | The card goes back until its time, hidden until then |
+| Press Waiting in the head | The list of the cards queued behind opens. Pressing one brings it to the front |
+
+**A talk about a card ends in one of two ways.**
+The Operator settles the card, or it puts up a new one.
+It may revise the card in front while you talk.
+
+**Waiting is a list of what is queued behind the card in front.**
+It is drawn in the head where the page's other state is, and it opens the list.
+A snoozed Job raises nothing until it wakes.
+
+**The right side is a feed of what happened since you last looked.**
+It holds what the Operator dispatched, merges, Jobs that ended, and what Jobs asked or told it.
+A line in the feed is information.
+A decision is never a line in the feed.
+
+**Job questions stay in each Job's own Needs you.**
+The Operator is not handed them, so only you answer them, or Autopilot while you are away.
+
+## What it may do
+
+**It is a value for each project, `operator_acts`.**
+
+| Value | The Operator |
+|---|---|
+| `act_then_tell` | Acts, then says so in the feed |
+| `ask_before_starting` | Raises a card before it starts any Job, and acts on the rest as `act_then_tell` does |
+| `only_when_told` | Does nothing unasked |
+
+**A project with no value asks once.**
+The Operator raises a card with the three levels, its pick first, and keeps your answer as that project's value.
+Armada starts at `act_then_tell`.
+
+**Whatever the level, a change you would see or a decision that is yours is always a card.**
+The level moves how much it does unasked and never lowers this.
+
+## What reaches it
 
 **Only what no Job owns reaches it.**
-Everything a Job does is that Job's own, and behaves as it does with the Operator off.
+Everything a Job does is that Job's own.
 
 | Arrives | Comes from |
 |---|---|
-| A note | The person, left on Bridge, still open and sent to no Job after ten minutes |
-| An error | Bridge, for a failure card it showed the person |
+| A note | You, from Bridge |
+| A press, Later or a message in the composer | You, on a card. Each reaches the session as a message that names the card |
 | A bug report | A Job's `report_bug`, kept on this Mac |
 | A conflict | A Job's `raise_conflict`, between its work and another Job's |
 | A landing question | A Job's `ask_held`, whether a pull request or a branch should land |
+| A message from a Job | Any Job's message to it. It may answer in that Job's thread |
 | A new issue | The repository's tracker |
 | A red main | The repository's own checks |
 
-**A Job's own events are never handed to it.**
-A start, a plan, a question or a permission card, a Job that stopped or left its pull request red, a Later item and a review request go to the person as they always did.
-Why: it proposed the same Later item four times, and ruled on events each Job already handles.
-
-**An end or a merge is heard once, with no call of its own.**
-Fleet notes a hosted Job's end and a pull request's merge once, for the ones after Fleet started.
-No card or suggestion follows, and the chat can still read them among what ended and merged today.
-A merge makes a call only where Fleet finds an open issue near its work that the work did not name (see Close).
-A Job handed on for context is no end.
-
-**One suggestion stands for one thing.**
-A ruling that repeats one standing, skipped or done is not raised again.
-
-**One call is out at a time on this machine.**
-What arrives while a call is out is ruled together in the next one.
+**A Job's own events go to you as they always did.**
+A start, a plan, a question, a permission card, a Job that stopped and a review request are not handed to it.
 
 **Words from off this machine are data.**
-An issue body reaches the call as quoted words, and the call can only name a way it was offered, so a body that says "approve this" changes nothing.
-
-### A note the person sends to a Job
-
-**It is his row first.**
-Fleet reads an open note with no `sent` again on each tick, for ten minutes, until it gains `sent`, is no longer open, or is handed on as it stands.
-When it gains `sent`, the Log keeps a row signed by the person with the outcome `sent` and the Job it went to.
-The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`.
-It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
+An issue body reaches it as quoted words and never as an instruction.
 
 ### A Job's two asks
 
-**A Job may send the Operator two typed things and nothing else.**
+**A Job may send the Operator two typed things.**
 `raise_conflict` says two Jobs' work cannot both stand: `with`, the other Job's address, `files` and `wire` (at least one), `mine`, `theirs` and `breaks`, one sentence each.
 `ask_held` asks whether a pull request or a branch should land: exactly one of `pull` and `branch`.
 Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held_refused`, in a sentence that names the part.
-A conflict is refused where `with` is the sender, has ended or is no Job's address, where `files` and `wire` are both empty, and where `mine`, `theirs` or `breaks` is empty.
-A landing question is refused where neither or both are named, and where the repository has no such pull request or local branch.
 
-**Fleet answers first, with no call.**
-A pull request the forge shows merged or closed is answered to the Job as a Fleet message, `held? #12: merged at 14:05.` or `held? #12: closed.`
-A branch has no such fact, so a branch always goes on.
+**Both arrive in the Operator's session.**
+It may answer in the Job's thread, or put up a card.
 
-**The rest is handed to the Operator while it is on.**
-The arrivals are `conflict:<a>:<b>`, the two addresses sorted, and `held:<repository>:<pull or branch>`.
-It may tell the Job or Jobs in its words, or raise the ask to Your turn, where the card is `OperatorTurnItem::conflict` or `held`.
-A call that rules nothing raises the ask, so no ask waits where nobody sees it.
+## How it acts
 
-**While it is off the ask is the sending Job's own item in Needs you.**
-`job_conflict` offers Tell the sender to change, Tell the other Job, and Hold both.
-`job_held` offers Land it and Hold it.
-His press sends the Job or Jobs it names a Fleet message that states his answer, and Fleet writes nothing to a forge.
+**It acts through Fleet's tools and its own acts.**
 
-**A second conflict between the same two Jobs folds into the open one.**
-Whichever Job raises it, the item stays the first one's and keeps "also raised by".
-A question asked again after it was answered is a new ask.
-
-### An error
-
-**It goes first, once.**
-It stands ahead of every waiting arrival that is not an error, and errors keep the order they came in.
-Its id is a fingerprint of its code and message less the numbers, ids and paths that differ between two of the same fault, with the machine's local day, so the same error is one item for the day.
-A Job it starts is briefed with every word the card carried.
-
-### The ways
-
-**A ruling is one way.**
-Start a new Job, send the words to an existing Job, raise it to the person, tell a Job its answer to a conflict or a landing question, link it to an open issue, file a new one, close one, group a new one with an open one, or for a note he sent to a Job himself, leave it.
-A way that names another Job names it and the paths they share, or Fleet refuses it.
-A way that names an issue names one the item was offered, or Fleet refuses it.
-
-**Close is asked, then ruled by his rules.**
-When a pull request a hosted Job held merges, Fleet looks in the same repository for open issues near its work that it did not name.
-An issue is near when its words name a path the work wrote, or share two uncommon words with the pull request's title and its Job's words.
-Where there is none, no call is made.
-Where there is one, a call reads it and may offer "Close #N, done by #M" as a go-ahead with its read.
-Yes, or a rule he kept, closes the issue through the repository's beads, and the Log row names the pull request.
-Nothing is written to the tracker without one of the two, and leaving it open writes nothing.
-
-**Group is asked the same way.**
-When a new issue arrives, Fleet offers the call the open issues near it, and the call may offer one of two groupings and says which.
-"Close #new as a duplicate of #open" closes the new issue, and its reason names the issue it repeats.
-"Put #new under #open" makes the new issue a part of the open one, writes only that link, and closes nothing.
-Only the new issue is ever written to, and the open one is left as it was.
-
-**Work on his other Macs is told, never waited on.**
-When a dispatch or a Job of the Operator's starts, Fleet weighs it against the live Jobs his other Macs share, as this Mac keeps their rows, and nothing else.
-A Job there is near on the same terms as one here: the same repository by manifest id, and a shared path, issue or two uncommon words.
-The new Job is told which Mac, which Job and what they share, after the person's own words, and a Log row names the Mac.
-Nothing holds, since no Job here can wait on a Job another Mac holds.
-A Mac asleep more than 2 hours is left out, and the Log row says which and for how long.
-A live Job's plan carries the Jobs on his other Macs whose plans name the same paths, as `other_macs`, and that list is never sent back out.
-
-**A change is a Log row, and an issue closed can be reopened.**
-Each close and group is a row of the Log that names the issue, and the pull request for a close.
-What a rule did is in Done as well, signed by the Operator.
-
-**The Operator starts no Job for another Job's work.**
-A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
-**A Job the Operator rules new starts at once, or held where the project says `ask_me`.**
-A new Job is no longer a go-ahead to press: the ruling starts it, on the project's `agent_starts` word.
-**His own dispatch goes to the Operator before any Job exists**, where it is on and seated.
-It starts a Job, folds the work into the live Job, keeps the work for later as an idea, or asks him on a card, Hand to or Keep both.
-**What he marks it as is a hint, and decides nothing.**
-The chips on the dispatch say what he thinks he is sending: an idea, a feature or a bug, or nothing.
-The Operator is told it in one line and still decides: start it, hand it to a live Job, ask, or keep it for later.
-A mark never picks a workflow and never changes the ways offered, and whether a call is made does not depend on it.
-The Operator makes the call even where no live Job is near, marked or not.
-The mark stays on the dispatch, so it rides onto the Job or the idea kept for later.
-With the Operator off, a dispatch starts at once as it would with no mark.
-**The ideas are Fleet's list**, since a Bridge that is closed when one is kept has no list to put it in.
-A start or a fold it rules is done at once, and a toast names the Job started or folded into.
-A late ruling, a failed call or an act that could not be carried out starts the Job as he asked, and a dispatch still kept when Fleet starts is started then.
-Where the Operator is off or not seated, the Job starts at once with no call.
-**A Job that starts on what a live Job holds is handed to that Job, after one go-ahead.**
-Fleet looks first: a start by a Job, by Autopilot or by him is put against the live Jobs in its repository, and only where one shares a path, an issue or two uncommon words is one call made.
-With no Job near it there is no call and no row.
-Hand to the live Job or Keep both is the go-ahead's pick, answered Yes, Always here, Always or No, and a kept rule hands it alone.
-Yes sends the brief to the live Job, tells the Job that started it where it went, and closes the duplicate.
-A Job's own start is held on its start card until he answers where `agent_starts` is `ask_me`, and otherwise begins; Autopilot's is set aside, then started as it was asked on No.
-**A Job he started himself is never held or closed unasked**: it starts, and Your turn carries the item.
-Every hand-over is a row of the Log signed by the Operator that names both Jobs, and the rule where one did it.
-Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had started a second "Rest of" Job while a subagent of the first still ran.
-
-**Merging two Jobs and keeping two in touch are not ways.**
-They acted on a Job's own events.
-
-**A Job's question is answered by a rule, never by a ruling.**
-The review call says, for each question, whether it is sure and what the question is about: a look, the plan's scope, work that could be lost, a departure from how Classic does it, or none of those.
-A question it is sure of, about none of those, with an option of its own and no destructive word in it, is offered as a go-ahead.
-Yes answers it with the pick, through the Job's list, as a press on the option does.
-Always here and Always keep the rule `question:answer`, and under it such a question is answered as it arrives and never queued.
-The Log row names the question, the option and the rule, and the Job's thread says the Operator answered it and with which option.
-Every other question is queued for the person with the Operator's read and pick.
-A permission card is the person's, or Autopilot's while he is away.
-Where the Operator is on and a rule covers questions, Autopilot leaves them alone, including the ones the Operator was not sure of.
-
-**An answer of his that already covers a question is a second way.**
-Fleet keeps each answer the person gives to a Job's question, and the review call reads his newest 200 and his settings.
-Where it is sure, finds the question about nothing he would see, and names the answer of his in the same project, or the setting, that settles it, Fleet checks the citation.
-An answer must be one kept for the item's repository or for one in a project with it, and a setting must be one he saved with that value.
-Under the rule `question:precedent` the question is answered as it arrives, and the Job's thread says which answer it followed.
-Without the rule the question is queued as a go-ahead with the citation beside it, Always here and Always keep the rule, and Yes answers only that one.
-An answer given in his place is never kept, so the Operator never follows itself.
-Each such answer of the last seven days can be taken back: Undo tells the Job the answer is withdrawn and puts the question on its list as his, with the same options, which the Operator never answers again.
-
-| Role | What it does |
+| Act | Does |
 |---|---|
-| Evaluate | Reads the arrival and picks a way. It is the Operator's own switch, and ships Off |
-| Dispatch | Starts a Job on work nobody holds |
-| Delegate | Sends words to a live Job whose work they belong to |
-| Raise | Puts the item in Needs you with the Operator's read and its pick |
-| File | Files a new issue for a note or an error no open issue covers. It only ever creates |
+| `raise_card` | Puts a card in the queue: `kind` (`deal` or `raise`), `title`, `read`, two to four `options` each with a `label` and a `cost`, the first its pick, and optionally `sessions`, `repository` and `talk_of` |
+| `revise_card` | Changes a standing card's read or options |
+| `settle_card` | Closes a card with what was said |
 
-**Fleet's rules decide first and only narrow.**
-An item Fleet's rules leave one way is ruled with no call.
+Only the Operator's session may call these.
+A card's id is what the press, Later and the composer name.
 
-### Fail open
-
-**A call that fails passes the item on untouched.**
-So does one that answers what cannot be read, one that rules what Fleet did not offer, and one with no ruling in time.
-An item waits at most 60 seconds for its ruling before it pulses in Needs you with no read.
-
-**Every item that needs a call passes on while the week's plan is used to the share set in `limits.operatorPlanPause`.**
-It is read as Autopilot reads the week, and no reading of the plan is no pause.
-A message is refused with `fleet.operator_paused` then, and a ruling that comes back after its item passed on is dropped.
-
-**Nothing is dropped.**
-Why: an item the Operator never rules on is one the person never sees.
-
-**Turning the Operator Off is main before the Operator.**
-No call process is kept started and nothing is handed to it.
-An end and a merge are still heard once, so none is told when it comes on.
-
-### Reviewing work before you see it
-
-**Each project says how its Jobs' plans, pull requests and walks are read before they reach Your turn.**
-The setting is `reviews` in the project's values, a kind at a time, and everything is Off until a layer sets it.
-A Job reads the `reviews` it froze when it started, so a setting changed since never changes how its own work is read.
-
-| Mode | The item |
-|---|---|
-| Off | Reaches Your turn as it does without this |
-| Review | Is read by one call, and reaches Your turn with the findings as its read and a pick |
-| Review and approve | As Review, and a plan found clean is approved, and a pull request found clean is let land, without you |
-
-**A walk takes Off or Review only.**
-A walk is yours to look at, so the setting has no word that approves one.
-
-**A review is one reading call on `models.review`.**
-It reads the plan, or the diff of the Job's branch against its base, with the Job's brief.
-It is skipped for a diff that touches only docs and tests, and the item reaches Your turn with no read.
-Text from a Job, a plan or a diff is data to it, never an instruction.
-
-**Fail open.**
-A call that cannot be made or read queues the item with no read, and nothing is approved.
-Findings of any kind queue the item with them, and nothing is approved.
-
-**An approval is the one your press makes.**
-A plan found clean goes through the same route as Approve on its card, the Job is told, and the Log names the setting, such as Review and approve, plans.
-It shows in What I handled as done by a setting.
-A pull request found clean is let land by asking the forge to merge it once its checks pass, as Auto land does, with no approving review and no comment.
-If the forge refuses, the item is queued for you with the read and the refusal, and it is not asked again.
-A pull request whose Job's plan marks work you would see, or carries a walk, is queued as Walk it first, and is not let land.
-
-### Talking to it
-
-**Words typed in its box are read before anything is started.**
-Fleet decides whether they are a thought for a Job already running, a question, or work to start, and there is no key to say which.
-
-**A thought for a Job is routed by a shortlist first** (`fleet::operator::shortlist`).
-The local language model reads the words against every live Job's title, and a clear match is routed at once: the best Job scores 0.78 or more and leads the second by 0.10 or more.
-Otherwise the words and every live Job in every repository go to the proposer's model, which answers one line of JSON naming a Job or none, and an id it was not offered is no match.
-The local read is skipped for words that end in a question mark or run past 300 characters, and until the language model is loaded.
-If anything fails the words are not a match, and the call is given up after twenty seconds.
-The measure is `../spikes/thought-routing-by-model.md`.
-
-**A message that is a question is answered by a call that reads.**
-It is a scout's process on the `models.operator` model: `--restricted`, a strict MCP config naming no server, and Read, Grep and Glob allowed with every other tool denied.
-For each message Fleet writes a folder of plain text under its runtime home, never in a repository, and removes it when the call answers.
-The folder holds a file for each live Job with its title, plan, open tasks, what waits on the person in full and the last 40 messages of its thread, and a file of the open issues.
-The call also reads the checkouts of the repositories Fleet hosts, read only, in at most 16 turns and 150 seconds.
-`crates/fleet/src/operator/looking.rs` and `reading.rs`.
+**It writes to a forge only to land a pull request.**
+It never comments on, labels or edits an issue or a pull request for you.
 
 **It reads across repositories.**
-The work a thought belongs to is often in another repository, and one Operator serves the machine.
+The work a thought belongs to is often in another repository, and one Operator serves the Mac.
 
-**Delegate sends words with `tell_session`.**
-It goes through the composer's send, so a Job that has ended is refused in the same words and nothing is recorded.
-A send that was taken appends a `sent` row to the receiving Job's thread, and is published as `operator.words_sent`, naming where the words went and never the words.
+## With the session not running
 
-**Work asked for becomes a Job started on the person's words.**
-Authoring a workflow, driving a [Studio](studio.md) and breaking a goal into Jobs are each a Job the Operator starts, and it does none of them itself.
-`../journeys/talk-to-the-operator.md` is how it is used.
+**Fleet then does what it did with the Operator off.**
+The switch, a session that has not started yet and one that has ended all read the same.
 
-### A Job on your words
+| Arrives | What happens |
+|---|---|
+| A dispatch | The Job starts as he asked, with its sends |
+| A conflict or a landing question | It stands in the sending Job's own Needs you, as `job_conflict` or `job_held` |
+| A report, a note, an error, an issue and a red main | Nobody is told, and each stays where it is kept |
+| His words in the composer | Refused with `fleet.operator_session_not_running`, since nothing would hear them |
+| A press on a card | Refused with the same code, and the card stands |
 
-**A Job started on the person's words is a plain [Job](session.md).**
+**Fleet's own items stay.**
+A red main nobody is on and a disk hold are in Your turn whether or not the session runs.
+
+## Holds
+
+**The one standing order is a hold.**
+`hold <paths> until <Job> pushes|ends` refuses every other Job's write under those paths, which Fleet's gate enforces on each file-tool write.
+He says it in the talk, the Operator names the form it understood, and it stands only when he confirms.
+He can ask for the holds that stand, and ask it to lift one.
+A lift is carried out at once and the Log keeps a `hold_lifted` row.
+A hold is let go on its own when its Job pushes or ends.
+
+## A Job on your words
+
+**A Job started on a person's words is a plain [Job](session.md).**
 It leases a slot and cuts a branch on its first write, runs in Auto, and is told nothing extra.
 Its record carries `SessionRecord.on_your_words`.
 
@@ -329,94 +181,27 @@ It may add a proposed node and propose an edge without an ask, and starts a [Sco
 `fleet::auto_gate` decides what runs and what goes to the person on a card, and `fleet::asks` holds a card until it is answered or `timeouts.askHoldSeconds` passes.
 `session/a-job-fleet-hosts.md` owns the gate.
 
-## What is being built, and in what order
+## What went
 
-**Not built.**
-Each step is its own Job, and the order is the order of the table.
+**These go from the Operator.**
+Why: they made it a Policy that made one call per arrival and a board of levels to tune, where the person wants one agent that watches and answers.
+The code that served them is removed, and Fleet rules nothing now.
 
-| Step | What it gives | Built |
+| Went | What it was | Replaced by |
 |---|---|---|
-| Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
-| Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
-| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Partly. Routine Job questions and reviews are built |
-| Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
-| The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
+| The Policy and its one-shot call | A fresh call for each arrival, with no tools | One long-running session with Fleet's tools |
+| Your turn rulings | Each arrival ruled into a way: start, send, raise, file, close, group, leave | The Operator acts by the project's `operator_acts` and raises a card for what is yours |
+| Rulings from precedent | A question answered by following one of his earlier answers, with Undo | None. A question stays in its Job's Needs you |
+| Kind chips | Idea, feature or bug marked on a dispatch as a hint to route it | Nothing routes by it |
+| Auto-starts from reports | A bug report ruled into a Job at once | The report reaches the Operator as a message |
+| The per-item review | A reading call on each plan, pull request and walk before it reached Your turn | None. A plan, a pull request and a walk wait in their Job's own Needs you |
+| Yes, Always here, Always and No | Four answers to each go-ahead, and the rules kept from them | Options on a card, and `operator_acts` for each project |
+| Learned rules and the digest's tiles | Each project's kept rules, and Landed, What I handled, Running and Coming up | The feed, for what happened, and `operator_acts` for what it keeps |
+| The queue board, Permissions tab, Read-only, Suggest and Decide, `role_off` and `always_raise` | Positions and standing orders for each role | `operator_acts` |
+| Suggestion cards with Do it and Skip, and Overrule | A ruling that acts waited on one press | A card with options, and the talk |
+| The Your turn list, dragged into order | The short list he ordered | One card in front, and Waiting behind it |
 
-**What raises and what asks is one rule.**
-Whatever needs the person, the Operator reviews first and raises with its read and a pick, so nothing sits in a list.
-Every act is asked, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
-A rule you kept covers the act, this repository's first, then a project that holds it, then every repository's, and Fleet does it as it is raised.
-Always here on a page filtered to a project keeps the rule for that project, and for every repository it holds.
-The Log row says by which rule.
-No is for this time only.
-Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, handing a start over, a red main's fix and answering a Job's question are acts.
-A link to an open issue writes nothing and is not asked.
-Raising, leaving a note where it is and noting it are not acts.
-
-**Its page is a queue the person works through, with a digest beside it.**
-Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
-- The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
-  It sits in grey under the day and the pills, with nothing on it to press, and only a red main's pill keeps its colour (11 Nov).
-  The pills are each repository's main and the slots held; the week's plan is not one of them, since the title bar's rings show it on every page (12 Nov).
-- Your turn is the short list, in an order the person drags.
-  On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
-  One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
-  The rest are one line each. A row pressed low opens its card where it stands, and nothing reorders (12 Nov).
-  The pick's button reads the option it names, Later, or My pick, with the Operator's sentence in its tooltip, never on the button (12 Nov).
-  Later opens a menu of when the item comes back, each choice with its time: 1 hour, 3 hours, Tomorrow morning (09:00) and Next week (Monday 09:00). The item goes last until then, its row's clock saying when; a time Fleet refuses as passed puts the item back open with Fleet's why. A Later pick answered Yes, and a toast's Later, keep it for the rest of the day (12 Nov).
-  An ask other Jobs raised too is folded into the first, and a mark beside its title names them in its tooltip.
-- An answered item leaves Your turn at once for Answered today, folded at the foot, with what came of each; it is drawn only once something was answered on the person's local day, and has no Undo (12 Nov).
-  An item whose act Fleet leaves to him to open stays out of Your turn too, though Fleet keeps it until he opens it.
-  A refused answer puts the item back open with Fleet's why under it; a reply that never arrives puts it back and raises a failure toast with Retry.
-- Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
-- A go-ahead to file an issue is one row of outcomes, each naming what happens: File it, File and start a Job, File and hand to a live Job already on the same files, and Don't file (12 Nov).
-  The Operator's pick is filled with the pick glyph, its read in the tooltip; 1 to 3 press an outcome and D is Don't file.
-  Always here and Always leave this card and are offered after he answers.
-- Ask on an item opens the chat about that item inside its card, and the digest stays beside it (11 Nov). The chat holds conversation only; a raise is an item of Your turn, never a chat line.
-- The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
-  Running, Learned and Holds put their rows under each project's heading, Everywhere first, and a rule or hold takes two lines before it is cut (11 Nov).
-  The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.
-- A new item during the day joins the queue and raises a toast whose pick button settles it.
-- A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
-  Where a live Job took the last red, or its paths meet the files of the merge before this one, the item offers Hand to that Job beside Start a fix, with the Operator's pick; Yes on it claims the red for that Job and tells it, and Always here keeps the pick as the rule.
-  He may press the other option instead, and a rule he keeps with it keeps that option.
-
-The pane opened from a Job holds the chat and the short list.
-It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.
-The Electron Bridge no longer shows the Operator, decided 10 Nov, and the native Bridge draws its page.
-
-## What goes
-
-**These go from the native Bridge's Operator.**
-Why: they made the Operator a board to read and levels to tune, where the person wants one agent that watches and answers.
-
-| Goes | What it is today | Replaced by |
-|---|---|---|
-| The Queue board | The panel's list of what is waiting and what is next | The short draggable list |
-| The Permissions tab | A tab setting each role's position | Asks, and the page of what it learned in each project |
-| Read-only, Suggest, Decide | A position for each role, per repository | Gone from Fleet. Asks |
-| `role_off` and `always_raise` | Standing orders confirmed in the box | Gone from Fleet. Asks, and what it learns. An old one stays in the store and stands for nothing |
-| Suggestion cards with Do it and Skip | A ruling that acts waits on one press | A raise with a read and a pick |
-| Overrule | A person's press against a ruling | What the person says in the chat |
-
-**Until each goes, it behaves as it does now.**
-Every ruling is a row of the Log, signed by the Operator, and the call reads each repository's last rulings with the person's corrections beside them.
-A ruling that acts waits on his go-ahead unless a rule he kept covers it, so no note is filed, started or sent to a Job unasked.
-Autopilot's answers are the rows of the Log that are answers.
-
-**The one standing order is a hold.**
-`hold <paths> until <Job> pushes|ends` refuses every other Job's write under those paths, which Fleet's gate enforces on each file-tool write.
-He says it in the chat, the chat names the form it understood, and it stands only when he confirms.
-He can ask for the holds that stand, and ask the chat to lift one.
-A lift is carried out at once and the Log keeps a `hold_lifted` row that says it was lifted on his word.
-A hold is let go on its own when its Job pushes or ends.
-
-**A rule is forgotten the same way.**
-He asks the chat to forget a rule, or presses forget on it in Learned.
-The next act it covered asks again.
-The chat is handed the rules and holds that stand, each with its number, and can name only one of those.
-The digest lists the holds in Holds, beside Learned.
-Learned holds rules only.
+The measure of the one-shot rulings is `../spikes/operator-replay.md`.
 
 ## What became of Helm
 
@@ -425,16 +210,11 @@ The Operator replaced it.
 
 | What Helm did | What happens now |
 |---|---|
-| One live Job per repository, with a slot and a branch on its first write | Gone. No Operator Job runs |
-| Its talk box | The native chat, once built |
-| Questions waiting on you in the dock | Stay in Needs you, with the Operator's read and pick |
-| Authoring a workflow, driving a Studio, breaking a goal into Jobs | Each is a Job the Operator starts on your words |
-| Its title matching and `tell_session` | Kept, as the first shortlist of Jobs and the way Delegate sends words |
+| One live Job per repository, with a slot and a branch on its first write | One Operator session per Mac |
+| Its talk box | The composer under the card |
+| Questions waiting on you in the dock | Stay in Needs you |
+| Authoring a workflow, driving a Studio, breaking a goal into Jobs | The Operator starts a Job for it, or does it |
 | Its old threads | Stay readable as ended Jobs. Nothing is deleted |
-| One Helm per repository | One Operator per machine |
-| Autopilot's own loop, and its answers HUD | Folded in. The answers are rows of the Log |
-| A Job started by a Job waits on its start card | It begins at once unless the project says `ask_me`. The Operator takes no start of a Job's own |
-| Fleet never writes to the forge for you | File creates new issues, Close and Group close or move one in beads, and nothing else changes. On a tracker with a forge it needs a yes |
 
 **The old threads read as they did.**
 A `sent` row, `SessionRow::Sent`, stays in the row set so a thread that holds one still draws.
@@ -447,9 +227,10 @@ A call from a process Fleet does not host is denied at once.
 
 | Setting | Scope |
 |---|---|
+| `operator_acts`, what it may do unasked, one of `act_then_tell`, `ask_before_starting` and `only_when_told` | Project, read and set from the page's wire |
 | `operator`, the Operator's own switch | Machine |
-| `operator-model`, `sonnet`, never the proposer's cheap tier | Machine |
-| `limits.operatorPlanPause`, the share of the week's plan where it stops making calls | Machine |
+| `operator-model`, `sonnet`, the model of its own session, never the proposer's cheap tier | Machine |
 | `features.onYourWordsCanAct` | Machine |
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.
+The wire is `../practices/protocol/the-operators-page-fleet-keeps.md`, and `../journeys/talk-to-the-operator.md` is how it is used.

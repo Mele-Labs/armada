@@ -50,6 +50,8 @@ pub struct MockFleet {
     /// Whether a repository's copy has its workflow lane drawn from its text, as Fleet draws it: the walk of choosing what
     /// to take sets it, where the other walks keep the lanes file's steps.
     pub lanes_from_text: bool,
+    /// The claims store each project names, and the calls the page made on them (`mock_store.rs`).
+    pub stores: super::mock_store::MockStores,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -140,6 +142,7 @@ impl MockFleet {
             handed: Vec::new(),
             job_projects: vec![("mock-02", "armada")],
             lanes_from_text: false,
+            stores: super::mock_store::MockStores::new(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };
@@ -607,6 +610,18 @@ impl MockFleet {
         }
         one.shared_with_macs = on;
         Ok(self.projects.clone())
+    }
+
+    pub fn project_store(&self, project: &str) -> Result<ipc::ProjectStoreState, Refused> {
+        self.stores.read(project)
+    }
+
+    pub fn set_project_store(&mut self, project: &str, store: Option<ipc::JoinStore>) -> Result<ipc::ProjectStoreState, Refused> {
+        self.stores.set(project, store)
+    }
+
+    pub fn deploy_project_store(&mut self, project: &str, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refused> {
+        self.stores.deploy(project, deploy)
     }
 
     /// `set_project_workflow`: off adds the id to the project's list, on takes it away.

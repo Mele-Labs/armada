@@ -12,7 +12,6 @@ pub mod autopilot;
 pub mod lifecycles;
 /// The Operator's own apparatus: the three Jobs of the 3 Nov report, a scripted call and a Fleet
 /// held in memory. See its own header.
-pub mod operator;
 /// Started Jobs' own apparatus: a parent, the Jobs it started, one of theirs and another parent's, held
 /// as the records Fleet would have served. See its own header.
 pub mod started_jobs;

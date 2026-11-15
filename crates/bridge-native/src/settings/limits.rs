@@ -31,7 +31,7 @@ pub const GROUPS: &[Group] = &[
     Group {
         name: "Agents",
         glyph: "bot",
-        keys: &["limits.standingRulesKib", "limits.operatorPlanPause", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
+        keys: &["limits.standingRulesKib", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
     },
     Group { name: "Ports", glyph: "network", keys: &["limits.portRangeBase", "limits.portBlockGranule"] },
 ];
@@ -605,7 +605,7 @@ mod tests {
     #[test]
     fn every_key_of_the_map_is_in_one_group_and_the_counts_are_in_the_map() {
         let all: Vec<&str> = GROUPS.iter().flat_map(|group| group.keys.iter().copied()).collect();
-        assert_eq!(all.len(), 16);
+        assert_eq!(all.len(), 15);
         let mut once = all.clone();
         once.sort_unstable();
         once.dedup();
