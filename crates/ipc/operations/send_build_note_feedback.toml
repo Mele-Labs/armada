@@ -1,0 +1,16 @@
+[operations.send_build_note_feedback]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Send the owner's words on a preview note to its Job, or to a new Job where that one has ended"
+notes = """
+`POST /fleet/build/notes/feedback`, body `SendBuildNoteFeedback {branch, tip, words}`, the `branch` and `tip` of a note of `get_build_notes`. Answered `BuildNoteFeedbackSent {session_id, started}`.
+
+**Where the note's Job is live**, the words reach its thread as a message from him, as a walk's note does: `On your preview note "<about>": <words>`. `started` is false and `session_id` is that Job.
+
+**Where it has ended**, Fleet starts a new Job in the same repository, **running at once, as his own start from the dispatch sheet is**, since the press is his. Its request carries his words, the ended Job's title, the note's `look` and `steps`, and the branch and tip, so the new Job starts from what he saw. `started` is true and `session_id` is the new Job.
+
+Refused 404 `fleet.build_note_unknown` for a (branch, tip) with no note, and 422 `fleet.build_note_words_empty` for words with nothing in them.
+
+`agent_access` is `No`, and from inside a Job the route is a 403 `api.the_persons_own`: the owner's press starts the Job.
+"""

@@ -34,6 +34,7 @@ mod answer_items;
 mod asking_in_window;
 mod draft_documents;
 mod artifacts;
+mod artifact_parts;
 mod page_actions;
 mod page_votes;
 mod page_sealed;

@@ -92,6 +92,22 @@ where
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
+        // **One open artifact per Job**: a page that asks, written while one still asks him, is a part of it. A page
+        // that joined one keeps it across its revisions.
+        let kept_in = {
+            let store = self.store().lock().await;
+            store
+                .attachments_of(&store::Holder::session(id))
+                .ok()
+                .and_then(|held| held.into_iter().find(|one| one.kind == "artifact" && one.target == path))
+                .and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned())
+        };
+        let joins = match (kept_in, asks) {
+            (Some(root), _) => Some(root),
+            (None, true) => self.artifact_joined(id, adapters::HOSTED_HARNESS, path, &title_of(html, path), false).await.ok().flatten(),
+            (None, false) => None,
+        };
+        detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);

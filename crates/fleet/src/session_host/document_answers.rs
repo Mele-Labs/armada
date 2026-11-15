@@ -81,6 +81,8 @@ pub(crate) fn document_items<'a>(
     attachments
         .iter()
         .filter(|one| in_front_of_him(one, dismissed))
+        // A page that joined an artifact is asked for by the artifact.
+        .filter(|one| super::artifact_parts::joined_of(attachments, one).is_none())
         .map(move |one| WaitingItem {
             approves: false,
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),

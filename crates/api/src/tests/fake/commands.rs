@@ -106,6 +106,16 @@ impl Commands for FakeDaemon {
         Ok(ipc::PreviewRefreshSkipped { id: asked.id })
     }
 
+    /// Answered with the notes [`shapes::build_notes`] describes; nothing is kept.
+    async fn mark_build_note_looked_at(&self, _asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
+        Ok(crate::tests::shapes::build_notes())
+    }
+
+    /// Answered as sent to a live Job; nothing is sent.
+    async fn send_build_note_feedback(self: std::sync::Arc<Self>, _asked: ipc::SendBuildNoteFeedback) -> Result<ipc::BuildNoteFeedbackSent, Refusal> {
+        Ok(ipc::BuildNoteFeedbackSent { session_id: ipc::SessionId::carried("01JOB"), started: false })
+    }
+
     /// Counted and answered; nothing swaps.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         *self.swaps.lock().expect("not poisoned") += 1;

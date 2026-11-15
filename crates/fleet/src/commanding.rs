@@ -124,6 +124,16 @@ where
         self.preview_refresh_skipped_now(asked).await
     }
 
+    /// Mark a note of the build looked at — [`crate::build_noting`].
+    async fn mark_build_note_looked_at(&self, asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
+        self.build_note_looked_at(asked).await
+    }
+
+    /// His words on a note, to its Job or to a new one — [`crate::build_noting`].
+    async fn send_build_note_feedback(self: Arc<Self>, asked: ipc::SendBuildNoteFeedback) -> Result<ipc::BuildNoteFeedbackSent, Refusal> {
+        self.build_note_answered(asked).await
+    }
+
     /// Start the swap onto the snapshot — [`crate::building`]. **Not `budgeted`**, `revert_fleet_build`'s reason.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         self.swap_fleet_build_now()

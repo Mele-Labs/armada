@@ -79,60 +79,77 @@ any other `>`, a `$(` or a backtick, or a quote left open is a write. `sed -n` w
 address and `p` (`sed -n 10,40p file`) reads; every other `sed` is a write.
 [Spike 24](../../spikes/024-how-does-a-session-move-into-a-slot-at-its-first-write.md).
 
-**A full pool queues the job, and asks the owner what to do about it.** Every
+**A full pool queues the job, and nobody is asked.** Every
 slot held, the write is refused with the job's place in its repository's
 line and the instruction to end the turn and say nothing to the owner about it.
 **While a job waits for a slot Fleet tells it nothing**, whether it is in the line
 or its `armada worktree lease` is still asking: every notice for it reads as unheard,
-so its caller tells it once the job is moved in, and its quiet is no stop. The line is in Fleet's memory, first come first served, and a job is in
+so its caller tells it once the job is moved in, and its quiet is no stop.
+The line is in Fleet's memory, first come first served, and a job is in
 it once; a job behind others is not leased a slot a moment before the one
-ahead of it. **The owner's call is `slot_choice`**, a derived waiting item with
-id `slot-choice`, text *Every slot is in use* and two options, *Wait for a slot*
-and *Add a slot*, raised when the job joins the line and gone when he answers
-or the job leaves. A job resumed onto a full pool raises it at once, before
-any write. **Wait** leaves the job where it is in the line: when a slot is given
+ahead of it.
+**Waiting is the default, and it raises no Needs-you item.**
+The job's record carries `slot_wait` while it is in the line or its command is asking: since when, how many jobs are ahead of it, and the slots that could be freed.
+A job resumed onto a full pool is in the line at once, before any write.
+When a slot is given
 back, Fleet leases one for the head of the line, writes the lease as it would for a
 first write and moves the job into it, whether or not its refused turn has ended:
 an idle job is resumed at once, one still finishing the turn is moved as that turn
-ends, and either waits for agents still working (below, where a process's agents are working). **Add** answers at once and makes the slot after: the pool list gains a slot, its
+ends, and either waits for agents still working (below, where a process's agents are working).
+**Add** is the owner's, from the wait.
+It answers at once and makes the slot after: the pool list gains a slot, its
 checkout is made holding nothing, and the slot is leased to **that** job, not to the
-head of the line. The repository is marked as making a slot meanwhile, so the grant and
-a newcomer's first write leave the new slot to the job that asked. The call stays, with
-`creating_since`, so the wait can be read from it and a screen that is left and come
-back to still shows it; a second Add while one is out changes nothing, and Wait takes the
-call off while the slot is still made and still goes to that job. A slot that cannot be
-made is taken out of the pool list again, and the call returns with `create_refused`
-holding Fleet's words. **Free** is the call's third act, and only the owner's: the call
+head of the line.
+The repository is marked as making a slot meanwhile, so the grant and
+a newcomer's first write leave the new slot to the job that asked.
+The wait stays, with `creating_since`, so the making can be read from it and a screen that is left and come
+back to still shows it; a second Add while one is out changes nothing.
+A slot that cannot be
+made is taken out of the pool list again, and the wait carries `create_refused`
+holding Fleet's words.
+**Free** is the owner's second act: the wait
 lists, in `holders`, each slot a job Fleet hosts holds, longest quiet first, and `free_slot`
 parks that holder as a release of its bay does and leases the slot to the waiting job ahead
-of the line. A holder whose turn runs, or whose checkout holds files no commit has, is not
+of the line.
+A holder whose turn runs, or whose checkout holds files no commit has, is not
 offered (`keeps`) and is refused again at the press; the holder stays live with no slot and
-leases another when it next writes. **Fleet never frees a slot by itself**, however long
-its holder has been quiet. A Free works while a slot is being made: the job goes on with
-the freed slot and the new one stays free for the next in line. The rows are read when a
-job joins the line and every 15 seconds while a call is open, not on every publish, and a
-slot a terminal or a person holds has no row. A slot freed before he
-answers goes to the head as it always did, and the call goes with it. A slot is given
+leases another when it next writes.
+**Fleet never frees a slot by itself**, however long
+its holder has been quiet.
+A Free works while a slot is being made: the job goes on with
+the freed slot and the new one stays free for the next in line.
+The rows are read for every job in the line, when it joins and every 15 seconds while any waits, not on every publish, and a
+slot a terminal or a person holds has no row.
+A slot freed by anything else goes to the head as it always did.
+A slot is given
 back by a job closing or its
 terminal ending, a release or rescue from
 Cleanup (a release of a bay a hosted Job holds is refused while its turn runs, and otherwise gives back its slot and branch rows), and the pool growing or a slot reopening; a slot freed where Fleet is
 not told, as `armada worktree release` frees one, is found by a look every 15
 seconds while anyone waits. A job that ends, or is leased a slot another way,
 leaves the line, and a Fleet that restarts forgets it: the job's next write
-joins again and he is asked again. A terminal job is not queued, because
+joins again.
+A terminal job is not queued, because
 `armada worktree lease` waits for a slot itself.
+The wire is in [A full pool shows a wait](../../practices/protocol/a-full-pool-shows-a-wait-slot-wait.md).
 
-**`armada worktree lease` run by a hosted Job asks the owner the same question.**
+**`armada worktree lease` run by a hosted Job waits the same way.**
 Finding every slot held, the command tells Fleet (`ask_for_slot`, naming the Job by the
 `ARMADA_SESSION` Fleet set in its process) and again about once a second, and says on stderr
-what the owner chose. It raises the Job's one `slot_choice` call, or shares the one a
-queued write already raised: never two. **Wait** leaves the command looking for a free slot, as it
-always did. **Add** makes a slot and holds it for the command until it leases it or about
+that it waits and that the owner can add or free a slot.
+It sets the Job's one `slot_wait`, or shares the one a
+queued write already set: never two.
+The command keeps looking for a free slot, as it
+always did.
+**Add** makes a slot and holds it for the command until it leases it or about
 thirty seconds pass; the grant to the line leaves that repository alone meanwhile, and a write
-that would take the slot straight off the pool queues instead. Where the Job is also in
-the line, the new slot goes to the Job and the command keeps waiting. Fleet forgets a command
-it has not heard from for ten seconds, taking the call with it, so one that died leaves nothing
-on the owner's list. A command with no `ARMADA_SESSION`, or no Fleet to ask, waits as it always did.
+that would take the slot straight off the pool queues instead.
+Where the Job is also in
+the line, the new slot goes to the Job and the command keeps waiting.
+Fleet forgets a command
+it has not heard from for ten seconds, taking the wait with it, so one that died leaves nothing
+on the Job's record.
+A command with no `ARMADA_SESSION`, or no Fleet to ask, waits as it always did.
 Nothing moves the Job: the command takes the slot itself.
 
 **What the write gate covers.** A slot lives under the main checkout's path, so

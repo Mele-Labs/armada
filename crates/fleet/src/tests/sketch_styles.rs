@@ -580,9 +580,10 @@ async fn a_shown_mock_carries_the_hash_of_its_styles_and_keeps_that_look_across_
     assert!(std::fs::read_to_string(&revisions[0]).unwrap().contains(&first), "the first revision keeps its hash");
 
     let record = rig.fleet.show_sketch(None, drawn(&id, "Card two", &mock_scene(styles, ""), Some("Card"))).await.unwrap();
-    let against = record.attachments.iter().find(|one| one.target == "sketch:Card two").unwrap().detail["against"].clone();
+    // Drawn against `Card`, it is that sketch's next revision, retitled, so it is kept under the first title.
+    let against = record.attachments.iter().find(|one| one.target == "sketch:Card").unwrap().detail["against"].clone();
     assert!(against.contains(&second), "the sketch it is read against keeps its look: {against}");
-    assert!(scene_of(&record, "Card two").kept.is_some());
+    assert!(scene_of(&record, "Card").kept.is_some());
 }
 
 #[tokio::test]

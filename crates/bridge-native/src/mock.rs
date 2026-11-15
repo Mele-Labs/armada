@@ -72,6 +72,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.
+        "delivery-line" => include_bytes!("../fixtures/jobs-delivery-line.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
         "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
@@ -128,6 +130,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
         // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
         "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs, Audit the docs index waiting for a worktree slot, second in line (`slot_wait`).
+        "slot-wait" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => include_bytes!("../fixtures/jobs-screens.json"),
@@ -316,6 +320,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
+    if scenario == "slot-wait" {
+        slot_wait(&mut sessions);
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -328,6 +335,27 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
 }
 
 /// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
+/// Audit the docs index waits for a slot, second in line for twelve minutes. Native Bridge foundation holds slot 9 and
+/// has been quiet forty minutes, so Free offers it; Pocket sign-in holds slot 4 and is working, so Free leaves it.
+fn slot_wait(sessions: &mut [SessionRecord]) {
+    let ago = |minutes: i64| crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(minutes));
+    let holder = |slot: u32, id: &str, title: &str, quiet: i64, keeps: Option<ipc::SlotKeeps>| ipc::SlotHolder {
+        slot,
+        job: ipc::SlotHolderJob { id: id.to_string(), title: title.to_string() },
+        quiet_since: ago(quiet),
+        keeps,
+    };
+    if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
+        one.slot_wait = Some(ipc::SlotWait {
+            since: ago(12),
+            ahead: 1,
+            holders: vec![holder(9, "mock-02", "Native Bridge foundation", 40, None), holder(4, "mock-05", "Pocket sign-in on the phone", 2, Some(ipc::SlotKeeps::Running))],
+            creating_since: None,
+            create_refused: None,
+        });
+    }
+}
+
 fn claim_waits(sessions: &mut [SessionRecord]) -> Result<(), String> {
     #[derive(Deserialize)]
     struct Held {
@@ -542,7 +570,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" | "slot-wait" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -579,6 +607,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        "delivery-line" => include_bytes!("../fixtures/delivery-line-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
