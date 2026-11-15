@@ -4,7 +4,9 @@
 use gpui::{div, prelude::*, AnyElement, Context, Div, Focusable, FontWeight, Role, SharedString, Window};
 use gpui_component::input::Textarea;
 
-use super::{looked, mark, send_label, short, step_lines, BuildNotesSheet, STARTS_WITH};
+use ipc::NoteVerdict;
+
+use super::{looked, mark, send_label, short, step_lines, verdict, BuildNotesSheet, STARTS_WITH};
 use crate::generated::actions::ActionScope;
 use crate::keymap::{self, Act, TEXT_BOX};
 use crate::labels::labelled;
@@ -91,7 +93,7 @@ impl BuildNotesSheet {
             .enumerate()
             .map(|(i, note)| {
                 let seen = looked(note, &self.marked);
-                let state = mark(seen);
+                let state = mark(seen, verdict(note, &self.marked));
                 let chosen = at == Some(i);
                 let ink = look.color(state.hue);
                 let title: SharedString = note.title.clone().into();
@@ -168,7 +170,7 @@ impl BuildNotesSheet {
         let look = cx.look();
         let Some(note) = self.note() else { return div().id("build-note-pane").flex_1().into_any_element() };
         let ended = note.job_ended;
-        let seen = looked(note, &self.marked);
+        let good = verdict(note, &self.marked) == Some(NoteVerdict::Good);
         let title: SharedString = note.title.clone().into();
         let heading = div()
             .flex()
@@ -278,14 +280,22 @@ impl BuildNotesSheet {
             .when(self.send_focus.is_focused(window), |button| button.border_color(look.color(token::FG_DEFAULT)))
             .when(worded && !self.sending, |button| button.on_click(cx.listener(|this, _, window, cx| this.send(window, cx))))
             .child(kbd(keymap::shown("send_message"), look));
-        let marked = Btn::new("build-note-looked", "Looked at", Weight::Secondary)
+        let marked = Btn::new("build-note-good", "Good", Weight::Secondary)
             .icon("check")
-            .disabled(seen)
+            .disabled(good)
             .draw(look, cx)
-            .track_focus(&self.looked_focus)
-            .when(self.looked_focus.is_focused(window), |button| button.border_color(ring))
-            .when(!seen, |button| button.on_click(cx.listener(|this, _, window, cx| this.mark_looked(window, cx))))
+            .track_focus(&self.good_focus)
+            .when(self.good_focus.is_focused(window), |button| button.border_color(ring))
+            .when(!good, |button| button.on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::Good, window, cx))))
             .child(kbd(keymap::shown("build_note_looked"), look));
+        // Never off: on a note already marked so, it still puts the keys in the box.
+        let needs_work = Btn::new("build-note-needs-work", "Needs work", Weight::Secondary)
+            .icon("circle-alert")
+            .draw(look, cx)
+            .track_focus(&self.needs_work_focus)
+            .when(self.needs_work_focus.is_focused(window), |button| button.border_color(ring))
+            .on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::NeedsWork, window, cx)))
+            .child(kbd(keymap::shown("build_note_needs_work"), look));
         let refusal = self
             .refused
             .clone()
@@ -309,7 +319,7 @@ impl BuildNotesSheet {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Looked at")))
+                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Good")).child(labelled(needs_work, Role::Button, "Needs work")))
                     .children(ended.then(|| subtle(STARTS_WITH)))
                     .children(refusal),
             )
@@ -334,7 +344,8 @@ impl BuildNotesSheet {
             .child(one("↑↓".into(), "Note"))
             .child(one(keymap::shown("build_note_step"), "Go to step"))
             .child(one(keymap::shown("send_message"), "Send"))
-            .child(one(keymap::shown("build_note_looked"), "Looked at"))
+            .child(one(keymap::shown("build_note_looked"), "Good"))
+            .child(one(keymap::shown("build_note_needs_work"), "Needs work"))
             .child(one("Esc".into(), "Close"))
     }
 }

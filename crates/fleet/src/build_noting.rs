@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
     BuildNote, BuildNoteFeedbackSent, BuildNotes, DispatchJob, DispatchMessage, DispatchThen, Event, ManifestId, MarkBuildNoteLookedAt,
-    PreviewStep, SendBuildNoteFeedback, SendSessionMessage, SessionId, StartSession, WireError,
+    NoteVerdict, PreviewStep, SendBuildNoteFeedback, SendSessionMessage, SessionId, StartSession, WireError,
 };
 use store::{KeptBuildNote, SessionState};
 
@@ -26,9 +26,30 @@ fn answer_text(note: &KeptBuildNote, words: &str) -> String {
     format!("On your preview note \"{}\": {words}", note.about)
 }
 
-/// What the Job is told when the owner marks its note looked at.
-fn looked_text(note: &KeptBuildNote) -> String {
-    format!("The owner looked at your preview note \"{}\" on {} at {}.", note.about, note.branch, note.tip.get(..7).unwrap_or(&note.tip))
+/// What the Job is told when the owner marks its note looked at, or says what he made of it.
+fn looked_text(note: &KeptBuildNote, verdict: Option<NoteVerdict>) -> String {
+    let named = format!("your preview note \"{}\" on {} at {}", note.about, note.branch, note.tip.get(..7).unwrap_or(&note.tip));
+    match verdict {
+        None => format!("The owner looked at {named}."),
+        Some(NoteVerdict::Good) => format!("The owner says {named} is good."),
+        Some(NoteVerdict::NeedsWork) => format!("The owner says {named} needs work. His words on it follow in a message: wait for them before you change it."),
+    }
+}
+
+/// The verdict as the store keeps it, which is as the wire spells it.
+fn verdict_kept(verdict: NoteVerdict) -> &'static str {
+    match verdict {
+        NoteVerdict::Good => "good",
+        NoteVerdict::NeedsWork => "needs_work",
+    }
+}
+
+fn verdict_read(kept: Option<&str>) -> Option<NoteVerdict> {
+    match kept? {
+        "good" => Some(NoteVerdict::Good),
+        "needs_work" => Some(NoteVerdict::NeedsWork),
+        _ => None,
+    }
 }
 
 /// What a new Job starts from where the note's Job has ended: his words, then what he was looking at.
@@ -73,6 +94,7 @@ where
                     job_ended: session.as_ref().is_none_or(|row| row.state == SessionState::Ended),
                     session_id: SessionId::carried(one.session_id.as_str()),
                     looked_at: one.looked_at.is_some(),
+                    verdict: verdict_read(one.verdict.as_deref()),
                     branch: one.branch,
                     tip: one.tip,
                     about: one.about,
@@ -100,19 +122,23 @@ where
         }
     }
 
-    /// `mark_build_note_looked_at`: keep the mark against the (branch, tip), and answer the notes now.
+    /// `mark_build_note_looked_at`: keep the mark and the verdict against the (branch, tip), and answer the notes now.
     pub(crate) async fn build_note_looked_at(self: &Arc<Self>, asked: MarkBuildNoteLookedAt) -> Result<BuildNotes, Refusal> {
         let at = self.now().as_str().to_string();
         let before = self.store().lock().await.build_note_of(&asked.branch, &asked.tip).map_err(|why| self.ledger_fault(why))?;
-        let marked = self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at).map_err(|why| self.ledger_fault(why))?;
+        let verdict = asked.verdict.map(verdict_kept);
+        let marked = self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at, verdict).map_err(|why| self.ledger_fault(why))?;
         if !marked {
             return Err(self.build_note_unknown(&asked.branch, &asked.tip));
         }
-        // The note's Job is told the first time, where it is live, as it is told the rest of its preview news.
-        if let Some(note) = before.filter(|note| note.looked_at.is_none()) {
+        // The note's Job is told the first mark and each change of verdict, where it is live, as it is told the rest
+        // of its preview news. A mark that says nothing new tells it nothing.
+        let news = before.filter(|note| note.looked_at.is_none() || (verdict.is_some() && note.verdict.as_deref() != verdict));
+        if let Some(note) = news {
             let live = self.store().lock().await.session(&note.session_id).ok().flatten().is_some_and(|row| row.state != SessionState::Ended);
             if live {
-                let _ = self.told_news_by_fleet(&note.session_id, &looked_text(&note), ipc::Notice::BuildMoved).await;
+                let said = asked.verdict.or_else(|| verdict_read(note.verdict.as_deref()));
+                let _ = self.told_news_by_fleet(&note.session_id, &looked_text(&note, said), ipc::Notice::BuildMoved).await;
             }
         }
         self.build_notes_moved().await;

@@ -1583,11 +1583,23 @@ notes = "The number on each step of a note in the In this build sheet, which ope
 [actions.build_note_looked]
 kind = "Action"
 tier = "Contextual"
-verb = "Looked at"
+verb = "Good"
 icon = ""
 icon_absent = "undecided"
 shortcut = "⌘L"
 scope = "review sheet"
 destructive = false
 confirms = false
-notes = "Marks the chosen note of the In this build sheet looked at, through `mark_build_note_looked_at`. Fleet keeps it for that branch at that tip, so a later build with the same tip finds it marked. The sheet shares the review sheet's scope, and holds ⌘L while it is up, where the same chord opens the Layout menu elsewhere. Native only, 14 Nov 2026."
+notes = "Marks the chosen note of the In this build sheet looked at and good, through `mark_build_note_looked_at` with the verdict `good`. Fleet keeps it for that branch at that tip, so a later build with the same tip finds it marked, and tells the note's Job its work is fine. The id stays from when the press read Looked at. The sheet shares the review sheet's scope, and holds ⌘L while it is up, where the same chord opens the Layout menu elsewhere. Native only, 14 Nov 2026; Good since 15 Nov."
+
+[actions.build_note_needs_work]
+kind = "Action"
+tier = "Contextual"
+verb = "Needs work"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘⇧L"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Marks the chosen note of the In this build sheet looked at and needing work, through `mark_build_note_looked_at` with the verdict `needs_work`, and puts the keys in the note's box. Fleet tells the note's Job to wait for his words, which Send carries. Shift on Good's chord. Native only, 15 Nov 2026."

@@ -1,18 +1,18 @@
 //! The In this build sheet: when the owner loads a preview that merges branches several Jobs offered, one note
 //! for each Job says what to look at, with steps that take him there, a box that sends his words to that Job
-//! (or starts a new one where it has ended) and a mark for looked at.
+//! (or starts a new one where it has ended), and Good or Needs work, which marks it looked at and tells the Job.
 //!
 //! What is worked out here is pure, so it is tested: which note is chosen, whether the sheet opens for a build,
 //! what a step draws, what Send reads. `view.rs` draws the sheet and holds nothing of its own.
 
 mod view;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use gpui::{App, AppContext, Context, Entity, FocusHandle, Focusable, Global, SharedString, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, TextareaState};
-use ipc::{BuildNote, BuildNoteFeedbackSent, BuildNotes, PreviewStep};
+use ipc::{BuildNote, BuildNoteFeedbackSent, BuildNotes, NoteVerdict, PreviewStep};
 use serde::de::DeserializeOwned;
 
 use crate::fleet::FleetConnection;
@@ -42,7 +42,7 @@ impl NoteKey {
 }
 
 /// The note the keys are on: the one chosen if Fleet still holds it, else the first not looked at, else the first.
-pub fn position(notes: &[BuildNote], chosen: Option<&NoteKey>, marked: &HashSet<NoteKey>) -> Option<usize> {
+pub fn position(notes: &[BuildNote], chosen: Option<&NoteKey>, marked: &Marked) -> Option<usize> {
     chosen
         .and_then(|key| notes.iter().position(|note| NoteKey::of(note) == *key))
         .or_else(|| notes.iter().position(|note| !looked(note, marked)))
@@ -57,9 +57,17 @@ pub fn moved(len: usize, from: usize, by: isize) -> usize {
     (from as isize + by).clamp(0, len as isize - 1) as usize
 }
 
+/// The verdicts the owner just gave that Fleet has not yet answered for.
+pub type Marked = HashMap<NoteKey, NoteVerdict>;
+
 /// Whether a note is looked at: Fleet says so, or the owner just marked it and Fleet has not answered yet.
-pub fn looked(note: &BuildNote, marked: &HashSet<NoteKey>) -> bool {
-    note.looked_at || marked.contains(&NoteKey::of(note))
+pub fn looked(note: &BuildNote, marked: &Marked) -> bool {
+    note.looked_at || marked.contains_key(&NoteKey::of(note))
+}
+
+/// What the owner made of a note: the verdict he just gave, else the one Fleet keeps.
+pub fn verdict(note: &BuildNote, marked: &Marked) -> Option<NoteVerdict> {
+    marked.get(&NoteKey::of(note)).copied().or(note.verdict)
 }
 
 /// Whether the sheet opens by itself: once for each build, and only while some note is not looked at.
@@ -143,11 +151,13 @@ pub struct Mark {
     pub said: &'static str,
 }
 
-pub fn mark(looked: bool) -> Mark {
-    if looked {
-        Mark { glyph: "circle-check", hue: token::STATUS_COMPLETED_SUCCESS, said: "Looked at" }
-    } else {
-        Mark { glyph: "circle-dot", hue: token::STATUS_AWAITING_REVIEW, said: "Not looked at" }
+/// A note marked before he could give a verdict reads as looked at.
+pub fn mark(looked: bool, verdict: Option<NoteVerdict>) -> Mark {
+    match (looked, verdict) {
+        (_, Some(NoteVerdict::Good)) => Mark { glyph: "circle-check", hue: token::STATUS_COMPLETED_SUCCESS, said: "Good" },
+        (_, Some(NoteVerdict::NeedsWork)) => Mark { glyph: "circle-alert", hue: token::STATUS_ESCALATED, said: "Needs work" },
+        (true, None) => Mark { glyph: "circle-check", hue: token::STATUS_COMPLETED_SUCCESS, said: "Looked at" },
+        (false, None) => Mark { glyph: "circle-dot", hue: token::STATUS_AWAITING_REVIEW, said: "Not looked at" },
     }
 }
 
@@ -200,13 +210,14 @@ pub struct BuildNotesSheet {
     held: Option<BuildNotes>,
     open: bool,
     chosen: Option<NoteKey>,
-    /// Notes the owner marked that Fleet has not yet answered for.
-    marked: HashSet<NoteKey>,
+    /// Verdicts the owner gave that Fleet has not yet answered for.
+    marked: Marked,
     feedback: Entity<TextareaState>,
     frame: FocusHandle,
     list: FocusHandle,
     send_focus: FocusHandle,
-    looked_focus: FocusHandle,
+    good_focus: FocusHandle,
+    needs_work_focus: FocusHandle,
     sending: bool,
     refused: Option<SharedString>,
     keys_were: Option<FocusHandle>,
@@ -236,12 +247,13 @@ impl BuildNotesSheet {
             held: None,
             open: false,
             chosen: None,
-            marked: HashSet::new(),
+            marked: Marked::new(),
             feedback,
             frame: cx.focus_handle(),
             list: cx.focus_handle().tab_stop(true),
             send_focus: cx.focus_handle().tab_stop(true),
-            looked_focus: cx.focus_handle().tab_stop(true),
+            good_focus: cx.focus_handle().tab_stop(true),
+            needs_work_focus: cx.focus_handle().tab_stop(true),
             sending: false,
             refused: None,
             keys_were: None,
@@ -283,7 +295,7 @@ impl BuildNotesSheet {
     }
 
     fn hold(&mut self, notes: BuildNotes, window: &mut Window, cx: &mut Context<Self>) {
-        self.marked.retain(|key| notes.notes.iter().any(|note| NoteKey::of(note) == *key && !note.looked_at));
+        self.marked.retain(|key, given| notes.notes.iter().any(|note| NoteKey::of(note) == *key && note.verdict != Some(*given)));
         self.held = Some(notes);
         if self.open && !self.has_notes() {
             self.close(window, cx);
@@ -374,7 +386,7 @@ impl BuildNotesSheet {
         match key.key.as_str() {
             "escape" => self.close(window, cx),
             "tab" if plain => {
-                let stops = [self.list.clone(), self.feedback.focus_handle(cx), self.send_focus.clone(), self.looked_focus.clone()];
+                let stops = [self.list.clone(), self.feedback.focus_handle(cx), self.send_focus.clone(), self.good_focus.clone(), self.needs_work_focus.clone()];
                 let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
                 let len = stops.len();
                 let next = match (here, key.modifiers.shift) {
@@ -405,7 +417,8 @@ impl BuildNotesSheet {
                     self.go(digit as usize, window, cx);
                 }
             }
-            "build_note_looked" => self.mark_looked(window, cx),
+            "build_note_looked" => self.judge(NoteVerdict::Good, window, cx),
+            "build_note_needs_work" => self.judge(NoteVerdict::NeedsWork, window, cx),
             "send_message" => self.send(window, cx),
             // The sheet is a dialog: the keys that start or open something else do nothing while it is up.
             "new_job" | "new_terminal_job" | "dispatch_after" => {}
@@ -426,24 +439,33 @@ impl BuildNotesSheet {
         self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port())
     }
 
-    /// Looked at: the note reads so in this frame, and Fleet keeps it for this branch at this tip.
-    pub(super) fn mark_looked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(note) = self.note().filter(|note| !looked(note, &self.marked)).cloned() else { return };
+    /// Good or Needs work: the note reads so in this frame, and Fleet keeps it for this branch at this tip and tells
+    /// the Job. Needs work puts the keys in the box, since his words on it are what the Job waits for.
+    pub(super) fn judge(&mut self, given: NoteVerdict, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(note) = self.note().cloned() else { return };
+        if given == NoteVerdict::NeedsWork {
+            self.feedback.update(cx, |state, cx| state.focus(window, cx));
+        }
+        if verdict(&note, &self.marked) == Some(given) {
+            return;
+        }
         let key = NoteKey::of(&note);
         let Some(port) = self.port(cx) else {
             Note::warn("not sent: no Fleet is connected").field("route", MARK_LOOKED).emit();
             return;
         };
-        self.marked.insert(key.clone());
+        self.marked.insert(key.clone(), given);
         cx.notify();
-        let body = encoded(&ipc::MarkBuildNoteLookedAt { branch: note.branch, tip: note.tip });
+        let body = encoded(&ipc::MarkBuildNoteLookedAt { branch: note.branch, tip: note.tip, verdict: Some(given) });
         let task: Task<Result<BuildNotes, String>> = post(port, MARK_LOOKED, body, "BuildNotes", cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| match answer {
                 Ok(notes) => this.hold(notes, window, cx),
                 Err(why) => {
-                    this.marked.remove(&key);
+                    if this.marked.get(&key) == Some(&given) {
+                        this.marked.remove(&key);
+                    }
                     Note::warn("Fleet refused the mark").field("route", MARK_LOOKED).field("why", why.as_str()).emit();
                     crate::toasts::tell(why, cx);
                     cx.notify();
@@ -543,13 +565,13 @@ mod tests {
     #[test]
     fn the_keys_land_on_the_first_note_not_looked_at_and_on_the_chosen_one_while_it_stands() {
         let notes = vec![note("a", true), note("b", false), note("c", false)];
-        let none = HashSet::new();
+        let none = Marked::new();
         assert_eq!(position(&notes, None, &none), Some(1));
         assert_eq!(position(&notes, Some(&key("c")), &none), Some(2));
         assert_eq!(position(&notes, Some(&key("gone")), &none), Some(1));
         assert_eq!(position(&[note("a", true)], None, &none), Some(0), "all looked at: the first");
         assert_eq!(position(&[], None, &none), None);
-        let marked: HashSet<NoteKey> = [key("b")].into();
+        let marked: Marked = [(key("b"), NoteVerdict::Good)].into();
         assert_eq!(position(&notes, None, &marked), Some(2), "a note just marked is looked at already");
     }
 
@@ -612,11 +634,26 @@ mod tests {
 
     #[test]
     fn a_note_is_marked_by_a_registry_glyph_with_its_state_in_the_tooltip() {
-        assert_eq!(mark(false).glyph, "circle-dot");
-        assert_eq!(mark(false).said, "Not looked at");
-        assert_eq!(mark(true).glyph, "circle-check");
-        assert_eq!(mark(true).said, "Looked at");
-        assert_ne!(mark(false).hue, mark(true).hue);
+        let said = |looked, given| {
+            let one = mark(looked, given);
+            (one.glyph, one.said)
+        };
+        assert_eq!(said(false, None), ("circle-dot", "Not looked at"));
+        assert_eq!(said(true, Some(NoteVerdict::Good)), ("circle-check", "Good"));
+        assert_eq!(said(true, Some(NoteVerdict::NeedsWork)), ("circle-alert", "Needs work"));
+        assert_eq!(said(true, None), ("circle-check", "Looked at"), "marked before a verdict could be given");
+        assert_ne!(mark(false, None).hue, mark(true, Some(NoteVerdict::Good)).hue);
+        assert_ne!(mark(true, Some(NoteVerdict::Good)).hue, mark(true, Some(NoteVerdict::NeedsWork)).hue);
+    }
+
+    #[test]
+    fn a_verdict_just_given_stands_over_the_one_fleet_keeps_until_fleet_answers() {
+        let mut kept = note("a", true);
+        kept.verdict = Some(NoteVerdict::Good);
+        assert_eq!(verdict(&kept, &Marked::new()), Some(NoteVerdict::Good));
+        let given: Marked = [(key("a"), NoteVerdict::NeedsWork)].into();
+        assert_eq!(verdict(&kept, &given), Some(NoteVerdict::NeedsWork));
+        assert!(looked(&note("a", false), &given), "a note just judged is looked at");
     }
 
     #[test]

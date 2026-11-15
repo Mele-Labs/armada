@@ -92,7 +92,8 @@ pub fn build_notes() -> ipc::BuildNotes {
             look: Some(String::from("The builds list shows two rows")),
             steps: vec![ipc::PreviewStep { say: String::from("Open Settings"), act: Some(String::from("open_settings")) }],
             job_ended: false,
-            looked_at: false,
+            looked_at: true,
+            verdict: Some(ipc::NoteVerdict::NeedsWork),
         }],
     }
 }
