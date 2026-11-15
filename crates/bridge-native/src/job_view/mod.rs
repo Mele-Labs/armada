@@ -13,6 +13,7 @@
 mod aa;
 mod acts;
 mod artifacts_tab;
+mod for_you_tab;
 mod band_card;
 mod bands;
 mod bar;
@@ -390,6 +391,8 @@ pub struct JobView {
     ledger_view: done::LedgerView,
     /// What each Job's artifacts list holds, and the first screens of its pages.
     artifacts: artifacts_tab::Artifacts,
+    /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
+    for_you: for_you_tab::ForYouTab,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -540,6 +543,7 @@ impl JobView {
                 this.review_sync(window, cx);
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -617,6 +621,7 @@ impl JobView {
             composer,
             aged: false,
             artifacts: artifacts_tab::Artifacts::default(),
+            for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -1197,6 +1202,7 @@ impl Render for JobView {
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
+        self.sync_for_you(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.

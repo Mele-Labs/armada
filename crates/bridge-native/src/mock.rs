@@ -51,6 +51,12 @@ pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
 /// The Job the pairing walk's `session.removed` names.
 pub const AIR_REMOVED: &str = "mock-06";
 
+/// The For you the walk's scenario holds, taken when the Job view is made: on `job-for-you` the first Job holds two things
+/// waiting on him, two Jobs it started and two pull requests of its own. Every other Job and scenario holds none.
+pub fn for_you() -> Option<ipc::ForYou> {
+    scenario_is("job-for-you").then(|| ipc::decode::<ipc::ForYou>("ForYou", include_bytes!("../fixtures/for-you.json")).unwrap_or_else(|why| panic!("the For you fixture does not decode: {why}")))
+}
+
 /// Whether the scenario last named is this one.
 pub fn scenario_is(name: &str) -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == name)
@@ -67,7 +73,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     crate::ways::set_look(if scenario == "ways-look" { ipc::TakeIn::Look } else { ipc::TakeIn::Read }, ipc::LookQuestions::PicturesMix, ipc::LookResults::PictureEvery);
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
-        "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
@@ -549,7 +555,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "job-for-you" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.

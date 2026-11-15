@@ -500,7 +500,7 @@ impl JobView {
     }
 
     /// A press on a row opens the artifact as its own card opens it: a page in its tab, a draft in its tab, a sketch over the window.
-    fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.artifact_of(job, artifact).cloned() else { return };
         match one.form {
             ArtifactForm::Page => self.open_document_tab(&one.id, window, cx),

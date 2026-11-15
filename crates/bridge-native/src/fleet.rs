@@ -151,6 +151,8 @@ pub struct Held {
     pub workflows: Option<Vec<ipc::WorkflowSummary>>,
     /// The subagents whose own thread moved, folded since the last take, oldest first.
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
+    /// The Jobs whose For you moved, folded since the last take, oldest first.
+    for_you_moved: Vec<ipc::ForYouChanged>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
@@ -214,6 +216,7 @@ impl Held {
             open_group: true,
             workflows: None,
             subagents_moved: Vec::new(),
+            for_you_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
             dispatched: Vec::new(),
@@ -342,6 +345,11 @@ impl Held {
     /// The subagents whose own thread moved, folded since the last take, oldest first.
     pub fn take_subagents_moved(&mut self) -> Vec<ipc::SessionSubagentChanged> {
         std::mem::take(&mut self.subagents_moved)
+    }
+
+    /// The Jobs whose For you moved, folded since the last take, oldest first.
+    pub fn take_for_you_moved(&mut self) -> Vec<ipc::ForYouChanged> {
+        std::mem::take(&mut self.for_you_moved)
     }
 
     /// The shells' news folded since the last take, oldest first.
@@ -506,6 +514,7 @@ impl Held {
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
+                        Event::SessionForYou(moved) => self.for_you_moved.push(moved),
                         Event::JobThreadTail(tail) => {
                             if let Some(held) = self.threads.get_mut(tail.session_id.as_str()) {
                                 held.tailed(tail);
@@ -629,6 +638,11 @@ impl EventEmitter<Dispatched> for FleetConnection {}
 pub struct SubagentsMoved(pub Vec<ipc::SessionSubagentChanged>);
 
 impl EventEmitter<SubagentsMoved> for FleetConnection {}
+
+/// The Jobs whose For you moved in one folded batch (`session.for_you`), for a view holding one to read it again.
+pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
+
+impl EventEmitter<ForYouMoved> for FleetConnection {}
 
 /// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1176,6 +1190,7 @@ impl FleetConnection {
                         this.read_thread(&id, true, cx);
                     }
                     let subagents = this.held.take_subagents_moved();
+                    let for_you = this.held.take_for_you_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
@@ -1195,6 +1210,9 @@ impl FleetConnection {
                     }
                     if !subagents.is_empty() {
                         cx.emit(SubagentsMoved(subagents));
+                    }
+                    if !for_you.is_empty() {
+                        cx.emit(ForYouMoved(for_you));
                     }
                     lines
                 });
@@ -1498,6 +1516,19 @@ mod tests {
         let told: Vec<(String, String)> = held.take_subagents_moved().into_iter().map(|one| (one.session_id.as_str().to_string(), one.subagent_id)).collect();
         assert_eq!(told, [("s0".to_string(), "a1".to_string()), ("s1".to_string(), "a2".to_string())]);
         assert!(held.take_subagents_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn a_job_whose_for_you_moved_is_handed_over_once_in_the_order_it_came() {
+        let moved = |job: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.for_you","session_id":"{job}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("s0"), moved("s1")]);
+        let told: Vec<String> = held.take_for_you_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
+        assert_eq!(told, ["s0", "s1"]);
+        assert!(held.take_for_you_moved().is_empty(), "news is told once");
     }
 
     #[test]
