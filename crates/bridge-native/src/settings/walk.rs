@@ -139,6 +139,31 @@ pub static MACS_BUILD_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-macs-models`: Macs and Models laid out across the overlay's width.
+pub const MACS_MODELS: &str = "native-settings-macs-models";
+
+pub static MACS_MODELS_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: This Mac and Tunnel are on the left and Devices on the right", "button", "Macs", "list", "Devices"),
+    press_on("Models: each row is a name, its version and a plain switch", "button", "Models", "region", "Default models"),
+    press_on("A press on a row picks it and gives the list the keys", "button", "Fable", "article", "Fable"),
+    step("↓ picks Sonnet: its detail and the default models fill the right side", Verb::Key("down"), "article", "Sonnet"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-settings-macs-long`: names and an address far wider than their cards.
+pub const MACS_LONG: &str = "native-settings-macs-long";
+
+pub static MACS_LONG_STEPS: &[Step] = &[
+    step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Macs: a name stops in an ellipsis at the edge of its card, and a tooltip holds the whole name", "button", "Macs", "list", "Devices"),
+    step("The tunnel's address stops in an ellipsis on its own line, and Copy address copies all of it", Verb::Look, "button", "Copy address"),
+    step("A Mac found nearby stops in an ellipsis too, with its chip and its Pair in their columns", Verb::Look, "list", "Found Macs"),
+    press_on("Pair a phone: its link stops on one line, and Copy link copies all of it", "button", "Pair a phone", "button", "Copy link"),
+    press_on("Pair a Mac: its link stops on one line too", "button", "Pair a Mac", "textbox", "Paste the link from your other Mac"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-nearby-macs`: his other Macs found on this network and on his account, each with where it is reached and a
 /// Pair. Pair on the one nearby asks it with no link, and its row waits on Confirm; the one only on his account refuses.
 pub const MACS_NEARBY: &str = "native-nearby-macs";
