@@ -302,8 +302,16 @@ async fn handed_on(rig: &Rig, old: &SessionId) -> (SessionId, usize) {
     (new, at)
 }
 
+/// Whether the page waits on him: by its own item, or as a part of the artifact that is one item of the Job's
+/// (`artifact_parts.rs`: one artifact is open per Job, so a second page that asks joins the first).
 fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
-    record.waiting_for.iter().any(|one| one.id == format!("document:{path}"))
+    if record.waiting_for.iter().any(|one| one.id == format!("document:{path}")) {
+        return true;
+    }
+    let part = record.attachments.iter().find(|one| one.target == path);
+    let asks = part.is_some_and(|one| one.detail.get("asked").map(String::as_str) == Some("true") && !one.detail.contains_key("settled"));
+    let root = part.and_then(|one| one.detail.get(ipc::ARTIFACT_IN));
+    asks && root.is_some_and(|root| record.waiting_for.iter().any(|one| &one.id == root))
 }
 
 #[tokio::test]
@@ -369,15 +377,18 @@ async fn a_page_handed_on_unanswered_still_asks_and_one_dismissed_stays_dismisse
     use api::HostedSessions;
     let rig = rig_placing(None);
     let (old, at) = a_job(&rig).await;
-    let (asks, asks_path) = page_at_root(&rig, "asks.html");
-    std::fs::write(&asks, page("Asks", &[])).unwrap();
-    writes(&rig, at, &asks_path, "toolu_1", "Write", " +10").await;
+    // The page he dismisses is written first: one artifact is open per Job, so a page written while another still
+    // asks would be a part of it, and his Dismiss would be of both.
     let (dismissed, dismissed_path) = page_at_root(&rig, "dismissed.html");
     std::fs::write(&dismissed, page("Dismissed", &[])).unwrap();
     writes(&rig, at, &dismissed_path, "toolu_2", "Write", " +10").await;
     eventually(|| async { revisions_of(&record_of(&rig, &old).await, &dismissed_path).is_some() }).await;
     let dismiss = ipc::DismissWaiting { session_id: old.clone(), item_id: format!("document:{dismissed_path}"), reason: None, misread: false };
     std::sync::Arc::clone(&rig.fleet).dismiss_waiting(dismiss).await.expect("dismissed");
+    let (asks, asks_path) = page_at_root(&rig, "asks.html");
+    std::fs::write(&asks, page("Asks", &[])).unwrap();
+    writes(&rig, at, &asks_path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &old).await, &asks_path).is_some() }).await;
 
     let (new, at) = handed_on(&rig, &old).await;
     turn_swept(&rig, &new, at, "zz.html").await;

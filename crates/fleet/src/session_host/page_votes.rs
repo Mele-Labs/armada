@@ -7,12 +7,13 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{CastPageVote, Instant, VoteCast, VoteForm, VoteResult};
+use ipc::{ArtifactPart, CastPageVote, Instant, JobArtifact, PartAnswer, PartContent, PartKind, PartState, VoteCast, VoteForm, VoteResult};
 use store::KeptVote;
 
 use super::document_page::{votes_in, PageTake, PageVote};
 use super::documents::revisions_named;
 use super::page_actions::PAGE_ARCHIVED;
+use super::sketching::TARGET_PREFIX;
 use crate::daemon::Fleet;
 
 const PAGE_VOTE_UNKNOWN: &str = "fleet.page_vote_unknown";
@@ -179,6 +180,16 @@ where
     pub(crate) async fn page_vote_cast(self: Arc<Self>, cast: CastPageVote) -> Result<VoteCast, Refusal> {
         let id = cast.session_id.as_str().trim().to_string();
         let artifact = self.artifact_held(&id, &cast.artifact).await?;
+        // A takes part of an artifact is voted on as a page's vote is.
+        if artifact.id.starts_with(TARGET_PREFIX) {
+            let takes: Vec<&ArtifactPart> = artifact.parts.iter().filter(|part| part.content.kind() == PartKind::Takes).collect();
+            let Some(part) = takes.iter().find(|part| part.id == cast.vote.trim()).copied().cloned() else {
+                let ids: Vec<&str> = takes.iter().map(|part| part.id.as_str()).take(MOST_NAMED).collect();
+                let holds = if ids.is_empty() { String::from("none") } else { ids.join(", ") };
+                return Err(self.hosted_refusal(PAGE_VOTE_UNKNOWN, &format!("`{}` holds no takes part `{}`. Takes parts it holds: {holds}", artifact.title, cast.vote.trim())));
+            };
+            return self.part_voted(&id, &artifact, &part, cast.revision, cast.result, None).await;
+        }
         if artifact.form != ipc::ArtifactForm::Page {
             return Err(self.hosted_refusal(PAGE_VOTE_UNKNOWN, &format!("`{}` is not a page, and only a page declares votes", artifact.title)));
         }
@@ -215,6 +226,73 @@ where
         self.store().lock().await.keep_page_vote(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         self.published_hosted(&id).await?;
         Ok(VoteCast { revision: cast.revision, vote: vote.id, form, result, at })
+    }
+
+    /// His vote on a takes part, read off the part as it stands: checked as a page's vote is, sent to the Job, kept,
+    /// and where the part still asks, its answer, which settles it `picked`. **A vote on a part put again since is refused.**
+    pub(crate) async fn part_voted(
+        self: Arc<Self>,
+        id: &str,
+        artifact: &JobArtifact,
+        part: &ArtifactPart,
+        revision: u32,
+        result: VoteResult,
+        words: Option<String>,
+    ) -> Result<VoteCast, Refusal> {
+        if artifact.archived.is_some() {
+            return Err(self.hosted_refusal(PAGE_ARCHIVED, &format!("`{}` is archived. Restore it to vote on it", artifact.title)));
+        }
+        if revision != part.revision {
+            return Err(self.part_redrawn(&part.id));
+        }
+        let PartContent::Takes { question, form: declared, takes, parts } = &part.content else {
+            return Err(self.hosted_refusal(PAGE_VOTE_UNKNOWN, &format!("`{}` is not a takes part", part.id)));
+        };
+        let vote = PageVote {
+            id: part.id.clone(),
+            form: declared.word().to_string(),
+            question: question.clone().unwrap_or_default(),
+            parts: parts.clone(),
+            takes: takes.iter().map(|take| PageTake { id: take.id.clone(), title: take.title.clone() }).collect(),
+        };
+        let result = trimmed(result);
+        let form = result.form();
+        if *declared != form {
+            let why = format!("vote `{}` is declared {}, and this is a {} result", vote.id, declared.word(), form.word());
+            return Err(self.hosted_refusal(PAGE_VOTE_FORM, &why));
+        }
+        if let Some(why) = takes_refused(&vote, &result) {
+            return Err(self.hosted_refusal(PAGE_VOTE_TAKES, &why));
+        }
+        let encoded = ipc::encode(&result).unwrap_or_default();
+        let mut told = voted_told(&vote, &artifact.title, &result);
+        if let Some(words) = words.as_deref() {
+            told.push('\n');
+            told.push_str(words);
+        }
+        // Sent first, so a send that fails keeps nothing.
+        self.told_as_him(id, told).await?;
+        let at = self.instant();
+        let kept = KeptVote {
+            artifact: artifact.id.clone(),
+            revision,
+            vote: vote.id.clone(),
+            form: form.word().to_string(),
+            result: encoded,
+            at: at.as_str().to_string(),
+        };
+        self.store().lock().await.keep_page_vote(id, &kept).map_err(|why| self.ledger_fault(why))?;
+        if part.is_open_ask() {
+            let take = match &result {
+                VoteResult::Pick { take, .. } => Some(take.clone()),
+                VoteResult::Rank { order, .. } => order.first().cloned(),
+                VoteResult::Score { .. } => None,
+            };
+            let answer = PartAnswer { words, take, notes: result.notes().clone(), at: Some(at.clone()) };
+            self.stored_part_settled(id, &artifact.id, &part.id, &part.drawn, PartState::Picked, answer).await?;
+        }
+        self.published_hosted(id).await?;
+        Ok(VoteCast { revision, vote: vote.id, form, result, at })
     }
 
     /// The first vote with id `named` in revision `revision` of the page at `path`, as Fleet kept it.

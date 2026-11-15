@@ -247,11 +247,12 @@ where
 {
     /// `get_artifact_page`: revision `revision` of the page, the newest where none is named, sealed, with what he
     /// pressed and voted on that revision. **Archived or not**: reading changes nothing.
-    pub(crate) async fn artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
+    async fn page_revision(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<(ipc::JobArtifact, u32, String), Refusal> {
         let id = id.trim();
         let held = self.artifact_held(id, artifact).await?;
-        if held.form != ArtifactForm::Page {
+        if held.form != ArtifactForm::Page || held.id.starts_with(super::sketching::TARGET_PREFIX) {
             let form = match held.form {
+                _ if held.id.starts_with(super::sketching::TARGET_PREFIX) => "an artifact of parts",
                 ArtifactForm::Sketch => "a sketch",
                 _ => "a draft",
             };
@@ -264,6 +265,18 @@ where
         let file = page.map(|page| revisions_named(&page.detail)).and_then(|kept| kept.get((number as usize).checked_sub(1)?).cloned());
         let Some(file) = file else { return Err(unknown()) };
         let html = tokio::task::spawn_blocking(move || std::fs::read_to_string(file)).await.ok().and_then(Result::ok).ok_or_else(unknown)?;
+        Ok((held, number, html))
+    }
+
+    /// `get_artifact_page_source`: revision `revision` of the page exactly as the Job wrote it, the newest where none is
+    /// named, so a client that edits its words keeps the markup and `save_artifact_edit` can check them against it.
+    pub(crate) async fn artifact_page_source(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<String, Refusal> {
+        Ok(self.page_revision(id.trim(), artifact, revision).await?.2)
+    }
+
+    pub(crate) async fn artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
+        let id = id.trim();
+        let (held, number, html) = self.page_revision(id, artifact, revision).await?;
         let (presses, votes) = {
             let store = self.store().lock().await;
             (store.page_presses(id).map_err(|why| self.ledger_fault(why))?, store.page_votes(id).map_err(|why| self.ledger_fault(why))?)

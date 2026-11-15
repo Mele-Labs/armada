@@ -282,6 +282,8 @@ mod show_file;
 mod package_manifest;
 /// A Job's sketches, drafts and pages as one record. `get_job_artifacts`.
 mod artifact;
+/// An artifact's parts. `add_part`, `answer_part`.
+mod artifact_parts;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -736,11 +738,17 @@ pub use artifact::{
     ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
+pub use artifact_parts::{
+    AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
+    ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
+};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
+pub use sketch_scene::SceneNodeState;
+pub use sketch::SCENE_STATES;
 pub use sketch_screen::{
     ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
