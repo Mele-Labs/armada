@@ -522,12 +522,11 @@ pub(crate) fn sketch_items<'a>(
     dismissed: &[String],
 ) -> impl Iterator<Item = WaitingItem> + 'a {
     let titled = |one: &ipc::Attachment| one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string());
-    let mut open: Vec<(&ipc::Attachment, String)> = super::artifact_parts::asking_groups(attachments, open_drafts, dismissed)
+    let mut open: Vec<(&ipc::Attachment, String)> = super::artifact_parts::asking_groups(attachments, in_plan, open_drafts, dismissed)
         .into_iter()
         .filter_map(|asking| {
             let root = attachments.iter().find(|one| is_artifact_sketch(one) && one.target == asking.root)?;
-            let title = titled(root);
-            (!in_plan.contains(&title)).then(|| (root, super::artifact_parts::asking_text(&title, &asking)))
+            Some((root, super::artifact_parts::asking_text(&titled(root), &asking)))
         })
         .collect();
     open.sort_by_key(|(one, _)| std::cmp::Reverse(drawn_at(one)));

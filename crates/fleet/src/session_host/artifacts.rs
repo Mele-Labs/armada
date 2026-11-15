@@ -88,10 +88,7 @@ where
         };
         let mut artifacts: Vec<JobArtifact> = each
             .into_iter()
-            .map(|artifact| match made.iter().find(|(_, one)| one.target == artifact.id) {
-                Some((_, one)) => in_plan(artifact, one, pending.as_ref()),
-                None => artifact,
-            })
+            .map(|artifact| in_plan(artifact, &made, pending.as_ref()))
             .collect();
         for artifact in &mut artifacts {
             artifact.seen = seen.iter().find(|kept| kept.artifact == artifact.id).map(|kept| kept.revision);
@@ -110,17 +107,24 @@ where
     }
 }
 
-/// A sketch with the plan version it goes with. **One still asking that the pending plan names waits as the
-/// plan's item**, so the plan's one Approve answers it; one that plan's Approve settled names its version.
-fn in_plan(artifact: JobArtifact, one: &KeptAttachment, pending: Option<&(u32, Vec<String>)>) -> JobArtifact {
+/// A sketch with the plan version it goes with. **An artifact whose every ask is a drawing the pending plan names waits
+/// as the plan's item**, so the plan's one Approve answers it; one that plan's Approve settled names its version.
+fn in_plan(artifact: JobArtifact, made: &[(ArtifactForm, KeptAttachment)], pending: Option<&(u32, Vec<String>)>) -> JobArtifact {
     if !artifact.id.starts_with(TARGET_PREFIX) {
         return artifact;
     }
-    if let Some(version) = one.detail.get(SKETCH_IN_PLAN).and_then(|version| version.parse().ok()) {
+    let rows = || made.iter().map(|(_, one)| one).filter(|one| one.target == artifact.id || one.detail.get(ipc::ARTIFACT_IN) == Some(&artifact.id));
+    if let Some(version) = rows().filter_map(|one| one.detail.get(SKETCH_IN_PLAN).and_then(|version| version.parse::<u32>().ok())).max() {
         return JobArtifact { in_plan: Some(version), ..artifact };
     }
+    let titled = |part: &ipc::ArtifactPart| rows().find(|one| one.target == part.id).and_then(|one| one.detail.get("title").cloned());
     match pending {
-        Some((version, titles)) if artifact.state == ArtifactState::Asking && artifact.item.is_some() && titles.contains(&artifact.title) => {
+        Some((version, titles))
+            if artifact.state == ArtifactState::Asking
+                && artifact.item.is_some()
+                && artifact.parts.iter().filter(|part| part.is_open_ask()).all(|part| titled(part).is_some_and(|title| titles.contains(&title)))
+                && artifact.parts.iter().any(|part| part.is_open_ask()) =>
+        {
             JobArtifact { in_plan: Some(*version), item: Some(format!("plan:{version}")), ..artifact }
         }
         _ => artifact,

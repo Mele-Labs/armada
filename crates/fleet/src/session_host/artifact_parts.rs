@@ -109,9 +109,10 @@ fn group_at(groups: &mut Vec<Asking>, root: &str) -> usize {
     }
 }
 
-/// Every artifact with a part still asking, in the order its first part was kept. `open_drafts` is the ledger id of
+/// Every artifact with a part still asking, in the order its first part was kept. `in_plan` is the titles of the sketches the
+/// pending plan names. `open_drafts` is the ledger id of
 /// each draft whose row is still open, and `dismissed` what he passed on: both are what a part's own item answers to.
-pub(crate) fn asking_groups(attachments: &[ipc::Attachment], open_drafts: &BTreeSet<String>, dismissed: &[String]) -> Vec<Asking> {
+pub(crate) fn asking_groups(attachments: &[ipc::Attachment], in_plan: &[String], open_drafts: &BTreeSet<String>, dismissed: &[String]) -> Vec<Asking> {
     let mut groups: Vec<Asking> = Vec::new();
     let titled = |one: &ipc::Attachment| one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string());
     for one in attachments.iter().filter(|one| one.kind == "artifact") {
@@ -123,7 +124,8 @@ pub(crate) fn asking_groups(attachments: &[ipc::Attachment], open_drafts: &BTree
                 if has_scene {
                     groups[group].size += 1;
                 }
-                if drawing_asks(&one.detail) {
+                // A drawing the pending plan names is approved with the plan, so it is no ask of the artifact's own.
+                if drawing_asks(&one.detail) && !in_plan.contains(&titled(one)) {
                     groups[group].names.push(titled(one));
                 }
                 for part in stored(&one.detail) {
@@ -182,8 +184,9 @@ pub(crate) fn joined_drafts(attachments: &[ipc::Attachment]) -> BTreeSet<String>
 
 /// The item text for an artifact: its title alone where it is one drawing, else the title and what is still open.
 pub(crate) fn asking_text(title: &str, asking: &Asking) -> String {
-    match asking.size {
-        0 | 1 => title.to_string(),
+    match (asking.size, asking.names.as_slice()) {
+        (0 | 1, _) => title.to_string(),
+        (_, [only]) if only == title => title.to_string(),
         _ => format!("{title}: {}", asking.names.join(", ")),
     }
 }

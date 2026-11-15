@@ -269,7 +269,7 @@ async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
 }
 
 #[tokio::test]
-async fn a_sketch_drawn_under_a_new_title_leaves_the_old_one_waiting_and_each_is_answered_alone() {
+async fn a_sketch_drawn_under_a_new_title_joins_the_open_artifact_and_each_part_is_answered_alone() {
     let rig = rig_placing(None);
     let (id, _) = shown(&rig).await;
     let retitled = "Request flow, settings too";
@@ -280,14 +280,17 @@ async fn a_sketch_drawn_under_a_new_title_leaves_the_old_one_waiting_and_each_is
     .unwrap();
     let record = rig.fleet.show_sketch(None, show).await.unwrap();
     let newer = format!("sketch:{retitled}");
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [newer.as_str(), TARGET], "both wait, newest first");
+    // One artifact is open per Job: the new title is a part of it, and his list holds the one item.
+    let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
+    assert_eq!(items, [(TARGET, "Request flow: Request flow, settings too, Request flow")], "one item naming both, newest first");
     assert_eq!(the_sketch(&record).detail.get("withdrawn"), None, "the old title is not taken back");
 
     let drawn = record.attachments.iter().find(|one| one.target == newer).unwrap().detail["drawn"].clone();
     let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
     approve.sketch = newer;
     let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [TARGET], "the older one still waits");
+    let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
+    assert_eq!(items, [(TARGET, "Request flow")], "the older drawing still waits, and the item names only it");
 }
 
 #[tokio::test]
@@ -341,28 +344,22 @@ fn titled(id: &SessionId, title: &str, against: Option<&str>) -> ShowSketch {
 }
 
 #[tokio::test]
-async fn three_sketches_drawn_are_three_items_and_answering_one_leaves_the_others() {
+async fn three_drawings_each_against_the_last_are_one_artifact_and_one_item_answered_once() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet.show_sketch(None, titled(&id, "Plan", None)).await.unwrap();
     rig.fleet.show_sketch(None, titled(&id, "Plan (DSCR only)", Some("Plan"))).await.unwrap();
     let record = rig.fleet.show_sketch(None, titled(&id, "Plan (alerts)", Some("Plan (DSCR only)"))).await.unwrap();
     let waiting = |record: &ipc::SessionRecord| record.waiting_for.iter().map(|one| one.id.clone()).collect::<Vec<_>>();
-    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan (DSCR only)", "sketch:Plan"]);
+    // Each is the next revision of the first, retitled, so his list holds one item for it.
+    assert_eq!(waiting(&record), ["sketch:Plan"]);
 
-    let approve = |record: &ipc::SessionRecord, title: &str| {
-        let target = format!("sketch:{title}");
-        let drawn = record.attachments.iter().find(|one| one.target == target).unwrap().detail["drawn"].clone();
-        let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
-        approve.sketch = target;
-        approve
-    };
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (DSCR only)")).await.unwrap();
-    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan"], "the middle one answered, two remain");
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (alerts)")).await.unwrap();
-    assert_eq!(waiting(&record), ["sketch:Plan"], "the newest answered, the next is the first and so the pin");
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan")).await.unwrap();
+    let drawn = record.attachments.iter().find(|one| one.target == "sketch:Plan").unwrap().detail["drawn"].clone();
+    let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
+    approve.sketch = "sketch:Plan".into();
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
     assert!(record.waiting_for.is_empty(), "{:?}", record.waiting_for);
+    assert_eq!(sent(&rig.rows(&id).await).pop().unwrap(), "Approved sketch: Plan (alerts)\nGo on from it as drawn.");
 }
 
 #[test]
