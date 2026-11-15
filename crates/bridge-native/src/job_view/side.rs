@@ -1,5 +1,5 @@
 //! What the right column's tabs are: Open, Done and Deferred, and the kinds + opens after them (Plan,
-//! Changes, Ledger, Files, Subagents, Checks in `panes.rs`, Spine in `spine.rs`, Judge in `judge_tab.rs`),
+//! Changes, Ledger, Files, Subagents, Checks in `panes.rs`, Spine in `spine.rs`, Judge in `judge_tab.rs`, For you in `for_you_tab.rs`),
 //! with the column's state on a Job's page and the look of a strip's tab. Any pane may hold any of them
 //! (`place_draw.rs`); Now is `now.rs`.
 
@@ -38,10 +38,11 @@ pub(super) enum Zone {
     Spine,
     Judge,
     Artifacts,
+    ForYou,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 18] = [
+    pub(super) const ALL: [Zone; 19] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -60,6 +61,7 @@ impl Zone {
         Zone::Spine,
         Zone::Judge,
         Zone::Artifacts,
+        Zone::ForYou,
     ];
 
     pub(super) fn id(self) -> &'static str {
@@ -82,6 +84,7 @@ impl Zone {
             Zone::Spine => "spine",
             Zone::Judge => "judge",
             Zone::Artifacts => "artifacts",
+            Zone::ForYou => "for_you",
         }
     }
 
@@ -105,6 +108,7 @@ impl Zone {
             Zone::Spine => ("waypoints", "Spine"),
             Zone::Judge => ("scale", "Judge"),
             Zone::Artifacts => ("shapes", "Artifacts"),
+            Zone::ForYou => ("user-check", "For you"),
         }
     }
 }

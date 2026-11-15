@@ -670,7 +670,7 @@ impl JobView {
 
     /// Every artifact is read whole in its own tab. One that holds parts opens in the artifact's tab, with every part answerable
     /// and its drawing large; a page opens in its tab, a draft in its tab, and a sketch large over the window, where it zooms.
-    fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.artifact_of(job, artifact).cloned() else { return };
         if !one.parts.is_empty() {
             self.open_artifact_tab(&one.id, window, cx);
