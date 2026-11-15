@@ -55,7 +55,10 @@ import type { ModelsBody } from "./gateway";
 import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from "./jobState";
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
-import { documentPath, draftPath, filePath, go, jobPath, sketchPath } from "./router";
+import { ArtifactCard } from "./Artifact";
+import { asks, ofParts, useArtifacts } from "./artifacts";
+import { TryLine, useTryCards } from "./ReadyToTry";
+import { artifactPath, documentPath, draftPath, filePath, go, jobPath, sketchPath } from "./router";
 import {
   approvalOf,
   askedOf,
@@ -71,6 +74,7 @@ import {
   runsOf,
   sessionOfThread,
   takesWords,
+  withArtifacts,
   withEarlier,
   type JobLink,
   type OpenDraft,
@@ -671,6 +675,22 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     earlierId === undefined || read.older !== false ? undefined : machine,
     earlierId ?? "",
   );
+  // The artifacts are read only for a Job that showed one, and the thread's cards only while one waits on him.
+  const showed = (read.thread?.session.attachments ?? []).some(
+    (one) =>
+      one.kind === "artifact" &&
+      [
+        "sketch",
+        "document",
+        "draft",
+        "page",
+      ].includes(one.detail?.["form"] ?? ""),
+  );
+  const [artifacts] = useArtifacts(showed ? machine : undefined, id);
+  const trying = (read.thread?.session.waiting_for ?? []).some(
+    (one) => one.source === "ready_to_try",
+  );
+  const [tryCards] = useTryCards(machine, id, trying);
   if (read.thread === undefined) {
     return (
       <section className="pk-screen" aria-label="Job">
@@ -774,8 +794,19 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     !approval.approved &&
     plan?.version !== undefined &&
     approval.groups[0] !== undefined;
+  const openArtifact = (artifact: string) => go(artifactPath(machine.origin, id, artifact));
   const trailing = (
     <div className="pk-trailing">
+      {(tryCards ?? [])
+        .filter((card) => card.state === "open")
+        .map((card) => (
+          <TryLine key={card.id} machine={machine} id={id} card={card} />
+        ))}
+      {(artifacts.artifacts ?? [])
+        .filter((one) => ofParts(one) && asks(one))
+        .map((one) => (
+          <ArtifactCard key={one.id} machine={machine} id={id} artifact={one} />
+        ))}
       {asked === undefined && lapsed === undefined ? null : (
         <AskCards
           {...(asked === undefined
@@ -1024,7 +1055,11 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
               <WithKeptStyles machine={machine}>
                 <SessionThread
                   sessionId={`${machine.origin} ${id}`}
-                  rows={withEarlier(rowsOf(session), earlier.thread)}
+                  rows={withArtifacts(
+                    withEarlier(rowsOf(session), earlier.thread),
+                    artifacts.artifacts,
+                    openArtifact,
+                  )}
                   {...((read.onOlder ?? earlier.onOlder) === undefined
                     ? {}
                     : {

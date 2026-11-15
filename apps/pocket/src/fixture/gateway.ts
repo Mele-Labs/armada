@@ -3,7 +3,10 @@
 // It checks that a call is signed, not that the signature is good: there is no pairing behind it.
 
 import type {
+  AnswerPart,
+  AnswerReadyToTry,
   AnswerWaiting,
+  JobArtifact,
   ChangeWaiting,
   DismissWaiting,
   SessionRecord,
@@ -13,6 +16,7 @@ import type {
 } from "@armada/protocol";
 
 import type { OperatorBody, PhoneSession, QueuedAct } from "../gateway";
+import { DESIGN_PAGE, sealedPage, SHOTS } from "./artifacts";
 import { decide } from "./operator";
 import type { FixtureMac } from "./wire";
 
@@ -160,6 +164,49 @@ export function answer(
               path: url.searchParams.get("path"),
               text,
             });
+      }
+      case "/api/sessions/artifacts":
+        return mac.threads[id] === undefined
+          ? said(404, "No Job has that id on this Mac.")
+          : json(mac.artifacts?.[id] ?? []);
+      case "/api/sessions/artifacts/page": {
+        const revision = Number(url.searchParams.get("revision") ?? "2");
+        if (url.searchParams.get("artifact") !== DESIGN_PAGE || revision < 1 || revision > 2)
+          return json(
+            {
+              code: "fleet.artifact_not_held",
+              message: "that Job holds no such page",
+            },
+            422,
+          );
+        return {
+          status: 200,
+          type: "text/html",
+          body: sealedPage(revision),
+        };
+      }
+      case "/api/sessions/thread":
+        return mac.threads[id] === undefined
+          ? said(404, "No Job has that id on this Mac.")
+          : json({
+              session_id: id,
+              head: {},
+              items: (mac.tries?.[id] ?? []).map((card) => ({
+                kind: "ready_to_try",
+                ...card,
+              })),
+            });
+      case "/api/sessions/repository_file": {
+        const shot = SHOTS[url.searchParams.get("path") ?? ""];
+        return shot === undefined
+          ? json(
+              {
+                code: "fleet.repository_file_not_addressable",
+                message: "that file is not one the Job named",
+              },
+              422,
+            )
+          : json(shot);
       }
       case "/api/push/key":
         return said(404, "Push is not served by the fixture.");
@@ -512,6 +559,62 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
         };
       return answered();
     }
+    case "/api/sessions/artifacts/part/answer":
+      return partAnswered(mac, record, sent as unknown as AnswerPart);
+    case "/api/sessions/artifacts/press":
+      return json({
+        revision: Number(sent["revision"] ?? 1),
+        action: String(sent["action"] ?? ""),
+        act: "message",
+        at: now(),
+        did: {
+          kind: "sent",
+        },
+      });
+    case "/api/sessions/artifacts/vote":
+      return json({
+        revision: Number(sent["revision"] ?? 1),
+        vote: String(sent["vote"] ?? ""),
+        form: "pick",
+        result: sent["result"],
+        at: now(),
+      });
+    case "/api/sessions/artifacts/seen":
+      return json({
+        seen: Number(sent["revision"] ?? 1),
+      });
+    case "/api/sessions/ready_to_try/answer": {
+      const given = sent as unknown as AnswerReadyToTry;
+      const card = (mac.tries?.[id] ?? []).find(
+        (one) => one.branch === given.branch && one.tip === given.tip,
+      );
+      if (card === undefined)
+        return json(
+          {
+            code: "fleet.ready_to_try_unknown",
+            message: "no card of that branch and tip",
+          },
+          404,
+        );
+      if (card.state === "answered")
+        return json(
+          {
+            code: "fleet.ready_to_try_settled",
+            message: "that card was answered already",
+          },
+          409,
+        );
+      if (given.answer.kind === "remind") {
+        card.state = "later";
+        card.later_until = given.answer.until;
+      } else {
+        card.state = "answered";
+        card.verdict = given.answer.kind === "looks_good" ? "good" : "needs_work";
+      }
+      drop(record, card.id);
+      settle(mac, thread);
+      return json(card);
+    }
     case "/api/sessions/waiting/answer":
     case "/api/sessions/waiting/dismiss": {
       const given = sent as AnswerWaiting & DismissWaiting;
@@ -618,4 +721,58 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
     }
   }
   return undefined;
+}
+
+/** `answer_part`, as Fleet answers it: the part answered in place, the artifact settled once no ask is left, or Fleet's refusal. */
+function partAnswered(mac: FixtureMac, record: SessionRecord, given: AnswerPart): Answered {
+  const refuse = (status: number, code: string, message: string) =>
+    json(
+      {
+        code,
+        message,
+      },
+      status,
+    );
+  const artifact: JobArtifact | undefined = mac.artifacts?.[record.id]?.find(
+    (one) => one.id === given.artifact,
+  );
+  const part = artifact?.parts?.find((one) => one.id === given.part);
+  if (artifact === undefined || part === undefined)
+    return refuse(422, "fleet.part_refused", "that artifact holds no such part");
+  if (!part.asks || part.state !== "open")
+    return refuse(422, "fleet.part_refused", "that part is not waiting on an answer");
+  if (part.drawn !== given.drawn)
+    return refuse(409, "fleet.part_redrawn", "the job has put that part again since");
+  if (given.how === "sent_back" && (given.words ?? "").trim() === "")
+    return refuse(422, "fleet.part_refused", "sending back takes a note");
+  if ((given.how === "picked") !== (part.kind === "takes"))
+    return refuse(422, "fleet.part_refused", "a takes part is picked, and only a takes part");
+  part.state = given.how;
+  part.answer = {
+    ...(given.words === undefined
+      ? {}
+      : {
+          words: given.words,
+        }),
+    ...(given.take === undefined
+      ? {}
+      : {
+          take: given.take,
+        }),
+    ...(given.notes === undefined
+      ? {}
+      : {
+          notes: given.notes,
+        }),
+    at: now(),
+  };
+  const parts = artifact.parts ?? [];
+  if (!parts.some((one) => one.asks && one.state === "open")) {
+    artifact.state = parts.some((one) => one.state === "sent_back") ? "sent_back" : "approved";
+    delete artifact.item;
+    drop(record, artifact.id);
+    const thread = mac.threads[record.id];
+    if (thread !== undefined) settle(mac, thread);
+  }
+  return json(artifact);
 }
