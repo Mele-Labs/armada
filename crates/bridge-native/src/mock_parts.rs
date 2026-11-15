@@ -265,3 +265,115 @@ pub fn scenario() -> Option<bool> {
         None
     }
 }
+
+/// Whether the scenario is the folds': six artifacts kept among the thread's items, one answered, one sent back and redrawn,
+/// one with no scene, one with a drawing, and a Job running a call.
+pub fn folds() -> bool {
+    crate::mock::scenario_is("artifact-folds")
+}
+
+/// The artifacts the scenario's Job holds when it opens.
+pub fn initial() -> Option<Vec<JobArtifact>> {
+    match scenario() {
+        Some(answered) => Some(vec![artifact(answered)]),
+        None if folds() => Some(folded()),
+        None => None,
+    }
+}
+
+/// What he said of an older revision before this run, as the mock Fleet cannot say it: artifact, revision and his note on the send back.
+pub fn earlier_verdicts() -> Vec<(&'static str, u32, &'static str)> {
+    if folds() {
+        vec![("draft:Merge line wording", 1, "Say which branch the line names, and keep it to one line.")]
+    } else {
+        Vec::new()
+    }
+}
+
+/// One artifact that holds a single part, as the folds' scenario keeps them.
+fn single(id: &str, title: &str, form: ArtifactForm, kept: &[u32], part: ArtifactPart, state: ArtifactState) -> JobArtifact {
+    let revisions = kept.iter().enumerate().map(|(at, minute)| ArtifactRevision { number: at as u32 + 1, at: self::at(*minute), by: ArtifactBy::Agent, form }).collect();
+    JobArtifact {
+        id: id.into(),
+        title: title.into(),
+        form,
+        revisions,
+        state,
+        words: None,
+        item: (state == ArtifactState::Asking).then(|| id.into()),
+        in_plan: None,
+        archived: None,
+        for_line: None,
+        presses: Vec::new(),
+        votes: Vec::new(),
+        seen: None,
+        parts: vec![part],
+    }
+}
+
+fn words_part(id: &str, text: &str, revision: u32, minute: u32) -> ArtifactPart {
+    ArtifactPart { revision, drawn: format!("{id}-{revision}"), ..part(id, PartContent::Words { text: text.into() }, true, minute) }
+}
+
+/// The folds' artifacts, oldest kept first, each at the minute its revision was kept: the thread's items stand between them.
+fn folded() -> Vec<JobArtifact> {
+    let mut names = single("draft:Branch names", "Branch names", ArtifactForm::Draft, &[5], words_part("names", "Name each branch for the Job that opened it: native/ and the topic.", 1, 5), ArtifactState::Approved);
+    names.parts[0].state = PartState::Approved;
+    names.parts[0].answer = Some(PartAnswer { words: Some("Good.".into()), at: Some(at(6)), ..PartAnswer::default() });
+    let commit = single("draft:Commit words", "Commit words", ArtifactForm::Draft, &[12], words_part("commit", "A commit message says what the diff cannot: why the line moved, and what it fixes.", 1, 12), ArtifactState::Asking);
+    let wording = single("draft:Merge line wording", "Merge line wording", ArtifactForm::Draft, &[15, 25], words_part("wording", "The merge line reads: Behind main by three commits.", 2, 25), ArtifactState::Asking);
+    let title = single("draft:Page title", "Page title", ArtifactForm::Draft, &[36], words_part("title", "Name the page for what it answers: Which pages got a vote.", 1, 36), ArtifactState::Asking);
+    let order = ArtifactPart {
+        ..part(
+            "order",
+            PartContent::Takes {
+                question: Some("Which goes out first?".into()),
+                form: VoteForm::Pick,
+                takes: ["A \u{b7} Dark mode first", "B \u{b7} Votes first (Job's pick)", "C \u{b7} Both together"]
+                    .iter()
+                    .enumerate()
+                    .map(|(at, title)| PartTake { id: format!("t{at}"), title: (*title).into(), scene: None })
+                    .collect(),
+                parts: Vec::new(),
+            },
+            true,
+            44,
+        )
+    };
+    let rollout = single("sketch:Rollout order", "Rollout order", ArtifactForm::Sketch, &[44], order, ArtifactState::Asking);
+    let flow = single("sketch:Step flow", "Step flow", ArtifactForm::Sketch, &[46], part("flow", PartContent::Drawing { scene: flow() }, true, 46), ArtifactState::Asking);
+    vec![names, commit, wording, title, rollout, flow]
+}
+
+/// The Job sent a part back and drew it again: the part asks on its next revision, which the artifact keeps at `now`.
+pub fn redraw(artifact: &mut JobArtifact, now: Instant) {
+    let number = artifact.revisions.last().map_or(1, |last| last.number) + 1;
+    for part in artifact.parts.iter_mut().filter(|part| part.state == PartState::SentBack) {
+        part.revision += 1;
+        part.drawn = format!("{}-{}", part.id, part.revision);
+        part.state = PartState::Open;
+        part.answer = None;
+        if let PartContent::Words { text } = &mut part.content {
+            *text = format!("Second pass. {text}");
+        }
+    }
+    artifact.revisions.push(ArtifactRevision { number, at: now, by: ArtifactBy::Agent, form: artifact.form });
+    artifact.state = ArtifactState::Asking;
+    artifact.words = None;
+    artifact.item = Some(artifact.id.clone());
+}
+
+/// The thread the folds' Job holds: what it said and did between the cards, at the minutes the cards were kept.
+pub fn extend_thread(thread: &mut ipc::JobThread) {
+    let rows = [
+        r#"{"kind":"row","row":{"kind":"message","id":"f-1","at":"2026-11-14T10:01:00Z","from":{"kind":"agent"},"text":"Six questions came out of the page votes. I put each to you as its own card."}}"#,
+        r#"{"kind":"calls","id":"f-2","names":["Read"],"rows":[{"kind":"tool","id":"f-2","at":"2026-11-14T10:08:00Z","text":"Read packages/components/src/PageVotes/page_votes.rs"}]}"#,
+        r#"{"kind":"row","row":{"kind":"message","id":"f-3","at":"2026-11-14T10:20:00Z","from":{"kind":"agent"},"text":"The merge line wording needed one more pass, so it is back."}}"#,
+        r#"{"kind":"calls","id":"f-4","names":["Edit"],"rows":[{"kind":"tool","id":"f-4","at":"2026-11-14T10:30:00Z","text":"Edit packages/components/src/MergeLine/MergeLine.tsx"}]}"#,
+        r#"{"kind":"row","row":{"kind":"message","id":"f-5","at":"2026-11-14T10:41:00Z","from":{"kind":"agent"},"text":"Two more cards: the rollout order, and the step flow as a drawing."}}"#,
+        r#"{"kind":"calls","id":"f-6","names":["Read"],"rows":[{"kind":"tool","id":"f-6","at":"2026-11-14T10:50:00Z","text":"Read crates/fleet/src/page_votes.rs"}]}"#,
+    ];
+    for row in rows {
+        thread.items.push(ipc::decode::<ipc::ThreadItem>("a thread item", row.as_bytes()).expect("the mock's rows decode"));
+    }
+}

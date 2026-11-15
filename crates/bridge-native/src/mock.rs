@@ -155,7 +155,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -319,6 +319,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
                 crate::mock_parts::ID
             );
             one.waiting_for.extend(ipc::decode::<Vec<WaitingItem>>("artifact items", wire.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
+    // The Job that holds the folds' artifacts is running a call, and says what it is doing in the words its row uses.
+    if scenario == "artifact-folds" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            one.activity = Some(ipc::SessionActivity { now: Some("Reading page_votes.rs".into()), ..Default::default() });
         }
     }
     // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
@@ -593,7 +599,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
-        "tool-rows" | "artifact-parts" | "artifact-parts-answered" => include_bytes!("../fixtures/tools-threads.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
@@ -629,6 +635,11 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
+    if scenario == "artifact-folds" {
+        if let Some(thread) = all.get_mut(crate::mock_parts::JOB) {
+            crate::mock_parts::extend_thread(thread);
+        }
+    }
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {

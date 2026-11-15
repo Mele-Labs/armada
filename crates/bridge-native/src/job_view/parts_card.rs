@@ -24,6 +24,7 @@ use super::sketch_card::{act, mixed, Kind};
 use super::{Extra, JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
+use super::sketch_keys::{moved, Looking, KEY_STEP};
 use crate::scene::{Clock, Fit, Lens};
 
 /// The route `answer_part` is posted to.
@@ -56,6 +57,8 @@ pub(super) struct PartsState {
     sent: HashMap<String, (String, PartState, PartAnswer)>,
     /// What a button said when pressed, by part and action, until Fleet's press says it.
     went: HashMap<String, String>,
+    /// How a drawing part is zoomed and moved in the artifact's tab, by part.
+    lens: HashMap<String, Lens>,
     /// The one-line note on a pick, by takes part.
     notes: HashMap<String, Entity<InputState>>,
     typing: HashMap<String, gpui::Subscription>,
@@ -184,7 +187,7 @@ fn stands(state: PartState) -> (&'static str, crate::look::Token, &'static str, 
 }
 
 /// The take a part's answer picked, by the words its tile carries.
-fn picked_take(part: &ArtifactPart) -> Option<String> {
+pub(super) fn picked_take(part: &ArtifactPart) -> Option<String> {
     match (&part.content, part.answer.as_ref().and_then(|answer| answer.take.as_deref())) {
         (PartContent::Takes { takes, .. }, Some(id)) => takes.iter().find(|one| one.id == id).map(|one| pick_mark(&one.title).0.to_string()),
         _ => None,
@@ -212,6 +215,8 @@ struct Ctx<'a> {
     job: SharedString,
     page: &'a Page,
     look: &'a Look,
+    /// Drawn in the artifact's own tab, where a drawing is large and nothing folds.
+    tab: bool,
     /// The part the keys A and C answer, and the takes part 1 to 6 and Cmd-Enter answer: the first of each still asking.
     words: Option<String>,
     takes: Option<String>,
@@ -257,10 +262,15 @@ impl JobView {
         self.parts_artifacts(job).iter().any(|one| one.parts.iter().any(|part| part.id == id))
     }
 
-    /// The list place of an artifact's card: after the thread's items, where the extras stand.
+    /// The list place of the card of an artifact's newest revision: under the item it was kept after, or among the extras.
     pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
-        let page = self.shown.as_ref().and_then(|job| self.pages.get(job))?;
-        page.extras.iter().position(|extra| matches!(extra, Extra::Parts(id) if id == artifact)).map(|at| page.items + at)
+        let job = self.shown.as_ref()?;
+        let page = self.pages.get(job)?;
+        let newest = self.artifact_of(job, artifact)?.revisions.last()?.number;
+        if let Some(held) = page.anchors.iter().find(|one| one.artifact == artifact && one.revision == newest) {
+            return Some(held.item);
+        }
+        page.extras.iter().position(|extra| matches!(extra, Extra::Parts(id, number) if id == artifact && *number == newest)).map(|at| page.items + at)
     }
 
     fn parts_changed(&mut self, artifact: &str, cx: &mut Context<Self>) {
@@ -286,9 +296,12 @@ impl JobView {
     pub(super) fn parts_redrawn(&mut self, job: &str, cx: &mut Context<Self>) {
         if let Some(page) = self.pages.get(job) {
             for (at, extra) in page.extras.iter().enumerate() {
-                if matches!(extra, Extra::Parts(_)) {
+                if matches!(extra, Extra::Parts(..)) {
                     page.remeasure(page.items + at);
                 }
+            }
+            for held in &page.anchors {
+                page.remeasure(held.item);
             }
         }
         cx.notify();
@@ -348,6 +361,13 @@ impl JobView {
             state.said.remove(&key);
             state.large.remove(&key);
         }
+        // Once this answer leaves no ask open, what he said of the revision is kept for the line it is when the Job draws the next.
+        let settled = self.pages.get(&job).zip(self.artifact_of(&job, artifact)).map(|(page, held)| {
+            (held.parts.iter().map(|one| effective(one, &part_key(artifact, &one.id), &page.cards.parts)).collect::<Vec<ArtifactPart>>(), held.words.clone())
+        });
+        if let Some((parts, words)) = settled {
+            self.keep_settled(&job, artifact, &parts, words.as_deref(), cx);
+        }
         self.parts_changed(artifact, cx);
         let said = AnswerPart { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), part: part.id.clone(), drawn: part.drawn.clone(), how, take, words, notes: BTreeMap::new() };
         let body = ipc::encode(&said).map_err(|why| format!("{why:?}"));
@@ -364,8 +384,24 @@ impl JobView {
         }
         if let Some((artifact, _)) = split_key(key) {
             let artifact = artifact.to_string();
+            if let Some(newest) = self.artifact_of(job, &artifact).and_then(|held| held.revisions.last()).map(|last| last.number) {
+                crate::drafts::clear(&super::parts_fold::kept_key(job, &artifact, newest), cx);
+            }
             self.parts_changed(&artifact, cx);
         }
+    }
+
+    /// Dismiss the artifact: it reads Dismissed in this frame and Fleet is told. A refusal takes it back (`undo`).
+    fn dismiss_parts(&mut self, ix: usize, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some(held) = self.artifact_of(&job, artifact).cloned() else { return };
+        let item = held.item.clone().unwrap_or_else(|| held.id.clone());
+        if let Some(newest) = held.revisions.last().map(|last| last.number) {
+            let verdict = super::parts_fold::Verdict { stand: Stand::Dismissed, word: Stand::Dismissed.word().into(), note: None };
+            self.keep_verdict(&job, artifact, newest, &verdict, cx);
+        }
+        let body = ipc::encode(&DismissWaiting { session_id: SessionId::carried(job.to_string()), item_id: item, reason: None, misread: false }).map_err(|why| format!("{why:?}"));
+        self.settle(ix, artifact.to_string(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
     }
 
     /// Send the pick: the take he chose, and the words in the note beside it.
@@ -382,6 +418,21 @@ impl JobView {
         let Some(take) = page.cards.parts.chosen.get(key).and_then(|chosen| takes.get(*chosen)).map(|take| take.id.clone()) else { return };
         let words = page.cards.parts.notes.get(key).map(|input| input.read(cx).value().trim().to_string()).filter(|words| !words.is_empty());
         self.answer_part(&artifact, &held, PartHow::Picked, Some(take), words, window, cx);
+    }
+
+    /// The drawing of an artifact's tab zoomed, moved or fitted again.
+    pub(super) fn zoom_part(&mut self, key: &str, by: Looking, cx: &mut Context<Self>) {
+        if let Some(state) = self.parts_state_mut() {
+            let lens = state.lens.get(key).copied().unwrap_or_default();
+            state.lens.insert(key.to_string(), moved(lens, by));
+        }
+        match split_key(key) {
+            Some((artifact, _)) => {
+                let artifact = artifact.to_string();
+                self.parts_changed(&artifact, cx);
+            }
+            None => cx.notify(),
+        }
     }
 
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
@@ -430,17 +481,25 @@ impl JobView {
         self.ask_for_changes(ix, &part_key(artifact, part), window, cx);
     }
 
-    /// The keys go back to the card, once its box has shut.
+    /// The keys go back to the card, once its box has shut: the card in the thread, or the reader's own in a tab.
     fn focus_card(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("card:{artifact}")));
+        let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("reader:{artifact}")).or_else(|| page.keys.spot_of(&format!("card:{artifact}"))));
         if let Some(spot) = spot {
             window.focus(&spot.focus, cx);
         }
     }
 
+    /// The same, from a part's key: the pressed control is gone once the take opens or shuts, and the keys must not go with it.
+    fn focus_card_of(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some((artifact, _)) = split_key(key) {
+            let artifact = artifact.to_string();
+            self.focus_card(&artifact, window, cx);
+        }
+    }
+
     /// The keys on a card holding the keys: A and C answer the first words that ask, 1 to 6 choose a take and Cmd-Enter sends
-    /// the pick, F draws a take large and Esc puts it back, D puts the artifact away and Enter opens its page.
-    fn parts_key(&mut self, artifact: &str, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    /// the pick, F draws a take large and Esc puts it back, D puts the artifact away and Enter reads it on its own.
+    pub(super) fn parts_key(&mut self, artifact: &str, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         if self.parts_typing(artifact, window, cx) {
             return;
@@ -500,22 +559,14 @@ impl JobView {
         } else if plain && pressed == "d" {
             if let Some(ix) = self.parts_ix(artifact) {
                 if asking {
-                    let item = held.item.clone().unwrap_or_else(|| held.id.clone());
-                    let body = ipc::encode(&DismissWaiting { session_id: SessionId::carried(job.to_string()), item_id: item, reason: None, misread: false }).map_err(|why| format!("{why:?}"));
-                    self.settle(ix, artifact.to_string(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
+                    self.dismiss_parts(ix, artifact, window, cx);
                 } else {
                     self.archive_card(ix, artifact, artifact, window, cx);
                 }
             }
             true
         } else if plain && pressed == "enter" {
-            let path = parts.iter().find_map(|part| match &part.content {
-                PartContent::Page { path } => Some(path.clone()),
-                _ => None,
-            });
-            if let Some(path) = path {
-                self.open_document_tab(&path, window, cx);
-            }
+            self.open_named(artifact, window, cx);
             true
         } else {
             false
@@ -527,15 +578,26 @@ impl JobView {
 
     // ---- the card ----------------------------------------------------------------------------------------------
 
-    /// The card of artifact `id` in the thread: its band, its parts and its footer.
-    pub(super) fn parts_card(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// The card of revision `revision` of artifact `id`: one line for an older revision, or for the newest once nothing is left to
+    /// ask of him, else its band, its parts and its footer. In the artifact's own tab (`tab`) it is never folded.
+    pub(super) fn parts_card(&self, ix: usize, id: &str, revision: u32, tab: bool, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.shown.clone()?;
         let artifact = self.artifact_of(&job, id)?;
+        let last = artifact.revisions.last();
+        if !tab && last.is_some_and(|last| revision < last.number) {
+            return self.past_card(ix, artifact, revision, page, look, cx);
+        }
         let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let stand = if dismissed { Stand::Dismissed } else { stand_of(&parts, artifact.state) };
         let asking = stand == Stand::Asking;
-        let last = artifact.revisions.last();
+        // An answer folds the card at once, on the answer itself; a refusal takes the answer back and the card stands whole again.
+        if !tab && matches!(stand, Stand::Approved | Stand::SentBack | Stand::Dismissed | Stand::Withdrawn) {
+            let verdict = super::parts_fold::Verdict::of(stand, &parts, artifact.words.as_deref());
+            let said = last.map_or_else(String::new, |last| revision_said(last.number, last.by, last.at.as_str()));
+            let fold = super::parts_fold::Fold { ix, artifact: id, title: &artifact.title, form: artifact.form, revision: last.map_or(1, |last| last.number), numbered: artifact.revisions.len() > 1, verdict, said };
+            return Some(self.folded_parts(fold, page, look, cx));
+        }
         let revision = last.map(|last| (last.number, revision_said(last.number, last.by, last.at.as_str())));
         let head = band(
             look,
@@ -547,20 +609,15 @@ impl JobView {
             job,
             page,
             look,
+            tab,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
         };
-        // An artifact he put away is the band alone, with Archive.
-        let put_away = matches!(stand, Stand::Dismissed | Stand::Withdrawn);
-        let blocks: Vec<AnyElement> = if put_away { Vec::new() } else { parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect() };
+        let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let run: Do = {
-            let (id, item) = (id.to_string(), artifact.item.clone().unwrap_or_else(|| artifact.id.clone()));
+            let id = id.to_string();
             Rc::new(move |this, act, window, cx| match act {
-                Act::Dismiss => {
-                    let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
-                    let body = ipc::encode(&DismissWaiting { session_id: session, item_id: item.clone(), reason: None, misread: false }).map_err(|why| format!("{why:?}"));
-                    this.settle(ix, id.clone(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
-                }
+                Act::Dismiss => this.dismiss_parts(ix, &id, window, cx),
                 Act::Archive => this.archive_card(ix, &id, &id, window, cx),
                 _ => {}
             })
@@ -590,7 +647,7 @@ impl JobView {
                 )
                 .child(div().flex_none().child(away)),
         );
-        let spot = page.keys.spot(&format!("card:{id}"), cx);
+        let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
         let artifact_id = id.to_string();
         let card = frame(look, self.band_narrow(look))
             .id(SharedString::from(format!("artifact:{id}")))
@@ -600,7 +657,8 @@ impl JobView {
             .child(head)
             .children(blocks)
             .child(footer);
-        Some(labelled(card, Role::Article, format!("Artifact: {}, Revision {}", artifact.title, last.map_or(1, |last| last.number))).into_any_element())
+        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
+        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
     }
 
     /// One part: its caption and tag, what it holds and, where it asks, how he answers it.
@@ -611,7 +669,7 @@ impl JobView {
         let body = match &part.content {
             PartContent::Words { text } => self.words_body(c, &key, text, part),
             PartContent::Takes { question, form, takes, .. } => self.takes_body(c, &key, part, question.as_deref(), *form, takes, cx),
-            PartContent::Drawing { scene } => self.drawing_body(c, &key, part, scene),
+            PartContent::Drawing { scene } => self.drawing_body(c, &key, part, scene, cx),
             PartContent::Buttons { actions } => self.buttons_body(c, &key, part, actions, cx),
             PartContent::Page { path } => self.page_body(c, &key, part, path, cx),
         };
@@ -858,9 +916,10 @@ impl JobView {
                 .tooltip(tip(if target { "See it larger, F" } else { "See it larger" }))
                 .child(glyph(look, "eye", Size::Small, look.color(token::FG_MUTED)))
                 .on_key_down(|event: &KeyDownEvent, _, cx| presses_on_enter(event, cx))
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     cx.stop_propagation();
                     this.large_take(&expand_key, Some(at), cx);
+                    this.focus_card_of(&expand_key, window, cx);
                 })),
             Role::Button,
             format!("See {title} larger"),
@@ -922,11 +981,11 @@ impl JobView {
     fn take_picture(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, height: gpui::Pixels, fit: Fit) -> Option<AnyElement> {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}", c.job, text.len());
-        self.scene_in(&held, text, height, c.look, fit)
+        self.scene_in(&held, text, height, c.look, fit, Lens::default())
     }
 
     /// A scene's JSON drawn in a sunken box `height` tall, as a take's thumbnail and the drawing part are.
-    fn scene_in(&self, key: &str, text: &str, height: gpui::Pixels, look: &Look, fit: Fit) -> Option<AnyElement> {
+    fn scene_in(&self, key: &str, text: &str, height: gpui::Pixels, look: &Look, fit: Fit, lens: Lens) -> Option<AnyElement> {
         let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
         let scene = crate::scene::read(key, &raw)?;
         Some(
@@ -939,7 +998,7 @@ impl JobView {
                 .bg(look.color(token::BG_SUNKEN))
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
-                .child(crate::scene::view(SharedString::from(key.to_string()), scene, fit, Clock::default(), Lens::default()))
+                .child(crate::scene::view(SharedString::from(key.to_string()), scene, fit, Clock::default(), lens))
                 .into_any_element(),
         )
     }
@@ -954,7 +1013,10 @@ impl JobView {
         let step = |to: usize, said: &'static str, cap: &'static str| {
             let (held, name) = (key.to_string(), format!("{said}: {}", pick_mark(&takes[to].title).0));
             labelled(
-                act(look, format!("large-step:{key}:{to}"), said, Kind::Ghost, cap, true).tooltip(tip(name.clone())).on_click(cx.listener(move |this, _, _, cx| this.large_take(&held, Some(to), cx))),
+                act(look, format!("large-step:{key}:{to}"), said, Kind::Ghost, cap, true).tooltip(tip(name.clone())).on_click(cx.listener(move |this, _, window, cx| {
+                    this.large_take(&held, Some(to), cx);
+                    this.focus_card_of(&held, window, cx);
+                })),
                 Role::Button,
                 name,
             )
@@ -982,7 +1044,10 @@ impl JobView {
             )
             .child(step(next, "After", "\u{2192}"))
             .child(labelled(
-                act(look, format!("large-back:{key}"), "Back", Kind::Ghost, "Esc", true).tooltip(tip("Back to the takes")).on_click(cx.listener(move |this, _, _, cx| this.large_take(&back_key, None, cx))),
+                act(look, format!("large-back:{key}"), "Back", Kind::Ghost, "Esc", true).tooltip(tip("Back to the takes")).on_click(cx.listener(move |this, _, window, cx| {
+                    this.large_take(&back_key, None, cx);
+                    this.focus_card_of(&back_key, window, cx);
+                })),
                 Role::Button,
                 "Back",
             ));
@@ -1039,14 +1104,97 @@ impl JobView {
 
     // ---- drawing, buttons and page -----------------------------------------------------------------------------
 
-    /// A drawing: its scene, in a sunken box.
-    fn drawing_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, scene: &str) -> AnyElement {
+    /// A drawing: its scene, in a sunken box. A press on it, or its eye, reads it large in the artifact's own tab, where it zooms.
+    fn drawing_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, scene: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let held = format!("part:{}:{key}:{}", c.job, part.drawn);
-        match self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview) {
-            Some(drawn) => labelled(div().id(SharedString::from(format!("drawing:{key}"))).w_full().child(drawn), Role::Group, "Drawing").into_any_element(),
-            None => div().into_any_element(),
+        if c.tab {
+            return self.drawing_large(c, key, &held, scene, cx);
         }
+        let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
+        let artifact = c.id.to_string();
+        let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
+        let eye = labelled(
+            div()
+                .id(SharedString::from(format!("expand:{key}")))
+                .absolute()
+                .top(look.length(token::SPACE_2))
+                .right(look.length(token::SPACE_2))
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL_SM))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(look.color(token::BG_RAISED).opacity(0.85))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tab_index(0)
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                .tooltip(tip("See it larger"))
+                .child(glyph(look, "eye", Size::Small, look.color(token::FG_MUTED)))
+                .on_key_down(|event: &KeyDownEvent, _, cx| presses_on_enter(event, cx))
+                .on_click(cx.listener({
+                    let artifact = artifact.clone();
+                    move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.open_named(&artifact, window, cx);
+                    }
+                })),
+            Role::Button,
+            name,
+        );
+        labelled(
+            div()
+                .id(SharedString::from(format!("drawing:{key}")))
+                .relative()
+                .w_full()
+                .cursor_pointer()
+                .child(drawn)
+                .child(eye)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.open_named(&artifact, window, cx);
+                })),
+            Role::Group,
+            "Drawing",
+        )
+        .into_any_element()
+    }
+
+    /// The drawing read large in the artifact's tab, with its zoom: the pinch, the buttons and the keys over it (`artifact_key`).
+    fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
+        let look = c.look;
+        let lens = c.state().lens.get(key).copied().unwrap_or_default();
+        let Some(drawn) = self.scene_in(held, scene, look.length(token::SPACE_12) * 10., look, Fit::Reading, lens) else { return div().into_any_element() };
+        let button = |id: &'static str, said: &'static str, cap: &'static str, by: Looking| {
+            let held = key.to_string();
+            labelled(
+                act(look, format!("{id}:{key}"), said, Kind::Ghost, cap, true).tooltip(tip(said)).on_click(cx.listener(move |this, _, _, cx| this.zoom_part(&held, by, cx))),
+                Role::Button,
+                said,
+            )
+        };
+        let pinched = key.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("drawing:{key}")))
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(div().w_full().on_pinch(cx.listener(move |this, event: &gpui::PinchEvent, _, cx| this.zoom_part(&pinched, Looking::Zoom((1. + event.delta).max(0.05)), cx))).child(drawn))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_end()
+                        .gap(look.length(token::SPACE_2))
+                        .child(button("zoom-out", "Zoom out", "\u{2318}\u{2212}", Looking::Zoom(1. / KEY_STEP)))
+                        .child(button("zoom-in", "Zoom in", "\u{2318}+", Looking::Zoom(KEY_STEP)))
+                        .child(button("zoom-fit", "Fit", "\u{2318}0", Looking::Fit)),
+                ),
+            Role::Group,
+            "Drawing",
+        )
+        .into_any_element()
     }
 
     /// Buttons in the Kept look: a row each, its words at the left and the button in a column of its own at the right. A
@@ -1275,5 +1423,73 @@ mod tests {
         let key = part_key("sketch:Step bar", "bar");
         assert_eq!(split_key(&key), Some(("sketch:Step bar", "bar")));
         assert_ne!(part_key("a", "b/c"), part_key("a/b", "c"));
+    }
+
+    use super::super::parts_fold::{drawn, drawn_like, folds_job, redraw};
+    use crate::mock_parts::JOB;
+
+    fn held_part(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, artifact: &str, part: &str) -> ArtifactPart {
+        view.read_with(cx, |view, _| view.artifact_of(JOB, artifact).and_then(|one| one.parts.iter().find(|held| held.id == part)).cloned().expect("the artifact holds the part"))
+    }
+
+    #[gpui::test]
+    fn approve_folds_the_card_to_one_line_with_its_state_word_and_open(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        assert!(!drawn(cx, gpui::Role::Status, "Commit words: Approved"), "asking, the card stands whole");
+        let part = held_part(&view, cx, "draft:Commit words", "commit");
+        view.update_in(cx, |view, window, cx| view.answer_part("draft:Commit words", &part, PartHow::Approved, None, None, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Status, "Commit words: Approved"));
+        assert!(drawn(cx, gpui::Role::Article, "Artifact: Commit words, Revision 1"));
+        assert!(drawn(cx, gpui::Role::Button, "Open"), "Open is on the line");
+    }
+
+    #[gpui::test]
+    fn send_back_folds_the_card_with_his_note_and_the_job_drawing_it_again_is_a_new_card(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        let part = held_part(&view, cx, "draft:Page title", "title");
+        view.update_in(cx, |view, window, cx| view.answer_part("draft:Page title", &part, PartHow::SentBack, None, Some("Name it for the question.".into()), window, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Status, "Page title: Sent back"), "revision 1 stands as one line");
+        assert!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), "the Job's next drawing asks again, in a card of its own");
+        view.read_with(cx, |view, cx| {
+            let verdict = view.verdict_kept(JOB, "draft:Page title", 1, cx).expect("his words were kept under revision 1");
+            assert_eq!(verdict.note.as_deref(), Some("Name it for the question."));
+        });
+    }
+
+    #[gpui::test]
+    fn send_pick_folds_the_card_naming_the_take(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        let key = part_key("sketch:Rollout order", "order");
+        view.update_in(cx, |view, _, cx| view.choose_take(&key, 1, cx));
+        view.update_in(cx, |view, window, cx| view.send_pick(&key, window, cx));
+        redraw(cx);
+        let mut said = drawn_like(cx, gpui::Role::Status, "Rollout order: Picked");
+        said.dedup();
+        assert_eq!(said, ["Rollout order: Picked B \u{b7} Votes first"], "the fold names the take he picked");
+    }
+
+    #[gpui::test]
+    fn dismiss_folds_the_card_reading_dismissed(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        let ix = view.read_with(cx, |view, _| view.parts_ix("sketch:Step flow")).expect("the card has a place");
+        view.update_in(cx, |view, window, cx| view.dismiss_parts(ix, "sketch:Step flow", window, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Status, "Step flow: Dismissed"));
+    }
+
+    #[gpui::test]
+    fn a_refusal_unfolds_the_card_and_keeps_fleets_sentence(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        // Sent back with no note: the mock Fleet refuses it, as Fleet does.
+        let part = held_part(&view, cx, "draft:Commit words", "commit");
+        view.update_in(cx, |view, window, cx| view.answer_part("draft:Commit words", &part, PartHow::SentBack, None, None, window, cx));
+        redraw(cx);
+        assert!(!drawn(cx, gpui::Role::Status, "Commit words: Sent back"), "the card stands whole again");
+        view.read_with(cx, |view, _| {
+            let page = view.pages.get(JOB).expect("the page");
+            assert!(page.cards.parts.said.get(&part_key("draft:Commit words", "commit")).is_some_and(|why| why.contains("note")), "Fleet's own sentence stands on the part");
+        });
     }
 }

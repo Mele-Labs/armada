@@ -66,7 +66,7 @@ pub(super) struct Artifacts {
     edits_here: HashMap<(String, String), u32>,
     /// What the mock Fleet keeps of the artifact of parts, since it keeps nothing: the artifact as it stands once he has answered
     /// parts of it, and every `answer_part` it was sent, in order.
-    mock_parts: Option<JobArtifact>,
+    mock_parts: Vec<JobArtifact>,
     mock_posts: Vec<ipc::AnswerPart>,
     /// Every `mark_artifact_seen` the mock Fleet was sent, in order.
     mock_seen: Vec<ipc::MarkArtifactSeen>,
@@ -228,24 +228,15 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Open the artifact of the shown Job where it is read, as the thread's own card opens it: an artifact of parts is brought
-    /// into view with the keys; a page is read in its tab, a draft in its own, a sketch over the window. Returns whether the
-    /// Job holds it: one it no longer holds opens nothing.
+    /// Open the artifact of the shown Job where it is read, as every press that names one does: the Artifacts tab's row, a card's
+    /// Open, a Needs you item and a folded line. Returns whether the Job holds it: one it no longer holds opens nothing.
     pub(super) fn open_named(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
-        let Some(held) = self.artifact_of(&job, artifact).cloned() else { return false };
-        self.set_needs(false, None, window, cx);
-        if !held.parts.is_empty() && held.archived.is_none() {
-            if let Some(ix) = self.parts_ix(artifact) {
-                self.reveal_card(ix, cx);
-            }
-            if let Some(spot) = self.pages.get(&job).and_then(|page| page.keys.spot_of(&format!("card:{artifact}"))) {
-                window.focus(&spot.focus, cx);
-            }
-        } else {
-            // The Artifacts tab's own press: a page in its tab, a draft in its tab, a sketch over the window.
-            self.open_artifact(&job, artifact, window, cx);
+        if self.artifact_of(&job, artifact).is_none() {
+            return false;
         }
+        self.set_needs(false, None, window, cx);
+        self.open_artifact(&job, artifact, window, cx);
         cx.notify();
         true
     }
@@ -265,8 +256,12 @@ impl JobView {
     pub(super) fn mock_part_answered(&mut self, job: &SharedString, body: Result<String, String>, cx: &mut Context<Self>) -> Result<(), String> {
         let said = body.and_then(|body| ipc::decode::<ipc::AnswerPart>("AnswerPart", body.as_bytes()).map_err(|why| why.to_string()))?;
         self.artifacts.mock_posts.push(said.clone());
-        let mut kept = self.artifacts.mock_parts.clone().ok_or_else(|| "the mock Fleet holds no artifact of parts".to_string())?;
+        let mut kept = self.artifacts.mock_parts.iter().find(|one| one.id == said.artifact).cloned().ok_or_else(|| "the mock Fleet holds no such artifact of parts".to_string())?;
         crate::mock_parts::apply(&mut kept, &said)?;
+        // A Job that is sent a part back draws it again, as the next revision, which asks.
+        if crate::mock_parts::folds() && kept.state == ArtifactState::SentBack {
+            crate::mock_parts::redraw(&mut kept, Instant::carried(Local::now().to_rfc3339()));
+        }
         self.mock_parts_kept(job, kept, cx);
         Ok(())
     }
@@ -274,7 +269,7 @@ impl JobView {
     /// Mock data: Fleet keeps a press on a buttons part and lists the artifact again.
     pub(super) fn mock_part_pressed(&mut self, job: &SharedString, body: Result<String, String>, cx: &mut Context<Self>) {
         let Ok(pressed) = body.map_err(|_| ()).and_then(|body| ipc::decode::<ipc::PressPageAction>("PressPageAction", body.as_bytes()).map_err(|_| ())) else { return };
-        let Some(mut kept) = self.artifacts.mock_parts.clone() else { return };
+        let Some(mut kept) = self.artifacts.mock_parts.iter().find(|one| one.id == pressed.artifact).cloned() else { return };
         let Some(action) = kept.parts.iter().find_map(|part| match &part.content {
             ipc::PartContent::Buttons { actions } => actions.iter().find(|action| action.id == pressed.action).cloned(),
             _ => None,
@@ -292,7 +287,12 @@ impl JobView {
                 None => rows.insert(0, kept.clone()),
             }
         }
-        self.artifacts.mock_parts = Some(kept);
+        match self.artifacts.mock_parts.iter_mut().find(|one| one.id == kept.id) {
+            Some(one) => *one = kept,
+            None => self.artifacts.mock_parts.push(kept),
+        }
+        // As Fleet's list arriving: the cards are placed again, since a new revision is a card of its own.
+        self.parts_arrived(job, cx);
         self.parts_redrawn(job, cx);
     }
 
@@ -318,10 +318,19 @@ impl JobView {
         if self.fleet.is_none() {
             let mut rows = self.thread(id, cx).map(|held| mock_artifacts(&held.items)).unwrap_or_default();
             if id.as_ref() == crate::mock_parts::JOB {
-                if let Some(answered) = crate::mock_parts::scenario() {
-                    let kept = self.artifacts.mock_parts.get_or_insert_with(|| crate::mock_parts::artifact(answered)).clone();
-                    rows.retain(|one| one.id != kept.id);
-                    rows.insert(0, kept);
+                if let Some(initial) = crate::mock_parts::initial() {
+                    if self.artifacts.mock_parts.is_empty() {
+                        self.artifacts.mock_parts = initial;
+                        // What he said of an older revision before this run, which the mock Fleet cannot say.
+                        for (artifact, revision, note) in crate::mock_parts::earlier_verdicts() {
+                            let verdict = super::parts_fold::Verdict { stand: Stand::SentBack, word: Stand::SentBack.word().into(), note: Some(note.into()) };
+                            self.keep_verdict(id, artifact, revision, &verdict, cx);
+                        }
+                    }
+                    for (at, kept) in self.artifacts.mock_parts.iter().enumerate() {
+                        rows.retain(|one| one.id != kept.id);
+                        rows.insert(at.min(rows.len()), kept.clone());
+                    }
                 }
             }
             for one in &mut rows {
@@ -659,9 +668,14 @@ impl JobView {
         .into_any_element()
     }
 
-    /// A press on a row opens the artifact as its own card opens it: a page in its tab, a draft in its tab, a sketch over the window.
+    /// Every artifact is read whole in its own tab. One that holds parts opens in the artifact's tab, with every part answerable
+    /// and its drawing large; a page opens in its tab, a draft in its tab, and a sketch large over the window, where it zooms.
     fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.artifact_of(job, artifact).cloned() else { return };
+        if !one.parts.is_empty() {
+            self.open_artifact_tab(&one.id, window, cx);
+            return;
+        }
         match one.form {
             ArtifactForm::Page => self.open_document_tab(&one.id, window, cx),
             ArtifactForm::Draft => {

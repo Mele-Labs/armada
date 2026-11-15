@@ -62,7 +62,7 @@ impl Stand {
         }
     }
 
-    fn tip(self) -> &'static str {
+    pub(super) fn tip(self) -> &'static str {
         match self {
             Stand::Asking => "Waiting on your answer",
             Stand::Approved => "You approved it",
