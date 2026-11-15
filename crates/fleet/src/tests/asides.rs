@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapters::HeadlessAgent;
-use api::{Asides, HostedSessions, Next, Refusal};
+use api::{Asides, Next, Refusal};
 use ipc::{AskAside, Aside, AsideState, Event, SessionId, SessionRow, SessionVoice, TellAside};
 use store::{aside_state, KeptAside};
 

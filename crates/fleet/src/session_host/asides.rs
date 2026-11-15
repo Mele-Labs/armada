@@ -127,6 +127,10 @@ where
         let model = Model::named(&model).map_err(|why| self.hosted_refusal(ASIDE_BLANK, &format!("the Job's model is not one: {why:?}")))?;
         let copy = super::rows::new_id();
         let refused = || self.hosted_refusal(super::fork_point::FORK_POINT_UNWRITTEN, "this conversation cannot be copied for a side question");
+        // A Job that moved slots keeps its conversation where it last ran; `--resume` looks beside `directory`.
+        // A hard link, as a hosted resume makes: the Job's file is not written.
+        adapters::terminal_thread::bring_conversation_to(&self.host().home, &session.id, &directory)
+            .map_err(|_| refused())?;
         let reading = Reading::checkout(&directory, TURNS).map_err(|_| refused())?;
         let reading = reading.forking(Fork::copy_of(&session.id, &cut, &copy).ok_or_else(refused)?);
         let ask = Ask::put(model, &brief(&question, quote.as_deref()), reviewing.environment.clone())
