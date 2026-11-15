@@ -28,7 +28,8 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 - **While any walk on a branch is unapproved, no agent on that branch runs
   tests.** Writing them is fine, and so are `tsc` and `cargo check` (8 and 12 Oct).
 - **Native work reaches him through his preview, not a walk** (13 Nov). Offer
-  the branch with `offer_preview`; he presses Refresh preview and takes notes on
+  the branch with `offer_preview` and its preview note (`about`, `look`, `steps`;
+  `preview-app` has the example); he presses Refresh preview and takes notes on
   it with ⌥⌘A. A native walk is only for a state a live Fleet cannot reach, such
   as Fleet down or a refused send. It plays from the build behind his preview in
   one press, never from a Job's slot, so show it once he has refreshed onto a
@@ -40,7 +41,8 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 - **A decision is asked one way**: in the prompt or in `waiting_for`, never
   both (13 Oct).
-- **A branch he should try is offered with `offer_preview` and an `about` line**,
+- **A branch he should try is offered with `offer_preview` and a preview note**:
+  `about`, `look` and `steps` aimed at registry acts, as `preview-app` shows,
   and offered again after the branch moves or a check fails. He presses Refresh
   preview from his own row; a Job hands him no `scripts/preview --restart`, in
   `waiting_for` or a shell block. A plain restart onto `main` is never an option
