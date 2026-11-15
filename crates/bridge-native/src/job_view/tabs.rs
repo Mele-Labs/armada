@@ -23,7 +23,7 @@ pub(super) struct AddMenu {
 }
 
 /// The kinds + offers: id, word and glyph, in Electron's order of kinds (`JOB_TAB_KINDS`).
-const KINDS: [(&str, &str, &str); 19] = [
+const KINDS: [(&str, &str, &str); 20] = [
     ("thread", "Thread", "message-square"),
     ("done", "Done", "circle-check"),
     ("now", "Now", "activity"),
@@ -43,6 +43,7 @@ const KINDS: [(&str, &str, &str); 19] = [
     ("bays", "Bays", "layout-grid"),
     ("spine", "Spine", "waypoints"),
     ("judge", "Judge", "scale"),
+    ("artifacts", "Artifacts", "shapes"),
 ];
 
 /// Done or Open switched off in Settings › Layout: neither drawn nor offered by +. Open is the registry's `next`.

@@ -11,10 +11,10 @@
 # read is the process's, which is the executable's file name, so a copy with
 # `CFBundleName` Armada Classic and `Contents/MacOS/Electron` still said Electron
 # (31 Oct, System Events on the running Bridge). The copy is a clone on APFS, so it costs no disk and
-# well under a second; its plist names Armada Classic; and it is signed ad hoc, which
-# needs no Apple certificate. It sits under `<src>/node_modules/`, so
+# well under a second; its plist names Armada Classic; and it is signed by `scripts/signing-identity`,
+# with this Mac's "Armada Local Signing" certificate where there is one, else ad hoc; neither needs Apple. It sits under `<src>/node_modules/`, so
 # `scripts/restart`'s `bridge_pattern` still proves it is this repository's
-# Bridge. Redone only when Electron's version changes.
+# Bridge. Redone only when Electron's version, or what it is signed with, changes.
 # **The name has a space**, so every use of the binary's path is quoted.
 #
 # Used by `scripts/restart` (as `ELECTRON_EXEC_PATH`) and `scripts/dev`.
@@ -23,6 +23,7 @@
 
 set -euo pipefail
 
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 dry_run=false
 if [[ "${1:-}" == "--dry-run" ]]; then
   dry_run=true
@@ -38,8 +39,9 @@ stamp="$dir/.stamp"
 app="$dir/Armada Classic.app"
 binary="$app/Contents/MacOS/Armada Classic"
 icon="$src/packages/brand/macos/ClassicIcon.icns"
-# The version, and what was done to the copy, so a copy made before the rename is made again.
-made="$version-armada-classic"
+# The version, what was done to the copy and what signs it, so a copy made before the rename, or before the
+# certificate, is made again.
+made="$version-armada-classic-$("$here/signing-identity" which 2>/dev/null || echo -)"
 if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$made" ]]; then
   $dry_run && { echo "$binary"; exit 0; }
   [[ -f "$icon" ]] || exit 1
@@ -58,7 +60,7 @@ if [[ "$(cat "$stamp" 2>/dev/null || true)" != "$made" ]]; then
   [[ "$icon_file" == *.icns ]] || icon_file="$icon_file.icns"
   rm -f "$app/Contents/Resources/$icon_file"
   cp "$icon" "$app/Contents/Resources/$icon_file" || exit 1
-  codesign --force -s - "$app" >/dev/null 2>&1 || exit 1
+  "$here/signing-identity" sign "$app" >/dev/null 2>&1 || exit 1
   echo "$made" >"$stamp"
 fi
 echo "$binary"
