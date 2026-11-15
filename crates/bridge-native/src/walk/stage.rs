@@ -126,7 +126,12 @@ impl Stage {
             }
             Screen::Operator => {
                 super::strip_marks::leave(cx);
-                crate::titlebar::scenes::begin(cx);
+                // The page's own walk opens on All, as its first step says; the others open on the project the mock bar rests on.
+                if walk.name == "operator-page" {
+                    crate::titlebar::scenes::begin_on_all(cx);
+                } else {
+                    crate::titlebar::scenes::begin(cx);
+                }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));

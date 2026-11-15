@@ -1170,7 +1170,14 @@ impl OperatorPageView {
         let task = cx.spawn(async move |this, cx| {
             let removed = task.await;
             let _ = this.update(cx, |this, cx| match removed {
-                Ok(list) => this.parked.update(cx, |parked, cx| parked.set(list.ideas, cx)),
+                Ok(list) => {
+                    // The idea is gone, so the Operator's own card is in front again: its keys and presses are live.
+                    if this.idea_front.as_deref() == Some(id.as_str()) {
+                        this.idea_front = None;
+                    }
+                    this.parked.update(cx, |parked, cx| parked.set(list.ideas, cx));
+                    cx.notify();
+                }
                 Err(why) => {
                     this.parked.update(cx, |parked, cx| {
                         parked.busy(&id, false, cx);
@@ -1497,6 +1504,7 @@ mod tests {
         page.read_with(cx, |page, cx| {
             assert!(page.ideas(cx).iter().all(|idea| idea.id != "idea:2"), "Fleet let it go");
             assert!(page.front_idea(cx).is_none(), "so the Operator's card is back in front");
+            assert!(page.idea_front.is_none(), "and its keys, Snooze and Discuss are live again, not held off by the idea that went");
         });
         assert_eq!(front(&page, cx), "turn:31");
     }
