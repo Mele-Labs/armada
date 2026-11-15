@@ -24,6 +24,7 @@ pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
+mod delivery_line;
 mod draft_doc;
 mod dock;
 mod done;
@@ -1353,3 +1354,4 @@ mod tests {
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
 pub(crate) use page_tab::page_in_front;
+pub(crate) use bar::plain_of;

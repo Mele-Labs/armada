@@ -71,6 +71,8 @@ pub enum Asked {
     /// Settings, scoped to a project or to a repository in none: the switcher's Settings, and ⌘, in it.
     ProjectSettings(usize),
     RepositorySettings(usize),
+    /// Settings on a value's page, with its project picked and its row focused: a line that names a setting links here.
+    SettingsAt(crate::settings::SettingsAt),
     ProjectMembers(usize),
     NewProject,
     /// The switcher's In this build row: the sheet of the build's notes opens.
@@ -249,6 +251,17 @@ pub struct TitleBar {
     origin: origin::OriginSearch,
     /// Which rows at the Fleet panel's foot are open.
     folds: Folds,
+    /// Where the Fleet panel's lists of what runs and what waits are scrolled to.
+    fleet_lists: gpui::ScrollHandle,
+    /// The presses inside those lists: Keep and Revert at their top, Swap at their foot. Tab to one scrolls it in.
+    list_stops: ListStops,
+}
+
+/// The tab stops inside the Fleet panel's scrolled lists, so a Tab onto one can bring it into view.
+struct ListStops {
+    keep: FocusHandle,
+    revert: FocusHandle,
+    swap: FocusHandle,
 }
 
 /// The rows at the Fleet panel's foot that open in place: Add a branch and Disk. Both start shut.
@@ -349,6 +362,8 @@ impl TitleBar {
             build_read: None,
             origin: Default::default(),
             folds: Folds::default(),
+            fleet_lists: gpui::ScrollHandle::new(),
+            list_stops: ListStops { keep: cx.focus_handle().tab_stop(true), revert: cx.focus_handle().tab_stop(true), swap: cx.focus_handle().tab_stop(true) },
             offers_read: None,
             notes_read: None,
             link_read: None,
