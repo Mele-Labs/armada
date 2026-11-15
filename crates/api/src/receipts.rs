@@ -222,13 +222,13 @@ impl<'a> Receipt<'a> {
     }
 
     pub(crate) fn part(record: &'a SessionRecord, add: &'a ipc::AddPart) -> Self {
-        let kind = match &add.part.content {
-            ipc::NewContent::Drawing {} => "drawing",
-            ipc::NewContent::Words { .. } => "words",
-            ipc::NewContent::Takes { .. } => "takes",
-            ipc::NewContent::Buttons { .. } => "buttons",
+        let kind = match &add.part {
+            ipc::NewPart::Drawing { .. } => "drawing",
+            ipc::NewPart::Words { .. } => "words",
+            ipc::NewPart::Takes { .. } => "takes",
+            ipc::NewPart::Buttons { .. } => "buttons",
         };
-        let part = add.part.id.as_deref().map(str::trim).filter(|id| !id.is_empty()).unwrap_or(kind).to_string();
+        let part = add.part.id().map(str::trim).filter(|id| !id.is_empty()).unwrap_or(kind).to_string();
         Receipt::of(record, Set::Part { part })
     }
 

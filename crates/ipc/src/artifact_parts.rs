@@ -226,25 +226,25 @@ pub struct AddPart {
     pub links: Vec<ForLink>,
 }
 
-/// A part as the Job sends it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NewPart {
-    /// The part's id, which a later call with the same id replaces: a new revision of that part, asking again. Its
-    /// kind where left out. No `:` or `/`, which name the artifacts that joined.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    #[serde(flatten)]
-    pub content: NewContent,
-}
-
-/// What a part the Job sends holds, tagged by `kind`.
+/// A part as the Job sends it, tagged by `kind`. **`id` is on each kind, not beside it**, so the tool's shape reads
+/// whole. The part's id, which a later call with the same id replaces: a new revision of that part, asking again. Its
+/// kind where left out. No `:` or `/`, which name the artifacts that joined.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum NewContent {
+pub enum NewPart {
     /// Refused with a pointer to `show_sketch`, which draws.
-    Drawing {},
-    Words { text: String },
+    Drawing {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+    Words {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        text: String,
+    },
     Takes {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         question: Option<String>,
         /// `pick`, `rank` or `score`. `pick` where left out.
@@ -254,7 +254,20 @@ pub enum NewContent {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         parts: Vec<String>,
     },
-    Buttons { actions: Vec<PartAction> },
+    Buttons {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        actions: Vec<PartAction>,
+    },
+}
+
+impl NewPart {
+    /// The id the Job gave it, if any.
+    pub fn id(&self) -> Option<&str> {
+        match self {
+            NewPart::Drawing { id } | NewPart::Words { id, .. } | NewPart::Takes { id, .. } | NewPart::Buttons { id, .. } => id.as_deref(),
+        }
+    }
 }
 
 /// One take as the Job sends it.
@@ -289,28 +302,28 @@ impl AddPart {
             problems.push(format!("`title` is longer than {MOST_TITLE_CHARS} characters"));
         }
         let mut content = None;
-        let kind = match &self.part.content {
-            NewContent::Drawing {} => {
+        let kind = match &self.part {
+            NewPart::Drawing { .. } => {
                 problems.push(String::from("a drawing is not added here: call `show_sketch` with this title, and it joins the artifact as a part"));
                 None
             }
-            NewContent::Words { text } => {
+            NewPart::Words { text, .. } => {
                 if text.trim().is_empty() {
                     problems.push(String::from("a `words` part needs its `text`"));
                 }
                 content = Some(PartContent::Words { text: text.trim().to_string() });
                 Some(PartKind::Words)
             }
-            NewContent::Takes { question, form, takes, parts } => {
+            NewPart::Takes { question, form, takes, parts, .. } => {
                 content = takes_checked(question.as_deref(), *form, takes, parts, &mut problems);
                 Some(PartKind::Takes)
             }
-            NewContent::Buttons { actions } => {
+            NewPart::Buttons { actions, .. } => {
                 content = buttons_checked(actions, &mut problems);
                 Some(PartKind::Buttons)
             }
         };
-        let id = match self.part.id.as_deref().map(str::trim) {
+        let id = match self.part.id().map(str::trim) {
             Some("") => {
                 problems.push(String::from("the part's `id` is blank. Leave it out, or name the part"));
                 String::new()
