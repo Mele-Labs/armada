@@ -29,6 +29,16 @@ where
 {
     /// Every artifact the Job holds, newest first by when its newest revision was kept.
     pub(crate) async fn job_artifacts(&self, id: &str) -> Result<Vec<JobArtifact>, Refusal> {
+        self.artifacts_read(id, true).await
+    }
+
+    /// Every sketch, draft and page on its own, as each row reads, **whatever it joined**: a page he opens, edits
+    /// or votes on is named by its path still, and so is a draft by its title.
+    pub(crate) async fn artifacts_unfolded(&self, id: &str) -> Result<Vec<JobArtifact>, Refusal> {
+        self.artifacts_read(id, false).await
+    }
+
+    async fn artifacts_read(&self, id: &str, fold: bool) -> Result<Vec<JobArtifact>, Refusal> {
         let id = id.trim();
         let (held, versions, dismissed, archives, his, plan, presses, votes, seen) = {
             let store = self.store().lock().await;
@@ -49,23 +59,43 @@ where
         let pending = plan.as_ref().map(|plan| (plan.version, crate::plan_record::pending_sketches(plan)));
         let made: Vec<(ArtifactForm, KeptAttachment)> =
             held.into_iter().filter(|one| one.kind == "artifact").filter_map(|one| Some((form_of(&one)?, one))).collect();
-        let drafts: BTreeMap<String, Option<DraftSettled>> = match made.iter().any(|(form, _)| *form == ArtifactForm::Draft) {
+        let drafts: BTreeMap<String, (Option<DraftSettled>, String)> = match made.iter().any(|(form, _)| *form == ArtifactForm::Draft) {
             true => self
                 .rows_of(id)
                 .await?
                 .into_iter()
                 .filter_map(|row| match row {
-                    SessionRow::Draft { id, settled, .. } => Some((id, settled)),
+                    SessionRow::Draft { id, settled, text, .. } => Some((id, (settled, text))),
                     _ => None,
                 })
                 .collect(),
             false => BTreeMap::new(),
         };
-        let mut artifacts: Vec<JobArtifact> =
-            made.iter().map(|(form, one)| in_plan(archived(*form, one, &versions, &dismissed, &drafts, &archives), one, pending.as_ref())).collect();
+        let each: Vec<JobArtifact> = made
+            .iter()
+            .map(|(form, one)| {
+                let mut artifact = archived(*form, one, &versions, &dismissed, &drafts, &archives);
+                let text = drafts.get(one.detail.get(DRAFT_ROW).map(String::as_str).unwrap_or_default()).map(|(_, text)| text.as_str());
+                artifact.parts = super::artifact_parts::part_of(&artifact, one, text).into_iter().collect();
+                artifact
+            })
+            .collect();
+        // **One open artifact per Job**: what joined one is a part of it, and the artifact reads from all its parts.
+        let rows: Vec<&KeptAttachment> = made.iter().map(|(_, one)| one).collect();
+        let each = match fold {
+            true => super::artifact_parts::folded(each, &rows, &dismissed),
+            false => each,
+        };
+        let mut artifacts: Vec<JobArtifact> = each
+            .into_iter()
+            .map(|artifact| match made.iter().find(|(_, one)| one.target == artifact.id) {
+                Some((_, one)) => in_plan(artifact, one, pending.as_ref()),
+                None => artifact,
+            })
+            .collect();
         for artifact in &mut artifacts {
             artifact.seen = seen.iter().find(|kept| kept.artifact == artifact.id).map(|kept| kept.revision);
-            if artifact.form == ArtifactForm::Page {
+            if artifact.form == ArtifactForm::Page || artifact.id.starts_with(TARGET_PREFIX) {
                 artifact.presses = super::page_actions::presses_of(&presses, &artifact.id);
                 artifact.votes = super::page_votes::votes_of(&votes, &artifact.id);
             }
@@ -83,7 +113,7 @@ where
 /// A sketch with the plan version it goes with. **One still asking that the pending plan names waits as the
 /// plan's item**, so the plan's one Approve answers it; one that plan's Approve settled names its version.
 fn in_plan(artifact: JobArtifact, one: &KeptAttachment, pending: Option<&(u32, Vec<String>)>) -> JobArtifact {
-    if artifact.form != ArtifactForm::Sketch {
+    if !artifact.id.starts_with(TARGET_PREFIX) {
         return artifact;
     }
     if let Some(version) = one.detail.get(SKETCH_IN_PLAN).and_then(|version| version.parse().ok()) {
@@ -117,7 +147,7 @@ fn archived(
     one: &KeptAttachment,
     versions: &[KeptAttachmentVersion],
     dismissed: &[String],
-    drafts: &BTreeMap<String, Option<DraftSettled>>,
+    drafts: &BTreeMap<String, (Option<DraftSettled>, String)>,
     archives: &[KeptArchive],
 ) -> JobArtifact {
     let Some(archive) = archives.iter().find(|archive| archive.artifact == one.target) else {
@@ -141,7 +171,7 @@ fn artifact_of(
     one: &KeptAttachment,
     versions: &[KeptAttachmentVersion],
     dismissed: &[String],
-    drafts: &BTreeMap<String, Option<DraftSettled>>,
+    drafts: &BTreeMap<String, (Option<DraftSettled>, String)>,
 ) -> JobArtifact {
     let said = |key: &str| one.detail.get(key).map(String::as_str);
     let gone = |item: &str| dismissed.iter().any(|one| one == item);
@@ -174,7 +204,7 @@ fn artifact_of(
         ArtifactForm::Draft => {
             let row = said(DRAFT_ROW).unwrap_or_default();
             let item = format!("{DRAFT_PREFIX}{row}");
-            match drafts.get(row).cloned().flatten() {
+            match drafts.get(row).cloned().and_then(|(settled, _)| settled) {
                 None => (ArtifactState::Asking, None, Some(item)),
                 Some(DraftSettled { how, words, .. }) => {
                     let state = match how {
@@ -198,7 +228,7 @@ fn whole(form: ArtifactForm, one: &KeptAttachment, versions: &[KeptAttachmentVer
         one.target.strip_prefix(TARGET_PREFIX).or_else(|| one.target.strip_prefix(DRAFT_PREFIX)).unwrap_or(&one.target).to_string()
     });
     let for_line = ipc::ArtifactFor::of_detail(&one.detail);
-    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line, in_plan: None, presses: Vec::new(), votes: Vec::new(), seen: None }
+    JobArtifact { id: one.target.clone(), title, form, revisions: revisions_of(form, one, versions), state, words: None, item, archived: None, for_line, in_plan: None, presses: Vec::new(), votes: Vec::new(), seen: None, parts: Vec::new() }
 }
 
 /// Every revision the row's `revisions` names, oldest first, and one where it names none. The first was

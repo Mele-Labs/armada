@@ -58,6 +58,11 @@ where
             };
             Arc::clone(&self).send_known(terminal, told).await?;
         }
+        // The Job archiving what still asks him takes its asks back, so it leaves his list as withdrawn. His own Archive
+        // leaves them as they stand.
+        if by == ArtifactBy::Agent && artifact.state == ipc::ArtifactState::Asking {
+            self.asks_withdrawn(&id, &artifact).await?;
+        }
         let kept = KeptArchive {
             artifact: artifact.id.clone(),
             by: String::from(match by {
@@ -101,6 +106,10 @@ where
         let held = self.job_artifacts(id).await?;
         if let Some(artifact) = held.iter().find(|one| one.id == named) {
             return Ok(artifact.clone());
+        }
+        // A sketch, draft or page that joined an artifact is named by its own id still.
+        if let Some(part) = self.artifacts_unfolded(id).await?.into_iter().find(|one| one.id == named) {
+            return Ok(part);
         }
         let ids: Vec<&str> = held.iter().take(MOST_NAMED).map(|one| one.id.as_str()).collect();
         let holds = match ids.is_empty() {

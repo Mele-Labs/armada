@@ -613,6 +613,18 @@ where
         self.page_vote_cast(cast).await
     }
 
+    async fn add_part(&self, caller: Option<api::Caller>, add: ipc::AddPart) -> Result<SessionRecord, Refusal> {
+        self.part_added(caller, add).await
+    }
+
+    async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
+        self.part_answered(answer).await
+    }
+
+    async fn get_artifact_page_source(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<String, Refusal> {
+        self.artifact_page_source(id.as_str(), &artifact, revision).await
+    }
+
     async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
         self.artifact_seen_marked(mark).await
     }

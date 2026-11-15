@@ -417,6 +417,7 @@ mod tests {
             step: None,
             shape: None,
             color: None,
+            state: None,
             html: Some(html.into()),
             css: None,
             styles: None,

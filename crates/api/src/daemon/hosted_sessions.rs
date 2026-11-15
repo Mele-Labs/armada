@@ -485,6 +485,32 @@ pub trait HostedSessions: Send + Sync + 'static {
         cast: ipc::CastPageVote,
     ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
 
+    /// `add_part`: the Job puts one more part on the artifact that still asks him, or makes one. `caller` places a
+    /// hosted session as `show_sketch`'s does. Answers with the row. [`Refusal::Unacceptable`] for a part that breaks a
+    /// rule, naming each, or a call that places no session.
+    fn add_part(
+        &self,
+        caller: Option<crate::Caller>,
+        add: ipc::AddPart,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `answer_part`: he answers one asking part of an artifact on its own, and the Job is told as his message.
+    /// Answers with the artifact. [`Refusal::IllegalMove`] for a part put again since he read it,
+    /// [`Refusal::Unacceptable`] for one not open to an answer, a way the part does not take, or a send back with no note.
+    fn answer_part(
+        self: Arc<Self>,
+        answer: ipc::AnswerPart,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `get_artifact_page_source`: one kept revision of a page as the Job wrote it, the newest where `revision` is
+    /// `None`. [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page_source(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<String, Refusal>> + Send;
+
     /// `mark_artifact_seen`: the newest revision of an artifact he opened, kept where it is newer than what is kept.
     /// Answers with the newest kept; an older revision is answered, not refused. Nothing is sent to the Job.
     /// [`Refusal::Unacceptable`] for an artifact the Job does not hold, or a revision never kept.

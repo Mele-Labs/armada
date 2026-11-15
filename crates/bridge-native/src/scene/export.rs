@@ -1806,6 +1806,7 @@ mod tests {
             step: None,
             shape: None,
             color: None,
+            state: None,
             html: None,
             css: None,
             styles: None,

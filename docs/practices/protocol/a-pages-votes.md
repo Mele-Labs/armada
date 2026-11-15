@@ -17,6 +17,8 @@ Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Clas
 **The vote is read off the kept revision**, never off the call, so the body names the revision and the vote's id, and Fleet checks the result against the takes and parts that revision declares.
 **`form` is said twice** on the answer, on `VoteCast` and as `result`'s tag, so a reader of `votes` can branch without opening the result.
 
+**On a part.** `artifact` may be an artifact of parts, `sketch:<title>`, with a takes part's id as `vote` and the part's `revision`, and a pick settles that part `picked`. `docs/practices/protocol/an-artifacts-parts.md`.
+
 **The event stream.** No new event: a cast publishes `session.changed` on the page's Job.
 One cast is one send, so the unmeasured sink risk is neither better nor worse.
 
