@@ -142,10 +142,11 @@ impl Shared {
         master.process_group_leader().is_some_and(|leader| leader != self.pid as i32)
     }
 
-    /// Tell the client when the foreground changes.
+    /// Tell the client when the foreground changes. Looked at under the output lock, so a change is
+    /// told in order with the output: none seen before a printing is told after it.
     fn foreground_watched(&self) {
-        let now = self.foreground_taken();
         let mut out = self.out.lock().expect("not poisoned");
+        let now = self.foreground_taken();
         if out.foreground != now {
             out.foreground = now;
             out.send(std::iter::once(wire::frame(wire::FOREGROUND, &[u8::from(now)])));
