@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    AddForYou, ArtifactState, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding,
+    AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding,
     ForYouOpens, Instant, LineForYou, OrderForYou, SessionId, SessionRecord, SessionState, WaitingActKind, WaitingItem,
     WaitingSource, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
 };
@@ -40,7 +40,9 @@ fn row_of(item: &WaitingItem, artifacts: &BTreeMap<String, String>) -> Option<(S
                 Some(WaitingActKind::Run) => ForYouKind::Run,
                 _ => ForYouKind::Question,
             };
-            Some((format!("{AGENT_PREFIX}{}", item.id), kind, waiting(), ForYouBy::Agent))
+            // An item naming one of the Job's artifacts opens it, and is one row with Fleet's item for it.
+            let opens = item.artifact.clone().map_or_else(waiting, |id| ForYouOpens::Artifact { id });
+            Some((format!("{AGENT_PREFIX}{}", item.id), kind, opens, ForYouBy::Agent))
         }
         WaitingSource::Walk => {
             let url = item.act.as_ref().map_or_else(|| item.id.trim_start_matches("walk:").to_string(), |act| act.target.clone());
@@ -173,7 +175,7 @@ where
         if record.state == SessionState::Ended {
             return Ok(ForYou { job, waiting: Vec::new(), building: Vec::new(), landing: Vec::new() });
         }
-        // A sketch, page or draft opens as its artifact: its waiting id is the artifact's `item`.
+        // A sketch, page or draft opens as its artifact: its waiting id is the artifact's `item`, whatever parts it holds.
         let artifacts: BTreeMap<String, String> = match record.waiting_for.iter().any(|item| {
             matches!(item.source, WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Draft)
         }) {
@@ -181,7 +183,6 @@ where
                 .job_artifacts(id)
                 .await?
                 .into_iter()
-                .filter(|one| one.state == ArtifactState::Asking)
                 .filter_map(|one| Some((one.item?, one.id)))
                 .collect(),
             false => BTreeMap::new(),

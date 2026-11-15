@@ -20,7 +20,7 @@ use super::session_host::{rig_placing, Rig};
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
 fn ask(id: &str, text: &str, approves: bool) -> WaitingInput {
-    WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), approves, steps: Vec::new() }
+    WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), approves, steps: Vec::new(), artifact: None }
 }
 
 async fn states(rig: &Rig, id: &SessionId, items: Vec<WaitingInput>) {
@@ -66,6 +66,18 @@ async fn its_own_items_are_listed_oldest_first_each_opening_what_it_names() {
 
     states(&rig, &id, Vec::new()).await;
     assert_eq!(ids(&read(&rig, &id).await), ["sketch:Bay flow"], "an item gone from waiting_for leaves the tab");
+}
+
+#[tokio::test]
+async fn an_agent_item_naming_an_artifact_opens_it_and_is_one_row_with_fleets() {
+    let rig = rig_placing(None);
+    let (id, _) = a_job(&rig).await;
+    sketches(&rig, &id).await;
+    states(&rig, &id, vec![WaitingInput { artifact: Some("Bay flow".into()), ..ask("bay", "Pick the bay flow", false) }]).await;
+
+    let view = read(&rig, &id).await;
+    assert_eq!(ids(&view), ["waiting:bay"], "the sketch and the item about it are one row");
+    assert_eq!(view.waiting[0].opens, ForYouOpens::Artifact { id: "sketch:Bay flow".into() });
 }
 
 #[tokio::test]
