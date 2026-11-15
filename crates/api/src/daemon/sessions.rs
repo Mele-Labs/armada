@@ -676,6 +676,14 @@ pub trait Sessions: Send + Sync + 'static {
         settle: ipc::SettleCard,
     ) -> impl Future<Output = Result<ipc::OperatorCardSettled, Refusal>> + Send;
 
+    /// `report_card` — the Operator reports a step on a card he picked, or that it failed, which puts it back
+    /// in front. Refused as `raise_card` is, and [`Refusal::NotFound`] where no open card has the id.
+    fn report_card(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        report: ipc::ReportCard,
+    ) -> impl Future<Output = Result<ipc::CardRevised, Refusal>> + Send;
+
     /// `list_operator_acts` — what the Operator may do unasked in each project.
     fn list_operator_acts(&self) -> impl Future<Output = Result<ipc::OperatorActsList, Refusal>> + Send;
 

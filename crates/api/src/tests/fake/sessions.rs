@@ -791,6 +791,10 @@ impl Sessions for FakeDaemon {
         Ok(ipc::OperatorCardSettled { card: settle.card })
     }
 
+    async fn report_card(self: std::sync::Arc<Self>, _caller: Option<crate::Caller>, report: ipc::ReportCard) -> Result<ipc::CardRevised, Refusal> {
+        Ok(ipc::CardRevised { card: report.card })
+    }
+
     async fn list_operator_acts(&self) -> Result<ipc::OperatorActsList, Refusal> {
         Ok(ipc::OperatorActsList::default())
     }

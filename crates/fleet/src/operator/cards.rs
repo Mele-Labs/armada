@@ -3,9 +3,12 @@
 //!
 //! **A card is a row of Your turn** that no Job's list holds: `card:<id>` in the queue the page, the
 //! press and Later already serve, with its options as the item's and its cost as each one's description.
-//! Only the Operator's own session raises, revises or settles one, placed by its connection. **His acts
+//! Only the Operator's own session raises, revises, reports on or settles one, placed by its connection. **His acts
 //! reach it as messages** carrying the card's id and title, and a press while the session is not
 //! running is refused, since nobody would hear it.
+//!
+//! **His press picks the card**: it leaves the front for the page's `working` until the session settles it, and
+//! comes back first in Your turn where the session reports it failed or nothing settles it in [`STALL_MILLIS`].
 
 use std::sync::Arc;
 
@@ -14,7 +17,7 @@ use api::Refusal;
 use ipc::operator_page::item_kept;
 use ipc::operator_page::OperatorFeedKind;
 use ipc::operator_talk::{OperatorSaid, OperatorTalk, OperatorTalkLine};
-use ipc::{CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
+use ipc::{CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReportCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use store::KeptTurn;
 
 use super::turning::turn_number;
@@ -22,8 +25,6 @@ use crate::daemon::Fleet;
 
 /// What a card's item id begins with, then an id of its own.
 pub(crate) const CARD: &str = "card:";
-/// What a card the person pressed an option on is answered with, then the option's label.
-pub(crate) const PRESSED: &str = "pressed:";
 /// What a card its Operator settled is answered with, then what it said.
 pub(crate) const SETTLED: &str = "settled:";
 
@@ -32,6 +33,11 @@ const CARD_UNKNOWN: &str = "fleet.card_unknown";
 
 /// The most lines of the earlier conversation the page reads.
 const TALK_SHOWN: u32 = 20;
+
+/// How long a picked card waits on its settle before it comes back to the front.
+pub(crate) const STALL_MILLIS: i64 = 15 * 60_000;
+/// Why a picked card nothing settled came back.
+pub(crate) const STALLED: &str = "Nothing settled in 15 min";
 
 /// The fewest and most options a card holds.
 const OPTIONS: std::ops::RangeInclusive<usize> = 2..=4;
@@ -126,7 +132,7 @@ where
             create_refused: None,
             operator_read: None,
         };
-        let shown = OperatorCard { kind: card.kind, talk_of: card.talk_of.clone(), sessions: card.sessions.clone() };
+        let shown = OperatorCard { kind: card.kind, talk_of: card.talk_of.clone(), sessions: card.sessions.clone(), picked: None, steps: Vec::new(), returned: None };
         let row = KeptTurn {
             item: id,
             manifest_id,
@@ -195,8 +201,9 @@ where
         ipc::operator_page::item_read(&row.body).map(|item| item.text).unwrap_or_default()
     }
 
-    /// His press of `label` on card `row`: settled, and the Operator told which option. **Refused with nothing
-    /// changed** where the label is no option of it or the Operator's session is not running.
+    /// His press of `label` on card `row`: picked, so it leaves the front for `working`, and the Operator told
+    /// which option and to act now. **Refused with nothing changed** where the label is no option of it, the card
+    /// is picked already and has not come back, or the Operator's session is not running.
     pub(crate) async fn card_pressed(self: &Arc<Self>, row: &KeptTurn, label: Option<&str>) -> Result<(), Refusal> {
         let item = ipc::operator_page::item_read(&row.body).ok_or_else(|| self.ledger_unnamed("a card that reads"))?;
         let label = label.or(row.pick.as_deref()).unwrap_or_default();
@@ -207,11 +214,67 @@ where
             return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would reach it. Turn the Operator off and on to start it"));
         };
         let at = self.now();
-        self.store().lock().await.settle_operator_turn(row.n, at.as_str(), Some(&format!("{PRESSED}{label}"))).map_err(|why| self.ledger_fault(why))?;
+        if !self.store().lock().await.pick_operator_turn(row.n, label, at.as_str()).map_err(|why| self.ledger_fault(why))? {
+            return Err(self.hosted_refusal("fleet.operator_answer_not_offered", "this card is picked already and the Operator is working on it"));
+        }
         self.operator_page_changed();
-        let text = format!("He chose \"{label}\" on card turn:{} \"{}\". The card is settled.", row.n, Self::card_title(row));
+        let text = format!(
+            "He chose \"{label}\" on card turn:{} \"{}\". Do it now. Report each real step with report_card, settle the card when it is done, \
+             and report failed with the reason the moment it cannot be done. It comes back to his front if nothing settles it in 15 min.",
+            row.n,
+            Self::card_title(row)
+        );
         let _ = self.told_of_his_act(&session, &text).await;
         Ok(())
+    }
+
+    /// `report_card`: a step on a picked card, or its failure, which puts it back first in Your turn.
+    pub(crate) async fn card_reported(self: &Arc<Self>, caller: Option<api::Caller>, report: ReportCard) -> Result<CardRevised, Refusal> {
+        self.operator_called(caller)?;
+        let step = report.step.as_deref().map(str::trim);
+        let failed = report.failed.as_deref().map(str::trim);
+        let row = self.card_open(&report.card).await?;
+        let at = self.now();
+        let kept = {
+            let mut store = self.store().lock().await;
+            match (step, failed) {
+                (Some(said), None) if !said.is_empty() => store.step_operator_turn(row.n, at.as_str(), said),
+                (None, Some(why)) if !why.is_empty() => store.return_operator_turn(row.n, why, at.as_str()),
+                _ => return Err(self.card_refused("give exactly one of `step` and `failed`, and say it in a sentence")),
+            }
+            .map_err(|why| self.ledger_fault(why))?
+        };
+        if !kept {
+            return Err(self.card_refused(&format!("{} is not a card he picked that is being worked on", report.card)));
+        }
+        self.operator_page_changed();
+        Ok(CardRevised { card: report.card })
+    }
+
+    /// Once a tick: each picked card nothing settled within [`STALL_MILLIS`] of the pick comes back to the front,
+    /// and the Operator's session is told which.
+    pub(crate) async fn cards_stalled_returned(self: &Arc<Self>) {
+        let now = self.now();
+        let by = crate::clock::rfc3339_utc(now.epoch_millis().unwrap_or(0) - STALL_MILLIS);
+        let stalled = self.store().lock().await.operator_turn_picked_by(&by).unwrap_or_default();
+        for row in stalled {
+            match self.store().lock().await.return_operator_turn(row.n, STALLED, now.as_str()) {
+                Ok(true) => {}
+                Ok(false) => continue,
+                Err(why) => {
+                    self.operator_warned("a picked card that stalled was not returned", why);
+                    continue;
+                }
+            }
+            self.operator_page_changed();
+            let text = format!(
+                "Card turn:{} \"{}\" is back in front of him: nothing settled it in 15 min after he chose \"{}\". Settle it if it is done; otherwise he picks again.",
+                row.n,
+                Self::card_title(&row),
+                row.picked.as_deref().unwrap_or_default()
+            );
+            let _ = self.operator_told(&text).await;
+        }
     }
 
     /// Card `row` sent back with Later until `until`: the Operator is told when it comes back.

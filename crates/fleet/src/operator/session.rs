@@ -66,7 +66,7 @@ where
     }
 
     /// Once a tick: start the Operator's session while the switch is on and none runs, and end it once
-    /// the switch is off.
+    /// the switch is off. While it is on, a picked card nothing settled in time comes back to the front.
     pub(crate) async fn operator_session_kept(self: &Arc<Self>) {
         let _one = self.operator_seat().session.lock().await;
         let live = self.operator_session_id().await;
@@ -82,6 +82,9 @@ where
                 }
             }
             _ => {}
+        }
+        if self.operator_on() {
+            self.cards_stalled_returned().await;
         }
     }
 

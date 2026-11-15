@@ -1,0 +1,8 @@
+[operations.report_card]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Report on a card he pressed an option on: give card (turn:<n>) and exactly one of step, one real thing done such as a Job started, a pull request opened or a merge, or failed, why the pick cannot be carried out, which puts the card back in front of him"
+notes = """
+Since 14 Nov 2026. `POST /operator/cards/report`, body `ReportCard`: `card` and exactly one of `step` and `failed`. Answered with `CardRevised`: `card`. **Only the Operator's own session may call it**, as `raise_card`. A `step` adds `{ at, said }` to the card's `steps` on the page's `working`. A `failed` puts the card back first in `turn` with `returned: { why, at }`, out of `working` until he presses again. 404 `fleet.card_unknown` where no open card has the id; 422 `fleet.card_refused` for a card he has not picked, one that came back, or both or neither of `step` and `failed`. Publishes `operator.page_changed`.
+"""

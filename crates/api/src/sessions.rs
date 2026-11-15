@@ -785,6 +785,18 @@ pub(crate) async fn settle_card<D: Sessions>(State(served): State<Served<D>>, bo
     }
 }
 
+/// The Operator reports on a card he picked. 200 with the card's id.
+pub(crate) async fn report_card<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let report: ipc::ReportCard = match ipc::decode_body("a card report", &body) {
+        Ok(report) => report,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().report_card(crate::acting::asking(), report).await {
+        Ok(reported) => answer(StatusCode::OK, &reported, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What the Operator may do unasked in each project.
 pub(crate) async fn list_operator_acts<D: Sessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().list_operator_acts().await {
