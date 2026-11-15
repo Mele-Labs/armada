@@ -189,6 +189,7 @@ impl JobView {
             div()
                 .id("focus-back")
                 .flex_none()
+                .self_start()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_1))
