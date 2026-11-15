@@ -107,6 +107,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: None,
+                    parts: Vec::new(),
                 });
             }
             ThreadItem::Document(card) => {
@@ -125,6 +126,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: None,
+                    parts: Vec::new(),
                 });
             }
             ThreadItem::Row { row: SessionRow::Draft { id, at, title, settled, change: None, for_line, before, .. } } => {
@@ -149,6 +151,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: before.is_some().then_some(1),
+                    parts: Vec::new(),
                 });
             }
             _ => {}
