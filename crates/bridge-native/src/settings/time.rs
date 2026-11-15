@@ -138,6 +138,7 @@ impl SettingsOverlay {
                     chips: Vec::new(),
                     says: vec![rows::says(look, Self::time_says(name)).into_any_element()],
                     changed: false,
+                glyph: None,
                     control: control.into_any_element(),
                 };
                 split_row(look, spread, row, n == 0).into_any_element()
@@ -165,6 +166,7 @@ impl SettingsOverlay {
                 chips: Vec::new(),
                 says: vec![rows::says(look, "The current moment, as the switches write it.").into_any_element()],
                 changed: false,
+                glyph: None,
                 control: sample.into_any_element(),
             },
             false,
