@@ -183,9 +183,9 @@ adopt, land.** He uses Armada as its end user, so he runs the change before it
 lands. Once the work is committed and step 4's self-check passes, do these in
 order and ask nothing between them:
 
-1. `offer_preview` with an `about` line, one line on what the branch holds, puts it
-   on the preview list once Fleet has checked it with the other offers. Load
-   `preview-app` first.
+1. `offer_preview` with `about` (what the branch holds), `look` (what he should look
+   at) and `steps` aimed at registry acts puts it on the preview list once Fleet has
+   checked it with the other offers. Load `preview-app` first: it has the example.
 2. If the change reaches Fleet or Bridge, he presses Refresh preview from his
    row, which names the branch and its `about`. Hand him no restart command. A
    change that is only docs or scripts needs no offer. Fleet tells you in your
