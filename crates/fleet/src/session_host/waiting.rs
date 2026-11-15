@@ -1153,6 +1153,10 @@ where
         walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
+        // A slot wait is no listed item: Add and Wait are pressed on the record's `slot_wait`.
+        if said.item_id == super::queueing::SLOT_CHOICE_ITEM {
+            return self.slot_chosen(&id, said.choice).await;
+        }
         let terminal = self.terminal_session(&id).await?.is_some();
         if terminal {
             self.terminal_ask_standing(&id).await;

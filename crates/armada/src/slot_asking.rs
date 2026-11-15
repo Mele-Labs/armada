@@ -59,9 +59,9 @@ impl Asking {
         self.standing = Some(asked.standing);
         match asked.standing {
             SlotAskStanding::Asking => {
-                eprintln!("every slot is held: asked the owner whether to wait for one or add one")
+                eprintln!("every slot is held: waiting for one, and the owner can add or free one")
             }
-            SlotAskStanding::Waiting => eprintln!("the owner chose to wait for a slot"),
+            SlotAskStanding::Waiting => eprintln!("waiting for a slot"),
             SlotAskStanding::Added => {
                 eprintln!("the owner chose to add a slot: one was made and is held for this lease")
             }

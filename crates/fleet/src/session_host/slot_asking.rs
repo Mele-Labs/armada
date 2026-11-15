@@ -29,7 +29,7 @@ pub(crate) const RESERVED_FOR: Duration = Duration::from_secs(30);
 
 /// One Session's command, asking.
 pub(super) struct Want {
-    manifest: String,
+    pub(super) manifest: String,
     pub(super) choice: Choice,
     pub(super) since: Instant,
     beat: Tick,

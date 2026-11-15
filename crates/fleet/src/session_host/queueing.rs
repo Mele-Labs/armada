@@ -8,9 +8,9 @@
 //! served until something places one. The line is kept in the store
 //! (`line_keeping`), so a Fleet that restarts serves it in the same order.
 //!
-//! **The person is asked, once per stay in the line** (`WaitingSource::SlotChoice`): wait for the
-//! next slot to free, free a slot a Job Fleet hosts holds (`slot_holders`), or have Fleet add one.
-//! Wait changes nothing about the order. Add answers at once and makes the slot after, in a task:
+//! **Nobody is asked: waiting is the default.** The Job's record carries its wait (`slot_wait`), and
+//! the person may free a slot a Job Fleet hosts holds (`slot_holders`) or have Fleet add one. Add
+//! answers at once and makes the slot after, in a task:
 //! the pool list is written under `granting`, the checkout is made holding nothing, so a Free is
 //! never kept waiting on it, and the slot is leased to the session that asked, ahead of the line,
 //! under `granting` again. Between the two, the repository is marked as making a slot, so the grant
@@ -27,10 +27,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{
-    Instant, ManifestId, SessionRecord, SessionTurn, SlotHolder, WaitingAct, WaitingActKind, WaitingItem, WaitingOption,
-    WaitingSource,
-};
+use ipc::{Instant, ManifestId, SessionRecord, SessionTurn, SlotHolder};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
@@ -43,7 +40,7 @@ use crate::daemon::Fleet;
 /// without telling Fleet.
 pub const EVERY: Duration = Duration::from_secs(15);
 
-/// The id of the call Fleet raises for a session that found every slot held.
+/// The id Add and Wait answer for a session waiting for a slot, though no item lists it.
 pub(crate) const SLOT_CHOICE_ITEM: &str = "slot-choice";
 
 /// What the person has said about a session in the line.
