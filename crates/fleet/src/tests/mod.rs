@@ -37,6 +37,8 @@ mod artifacts;
 mod artifact_parts;
 mod page_actions;
 mod page_votes;
+mod page_measure;
+mod waiting_artifact;
 mod page_sealed;
 mod notes_and_seen;
 mod drafts;

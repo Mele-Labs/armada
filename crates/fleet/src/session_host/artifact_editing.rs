@@ -175,7 +175,7 @@ where
         .ok_or_else(|| self.unkept("his Edit was sent to the job, and his page could not be written"))?;
         self.his_revision(id, &path, kept.len() as u32).await?;
         // Problems with its sketches were the agent's to hear about on its own revision, and his Edit changed none.
-        let _ = self.page_kept(id, &path, &html, &kept).await;
+        let _ = self.page_kept(id, &path, &html, &kept, false).await;
         Ok(())
     }
 

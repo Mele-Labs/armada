@@ -715,6 +715,8 @@ export type WaitingItem = {
   create_refused?: string;
   /** On a question or a card, where the Answer role stands at Suggest: what the Operator read and the option it would pick. His press on that option is the one press. */
   operator_read?: OperatorRead;
+  /** The id of one of the Job's artifacts this item is about, on an agent's item, so a client names it and opens it. Absent otherwise. */
+  artifact?: string;
 };
 
 /** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */

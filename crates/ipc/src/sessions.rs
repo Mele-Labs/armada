@@ -1041,6 +1041,10 @@ pub struct WaitingItem {
     /// the option it would pick. His press on that option is the one press. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operator_read: Option<OperatorRead>,
+    /// The id of one of the Job's artifacts this item is about, for a client to name and open. Only an agent's
+    /// item carries one, from `WaitingInput::artifact`. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// What the Operator made of a question it would answer.
@@ -1068,6 +1072,10 @@ pub struct WaitingInput {
     /// The procedure the person follows, in order; its press opens them as steps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<String>,
+    /// One of the Job's artifacts this item is about, by its id or its title. Fleet checks it against what the Job
+    /// holds, refuses an unknown one, and keeps the id, so Bridge names the artifact and opens it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// `waiting_for`: the agent sets the whole list of what it needs from the person. An empty list clears it.

@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "His vote on takes a Job's page declares with <armada-vote>: one picked, all ranked, or each named part kept or dropped, sent to the Job with every note"
+description = "His vote on takes, a takes part of a Job's artifact or a page's <armada-vote>: one picked, all ranked, or each named part kept or dropped, sent to the Job with every note"
 notes = """
 `POST /sessions/artifacts/vote`, body `CastPageVote`: `session_id`, `artifact` (the page's path, its `JobArtifact` id), `revision` (the kept revision he voted on), `vote` (the vote's `id`) and `result`. Answered with `VoteCast` `{ revision, vote, form, result, at }`, and `SessionChanged` is published on the page's Job.
 

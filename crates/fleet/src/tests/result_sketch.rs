@@ -130,6 +130,7 @@ async fn a_sketch_beside_the_jobs_own_open_question_still_waits() {
         options: vec![option("Left"), option("Right")],
         approves: false,
         steps: Vec::new(),
+        artifact: None,
     };
     rig.fleet.set_waiting(None, SetWaitingFor { items: vec![question], session_id: Some(id.clone()) }).await.expect("asked");
 

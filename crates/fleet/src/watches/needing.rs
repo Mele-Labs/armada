@@ -43,6 +43,7 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     })
 }
 
