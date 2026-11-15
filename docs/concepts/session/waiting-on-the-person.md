@@ -131,7 +131,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `replied` | by act: a pull request to open is plain, any other is a sentence | not_a_question |
 | `done` | done | plain |
 | `plan` | to_review | plain |
-| `slot_choice` | questions | none: Fleet refuses it |
+| `slot_choice` | questions | none: Fleet refuses it, and no longer raises it |
 | `delivery` | questions | none: Fleet refuses it |
 | `words_address` | questions | plain |
 | `fleet_call` | questions | plain |

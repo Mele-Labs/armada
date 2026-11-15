@@ -89,6 +89,8 @@ struct Row {
     paused: bool,
     /// Kept quiet until this time: it works on and raises nothing to him (`snoozed_until`).
     snoozed: Option<chrono::DateTime<chrono::Local>>,
+    /// Waiting for a worktree slot, as its glyph's tooltip says it (`slot_wait`).
+    slot_wait: Option<SharedString>,
     ended: bool,
     /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
     handing_off: bool,
@@ -562,6 +564,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 project: project.clone().into(),
                 paused: false,
                 snoozed: None,
+                slot_wait: None,
                 ended: false,
                 handing_off: false,
                 kids: None,
@@ -592,6 +595,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             project: project.clone().into(),
             paused: paused(job),
             snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
+            slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
             ended: job.state == SessionState::Ended,
             handing_off: handing_off(job),
             kids: None,
@@ -2246,6 +2250,17 @@ impl JobsList {
                 said,
             )
         });
+        // Waiting for a slot asks him nothing: a quiet glyph beside the state, its place in the tooltip.
+        let slot_wait = row.slot_wait.clone().map(|said| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("slot-wait-{}", row.id)))
+                    .child(svg().path(icon_path("hard-drive")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                    .tooltip(tip(said.clone())),
+                Role::Image,
+                said,
+            )
+        });
         let status_on = view.on("view:status");
         // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
         let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
@@ -2311,7 +2326,7 @@ impl JobsList {
                         Role::Image,
                         "Handing off",
                     ))
-                }).children(quiet).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
+                }).children(quiet).children(slot_wait).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     let said = moved_said.clone().unwrap_or(said);
                     labelled(
                         div()
