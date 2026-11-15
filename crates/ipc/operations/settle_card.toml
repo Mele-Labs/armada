@@ -1,0 +1,8 @@
+[operations.settle_card]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Settle an open card yourself, and say how in a sentence: it became moot, or you did what it asked. A card he answered is settled already. Give card (turn:<n>) and said"
+notes = """
+Since 14 Nov 2026. `POST /operator/cards/settle`, body `SettleCard`: `card` and `said`. Answered with `OperatorCardSettled`: `card`. **Only the Operator's own session may call it**, as `raise_card`. 404 `fleet.card_unknown` where no open card has the id; 422 `fleet.card_refused` for an empty `said`. The page's feed names it as a settled card since he last looked. Publishes `operator.page_changed`.
+"""

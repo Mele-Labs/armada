@@ -36,6 +36,8 @@ pub(super) struct BandState {
     pub mending: std::collections::HashSet<&'static str>,
     /// Why a piece, or the end, or a wait was refused.
     pub said: std::collections::HashMap<String, SharedString>,
+    /// The Waiting on card is open to its rows; folded it is one line.
+    pub waiting_open: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,7 +70,7 @@ impl WaitKind {
 pub(super) fn wait_of(held: &HeldOpenBy) -> (WaitKind, String) {
     match held {
         HeldOpenBy::Watch { name } => (WaitKind::Watch, format!("Held open by {name}")),
-        HeldOpenBy::Job { name } => (WaitKind::Watch, format!("Waiting on {name}")),
+        HeldOpenBy::Job { name } => (WaitKind::Watch, name.clone()),
         HeldOpenBy::PullRequest { number, on: PullRequestWait::Queue } => (WaitKind::Merge, format!("#{number} in the merge queue")),
         HeldOpenBy::PullRequest { number, on: PullRequestWait::Checks { auto_merge } } => (
             WaitKind::Checks,
@@ -522,11 +524,19 @@ impl JobView {
         if held.is_empty() {
             return None;
         }
-        let rows: Vec<AnyElement> = held
+        let open = self.pages.get(id).is_some_and(|page| page.bands.waiting_open);
+        let rows: Vec<(WaitKind, String, Option<String>)> = held
             .iter()
-            .map(wait_of)
+            .map(|one| {
+                let (kind, said) = wait_of(one);
+                (kind, said, if let HeldOpenBy::Job { name } = one { Some(name.clone()) } else { None })
+            })
+            .collect();
+        let first = rows.first().map(|(_, said, _)| said.clone()).unwrap_or_default();
+        let rows: Vec<AnyElement> = rows
+            .into_iter()
             .enumerate()
-            .map(|(at, (kind, said))| {
+            .map(|(at, (kind, said, job))| {
                 let ink = look.color(match kind {
                     WaitKind::Merge => token::STATUS_HANDED_IN,
                     WaitKind::Checks | WaitKind::Watch => token::STATUS_RUNNING,
@@ -548,6 +558,15 @@ impl JobView {
                         .text_color(look.color(token::FG_DEFAULT))
                         .child(div().id(SharedString::from(format!("wait-mark:{at}"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph(look, kind.glyph(), Size::Small, ink)).tooltip(tip(kind.said())))
                         .child(div().flex_1().min_w_0().child(SharedString::from(said.clone())))
+                        // A linked Job's row opens that Job, found by its title among the Jobs Bridge holds.
+                        .when_some(job, |row, name| {
+                            row.cursor_pointer().on_click(cx.listener(move |this, _, _, cx| {
+                                let found = this.list.read(cx).records().iter().find(|one| one.title.as_deref() == Some(name.as_str())).map(|one| one.id.as_str().to_string());
+                                if let Some(job) = found {
+                                    this.open_job(job, cx);
+                                }
+                            }))
+                        })
                         .on_mouse_down(gpui::MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             this.open_wait_menu(at, kind, event.position, window, cx);
@@ -559,17 +578,44 @@ impl JobView {
             })
             .collect();
         let said = self.pages.get(id).and_then(|page| page.bands.said.get("waiting").cloned());
+        let spot = self.pages.get(id).map(|page| page.keys.spot("waiting-head", cx));
+        let page_id = id.clone();
+        let fold = {
+            let page_id = page_id.clone();
+            move |this: &mut JobView, cx: &mut Context<JobView>| {
+                if let Some(page) = this.pages.get_mut(&page_id) {
+                    page.bands.waiting_open = !page.bands.waiting_open;
+                }
+                cx.notify();
+            }
+        };
         let head = div()
+            .id("waiting-head")
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_2))
             .h(look.length(token::H_ROW))
+            .rounded(look.length(token::RADIUS_SM))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
             .text_size(look.length(token::TEXT_XS))
-            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
             .text_color(look.color(token::FG_MUTED))
             .child(glyph(look, "radar", Size::Small, look.color(token::STATUS_HANDED_IN)))
-            .child("Waiting on");
+            .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Waiting on"))
+            // Folded, the first wait stands in the line; open, the rows below say them all.
+            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).when(!open, |first_line| first_line.child(SharedString::from(first))))
+            .child(glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)))
+            .tooltip(tip(if open { "Fold" } else { "Open" }))
+            .on_click(cx.listener({
+                let fold = fold.clone();
+                move |this, _, _, cx| fold(this, cx)
+            }));
+        let head = match spot.as_ref() {
+            Some(spot) => head.track_focus(&spot.focus).tab_index(0).focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT))),
+            None => head,
+        };
+        let head = labelled(head, Role::Button, "Waiting on");
         Some(
             labelled(
                 div()
@@ -586,8 +632,18 @@ impl JobView {
                     .border_color(look.color(token::STATUS_HANDED_IN))
                     .bg(look.color(token::BG_RAISED))
                     .shadow(look.shadows(token::SHADOW_OVERLAY))
+                    // Esc folds an open card while focus is in it.
+                    .on_key_down(cx.listener({
+                        move |this, event: &KeyDownEvent, _, cx| {
+                            if event.keystroke.key == "escape" && this.pages.get(&page_id).is_some_and(|page| page.bands.waiting_open) {
+                                fold(this, cx);
+                                cx.stop_propagation();
+                            }
+                        }
+                    }))
                     .child(head)
-                    .children(rows)
+                    // Open, the rows keep to five lines and scroll, so the thread keeps its room.
+                    .when(open, |card| card.child(div().id("waiting-rows").flex().flex_col().max_h(look.length(token::H_ROW) * 5.).overflow_y_scroll().children(rows)))
                     .children(said.map(|why| refusal(look, "waiting", why))),
                 Role::Region,
                 "Waiting on",
@@ -726,7 +782,7 @@ mod tests {
     fn a_wait_is_worded_from_what_holds_the_job_open() {
         let said = |held: HeldOpenBy| wait_of(&held).1;
         assert_eq!(said(HeldOpenBy::Watch { name: "ci".into() }), "Held open by ci");
-        assert_eq!(said(HeldOpenBy::Job { name: "Audit".into() }), "Waiting on Audit");
+        assert_eq!(said(HeldOpenBy::Job { name: "Audit".into() }), "Audit");
         assert_eq!(said(HeldOpenBy::PullRequest { number: 7, on: PullRequestWait::Queue }), "#7 in the merge queue");
         assert_eq!(said(HeldOpenBy::PullRequest { number: 7, on: PullRequestWait::AutoMerge }), "#7 to auto-merge");
         assert_eq!(said(HeldOpenBy::PullRequest { number: 7, on: PullRequestWait::Checks { auto_merge: true } }), "#7 to auto-merge once Checks pass");

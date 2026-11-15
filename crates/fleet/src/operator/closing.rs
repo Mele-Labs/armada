@@ -3,6 +3,8 @@
 //! is near and the call decides**, and what is ruled is kept as a suggestion until he says yes or a rule
 //! he kept does it. Only beads takes the write: a close with its reason, or a parent link, nothing else.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, BeadState, Delivery, Vcs, WorkProduct};
 use ipc::ManifestId;
 
@@ -24,7 +26,7 @@ where
     /// The open issues the work of pull request `pull` of Job `id` may have finished, each handed to the
     /// Operator to ask. **No candidate, no call**, and none where the repository's tracker is not
     /// the beads Fleet writes to, or the Operator is off.
-    pub(super) async fn finished_asked(&self, id: &str, job: &str, pull: &str, title: &str) {
+    pub(super) async fn finished_asked(self: &Arc<Self>, id: &str, job: &str, pull: &str, title: &str) {
         if !self.operator_on() {
             return;
         }

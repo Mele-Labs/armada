@@ -127,7 +127,7 @@ impl Arrived {
     }
 
     /// How the call is told what arrived.
-    fn said(self) -> &'static str {
+    pub(super) fn said(self) -> &'static str {
         match self {
             Arrived::Start => "A Job started",
             Arrived::Question => "An agent asked a question",

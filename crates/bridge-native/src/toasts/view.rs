@@ -1185,7 +1185,7 @@ mod ruling_tests {
             crate::look::init(cx);
             crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
         });
-        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(false, window, cx));
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
         let toasts = cx.update(|window, cx| Toasts::mount(&page, WeakEntity::new_invalid(), window, cx));
         let fleet = cx.update(|_, cx| cx.new(crate::fleet::FleetConnection::idle));
         let heard = cx.update(|_, cx| toasts.update(cx, |_, cx| Toasts::hear_dispatches(&fleet, cx)));

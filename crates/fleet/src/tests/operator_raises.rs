@@ -289,8 +289,7 @@ async fn he_orders_the_queue_and_puts_one_later_for_the_rest_of_the_local_day() 
     assert_eq!(ids(&dragged), ["c", "a", "b"], "the ones he named first, the rest as they were");
 
     let later = rig.fleet.operator_turn_later(OperatorLater { id: c.clone(), until: None }).await.expect("later");
-    assert_eq!(ids(&later), ["a", "b", "c"], "Later puts it last");
-    assert!(later.turn[2].later_until.is_some());
+    assert_eq!(ids(&later), ["a", "b"], "a card put Later is off the page until its time");
 
     clock.fetch_add(48 * 3_600_000, Ordering::SeqCst);
     let next_day = page(&rig).await;
