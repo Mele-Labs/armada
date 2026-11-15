@@ -318,6 +318,10 @@ export type ClaimWait = {
   holder: string;
   machine?: string;
   title?: string;
+  /** Whether the holding Job is one of this Mac's. Absent where it is not, and for a person in beads. Since 14 Nov 2026. */
+  this_mac?: boolean;
+  /** The holding Job's id on its Mac. Absent for a person in beads and where main's own fix ends the wait. Since 14 Nov 2026. */
+  job?: string;
   since: string;
   ends: ClaimWaitEnds;
 };
