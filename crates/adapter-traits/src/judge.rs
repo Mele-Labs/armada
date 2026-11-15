@@ -53,6 +53,51 @@ pub struct Ask {
 pub struct Reading {
     checkout: String,
     turns: NonZeroU8,
+    fork: Option<Fork>,
+}
+
+/// A conversation a reading call starts from: **a copy of it that is thrown away**. The call remembers what
+/// the conversation held up to a cut, answers, and writes nothing back, so the conversation it copied is
+/// the one it was.
+///
+/// A client renders it with the copy kept out of the conversation's own file and out of the disk, so a side
+/// question about a live Job leaves the Job's transcript as it was.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fork {
+    session: String,
+    at: String,
+    copy: String,
+}
+
+impl Fork {
+    /// A copy `copy` of conversation `session`, cut at its line `at`. **`None` for an id that is not
+    /// letters, digits and dashes**: the three travel as arguments, and one that led with a dash would be
+    /// read as a flag.
+    pub fn copy_of(session: &str, at: &str, copy: &str) -> Option<Fork> {
+        let plain = |id: &str| {
+            !id.is_empty() && !id.starts_with('-') && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        };
+        (plain(session) && plain(at) && plain(copy)).then(|| Fork {
+            session: String::from(session),
+            at: String::from(at),
+            copy: String::from(copy),
+        })
+    }
+
+    /// The conversation the call starts from.
+    pub fn session(&self) -> &str {
+        &self.session
+    }
+
+    /// The line of that conversation the copy ends at.
+    pub fn at(&self) -> &str {
+        &self.at
+    }
+
+    /// The id the copy is given, so it is never the conversation's own.
+    pub fn copy(&self) -> &str {
+        &self.copy
+    }
 }
 
 impl Reading {
@@ -69,7 +114,22 @@ impl Reading {
         Ok(Reading {
             checkout: String::from(if trimmed.is_empty() { "/" } else { trimmed }),
             turns,
+            fork: None,
         })
+    }
+
+    /// The same reading, started from a thrown-away copy of a conversation. **Only a reading can be
+    /// forked**, so a copy of a Job's conversation is never held by a call that can write.
+    pub fn forking(self, fork: Fork) -> Reading {
+        Reading {
+            fork: Some(fork),
+            ..self
+        }
+    }
+
+    /// The conversation the call starts from a copy of, where it does.
+    pub fn fork(&self) -> Option<&Fork> {
+        self.fork.as_ref()
     }
 
     /// The directory the call starts in and may read under.

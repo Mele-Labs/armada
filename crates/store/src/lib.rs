@@ -56,6 +56,8 @@ mod fleet_disputes;
 mod bug_reports;
 /// What a Job asked the Operator with `raise_conflict` and `ask_held`.
 mod job_asks;
+/// What the owner asked a Job on the side, kept beside its record and never in its thread.
+mod job_asides;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -253,6 +255,7 @@ pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
+pub use job_asides::{aside_state, KeptAside};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};

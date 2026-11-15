@@ -123,6 +123,7 @@ where
             | Event::WriteClashesChanged(_)
             | Event::PreviewOffersChanged(_)
             | Event::BuildNotesChanged(_)
+            | Event::SessionAside(_)
             | Event::CallsChanged(_)
             | Event::ModsChanged(_)
             | Event::SettingsChanged(_)

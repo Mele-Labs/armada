@@ -5,7 +5,7 @@
 
 use std::num::NonZeroU8;
 
-use adapter_traits::{Ask, Environment, Model, ModelClient, Reading, SpawnConfigRefused};
+use adapter_traits::{Ask, Environment, Fork, Model, ModelClient, Reading, SpawnConfigRefused};
 
 use crate::HeadlessAgent;
 
@@ -405,4 +405,77 @@ fn an_ask_kept_briefly_and_unthinking_changes_the_environment_by_three_variables
             "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING"
         ]
     );
+}
+
+/// An aside: a side question put to a copy of a live Job's conversation.
+fn aside() -> Ask {
+    ask().reading(
+        Reading::checkout("/repos/armada/.armada/slots/slot-2", NonZeroU8::new(8).expect("eight"))
+            .expect("an absolute checkout")
+            .forking(Fork::copy_of("job-session", "cut-line", "the-copy").expect("plain ids")),
+    )
+}
+
+/// **The aside's argument list is the confinement**: exactly the three read tools in the toolset and in the
+/// allowlist, nothing denied that is a read, no tool that writes, runs a command or reaches out, no MCP
+/// server, no plugin, and a conversation that is read and never appended to. Both renders.
+#[test]
+fn an_aside_holds_exactly_the_read_tools_and_writes_no_conversation() {
+    let agent = HeadlessAgent::on_path();
+    for call in [agent.render(&aside()), agent.render_watched(&aside())] {
+        let args = call.args();
+        let reads = Some("Read,Grep,Glob".to_string());
+        assert_eq!(arg_after(args, "--tools"), reads);
+        assert_eq!(arg_after(args, "--allowedTools"), reads);
+        assert_eq!(arg_after(args, "--permission-mode").as_deref(), Some("dontAsk"));
+        assert_eq!(arg_after(args, "--max-turns").as_deref(), Some("8"));
+        assert!(args.iter().any(|arg| arg == "--strict-mcp-config"));
+        assert!(args.iter().any(|arg| arg == "--no-session-persistence"), "{args:?}");
+        for absent in ["--mcp-config", "--plugin-dir", "--dangerously-skip-permissions", "--add-dir"] {
+            assert!(!args.iter().any(|arg| arg == absent), "{absent}: {args:?}");
+        }
+        for writes in ["Bash", "Edit", "Write", "NotebookEdit"] {
+            let named = |value: &String| value.split(',').any(|one| one == writes);
+            let allowed = args
+                .iter()
+                .zip(args.iter().skip(1))
+                .filter(|(flag, _)| *flag == "--tools" || *flag == "--allowedTools")
+                .any(|(_, value)| named(value));
+            assert!(!allowed, "{writes} is allowed: {args:?}");
+        }
+        let denied = arg_after(args, "--disallowedTools").expect("a deny list");
+        assert!(denied.split(',').any(|one| one == "Bash"));
+        assert!(denied.split(',').any(|one| one == "Read(./.armada/**)"));
+    }
+}
+
+/// The copy is a fork under an id of its own, cut where it was asked to be, and the call starts in the Job's
+/// own directory so `--resume` finds the transcript.
+#[test]
+fn an_aside_forks_the_conversation_under_another_id_and_starts_in_the_jobs_directory() {
+    let call = HeadlessAgent::on_path().render(&aside());
+    let args = call.args();
+    assert_eq!(arg_after(args, "--resume").as_deref(), Some("job-session"));
+    assert_eq!(arg_after(args, "--session-id").as_deref(), Some("the-copy"));
+    assert_eq!(arg_after(args, "--resume-session-at").as_deref(), Some("cut-line"));
+    assert!(args.iter().any(|arg| arg == "--fork-session"));
+    assert_ne!(arg_after(args, "--resume"), arg_after(args, "--session-id"));
+    assert_eq!(call.directory(), Some("/repos/armada/.armada/slots/slot-2"));
+}
+
+/// A reading that is not a fork carries none of it, so no other call resumes anything.
+#[test]
+fn a_reading_that_is_not_an_aside_resumes_nothing() {
+    let args = HeadlessAgent::on_path().render(&reading()).args().to_vec();
+    for absent in ["--resume", "--fork-session", "--session-id", "--resume-session-at", "--no-session-persistence"] {
+        assert!(!args.iter().any(|arg| arg == absent), "{absent}");
+    }
+}
+
+/// An id that would be read as a flag, or as a path, is not a fork.
+#[test]
+fn a_fork_of_an_id_that_could_read_as_a_flag_is_refused() {
+    assert!(Fork::copy_of("--dangerously-skip-permissions", "cut", "copy").is_none());
+    assert!(Fork::copy_of("session", "", "copy").is_none());
+    assert!(Fork::copy_of("session", "cut", "../copy").is_none());
 }

@@ -46,6 +46,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // One aside of a Job, whole, as its answer grows, ends or is told.
+    Route {
+        operation: "session.aside",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",

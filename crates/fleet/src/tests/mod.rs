@@ -23,6 +23,7 @@ mod sending_checkout;
 mod sweeping;
 mod disk_health;
 mod agent_starts;
+mod asides;
 mod agent_starts_at_once;
 mod agent_starts_project;
 mod operator_cards;
