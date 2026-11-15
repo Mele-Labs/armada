@@ -123,6 +123,7 @@ pub(super) fn row_kind_name(kind: RowKind) -> &'static str {
         RowKind::Document => "document",
         RowKind::Walk => "walk",
         RowKind::Subagent => "subagent",
+        RowKind::Artifact => "artifact",
     }
 }
 
@@ -132,6 +133,7 @@ pub(super) fn row_kind_of(kind: &str) -> Option<RowKind> {
         "document" => Some(RowKind::Document),
         "walk" => Some(RowKind::Walk),
         "subagent" => Some(RowKind::Subagent),
+        "artifact" => Some(RowKind::Artifact),
         _ => None,
     }
 }

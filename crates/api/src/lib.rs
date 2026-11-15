@@ -29,6 +29,8 @@ mod acting;
 mod accounting;
 /// A Judge on demand: asked of an artifact, and its notes sent, dismissed or opened.
 mod judge;
+/// Side questions put to a Job, kept out of its thread.
+mod asides;
 /// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
 mod homing;
 mod amending;
@@ -150,7 +152,7 @@ mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, MAC, MAC_HEADER, PHONE};
 pub use daemon::{
-    offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
+    offerable, Accounts, Admitting, AppRuns, Asides, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
     SealedPage, ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,

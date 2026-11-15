@@ -113,6 +113,8 @@ Words and a drawing that only inform get nothing, and buttons act when pressed.
 A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
 A `rank` or `score` takes part is cast with `cast_page_vote`.
 A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
+`show_sketch` and `record_plan` refuse takes drawn side by side in one sketch with 422 `fleet.sketch_takes`, saying to put them in a takes part ([Drawing a sketch](session/drawing-a-sketch.md)).
+A take's mocks are kept with their style set, as a sketch's are, so they draw in the app's styles.
 
 **Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
 It grows one artifact for each question and never shows a new sketch, draft or page beside it.
@@ -367,7 +369,7 @@ Send sits at the foot of a vote, with ⌘↵, and every control is reached by ke
 
 **Rule.** The page never calls Fleet.
 It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.
-The presses and votes made on the revision ride with it, so a reopened page shows what he did.
+The presses and votes made on the revision or an earlier one ride with it, while their action, or their vote in the same form with the same takes, is still on it, so a revision that rewrote other sections still shows what he did.
 
 **Rule.** `get_artifact_page_source` serves a page revision as the Job wrote it: 200, `Content-Type: text/html; charset=utf-8`, the kept file's bytes with no policy, kit or record added.
 Its query is `get_artifact_page`'s: `session_id`, `artifact` and an optional `revision`, the newest where left out.
@@ -392,3 +394,6 @@ A revision never kept is refused, `fleet.artifact_revision_unknown`, and so is a
 **Rule.** Nothing is sent to the Job when he opens a revision.
 Fleet publishes `session.changed` where `seen` moved, so a Bridge reads the artifact again, and not where it held.
 An archived artifact is marked all the same, since opening it changes nothing else.
+
+**Rule.** Opening the newest revision of a page that asks nothing takes its `Read: <title>` item off his Needs you ([Document](document.md), *Asking for his approval*).
+The item carries the page as its `artifact`, and opening an older revision leaves it.

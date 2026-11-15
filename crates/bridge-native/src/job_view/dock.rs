@@ -976,6 +976,11 @@ impl JobView {
             return;
         }
         match act {
+            // A page he is only to read opens in the reader at once, beside whatever else is owed.
+            NeedsYouAct::OpenDocument { path } if item.starts_with("read:") => {
+                self.set_needs(false, None, window, cx);
+                self.open_document_tab(path, window, cx);
+            }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
                 let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
@@ -1027,6 +1032,19 @@ impl JobView {
         let name = text.clone();
         let dock = self.dock_of(id);
         let page = self.pages.get(id);
+        // What the item names, to open: pressed on the row where the row has no act of its own, else on its words.
+        let artifact = row.and_then(|row| self.row_artifact(id, &row.id, cx));
+        let gone = artifact.as_deref().is_some_and(|named| self.artifact_gone(id, named));
+        let own = row.is_some_and(|row| !matches!(row.act, NeedsYouAct::None));
+        let press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)> = match &artifact {
+            Some(named) if !own => {
+                let named = named.clone();
+                Box::new(move |this, window, cx| {
+                    this.open_named(&named, window, cx);
+                })
+            }
+            _ => press,
+        };
         let misread = row.filter(|row| row.dismiss == NeedsYouDismiss::NotAQuestion);
         let spot = misread.zip(page).map(|(_, page)| page.keys.spot(&format!("needs-row:{key}"), cx));
         let refused = row.and(dock).and_then(|dock| dock.said.get(key).cloned());
@@ -1043,9 +1061,13 @@ impl JobView {
             let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
             self.answer_buttons(row, keyed, look, cx)
         });
+        let words = match artifact.as_ref().filter(|_| own && !gone) {
+            Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
+            None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
+        };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
             .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
-            .child(div().flex_1().min_w_0().when(buttons.is_none(), |text| text.truncate()).child(SharedString::from(text)))
+            .child(words)
             .children(thumbs)
             .children(done)
             .children(away)
@@ -1078,7 +1100,15 @@ impl JobView {
                 _ => None,
             })
             .and_then(|command| crate::terminal::run::under_item(id, &command, cx));
-        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() {
+        let unheld = gone.then(|| {
+            labelled(
+                div().id(SharedString::from(format!("needs-gone:{key}"))).px(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child("No longer held"),
+                Role::Label,
+                "No longer held",
+            )
+            .into_any_element()
+        });
+        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() && unheld.is_none() {
             return line;
         }
         div()
@@ -1086,6 +1116,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .child(line)
+            .children(unheld)
             .children(buttons)
             .children(steps)
             .children(boxed)

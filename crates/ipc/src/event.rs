@@ -13,6 +13,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
+use crate::asides::Aside;
 use crate::operator_board::{OperatorBoardChanged, OperatorDispatched};
 use crate::operator_page::OperatorPageChanged;
 use crate::thought::WordsSent;
@@ -154,6 +155,9 @@ pub enum Event {
     // running build changed.
     #[serde(rename = "build_notes.changed")]
     BuildNotesChanged(BuildNotes),
+    // One aside after its answer grew or it ended or was told, whole, so a client replaces the one it holds by `aside_id`.
+    #[serde(rename = "session.aside")]
+    SessionAside(Aside),
     // What calls the person, whole, and the news since the last one: when the list or the news moved.
     #[serde(rename = "calls.changed")]
     CallsChanged(CallsChanged),
@@ -197,6 +201,9 @@ pub enum Event {
     // A row held from another Mac went: that Mac left it out of its rows, or was forgotten.
     #[serde(rename = "session.removed")]
     SessionRemoved(SessionRemoved),
+    // A Job's For you moved: read `get_for_you` for it again. `docs/practices/protocol/for-you.md`.
+    #[serde(rename = "session.for_you")]
+    SessionForYou(crate::ForYouChanged),
     // A Job's shell opened or ended, whoever opened or ended it. Its output is
     // `observe_session_run`'s, on the run id these carry.
     #[serde(rename = "terminal.opened")]

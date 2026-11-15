@@ -204,9 +204,10 @@ pub trait Commands: Send + Sync + 'static {
     ) -> impl Future<Output = Result<ipc::PreviewRefreshSkipped, Refusal>> + Send;
 
     /// `mark_build_note_looked_at` — keep the note of this (branch, tip) looked at, and answer the notes now.
-    /// [`Refusal::NotFound`] where no note is kept for it.
+    /// **Not `&self`**: telling the note's Job takes the `Arc` it is hosted by. [`Refusal::NotFound`] where no
+    /// note is kept for it.
     fn mark_build_note_looked_at(
-        &self,
+        self: Arc<Self>,
         asked: ipc::MarkBuildNoteLookedAt,
     ) -> impl Future<Output = Result<ipc::BuildNotes, Refusal>> + Send;
 

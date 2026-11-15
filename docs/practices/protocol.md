@@ -191,6 +191,7 @@ WebSocket event stream, read this first.
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
+| [An aside to a Job: `ask_aside`, `list_asides`, `tell_aside`, `session.aside`](protocol/an-aside-to-a-job.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
@@ -231,6 +232,7 @@ WebSocket event stream, read this first.
 | [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
 | [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
+| [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1202,8 +1204,8 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
-| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at}` and a step is `{say, act?}` |
-| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
+| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at, verdict?}`, `verdict` `good` or `needs_work`, and a step is `{say, act?}` |
+| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip, verdict? }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
 | `build_notes.changed` | Fleet writes, Bridge reads | `BuildNotes`, whole, published when the answer differs from the last one sent |
 | Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
 

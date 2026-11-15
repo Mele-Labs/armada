@@ -582,6 +582,19 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         session_id: Option<SessionId>,
     ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `get_for_you`: the Job's own For you, read now. The Job is the one the connection places, else `session_id`.
+    fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `withdraw_for_you`: a row taken off for good. An id that names no row is kept, not refused.
+    fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `order_for_you`: the rows placed first, replacing the order before. [`Refusal::Unacceptable`] naming each
+    /// id that is not a row now.
+    fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `line_for_you`: the line under a row, cleared by a blank one. [`Refusal::Unacceptable`] for an id that is
+    /// not a row now.
+    fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `add_for_you`: a row for what Fleet cannot see, or the row already listed that opens the same thing.
+    /// [`Refusal::Unacceptable`] for a blank title; [`Refusal::IllegalMove`] for an ended Job.
+    fn add_for_you(self: Arc<Self>, add: ipc::AddForYou) -> impl Future<Output = Result<ipc::ForYouAdded, Refusal>> + Send;
     /// `keep_job_workflow`: the Job's copy of its workflow proposed for every Job, as a change kept ready
     /// for the owner to approve.
     fn keep_job_workflow(

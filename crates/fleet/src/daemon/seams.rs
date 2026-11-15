@@ -353,7 +353,19 @@ where
         &self.run
     }
     pub(crate) fn publish(&self, event: ipc::Event) {
+        // A Job's For you is read off its row, so a row that moved what it reads tells `session.for_you` after it.
+        let for_you = match &event {
+            ipc::Event::SessionChanged(record) => self.for_you_after(record),
+            _ => Vec::new(),
+        };
         self.events.publish(event);
+        for told in for_you {
+            self.events.publish(told);
+        }
+    }
+    /// The last print of each Job's For you, so `session.for_you` goes only where it moved.
+    pub(crate) fn for_you_prints(&self) -> &std::sync::Mutex<std::collections::HashMap<String, u64>> {
+        &self.for_you_prints
     }
 
     pub(crate) fn peers(&self) -> &Arc<dyn crate::peer::PeerOf> {

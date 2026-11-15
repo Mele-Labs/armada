@@ -38,6 +38,11 @@ pub fn press() -> String {
     ask("ArmadaFinder.finder.press()")
 }
 
+/// The script that selects the words of the held element.
+pub fn select() -> String {
+    ask("ArmadaFinder.finder.select()")
+}
+
 fn ask(call: &str) -> String {
     format!("{SOURCE}\n{call}")
 }
