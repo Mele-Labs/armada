@@ -63,6 +63,8 @@ pub(super) struct Arranged {
     pub drop: Option<super::place_drag::Hover>,
     /// Each strip, tab, body and gap as last laid out, by `strip:{pane}`, `tab:{tab}`, `body:{pane}`, `gap:{split}`.
     pub drawn_at: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
+    /// The side opened over the reader while the Jobs list and the right column are folded: where he is looking, never kept.
+    pub over: Option<super::fold::Side>,
 }
 
 impl Default for Arranged {
@@ -78,6 +80,7 @@ impl Default for Arranged {
             started: Instant::now(),
             drop: None,
             drawn_at: Rc::default(),
+            over: None,
         }
     }
 }

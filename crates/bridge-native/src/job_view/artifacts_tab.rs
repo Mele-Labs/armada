@@ -920,4 +920,25 @@ mod tests {
             assert!(moved < gpui::px(0.), "the wheel with the pointer {y} down scrolls the tab: {moved:?}");
         }
     }
+
+    #[gpui::test]
+    fn a_long_take_title_never_runs_over_the_buttons_of_the_row_under_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = parts_job(cx);
+        let held = crate::mock_parts::ID;
+        view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        cx.run_until_parked();
+        let key = super::super::parts_card::part_key(held, "bar");
+        view.update(cx, |view, cx| view.large_take(&key, Some(2), cx));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let title = "C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second";
+        assert!(title.chars().count() >= 120);
+        let at = |cx: &mut gpui::VisualTestContext, role: gpui::Role, name: &str| cx.update(|window, cx| super::super::head::drawn(window, cx, role, name));
+        let heading = at(cx, gpui::Role::Heading, title).expect("the title is drawn");
+        let back = at(cx, gpui::Role::Button, "Back").expect("Back is drawn");
+        let before = at(cx, gpui::Role::Button, "B \u{b7} Rail").expect("the take before is named by its own name");
+        assert!(heading.bottom() <= back.top() && heading.bottom() <= before.top(), "the title has its own line: {heading:?} over {back:?}");
+        assert!(before.right() <= back.left(), "the neighbour's column ends before Back: {before:?} {back:?}");
+    }
 }
