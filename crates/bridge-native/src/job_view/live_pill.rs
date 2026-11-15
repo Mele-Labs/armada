@@ -5,19 +5,33 @@
 
 use std::time::Duration;
 
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Role, SharedString};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Pixels, Role, SharedString, Window};
 use ipc::JobLamp;
 
 use super::rows::{elapsed_words, glyph, mono, tip, Size};
 use super::runs::running_now;
 use super::{JobView, Page};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook};
+use crate::look::{token, ActiveLook, Look};
 
 /// Whether the thread shows its end: following its tail, or the last element's top is in view.
 fn at_end(page: &Page) -> bool {
     page.list.is_following_tail()
         || page.count.checked_sub(1).and_then(|last| page.list.bounds_for_item(last)).is_some_and(|bounds| bounds.top() < page.list.viewport_bounds().bottom())
+}
+
+/// The room the row's spare width must hold for the pill to be worth drawing: the ring, about twelve letters, the arrow, and the
+/// pill's own padding and gaps.
+fn needed(look: &Look) -> Pixels {
+    look.length(token::SPACE_4) * 2. + look.length(token::SPACE_2) * 4. + look.length(token::BORDER_WIDTH) * 2. + look.length(token::TEXT_XS) * 7.
+}
+
+/// Whether the tool row has that room past its other controls, from where it drew the sketch button and the mic in the last
+/// frame. The span between them is the same with the pill drawn or not, so asking it feeds nothing back, and a row too narrow
+/// for the pill keeps its words for Auto and the model.
+fn fits(window: &Window, cx: &gpui::App, look: &Look, gap: Pixels) -> bool {
+    let (Some(from), Some(to)) = (super::head::drawn(window, cx, Role::Button, "Draw sketch"), super::head::drawn(window, cx, Role::Button, "Talk")) else { return false };
+    to.left() - from.right() - gap * 3. >= needed(look)
 }
 
 impl JobView {
@@ -41,8 +55,11 @@ impl JobView {
 
     /// The pill, one line cut with an ellipsis, its whole words in the tooltip. None while the thread shows its end, where its
     /// own running row says the same.
-    pub(super) fn render_live_pill(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_live_pill(&self, id: &SharedString, gap: Pixels, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let words = self.pill_words(id, cx)?;
+        if !fits(window, cx, cx.look(), gap) {
+            return None;
+        }
         let since = self.thread(id, cx).and_then(|held| held.head.open_call.as_ref().map(|call| call.since.clone()));
         let look = cx.look();
         let said = SharedString::from(words);
@@ -59,9 +76,9 @@ impl JobView {
                 div()
                     .id("live-pill")
                     .flex()
-                    // It takes the room the row has spare, down to its ring, so the other controls keep as many words as they can.
+                    // It takes the room the row has spare, which `fits` has found to be enough, so the other controls keep their words.
                     .flex_1()
-                    .min_w(look.length(token::SPACE_4) + look.length(token::SPACE_2) * 2. + look.length(token::BORDER_WIDTH) * 2.)
+                    .min_w_0()
                     .max_w(look.length(token::SPACE_12) * 6.)
                     .overflow_hidden()
                     .items_center()
@@ -192,5 +209,31 @@ mod tests {
             let seen = (region(cx), view.read_with(cx, |view, _| view.pane_height));
             assert_eq!(seen, at_end, "the thread's region or room moved with the pill");
         }
+    }
+
+    /// What the tool row's buttons measure, by name, left to right.
+    fn row(cx: &mut VisualTestContext) -> Vec<(String, gpui::Pixels)> {
+        cx.update(|window, cx| {
+            let book = cx.global::<crate::labels::LabelBook>();
+            let drawn = book.drawn(window.window_handle().window_id());
+            let Some(mode) = drawn.iter().find(|one| one.role == Role::Button && one.name == "Permission mode") else { return Vec::new() };
+            let mut one: Vec<_> = drawn.iter().filter(|one| one.role == Role::Button && (one.bounds.origin.y - mode.bounds.origin.y).abs() < px(20.) && !one.name.starts_with("Now: ")).map(|one| (one.bounds.origin.x, one.name.to_string(), one.bounds.size.width)).collect();
+            one.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            one.into_iter().map(|(_, name, width)| (name, width)).collect()
+        })
+    }
+
+    #[gpui::test]
+    fn a_tool_row_too_narrow_for_the_pill_draws_none_and_auto_and_the_model_read_whole(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        cx.simulate_resize(gpui::size(px(660.), px(900.)));
+        redraw(cx);
+        let at_end = row(cx);
+        assert!(at_end.len() >= 5, "the row's buttons were drawn: {at_end:?}");
+        scroll_up(&view, cx);
+        redraw(cx);
+        assert_eq!(says(&view, cx).as_deref(), Some("Reading page_votes.rs"), "it works and the thread is scrolled up");
+        assert!(drawn_like(cx, Role::Button, "Now: ").is_empty(), "no room, so no pill");
+        assert_eq!(row(cx), at_end, "Auto, the model and the rest measure as they do with no pill");
     }
 }
