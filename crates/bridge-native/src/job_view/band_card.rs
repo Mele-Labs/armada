@@ -189,47 +189,58 @@ pub(super) struct Head<'a> {
     pub named: Option<&'a str>,
 }
 
+/// The For line as one sentence: its words, then each link's label.
+fn for_tip(line: &ArtifactFor) -> String {
+    let text = line.text.as_deref().map(str::trim).filter(|text| !text.is_empty());
+    let links: Vec<&str> = line.links.iter().map(|link| link.label.as_str()).collect();
+    match (text, links.is_empty()) {
+        (Some(text), true) => format!("For: {text}"),
+        (Some(text), false) => format!("For: {text} ({})", links.join(", ")),
+        (None, _) => format!("For: {}", links.join(", ")),
+    }
+}
+
 /// The header band: the kind's tile, the title, the revision and where it stands, and under them what it is for.
 pub(super) fn band(look: &Look, head: Head) -> AnyElement {
     let ink = head.stand.ink();
     let top = div()
         .flex()
-        .flex_wrap()
         .items_center()
+        .min_w_0()
         .gap(look.length(token::SPACE_3))
         .child(tile(look, head.form))
         .child(
             div()
-                .flex_grow(1.)
+                .id(SharedString::from(format!("band-title:{}", head.key)))
+                .flex_1()
                 .min_w_0()
+                .truncate()
                 .text_size(look.length(token::TEXT_BASE))
                 .line_height(look.length(token::LEADING_BASE))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_DEFAULT))
+                .tooltip(tip(head.title.to_string()))
                 .child(SharedString::from(head.title.to_string())),
         )
         .children(head.revision.map(|(number, said)| revision_chip(look, format!("revision-tag:{}", head.key), number, said)))
         .children(head.yours.map(|said| yours_pill(look, format!("yours:{}", head.key), said)))
         .child(state_chip(look, format!("state:{}", head.key), head.stand, head.words, head.named));
     let line = head.for_line.filter(|line| line.text.as_deref().is_some_and(|text| !text.trim().is_empty()) || !line.links.is_empty());
+    // One line, cut with an ellipsis where it runs on: the full sentence and the links are its tooltip.
     let under = line.map(|line| {
+        let full = for_tip(line);
         div()
+            .id(SharedString::from(format!("band-for:{}", head.key)))
             .flex()
-            .flex_wrap()
             .items_center()
+            .min_w_0()
             .gap(look.length(token::SPACE_2))
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .text_color(look.color(token::FG_MUTED))
-            .child(
-                div()
-                    .flex()
-                    .gap(look.length(token::SPACE_1))
-                    .min_w_0()
-                    .max_w_full()
-                    .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
-                    .children(line.text.clone().map(|text| div().flex_1().min_w_0().child(SharedString::from(text)))),
-            )
+            .tooltip(tip(full))
+            .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child("For:"))
+            .children(line.text.clone().map(|text| div().flex_1().min_w_0().truncate().child(SharedString::from(text))))
             .children(line.links.iter().map(|link| link_chip(look, link)))
     });
     div()
@@ -238,6 +249,8 @@ pub(super) fn band(look: &Look, head: Head) -> AnyElement {
         .gap(look.length(token::SPACE_1) + look.length(token::BORDER_WIDTH) * 2.)
         .px(look.length(token::SPACE_4))
         .py(look.length(token::SPACE_3))
+        // The frame clips to a rectangle, so the band rounds its own top to sit inside the card's corners.
+        .rounded_t(look.length(token::RADIUS_LG) * 1.5 - look.length(token::BORDER_WIDTH))
         .bg(mixed(look, ink, 0.18))
         .border_b(look.length(token::BORDER_WIDTH))
         .border_color(look.color(ink).opacity(0.4))
@@ -293,6 +306,8 @@ pub(super) fn well(look: &Look, cut: bool, inside: AnyElement) -> AnyElement {
                             .right_0()
                             .bottom_0()
                             .h(look.length(token::SPACE_12))
+                            // The well's own corners: the fade must not paint square past them or over its hairline.
+                            .rounded_b(look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH))
                             .bg(gpui::linear_gradient(180., gpui::linear_color_stop(sunken.opacity(0.), 0.), gpui::linear_color_stop(sunken, 1.))),
                     )
                 })
@@ -409,10 +424,8 @@ fn ghost(look: &Look, foot: &Foot, id: &str, name: &'static str, cap: &'static s
                     })
             })
             .on_click(cx.listener(move |this, _, window, cx| {
-                // A press on Open is Open's alone, never the band's under it.
-                if opens {
-                    cx.stop_propagation();
-                }
+                // A press on a ghost act is its alone, never the band's or the folded line's under it.
+                cx.stop_propagation();
                 run(this, act_is, window, cx)
             })),
         Role::Button,
@@ -594,6 +607,61 @@ impl JobView {
         f32::from(card - inset).max(120.).round() as u32
     }
 
+    /// A page with a verdict, in one line as the sketch card folds: the page's glyph, the title, the verdict chip, the start of
+    /// his words (all of them in a tooltip) and Archive at the right. A press opens the page, except in its own tab.
+    #[allow(clippy::too_many_arguments)]
+    fn folded_document(&self, foot: Foot, title: &str, revision: u32, stand: Stand, chip_words: Option<&str>, words: Option<&str>, here: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = foot.key.clone();
+        if self.holds_kept(&key) && !page.cards.modes.contains_key(&key) {
+            page.cards.kept_seen.borrow_mut().push((key.clone(), foot.ix, false));
+        }
+        let said: Option<String> = words.map(|words| words.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|words| !words.is_empty());
+        let parts = vec![
+            div()
+                .id(SharedString::from(format!("band-title:{key}")))
+                .max_w(gpui::relative(0.45))
+                .min_w_0()
+                .truncate()
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .tooltip(tip(title.to_string()))
+                .child(SharedString::from(title.to_string()))
+                .into_any_element(),
+            state_chip(look, format!("state:{key}"), stand, chip_words, None),
+            div()
+                .id(SharedString::from(format!("band-words:{key}")))
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .when_some(said, |one, said| one.tooltip(tip(said.clone())).child(SharedString::from(said)))
+                .into_any_element(),
+        ];
+        let archive = foot.archivable.then(|| ghost(look, &foot, "archive", "Archive", "D", "Fold it away from your list", Act::Archive, cx));
+        let run = foot.run.clone();
+        let spot = page.keys.spot(&format!("card:{key}"), cx);
+        let keys = foot.run.clone();
+        let openable = !here;
+        let line = self
+            .quiet_base(&format!("document:{key}"), "scroll-text", parts, look)
+            .track_focus(&spot.focus)
+            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .when(openable, |line| line.cursor_pointer().hover(|style| style.border_color(look.color(token::BORDER_STRONG))))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                if event.keystroke.modifiers.modified() {
+                    return;
+                }
+                let key = if event.keystroke.key == "space" { "enter" } else { event.keystroke.key.as_str() };
+                if let Some(act) = key_act(key, false, false, openable) {
+                    cx.stop_propagation();
+                    keys(this, act, window, cx);
+                }
+            }))
+            .when(openable, |line| line.on_click(cx.listener(move |this, _, window, cx| run(this, Act::Open, window, cx))))
+            .children(archive);
+        labelled(line, Role::Article, format!("Document: {title}, Revision {revision}")).into_any_element()
+    }
+
     /// A page in the thread, one card per page with its newest revision (`ThreadDocument`).
     pub(super) fn document_card(&self, ix: usize, card: &ThreadDocument, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = card.id.clone();
@@ -623,7 +691,7 @@ impl JobView {
         let screen = (!here).then(|| match self.picture_of(&want) {
             Some(Picture::Ready(image, height)) => {
                 let (image, height) = (image.clone(), *height);
-                Some(well(look, height > f32::from(most(look)) - f32::from(look.length(token::SPACE_3)) * 2., gpui::img(image).w(px(width as f32)).h(px(height)).into_any_element()))
+                Some(well(look, height > f32::from(most(look)) - f32::from(look.length(token::SPACE_3)) * 2., gpui::img(image).w(px(width as f32)).h(px(height)).rounded(look.length(token::RADIUS_SM)).into_any_element()))
             }
             Some(Picture::Failed) => None,
             _ => Some(self.asking_picture(&want, well(look, true, shapes(look)), cx)),
@@ -659,6 +727,10 @@ impl JobView {
         };
         let foot = Foot { ix, key: key.clone(), asking, archivable: !archived, openable: !here, editable: false, commit: true, route: "/sessions/document/answer", run: run.clone() };
         let words = settled.as_ref().and_then(|(said, words)| (*said == Said::SentBack).then_some(words.as_deref()).flatten());
+        // A card with a verdict is one line, in the thread and in the page's own tab alike.
+        if matches!(stand, Stand::Approved | Stand::SentBack | Stand::Withdrawn | Stand::Dismissed) {
+            return self.folded_document(foot, &card.title, card.revision, stand, kept.and_then(|one| one.words.as_deref()), words, here, page, look, cx);
+        }
         // The band and the screen are one press that opens the page.
         let open = run.clone();
         let press = div()
@@ -729,6 +801,15 @@ mod tests {
             assert!(!openable(SHEET), "the page is open already in its own tab");
             assert_eq!(key_act("enter", asking, false, openable(SHEET)), None);
         }
+    }
+
+    #[test]
+    fn the_for_lines_tooltip_holds_its_whole_sentence_and_its_links() {
+        use ipc::{ArtifactLink, ArtifactLinkKind};
+        let link = |label: &str| ArtifactLink { kind: ArtifactLinkKind::Link, label: label.into(), target: "https://example.com".into() };
+        let line = ArtifactFor { text: Some(" The whole sentence ".into()), links: vec![link("#12"), link("Step 2")] };
+        assert_eq!(for_tip(&line), "For: The whole sentence (#12, Step 2)");
+        assert_eq!(for_tip(&ArtifactFor { text: None, links: vec![link("#12")] }), "For: #12");
     }
 
     #[test]
