@@ -1690,6 +1690,7 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             press_on("A Job that put a page to him and a draft", "row", "Draft the release note", "article", "Draft: Release note for 0.42"),
             step("The page's card stands above the draft", Verb::WheelTo("region", "Thread", -120), "article", "Document: Stale branch design, Revision 2"),
+            step("Its Open button is on screen", Verb::Wheel("region", "Thread", -250), "article", "Document: Stale branch design, Revision 2"),
             step("Open reads it on its own: the header is one line, and the Jobs list has folded to a rail", Verb::OpenIn("Document: Stale branch design, Revision 2", "Open"), "button", "Show the Jobs list"),
             step("The right column has folded to a rail too", Verb::Look, "button", "Show the right column"),
             step("The revision picker reads the word and the number, never of how many", Verb::Look, "button", "Revision  2"),

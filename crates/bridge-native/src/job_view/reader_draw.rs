@@ -873,6 +873,22 @@ mod tests {
     }
 
     #[test]
+    fn the_revision_picker_reads_the_word_two_spaces_and_the_number_never_of() {
+        assert_eq!(revision_said(3), "Revision  3");
+        assert!(!revision_said(12).contains(" of "));
+    }
+
+    #[test]
+    fn the_notes_margin_takes_no_width_while_notes_are_off() {
+        let look = crate::look::Look::dark();
+        for room in [Room::Wide, Room::Medium, Room::Narrow] {
+            assert_eq!(super::super::reader::notes_margin(false, room, &look), px(0.), "off, in a {room:?} reader");
+        }
+        assert!(super::super::reader::notes_margin(true, Room::Wide, &look) > px(0.), "on, it has its width");
+        assert_eq!(super::super::reader::notes_margin(true, Room::Narrow, &look), px(0.), "no room, the notes stand under the paragraph");
+    }
+
+    #[test]
     fn the_menus_name_enough_revisions_and_headings() {
         assert_eq!(REVS[23], "r24");
         assert_eq!(HEADS[39], "h39");

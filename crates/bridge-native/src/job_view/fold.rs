@@ -169,3 +169,66 @@ impl JobView {
             .into_any_element()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::job_view::pane_store;
+
+    #[test]
+    fn a_rail_says_which_side_and_whether_it_is_open() {
+        assert_eq!(rail_said(Side::Left, false), "Show the Jobs list");
+        assert_eq!(rail_said(Side::Right, true), "Hide the right column");
+    }
+
+    #[gpui::test]
+    fn a_reader_in_front_folds_both_sides_and_closing_it_leaves_the_arrangement_as_it_was(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("reader").expect("the fixture decodes");
+        let threads = crate::mock::threads("reader").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        list.update(cx, |list, cx| list.open("draft-job".into(), cx));
+        cx.run_until_parked();
+        let before = view.read_with(cx, |view, cx| (view.reader_open(cx), view.arrangement().into_owned()));
+        assert!(!before.0, "no reader is open, so nothing is folded");
+
+        view.update_in(cx, |view, window, cx| view.open_document_tab("design", window, cx));
+        cx.run_until_parked();
+        let open = view.read_with(cx, |view, cx| (view.reader_open(cx), view.arrangement().into_owned()));
+        assert!(open.0, "a page in front is a reader open");
+        let kept = |cx: &mut gpui::VisualTestContext| {
+            let task = cx.update(|_, cx| pane_store::read(&pane_store::job_key("draft-job"), cx));
+            cx.foreground_executor().block_test(task)
+        };
+        let stored = kept(cx);
+
+        // A press on a rail opens its side over the reader, and another shuts it: the arrangement and the store are not touched.
+        view.update(cx, |view, cx| view.press_rail(Side::Left, cx));
+        assert_eq!(view.read_with(cx, |view, cx| view.over(cx)), Some(Side::Left));
+        view.update(cx, |view, cx| view.press_rail(Side::Right, cx));
+        assert_eq!(view.read_with(cx, |view, cx| view.over(cx)), Some(Side::Right), "one side opens at a time");
+        cx.run_until_parked();
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), open.1, "folding changes no pane");
+        assert_eq!(kept(cx), stored, "the store is not rewritten by a fold");
+
+        // The reader closes: nothing stays folded, and no side is left open.
+        view.update_in(cx, |view, window, cx| {
+            let tab = view.arrangement().into_owned();
+            let id = tree::panes_of(&tab.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == "document").map(|tab| tab.id.clone()).expect("the page's tab");
+            view.close_tab_id(&id, window, cx);
+        });
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let (closed, over, now) = view.read_with(cx, |view, cx| (!view.reader_open(cx), view.over(cx), view.arrangement().into_owned()));
+        assert!(closed && over.is_none(), "closing the reader restores both sides");
+        assert_eq!((now.root, now.focus), (before.1.root, before.1.focus), "the panes are as they were before the reader opened");
+    }
+}
