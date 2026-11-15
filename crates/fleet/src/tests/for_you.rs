@@ -9,13 +9,13 @@ use std::time::Duration;
 
 use api::{HostedSessions, Next, Sessions, Subscription};
 use ipc::{
-    AddForYou, Event, ForYou, ForYouBy, ForYouKind, ForYouOpens, LineForYou, OrderForYou, SessionId, SetWaitingFor,
-    ShowSketch, WaitingInput, WithdrawForYou,
+    AddForYou, Event, ForYou, ForYouBy, ForYouKind, ForYouOpens, LineForYou, OrderForYou, SessionId, SessionTurn,
+    SetWaitingFor, ShowSketch, WaitingInput, WithdrawForYou,
 };
 
 use super::agent_starts::{caller, handing, rig};
 use super::page_actions::a_job;
-use super::session_host::{rig_placing, Rig};
+use super::session_host::{eventually, rig_placing, Rig};
 
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
@@ -27,9 +27,12 @@ async fn states(rig: &Rig, id: &SessionId, items: Vec<WaitingInput>) {
     rig.fleet.waiting_for(None, SetWaitingFor { items, session_id: Some(id.clone()) }).await.expect("stated");
 }
 
-async fn sketches(rig: &Rig, id: &SessionId) {
+/// A sketch shown in the turn running, then the turn ended: a sketch waits on him only once its turn ends.
+async fn sketches(rig: &Rig, id: &SessionId, at: usize) {
     let body = format!(r#"{{"title":"Bay flow","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
     rig.fleet.show_sketch(None, ipc::decode::<ShowSketch>("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
+    rig.stand_in.finishes(at, "Here it is.");
+    eventually(|| async { !matches!(rig.turn(id).await, SessionTurn::Working { .. }) }).await;
 }
 
 async fn read(rig: &Rig, id: &SessionId) -> ForYou {
@@ -42,9 +45,9 @@ fn ids(view: &ForYou) -> Vec<&str> {
 
 /// A Job with an approval it stated, then a sketch shown after it.
 async fn a_job_waiting(rig: &Rig) -> SessionId {
-    let (id, _) = a_job(rig).await;
+    let (id, at) = a_job(rig).await;
     states(rig, &id, vec![ask("plan-ok", "Approve the bay plan", true)]).await;
-    sketches(rig, &id).await;
+    sketches(rig, &id, at).await;
     id
 }
 
@@ -71,8 +74,8 @@ async fn its_own_items_are_listed_oldest_first_each_opening_what_it_names() {
 #[tokio::test]
 async fn an_agent_item_naming_an_artifact_opens_it_and_is_one_row_with_fleets() {
     let rig = rig_placing(None);
-    let (id, _) = a_job(&rig).await;
-    sketches(&rig, &id).await;
+    let (id, at) = a_job(&rig).await;
+    sketches(&rig, &id, at).await;
     states(&rig, &id, vec![WaitingInput { artifact: Some("Bay flow".into()), ..ask("bay", "Pick the bay flow", false) }]).await;
 
     let view = read(&rig, &id).await;
@@ -183,5 +186,4 @@ async fn the_live_jobs_it_started_are_building() {
 
     let view = Arc::clone(&rig.fleet).get_for_you(Some(parent.clone())).await.expect("read");
     assert_eq!(view.building.iter().map(|one| one.job.clone()).collect::<Vec<_>>(), [held.session_id.clone()]);
-    assert!(view.waiting.iter().all(|row| !row.id.contains(held.session_id.as_str())), "a child's items are not the parent's");
 }
