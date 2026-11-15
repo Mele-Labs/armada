@@ -119,9 +119,10 @@ A take's mocks are kept with their style set, as a sketch's are, so they draw in
 **Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
 It grows one artifact for each question and never shows a new sketch, draft or page beside it.
 The artifact opens with one sentence saying what he decides, then the takes, with detail folded below.
-Takes go in a takes part, drawn plain: a few labelled blocks each with placeholder text, never a screen of real data, the Job's pick first.
+Takes go in a takes part, the Job's pick first: a take about a screen is a `mock` of that screen with short, plausible content, and labelled blocks are only for a choice that is not a screen.
 It names which parts ask and which only inform, and how each is answered.
 The owner, 14 Nov 2026: "There is no spacing, no depth, everything is bright and in your face."
+And on 15 Nov, of takes drawn as grey blocks: "not really a sketch of anything meaningful."
 
 **Rule.** The Job is told each answer as his message, naming the artifact and the part.
 A drawing, a draft and a page are told as they were before.
