@@ -20,6 +20,7 @@ Electron Bridge reads neither field; native Bridge draws the wait line.
 **How long it has waited is `since`**, and the client counts from it.
 **What ends it is `ends`**, without words, so the client says it in its own.
 Either way Fleet wakes the Job with a word when the wait ends; there is no act on the line.
+A client may open the holding Job from a line that carries `job`; that is the client's own, and Fleet takes no act.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream is neither better nor worse.** `session.changed` already carries the record whole, and a pass publishes it only where a wait or `claims_unsent` moved.
