@@ -187,12 +187,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// What the repository `manifest` names can write: its tracker's and the forge's. Pure, and the
-    /// same for every Job in it.
-    pub(crate) fn writes_for(&self, manifest: Option<&str>) -> Writes {
-        self.writes_in(manifest, None)
-    }
-
     /// What a Job can write, where it is in `project`: **the project's tracker's** where it names one.
     pub(crate) fn writes_in(&self, manifest: Option<&str>, project: Option<&str>) -> Writes {
         let Some(served) = manifest.and_then(|id| self.repositories().serving(id)) else {

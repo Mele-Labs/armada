@@ -11,6 +11,7 @@ mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
+mod notes;
 pub(crate) mod mock_page;
 pub(crate) mod mock_view;
 mod route;
@@ -31,6 +32,7 @@ use ipc::{Scene, SceneColor, SceneKind, SceneNode, SceneShape, ScreenElement, Wi
 use lyon::tessellation::{LineCap, LineJoin};
 
 use crate::look::{token, Look};
+pub(crate) use notes::{bounds_of, nodes, part_at, Mark, Marks, Part};
 use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
@@ -242,9 +244,15 @@ pub(crate) fn against(key: &str, before: &Scene, after: &Scene) -> (Rc<Scene>, R
 /// The scene, drawn to fill its parent, with what changed against an earlier one marked: added
 /// green, changed amber, removed red and struck through, the rest stood back.
 pub(crate) fn view_changes(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
+    view_marked(key, scene, changes, fit, clock, lens, Rc::default())
+}
+
+/// As [`view_changes`], with the notes' numbers standing on the parts they are about and the parts picked ringed. A reading
+/// view keeps where it put each part (`part_at`, `nodes`, `bounds_of`), which a press and the keys ask for.
+pub(crate) fn view_marked(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>) -> impl IntoElement {
     let held = scene.clone();
     canvas(
-        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, bounds, window, cx),
+        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, marks, bounds, window, cx),
         move |bounds, mut prepared, window, cx| paint(&scene, &mut prepared, fit, clock, bounds, window, cx),
     )
     .size_full()
@@ -730,6 +738,27 @@ struct Prepared {
     sheets: Vec<Option<(AnyElement, f32)>>,
     /// Each mock's picture, where one has come, by its node's index: `None` for a node that is not a mock.
     mocks: Vec<Option<mock_view::Shown>>,
+    /// Where each part stands, for the notes' numbers, which stand on them.
+    placed: Vec<notes::Placed>,
+    marks: Rc<Marks>,
+}
+
+/// Every node and, inside a mock, every element of its page, where it stands in scene units. Only a reading view holds them.
+fn placed_of(scene: &Scene, laid: &Laid, sources: &[Option<Rc<mock_view::Mock>>], dark: bool, cx: &App) -> Vec<notes::Placed> {
+    let mut placed = Vec::new();
+    for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
+        placed.push(notes::Placed { part: Part { id: node.id.clone(), label: part_label(node).to_string() }, rect: *rect, depth: if ground(node) { 0 } else { 1 }, node: true });
+        let (Some(Some(mock)), Some(width)) = (sources.get(index), node.w) else { continue };
+        let Some(parts) = mock_view::parts(mock, width as f32, dark, cx) else { continue };
+        let top = sheet_top(node);
+        placed.extend(parts.iter().map(|part| notes::Placed {
+            part: Part { id: format!("{}#{}", node.id, part.key), label: part.label.clone() },
+            rect: Rect { x: rect.x + part.x, y: rect.y + top + part.y, w: part.w, h: part.h },
+            depth: 1 + part.depth,
+            node: false,
+        }));
+    }
+    placed
 }
 
 /// The nodes the step playing lights: those it names and those its arrows reach.
@@ -745,7 +774,7 @@ fn lit<'a>(scene: &'a Scene, now: Option<&Playing>) -> HashSet<&'a str> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
+fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let view = View::fit(bounds, laid.bounds, fit, lens);
@@ -778,7 +807,11 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
             sheets.push(Some((sheet, alpha)));
         }
     });
-    Prepared { laid, view, changes, now, sheets, mocks }
+    let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
+    if fit == Fit::Reading {
+        notes::keep(key, notes::Probe { view, placed: placed.clone() });
+    }
+    Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -866,6 +899,7 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
         for stroke in &scene.strokes {
             paint_ink(&ink, &stroke.points.iter().map(|p| Pt { x: p.x as f32, y: p.y as f32 }).collect::<Vec<_>>(), window);
         }
+        notes::paint(&ink, &prepared.placed, &prepared.marks, window, cx);
         // A reading view names each part as Electron's does, its change first, so a walk can ring one.
         if fit == Fit::Reading {
             for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
@@ -875,6 +909,10 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                 };
                 let name = if laid.tabs.get(index).is_some_and(Option::is_some) { format!("{}, {name}", start::TAB_WORD) } else { name };
                 crate::labels::note(gpui::Role::Group, name, view.rect(*rect), Some(view.len(RADIUS)), window, cx);
+            }
+            // An element of a mock's page is named too, so a note aims at it as at a node.
+            for one in prepared.placed.iter().filter(|one| !one.node) {
+                crate::labels::note(gpui::Role::Group, one.part.label.clone(), view.rect(one.rect), None, window, cx);
             }
         }
         if let Some(now) = &now {

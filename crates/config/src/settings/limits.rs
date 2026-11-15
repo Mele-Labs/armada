@@ -16,7 +16,6 @@ pub const PORT_RANGE_BASE: Integer = Integer("limits.portRangeBase");
 pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
 pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
 pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
-pub const OPERATOR_PLAN_PAUSE: Integer = Integer("limits.operatorPlanPause");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -195,20 +194,6 @@ pub(super) const LIMITS: &[Entry] = &[
         shipped: Shipped::Integer(5),
         applies: Applies::Live,
         row: Some("watches-per-job"),
-        env: None,
-        tip: None,
-    },
-    // **Eighty, as the plan's step down is.** The share of the week's plan the Operator leaves
-    // alone: past it the Operator makes no call, so the week's last of the plan goes to Jobs.
-    Entry {
-        key: OPERATOR_PLAN_PAUSE.0,
-        section: Section::Limits,
-        title: "Pause the Operator at",
-        description: "How much of the weekly plan window must be used before the Operator makes no more calls until the window resets. Everything that needed a call goes to you.",
-        kind: Kind::Integer { min: 0, max: 100, unit: "percent" },
-        shipped: Shipped::Integer(80),
-        applies: Applies::Live,
-        row: Some("operator-plan-pause"),
         env: None,
         tip: None,
     },

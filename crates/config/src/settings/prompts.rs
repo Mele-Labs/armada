@@ -26,7 +26,6 @@ pub const PROMPT_RETRO_REVIEW: Words = Words("prompts.retroReview");
 pub const PROMPT_RETRO_ASK: Words = Words("prompts.retroAsk");
 pub const PROMPT_LOGBOOK_DISTIL: Words = Words("prompts.logbookDistil");
 pub const PROMPT_TEACHING_READ: Words = Words("prompts.teachingRead");
-pub const PROMPT_THOUGHT_ROUTE: Words = Words("prompts.thoughtRoute");
 pub const PROMPT_AUTOPILOT_SENTENCE: Words = Words("prompts.autopilotSentence");
 pub const PROMPT_AUTOPILOT_PICKER: Words = Words("prompts.autopilotPicker");
 pub const PROMPT_AUTOPILOT_DECIDER: Words = Words("prompts.autopilotDecider");
@@ -50,7 +49,6 @@ pub enum PromptSection {
     Judge,
     Scouts,
     Autopilot,
-    Operator,
     Repairs,
     Retros,
     TestMap,
@@ -59,11 +57,10 @@ pub enum PromptSection {
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 8] = [
+    pub const ORDER: [PromptSection; 7] = [
         PromptSection::Judge,
         PromptSection::Scouts,
         PromptSection::Autopilot,
-        PromptSection::Operator,
         PromptSection::Repairs,
         PromptSection::Retros,
         PromptSection::TestMap,
@@ -77,11 +74,10 @@ impl PromptSection {
             PromptSection::Judge => 0,
             PromptSection::Scouts => 1,
             PromptSection::Autopilot => 2,
-            PromptSection::Operator => 3,
-            PromptSection::Repairs => 4,
-            PromptSection::Retros => 5,
-            PromptSection::TestMap => 6,
-            PromptSection::Workflows => 7,
+            PromptSection::Repairs => 3,
+            PromptSection::Retros => 4,
+            PromptSection::TestMap => 5,
+            PromptSection::Workflows => 6,
         }
     }
 
@@ -91,7 +87,6 @@ impl PromptSection {
             PromptSection::Judge => "Judge",
             PromptSection::Scouts => "Scouts",
             PromptSection::Autopilot => "Autopilot",
-            PromptSection::Operator => "Operator",
             PromptSection::Repairs => "Repairs",
             PromptSection::Retros => "Retros",
             PromptSection::TestMap => "Test map",
@@ -255,13 +250,6 @@ pub(super) const PROMPTS: &[Entry] = &[
         "What a person taught",
         "What the model is asked when a person presses Teach on words, a command, a notice, a task, a Check, a pull request or a place in Bridge and says what it is or what to change. {source} names what was pressed on, {may} lists the parts that may be proposed for it, the closed list of conditions a notice rule may test, and the tokens and layout regions a Bridge source may change, {words} is the text pressed on, {message} the message it came from, {said} what the person wrote and {reach} where it applies. Its answer is read by field name, so keep the field names.",
         &["source", "may", "words", "message", "said", "reach"],
-    ),
-    prompt(
-        PromptSection::Operator,
-        PROMPT_THOUGHT_ROUTE,
-        "Routing a thought",
-        "What the model is asked when a person types words, to decide whether they are about a running Job and which one. {candidates} is the live Jobs as a list and {message} the person's words. Its answer is read by field name, so keep the field names.",
-        &["candidates", "message"],
     ),
     prompt(
         PromptSection::TestMap,

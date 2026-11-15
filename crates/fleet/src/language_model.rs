@@ -21,8 +21,6 @@ pub const RETRY_EVERY: Duration = Duration::from_secs(30 * 60);
 #[derive(Default)]
 pub struct LanguageModel {
     loaded: OnceLock<Arc<dyn TextModel>>,
-    /// The vectors of the live Sessions a thought is routed among.
-    thoughts: Arc<crate::operator::shortlist::matching::Vectors>,
     /// The vectors of the workflows a new Session's request is read against.
     workflows: Arc<crate::session_host::workflow_pick::Vectors>,
 }
@@ -31,10 +29,6 @@ impl LanguageModel {
     /// The model, once loaded.
     pub(crate) fn model(&self) -> Option<Arc<dyn TextModel>> {
         self.loaded.get().cloned()
-    }
-
-    pub(crate) fn thought_vectors(&self) -> Arc<crate::operator::shortlist::matching::Vectors> {
-        Arc::clone(&self.thoughts)
     }
 
     pub(crate) fn workflow_vectors(&self) -> Arc<crate::session_host::workflow_pick::Vectors> {
@@ -51,7 +45,6 @@ impl LanguageModel {
 pub(crate) fn wanted() -> bool {
     wanted_by(&[
         crate::session_host::asks_model::SHIPPED.reads_model(),
-        crate::operator::shortlist::matching::IN_FORCE,
         crate::session_host::tell_refusal::IN_FORCE,
         crate::session_host::extracting::IN_FORCE,
         crate::session_host::workflow_pick::IN_FORCE,

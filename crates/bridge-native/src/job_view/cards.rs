@@ -397,7 +397,7 @@ impl JobView {
     }
 
     /// A file, a window or a judged reading the Job showed: a quiet card with a glyph and a name.
-    fn quiet_base(&self, id: &str, icon: &'static str, parts: Vec<AnyElement>, look: &Look) -> gpui::Stateful<gpui::Div> {
+    pub(super) fn quiet_base(&self, id: &str, icon: &'static str, parts: Vec<AnyElement>, look: &Look) -> gpui::Stateful<gpui::Div> {
         div()
             .id(SharedString::from(format!("quiet:{id}")))
             .flex()

@@ -59,15 +59,6 @@ impl Said {
     }
 }
 
-/// Whose word it is.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Voice {
-    /// His press.
-    Person,
-    /// The Operator's ruling, and why it ruled so.
-    Operator(String),
-}
-
 fn title_or_address(title: &str, session: &str) -> String {
     match title.trim() {
         "" => address_of(session),
@@ -179,46 +170,31 @@ fn checks_word(checks: HeldChecks) -> &'static str {
 }
 
 /// What a conflict's two Jobs are told, from the point of view of the one told.
-fn conflict_told(ask: &KeptJobAsk, to_sender: bool, said: Said, voice: &Voice) -> String {
+fn conflict_told(ask: &KeptJobAsk, to_sender: bool, said: Said) -> String {
     let (peer, peer_session) = match to_sender {
         true => (ask.other_title.as_deref().unwrap_or_default(), ask.other_session_id.as_deref().unwrap_or_default()),
         false => (ask.job_title.as_str(), ask.session_id.as_str()),
     };
     let (mine, theirs) = if to_sender { (&ask.mine, &ask.theirs) } else { (&ask.theirs, &ask.mine) };
-    let he = match voice {
-        Voice::Person => "He",
-        Voice::Operator(_) => "The Operator",
-    };
     let ruling = match said {
-        Said::HoldBoth => format!("hold landing until {} rules", if *voice == Voice::Person { "he" } else { "the person" }),
-        _ => String::from("your side changes"),
+        Said::HoldBoth => "hold landing until he rules",
+        _ => "your side changes",
     };
-    let mut text = format!(
-        "Conflict with {} ({}): {}\nYours: {mine}\nTheirs: {theirs}\n{he} says {ruling}.",
+    format!(
+        "Conflict with {} ({}): {}\nYours: {mine}\nTheirs: {theirs}\nHe says {ruling}.",
         title_or_address(peer, peer_session),
         address_of(peer_session),
         ask.breaks
-    );
-    if let Voice::Operator(because) = voice {
-        text.push(' ');
-        text.push_str(because.trim());
-    }
-    text
+    )
 }
 
-fn held_told(ask: &KeptJobAsk, said: Said, voice: &Voice) -> String {
+fn held_told(ask: &KeptJobAsk, said: Said) -> String {
     let what = match (ask.pull, &ask.branch) {
         (Some(pull), _) => format!("#{pull}"),
         (None, branch) => branch.clone().unwrap_or_default(),
     };
-    let he = if *voice == Voice::Person { "He" } else { "The Operator" };
     let verdict = if said == Said::Land { "land it" } else { "hold it" };
-    let mut text = format!("held? {what}: {he} says {verdict}.");
-    if let Voice::Operator(because) = voice {
-        text.push(' ');
-        text.push_str(because.trim());
-    }
-    text
+    format!("held? {what}: He says {verdict}.")
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -449,13 +425,13 @@ where
             (kind::HELD, Some(HOLD)) => Said::Hold,
             _ => return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "that is answered by choosing one of its buttons")),
         };
-        self.job_ask_settled(&ask, said, Voice::Person).await.map_err(|_| self.settled_already())?;
+        self.job_ask_settled(&ask, said).await.map_err(|_| self.settled_already())?;
         self.published_hosted(session).await
     }
 
     /// The open ask answered with `said`, and the Jobs it names told. **The first answer wins**: `Err` where it was
     /// answered already, or `said` does not fit what was asked.
-    pub(crate) async fn job_ask_settled(self: &Arc<Self>, ask: &KeptJobAsk, said: Said, voice: Voice) -> Result<(), String> {
+    pub(crate) async fn job_ask_settled(self: &Arc<Self>, ask: &KeptJobAsk, said: Said) -> Result<(), String> {
         let fits = match said {
             Said::Land | Said::Hold => ask.kind == kind::HELD,
             _ => ask.kind == kind::CONFLICT,
@@ -470,10 +446,10 @@ where
         }
         let other = ask.other_session_id.clone().unwrap_or_default();
         let told: Vec<(String, String)> = match said {
-            Said::ChangeSender => vec![(ask.session_id.clone(), conflict_told(ask, true, said, &voice))],
-            Said::ChangeOther => vec![(other, conflict_told(ask, false, said, &voice))],
-            Said::HoldBoth => vec![(ask.session_id.clone(), conflict_told(ask, true, said, &voice)), (other, conflict_told(ask, false, said, &voice))],
-            Said::Land | Said::Hold => vec![(ask.session_id.clone(), held_told(ask, said, &voice))],
+            Said::ChangeSender => vec![(ask.session_id.clone(), conflict_told(ask, true, said))],
+            Said::ChangeOther => vec![(other, conflict_told(ask, false, said))],
+            Said::HoldBoth => vec![(ask.session_id.clone(), conflict_told(ask, true, said)), (other, conflict_told(ask, false, said))],
+            Said::Land | Said::Hold => vec![(ask.session_id.clone(), held_told(ask, said))],
         };
         for (job, text) in told {
             // A Job that has ended, or that muted the notice, is told nothing: the answer stands.
