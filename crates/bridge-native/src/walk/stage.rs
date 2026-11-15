@@ -772,6 +772,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             }
             Ok(())
         }
+        Verb::NoWiderThan(points) => {
+            let wide = f32::from(find(step, window, cx)?.bounds.size.width);
+            if wide > points as f32 {
+                return Err(Missed(format!("the {} \"{}\" is {wide} points wide, past the {points} it may be", step.target.role, step.target.name)));
+            }
+            Ok(())
+        }
         Verb::Absent(role, name) => {
             let absent_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             if cx.try_global::<LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), absent_role, name)).is_some() {
