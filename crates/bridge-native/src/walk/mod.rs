@@ -660,6 +660,7 @@ pub static WALKS: &[Walk] = &[
             step("Up moves it back", Verb::Key("up"), "row", "Stale branch design"),
             step("Option Down moves the row below the next, which tells Fleet the order of the waiting rows", Verb::Key("alt-down"), "row", "Stale branch design"),
             step("Enter opens the row: a page opens in its own tab", Verb::Key("enter"), "tab", "Job tab: Stale branch design"),
+            step("The page is read with the right column folded to its rail: a press on the rail opens it again", Verb::Open("button", "Show the right column"), "tab", "Job column: For you"),
             press_on("Back on For you the keys are on its first row", "tab", "Job column: For you", "heading", "Waiting on you"),
             step("Backspace withdraws the row the focus is on", Verb::Key("backspace"), "heading", "Waiting on you"),
             step("The withdrawn row is off the tab, and the one left stands first", Verb::Absent("row", "Chip states"), "row", "Stale branch design"),

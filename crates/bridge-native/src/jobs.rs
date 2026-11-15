@@ -3443,7 +3443,7 @@ impl Render for JobsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let width = self.width(window, cx);
         let folded = self.view.read(cx).reader_open(cx);
-        let over = self.view.read(cx).over(cx).filter(|_| folded);
+        let over = self.view.read(cx).over(cx).filter(|side| folded && *side == crate::job_view::Side::Left);
         let handle = self.render_handle(width, window, cx);
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
