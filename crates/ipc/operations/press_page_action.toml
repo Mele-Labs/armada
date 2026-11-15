@@ -19,5 +19,7 @@ notes = """
 
 Refused with 422: `fleet.page_action_unknown` for a revision not kept, an artifact that is not a page, or an action id the revision does not hold, naming at most 20 it does; `fleet.page_act_refused` for an act off the list, "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message"; `fleet.page_ask_not_open` for an ask the Job no longer waits on, or an option not one of its options, naming them; `fleet.page_archived` for a page archived; `fleet.artifact_not_held` and `fleet.session_unnamed` as `archive_artifact` refuses them. A start or an answer refused by its own route answers that refusal.
 
+**A buttons part is pressed as a page's action is.** `artifact` may be an artifact of parts, `sketch:<title>`, with the action's id as `action` and the part's `revision` as `revision`; a button acts at once and settles nothing. A revision that is not the part's now is a 409, `fleet.part_redrawn`.
+
 `agent_access` is `No`: it is his press.
 """

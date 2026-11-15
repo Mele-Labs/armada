@@ -104,7 +104,7 @@ where
     pub(crate) async fn artifact_edited(self: Arc<Self>, edit: SaveArtifactEdit) -> Result<JobArtifact, Refusal> {
         let id = edit.session_id.as_str().trim().to_string();
         let artifact = self.artifact_held(&id, &edit.artifact).await?;
-        if artifact.form == ArtifactForm::Sketch {
+        if artifact.form == ArtifactForm::Sketch || artifact.id.starts_with(super::sketching::TARGET_PREFIX) {
             return Err(self.hosted_refusal(EDIT_NOT_WORDS, "a sketch takes notes, not edits"));
         }
         if artifact.archived.is_some() {

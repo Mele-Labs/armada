@@ -1,0 +1,18 @@
+[operations.answer_part]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Answer one asking part of a Job's artifact on its own: approve it, send it back with a note, or pick a take, as drawn when he read it"
+notes = """
+`POST /sessions/artifacts/part/answer`, body `AnswerPart`: `session_id`, `artifact` (the `JobArtifact` id), `part` (the `ArtifactPart` id), `drawn` (the part's `drawn` as he read it), `how` (`approved`, `sent_back` or `picked`), and optionally `take` (the take he picked), `words` and `notes` (a `score` or `rank` vote's per-take notes). Answered with the `JobArtifact` as it now reads, and `SessionChanged` is published.
+
+**Each asking part is answered alone.** A takes part is answered with `picked` and a `take`: that is `cast_page_vote`'s pick, kept the same way. **A takes part is a vote, never an Approve**: `approved` or `sent_back` on it is refused with a sentence saying to send a pick, and a pick must name one of its takes. A `rank` or `score` takes part is cast with `cast_page_vote`, which carries the order or the marks. Words and a drawing are `approved` or `sent_back`; a note is required to send one back. Buttons act when pressed (`press_page_action`) and have nothing to answer; a part that does not ask has none either.
+
+**The job is told as his message**, naming the artifact and the part: a drawing, a draft or a page is told as `answer_sketch`, `answer_document` and a draft's answer tell theirs; words added with `add_part` are told `Approved part "<id>" of "<title>".` or `Sent back part "<id>" of "<title>".` and his note; a pick is told as a vote is. The part settles only once the message is sent, so a failed send leaves it open.
+
+**The artifact settles once every part that asks is answered**: `approved`, or `sent_back` where any part was. Its `item` is then absent. Until then it is one Needs you item whose text names the parts still open.
+
+**Only the revision he read is answered.** A `drawn` that is not the part's now is a 409, `fleet.part_redrawn`. Refused with 422 and nothing written or sent: `fleet.part_unknown` for a part the artifact does not hold, naming the ids it does; `fleet.part_not_open` for one answered already, withdrawn, not asked, or buttons; `fleet.part_answer_empty` for `sent_back` with no note or a pick naming no take; `fleet.part_how` for `picked` on anything but takes, or any other how on takes; the page's `fleet.page_archived` for an archived artifact.
+
+`agent_access` is `No`: it is the person's answer.
+"""

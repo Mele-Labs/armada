@@ -64,6 +64,17 @@ pub enum SceneColor {
     Grey,
 }
 
+/// Where the thing a node draws stands, by name. Fleet refuses any other word, listing these.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SceneNodeState {
+    Done,
+    Running,
+    Checking,
+    Waiting,
+    Failed,
+}
+
 /// How an arrow's line is drawn. Solid where unset.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -120,6 +131,9 @@ pub struct SceneNode {
     pub shape: Option<SceneShape>,
     #[serde(default)]
     pub color: Option<SceneColor>,
+    /// Where the thing the node draws stands. Classic does not draw it; native does.
+    #[serde(default)]
+    pub state: Option<SceneNodeState>,
     /// A `mock`'s HTML, its own rules and the stylesheets it is drawn with. Drawn once pages are (#20).
     #[serde(default)]
     pub html: Option<String>,
