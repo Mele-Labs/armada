@@ -1745,6 +1745,7 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             press_on("A Job's one artifact stands in its thread, with a drawing, takes and words that ask", "row", "Edit the merge line", "status", "Asking"),
             step("A drawing in a thread card fills the card's width, its height from the scene's own bounds, and a press on it opens it large", Verb::Wheel("region", "Thread", -480), "button", "Drawing"),
+            step("The takes above it in the card stand one to a row, each picture the card's width and as tall as its own shape asks, a press on one opens that take large", Verb::Wheel("region", "Thread", -300), "button", "Picture: B \u{b7} Rail"),
             step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
             press_on("Needs you holds the question about it", "button", "Needs you", "label", "No longer held"),
             press_on("A press on the question's words opens the artifact alone: the message box, Needs you and the pane's tabs have folded away, and a quiet way back names the Job", "button", "Open Step bar for Jobs", "button", "Back to Edit the merge line"),

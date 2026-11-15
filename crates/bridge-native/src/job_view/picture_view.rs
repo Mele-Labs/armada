@@ -493,4 +493,18 @@ mod tests {
         assert!((picture.size.height - pane * 0.6).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
         assert!((picture.center().x - tile.center().x).abs() < px(2.), "and stands in the middle of its tile: {picture:?} in {tile:?}");
     }
+
+    #[gpui::test]
+    fn takes_in_a_thread_card_stand_one_a_row_fill_it_and_a_press_opens_that_take_large(cx: &mut gpui::TestAppContext) {
+        let (_, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let (first, second) = (bounds_of(cx, Role::Button, &format!("Picture: {A}")), bounds_of(cx, Role::Button, &format!("Picture: {B}")));
+        assert!(second.top() >= first.bottom(), "a thread too narrow for 520 a take stands them one to a row: {first:?} then {second:?}");
+        let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {A}"));
+        assert!(first.size.width >= tile.size.width - px(60.), "the picture takes the tile's width: {:?} in {:?}", first.size, tile.size);
+        let old_height = cx.update(|_, cx| cx.look().length(token::SPACE_12) * 2.);
+        assert!(first.size.height != old_height, "its height is the scene's own shape, not the old fixed box: {first:?}");
+        cx.simulate_click(first.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(drawn(cx, Role::Dialog, A), "a press on the picture opens that take over the app");
+    }
 }
