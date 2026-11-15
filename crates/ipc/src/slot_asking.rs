@@ -31,9 +31,9 @@ pub struct AskForSlot {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SlotAskStanding {
-    /// The call is on the person's list and unanswered.
+    /// It waits for a slot, and the Job's `slot_wait` says so. Nobody is asked.
     Asking,
-    /// He chose to wait: the command keeps looking for a free slot.
+    /// An older Wait answer: the command keeps looking for a free slot.
     Waiting,
     /// He chose to add one: Fleet made a slot and holds it for this command for about thirty seconds.
     Added,

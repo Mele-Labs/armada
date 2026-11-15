@@ -978,6 +978,16 @@ button.pk-send__title {
   background: transparent;
   color: inherit;
 }
+/* A long project name gives way to the search. */
+.pk-scope--project {
+  min-width: 0;
+  max-width: 40%;
+}
+.pk-scope--project select {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
 .pk-scope svg {
   position: absolute;
   right: var(--space-2);
@@ -1183,4 +1193,113 @@ button.pk-send__title {
 }
 .pk-glyph[data-bucket="draft"] {
   color: var(--status-not-started);
+}
+
+/* Pair: his Macs from the store first, then the pairing link as the other way. */
+.pk-pair {
+  align-content: start;
+  justify-items: stretch;
+  padding-bottom: calc(var(--space-4) + var(--pk-inset-bottom));
+}
+.pk-pair .pk-code {
+  justify-self: center;
+}
+.pk-pair .pk-group__head {
+  margin-right: 0;
+  margin-left: 0;
+}
+.pk-macs,
+.pk-with-link {
+  display: grid;
+  gap: var(--space-3);
+}
+.pk-macs__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.pk-macs__head .pk-group__head {
+  flex: 1;
+  margin-bottom: 0;
+}
+.pk-macs .pk-jobs {
+  padding: 0;
+}
+/* A Mac's row: its glyph, its name and its button on one line, a refusal's sentence under the name. */
+.pk-macs__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding-left: var(--space-3);
+}
+.pk-macs__says {
+  grid-column: 2 / -1;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+}
+.pk-macs > .armada-button,
+.pk-with-link > .armada-button {
+  min-height: var(--space-12);
+}
+.pk-macs__wait {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pk-glyph[data-bucket="done"] {
+  color: var(--status-completed-success);
+}
+.pk-glyph[data-bucket="failed"] {
+  color: var(--status-completed-failed);
+}
+/* GitHub's code: the one number on the screen, drawn as the rare hero figure on a card with the waiting lamp. */
+.pk-signin {
+  --pk-lamp: var(--status-awaiting-review);
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-left: 4px solid var(--pk-lamp);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--pk-lamp) 6%, var(--bg-sunken));
+}
+.pk-signin__code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  user-select: all;
+}
+.pk-signin__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-signin .armada-button {
+  min-height: var(--space-12);
+  text-decoration: none;
+}
+.pk-signin__wait {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--status-awaiting-review);
+  font-size: var(--text-xs);
+}
+.pk-field {
+  display: grid;
+  gap: var(--space-1);
+}
+.pk-field__label {
+  padding: 0 var(--space-2);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
 }

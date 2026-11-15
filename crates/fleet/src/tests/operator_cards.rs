@@ -57,6 +57,7 @@ fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.into() }),
         options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         steps: Vec::new(),
+        artifact: None,
     }
 }
 

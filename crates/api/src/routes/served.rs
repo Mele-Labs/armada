@@ -136,6 +136,21 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/offers/skip",
     },
     Route {
+        operation: "get_build_notes",
+        method: "GET",
+        path: "/fleet/build/notes",
+    },
+    Route {
+        operation: "mark_build_note_looked_at",
+        method: "POST",
+        path: "/fleet/build/notes/looked_at",
+    },
+    Route {
+        operation: "send_build_note_feedback",
+        method: "POST",
+        path: "/fleet/build/notes/feedback",
+    },
+    Route {
         operation: "pick_fleet_build_job",
         method: "POST",
         path: "/fleet/build/pick",

@@ -47,6 +47,7 @@ fn question(id: &str, options: usize) -> WaitingInput {
         options: (0..options).map(|n| WaitingOption { label: format!("Way {n}"), description: None, picture: None }).collect(),
         approves: false,
         steps: Vec::new(),
+        artifact: None,
     }
 }
 

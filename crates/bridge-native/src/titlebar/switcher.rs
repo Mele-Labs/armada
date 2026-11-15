@@ -186,8 +186,9 @@ impl TitleBar {
         .into_any_element()
     }
 
-    /// The build block of the Fleet popover: what runs, what waits to be added, and the press that builds it.
-    pub(super) fn build_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The build block of the Fleet popover, in two parts: the lists of what runs and what waits to be added,
+    /// which scroll, and the presses that build it with the line that says how far it got, which stay in view.
+    pub(super) fn build_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
         let report = &held.report;
         let offers = self.face.offers.as_ref();
         let busy = report.restarting.is_some() || report.reverting || report.swapping;
@@ -195,7 +196,7 @@ impl TitleBar {
         let work = story::held(report, offers);
         let keep_row = (!report.trying.is_empty()).then(|| {
             let amber = look.color(token::STATUS_AWAITING_REVIEW);
-            let keep = Btn::new("keep-build", "Keep", Weight::Secondary).disabled(report.reverting).draw(look, cx).tooltip(tip("Keep this build and tell its Jobs to land"));
+            let keep = Btn::new("keep-build", "Keep", Weight::Secondary).disabled(report.reverting).draw(look, cx).track_focus(&self.list_stops.keep).tooltip(tip("Keep this build and tell its Jobs to land"));
             let keep = if report.reverting { keep } else { keep.on_click(cx.listener(|this, _, _, cx| this.keep_pressed(cx))) };
             div()
                 .id("keep-row")
@@ -328,18 +329,9 @@ impl TitleBar {
         // A restart under way says its stage where the sentences stood.
         let stage = matches!(held.position(), Position::Restarting { stage: Some(_), .. }).then(|| self.position_marks(held, look, cx));
         let failed = (!restarting).then(|| report.failed.clone()).flatten().map(|said| self.failed_line(look, "build-failed", said.into()));
-        div()
-            .id("fleet-build")
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .child(running)
-            .children(self.waiting_section(held, look, cx))
-            .children(update)
-            .children(refresh)
-            .children(stage)
-            .children(failed)
-            .into_any_element()
+        let lists = div().id("fleet-build").flex().flex_col().gap(look.length(token::SPACE_3)).child(running).children(self.waiting_section(held, look, cx)).into_any_element();
+        let presses = div().id("fleet-build-presses").flex().flex_col().gap(look.length(token::SPACE_3)).children(update).children(refresh).children(stage).children(failed).into_any_element();
+        (lists, presses)
     }
 
     /// Revert, where a build before is kept: it asks first, in the dialog that says what it changes.
@@ -348,7 +340,7 @@ impl TitleBar {
         let said = held.revert_tip()?;
         let label = if report.reverting { "Reverting" } else { "Revert" };
         let off = report.restarting.is_some() || report.reverting || report.swapping;
-        let button = Btn::new("revert-build", label, Weight::Secondary).icon("undo-2").pending(report.reverting).disabled(off).draw(look, cx).tooltip(tip(said));
+        let button = Btn::new("revert-build", label, Weight::Secondary).icon("undo-2").pending(report.reverting).disabled(off).draw(look, cx).track_focus(&self.list_stops.revert).tooltip(tip(said));
         let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.revert_pressed(window, cx))) };
         Some(labelled(button, Role::Button, label).into_any_element())
     }

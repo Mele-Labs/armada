@@ -22,6 +22,7 @@ fn asking(id: &str, approves: bool, options: &[&str]) -> WaitingInput {
         options: options.iter().map(|label| WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         approves,
         steps: Vec::new(),
+        artifact: None,
     }
 }
 

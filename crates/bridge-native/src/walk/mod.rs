@@ -58,7 +58,7 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
-    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// A press on the button, or the radio, of this name inside the element of this role and name: where its name is
     /// one the walk's own bar or another place also draws.
     PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
@@ -115,6 +115,9 @@ pub enum Verb {
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
     Fits(&'static str, &'static str),
+    /// Nothing pressed: the target must be drawn no wider than this many points, or the step fails.
+    /// For a title that must be cut inside its tab rather than widen it.
+    NoWiderThan(u32),
     /// Nothing of this role and name is drawn; the target is.
     Absent(&'static str, &'static str),
     /// This many milliseconds go by before the target is ringed, as they do while a person reads the
@@ -1118,6 +1121,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-claim-wait-names",
+        title: "A Job's wait names a Job of this Mac as a Job, and another Mac by its own name",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that waits on a fix by a Job of this Mac names the Job, not the Mac the person sits at", "row", "Audit the docs index", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("The row opens that Job on a press, and says so", Verb::Hover, "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("It has no Mac chip", Verb::Absent("img", "Nicks-MacBook-Pro-2026"), "region", "Claims"),
+            step("A wait on a Job of another Mac names that Mac without its .local, in the chip too", Verb::Hover, "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A press on the first opens the Job fixing it", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today", "region", "Thread"),
+            step("It waits on nothing, so it has no claims card", Verb::Absent("region", "Claims"), "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-claim-waits",
         title: "A Job waiting on an item another Job or a person holds",
         screen: Screen::Jobs,
@@ -1131,6 +1148,20 @@ pub static WALKS: &[Walk] = &[
             step("It has waited two hours", Verb::Look, "timer", "2 h"),
             press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
             step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
+        ],
+    },
+    Walk {
+        name: "native-slot-wait",
+        title: "A Job waiting for a worktree slot, asking nothing",
+        screen: Screen::Jobs,
+        scenario: "slot-wait",
+        steps: &[
+            step("A Job waiting for a slot wears a drive beside its state, its place in the tooltip", Verb::Hover, "img", "Waiting for a slot, 2nd in line"),
+            press_on("Its thread ends on the wait: its place, how long, and that it moves in by itself", "row", "Audit the docs index", "region", "Waiting for a slot"),
+            step("Add a slot has Fleet make one for this Job", Verb::Hover, "button", "Add a slot"),
+            step("Free gives this Job the slot of the quietest Job nothing keeps", Verb::Hover, "button", "Free slot 9"),
+            step("The card stays inside the thread", Verb::Fits("region", "Waiting for a slot"), "button", "Free slot 9"),
+            press_on("Now says it too", "tab", "Job column: Now", "group", "Waiting for a slot, 2nd in line"),
         ],
     },
     Walk {
@@ -1232,6 +1263,9 @@ pub static WALKS: &[Walk] = &[
             step("The first stand at the top", Verb::Wheel("region", "Open, Done and Deferred", -1400), "button", "Read the chip's stories"),
             press_on("A press opens its thread as a tab beside the Job's", "button", "Read the chip's stories", "tab", "Job tab: Read the chip's stories"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Read the chip's stories"),
+            press_on("A subagent with a long task opens its tab", "button", "Check the tooltip wording against the voice rules", "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("The title is cut inside its tab, which keeps its width, and its × is drawn after it", Verb::NoWiderThan(240), "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Check the tooltip wording against the voice rules"),
             press_on("+ again", "button", "Add tab: Done", "menuitem", "Judge"),
             press_on("Judge: the Judge of the whole Job", "menuitem", "Judge", "region", "Judge"),
         ],
@@ -1856,6 +1890,22 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &title_bar::PREVIEW_OFFERS,
+    },
+    Walk {
+        name: "native-waits-and-fleet-scroll",
+        title: "A waiting Job's row says what it waits on you for, and the Fleet panel scrolls its lists",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            right_on("A right press on a Job opens its menu, with the View group at its foot", "row", "Fix the merge line freshness chip", "menuitemcheckbox", "Now"),
+            press_on("Now puts a line under each title", "menuitemcheckbox", "Now", "menuitemcheckbox", "Now"),
+            step("A Job waiting on you says the first thing it waits for: Plan to approve, not what it last ran", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            step("A Job at work still says what it is doing", Verb::Look, "row", "Native Bridge foundation"),
+            scene("Ten branches are offered for the preview", "preview-offers-many", "button", "Fleet — Running"),
+            press_on("The panel stops at the window's edge. Refresh and Skip stay at its foot", "button", "Fleet — Running", "button", "Refresh"),
+            step("The lists scroll between the head and the foot", Verb::Wheel("group", "Waiting to be added", 320), "button", "Refresh"),
+            step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+        ],
     },
     Walk {
         name: "native-build-origin",
@@ -3036,6 +3086,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_BUILD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_MODELS,
+        title: "Settings › Macs and Models use the width",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_MODELS_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_LONG,
+        title: "Settings › Macs: long names and addresses",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_LONG_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::MACS_NEARBY,
         title: "Settings › Macs: Macs nearby and on your account",
         screen: Screen::Settings,
@@ -3109,6 +3173,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LANES_ADD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LEARNED_LINKS,
+        title: "A learned setting links to its setting",
+        screen: Screen::Settings,
+        scenario: "delivery-line",
+        steps: crate::settings::walk::LEARNED_LINKS_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::FOLLOWS_PICKER,
         title: "Workflows follow the Editing picker",
         screen: Screen::Settings,
@@ -3135,6 +3206,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::CLAIMS_STORE_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::SIGN_IN_APP,
+        title: "Settings › Account: register the sign-in app on GitHub",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::SIGN_IN_APP_STEPS,
     },
     Walk {
         name: crate::settings::walk::TAKE,

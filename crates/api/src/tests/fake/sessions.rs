@@ -69,6 +69,7 @@ impl Sessions for FakeDaemon {
             waits: None,
             later: Vec::new(),
             held_open_by: Vec::new(),
+            slot_wait: None,
             stopped: None,
             repairing: None,
             stop_told_by: None,

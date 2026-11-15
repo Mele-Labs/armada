@@ -23,7 +23,8 @@ use super::arrows::{self, Pattern};
 use super::geometry::{Pt, Rect};
 use super::route::{self, Seg};
 use super::start;
-use super::{along, ground, hue, laid, part_label, shaped, shaped_padding, sheet_top, tint, trees, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, ICON, LEAD, PAD_X, PAD_Y, RADIUS};
+use super::tile;
+use super::{ground, hue, laid, part_label, shortened, sheet_top, trees, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, LEAD, PAD_X, PAD_Y, RADIUS};
 use crate::look::{token, Look, Token};
 
 /// What the toast names after a copy (`MERMAID_COPIED`).
@@ -514,6 +515,12 @@ struct Kit<'a> {
     sunken: String,
     strong: String,
     focus: String,
+    raised: String,
+    subtle: String,
+    accent: String,
+    on_accent: String,
+    /// The card shadow's layers, each drawn as a blurred rectangle behind a tile.
+    shadows: Vec<gpui::BoxShadow>,
 }
 
 impl<'a> Kit<'a> {
@@ -534,6 +541,11 @@ impl<'a> Kit<'a> {
             sunken: css(look.color(token::BG_SUNKEN)),
             strong: css(look.color(token::BORDER_STRONG)),
             focus: css(look.color(token::EDGE_FOCUS)),
+            raised: css(look.color(token::BG_RAISED)),
+            subtle: css(look.color(token::BORDER_SUBTLE)),
+            accent: css(look.color(token::ACCENT)),
+            on_accent: css(look.color(token::TEXT_ON_ACCENT)),
+            shadows: look.shadows(token::SHADOW_CARD).into_iter().filter(|layer| !layer.inset).collect(),
         }
     }
 
@@ -612,8 +624,8 @@ impl<'a> Kit<'a> {
         }
     }
 
-    /// A registry glyph in a 12-unit square, drawn as strokes in `fill`.
-    fn icon(&self, out: &mut String, name: &str, x: f32, y: f32, fill: &str) {
+    /// A registry glyph in a `size`-unit square, drawn as strokes in `fill`.
+    fn icon(&self, out: &mut String, name: &str, x: f32, y: f32, size: f32, fill: &str) {
         let Some(inner) = glyph_inner(name) else { return };
         let _ = write!(
             out,
@@ -621,7 +633,7 @@ impl<'a> Kit<'a> {
             xml(&sentence(name)),
             n(x),
             n(y),
-            n(ICON / 24.)
+            n(size / 24.)
         );
     }
 }
@@ -661,41 +673,18 @@ fn screen_css() -> String {
     out.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>().join("\n")
 }
 
-/// The frame of the drawing: every box, every arrow's way and words, and every hand line, with `pad` of air round it.
+/// The frame of the drawing: the canvas the reader shows, and any hand line that strays past it, with `pad` of air round the line.
 fn frame_of(scene: &Scene, laid: &Laid, pad: f32) -> (f32, f32, f32, f32) {
-    let mut xs: Vec<f32> = Vec::new();
-    let mut ys: Vec<f32> = Vec::new();
-    let mut take = |x: f32, y: f32| {
-        xs.push(x);
-        ys.push(y);
-    };
-    for rect in laid.rects.iter().chain(laid.tabs.iter().flatten()) {
-        take(rect.x, rect.y);
-        take(rect.x + rect.w, rect.y + rect.h);
-    }
-    for way in laid.ways.iter().flatten() {
-        for step in 0..=10 {
-            if let Some(at) = along(&way.path, step as f32 / 10.) {
-                take(at.x, at.y);
-            }
-        }
-        if let Some((rect, _)) = &way.words {
-            take(rect.x, rect.y);
-            take(rect.x + rect.w, rect.y + rect.h);
-        }
-    }
+    let (mut x0, mut y0) = (laid.bounds.x, laid.bounds.y);
+    let (mut x1, mut y1) = (laid.bounds.x + laid.bounds.w, laid.bounds.y + laid.bounds.h);
     for stroke in &scene.strokes {
         for point in &stroke.points {
-            take(point.x as f32, point.y as f32);
+            let (x, y) = (point.x as f32, point.y as f32);
+            (x0, y0, x1, y1) = (x0.min(x - pad), y0.min(y - pad), x1.max(x + pad), y1.max(y + pad));
         }
     }
-    if xs.is_empty() {
-        return (0., 0., pad * 2., pad * 2.);
-    }
-    let least = |all: &[f32]| all.iter().copied().fold(f32::INFINITY, f32::min);
-    let most = |all: &[f32]| all.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let (x, y) = ((least(&xs) - pad).floor(), (least(&ys) - pad).floor());
-    (x, y, (most(&xs) + pad).ceil() - x, (most(&ys) + pad).ceil() - y)
+    let (x, y) = (x0.floor(), y0.floor());
+    (x, y, x1.ceil() - x, y1.ceil() - y)
 }
 
 fn path_text(path: &[Seg]) -> String {
@@ -753,13 +742,53 @@ fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
 /// `--text-base`: what a frame's name is set in where it has no node of its own to say.
 const TEXT_BASE: f32 = 14.;
 
+/// What a node is drawn with beyond itself: the word in its head band, its Start pill and step badge, and the canvas a lane runs to.
+struct Face<'a> {
+    kind: &'a str,
+    started: bool,
+    mark: Option<Rect>,
+    badge: Option<&'a (Rect, String)>,
+    canvas: Rect,
+}
+
+/// The soft drop under a tile, a mock's picture or a screen's sheet at `(x, y, w, h)`: one blurred rectangle for each layer the
+/// theme's card shadow has, which the drawing's `<defs>` blur.
+fn shadow_svg(kit: &Kit, x: f32, y: f32, w: f32, h: f32, out: &mut String) {
+    for (at, layer) in kit.shadows.iter().enumerate() {
+        let spread = f32::from(layer.spread_radius);
+        let _ = write!(
+            out,
+            r#"<rect class="sk-shadow" x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" filter="url(#sk-shadow-{at})"/>"#,
+            n(x + f32::from(layer.offset.x) - spread),
+            n(y + f32::from(layer.offset.y) - spread),
+            n((w + 2. * spread).max(0.)),
+            n((h + 2. * spread).max(0.)),
+            n((tile::RADIUS + spread).max(0.)),
+            css(layer.color)
+        );
+    }
+}
+
+/// A hairline round a sheet a node has: a mock's picture, a screen's.
+fn hairline_svg(kit: &Kit, x: f32, y: f32, w: f32, h: f32, out: &mut String) {
+    let _ = write!(
+        out,
+        r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="none" stroke="{}" stroke-width="1"/>"#,
+        n(x + 0.5),
+        n(y + 0.5),
+        n(w - 1.),
+        n(h - 1.),
+        n(tile::RADIUS - 0.5),
+        kit.subtle
+    );
+}
+
 /// One node, at its own origin (`nodeSvg`). `sheets` is each variant of a screen's markup, for a page.
-fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElement>>, sheets: &[(String, String)], mode: Mode, started: bool) -> String {
+fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElement>>, sheets: &[(String, String)], mode: Mode, face: &Face) -> String {
     let look = kit.look;
     let (w, h) = (rect.w, rect.h);
-    let shape = shaped(node);
     let mut attrs = format!(r#"class="sk-node" data-node="{}" data-kind="{}""#, xml(&node.id), kind_word(node.kind));
-    if let Some(shape) = shape {
+    if let Some(shape) = node.shape.filter(|shape| node.kind == SceneKind::Box && *shape != SceneShape::Box) {
         let _ = write!(attrs, r#" data-shape="{}""#, shape_word(shape));
     }
     if let Some(color) = node.color {
@@ -768,71 +797,64 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
     if ground(node) {
         attrs.push_str(r#" data-ground="""#);
     }
-    let label = if started { format!("{}, {}", start::TAB_WORD, part_label(node)) } else { part_label(node).to_string() };
+    let label = if face.started { format!("{}, {}", start::TAB_WORD, part_label(node)) } else { part_label(node).to_string() };
     let _ = write!(attrs, r#" role="group" aria-label="{}" transform="translate({} {})""#, xml(&label), n(rect.x), n(rect.y));
     let mut out = String::new();
 
-    if let Some(shape) = shape {
-        draw_shaped(kit, node, shape, w, h, started, &mut out);
-    } else {
-        match node.kind {
-            SceneKind::Label => {
-                let words = node.title.as_deref().or(node.body.as_deref()).unwrap_or("");
-                kit.say(&mut out, 0., 0., 14., 600., false, &kit.muted, "start", words, "");
+    match node.kind {
+        SceneKind::Label => {
+            let words = node.title.as_deref().or(node.body.as_deref()).unwrap_or("");
+            kit.say(&mut out, 0., 0., 14., 600., false, &kit.muted, "start", words, "");
+        }
+        SceneKind::Wire => draw_wire(kit, node, w, h, &mut out),
+        SceneKind::Group | SceneKind::Lane => draw_ground(kit, node, rect, face.canvas, &mut out),
+        SceneKind::Screen if tree.is_some() => {
+            // A screen is a sheet of its own under its title, which a browser draws as HTML. resvg draws no
+            // `foreignObject`, so a picture of one is its title over an outlined sheet in the paper colour.
+            let top = sheet_top(node);
+            if let Some(title) = node.title.as_deref() {
+                let at = f32::from(look.length(token::TEXT_SM));
+                kit.say(&mut out, 0., 0., at, look.number(token::WEIGHT_HEADING), false, &kit.muted, "start", title, "");
             }
-            SceneKind::Wire => draw_wire(kit, node, w, h, &mut out),
-            SceneKind::Group | SceneKind::Lane => draw_ground(kit, node, w, h, &mut out),
-            SceneKind::Screen if tree.is_some() => {
-                // A screen is a sheet of its own under its title, which a browser draws as HTML. resvg draws no
-                // `foreignObject`, so a picture of one is its title over an outlined sheet in the paper colour.
-                let top = sheet_top(node);
-                if let Some(title) = node.title.as_deref() {
-                    let at = f32::from(look.length(token::TEXT_SM));
-                    kit.say(&mut out, 0., 0., at, look.number(token::WEIGHT_HEADING), false, &kit.muted, "start", title, "");
+            shadow_svg(kit, 0., top, w, h - top, &mut out);
+            match mode {
+                Mode::Picture => {
+                    let _ = write!(
+                        out,
+                        r#"<rect x="0" y="{}" width="{}" height="{}" rx="{}" fill="{}"/>"#,
+                        n(top),
+                        n(w),
+                        n((h - top).max(0.)),
+                        n(tile::RADIUS),
+                        kit.raised
+                    );
                 }
-                match mode {
-                    Mode::Picture => {
+                Mode::Page => {
+                    for (at, markup) in sheets {
                         let _ = write!(
                             out,
-                            r#"<rect x="1" y="{}" width="{}" height="{}" fill="none" stroke="{}" stroke-width="2"/>"#,
-                            n(top + 1.),
-                            n((w - 2.).max(0.)),
-                            n((h - top - 2.).max(0.)),
-                            kit.fg
+                            r#"<g class="sk-screen" data-at="{at}"{}><foreignObject x="0" y="{}" width="{}" height="{}" overflow="visible"><div>{markup}</div></foreignObject></g>"#,
+                            if at == "rest" { "" } else { r#" data-off="""# },
+                            n(top),
+                            n(w),
+                            n((h - top).max(0.))
                         );
                     }
-                    Mode::Page => {
-                        for (at, markup) in sheets {
-                            let _ = write!(
-                                out,
-                                r#"<g class="sk-screen" data-at="{at}"{}><foreignObject x="0" y="{}" width="{}" height="{}" overflow="visible"><div>{markup}</div></foreignObject></g>"#,
-                                if at == "rest" { "" } else { r#" data-off="""# },
-                                n(top),
-                                n(w),
-                                n((h - top).max(0.))
-                            );
-                        }
-                    }
                 }
             }
-            // A screen that does not read, and a mock, which the app cannot draw as a page yet: the frame and the name.
-            SceneKind::Screen | SceneKind::Mock => {
-                let _ = write!(
-                    out,
-                    r#"<rect x="1" y="1" width="{}" height="{}" rx="{}" fill="{}" stroke="{}" stroke-width="2"{}/>"#,
-                    n(w - 2.),
-                    n(h - 2.),
-                    n(RADIUS - 1.),
-                    kit.sunken,
-                    kit.strong,
-                    dashed()
-                );
-                if let Some(title) = node.title.as_deref() {
-                    kit.say(&mut out, BORDER + PAD_X, BORDER, TEXT_BASE, 600., false, &kit.muted, "start", title, "");
-                }
-            }
-            SceneKind::Box | SceneKind::Code => draw_box(kit, node, w, h, started, &mut out),
+            hairline_svg(kit, 0., top, w, h - top, &mut out);
         }
+        // A screen that does not read, and a mock, which the app cannot draw as a page yet: the frame and the name.
+        SceneKind::Screen | SceneKind::Mock => {
+            let top = sheet_top(node);
+            if let Some(title) = node.title.as_deref() {
+                kit.say(&mut out, 0., 0., TEXT_BASE, 600., false, &kit.muted, "start", title, "");
+            }
+            shadow_svg(kit, 0., top, w, h - top, &mut out);
+            let _ = write!(out, r#"<rect x="0" y="{}" width="{}" height="{}" rx="{}" fill="{}"/>"#, n(top), n(w), n((h - top).max(0.)), n(tile::RADIUS), kit.sunken);
+            hairline_svg(kit, 0., top, w, h - top, &mut out);
+        }
+        SceneKind::Box | SceneKind::Code => draw_tile(kit, node, rect, face, &mut out),
     }
 
     // The ring a step lights: only a page plays steps.
@@ -850,156 +872,103 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
                 n(radius + 2.)
             );
         } else {
-            let radius = match shape {
-                Some(SceneShape::Pill) => h / 2.,
-                Some(SceneShape::Circle) => w / 2.,
-                _ => RADIUS,
-            };
             let _ = write!(
                 out,
                 r#"<rect class="sk-ring" x="-2" y="-2" width="{}" height="{}" rx="{}" fill="none" stroke="{focus}" stroke-width="2"/>"#,
                 n(w + 4.),
                 n(h + 4.),
-                n(radius + 2.)
+                n(tile::RADIUS + 2.)
             );
         }
     }
     format!("<g {attrs}>{out}</g>")
 }
 
-/// The "Start" tab on a node's top edge: the accent with its word on it.
-fn tab_svg(kit: &Kit, tab: Rect) -> String {
-    let look = kit.look;
-    let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(tab.x), n(tab.y));
-    let _ = write!(out, r#"<path d="{}" fill="{}"/>"#, round_rect(0., 0., tab.w, tab.h, [RADIUS, RADIUS, 0., 0.]), css(look.color(token::ACCENT)));
-    let at = f32::from(look.length(token::TEXT_2XS));
-    kit.say(&mut out, start::TAB_PAD, 0., at, look.number(token::WEIGHT_HEADING), false, &css(look.color(token::TEXT_ON_ACCENT)), "start", start::TAB_WORD, "");
+/// The Start pill: the accent with its word on it, in a tile's head band or over the top left of a node with none.
+fn pill_svg(kit: &Kit, pill: Rect) -> String {
+    let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(pill.x), n(pill.y));
+    let _ = write!(out, r#"<rect width="{}" height="{}" rx="{}" fill="{}"/>"#, n(pill.w), n(pill.h), n(tile::PILL_H / 2.), kit.accent);
+    let spacing = format!(r#" letter-spacing="{}""#, n(tile::PILL_AT * tile::TRACKING));
+    kit.say(&mut out, tile::PILL_PAD, (tile::PILL_H - LEAD) / 2., tile::PILL_AT, tile::KIND_WEIGHT, false, &kit.on_accent, "start", &start::TAB_WORD.to_uppercase(), &spacing);
     out.push_str("</g>");
     out
 }
 
-/// A box or a code block: a tinted frame, its head band, and its words.
-fn draw_box(kit: &Kit, node: &SceneNode, w: f32, h: f32, started: bool, out: &mut String) {
+/// A box or a code block: a raised tile in a hairline, its head band in the node's hue with the glyph and the word for what it
+/// is, then its title and its body as a line of mono, and the step's badge on its top right corner.
+fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut String) {
     let look = kit.look;
-    let mono = node.kind == SceneKind::Code;
-    let color = if started { look.color(token::ACCENT) } else { hue(look, node.color, if mono { SceneColor::Grey } else { SceneColor::Blue }) };
-    let (stroke, fill) = (css(color), css(tint(look, color)));
+    let (w, h) = (rect.w, rect.h);
+    shadow_svg(kit, 0., 0., w, h, out);
+    let color = hue(look, node.color, SceneColor::Grey);
+    let said = css(color);
+    let (edge, width) = if face.started { (&kit.accent, tile::FRAME) } else { (&kit.subtle, tile::HAIRLINE) };
     let _ = write!(
         out,
-        r#"<rect x="1" y="1" width="{}" height="{}" rx="{}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#,
-        n(w - 2.),
-        n(h - 2.),
-        n(RADIUS - 1.)
+        r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" stroke="{edge}" stroke-width="{}"/>"#,
+        n(width / 2.),
+        n(width / 2.),
+        n(w - width),
+        n(h - width),
+        n(tile::RADIUS - width / 2.),
+        kit.raised,
+        n(width)
     );
-    let inner = Rect { x: BORDER, y: BORDER, w: w - 2. * BORDER, h: h - 2. * BORDER };
-    let mut top = inner.y;
-    if node.title.is_some() || node.icon.is_some() {
-        let lang_w = node.lang.as_deref().map_or(0., |lang| kit.width(lang, 13., 600., false));
-        let icon_w = if node.icon.is_some() { ICON + 8. } else { 0. };
-        let wrap = (inner.w - 2. * PAD_X - icon_w - if lang_w > 0. { lang_w + 8. } else { 0. }).max(1.);
-        let lines = kit.wrapped(node.title.as_deref().unwrap_or(""), 13., 600., false, Some(wrap));
-        let band_h = 2. * PAD_Y + LEAD * lines.len() as f32;
-        let corners = RADIUS - BORDER;
-        let _ = write!(out, r#"<path d="{}" fill="{stroke}"/>"#, round_rect(inner.x, inner.y, inner.w, band_h, [corners, corners, 0., 0.]));
-        let mut x = inner.x + PAD_X;
-        if let Some(icon) = node.icon.as_deref() {
-            kit.icon(out, icon, x, inner.y + PAD_Y + (LEAD - ICON) / 2., &kit.inverse);
-            x += icon_w;
+    let inset = tile::HAIRLINE;
+    let band = css(look.color(token::BG_RAISED).blend(color.opacity(tile::BAND_TINT)));
+    let corners = tile::RADIUS - inset;
+    let _ = write!(out, r#"<path d="{}" fill="{band}"/>"#, round_rect(inset, inset, w - 2. * inset, tile::BAND_H - inset, [corners, corners, 0., 0.]));
+    let up = (tile::BAND_H - LEAD) / 2.;
+    let mut x = tile::BAND_PAD;
+    if let Some(icon) = node.icon.as_deref() {
+        kit.icon(out, icon, x, (tile::BAND_H - tile::BAND_ICON) / 2., tile::BAND_ICON, &said);
+        x += tile::BAND_ICON + tile::BAND_GAP;
+    }
+    let spacing = format!(r#" letter-spacing="{}""#, n(tile::KIND_AT * tile::TRACKING));
+    kit.say(out, x, up, tile::KIND_AT, tile::KIND_WEIGHT, false, &said, "start", face.kind, &spacing);
+    if let Some(lang) = node.lang.as_deref() {
+        let lang_w = kit.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true);
+        let stop = face.mark.map_or(w - tile::BAND_PAD - if node.step.is_some() { tile::PILL_CLEAR } else { 0. }, |mark| mark.x - rect.x - tile::BAND_GAP);
+        kit.say(out, stop - lang_w, up, tile::KIND_AT, tile::KIND_WEIGHT, true, &said, "start", lang, r#" fill-opacity="0.8""#);
+    }
+    let wrap = w - 2. * tile::BODY_PAD_X;
+    let mut y = tile::BAND_H + tile::BODY_PAD_TOP;
+    if let Some(title) = node.title.as_deref().filter(|title| !title.is_empty()) {
+        // The picture's fonts stop at 600, and resvg draws a weight between two it has as the lighter.
+        let weight = tile::TITLE_WEIGHT.min(600.);
+        let lines = kit.wrapped(title, tile::TITLE_AT, weight, false, Some(wrap));
+        for (at, line) in lines.iter().enumerate() {
+            kit.say(out, tile::BODY_PAD_X, y + at as f32 * tile::TITLE_LEAD + (tile::TITLE_LEAD - LEAD) / 2., tile::TITLE_AT, weight, false, &kit.fg, "start", line, "");
         }
-        for (index, line) in lines.iter().enumerate() {
-            kit.say(out, x, inner.y + PAD_Y + index as f32 * LEAD, 13., 600., false, &kit.inverse, "start", line, "");
-        }
-        if let Some(lang) = node.lang.as_deref() {
-            kit.say(out, inner.x + inner.w - PAD_X - lang_w, inner.y + PAD_Y, 13., 600., false, &kit.inverse, "start", lang, r#" fill-opacity="0.8""#);
-        }
-        top += band_h;
+        y += lines.len() as f32 * tile::TITLE_LEAD + tile::BODY_GAP;
     }
     if let Some(body) = node.body.as_deref() {
-        kit.say_lines(out, inner.x + PAD_X, top + PAD_Y, Some(inner.w - 2. * PAD_X), 13., 400., mono, &kit.fg, "start", body);
+        let fill = if node.kind == SceneKind::Code { &kit.fg } else { &kit.muted };
+        for (at, line) in kit.wrapped(body, tile::BODY_AT, 400., true, Some(wrap)).iter().enumerate() {
+            kit.say(out, tile::BODY_PAD_X, y + at as f32 * tile::BODY_LEAD + (tile::BODY_LEAD - LEAD) / 2., tile::BODY_AT, 400., true, fill, "start", line, "");
+        }
+    }
+    if let Some((at, number)) = face.badge {
+        let (cx, cy) = (at.x - rect.x + at.w / 2., at.y - rect.y + at.h / 2.);
+        let _ = write!(out, r#"<circle class="sk-badge" cx="{}" cy="{}" r="{}" fill="{}"/>"#, n(cx), n(cy), n(tile::BADGE / 2.), kit.fg);
+        kit.say(out, cx, cy - LEAD / 2., tile::BADGE_AT, tile::BADGE_WEIGHT, false, &kit.inverse, "middle", number, "");
     }
 }
 
-/// A box in an outline of its own: a pill or a circle are rounded rectangles; a diamond, a hexagon and a cylinder are
-/// drawn in a hundred-unit square stretched over the box, 2px inside it.
-fn draw_shaped(kit: &Kit, node: &SceneNode, shape: SceneShape, w: f32, h: f32, started: bool, out: &mut String) {
-    let look = kit.look;
-    let color = if started { look.color(token::ACCENT) } else { hue(look, node.color, SceneColor::Blue) };
-    let (stroke, fill) = (css(color), css(tint(look, color)));
-    match shape {
-        SceneShape::Pill | SceneShape::Circle => {
-            let radius = if shape == SceneShape::Pill { (h - 2.) / 2. } else { (w - 2.) / 2. };
-            let _ = write!(out, r#"<rect x="1" y="1" width="{}" height="{}" rx="{}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#, n(w - 2.), n(h - 2.), n(radius));
+/// A group or a lane: a group is a hairline frame round its children and a lane a row of the canvas under a hairline, each
+/// named at its top left in small capitals. Neither has a fill.
+fn draw_ground(kit: &Kit, node: &SceneNode, rect: Rect, canvas: Rect, out: &mut String) {
+    let (w, h) = (rect.w, rect.h);
+    if node.kind == SceneKind::Lane {
+        if rect.y > canvas.y + 0.5 {
+            let _ = write!(out, r#"<path d="M0 0.5H{}" fill="none" stroke="{}" stroke-width="1"/>"#, n(w), kit.subtle);
         }
-        _ => {
-            let inner = Rect { x: BORDER, y: BORDER, w: w - 2. * BORDER, h: h - 2. * BORDER };
-            let at = |x: f32, y: f32| format!("{},{}", n(inner.x + inner.w * x / 100.), n(inner.y + inner.h * y / 100.));
-            let (rx, ry) = (n(inner.w / 2.), n(inner.h * 0.1));
-            match shape {
-                SceneShape::Diamond => {
-                    let _ = write!(out, r#"<polygon points="{} {} {} {}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#, at(50., 0.), at(100., 50.), at(50., 100.), at(0., 50.));
-                }
-                SceneShape::Hexagon => {
-                    let _ = write!(
-                        out,
-                        r#"<polygon points="{} {} {} {} {} {}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#,
-                        at(12., 0.),
-                        at(88., 0.),
-                        at(100., 50.),
-                        at(88., 100.),
-                        at(12., 100.),
-                        at(0., 50.)
-                    );
-                }
-                _ => {
-                    let (a, b, c, d) = (at(0., 10.), at(100., 10.), at(100., 90.), at(0., 90.));
-                    let _ = write!(out, r#"<path d="M{a} A{rx} {ry} 0 0 1 {b} L{c} A{rx} {ry} 0 0 1 {d} Z" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#);
-                    let _ = write!(out, r#"<path d="M{a} A{rx} {ry} 0 0 0 {b}" fill="none" stroke="{stroke}" stroke-width="2"/>"#);
-                }
-            }
-        }
-    }
-    // The words stand in a column in the middle of the space inside the padding.
-    let (inline, top, bottom) = shaped_padding(shape, w);
-    let wrap = (w - 2. * BORDER - 2. * inline).max(1.);
-    let named = node.icon.is_some() || node.title.is_some();
-    let lines = node.body.as_deref().map(|body| kit.wrapped(body, 13., 400., false, Some(wrap))).unwrap_or_default();
-    let content = if named { LEAD } else { 0. } + if named && !lines.is_empty() { 4. } else { 0. } + lines.len() as f32 * LEAD;
-    let room = h - 2. * BORDER - top - bottom;
-    let mut y = BORDER + top + (room - content).max(0.) / 2.;
-    let middle = w / 2.;
-    if named {
-        let title_w = node.title.as_deref().map_or(0., |title| kit.width(title, 13., 600., false));
-        let name_w = if node.icon.is_some() { ICON + 8. } else { 0. } + title_w;
-        let mut x = middle - name_w / 2.;
-        if let Some(icon) = node.icon.as_deref() {
-            kit.icon(out, icon, x, y + (LEAD - ICON) / 2., &kit.fg);
-            x += ICON + 8.;
-        }
-        if let Some(title) = node.title.as_deref() {
-            kit.say(out, x, y, 13., 600., false, &kit.fg, "start", title, "");
-        }
-        y += LEAD + if lines.is_empty() { 0. } else { 4. };
-    }
-    for (index, line) in lines.iter().enumerate() {
-        kit.say(out, middle, y + index as f32 * LEAD, 13., 400., false, &kit.fg, "middle", line, "");
-    }
-}
-
-/// A group or a lane: a dashed outline in its hue with its title in a band at the top left.
-fn draw_ground(kit: &Kit, node: &SceneNode, w: f32, h: f32, out: &mut String) {
-    let stroke = css(hue(kit.look, node.color, SceneColor::Blue));
-    let lane = node.kind == SceneKind::Lane;
-    if lane {
-        let _ = write!(out, r#"<path d="M0 1H{} M0 {}H{}" fill="none" stroke="{stroke}" stroke-width="2"{}/>"#, n(w), n(h - 1.), n(w), dashed());
     } else {
-        let _ = write!(out, r#"<rect x="1" y="1" width="{}" height="{}" rx="{}" fill="none" stroke="{stroke}" stroke-width="2"{}/>"#, n(w - 2.), n(h - 2.), n(RADIUS - 1.), dashed());
+        let _ = write!(out, r#"<rect x="0.5" y="0.5" width="{}" height="{}" rx="{}" fill="none" stroke="{}" stroke-width="1"/>"#, n(w - 1.), n(h - 1.), n(tile::RADIUS - 0.5), kit.subtle);
     }
     let Some(title) = node.title.as_deref() else { return };
-    let band_w = kit.width(title, 13., 600., false) + 2. * PAD_X;
-    let inset = if lane { 0. } else { BORDER };
-    let corners = [if lane { 0. } else { RADIUS - BORDER }, 0., RADIUS, 0.];
-    let _ = write!(out, r#"<path d="{}" fill="{stroke}"/>"#, round_rect(inset, BORDER, band_w, LEAD + 2. * PAD_Y, corners));
-    kit.say(out, inset + PAD_X, BORDER + PAD_Y, 13., 600., false, &kit.inverse, "start", title, "");
+    let spacing = format!(r#" letter-spacing="{}""#, n(tile::KIND_AT * tile::TRACKING));
+    kit.say(out, tile::BAND_PAD, tile::BAND_PAD - 2. + (tile::KIND_AT + 4. - LEAD) / 2., tile::KIND_AT, tile::KIND_WEIGHT, false, &kit.muted, "start", &title.to_uppercase(), &spacing);
 }
 
 /// A wireframe block: what a part of a screen is, drawn as grey bars and never as a control.
@@ -1054,8 +1023,16 @@ fn draw_wire(kit: &Kit, node: &SceneNode, w: f32, h: f32, out: &mut String) {
 
 /// An arrow's line and its heads: the way as a path, solid, dashed or dotted by its words, and a head at each end that carries one.
 fn edge_line_svg(edge: &SceneEdge, path: &[Seg], stroke: &str) -> String {
-    let mut out = format!(r#"<path class="sk-edge__line" d="{}" fill="none" stroke="{stroke}" stroke-width="2"{}/>"#, path_text(path), line_dashes(arrows::pattern(edge)));
     let (start, end) = arrows::heads(edge);
+    // The line stops inside each head, so its end does not show past the head's point; a solid line ends round.
+    let shown = shortened(path, if start { HEAD / 2. } else { 0. }, if end { HEAD / 2. } else { 0. });
+    let rounded = if arrows::pattern(edge) == Pattern::Solid { r#" stroke-linecap="round" stroke-linejoin="round""# } else { "" };
+    let mut out = format!(
+        r#"<path class="sk-edge__line" d="{}" fill="none" stroke="{stroke}" stroke-width="{}"{rounded}{}/>"#,
+        path_text(&shown),
+        n(tile::ARROW),
+        line_dashes(arrows::pattern(edge))
+    );
     if let Some(tips) = route::tips(path) {
         if end {
             out.push_str(&head_svg(tips.end, tips.before_end, stroke));
@@ -1067,16 +1044,15 @@ fn edge_line_svg(edge: &SceneEdge, path: &[Seg], stroke: &str) -> String {
     out
 }
 
-/// One arrow: its way in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its words on a sunken backing.
+/// One arrow: its way in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its words in the same hue on a backing the colour of the canvas.
 fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     let look = kit.look;
-    let stroke = css(edge.color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)));
+    let color = tile::arrow_color(scene, edge);
+    let stroke = css(hue(look, Some(color), SceneColor::Grey));
     let name = |id: &str| scene.nodes.iter().find(|node| node.id == id).map_or(id, part_label).to_string();
     let said = edge.label.clone().unwrap_or_else(|| format!("{} to {}", name(&edge.from), name(&edge.to)));
     let mut attrs = format!(r#"class="sk-edge" data-edge="{}""#, xml(&edge.id));
-    if let Some(color) = edge.color {
-        let _ = write!(attrs, r#" data-color="{}""#, color_word(color));
-    }
+    let _ = write!(attrs, r#" data-color="{}""#, color_word(color));
     // Only a dashed flow crawls on the page; a line named dashed or dotted lies still.
     if arrows::crawls(edge) {
         attrs.push_str(r#" data-flow="""#);
@@ -1086,9 +1062,9 @@ fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     let mut out = edge_line_svg(edge, &way.path, &stroke);
     if let (Some((rect, lines)), Some(label)) = (&way.words, edge.label.as_deref()) {
         let _ = write!(out, r#"<g class="sk-edge__words" role="img" aria-label="{}">"#, xml(label));
-        let _ = write!(out, r#"<rect x="{}" y="{}" width="{}" height="{}" rx="3" fill="{}"/>"#, n(rect.x), n(rect.y), n(rect.w), n(rect.h), kit.sunken);
+        let _ = write!(out, r#"<rect x="{}" y="{}" width="{}" height="{}" rx="4" fill="{}"/>"#, n(rect.x), n(rect.y), n(rect.w), n(rect.h), kit.sunken);
         for (index, line) in lines.iter().enumerate() {
-            kit.say(&mut out, rect.x + rect.w / 2., rect.y + 4. + index as f32 * LEAD, 13., 400., false, &kit.muted, "middle", line, "");
+            kit.say(&mut out, rect.x + rect.w / 2., rect.y + 4. + index as f32 * tile::LABEL_LEAD + (tile::LABEL_LEAD - LEAD) / 2., tile::LABEL_AT, tile::LABEL_WEIGHT, false, &stroke, "middle", line, "");
         }
         out.push_str("</g>");
     }
@@ -1123,11 +1099,12 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
         .collect();
 
     let draw = |index: usize, node: &SceneNode| {
-        let tab = laid.tabs[index];
-        // The tab stands outside the node's group, so a step that stands the node back leaves it be.
-        let mut out = node_svg(&kit, node, laid.rects[index], trees[index].as_ref(), &sheets[index], mode, tab.is_some() && matches!(node.kind, SceneKind::Box | SceneKind::Code));
-        if let Some(tab) = tab {
-            out.push_str(&tab_svg(&kit, tab));
+        let mark = laid.marks[index];
+        let face = Face { kind: laid.kinds[index], started: mark.is_some() && tile::is_tile(node), mark, badge: laid.badges[index].as_ref(), canvas: laid.bounds };
+        // The pill stands outside the node's group, so a step that stands the node back leaves it be.
+        let mut out = node_svg(&kit, node, laid.rects[index], trees[index].as_ref(), &sheets[index], mode, &face);
+        if let Some(mark) = mark {
+            out.push_str(&pill_svg(&kit, mark));
         }
         out
     };
@@ -1149,7 +1126,23 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
     if mode == Mode::Page {
         let _ = write!(out, "<style>.sk {{ {} }}{STATE_CSS}{}</style>", declarations(&look), screen_css());
     }
-    let _ = write!(out, r#"<rect class="sk-ground" x="{}" y="{}" width="{}" height="{}" fill="{}"/>"#, n(x), n(y), n(w), n(h), kit.sunken);
+    // The blurs the shadows are drawn with, then the canvas: the ground in a rounded hairline, as the reader shows it.
+    out.push_str("<defs>");
+    for (at, layer) in kit.shadows.iter().enumerate() {
+        let _ = write!(out, r#"<filter id="sk-shadow-{at}" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="{}"/></filter>"#, n(f32::from(layer.blur_radius) / 2.));
+    }
+    out.push_str("</defs>");
+    let _ = write!(
+        out,
+        r#"<rect class="sk-ground" x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" stroke="{}" stroke-width="1"/>"#,
+        n(x + 0.5),
+        n(y + 0.5),
+        n(w - 1.),
+        n(h - 1.),
+        n(tile::CANVAS_RADIUS - 0.5),
+        kit.sunken,
+        kit.subtle
+    );
     for (index, node) in scene.nodes.iter().enumerate().filter(|(_, node)| ground(node)) {
         out.push_str(&draw(index, node));
     }
@@ -1806,6 +1799,7 @@ mod tests {
             step: None,
             shape: None,
             color: None,
+            state: None,
             html: None,
             css: None,
             styles: None,
@@ -1859,7 +1853,7 @@ mod tests {
         assert!(!line(SceneLine::Solid).contains("stroke-dasharray"));
         assert!(line(SceneLine::Dashed).contains(r#"stroke-dasharray="8 8""#));
         let dotted = line(SceneLine::Dotted);
-        assert!(dotted.contains(r#"stroke-dasharray="0.5 5.5""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
+        assert!(dotted.contains(r#"stroke-dasharray="0.5 7.5""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
         assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="8 8""#), "a flow reads as dashed");
         assert!(!drawn(&arrow(None, None, None, None), across()).contains("stroke-dasharray"), "an arrow that says nothing is solid");
     }
@@ -1884,7 +1878,7 @@ mod tests {
         let curve = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Cubic(Pt { x: 10., y: 0. }, Pt { x: 20., y: 30. }, Pt { x: 30., y: 30. })];
         assert!(drawn(&arrow(None, None, Some(ScenePath::Curve), None), curve).contains(r#"d="M0 0C10 0 20 30 30 30""#));
         let hop = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Line(Pt { x: 46., y: 0. }), Seg::Arc(Pt { x: 54., y: 0. }, 4., true), Seg::Line(Pt { x: 100., y: 0. })];
-        assert!(drawn(&arrow(None, None, None, None), hop).contains(r#"d="M0 0L46 0A4 4 0 0 1 54 0L100 0""#));
+        assert!(drawn(&arrow(None, None, None, None), hop).contains(r#"d="M0 0L46 0A4 4 0 0 1 54 0L95.5 0""#));
     }
 
     #[test]

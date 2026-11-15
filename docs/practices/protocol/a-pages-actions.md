@@ -16,6 +16,8 @@ Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Clas
 **The action is read off the kept revision**, never off the call, so the body names the revision and the action's id and nothing of what it does.
 **Fleet keeps the list of acts**, and an act off it is refused at the press and named to the Job when the page is kept.
 
+**On a part.** `artifact` may be an artifact of parts, `sketch:<title>`, with a buttons part's action as `action` and the part's `revision`. `docs/practices/protocol/an-artifacts-parts.md`.
+
 **The event stream.** No new event: a press publishes `session.changed` on the page's Job, and a start publishes what any start does.
 One press is one or two sends, so the unmeasured sink risk is neither better nor worse.
 

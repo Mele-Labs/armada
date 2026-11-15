@@ -9,7 +9,7 @@ use crate::sketch::screen::{
     SCREEN_GAPS, SCREEN_ICONS, SCREEN_TEXTS, SCREEN_VARIANTS, SPECS,
 };
 use crate::sketch::{
-    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_HEADS, SCENE_ICONS,
+    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_STATES, SCENE_HEADS, SCENE_ICONS,
     SCENE_KINDS, SCENE_LINES, SCENE_PATHS, SCENE_SHAPES, WIRE_PARTS,
 };
 use crate::{SceneHead, SceneLine, ScenePath, ShowSketch};
@@ -283,11 +283,16 @@ fn fields_in_scene_ts(name: &str) -> Vec<String> {
 /// `line`, `head` and `path` until it draws them; remove each from here when the type carries it.
 const AHEAD_OF_SCENE_TS: [&str; 4] = ["step", "line", "head", "path"];
 
+/// Node `state` is taken here before `scene.ts` types it: Classic draws nothing for it, and native reads it. Remove
+/// it from here when `scene.ts` carries it.
+const NODE_AHEAD_OF_SCENE_TS: [&str; 1] = ["state"];
+
 #[test]
 fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
     let mut node = fields_in_scene_ts("SceneNode");
     // `kept` is Fleet's to write and an agent's to be refused, so scene.ts types it and NODE_FIELDS does not.
     node.retain(|field| field != "kept");
+    node.extend(NODE_AHEAD_OF_SCENE_TS.iter().map(|one| one.to_string()));
     node.sort();
     let mut ours: Vec<&str> = NODE_FIELDS.to_vec();
     ours.sort_unstable();
@@ -300,6 +305,19 @@ fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
     let mut ours: Vec<&str> = EDGE_FIELDS.to_vec();
     ours.sort_unstable();
     assert_eq!(edge, ours);
+}
+
+#[test]
+fn a_nodes_state_is_one_of_five_words_and_any_other_is_refused_with_the_list() {
+    for word in SCENE_STATES {
+        let mut scene = two_boxes();
+        scene["nodes"][0]["state"] = json!(word);
+        sent("Flow", scene).checked().unwrap_or_else(|why| panic!("`{word}` is refused: {why}"));
+    }
+    let mut scene = two_boxes();
+    scene["nodes"][0]["state"] = json!("stuck");
+    let said = sent("Flow", scene).checked().unwrap_err();
+    assert!(said.contains("`state` is `stuck`. Allowed: done, running, checking, waiting, failed"), "{said}");
 }
 
 #[test]
@@ -356,7 +374,7 @@ fn the_earlier_scene_is_kept_whole_beside_its_title_and_counted_in_the_cap() {
 
 #[test]
 fn the_tool_description_names_every_kind_icon_and_wire_part() {
-    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()).chain(SCENE_SHAPES.iter()).chain(SCENE_COLORS.iter()).chain(SCENE_LINES.iter()).chain(SCENE_HEADS.iter()).chain(SCENE_PATHS.iter()) {
+    for word in SCENE_KINDS.iter().chain(WIRE_PARTS.iter()).chain(SCENE_ICONS.iter()).chain(SCENE_SHAPES.iter()).chain(SCENE_COLORS.iter()).chain(SCENE_STATES.iter()).chain(SCENE_LINES.iter()).chain(SCENE_HEADS.iter()).chain(SCENE_PATHS.iter()) {
         assert!(OPERATION.contains(word), "show_sketch.toml does not name `{word}`");
     }
     assert!(OPERATION.contains("ASCII"), "the description must forbid ASCII art");

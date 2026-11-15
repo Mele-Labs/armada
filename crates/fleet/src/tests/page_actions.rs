@@ -115,6 +115,7 @@ async fn an_answer_press_answers_the_jobs_open_ask_with_the_option() {
         options: vec![option("Quarantine"), option("Keep it")],
         approves: false,
         steps: Vec::new(),
+        artifact: None,
     };
     let record = rig.fleet.waiting_for(None, SetWaitingFor { items: vec![question], session_id: Some(id.clone()) }).await.expect("set");
     let ask = record.waiting_for.iter().find(|one| one.text.starts_with("Quarantine")).expect("the ask waits").id.clone();

@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "His press of a button a Job's page declares with <armada-action>: the Job is sent it as a message, a Job starts at once, or one of the Job's asks is answered"
+description = "His press of a button, one of a buttons part of a Job's artifact or a page's <armada-action>: the Job is sent it as a message, a Job starts at once, or one of the Job's asks is answered"
 notes = """
 `POST /sessions/artifacts/press`, body `PressPageAction`: `session_id`, `artifact` (the page's path, its `JobArtifact` id), `revision` (the kept revision he pressed it on), `action` (the action's `id`) and `words?`. Answered with `PagePress` `{ revision, action, item?, act, at, did }`, and `SessionChanged` is published on the page's Job.
 
@@ -18,6 +18,8 @@ notes = """
 **Each press is kept** in Fleet's store, `page_presses`, and `get_job_artifacts` serves them on the page as `presses`, oldest first. A press that is refused keeps nothing.
 
 Refused with 422: `fleet.page_action_unknown` for a revision not kept, an artifact that is not a page, or an action id the revision does not hold, naming at most 20 it does; `fleet.page_act_refused` for an act off the list, "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message"; `fleet.page_ask_not_open` for an ask the Job no longer waits on, or an option not one of its options, naming them; `fleet.page_archived` for a page archived; `fleet.artifact_not_held` and `fleet.session_unnamed` as `archive_artifact` refuses them. A start or an answer refused by its own route answers that refusal.
+
+**A buttons part is pressed as a page's action is.** `artifact` may be an artifact of parts, `sketch:<title>`, with the action's id as `action` and the part's `revision` as `revision`; a button acts at once and settles nothing. A revision that is not the part's now is a 409, `fleet.part_redrawn`.
 
 `agent_access` is `No`: it is his press.
 """

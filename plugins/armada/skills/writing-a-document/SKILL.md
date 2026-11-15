@@ -31,6 +31,15 @@ A page asks without the mark while your plan has a `document_approved` gate
 open, or the workflow step you are on ends on `document_approved`. Then each
 new revision asks again, and his approval of an older one is refused.
 
+**A page that asks opens with the ask.** Put one sentence first that says what
+he decides, then the ask: the first `<armada-vote>`, `<armada-action>` or
+`<h2>`. Fleet counts the body text before that block, headings left out. More
+than 120 words, or none at all, and Fleet keeps the revision as one for reading,
+does not put it to him, and tells you what to move. Fold the detail below the
+ask, in `<details>` or under a later `<h2>`. A page you write is one artifact:
+while one still asks him, grow it, and never show a new sketch, draft or page
+beside it.
+
 ## What it is for
 
 A page may say what it is for in one line shown under its title. Put it in the
@@ -48,10 +57,24 @@ links what it serves. Fleet keeps the first 5 whose `href` starts `http://` or
 progress, its plan step and the open pull requests you hold, so leave those
 out.
 
-## Actions
+## Buttons and takes are parts
 
-An action is a button on any part of the page, such as each row of a table of
-things to review. His press calls back to Fleet, which runs it in your Job.
+Buttons and takes do not need a page. Add them to the artifact you are
+showing with `add_part`: `kind` `buttons` for buttons he presses, and `kind`
+`takes` for takes he picks between. A takes part is a vote. Put your pick
+first, and draw each take plain: a few labelled blocks with placeholder text,
+never a screen of real data. He answers with a pick, and Approve never stands
+in for it. Words and a drawing ask for Approve or Ask for changes, takes ask
+for a pick, buttons act when pressed, and `asks: false` makes words an aside.
+Say in the opening sentence which parts ask and which only inform.
+
+The two sections below are for buttons on the rows of a page he is already
+reading, and for a vote inside it.
+
+## Actions on a row
+
+An action is a button on a row of a table of things to review. His press calls
+back to Fleet, which runs it in your Job.
 
 ```html
 <tr><td>Lease clock drifts</td><td>
@@ -72,11 +95,11 @@ or stops is a `message` button whose label says what you will do, such as
 `Merge it`, and you do it when the message arrives. Fleet names each action
 that will not run when it keeps the page.
 
-## Votes
+## Votes inside a page
 
-A vote asks him to choose between two or more takes of one thing, such as
-two sketches of a screen. Put any page content in a take. His vote comes back
-to you as a message with every note he wrote.
+A vote inside a page asks him to choose between two or more takes of one thing.
+Put any page content in a take, drawn plain as above. His vote comes back to you
+as a message with every note he wrote.
 
 ```html
 <armada-vote id="layout" form="score" question="Which layout?" parts="header,list,footer">
@@ -285,7 +308,9 @@ Nothing is fetched from the network. Name a source as a link with its words.
 - No narration: not "let's look at" or "it is important to note". Each
   sentence adds something the person did not have.
 - No emoji, no gradients, no glows, no sheen, no grain. Use the kit's
-  colours for what they mean: a state, a kind, a figure that matters.
+  colours for what they mean: a state, a kind, a figure that matters. The kit
+  already gives a page muted body text, roomy spacing and quiet surfaces, so
+  leave them and add no bright fills.
 - Apply the humanizer rules to every sentence: no "not X but Y", no closing
   line that repeats the paragraph, no triad for rhythm, no dashes as
   connectors.

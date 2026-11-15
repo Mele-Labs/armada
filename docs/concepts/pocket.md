@@ -167,7 +167,7 @@ The phone asks once more for an address when one lapses, and the video keeps its
 
 | Screen | Holds | Route |
 |---|---|---|
-| Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
+| Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A project dropdown narrows the list to one project, and All lists a Job in no project too, under its repository's heading. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
 | A row's second line | A waiting Job says what holds it, since a phone has no hover. A done Job says its summary and has an End button. Any other says its pull request, issue, workflow step and what it is doing now. Only Needs you rows pulse | `GET /api/sessions` |
 | A row's state | Fleet's `mark` where the Gateway sends one, else what the phone reads off the row's fields. Without a mark a reply reads as idle, since the phone keeps no record of what the owner read | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
@@ -176,9 +176,11 @@ The phone asks once more for an address when one lapses, and the video keeps its
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its dot's tooltip and the menu give it: the first label of its address, or its host name | `GET /api/machine` |
 
-> **Rule (12 Nov).** The phone sees only Jobs in a project he shares, and Jobs held from another Mac, which only a shared project sends.
-> A Job in an unshared project, or in none, is answered on every route as a Job that does not exist, and is in no list, stream or push.
+> **Rule (12 Nov, changed 15 Nov).** The phone sees Jobs in a project he shares, Jobs in no project, and Jobs held from another Mac, which only a shared project sends.
+> A Job in an unshared project is answered on every route as a Job that does not exist, and is in no list, stream or push.
 > Why: he called keeping private projects private "absolutely critical", and a phone is a paired device like his other Macs.
+> On 15 Nov the phone listed nothing, since almost every Job is started in no project, and he ruled that a Job in no project shows under All.
+> Another Mac still sees only Jobs in a shared project.
 
 **Fleet rules on every route the Gateway calls as the phone, by name** (`crates/api/src/phone_share.rs`, with the rulings in `crates/fleet/src/share.rs`).
 A route asked about a Job the phone does not see is asked with an id no Job has, so it answers in its own words for a missing Job.
@@ -186,7 +188,7 @@ The Jobs list, the repositories and the projects are cut to what the phone sees,
 A Job the phone starts goes into the first shared project of this Mac holding its repository, which the Gateway names, and Fleet refuses one into any other.
 
 **Waiting follows Bridge's order.** A Job is not waiting while it is paused, failed to start, waits on another Job, sits on its start card or is held by the plan's limit, whatever it owes.
-Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
+Otherwise an ask, the delivery question, a plan, a sketch, a document or the done ask on its tasks makes it wait through a running turn; any other item waits for the turn to end.
 
 **The lists are narrowed.** `crates/pocket/src/phone_sessions.rs` builds `PhoneSession` field by field, so a field Fleet adds to the Job record does not reach a list until someone writes it there.
 A row carries what native's Jobs-list row reads: its mark, project, last turn, pull request, issue, workflow step and what it is doing now.
@@ -239,8 +241,8 @@ The workflow, model and effort it starts on stay on the Mac.
 The items it holds are answered under those facts, since a waiting Job does not reach Needs you.
 
 **What a Job waits on is answered beside its thread**, each item only as Fleet takes it.
-`delivery`, `slot_choice`, `task_done`, `rule_act` and `browser_ask` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
-A `slot_choice`'s slots to free stay on the Mac.
+`delivery`, `task_done`, `rule_act` and `browser_ask` take a choice alone, `watch_not_ours` a choice or words, `words_address` an address or words holding `{match}`, and the agent's own items a choice or words.
+A Job waiting for a slot raises no item, and the slots to free stay on the Mac.
 A `sketch` and a `document` are answered from their cards in the thread, Approve or Send back with a note, and a `draft` the same from its card.
 A proposed workflow change is a draft whose card also offers Dismiss, the second option Fleet lists for it.
 A document also opens at its own page, read by the same reader Bridge uses, with Approve and Send back under it.

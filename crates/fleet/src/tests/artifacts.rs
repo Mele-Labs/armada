@@ -38,7 +38,7 @@ fn proposed(id: &SessionId, title: &str, text: &str) -> ProposeDraft {
 }
 
 /// A Job with its process up, and where the stand-in holds it.
-async fn a_job(rig: &Rig) -> (SessionId, usize) {
+pub(super) async fn a_job(rig: &Rig) -> (SessionId, usize) {
     let id = rig.start().await;
     rig.send(&id, "write it up").await;
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id.as_str()) }).await;
@@ -77,10 +77,10 @@ fn sent(rows: &[SessionRow]) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a_jobs_sketch_page_and_twice_proposed_draft_read_back_as_three_newest_first() {
+async fn a_jobs_page_and_twice_proposed_draft_read_back_as_two_newest_first() {
     let rig = rig_placing(None);
     let (id, at) = a_job(&rig).await;
-    rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
+    // A sketch shown beside an open draft would be a part of it (`artifact_parts.rs`), so this Job shows none.
     let path = page_written(&rig, &id, at).await;
     let first = rig.fleet.propose_draft(None, proposed(&id, "Description for #41", "First words.")).await.unwrap();
     let first_row = first.waiting_for.iter().find(|one| one.id.starts_with("draft:")).expect("the first draft waits").id.clone();
@@ -109,7 +109,6 @@ async fn a_jobs_sketch_page_and_twice_proposed_draft_read_back_as_three_newest_f
         [
             ("draft:Description for #41", ArtifactForm::Draft, 2, ArtifactState::Asking, Some(drafts[0])),
             (path.as_str(), ArtifactForm::Page, 1, ArtifactState::Reading, None),
-            ("sketch:Request flow", ArtifactForm::Sketch, 1, ArtifactState::Asking, Some("sketch:Request flow")),
         ]
     );
     let draft = &artifacts[0];
@@ -142,7 +141,7 @@ async fn his_list(rig: &Rig, id: &SessionId) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn the_agent_archiving_an_asking_sketch_takes_it_off_his_list_and_sends_nothing() {
+async fn the_agent_archiving_an_asking_sketch_withdraws_it_and_sends_nothing() {
     let rig = rig_placing(None);
     let (id, at) = a_job(&rig).await;
     rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
@@ -153,7 +152,7 @@ async fn the_agent_archiving_an_asking_sketch_takes_it_off_his_list_and_sends_no
 
     let archived = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Request flow")).await.expect("archived");
 
-    assert_eq!((archived.state, archived.item.as_deref()), (ArtifactState::Asking, None), "its state as it stood, off his list");
+    assert_eq!((archived.state, archived.item.as_deref()), (ArtifactState::Withdrawn, None), "the Job archiving what asks takes its asks back");
     assert_eq!(archived.archived.map(|one| one.by), Some(ArtifactBy::Agent));
     assert!(!his_list(&rig, &id).await.contains(&"sketch:Request flow".to_string()));
     assert_eq!(sent(&rig.rows(&id).await), told_before, "nothing is sent for the agent's own archive");
@@ -207,16 +206,17 @@ async fn archiving_an_id_the_job_does_not_hold_is_refused_naming_the_ids_it_does
 async fn a_sketch_the_job_withdrew_reads_withdrawn_and_one_he_dismissed_reads_dismissed() {
     let rig = rig_placing(None);
     let id = rig.start().await;
+    // One artifact is open per Job, so the second sketch is in a Job of its own.
+    let other = rig.start().await;
     rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
-    rig.fleet.show_sketch(None, drawn(&id, "Storage")).await.unwrap();
+    rig.fleet.show_sketch(None, drawn(&other, "Storage")).await.unwrap();
     rig.fleet.withdraw_sketch(None, WithdrawSketch { title: "Request flow".into(), session_id: Some(id.clone()) }).await.expect("withdrawn");
-    let dismissal = DismissWaiting { session_id: id.clone(), item_id: "sketch:Storage".into(), reason: None, misread: false };
+    let dismissal = DismissWaiting { session_id: other.clone(), item_id: "sketch:Storage".into(), reason: None, misread: false };
     Arc::clone(&rig.fleet).dismiss_waiting(dismissal).await.expect("dismissed");
 
-    let mut read: Vec<(String, ArtifactState)> =
-        rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().map(|one| (one.id, one.state)).collect();
-    read.sort_by(|a, b| a.0.cmp(&b.0));
-    assert_eq!(read, [("sketch:Request flow".to_string(), ArtifactState::Withdrawn), ("sketch:Storage".to_string(), ArtifactState::Dismissed)]);
+    let read = |one: Vec<ipc::JobArtifact>| one.into_iter().map(|one| (one.id, one.state)).collect::<Vec<_>>();
+    assert_eq!(read(rig.fleet.get_job_artifacts(id.clone()).await.unwrap()), [("sketch:Request flow".to_string(), ArtifactState::Withdrawn)]);
+    assert_eq!(read(rig.fleet.get_job_artifacts(other.clone()).await.unwrap()), [("sketch:Storage".to_string(), ArtifactState::Dismissed)]);
 }
 
 fn link(kind: ArtifactLinkKind, label: &str, target: &str) -> ArtifactLink {

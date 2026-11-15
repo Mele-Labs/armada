@@ -46,6 +46,7 @@ fn item(id: &str, text: &str, source: WaitingSource, second: u32) -> WaitingItem
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
