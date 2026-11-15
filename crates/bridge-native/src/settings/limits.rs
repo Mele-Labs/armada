@@ -31,7 +31,7 @@ pub const GROUPS: &[Group] = &[
     Group {
         name: "Agents",
         glyph: "bot",
-        keys: &["limits.standingRulesKib", "limits.operatorPlanPause", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
+        keys: &["limits.standingRulesKib", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
     },
     Group { name: "Ports", glyph: "network", keys: &["limits.portRangeBase", "limits.portBlockGranule"] },
 ];

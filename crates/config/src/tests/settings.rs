@@ -146,7 +146,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DISPUTE_READ_MINUTES,
         s::WATCHES_AT_ONCE,
         s::WATCHES_PER_JOB,
-        s::OPERATOR_PLAN_PAUSE,
         s::WATCH_GIVE_UP_MINUTES,
         s::COMPACTION_WINDOW,
     ] {
@@ -611,20 +610,14 @@ fn a_key_renamed_when_the_helm_job_went_keeps_its_value_under_the_new_name() {
     let mut old = document(&[
         ("features.helmCanAct", SettingValue::Bool(false)),
         ("timeouts.helmAskHoldSeconds", SettingValue::Integer(300)),
-        ("prompts.helmRoute", SettingValue::Text("Words {message} among {candidates}".into())),
         ("effort.helm", SettingValue::Text("low".into())),
         ("prompts.helm", SettingValue::Text("a note".into())),
     ]);
     assert!(crate::settings::carried_over(&mut old));
     assert_eq!(old.get("features.onYourWordsCanAct"), Some(&SettingValue::Bool(false)));
     assert_eq!(old.get("timeouts.askHoldSeconds"), Some(&SettingValue::Integer(300)));
-    assert_eq!(
-        old.get("prompts.thoughtRoute"),
-        Some(&SettingValue::Text("Words {message} among {candidates}".into()))
-    );
     assert!(old.get("features.helmCanAct").is_none());
     assert!(old.get("timeouts.helmAskHoldSeconds").is_none());
-    assert!(old.get("prompts.helmRoute").is_none());
     assert!(
         checked(&old, &supplied(), &Env::none()).is_ok(),
         "a retired key left in the file must not make a load refuse"

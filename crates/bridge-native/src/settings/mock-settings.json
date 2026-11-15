@@ -203,26 +203,6 @@
    "overridden_by_env": null
   },
   {
-   "key": "limits.operatorPlanPause",
-   "group": "Fleet",
-   "section": "Limits",
-   "title": "Pause the Operator at",
-   "description": "How much of the weekly plan window must be used before the Operator makes no more calls until the window resets. Everything that needed a call goes to you.",
-   "tip": null,
-   "kind": {
-    "kind": "integer",
-    "min": 0,
-    "max": 100,
-    "unit": "percent"
-   },
-   "default": 80,
-   "value": 80,
-   "saved": null,
-   "applies": "live",
-   "pending_restart": false,
-   "overridden_by_env": null
-  },
-  {
    "key": "limits.contextWatch",
    "group": "Fleet",
    "section": "Limits",
