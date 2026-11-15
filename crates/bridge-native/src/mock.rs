@@ -1322,7 +1322,9 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
     let owed = rows.iter().filter(|(section, _)| *section != Section::Done).count();
     let reviewing = rows.iter().filter(|(section, _)| *section == Section::ToReview).count();
     let alone_is_a_document = owed == 1 && rows.iter().any(|(_, row)| row.source == WaitingSource::Document);
-    let review_in_band = reviewing > 1 || alone_is_a_document;
+    // A branch to try has no other place he would find it, so its card is always in the band.
+    let to_try = rows.iter().any(|(_, row)| row.source == WaitingSource::ReadyToTry);
+    let review_in_band = reviewing > 1 || alone_is_a_document || to_try;
     let mut glyphs: Vec<NeedsYouGlyph> = rows.iter().filter(|(section, _)| listed(*section)).map(|(_, row)| NeedsYouGlyph { kind: row.glyph.kind, said: row.text.clone() }).collect();
     if review_in_band {
         let mut pages: Vec<&NeedsYouRow> = rows.iter().filter(|(section, _)| *section == Section::ToReview).map(|(_, row)| row).collect();
@@ -1349,7 +1351,7 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
             (!mine.is_empty()).then(|| NeedsYouSection { kind: *kind, label: (*label).into(), rows: mine })
         })
         .collect();
-    NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
+    NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: to_try || rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
 }
 
 /// When an item of the thread was written, where it says.
@@ -1494,6 +1496,7 @@ fn mock_glyph(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         WaitingSource::Sketch => return glyph(Kind::Sketch, "Sketch"),
         WaitingSource::Draft => return glyph(Kind::Draft, "Draft"),
         WaitingSource::Document => return glyph(Kind::Document, "Document"),
+        WaitingSource::ReadyToTry => return glyph(Kind::Message, "Ready to try"),
         WaitingSource::Done => return glyph(Kind::Done, "Done"),
         WaitingSource::OperatorSuggestion => return glyph(Kind::Operator, "What the Operator would do"),
         _ => {}
@@ -1548,6 +1551,8 @@ mod tests {
         let (section, row) = ready[0];
         assert_eq!((section, row.dismiss), (Section::ToReview, NeedsYouDismiss::Plain));
         assert!(row.text.starts_with("Try: "), "{}", row.text);
+        assert!(view.fold && view.review_in_band, "an open card is in the band though nothing else is owed");
+        assert!(view.glyphs.iter().any(|glyph| glyph.kind == ipc::NeedsYouGlyphKind::Message && glyph.said == "Ready to try"), "its mark is named Ready to try");
         assert!(view.sections.iter().filter(|section| section.kind != Section::ToReview).all(|section| section.rows.iter().all(|row| !row.id.starts_with("try:"))));
     }
 

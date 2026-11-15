@@ -332,7 +332,7 @@ impl JobView {
                 things.extend(group.things);
                 continue;
             }
-            // A card to try is a row of the panel in any band: the review sheet holds no body for it.
+            // A card to try is a row of the panel, not of the review sheet's pages: the sheet holds no body for it.
             let (cards, group_things): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
             things.extend(cards);
             let group = Group { kind: group.kind, label: group.label, things: group_things };
@@ -354,8 +354,7 @@ impl JobView {
     pub(super) fn folds(&self, id: &str, cx: &gpui::App) -> bool {
         let (things, _) = self.things(id, cx);
         let fleet_folds = self.needs_of(id, cx).is_some_and(|view| view.fold);
-        // A card to try has no sheet to stand in, so a band holding one lists it though Fleet's `fold` counts only the sections it lists.
-        things.iter().any(|thing| !matches!(thing, Thing::Row(_)) || is_ready(thing)) || (fleet_folds && !things.is_empty())
+        things.iter().any(|thing| !matches!(thing, Thing::Row(_))) || (fleet_folds && !things.is_empty())
     }
 
     /// The restarts the Job's items ask for, one key per command: Fleet's Restart section, whichever items ask it.
@@ -480,8 +479,6 @@ impl JobView {
                 Thing::Ask(ask) if on_a_row(&ask.call.call) => None,
                 Thing::Ask(ask) => Some(("message-circle-question-mark", ask_label(ask))),
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
-                // Fleet marks a card to try only where the review sheet is in the band; alone it has no mark, and the band would not draw.
-                Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry && !view.is_some_and(|view| view.review_in_band) => Some((icon_of(row.glyph.kind), row.text.clone())),
                 Thing::Row(_) => None,
             })
             .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
