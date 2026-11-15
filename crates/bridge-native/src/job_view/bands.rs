@@ -615,6 +615,7 @@ impl JobView {
             Some(spot) => head.track_focus(&spot.focus).tab_index(0).focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT))),
             None => head,
         };
+        let head = labelled(head, Role::Button, "Waiting on");
         Some(
             labelled(
                 div()
