@@ -526,7 +526,7 @@ impl JobView {
             .rounded(look.length(token::RADIUS_MD))
             .bg(fill)
             .hover(move |style| style.bg(hover))
-            .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).bg(hue))
+            .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
             .child(div().flex().items_center().gap(look.length(token::SPACE_1)).pr(look.length(token::SPACE_1)).child(main).child(acts));
         div().flex().flex_col().child(frame).children(under).into_any_element()
     }

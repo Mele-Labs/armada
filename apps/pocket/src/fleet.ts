@@ -307,6 +307,8 @@ export type Home = {
   /** Each project's Jobs, Needs you first and otherwise in Fleet's order, a Job another started right under its starter. */
   repositories: {
     name: string;
+    /** The heading is a project's; else the repository's, for Jobs in no project, which only All shows. */
+    project: boolean;
     lines: Line[];
   }[];
   /** Macs that need the owner: not paired any more, or not answering. */
@@ -386,6 +388,7 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
     if (kept === undefined)
       repositories.push({
         name,
+        project: item.session.project !== undefined,
         lines,
       });
     else kept.lines.push(...lines);

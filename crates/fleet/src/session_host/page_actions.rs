@@ -286,6 +286,13 @@ where
     }
 }
 
+/// The presses revision `number` of a page draws, `html` being that revision: each made on it or an earlier one whose
+/// action is still on it, so a revision that rewrote other sections keeps what he pressed.
+pub(crate) fn presses_standing(kept: &[KeptPress], artifact: &str, html: &str, number: u32) -> Vec<PagePress> {
+    let on_page = actions_in(html);
+    presses_of(kept, artifact).into_iter().filter(|press| press.revision <= number && on_page.iter().any(|action| action.id == press.action)).collect()
+}
+
 /// The presses kept for a page, as the wire reads them. One whose act or result no longer reads is left out.
 pub(crate) fn presses_of(kept: &[KeptPress], artifact: &str) -> Vec<PagePress> {
     kept.iter()

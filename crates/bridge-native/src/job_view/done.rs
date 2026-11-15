@@ -651,7 +651,7 @@ fn report_card(line: Line, look: &Look, cx: &Context<JobView>) -> AnyElement {
         .rounded(look.length(token::RADIUS_MD))
         .bg(ground)
         .text_color(look.color(token::FG_MUTED))
-        .child(div().absolute().left_0().top_0().bottom_0().w(gpui::px(3.)).bg(hue))
+        .child(div().absolute().left_0().top_0().bottom_0().w(gpui::px(3.)).rounded_l(look.length(token::RADIUS_MD) - gpui::px(1.)).bg(hue))
         .child(head)
         .when_some(opens, |card, opens| {
             card.cursor_pointer().tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT))).hover(move |style| style.bg(over)).on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx)))
