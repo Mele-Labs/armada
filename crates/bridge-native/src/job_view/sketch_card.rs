@@ -198,12 +198,12 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn sketch(&self, ix: usize, card: &ThreadSketch, page: &Page, look: &Look, _now: chrono::DateTime<chrono::Local>, cx: &Context<Self>) -> AnyElement {
         let key = card.id.clone();
-        let optimistic = page.cards.answers.get(&key);
+        let optimistic = page.cards.pressed(&key, card);
         let settled = settled_of(card.settled.as_ref(), optimistic);
         // One the waiting plan names is answered by the plan's Approve, so its card asks nothing of its own.
         let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
         let revisions = card.revisions.len();
-        let picked = page.cards.revision.get(&key).copied().filter(|at| *at < revisions);
+        let picked = super::cards::picked_revision(&page.cards.revision, &key, revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);
         let asking = standing == Standing::Asking && !shown_earlier;
         let acts = Acts { ix, key: key.clone(), sketch: card.sketch.clone(), drawn: self.drawn_of(&card.sketch, cx), asking };
@@ -247,7 +247,7 @@ impl JobView {
     /// Approve answers it. A press opens it and the pointer on it plays its steps, as on its card. The drawing is
     /// sized from the plan column's width as it was last drawn, which is narrower than the thread's.
     pub(super) fn plan_sketch(&self, key: &str, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let settled = settled_of(card.settled.as_ref(), page.cards.answers.get(&card.id));
+        let settled = settled_of(card.settled.as_ref(), page.cards.pressed(&card.id, card));
         let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx));
         let acts = Acts { ix: 0, key: key.to_string(), sketch: card.sketch.clone(), drawn: None, asking: false };
         let (scene_key, scene) = shown_scene(card, None);

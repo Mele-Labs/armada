@@ -1,18 +1,8 @@
-// The pieces every phone screen is made of: Bridge's panel header, a list row and its heading, and a
-// refusal's sentence. The rows and headings carry the Cockpit's class names, so `depth.css` draws them.
+// The pieces every phone screen is made of: Bridge's panel header, a figure and a refusal's sentence.
 
-import type { CSSProperties, ReactNode } from "react";
-import { Link as Linked, PowerOff, X } from "lucide-react";
-import {
-  Button,
-  bucketOf,
-  Readout,
-  SessionMark,
-  Stamp,
-  Tooltip,
-  type SessionState,
-} from "@armada/components";
-import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
+import type { ReactNode } from "react";
+import { X } from "lucide-react";
+import { Button, Readout, Tooltip } from "@armada/components";
 
 /** A header's icon press, named by its tooltip as Bridge's are. */
 export function IconButton({
@@ -80,148 +70,9 @@ export function Figure({
   );
 }
 
-/**
- * One Job in the Cockpit's list: its title and state mark, what it says and its age. `from` is the title of the Job
- * that started it, a link mark beside the state, where that Job is not listed above it; `context` the tokens in its window,
- * in a column of its own. `depth` is how many starters stand over it: the row steps in under them, as native's list does.
- */
-export function Row({
-  state,
-  said,
-  title,
-  says,
-  mac,
-  at,
-  from,
-  context,
-  depth = 0,
-  through = [],
-  last = true,
-  onOpen,
-  onEnd,
-}: {
-  state: SessionState;
-  said: string;
-  title: string;
-  says: string;
-  mac?: string;
-  at: string;
-  from?: string;
-  context?: number;
-  depth?: number;
-  /** For each starter above its own, whether that starter's line runs on past this row. */
-  through?: readonly boolean[];
-  /** The last Job its starter started, where the starter's line ends. */
-  last?: boolean;
-  onOpen: () => void;
-  onEnd?: () => void;
-}) {
-  const needs = state !== "done" && bucketOf(state) === "needs";
-  return (
-    <li
-      className="deck-list__item"
-      data-nested={depth > 0 || undefined}
-      style={
-        depth > 0
-          ? ({
-              "--pk-depth": depth,
-            } as CSSProperties)
-          : undefined
-      }
-    >
-      {depth === 0 ? null : (
-        <span className="pk-guides" aria-hidden="true">
-          {through.map((runs, at) =>
-            runs ? (
-              <span
-                key={at}
-                className="pk-guide"
-                style={
-                  {
-                    "--pk-column": at,
-                  } as CSSProperties
-                }
-              />
-            ) : null,
-          )}
-          {last ? null : (
-            <span
-              className="pk-guide"
-              style={
-                {
-                  "--pk-column": depth - 1,
-                } as CSSProperties
-              }
-            />
-          )}
-          <span
-            className="pk-guide pk-guide--elbow"
-            style={
-              {
-                "--pk-column": depth - 1,
-              } as CSSProperties
-            }
-          />
-        </span>
-      )}
-      <button
-        type="button"
-        className="deck-row"
-        data-needs={needs || undefined}
-        data-tone={needs ? "ask" : "calm"}
-        aria-label={title}
-        onClick={onOpen}
-      >
-        <span className="deck-row__title">{title}</span>
-        <span className="deck-row__link">
-          {from === undefined ? null : (
-            <Tooltip label={from}>
-              <span role="img" aria-label={from}>
-                <Linked size={12} strokeWidth={2} aria-hidden="true" />
-              </span>
-            </Tooltip>
-          )}
-        </span>
-        <span className="deck-row__marks">
-          <SessionMark state={state} said={said} />
-        </span>
-        <span className="deck-row__says" data-holds={bucketOf(state) === "waiting" || undefined}>
-          {says}
-          {mac === undefined ? null : (
-            <span className="pk-row__mac" data-alone={says === "" || undefined}>
-              {mac}
-            </span>
-          )}
-        </span>
-        <span className="deck-row__context">
-          <Figure name="Context">{context === undefined ? undefined : tokensSaid(context)}</Figure>
-        </span>
-        <span className="deck-row__said">
-          <Stamp still first="age" at={at} />
-        </span>
-      </button>
-      {onEnd === undefined ? null : (
-        <IconButton label="End job" onClick={onEnd}>
-          <PowerOff size={16} aria-hidden="true" />
-        </IconButton>
-      )}
-    </li>
-  );
-}
-
 export const Trouble = ({ says }: { says: string }) =>
   says === "" ? null : (
     <p className="pk-fact" role="status">
       {says}
     </p>
   );
-
-/** A heading as the Cockpit's list draws one, over its rows. */
-export function Section({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="pk-section" aria-label={label}>
-      <h2 className="deck-list__repository">{label}</h2>
-      <ul className="deck-list__rows">{children}</ul>
-    </section>
-  );
-}

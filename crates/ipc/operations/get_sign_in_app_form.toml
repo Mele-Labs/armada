@@ -1,0 +1,12 @@
+[operations.get_sign_in_app_form]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The page a browser opens to register the sign-in app: a form posting the app's manifest to the forge, sent at once"
+notes = """
+`GET /accounts/sign_in_app/form?state=`, opened by the person's browser from `register_sign_in_app`'s `url`, so it carries no `Origin` and no credential. **Answered as the page itself**: 200 with `Content-Type: text/html; charset=utf-8`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. The page holds one form whose `action` is the forge's new-app page with the state on it, one hidden field holding the manifest, and a script with the page's nonce that submits it; with scripts off the person presses Continue. Its policy allows that one script and a post to the forge's own origin, and nothing else.
+
+The manifest names the app `Armada sign-in <6 hex>`, private, with no permission, no event and its webhook off, and sends the browser back to `sign_in_app_registered` on the same port.
+
+**Reading it uses nothing up**: the state stays live for the callback. A state Fleet did not issue, one already used or one past its hour is refused with 422 `fleet.sign_in_app_state_unknown` as plain text a person reads. `agent_access` is `No`: the page is the person's browser's.
+"""

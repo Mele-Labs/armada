@@ -913,6 +913,10 @@ impl SettingsOverlay {
 
     /// The overlay's own keys, ahead of the app's while it is open. `true` where one was taken.
     fn on_keystroke(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        // The command palette over Settings takes every key, Esc included, until it closes.
+        if crate::palette::is_up(cx) {
+            return false;
+        }
         // A project's Delete, asked, takes every key until it is answered.
         if self.delete_key(key, window, cx) {
             return true;

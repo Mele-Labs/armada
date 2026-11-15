@@ -22,6 +22,7 @@ use resvg::{tiny_skia, usvg};
 use super::arrows::{self, Pattern};
 use super::geometry::{Pt, Rect};
 use super::route::{self, Seg};
+use super::start;
 use super::{along, ground, hue, laid, part_label, shaped, shaped_padding, sheet_top, tint, trees, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, ICON, LEAD, PAD_X, PAD_Y, RADIUS};
 use crate::look::{token, Look, Token};
 
@@ -668,7 +669,7 @@ fn frame_of(scene: &Scene, laid: &Laid, pad: f32) -> (f32, f32, f32, f32) {
         xs.push(x);
         ys.push(y);
     };
-    for rect in &laid.rects {
+    for rect in laid.rects.iter().chain(laid.tabs.iter().flatten()) {
         take(rect.x, rect.y);
         take(rect.x + rect.w, rect.y + rect.h);
     }
@@ -753,7 +754,7 @@ fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
 const TEXT_BASE: f32 = 14.;
 
 /// One node, at its own origin (`nodeSvg`). `sheets` is each variant of a screen's markup, for a page.
-fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElement>>, sheets: &[(String, String)], mode: Mode) -> String {
+fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElement>>, sheets: &[(String, String)], mode: Mode, started: bool) -> String {
     let look = kit.look;
     let (w, h) = (rect.w, rect.h);
     let shape = shaped(node);
@@ -767,11 +768,12 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
     if ground(node) {
         attrs.push_str(r#" data-ground="""#);
     }
-    let _ = write!(attrs, r#" role="group" aria-label="{}" transform="translate({} {})""#, xml(part_label(node)), n(rect.x), n(rect.y));
+    let label = if started { format!("{}, {}", start::TAB_WORD, part_label(node)) } else { part_label(node).to_string() };
+    let _ = write!(attrs, r#" role="group" aria-label="{}" transform="translate({} {})""#, xml(&label), n(rect.x), n(rect.y));
     let mut out = String::new();
 
     if let Some(shape) = shape {
-        draw_shaped(kit, node, shape, w, h, &mut out);
+        draw_shaped(kit, node, shape, w, h, started, &mut out);
     } else {
         match node.kind {
             SceneKind::Label => {
@@ -829,7 +831,7 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
                     kit.say(&mut out, BORDER + PAD_X, BORDER, TEXT_BASE, 600., false, &kit.muted, "start", title, "");
                 }
             }
-            SceneKind::Box | SceneKind::Code => draw_box(kit, node, w, h, &mut out),
+            SceneKind::Box | SceneKind::Code => draw_box(kit, node, w, h, started, &mut out),
         }
     }
 
@@ -865,11 +867,22 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
     format!("<g {attrs}>{out}</g>")
 }
 
+/// The "Start" tab on a node's top edge: the accent with its word on it.
+fn tab_svg(kit: &Kit, tab: Rect) -> String {
+    let look = kit.look;
+    let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(tab.x), n(tab.y));
+    let _ = write!(out, r#"<path d="{}" fill="{}"/>"#, round_rect(0., 0., tab.w, tab.h, [RADIUS, RADIUS, 0., 0.]), css(look.color(token::ACCENT)));
+    let at = f32::from(look.length(token::TEXT_2XS));
+    kit.say(&mut out, start::TAB_PAD, 0., at, look.number(token::WEIGHT_HEADING), false, &css(look.color(token::TEXT_ON_ACCENT)), "start", start::TAB_WORD, "");
+    out.push_str("</g>");
+    out
+}
+
 /// A box or a code block: a tinted frame, its head band, and its words.
-fn draw_box(kit: &Kit, node: &SceneNode, w: f32, h: f32, out: &mut String) {
+fn draw_box(kit: &Kit, node: &SceneNode, w: f32, h: f32, started: bool, out: &mut String) {
     let look = kit.look;
     let mono = node.kind == SceneKind::Code;
-    let color = hue(look, node.color, if mono { SceneColor::Grey } else { SceneColor::Blue });
+    let color = if started { look.color(token::ACCENT) } else { hue(look, node.color, if mono { SceneColor::Grey } else { SceneColor::Blue }) };
     let (stroke, fill) = (css(color), css(tint(look, color)));
     let _ = write!(
         out,
@@ -908,9 +921,9 @@ fn draw_box(kit: &Kit, node: &SceneNode, w: f32, h: f32, out: &mut String) {
 
 /// A box in an outline of its own: a pill or a circle are rounded rectangles; a diamond, a hexagon and a cylinder are
 /// drawn in a hundred-unit square stretched over the box, 2px inside it.
-fn draw_shaped(kit: &Kit, node: &SceneNode, shape: SceneShape, w: f32, h: f32, out: &mut String) {
+fn draw_shaped(kit: &Kit, node: &SceneNode, shape: SceneShape, w: f32, h: f32, started: bool, out: &mut String) {
     let look = kit.look;
-    let color = hue(look, node.color, SceneColor::Blue);
+    let color = if started { look.color(token::ACCENT) } else { hue(look, node.color, SceneColor::Blue) };
     let (stroke, fill) = (css(color), css(tint(look, color)));
     match shape {
         SceneShape::Pill | SceneShape::Circle => {
@@ -1109,7 +1122,15 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
         })
         .collect();
 
-    let draw = |index: usize, node: &SceneNode| node_svg(&kit, node, laid.rects[index], trees[index].as_ref(), &sheets[index], mode);
+    let draw = |index: usize, node: &SceneNode| {
+        let tab = laid.tabs[index];
+        // The tab stands outside the node's group, so a step that stands the node back leaves it be.
+        let mut out = node_svg(&kit, node, laid.rects[index], trees[index].as_ref(), &sheets[index], mode, tab.is_some() && matches!(node.kind, SceneKind::Box | SceneKind::Code));
+        if let Some(tab) = tab {
+            out.push_str(&tab_svg(&kit, tab));
+        }
+        out
+    };
     let mut out = String::new();
     let _ = write!(
         out,

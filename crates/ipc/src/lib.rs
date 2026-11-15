@@ -379,7 +379,7 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
+    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
@@ -837,7 +837,7 @@ pub use plan_usage::{
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
-    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
@@ -880,7 +880,7 @@ pub use underway::{
 pub use protocol_id::ProtocolId;
 // The Macs setup that leads him: its one press, the Macs on his account, and pairing one without a link.
 pub use phone::{MacSetup, MacSetupStep};
-pub use macs::{AskMacPair, FoundMac, FoundMacs};
+pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, VouchedMacs};
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };

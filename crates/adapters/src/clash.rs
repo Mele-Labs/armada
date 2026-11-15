@@ -245,6 +245,12 @@ pub fn holds(worktree: &Path, commit: &str) -> bool {
     rev_parse(worktree, &format!("{commit}^{{commit}}")).is_ok()
 }
 
+/// Whether the worktree's `HEAD` already has `commit` in its history. A commit the repository
+/// does not hold reads as no.
+pub fn has_in_history(worktree: &Path, commit: &str) -> bool {
+    is_ancestor(worktree, commit, "HEAD")
+}
+
 /// Whether `branch` exists in the repository at `repo`. Git that could not run
 /// says nothing about it, so that reads as yes.
 pub fn branch_exists(repo: &Path, branch: &str) -> bool {

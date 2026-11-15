@@ -21,6 +21,8 @@ mod call_tabs;
 mod callchip;
 mod choose;
 mod claim_waits;
+mod moving;
+pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
@@ -62,6 +64,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_pages;
 mod page_tab;
 mod web_walk;
 pub(crate) mod rows;
@@ -175,6 +178,8 @@ pub(crate) enum Extra {
     WaitsFor,
     /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
     ClaimWaits,
+    /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
+    Moving,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -419,6 +424,8 @@ pub struct JobView {
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
     refused_code: Option<String>,
+    /// What each web page's last Open that did not draw it came to: a walk's tab, and the live page in Now.
+    pages_open: web_pages::PagesOpen,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -623,6 +630,7 @@ impl JobView {
             choose_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
+            pages_open: Default::default(),
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
@@ -933,6 +941,10 @@ impl JobView {
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
         }
+        // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
+        if self.record(id, cx).is_some_and(moving::on_its_way) {
+            extras.push(Extra::Moving);
+        }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
         let page = self.pages.get_mut(id).expect("the page was just read");
@@ -1172,6 +1184,7 @@ impl Render for JobView {
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
+        self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();

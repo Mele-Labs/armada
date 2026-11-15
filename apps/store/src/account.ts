@@ -26,7 +26,9 @@ import {
   RATE_WINDOW_SECONDS,
   REQUESTS_PER_MINUTE,
   claimHolderOf,
+  addressOf,
   claimKindOf,
+  deviceKindOf,
   exactly,
   factsOf,
   holderOf,
@@ -34,6 +36,7 @@ import {
   renewingOf,
   type ClaimHolder,
   type ClaimKind,
+  type DeviceKind,
   type Holder,
   type Renewing,
 } from "./rows";
@@ -96,21 +99,28 @@ export class Account extends DurableObject<Env> {
   private upgraded = false;
 
   /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has `limit` devices. */
-  register(device: string, publicKey: string, machine: string, limit: number): "ok" | "full" {
+  register(
+    device: string,
+    publicKey: string,
+    machine: string,
+    limit: number,
+    kind: DeviceKind,
+  ): "ok" | "full" {
     this.makeTables();
     if (this.count("devices") >= limit) return "full";
     this.sql.exec(
-      "INSERT INTO devices (id, public_key, machine) VALUES (?, ?, ?)",
+      "INSERT INTO devices (id, public_key, machine, kind) VALUES (?, ?, ?, ?)",
       device,
       publicKey,
       machine,
+      kind,
     );
     return "ok";
   }
 
   private makeTables(): void {
     this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'mac', address TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
       CREATE INDEX IF NOT EXISTS nonces_seen ON nonces (seen);
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
@@ -126,9 +136,19 @@ export class Account extends DurableObject<Env> {
    *
    * A renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written.
    * `contenders` holds the Jobs a held claim refused, for as long as each keeps asking and the claim stands. A table
-   * made before it had `told` gets the column here, its rows told none.
+   * made before it had `told` gets the column here, its rows told none. A `devices` table made before it had `kind` and
+   * `address` gets them here, its rows Macs with no address.
    */
   private upgrade(): void {
+    const devices = this.sql
+      .exec<{
+        sql: string;
+      }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'devices'")
+      .toArray()[0];
+    if (devices && !devices.sql.includes("kind"))
+      this.sql.exec("ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'mac'");
+    if (devices && !devices.sql.includes("address"))
+      this.sql.exec("ALTER TABLE devices ADD COLUMN address TEXT NOT NULL DEFAULT ''");
     const claims = this.sql
       .exec<{
         sql: string;
@@ -178,7 +198,12 @@ export class Account extends DurableObject<Env> {
     // Only a verified request gets here, so a stranger still cannot make a table.
     if (!this.upgraded) this.upgrade();
     // Nothing in `route` awaits, so a read and the write after it cannot be split by another request.
-    const answer = this.route(request.method, url, new TextDecoder().decode(body));
+    const answer = this.route(
+      request.method,
+      url,
+      new TextDecoder().decode(body),
+      request.headers.get(DEVICE_HEADER) ?? "",
+    );
     if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals")
       await this.keepAlarm();
     return answer;
@@ -295,7 +320,7 @@ export class Account extends DurableObject<Env> {
     return taken.rowsWritten === 0 ? refuse(401, "replayed_nonce") : null;
   }
 
-  private route(method: string, url: URL, text: string): Response {
+  private route(method: string, url: URL, text: string, caller: string): Response {
     const parts = url.pathname.split("/").slice(1);
     const [v1, area, first, second, third] = parts;
     if (v1 !== "v1" || parts.length > 5) return refuse(404, "no_route");
@@ -305,6 +330,12 @@ export class Account extends DurableObject<Env> {
     }
     if (area === "devices" && parts.length === 3) {
       return method === "DELETE" ? this.signOut(first!) : refuse(405, "bad_method");
+    }
+    if (area === "presence" && parts.length === 2) {
+      return method === "PUT" ? this.putPresence(caller, text) : refuse(405, "bad_method");
+    }
+    if (area === "peers" && parts.length === 2) {
+      return method === "GET" ? this.listPeers(caller) : refuse(405, "bad_method");
     }
     if (area === "renewals" && parts.length === 2) {
       return method === "POST" ? this.renew(text) : refuse(405, "bad_method");
@@ -348,6 +379,45 @@ export class Account extends DurableObject<Env> {
         device: string;
         machine: string;
       }>("SELECT id AS device, machine FROM devices ORDER BY rowid")
+      .toArray();
+    return reply(200, {
+      devices,
+    });
+  }
+
+  /** Sets the caller's own row: what it is and where it can be reached. No other device's row is written. */
+  private putPresence(caller: string, text: string): Response {
+    const body = exactly(parseJson(text), [
+      "kind",
+      "address",
+    ]);
+    const kind = deviceKindOf(body?.kind);
+    const address = addressOf(body?.address);
+    if (!kind || address === null) return refuse(400, "invalid_body");
+    this.sql.exec("UPDATE devices SET kind = ?, address = ? WHERE id = ?", kind, address, caller);
+    return reply(204);
+  }
+
+  /**
+   * The caller's other devices: those whose id starts with the caller's account id and a dot. A team store holds every
+   * member's devices in one object, and a device is listed only to the forge account that enrolled it, so the account
+   * id is the filter and nothing else is.
+   */
+  private listPeers(caller: string): Response {
+    const prefix = `${caller.split(".")[0]}.`;
+    const devices = this.sql
+      .exec<{
+        device: string;
+        machine: string;
+        kind: DeviceKind;
+        address: string;
+        public_key: string;
+      }>(
+        "SELECT id AS device, machine, kind, address, public_key FROM devices WHERE substr(id, 1, ?) = ? AND id != ? ORDER BY rowid",
+        prefix.length,
+        prefix,
+        caller,
+      )
       .toArray();
     return reply(200, {
       devices,
