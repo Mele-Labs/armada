@@ -402,6 +402,37 @@ describe("Pocket v2 with two Macs", {
     expect(text()).not.toContain("Fix the merge line");
   });
 
+  it("narrows the list to one project from its dropdown, and lists a Job in no project only under All", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    const select = host.querySelector<HTMLSelectElement>(
+      'select[aria-label="Which project the list shows"]',
+    );
+    expect(Array.from(select!.options).map((one) => one.textContent)).toEqual([
+      "All",
+      "Armada",
+    ]);
+    const pick = async (value: string) =>
+      act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(
+          select,
+          value,
+        );
+        select!.dispatchEvent(
+          new Event("change", {
+            bubbles: true,
+          }),
+        );
+      });
+    await pick("Armada");
+    expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
+      "Armada",
+    ]);
+    expect(jobs()).toHaveLength(15);
+    await pick("");
+    expect(titles("store")).toHaveLength(5);
+  });
+
   it("marks only the Mac that answered 401 as not paired, and the other still lists", async () => {
     forgotten.add(LAPTOP);
     await open("/");
