@@ -335,7 +335,7 @@ impl JobView {
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
-    fn parts_typing(&self, artifact: &str, window: &Window, cx: &gpui::App) -> bool {
+    pub(super) fn parts_typing(&self, artifact: &str, window: &Window, cx: &gpui::App) -> bool {
         let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) else { return false };
         let prefix = format!("{artifact}{JOIN}");
         page.cards.parts.notes.iter().any(|(key, input)| key.starts_with(&prefix) && input.read(cx).focus_handle(cx).is_focused(window)) || page.cards.modes.keys().any(|key| key.starts_with(&prefix))
@@ -449,7 +449,7 @@ impl JobView {
     }
 
     /// A take drawn large, or the takes again where `to` is none.
-    fn large_take(&mut self, key: &str, to: Option<usize>, cx: &mut Context<Self>) {
+    pub(super) fn large_take(&mut self, key: &str, to: Option<usize>, cx: &mut Context<Self>) {
         if let Some(state) = self.parts_state_mut() {
             match to {
                 Some(take) => state.large.insert(key.to_string(), take),
@@ -1012,47 +1012,76 @@ impl JobView {
         let take = &takes[at];
         let (title, marked) = pick_mark(&take.title);
         let (prev, next) = ((at + takes.len() - 1) % takes.len(), (at + 1) % takes.len());
-        let step = |to: usize, said: &'static str, cap: &'static str| {
-            let (held, name) = (key.to_string(), format!("{said}: {}", pick_mark(&takes[to].title).0));
+        // A neighbour is named by its own name, in a fixed column that the title never enters.
+        let step = |to: usize, arrow: &'static str, cap: &'static str, before: bool| {
+            let (held, name) = (key.to_string(), pick_mark(&takes[to].title).0.to_string());
+            let said = if before { format!("{arrow} {name}") } else { format!("{name} {arrow}") };
             labelled(
-                act(look, format!("large-step:{key}:{to}"), said, Kind::Ghost, cap, true).tooltip(tip(name.clone())).on_click(cx.listener(move |this, _, window, cx| {
-                    this.large_take(&held, Some(to), cx);
-                    this.focus_card_of(&held, window, cx);
-                })),
+                div()
+                    .id(SharedString::from(format!("large-step:{key}:{to}")))
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .when(!before, |one| one.justify_end())
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                    .tooltip(tip(SharedString::from(name.clone())))
+                    .child(div().min_w_0().truncate().child(SharedString::from(said)))
+                    .child(super::acts::kbd(look, cap))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.large_take(&held, Some(to), cx);
+                        this.focus_card_of(&held, window, cx);
+                    })),
                 Role::Button,
                 name,
             )
         };
         let (back_key, pick_key) = (key.to_string(), key.to_string());
         let on = chosen == Some(at);
+        let whole = SharedString::from(title.to_string());
+        let heading = div()
+            .id(SharedString::from(format!("large-title:{key}")))
+            .w_full()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .tooltip(tip(whole.clone()))
+            .when(on, |line| line.child(glyph(look, "check", Size::Small, look.color(token::ACCENT))))
+            .child(div().min_w_0().line_clamp(2).child(whole))
+            .when(marked, |line| line.child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("(Job's pick)")));
+        let heading = labelled(heading, Role::Heading, title.to_string());
         let bar = div()
             .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(step(prev, "Before", "\u{2190}"))
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .child(heading)
             .child(
                 div()
-                    .flex_1()
-                    .min_w_0()
                     .flex()
                     .items_center()
-                    .justify_center()
                     .gap(look.length(token::SPACE_2))
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .when(on, |line| line.child(glyph(look, "check", Size::Small, look.color(token::ACCENT))))
-                    .child(SharedString::from(title.to_string()))
-                    .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child("(Job's pick)"))),
-            )
-            .child(step(next, "After", "\u{2192}"))
-            .child(labelled(
-                act(look, format!("large-back:{key}"), "Back", Kind::Ghost, "Esc", true).tooltip(tip("Back to the takes")).on_click(cx.listener(move |this, _, window, cx| {
-                    this.large_take(&back_key, None, cx);
-                    this.focus_card_of(&back_key, window, cx);
-                })),
-                Role::Button,
-                "Back",
-            ));
+                    .children((takes.len() > 1).then(|| step(prev, "\u{2039}", "\u{2190}", true)))
+                    .children((takes.len() > 1).then(|| step(next, "\u{203a}", "\u{2192}", false)))
+                    .child(labelled(
+                        act(look, format!("large-back:{key}"), "Back", Kind::Ghost, "Esc", true).tooltip(tip("Back to the takes")).on_click(cx.listener(move |this, _, window, cx| {
+                            this.large_take(&back_key, None, cx);
+                            this.focus_card_of(&back_key, window, cx);
+                        })),
+                        Role::Button,
+                        "Back",
+                    )),
+            );
         let picture = self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading);
         let choose = open.then(|| {
             labelled(

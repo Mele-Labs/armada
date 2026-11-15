@@ -351,6 +351,7 @@ impl JobView {
                 read.rows = Some(rows);
             }
             self.parts_arrived(id, cx);
+            self.offer_artifacts(id, cx);
             return;
         }
         let (job, path) = (id.to_string(), format!("/sessions/artifacts?session_id={}", super::wire::encoded(id)));
@@ -364,11 +365,22 @@ impl JobView {
                     if let Some(read) = this.artifacts.read.get_mut(&job) {
                         read.rows = Some(rows);
                     }
-                    this.parts_arrived(&SharedString::from(job.clone()), cx);
+                    let job = SharedString::from(job.clone());
+                    this.parts_arrived(&job, cx);
+                    this.offer_artifacts(&job, cx);
                     cx.notify();
                 }
             }),
         );
+    }
+
+    /// The Job's first artifact puts its Artifacts tab beside Now, behind, once (his ask of 15 Nov 2026). It waits for the
+    /// store's answer, so a layout kept from an earlier run is not lost to it.
+    pub(super) fn offer_artifacts(&mut self, job: &SharedString, cx: &mut Context<Self>) {
+        let any = self.artifacts.read.get(job.as_ref()).and_then(|read| read.rows.as_ref()).is_some_and(|rows| !rows.is_empty());
+        if any && self.panes_answered(job) {
+            self.look_in(job, |was| super::panes_place::offer_beside_now(was, "artifacts"), cx);
+        }
     }
 
     /// An artifact he folded away or restored here is drawn so at once, before Fleet's list says it.
@@ -885,5 +897,48 @@ mod tests {
             cx.run_until_parked();
         }
         assert_eq!(posts(&view, cx), [("design".to_string(), 2), ("design".to_string(), 1)], "an older revision posts its own number, once");
+    }
+
+    #[gpui::test]
+    fn an_artifact_tab_of_several_parts_scrolls_to_its_last_part(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = parts_job(cx);
+        cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(520.)));
+        let held = crate::mock_parts::ID;
+        view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let (room, offset) = view.read_with(cx, |view, _| (view.body_scroll.max_offset().y, view.body_scroll.offset().y));
+        assert!(room > gpui::px(0.), "the tab's body is taller than its pane, so it has room to scroll: {room:?}");
+        assert_eq!(offset, gpui::px(0.));
+        // Wherever the pointer is: over the words, the takes' pictures, the drawing or the gaps between.
+        for y in (100..500).step_by(40) {
+            view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.))));
+            cx.simulate_event(gpui::ScrollWheelEvent { position: gpui::point(gpui::px(500.), gpui::px(y as f32)), delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-300.))), ..Default::default() });
+            cx.run_until_parked();
+            let moved = view.read_with(cx, |view, _| view.body_scroll.offset().y);
+            assert!(moved < gpui::px(0.), "the wheel with the pointer {y} down scrolls the tab: {moved:?}");
+        }
+    }
+
+    #[gpui::test]
+    fn a_long_take_title_never_runs_over_the_buttons_of_the_row_under_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = parts_job(cx);
+        let held = crate::mock_parts::ID;
+        view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        cx.run_until_parked();
+        let key = super::super::parts_card::part_key(held, "bar");
+        view.update(cx, |view, cx| view.large_take(&key, Some(2), cx));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        let title = "C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second";
+        assert!(title.chars().count() >= 120);
+        let at = |cx: &mut gpui::VisualTestContext, role: gpui::Role, name: &str| cx.update(|window, cx| super::super::head::drawn(window, cx, role, name));
+        let heading = at(cx, gpui::Role::Heading, title).expect("the title is drawn");
+        let back = at(cx, gpui::Role::Button, "Back").expect("Back is drawn");
+        let before = at(cx, gpui::Role::Button, "B \u{b7} Rail").expect("the take before is named by its own name");
+        assert!(heading.bottom() <= back.top() && heading.bottom() <= before.top(), "the title has its own line: {heading:?} over {back:?}");
+        assert!(before.right() <= back.left(), "the neighbour's column ends before Back: {before:?} {back:?}");
     }
 }

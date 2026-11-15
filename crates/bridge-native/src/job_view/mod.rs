@@ -14,6 +14,7 @@ mod aa;
 mod acts;
 mod artifacts_tab;
 mod for_you_tab;
+mod fold;
 mod band_card;
 mod bands;
 mod bar;
@@ -24,6 +25,7 @@ mod choose;
 mod claim_waits;
 mod moving;
 mod slot_wait;
+pub(crate) use fold::{presses, rail, rail_said, shuts, Side};
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
@@ -429,6 +431,8 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
+    /// The scroll of an artifact's tab body: its parts and the note under one are read by scrolling it.
+    body_scroll: gpui::ScrollHandle,
     /// Where he left off, kept between runs.
     place: place::Place,
     focus: FocusHandle,
@@ -648,6 +652,7 @@ impl JobView {
             view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
+            body_scroll: gpui::ScrollHandle::new(),
             place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
@@ -1236,14 +1241,17 @@ impl Render for JobView {
             self.pages.values().for_each(|page| page.list.remeasure());
         }
         // The column follows the width the thread was last drawn at; a change draws once more at the new one.
-        let pane = head::drawn(window, cx, Role::Region, "Thread").map(|bounds| bounds.size.width);
+        let region = head::drawn(window, cx, Role::Region, "Thread");
+        let pane = region.map(|bounds| bounds.size.width);
         if pane.is_some() && pane != self.pane {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
         }
         // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
-        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        // The region's own height, not the list's: the call chip's room is padding inside the region, and a room that shrank
+        // with the chip would cut the pin again, measure the list, and so show or hide the chip, every frame.
+        let room = region.map(|bounds| bounds.size.height - look.length(token::SPACE_4)).filter(|room| *room > gpui::px(0.));
         if room.is_some() && room != self.pane_height {
             self.pane_height = room;
             if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {

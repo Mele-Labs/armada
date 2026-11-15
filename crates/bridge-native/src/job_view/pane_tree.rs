@@ -6,7 +6,7 @@
 //! **A change that does nothing hands back its own input** (`Cow::Borrowed`), as Classic returns the
 //! same object, because the store's `next !== was` reads that. Everything else is `Cow::Owned`.
 //!
-//! The serde shape is Classic's own JSON: `{ root, focus, next, threadWas? }`, nodes tagged by
+//! The serde shape is Classic's own JSON: `{ root, focus, next, threadWas? }`, plus native's own `offered?`, nodes tagged by
 //! `type`, a tab's kind its string name, and an absent field never written as `null`.
 #![allow(dead_code)] // The drag, layout and kept-shape parts are drawn by the pane PRs after this one.
 
@@ -177,6 +177,9 @@ pub(crate) struct Arrangement {
     /// Absent: the thread has not been closed.
     #[serde(default, rename = "threadWas", skip_serializing_if = "Option::is_none")]
     pub thread_was: Option<ThreadPlace>,
+    /// Kinds of tab the Job put in once on its own, so one he closed stays closed. Native's own: Classic never wrote it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub offered: Vec<String>,
 }
 
 /// A box as shares of the whole, or in px.
@@ -453,7 +456,7 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
             }
         }
     }
-    let mut at = Arrangement { root: Node::Pane(Pane { id: "p0".into(), tabs: Vec::new(), active: None }), focus: "p0".into(), next: 1, thread_was: None };
+    let mut at = Arrangement { root: Node::Pane(Pane { id: "p0".into(), tabs: Vec::new(), active: None }), focus: "p0".into(), next: 1, thread_was: None, offered: Vec::new() };
     let root = make(&mut at, shape, front, labels);
     at.focus = panes_of(&root).first().map(|pane| pane.id.clone()).unwrap_or_default();
     at.root = root;

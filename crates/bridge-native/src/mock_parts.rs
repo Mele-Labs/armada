@@ -59,7 +59,7 @@ fn parts(answered: bool) -> Vec<ArtifactPart> {
             PartContent::Takes {
                 question: Some("Which step bar reads better?".into()),
                 form: VoteForm::Pick,
-                takes: vec![take("bar", "A \u{b7} Bar under the title", bar()), take("rail", "B \u{b7} Rail (Job's pick)", rail()), take("dots", "C \u{b7} Dots", dots())],
+                takes: vec![take("bar", "A \u{b7} Bar under the title", bar()), take("rail", "B \u{b7} Rail (Job's pick)", rail()), take("dots", "C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second", dots())],
                 parts: Vec::new(),
             },
             true,
