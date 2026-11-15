@@ -89,6 +89,28 @@ impl JobView {
         tree::panes_of(&arrangement.root).into_iter().any(|pane| front_of(pane).is_some_and(|tab| self.shows_reader(id, tab, cx)))
     }
 
+    /// The pane the focus view stands on while an artifact is in front: its front tab is a reader, no pane is zoomed and he has not
+    /// left it by Esc or Back. Nothing else of the Job is drawn then, so the composer, the Needs you band and the pane's tab
+    /// strip are gone with the other panes. A state of the drawing, never of the arrangement.
+    pub(super) fn focus_pane<'a>(&self, arrangement: &'a tree::Arrangement, cx: &App) -> Option<&'a super::pane_tree::Pane> {
+        let id = self.shown.as_ref()?;
+        if self.zoomed().is_some() {
+            return None;
+        }
+        let pane = tree::panes_of(&arrangement.root).into_iter().find(|pane| front_of(pane).is_some_and(|tab| self.shows_reader(id, tab, cx)))?;
+        let tab = front_of(pane)?;
+        (self.arranged.focus_left.as_deref() != Some(tab.id.as_str())).then_some(pane)
+    }
+
+    /// Esc or Back: the focus view ends, and the Job is drawn as he left it, the reader still in front.
+    pub(crate) fn leave_focus(&mut self, cx: &mut Context<Self>) {
+        let arrangement = self.arrangement().into_owned();
+        let Some(tab) = self.focus_pane(&arrangement, cx).and_then(front_of).map(|tab| tab.id.clone()) else { return };
+        self.arranged.focus_left = Some(tab);
+        self.arranged.over = None;
+        cx.notify();
+    }
+
     /// The side he opened over the reader, where one is folded and so can be.
     pub(crate) fn over(&self, cx: &App) -> Option<Side> {
         self.arranged.over.filter(|_| self.reader_open(cx))
@@ -151,7 +173,50 @@ impl JobView {
             self.shut_over(cx);
             let focus = self.tab_handle(id, "rail:right", "rail", cx);
             window.focus(&focus, cx);
+        } else if shuts(event) && self.arranged.focus_now && !window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
+            // Nothing under it took Esc: it leaves the focus view.
+            cx.stop_propagation();
+            self.leave_focus(cx);
         }
+    }
+
+    /// The quiet way out of the focus view, at the reader's top left: back to the Job's own panes and tabs.
+    pub(super) fn focus_back(&self, job: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let title = self.title_of(job, cx).map_or_else(|| "the Job".to_string(), |title| title.to_string());
+        let said = SharedString::from(format!("Back to {title}"));
+        let key = gpui::Keystroke::parse("escape").ok();
+        labelled(
+            div()
+                .id("focus-back")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .min_w_0()
+                .h(look.length(token::H_CONTROL_SM))
+                .px(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .cursor_pointer()
+                .tab_stop(true)
+                .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new("Back to the Job").key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+                .child(super::rows::glyph(look, "arrow-left", super::rows::Size::Small, look.color(token::FG_MUTED)))
+                .child(div().min_w_0().truncate().child(said.clone()))
+                .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                    if presses(event) {
+                        cx.stop_propagation();
+                        this.leave_focus(cx);
+                    }
+                }))
+                .on_click(cx.listener(|this, _, _, cx| this.leave_focus(cx))),
+            Role::Button,
+            said,
+        )
+        .into_any_element()
     }
 
     /// The right column laid over the reader, at the share it keeps: a scrim that shuts it, and the column on top.
@@ -230,5 +295,114 @@ mod tests {
         let (closed, over, now) = view.read_with(cx, |view, cx| (!view.reader_open(cx), view.over(cx), view.arrangement().into_owned()));
         assert!(closed && over.is_none(), "closing the reader restores both sides");
         assert_eq!((now.root, now.focus), (before.1.root, before.1.focus), "the panes are as they were before the reader opened");
+    }
+
+    /// The artifact-parts Job on screen under the label root, its thread read and drawn.
+    fn artifact_open<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        crate::job_view::parts_fold::rooted_job(cx, "artifact-parts", crate::mock_parts::JOB, gpui::size(gpui::px(1280.), gpui::px(800.)), |_| {})
+    }
+
+    fn drawn_now(cx: &mut gpui::VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    use crate::job_view::parts_fold::drawn;
+    use gpui::Role;
+
+    #[gpui::test]
+    fn an_artifact_in_front_is_drawn_alone_and_leaving_it_draws_the_job_as_he_left_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = artifact_open(cx);
+        let job = crate::mock_parts::JOB;
+        let back = view.read_with(cx, |view, cx| format!("Back to {}", view.title_of(job, cx).expect("the Job has a title")));
+        drawn_now(cx);
+        assert!(drawn(cx, Role::TextInput, "Message") && drawn(cx, Role::TabList, "Tabs"), "the Job is drawn whole before the artifact opens");
+        assert!(!drawn(cx, Role::Button, &back), "there is no way back from a Job that shows no artifact");
+
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(crate::mock_parts::ID, window, cx)));
+        drawn_now(cx);
+        let open = view.read_with(cx, |view, _| view.arrangement().into_owned());
+        let kept = {
+            let task = cx.update(|_, cx| pane_store::read(&pane_store::job_key(job), cx));
+            cx.foreground_executor().block_test(task)
+        };
+        assert!(drawn(cx, Role::Button, &back), "a quiet way back names the Job");
+        assert!(!drawn(cx, Role::TextInput, "Message"), "the composer folds away");
+        assert!(!drawn(cx, Role::TabList, "Tabs"), "the pane's tab strip folds away");
+        assert!(drawn(cx, Role::Region, &format!("Reader: {}, Revision 2", crate::mock_parts::TITLE)), "the artifact is what is left");
+
+        view.update(cx, |view, cx| view.leave_focus(cx));
+        drawn_now(cx);
+        assert!(!drawn(cx, Role::Button, &back), "the way back is gone");
+        assert!(drawn(cx, Role::TabList, "Tabs"), "the pane's tab strip is back");
+        assert!(drawn(cx, Role::Button, rail_said(Side::Right, false)), "the right column is a rail again");
+        assert!(view.read_with(cx, |view, cx| view.reader_open(cx)), "the artifact is still the tab in front");
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), open, "the panes and their tabs are as he left them");
+        let task = cx.update(|_, cx| pane_store::read(&pane_store::job_key(job), cx));
+        assert_eq!(cx.foreground_executor().block_test(task), kept, "going in and out wrote no arrangement");
+    }
+
+    #[gpui::test]
+    fn escape_and_the_back_press_both_leave_the_focus_view_and_a_second_escape_does_nothing_more(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = artifact_open(cx);
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(crate::mock_parts::ID, window, cx)));
+        drawn_now(cx);
+        assert!(view.read_with(cx, |view, _| view.arranged.focus_now), "the focus view is up");
+        cx.simulate_keystrokes("escape");
+        drawn_now(cx);
+        assert!(!view.read_with(cx, |view, _| view.arranged.focus_now), "Esc leaves it");
+        assert!(view.read_with(cx, |view, cx| view.reader_open(cx)), "the artifact is still open");
+        cx.simulate_keystrokes("escape");
+        drawn_now(cx);
+        assert!(view.read_with(cx, |view, cx| view.reader_open(cx)), "a second Esc closes nothing");
+
+        // A press on Back does the same, after the artifact is opened afresh by its tab.
+        view.update_in(cx, |view, window, cx| {
+            view.arranged.focus_left = None;
+            cx.notify();
+            let _ = window;
+        });
+        drawn_now(cx);
+        let back = view.read_with(cx, |view, cx| format!("Back to {}", view.title_of(crate::mock_parts::JOB, cx).expect("a title")));
+        let at = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Button, &back).map(|one| one.bounds.center())).expect("Back is drawn");
+        cx.simulate_click(at, gpui::Modifiers::none());
+        drawn_now(cx);
+        assert!(!view.read_with(cx, |view, _| view.arranged.focus_now), "pressing Back leaves it");
+    }
+
+    #[gpui::test]
+    fn a_reader_pins_its_acts_at_the_foot_while_the_focus_view_is_up(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = crate::job_view::parts_fold::rooted_job(cx, "reader", "draft-job", gpui::size(gpui::px(1280.), gpui::px(800.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_document_tab("design", window, cx));
+        drawn_now(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        };
+        let (foot, notes) = (find(cx, Role::Group, "Reader acts"), find(cx, Role::Switch, "Notes"));
+        let named = crate::job_view::parts_fold::drawn_like(cx, Role::Region, "Reader: ").pop().expect("a reader is drawn");
+        let region = find(cx, Role::Region, &named);
+        assert!(foot.bottom() >= region.bottom() - gpui::px(1.), "the acts sit at the foot of the reader");
+        assert!(notes.top() >= foot.top() && notes.bottom() <= foot.bottom(), "the notes toggle is one of them");
+
+        view.update(cx, |view, cx| view.leave_focus(cx));
+        drawn_now(cx);
+        assert!(!drawn(cx, Role::Group, "Reader acts"), "out of the focus view they are back in the header");
+        let (notes, region) = (find(cx, Role::Switch, "Notes"), find(cx, Role::Region, &named));
+        assert!(notes.top() < region.top() + gpui::px(120.), "the toggle is at the head again");
+    }
+
+    #[gpui::test]
+    fn an_artifact_of_parts_pins_what_settles_it_below_the_scrolling_column(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = artifact_open(cx);
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(crate::mock_parts::ID, window, cx)));
+        drawn_now(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        };
+        let (dismiss, region) = (find(cx, Role::Button, "Dismiss"), find(cx, Role::Region, &format!("Reader: {}, Revision 2", crate::mock_parts::TITLE)));
+        assert!(dismiss.bottom() <= gpui::px(800.) && dismiss.bottom() > gpui::px(760.), "Dismiss sits at the foot of the window: {dismiss:?}");
+        assert!(region.bottom() > dismiss.bottom(), "the card runs on below it, so it is pinned and not in the flow: {region:?}");
     }
 }

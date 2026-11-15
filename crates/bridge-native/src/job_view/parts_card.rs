@@ -658,6 +658,33 @@ impl JobView {
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
+        let footer = (!(tab && self.arranged.focus_now)).then(|| self.parts_footer(ix, id, &parts, asking, page, look, cx));
+        let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
+        let artifact_id = id.to_string();
+        let card = frame(look, self.band_narrow(look))
+            .id(SharedString::from(format!("artifact:{id}")))
+            .track_focus(&spot.focus)
+            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+            .child(head)
+            .children(blocks)
+            .children(footer);
+        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
+        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
+    }
+
+    /// The footer of the artifact's own tab in the focus view, read as the card would read it.
+    pub(super) fn parts_pinned_footer(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let artifact = self.artifact_of(self.shown.as_ref()?, id)?;
+        let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
+        let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
+        let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
+        Some(self.parts_footer(ix, id, &parts, asking, page, look, cx))
+    }
+
+    /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
+    /// the reader instead of ending the card.
+    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let run: Do = {
             let id = id.to_string();
             Rc::new(move |this, act, window, cx| match act {
@@ -667,7 +694,7 @@ impl JobView {
             })
         };
         let foot = Foot { ix, key: id.to_string(), asking, archivable: !asking, openable: false, editable: false, commit: false, route: "/sessions/waiting/dismiss", run };
-        let line = settles_line(&parts).filter(|_| asking);
+        let line = settles_line(parts).filter(|_| asking);
         let away = if asking {
             ghost(look, &foot, "dismiss", "Dismiss", "D", "Put it away with no answer", Act::Dismiss, cx)
         } else {
@@ -691,18 +718,7 @@ impl JobView {
                 )
                 .child(div().flex_none().child(away)),
         );
-        let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
-        let artifact_id = id.to_string();
-        let card = frame(look, self.band_narrow(look))
-            .id(SharedString::from(format!("artifact:{id}")))
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
-            .child(head)
-            .children(blocks)
-            .child(footer);
-        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
-        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
+        footer.into_any_element()
     }
 
     /// One part: its caption and tag, what it holds and, where it asks, how he answers it.

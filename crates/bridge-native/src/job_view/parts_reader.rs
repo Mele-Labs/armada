@@ -17,19 +17,30 @@ impl JobView {
         let Some(newest) = one.revisions.last().map(|last| last.number) else { return empty() };
         let card = self.parts_card(SHEET, &tab.key, newest, true, page, look, cx);
         let artifact = tab.key.clone();
+        let foot = self.arranged.focus_now.then(|| self.parts_pinned_footer(SHEET, &tab.key, page, look, cx)).flatten();
         // The scroller holds one block and no flex row: a row stretches its child to the pane's height, so a card taller than the
         // pane never overflowed it and nothing scrolled.
-        div()
+        let scroller = div()
             .id("row-tab-body")
             .track_focus(&self.row_focus)
             .track_scroll(&self.body_scroll)
-            .size_full()
+            .when(foot.is_some(), |one| one.flex_1().min_h_0())
+            .when(foot.is_none(), |one| one.size_full())
             .overflow_y_scroll()
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.artifact_key(&artifact, event, window, cx)))
-            .child(div().w_full().flex().justify_center().child(div().w_full().min_w_0().max_w(self.column(look)).children(card)))
-            .into_any_element()
+            .child(div().w_full().flex().justify_center().child(div().w_full().min_w_0().max_w(self.column(look)).children(card)));
+        let Some(foot) = foot else { return scroller.into_any_element() };
+        // The foot is pinned below the scrolling column, in the column's own width.
+        let pinned = div()
+            .flex_none()
+            .px(look.length(token::SPACE_4))
+            .pb(look.length(token::SPACE_3))
+            .flex()
+            .justify_center()
+            .child(div().w_full().min_w_0().max_w(self.column(look)).child(foot));
+        div().size_full().flex().flex_col().child(scroller).child(pinned).into_any_element()
     }
 
     /// The keys over the open artifact: paging the column. The rest are the card's own.

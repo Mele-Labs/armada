@@ -39,6 +39,8 @@ pub(super) struct Frame {
     /// The pane the sheets stand over: the one that holds the thread, where that is drawn.
     pub host: Option<String>,
     pub zoomed: Option<String>,
+    /// The pane the focus view stands on: drawn with no strip, under a way back to the Job.
+    pub focus: Option<String>,
 }
 
 /// A node's size along its parent's axis, as a share.
@@ -81,7 +83,19 @@ impl JobView {
         if !self.zones_shown().contains(&Zone::Spine) {
             self.spine.left();
         }
-        let mut frame = Frame { job: id.clone(), thread_body, popups, host: host.clone(), zoomed: zoomed.clone() };
+        // A reader in front takes the Job's area alone: no other pane, no composer, no Needs you band, no strip. Toasts from other Jobs wait.
+        let focus = self.focus_pane(&arrangement, cx).map(|pane| pane.id.clone());
+        if self.arranged.focus_left.is_some() && focus.is_none() && !self.reader_open(cx) {
+            self.arranged.focus_left = None;
+        }
+        self.arranged.focus_now = focus.is_some();
+        if focus.is_some() != self.arranged.focus_was {
+            self.arranged.focus_was = focus.is_some();
+            self.arranged.focus_flips += 1;
+        }
+        crate::toasts::reading(focus.is_some(), cx);
+        let host = if focus.is_some() { focus.clone() } else { host };
+        let mut frame = Frame { job: id.clone(), thread_body, popups, host: host.clone(), zoomed: zoomed.clone(), focus: focus.clone() };
         // A reader in front folds the right column to a rail, by state: the arrangement is not touched.
         if self.arranged.over.is_some() && !self.reader_open(cx) {
             self.arranged.over = None;
@@ -92,13 +106,17 @@ impl JobView {
                 let one = tree::pane_by_id(&arrangement, zoomed).cloned();
                 one.map(|one| self.draw_pane(&one, None, &mut frame, look, window, cx))
             }
+            (None, _) if focus.is_some() => {
+                let one = focus.as_deref().and_then(|focus| tree::pane_by_id(&arrangement, focus)).cloned();
+                one.map(|one| self.draw_pane(&one, None, &mut frame, look, window, cx))
+            }
             (None, Some(split)) => Some(self.draw_node(&split.a, None, &mut frame, look, window, cx)),
             (None, None) => Some(self.draw_node(&arrangement.root, None, &mut frame, look, window, cx)),
         };
         let (drawn, rail) = match &fold {
             Some(split) => {
                 let over = (self.arranged.over == Some(super::fold::Side::Right)).then(|| {
-                    let mut beside = Frame { job: id.clone(), thread_body: None, popups: Vec::new(), host: None, zoomed: None };
+                    let mut beside = Frame { job: id.clone(), thread_body: None, popups: Vec::new(), host: None, zoomed: None, focus: None };
                     let column = self.draw_node(&split.b, None, &mut beside, look, window, cx);
                     self.right_over(column, split, look, cx)
                 });
@@ -107,6 +125,23 @@ impl JobView {
             }
             None => (drawn, None),
         };
+        // Going into the focus view, and coming back, take 150 ms: the Job fades and slides in. The first drawing plays nothing.
+        let (flips, entering) = (self.arranged.focus_flips, focus.is_some());
+        let drawn = drawn.map(|one| {
+            if flips == 0 {
+                return one;
+            }
+            div()
+                .size_full()
+                .flex()
+                .child(one)
+                .with_animation(
+                    SharedString::from(format!("focus-flip:{flips}")),
+                    gpui::Animation::new(look.duration(token::DURATION_BASE)).with_easing(gpui::ease_out_quint()),
+                    move |panes, at| panes.opacity(0.3 + 0.7 * at).mt(px(if entering { (1. - at) * 12. } else { 0. })),
+                )
+                .into_any_element()
+        });
         let shut_id = id.clone();
         if self.spine.settle.take() {
             window.request_animation_frame();
@@ -296,6 +331,7 @@ impl JobView {
         let thread_like = tabs.iter().any(|tab| tab.kind == "thread");
         let hosts = frame.host.as_deref() == Some(one.id.as_str());
         let zoomed = frame.zoomed.as_deref() == Some(one.id.as_str());
+        let bare = frame.focus.as_deref() == Some(one.id.as_str());
 
         // The strip scrolls sideways once its tabs are wider than the pane, and keeps the tab in front in view.
         let key = format!("{job}/{}", one.id);
@@ -350,7 +386,8 @@ impl JobView {
             None => None,
             Some(tab) => self.draw_body(&job, tab, frame, look, window, cx),
         };
-        let said = if thread_like { self.head_said_row(&job, cx) } else { None };
+        let said = if thread_like && !bare { self.head_said_row(&job, cx) } else { None };
+        let back = bare.then(|| self.focus_back(&job, look, cx));
         let region: Option<SharedString> = match slot {
             Slot::Thread => None,
             Slot::Top => Some("Open, Done and Deferred".into()),
@@ -369,7 +406,8 @@ impl JobView {
             .when(hosts, |pane| pane.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
-            .child(strip_el)
+            .children((!bare).then_some(strip_el))
+            .children(back)
             .children(said)
             .child(div().flex_1().min_h_0().flex().flex_col().relative().children(body).child(self.mark_drawn(format!("body:{}", one.id))).children(body_marks))
             .children(pane_marks)
