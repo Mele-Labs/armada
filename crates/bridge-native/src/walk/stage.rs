@@ -889,7 +889,9 @@ fn uncover(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let cover = cx.try_global::<LabelBook>().and_then(|book| {
         let drawn = book.drawn(id);
         let mine = drawn.iter().position(|one| one.role == target.role && one.name == target.name && one.bounds == target.bounds)?;
-        drawn[mine + 1..].iter().find(|one| shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
+        // Painted after it, which is not where the book lists it: a scene's parts are written down as the scene paints.
+        let after = drawn[mine].painted;
+        drawn.iter().find(|one| one.painted > after && shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
     });
     let Some(cover) = cover else { return target };
     let by = point(px(0.), cover.shown.top() - px(24.) - target.bounds.bottom());

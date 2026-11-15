@@ -417,6 +417,11 @@ impl JobView {
             cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
         }
         self.forget_box_words(&key, cx);
+        // An answer pressed in the sketch read over the window shuts the box the keys were in: they go back to the read. Its
+        // foot and the card behind it draw the same acts under one key, so the key says which it was.
+        if let Some(focus) = self.sketch_reading.as_ref().filter(|reading| reading.answer == key).map(|reading| reading.focus.clone()) {
+            window.focus(&focus, cx);
+        }
         self.card_changed(ix, cx);
         self.post_card(job, ix, key, route, body, window, cx);
     }
