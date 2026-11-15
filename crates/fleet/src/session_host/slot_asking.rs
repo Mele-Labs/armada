@@ -1,9 +1,9 @@
-//! A hosted Session's `armada worktree lease` finding every slot held, and the call Fleet raises
+//! A hosted Session's `armada worktree lease` finding every slot held, and the wait its record shows
 //! for it. `ipc::slot_asking`, `docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md`.
 //!
-//! **One call per Session, never two.** The call is the `slot_choice` item a queued write raises.
-//! A command's asking adds a record beside the line, and the item is derived from whichever stands:
-//! the line's where the Session is in it, the command's otherwise.
+//! **One wait per Session, never two.** A command's asking adds a record beside the line, and the
+//! record's `slot_wait` is read from whichever stands: the line's where the Session is in it, the
+//! command's otherwise.
 //!
 //! **The command's record expires**: it is heard from about once a second and forgotten after
 //! [`EXPIRES`], so a command that died takes its call and any reservation with it.
