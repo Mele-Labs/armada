@@ -5,7 +5,7 @@
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
 //! holds one that will not draw is told, as is one whose page declares an action that will not run or a vote that
 //! will not count. The
-//! write is never refused. **A revision is put to the person
+//! write is never refused, but a page that asks and buries its ask is kept as one for reading (`page_measure`). **A revision is put to the person
 //! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
 //! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
 //! kept here and never off the tool call: `document_answers` answers it.

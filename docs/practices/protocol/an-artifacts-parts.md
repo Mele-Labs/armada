@@ -16,6 +16,11 @@ Bridge's half is written by hand in `packages/protocol/src/job-artifacts.ts` whe
 | `SceneNode.state` (`show_sketch`) | The Job writes, Bridge reads | `done`, `running`, `checking`, `waiting` or `failed`, optional, on any node. Another word is refused with the list |
 | Refusals | Fleet | 422 `fleet.part_refused` (every broken rule at once), `fleet.part_unnamed`, `fleet.part_unknown`, `fleet.part_not_open`, `fleet.part_answer_empty`, `fleet.part_how`, `fleet.artifact_not_held`, `fleet.artifact_revision_unknown`, `fleet.session_unnamed`; 409 `fleet.part_redrawn` |
 
+**A Needs you item may name an artifact.** `artifact` is an optional field of an item in `waiting_for` (`WaitingInput`), the artifact's id or its title, and `WaitingItem.artifact` carries the id.
+It is checked against what the Job holds and refused as `fleet.artifact_not_held` where it holds none, and Bridge opens the artifact on a press.
+Absent where the item names none, so a client that does not know it reads the item as before.
+`docs/concepts/session/waiting-on-the-person.md`.
+
 **`drawn` is the revision he read.** A part put again is a new revision with a new `drawn`, and an answer that carries the old one is a 409, so he never answers what the Job has replaced.
 **A takes part is a vote.** `how` `approved` or `sent_back` on it is refused with `fleet.part_how`, saying to send a pick, and a `rank` or `score` part is cast with `cast_page_vote`.
 **`form` stays readable**: it is the first part's kind as `sketch`, `draft` or `page`, so a client that reads no parts still draws the artifact.

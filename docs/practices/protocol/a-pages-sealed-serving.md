@@ -43,6 +43,8 @@ Every `<` in it is written `<`, so no text in it closes its script.
 **The kit's script**, `crates/fleet/src/session_host/page_kit.js`, is the one script that runs.
 It draws each `<armada-action>` as a labelled button and each `<armada-vote>` as a vote, draws the record, and reaches nothing but the two channels below.
 Its look, `page_kit.css` beside it, is the one the owner approved on 14 Nov 2026.
+The same file opens with the house style, a calm default for every page under its own CSS: `:where()` rules only, so the page's own style and `armada-kit.css` win.
+`docs/concepts/artifact.md`, *A page served sealed*.
 
 ## The messages
 
