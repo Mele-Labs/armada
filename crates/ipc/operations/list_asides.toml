@@ -1,0 +1,12 @@
+[operations.list_asides]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The side questions put to a Job, with what each was answered, oldest first"
+notes = """
+`GET /sessions/asides?session_id=`. `AsideList` `{ session_id, asides }`, each an `Aside` as `ask_aside` answers it, oldest asked first. **The answer of an aside still `asking` is empty here**: the part that has arrived travels on `session.aside`, and the store keeps the whole when it ends. An aside still `asking` that no turn of this Fleet is running, because Fleet restarted under it, reads `failed`.
+
+404 `fleet.no_such_session` where Fleet hosts no such Job.
+
+`agent_access` is `No`: asides are kept out of the Job's own view of itself.
+"""

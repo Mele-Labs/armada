@@ -219,6 +219,8 @@ mod requests_batch;
 mod request_runs;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
+/// A side question put to a Job, answered on a thrown-away copy of its conversation.
+mod asides;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// A pull request's change sets, its overview, and its sets held to the repository's practices.
@@ -653,6 +655,7 @@ pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
 };
+pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use judge::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
     JudgeState, MarkJudgeRead, SendJudgeNote,
