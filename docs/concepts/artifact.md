@@ -367,7 +367,7 @@ Send sits at the foot of a vote, with ⌘↵, and every control is reached by ke
 
 **Rule.** The page never calls Fleet.
 It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.
-The presses and votes made on the revision ride with it, so a reopened page shows what he did.
+The presses and votes made on the revision or an earlier one ride with it, while their action, or their vote in the same form with the same takes, is still on it, so a revision that rewrote other sections still shows what he did.
 
 **Rule.** `get_artifact_page_source` serves a page revision as the Job wrote it: 200, `Content-Type: text/html; charset=utf-8`, the kept file's bytes with no policy, kit or record added.
 Its query is `get_artifact_page`'s: `session_id`, `artifact` and an optional `revision`, the newest where left out.

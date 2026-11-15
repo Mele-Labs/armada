@@ -13,8 +13,8 @@ use serde::Serialize;
 use super::archiving::ARTIFACT_NOT_HELD;
 use super::document_page::{open_tag, tag_end};
 use super::documents::revisions_named;
-use super::page_actions::presses_of;
-use super::page_votes::votes_of;
+use super::page_actions::presses_standing;
+use super::page_votes::votes_standing;
 use crate::daemon::Fleet;
 
 pub(super) const ARTIFACT_REVISION_UNKNOWN: &str = "fleet.artifact_revision_unknown";
@@ -56,7 +56,7 @@ fn tokens_css() -> String {
     format!(":root{{{declared}}}")
 }
 
-/// What the kit's script reads for the revision served: the presses and the newest cast per vote made on it.
+/// What the kit's script reads for the revision served: the presses and the newest cast per vote that still stand on it.
 #[derive(Serialize)]
 struct PageRecord<'a> {
     artifact: &'a str,
@@ -281,12 +281,11 @@ where
             let store = self.store().lock().await;
             (store.page_presses(id).map_err(|why| self.ledger_fault(why))?, store.page_votes(id).map_err(|why| self.ledger_fault(why))?)
         };
-        let votes: Vec<_> = votes.into_iter().filter(|one| one.revision == number).collect();
         let record = PageRecord {
             artifact: &held.id,
             revision: number,
-            presses: presses_of(&presses, &held.id).into_iter().filter(|one| one.revision == number).collect(),
-            votes: votes_of(&votes, &held.id),
+            presses: presses_standing(&presses, &held.id, &html, number),
+            votes: votes_standing(&votes, &held.id, &html, number),
         };
         // Strings, numbers and bools, which always encode.
         let record = ipc::encode(&record).unwrap_or_default();
