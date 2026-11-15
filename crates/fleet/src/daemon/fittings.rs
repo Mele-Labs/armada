@@ -421,6 +421,7 @@ where
             reply_reads: Arc::default(),
             refusal_reads: Arc::default(),
             item_vectors: Arc::default(),
+            for_you_prints: Default::default(),
             extract_reads: Arc::default(),
             run,
         }

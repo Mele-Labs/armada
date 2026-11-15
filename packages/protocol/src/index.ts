@@ -98,6 +98,7 @@ export * from "./session-build";
 export * from "./session-plan";
 export * from "./session-waits";
 export * from "./plan-usage";
+export * from "./for-you";
 export * from "./model-downshift";
 export * from "./project-store";
 export * from "./projects";

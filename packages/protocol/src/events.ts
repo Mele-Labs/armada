@@ -14,6 +14,7 @@ import type { MergeLines } from "./merge-lines";
 import type { MergeLineViews } from "./merge-line-view";
 import type { AllWriteClashes } from "./clashes";
 import type { CallsChanged } from "./standing-calls";
+import type { ForYouChanged } from "./for-you";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
@@ -155,6 +156,10 @@ export type Event =
   | ({
       kind: "session.subagent";
     } & SessionSubagentChanged)
+  /** A Job's For you moved: read `get_for_you` for it again. */
+  | ({
+      kind: "session.for_you";
+    } & ForYouChanged)
   /** A Job row held from another Mac went: that Mac left it out, or was forgotten. Drop the row. Never this Mac's own Jobs. */
   | ({
       kind: "session.removed";

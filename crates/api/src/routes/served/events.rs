@@ -184,6 +184,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's For you moved: a client holding it reads `get_for_you` again.
+    Route {
+        operation: "session.for_you",
+        method: "GET",
+        path: "/events",
+    },
     // A row held from another Mac went, so a client holding it drops it.
     Route {
         operation: "session.removed",

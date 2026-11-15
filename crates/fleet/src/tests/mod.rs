@@ -41,6 +41,7 @@ mod page_measure;
 mod waiting_artifact;
 mod page_sealed;
 mod notes_and_seen;
+mod for_you;
 mod drafts;
 mod pull_request_drafts;
 mod phone;
