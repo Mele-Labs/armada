@@ -431,6 +431,30 @@ destructive = false
 confirms = false
 notes = "Moves the focused Job to his other Mac, or brings it here where that Mac holds it: Fleet's `move_job_to_mac`, which waits for the Job's turn to end, then pauses it, pushes its branch and resumes it there. Offered only while another Mac is linked, and on a Job that has not ended, is not paused and is not moving already. Native only. Shifted because `m` is the Cockpit's map; Pause (`p`) and Snooze (`z`) are the Jobs list's own bare keys and carry no row, so the next row act takes a capital. No glyph: nothing registered means a Job travelling between machines, and `monitor` and `laptop` are each reserved for where a thing is. The palette answers it as the row's own act, with ⌥⌘M. Taken 14 Nov 2026."
 
+[actions.move_to_project]
+kind = "Action"
+tier = "Contextual"
+verb = "Move to project"
+icon = ""
+icon_absent = "undecided"
+shortcut = "P"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Moves the Jobs under the keys into one of his projects, or out to none: the row's own Job, or every Job selected where the row is among them. Opens the project picker, whose rows are his projects with their repositories under the name, and No project last; the project every Job stands in is ticked. Fleet's `set_session_project` writes it for live and ended Jobs alike, and the Jobs list regroups on the `session.changed` it publishes. Native only. Shifted because Pause (`p`) is the Jobs list's own bare key and carries no row. No glyph: `layers` means how many places a Job writes, so a project is not its meaning. A Job on another Mac is left off, with why, because Fleet answers it 404. The palette answers it as the row's own act, with ⌥⌘P, and as a command for the open Job. Taken 15 Nov 2026."
+
+[actions.deck_select]
+kind = "Action"
+tier = "Contextual"
+verb = "Select the row"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Space / x"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Selects the focused Job, or takes it out of the selection, as a ⌘-click on it does. ⇧↓ and ⇧↑ select the Job they move to, and ⇧-click selects the range from the Job last clicked. Esc clears the selection while there is one, and otherwise keeps its meaning. The Jobs selected move to a project together on `P`. A queued idea and a project's name are never selected. Native only. Taken 15 Nov 2026."
+
 [actions.new_job]
 kind = "Action"
 tier = "Contextual"

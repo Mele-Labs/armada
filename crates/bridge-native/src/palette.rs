@@ -206,6 +206,25 @@ fn move_command(list: &JobsList, cx: &App) -> Option<Entry> {
     })
 }
 
+/// Move the open Job into a project, or out to none: offered where the Job can move and Fleet would take it from here.
+fn move_project_command(list: &JobsList, cx: &App) -> Option<Entry> {
+    let job = list.opened_id().and_then(|id| list.record(&id))?;
+    if !crate::move_to_project::movable(job) || crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx).is_some() {
+        return None;
+    }
+    Some(Entry {
+        id: "cmd:move-project".into(),
+        section: Section::Commands,
+        label: "Move to project".into(),
+        icon: None,
+        shortcut: None,
+        aliases: Vec::new(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
     held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
@@ -672,6 +691,7 @@ impl Palette {
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
+        entries.extend(move_project_command(list, cx));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -811,6 +831,12 @@ impl Palette {
                 if let Some(offer) = crate::move_to_mac::offer(job, crate::pairing::macs(cx)) {
                     let at = acts.iter().position(|one| matches!(one.id, "snooze" | "wake")).map_or(acts.len(), |at| at + 1);
                     acts.insert(at, RowAct { off: offer.off, ..act("move-mac", &offer.label, None, Some("\u{2325}\u{2318}M")) });
+                }
+                // Move to a project, after the Mac's move: ⌥⌘P, since the bare P a row answers is typing in here.
+                if crate::move_to_project::movable(job) {
+                    let at = acts.iter().position(|one| matches!(one.id, "move-mac" | "snooze" | "wake")).map_or(acts.len(), |at| at + 1);
+                    let off = crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx);
+                    acts.insert(at, RowAct { off, ..act("move-project", "Move to project", None, Some("\u{2325}\u{2318}P")) });
                 }
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
@@ -967,6 +993,18 @@ impl Palette {
                     }
                 });
             }
+            ("run", None) if entry.id == "cmd:move-project" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                let back = self.open.as_ref().and_then(|open| open.back_to.clone());
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| {
+                    if let Some(id) = list.opened_id() {
+                        let at = list.row_under(&id);
+                        list.open_project_picker(vec![id], at, true, back, window, cx);
+                    }
+                });
+            }
             ("run", None) if entry.id.starts_with("cmd:") => {
                 self.memory.used(&entry.id);
                 self.keep(cx);
@@ -1025,6 +1063,16 @@ impl Palette {
                 self.keep(cx);
                 self.close(window, cx);
                 self.list.update(cx, |list, cx| list.move_to_mac(&job, cx));
+            }
+            ("move-project", Some(job)) => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                let back = self.open.as_ref().and_then(|open| open.back_to.clone());
+                self.close(window, cx);
+                self.list.update(cx, |list, cx| {
+                    let at = list.row_under(&job);
+                    list.open_project_picker(vec![job.into()], at, true, back, window, cx);
+                });
             }
             ("snooze", Some(job)) => {
                 self.memory.used(&entry.id);
