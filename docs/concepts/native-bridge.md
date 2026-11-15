@@ -212,6 +212,12 @@ FOUND lists the Macs the Gateway finds on his Cloudflare account and on this net
 A found row has the Mac's colour dot, its name, one chip and Pair.
 The chip is green Nearby when Bonjour sees it, else blue On your account when its tunnel is connected, else grey Asleep.
 Pair is off while the Mac is asleep, and its tooltip says it is asleep or Armada is closed there.
+A found Mac that runs an older build on another wire says so under its row, in the warning hue, with the `arrow-down-to-line` glyph and the tooltip Runs an older build.
+The sentence is `<Name> runs an older build. Update Armada on it to pair.`, because a Mac that is not paired can only be updated on itself, so the row carries no Update.
+Pair stays off, with a tooltip that says why.
+A Mac his store lists is vouched: Pair calls `POST /admin/macs/pair/vouched` with its store and device, and the Mac joins PAIRED linked, with no Confirm.
+A Mac only his store found has no tunnel, so its row is keyed by its device.
+The wire carries no `newer_build` field on a found Mac, so a found row has no such state; a paired Mac's `newer_build` link is drawn as before.
 A paired Mac that Bonjour sees now gains the green Nearby chip after its name in PAIRED.
 The Nearby chip has a small screen glyph before its word and the tooltip Found on this network.
 It is matched to its found row by name, since a paired Mac carries no tunnel.
