@@ -115,6 +115,9 @@ pub enum Verb {
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
     Fits(&'static str, &'static str),
+    /// Nothing pressed: the target must be drawn no wider than this many points, or the step fails.
+    /// For a title that must be cut inside its tab rather than widen it.
+    NoWiderThan(u32),
     /// Nothing of this role and name is drawn; the target is.
     Absent(&'static str, &'static str),
     /// This many milliseconds go by before the target is ringed, as they do while a person reads the
@@ -1232,6 +1235,9 @@ pub static WALKS: &[Walk] = &[
             step("The first stand at the top", Verb::Wheel("region", "Open, Done and Deferred", -1400), "button", "Read the chip's stories"),
             press_on("A press opens its thread as a tab beside the Job's", "button", "Read the chip's stories", "tab", "Job tab: Read the chip's stories"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Read the chip's stories"),
+            press_on("A subagent with a long task opens its tab", "button", "Check the tooltip wording against the voice rules", "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("The title is cut inside its tab, which keeps its width, and its × is drawn after it", Verb::NoWiderThan(240), "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Check the tooltip wording against the voice rules"),
             press_on("+ again", "button", "Add tab: Done", "menuitem", "Judge"),
             press_on("Judge: the Judge of the whole Job", "menuitem", "Judge", "region", "Judge"),
         ],
