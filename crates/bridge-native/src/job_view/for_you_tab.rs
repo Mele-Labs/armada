@@ -612,8 +612,9 @@ mod tests {
             crate::look::init(cx);
         });
         let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+        let threads = crate::mock::threads("job-for-you").expect("the threads decode");
         let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
-        let (view, cx) = cx.add_window_view(|window, cx| JobView::new(list, None, window, cx));
+        let (view, cx) = cx.add_window_view(|window, cx| JobView::new(list, Some(threads), window, cx));
         view.update_in(cx, |view, window, cx| view.read_for_you(JOB, window, cx));
         (view, cx)
     }
