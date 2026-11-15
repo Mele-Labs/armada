@@ -57,6 +57,7 @@ pub(crate) mod job_command;
 mod later;
 mod preview_acts;
 mod fork_point;
+mod asides;
 mod forking;
 mod gate;
 mod job_of_its_own;
