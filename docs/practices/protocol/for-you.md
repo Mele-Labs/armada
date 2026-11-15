@@ -32,7 +32,8 @@ A row `add_for_you` added is `added:<n>`.
 Two rows whose `opens` are equal are one row, the first listed, so an added row for a walk Fleet already lists is that walk.
 
 **`opens`** is tagged by `kind`: `artifact` with the `JobArtifact.id` for a sketch, page or draft, `walk` with the address, `plan`, and `waiting` with the item's id for every other item.
-**`kind`** is `walk`, `document`, `plan`, `draft`, `sketch`, `question`, `run` or `approve`. An agent item asking for approval is `approve`, one whose act is `run` is `run`, and any other item is `question`.
+**`kind`** is `walk`, `document`, `plan`, `draft`, `sketch`, `question`, `run` or `approve`.
+An agent item asking for approval is `approve`, one whose act is `run` is `run`, and any other item is `question`.
 **`approves`** is the item's own, and true on the plan.
 
 **Order.** Placed rows come first in the order `order_for_you` set, which replaces the one before. The rest follow oldest first.
