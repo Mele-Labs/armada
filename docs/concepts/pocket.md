@@ -167,7 +167,7 @@ The phone asks once more for an address when one lapses, and the video keeps its
 
 | Screen | Holds | Route |
 |---|---|---|
-| Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
+| Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A project dropdown narrows the list to one project, and All lists a Job in no project too, under its repository's heading. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
 | A row's second line | A waiting Job says what holds it, since a phone has no hover. A done Job says its summary and has an End button. Any other says its pull request, issue, workflow step and what it is doing now. Only Needs you rows pulse | `GET /api/sessions` |
 | A row's state | Fleet's `mark` where the Gateway sends one, else what the phone reads off the row's fields. Without a mark a reply reads as idle, since the phone keeps no record of what the owner read | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
@@ -176,9 +176,11 @@ The phone asks once more for an address when one lapses, and the video keeps its
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its dot's tooltip and the menu give it: the first label of its address, or its host name | `GET /api/machine` |
 
-> **Rule (12 Nov).** The phone sees only Jobs in a project he shares, and Jobs held from another Mac, which only a shared project sends.
-> A Job in an unshared project, or in none, is answered on every route as a Job that does not exist, and is in no list, stream or push.
+> **Rule (12 Nov, changed 15 Nov).** The phone sees Jobs in a project he shares, Jobs in no project, and Jobs held from another Mac, which only a shared project sends.
+> A Job in an unshared project is answered on every route as a Job that does not exist, and is in no list, stream or push.
 > Why: he called keeping private projects private "absolutely critical", and a phone is a paired device like his other Macs.
+> On 15 Nov the phone listed nothing, since almost every Job is started in no project, and he ruled that a Job in no project shows under All.
+> Another Mac still sees only Jobs in a shared project.
 
 **Fleet rules on every route the Gateway calls as the phone, by name** (`crates/api/src/phone_share.rs`, with the rulings in `crates/fleet/src/share.rs`).
 A route asked about a Job the phone does not see is asked with an id no Job has, so it answers in its own words for a missing Job.

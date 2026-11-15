@@ -1,6 +1,6 @@
 //! The share filter on the phone, one test for each route the phone calls: a real Fleet behind a real Phone
-//! Gateway, asked by a paired phone. A Job of an unshared project, or of none, is answered as a Job that does not
-//! exist and is listed nowhere; the same Job reaches the phone once its project is shared.
+//! Gateway, asked by a paired phone. A Job of an unshared project is answered as a Job that does not exist and is
+//! listed nowhere; the same Job reaches the phone once its project is shared. A Job in no project reaches it too.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -113,13 +113,14 @@ fn listed(body: &str, job: &SessionId) -> bool {
 }
 
 #[tokio::test]
-async fn the_jobs_list_holds_only_jobs_in_a_shared_project() {
+async fn the_jobs_list_holds_jobs_in_a_shared_project_or_in_none() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
 
     let body = phone.get("/api/sessions").await;
     assert!(listed(&body, &jobs.open), "{body}");
-    assert!(!listed(&body, &jobs.private) && !listed(&body, &jobs.loose), "{body}");
+    assert!(listed(&body, &jobs.loose), "a Job in no project is listed, under All: {body}");
+    assert!(!listed(&body, &jobs.private), "{body}");
 
     shared(&phone.rig, &jobs.shop, true).await;
     assert!(listed(&phone.get("/api/sessions").await, &jobs.private), "shared, it shows");
@@ -128,7 +129,7 @@ async fn the_jobs_list_holds_only_jobs_in_a_shared_project() {
 }
 
 #[tokio::test]
-async fn needs_you_holds_only_jobs_in_a_shared_project() {
+async fn needs_you_holds_jobs_in_a_shared_project_or_in_none() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
     for job in [&jobs.private, &jobs.loose, &jobs.open] {
@@ -137,8 +138,8 @@ async fn needs_you_holds_only_jobs_in_a_shared_project() {
     }
 
     let needs = phone.get("/api/needs").await;
-    assert!(listed(&needs, &jobs.open), "{needs}");
-    assert!(!listed(&needs, &jobs.private) && !listed(&needs, &jobs.loose), "{needs}");
+    assert!(listed(&needs, &jobs.open) && listed(&needs, &jobs.loose), "{needs}");
+    assert!(!listed(&needs, &jobs.private), "{needs}");
     shared(&phone.rig, &jobs.shop, true).await;
     assert!(listed(&phone.get("/api/needs").await, &jobs.private));
 }
@@ -151,11 +152,11 @@ async fn an_unshared_jobs_thread_answers_as_a_job_that_does_not_exist() {
 
     let missing = phone.call("GET", &thread(NOBODY), "", NOBODY).await;
     assert_ne!(missing.0, StatusCode::OK, "{missing:?}");
-    for job in [&jobs.private, &jobs.loose] {
-        assert_eq!(phone.call("GET", &thread(job.as_str()), "", job.as_str()).await, missing, "the answer says nothing of it");
+    assert_eq!(phone.call("GET", &thread(jobs.private.as_str()), "", jobs.private.as_str()).await, missing, "the answer says nothing of it");
+    for job in [&jobs.open, &jobs.loose] {
+        let (status, body) = phone.call("GET", &thread(job.as_str()), "", job.as_str()).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
     }
-    let (status, body) = phone.call("GET", &thread(jobs.open.as_str()), "", jobs.open.as_str()).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
     shared(&phone.rig, &jobs.shop, true).await;
     assert_eq!(phone.call("GET", &thread(jobs.private.as_str()), "", "").await.0, StatusCode::OK);
 }
@@ -168,9 +169,9 @@ async fn an_unshared_jobs_shown_file_answers_as_a_job_that_does_not_exist() {
         let shown = |job: &str| format!("{route}?session_id={job}&path=shot.png");
         let missing = phone.call("GET", &shown(NOBODY), "", NOBODY).await;
         assert_eq!(phone.call("GET", &shown(jobs.private.as_str()), "", jobs.private.as_str()).await, missing, "{route}");
-        assert_eq!(phone.call("GET", &shown(jobs.loose.as_str()), "", jobs.loose.as_str()).await, missing, "{route}");
-        // Fleet knows the shared Job, and answers for the file it never showed.
+        // Fleet knows the shared Job and the Job in no project, and answers for the file each never showed.
         assert_ne!(phone.call("GET", &shown(jobs.open.as_str()), "", jobs.open.as_str()).await, missing, "{route}");
+        assert_ne!(phone.call("GET", &shown(jobs.loose.as_str()), "", jobs.loose.as_str()).await, missing, "{route}");
     }
 }
 
@@ -226,10 +227,8 @@ async fn an_act_on_an_unshared_job_answers_as_an_act_on_no_job_and_a_shared_one_
         let route = format!("/api/sessions/{act}");
         let missing = phone.call("POST", &route, &body.replace("{id}", NOBODY), NOBODY).await;
         assert_ne!(missing.0, StatusCode::BAD_REQUEST, "{act}: the body must read, or every Job answers alike: {missing:?}");
-        for job in [&jobs.private, &jobs.loose] {
-            let unshared = phone.call("POST", &route, &body.replace("{id}", job.as_str()), job.as_str()).await;
-            assert_eq!(unshared, missing, "{act}: the answer says nothing of it");
-        }
+        let unshared = phone.call("POST", &route, &body.replace("{id}", jobs.private.as_str()), jobs.private.as_str()).await;
+        assert_eq!(unshared, missing, "{act}: the answer says nothing of it");
         // A Job of its own, so an act before it (a close, a stop) is not what this one meets. A change to a wait,
         // or a start out of one, needs a Job that waits: Fleet answers one that does not exactly as it answers no Job.
         let open = match *act {
@@ -249,7 +248,7 @@ async fn an_answer_to_an_unshared_jobs_question_answers_as_for_no_job() {
     let missing = phone.call("POST", "/api/sessions/answer", &answer(NOBODY), NOBODY).await;
     assert_eq!(missing.0, StatusCode::NOT_FOUND, "{missing:?}");
     assert_eq!(phone.call("POST", "/api/sessions/answer", &answer(jobs.private.as_str()), jobs.private.as_str()).await, missing);
-    assert_eq!(phone.call("POST", "/api/sessions/answer", &answer(jobs.loose.as_str()), jobs.loose.as_str()).await, missing);
+    assert_ne!(phone.call("POST", "/api/sessions/answer", &answer(jobs.loose.as_str()), jobs.loose.as_str()).await, missing);
     assert_ne!(phone.call("POST", "/api/sessions/answer", &answer(jobs.open.as_str()), jobs.open.as_str()).await, missing);
 }
 
@@ -260,7 +259,6 @@ async fn a_fork_of_an_unshared_job_answers_as_for_no_job() {
     let fork = |job: &str| format!(r#"{{"session_id":"{job}"}}"#);
     let missing = phone.call("POST", "/api/sessions/fork", &fork(NOBODY), NOBODY).await;
     assert_eq!(phone.call("POST", "/api/sessions/fork", &fork(jobs.private.as_str()), jobs.private.as_str()).await, missing);
-    assert_eq!(phone.call("POST", "/api/sessions/fork", &fork(jobs.loose.as_str()), jobs.loose.as_str()).await, missing);
     assert_ne!(phone.call("POST", "/api/sessions/fork", &fork(jobs.open.as_str()), jobs.open.as_str()).await, missing, "a shared Job is found");
     assert!(phone.rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len() == 3, "nothing was started");
 }
@@ -320,7 +318,7 @@ async fn a_route_the_phone_has_no_ruling_for_is_not_there_for_it() {
 
 /// The phone's live stream, which the push watcher reads too: an unshared Job's change never reaches it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn the_live_stream_carries_only_changes_to_jobs_in_a_shared_project() {
+async fn the_live_stream_carries_changes_to_jobs_in_a_shared_project_or_in_none() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
     let answer = pocket::router(phone.gateway.clone()).oneshot(phone.request("GET", "/api/live", "")).await.expect("answered");
@@ -336,10 +334,10 @@ async fn the_live_stream_carries_only_changes_to_jobs_in_a_shared_project() {
         let record = sessions.iter().find(|one| one.id == *job).expect("listed").clone();
         phone.rig.fleet.events().publish(Event::SessionChanged(record));
     }
-    while !heard.contains(jobs.open.as_str()) {
+    while !heard.contains(jobs.open.as_str()) || !heard.contains(jobs.loose.as_str()) {
         heard.push_str(&next_frame(&mut body).await);
     }
-    assert!(!heard.contains(jobs.private.as_str()) && !heard.contains(jobs.loose.as_str()), "{heard}");
+    assert!(!heard.contains(jobs.private.as_str()), "{heard}");
 }
 
 async fn next_frame(body: &mut Body) -> String {

@@ -684,7 +684,7 @@ if $dry_run; then
   echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
   echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's main, preload or Electron differ from the build before's; where only its page differs, Bridge reloads it in place"
   if bridge_electron=$(armada_electron); then
-    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada Classic with the Classic icon, ad hoc signed, made if missing, kept once per Electron version in $support/electron"
+    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada Classic with the Classic icon, signed by scripts/signing-identity, made if missing, kept once per Electron version in $support/electron"
   else
     echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
   fi
@@ -697,7 +697,7 @@ if $dry_run; then
     else
       echo "would not build the native Bridge — unchanged since its last build in $src"
     fi
-    echo "would keep the native Bridge as $kept_current/Armada.app — its binary named Armada, an Info.plist, the brand icon, ad hoc signed"
+    echo "would keep the native Bridge as $kept_current/Armada.app — its binary named Armada, an Info.plist, the brand icon, signed by scripts/signing-identity"
     echo "would write $native_plist: [$kept_current/bridge-launch, $kept_current/Armada.app/Contents/MacOS/Armada] in $kept_current, reopened by launchd when it stops without a quit"
     echo "would open the native Bridge too if its job is not loaded or is loaded from anywhere but $kept_current, or the kept app differs from the build before's; its job is booted out and in, never kickstarted"
     dry_bridge "native Bridge" "$(launchctl print "$native_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)" "$kept_current" \
