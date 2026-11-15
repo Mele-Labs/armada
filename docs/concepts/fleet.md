@@ -677,11 +677,13 @@ The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a differ
 On every accepted offer Fleet keeps one note a (branch, tip) in `build_notes`: the Job, its `about`, `look` and `steps`, when it was offered and when the owner looked.
 A re-offer at the same tip updates the note and keeps the mark, and a new tip is a new note that is not looked at.
 Fleet drops an offer when its Job ends or its tip lands, and the note stays, because the build the owner loaded still holds the branch.
-**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended` and `looked_at`, and the build's commit.
+**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
 Off the preview it answers no notes and no commit.
 `build_notes.changed` carries it whole, when a note is marked, when a Job whose note the build holds ends, and when the running build changes.
 Fleet looks for the last two on the sweep that reads `main`, so a Job's end reaches Bridge within one sweep.
-The owner has two acts on a note, each refused to a Job: `mark_build_note_looked_at` keeps the mark so the next build shows only what is new, and `send_build_note_feedback` sends his words on it.
+The owner has two acts on a note, each refused to a Job: `mark_build_note_looked_at` keeps the mark so the next build shows only what is new, with his verdict, `good` or `needs_work`, and `send_build_note_feedback` sends his words on it.
+The first mark and each change of verdict tell the note's Job, where it is live, as `build_moved` news: `The owner says your preview note "<about>" on <branch> at <tip> is good.`, or `… needs work. His words on it follow in a message: wait for them before you change it.`
+A mark with no verdict says `The owner looked at …`, and one that changes nothing tells it nothing.
 Where the note's Job is live, the words reach its thread as his message, led by `On your preview note "<about>":`.
 Where it has ended, Fleet starts a new Job in the same repository, running at once because the press is his, whose request carries his words, the ended Job's title, the note's `look` and `steps`, and the branch and tip.
 A note, a mark or a tip Fleet does not know is a 404, `fleet.build_note_unknown`, and empty words are a 422, `fleet.build_note_words_empty`.

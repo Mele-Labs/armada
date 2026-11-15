@@ -68,7 +68,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘D       split the focused pane of the open Job, the new pane to its right
 ⌘⌥D      split the focused pane of the open Job, the new pane below it
 ⌥⌘Enter  zoom the focused pane over the Cockpit, or put it back
-⌘L       open the Layout menu in the open Job's header
+⌘L       open the Layout menu in the open Job's header   (anywhere)
 ⌘Z ⇧⌘Z   undo or redo a change to the open Job's panes, outside a text box
 ⌃Tab ⌃⇧Tab  next or previous tab of the focused pane
 ⌘⌥←↑→↓   move the focus to the pane beside the focused one
@@ -193,6 +193,9 @@ d              dismiss   (review sheet only)
 j / k / ↓ / ↑  move between items   (review sheet only)
 ⇧a             approve all   (review sheet only)
 ⇧d             dismiss all   (review sheet only)
+1–9            go to step   (review sheet only)
+⌘E             good   (review sheet only)
+⇧⌘E            needs work   (review sheet only)
 Enter          New shell, in a terminal whose shell ended   (terminal only)
 ```
 
@@ -404,6 +407,8 @@ They join the Job view's `⌥` family under Two tiers.
 In the review sheet, which `⇧⌘Y` opens, the items with an Approve across Jobs stand grouped by Job.
 `a` approves the chosen item, `c` sends it back with its notes, `d` dismisses it, `j` and `k` move, `⇧a` approves every item still asking and `⇧d` dismisses them.
 `c` with no notes puts the caret in the item's notes, where `⌘↵` sends, and Esc returns focus to the key that opened the sheet.
+In the In this build sheet, which opens on a preview build that holds branches Jobs offered, `1`–`9` run the chosen note's steps, `⌘E` marks it good, `⇧⌘E` marks it as needing work and puts the caret in its box, `↑` and `↓` move between notes, `⌘↵` sends the feedback and Esc closes it.
+It takes the review sheet's scope, since it is the same kind of sheet, and its keys are heard only while it is up.
 
 **The target card is the waiting card that holds focus, and otherwise the newest card still waiting.**
 It wears a ring, and only it draws kbds, so a person sees which card a key hits.

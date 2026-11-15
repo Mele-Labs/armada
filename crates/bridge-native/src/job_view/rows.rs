@@ -304,6 +304,9 @@ impl JobView {
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
+        // The cards of artifacts kept after this item stand under it, in the element it is drawn in.
+        let kept: Vec<AnyElement> = if ix < page.items { page.anchors.iter().filter(|held| held.item == ix).filter_map(|held| self.parts_card(ix, &held.artifact, held.revision, false, page, look, cx)).collect() } else { Vec::new() };
+        let drawn = if kept.is_empty() { drawn } else { Some(div().w_full().flex().flex_col().gap(self.row_gap(look)).children(drawn).children(kept).into_any_element()) };
         let Some(drawn) = drawn else { return nothing() };
         // Aa's Spacing: the gap under each row, and the room a message takes above itself and above the row after it.
         let spacing = self.composer.quick.thread().spacing;
@@ -633,6 +636,18 @@ impl JobView {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let next = after.and_then(began);
+        // The sketch, page and draft that joined an artifact of parts are its parts: its one card draws them.
+        if let Some(job) = &self.shown {
+            let joined = match item {
+                ThreadItem::Sketch(card) => self.is_part(job, &card.sketch),
+                ThreadItem::Document(card) => self.is_part(job, &card.page),
+                ThreadItem::Row { row: SessionRow::Draft { title, .. } } => self.is_part(job, &format!("draft:{title}")),
+                _ => false,
+            };
+            if joined {
+                return None;
+            }
+        }
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => {
@@ -664,6 +679,7 @@ impl JobView {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
+            Extra::Parts(artifact, revision) => return self.parts_card(page.items + at, artifact, *revision, false, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };

@@ -109,6 +109,8 @@ where
             }
             // Only ever says a row held from another Mac went, and what another Mac shared never goes back out.
             Event::SessionRemoved(_) => return None,
+            // For you is read off this Mac's own store, by `get_for_you`, which no other Mac relays.
+            Event::SessionForYou(_) => return None,
             Event::ManifestReread(_)
             | Event::CheckoutRunFinished(_)
             | Event::ServerStarting(_)
@@ -121,6 +123,7 @@ where
             | Event::WriteClashesChanged(_)
             | Event::PreviewOffersChanged(_)
             | Event::BuildNotesChanged(_)
+            | Event::SessionAside(_)
             | Event::CallsChanged(_)
             | Event::ModsChanged(_)
             | Event::SettingsChanged(_)

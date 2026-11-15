@@ -434,6 +434,13 @@ fn preflight(root: &Path, package_dir: &str) -> Option<String> {
     None
 }
 
+/// The usable stylesheets of the whole checkout, the ones that set the most colours and sizes first: step 5 run
+/// in a checkout of any number of packages. **What a mock naming no `styles` is drawn with where the walk from the
+/// Job's work finds nothing usable**, as a Job whose work is all Rust does, so its tokens still read.
+pub(crate) fn searched_usable(root: &Path) -> Vec<String> {
+    described(root, searched(root)).into_iter().filter(|one| one.usable).map(|one| one.path).collect()
+}
+
 /// Step 5. Every plain stylesheet of the checkout, the ones that set the most colours and sizes first.
 fn searched(root: &Path) -> Vec<Found> {
     let mut scored: Vec<(usize, String, StyleKind)> = Vec::new();

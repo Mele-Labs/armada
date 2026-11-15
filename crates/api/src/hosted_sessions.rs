@@ -1206,6 +1206,63 @@ pub(crate) async fn get_job_copy<D: HostedSessions>(State(served): State<Served<
     }
 }
 
+/// A Job's own For you. **The Job is placed by the connection**, else `?session_id=`.
+pub(crate) async fn get_for_you<D: HostedSessions>(State(served): State<Served<D>>, Query(asked): Query<ForJobCopy>) -> Response {
+    let named = asked.session_id.filter(|id| !id.trim().is_empty()).map(|id| ipc::SessionId::carried(id.trim()));
+    match served.shared().get_for_you(named).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A row off a Job's For you, for good. 200 with the view after it.
+pub(crate) async fn withdraw_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let withdraw: ipc::WithdrawForYou = match ipc::decode_body("a For you row to withdraw", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().withdraw_for_you(withdraw).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The order of a Job's For you rows. 200 with the view after it; 422 naming ids that are not rows.
+pub(crate) async fn order_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let order: ipc::OrderForYou = match ipc::decode_body("an order of For you rows", &body) {
+        Ok(order) => order,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().order_for_you(order).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The line under one For you row. 200 with the view after it; 422 for an id that is not a row.
+pub(crate) async fn line_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let line: ipc::LineForYou = match ipc::decode_body("a line for a For you row", &body) {
+        Ok(line) => line,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().line_for_you(line).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A row added to a Job's For you. 200 with its id.
+pub(crate) async fn add_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let add: ipc::AddForYou = match ipc::decode_body("a For you row to add", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().add_for_you(add).await {
+        Ok(added) => answer(StatusCode::OK, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The owner presses Keep for every Job: the Job's workflow proposed as a change. 200 with the
 /// `WorkflowChange` kept.
 pub(crate) async fn keep_job_workflow<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

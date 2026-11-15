@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stale marks</title>
+<link rel="stylesheet" href="armada-kit.css">
+</head>
+<body>
+<h1>Stale marks</h1>
+<p>How a stale branch reads in the branch list, and where the mark is set. The drawing shows the path from the list to the mark.</p>
+<armada-sketch title="Where the mark is set"><script type="application/json">{"nodes":[{"id":"list","kind":"box","x":0,"y":0,"w":200,"h":80,"title":"Branch list","body":"Reads the branches","step":1},{"id":"check","kind":"box","x":320,"y":0,"w":200,"h":80,"title":"Stale check","body":"Main moved past by a day","step":2,"color":"amber"},{"id":"mark","kind":"box","x":640,"y":0,"w":200,"h":80,"title":"Mark","body":"Drawn on the row","step":3,"color":"green"}],"edges":[{"id":"e1","from":"list","to":"check","step":2},{"id":"e2","from":"check","to":"mark","step":3,"label":"stale"}]}</script></armada-sketch>
+<section aria-label="Pick a mark">
+<h2>How a stale branch is marked</h2>
+<armada-vote id="mark" form="pick" question="Which mark?">
+<armada-take id="chip" title="Amber chip"><p>An amber chip after the branch name, with the days behind in its tooltip.</p><armada-sketch title="Amber chip"><script type="application/json">{"nodes":[{"id":"row","kind":"box","x":0,"y":0,"w":220,"h":70,"title":"web/dark-mode","body":"3 days behind"},{"id":"chip","kind":"box","x":280,"y":0,"w":160,"h":70,"title":"3d","body":"Amber chip after the name","color":"amber"}],"edges":[{"id":"e","from":"row","to":"chip"}]}</script></armada-sketch></armada-take>
+<armada-take id="fade" title="Faded row"><p>The whole row drawn at half strength, the days behind in its own column.</p><armada-sketch title="Faded row"><script type="application/json">{"nodes":[{"id":"row","kind":"box","x":0,"y":0,"w":220,"h":70,"title":"web/dark-mode","body":"Row at half strength","color":"grey"},{"id":"age","kind":"box","x":280,"y":0,"w":160,"h":70,"title":"Behind main","body":"3 days, its own column"}],"edges":[{"id":"e","from":"row","to":"age"}]}</script></armada-sketch></armada-take>
+</armada-vote>
+</section>
+</body>
+</html>

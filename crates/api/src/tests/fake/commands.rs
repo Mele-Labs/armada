@@ -107,7 +107,7 @@ impl Commands for FakeDaemon {
     }
 
     /// Answered with the notes [`shapes::build_notes`] describes; nothing is kept.
-    async fn mark_build_note_looked_at(&self, _asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
+    async fn mark_build_note_looked_at(self: std::sync::Arc<Self>, _asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
         Ok(crate::tests::shapes::build_notes())
     }
 

@@ -20,6 +20,7 @@ mod crash_layer;
 mod link_layer;
 mod link_panel;
 pub mod offers;
+mod notes_row;
 mod origin;
 pub mod parts;
 mod projects;
@@ -74,6 +75,8 @@ pub enum Asked {
     SettingsAt(crate::settings::SettingsAt),
     ProjectMembers(usize),
     NewProject,
+    /// The switcher's In this build row: the sheet of the build's notes opens.
+    BuildNotes,
     ChangeBuild { build: BuildSource },
     Revert,
     Keep,
@@ -230,6 +233,8 @@ pub struct TitleBar {
     build_read: Option<ipc::FleetBuildReport>,
     /// The offers as last handed in, which an optimistic skip stands over until Fleet answers.
     offers_read: Option<ipc::PreviewOffers>,
+    /// The notes as last handed in, so the sheet is told only when they moved.
+    notes_read: Option<ipc::BuildNotes>,
     /// The live link as last handed in, read again by the clock while the face moves with time alone.
     link_read: Option<face::LiveLink>,
     /// When the window opened: a Fleet down at launch has the same grace as one that just dropped.
@@ -360,6 +365,7 @@ impl TitleBar {
             fleet_lists: gpui::ScrollHandle::new(),
             list_stops: ListStops { keep: cx.focus_handle().tab_stop(true), revert: cx.focus_handle().tab_stop(true), swap: cx.focus_handle().tab_stop(true) },
             offers_read: None,
+            notes_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
             _link_tick: None,
@@ -421,6 +427,18 @@ impl TitleBar {
         self.offers_read = offers.cloned();
         self.face.offers = offers.cloned();
         cx.notify();
+    }
+
+    /// The notes of the build Fleet runs, as Fleet last said them. Whether they moved, so the caller tells the sheet
+    /// only then.
+    pub fn set_build_notes(&mut self, notes: Option<&ipc::BuildNotes>, cx: &mut Context<Self>) -> bool {
+        if self.notes_read.as_ref() == notes {
+            return false;
+        }
+        self.notes_read = notes.cloned();
+        self.face.build_notes = notes.cloned();
+        cx.notify();
+        true
     }
 
     /// The disk Fleet last reported. Its section of the Fleet panel draws it, and nothing where there is none.

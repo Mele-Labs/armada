@@ -139,6 +139,19 @@ pub struct BuildNote {
     pub job_ended: bool,
     /// The owner marked it looked at.
     pub looked_at: bool,
+    /// What he made of it, where he said. Since 15 Nov 2026; a note marked before then is looked at with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<NoteVerdict>,
+}
+
+/// What the owner made of a note when he looked at it. Its Job is told.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoteVerdict {
+    /// The work is fine as it stands.
+    Good,
+    /// The work needs changes: his words on it follow through `send_build_note_feedback`.
+    NeedsWork,
 }
 
 /// What `get_build_notes` answers, and `build_notes.changed` carries whole: a note for each offered branch the
@@ -152,11 +165,15 @@ pub struct BuildNotes {
     pub notes: Vec<BuildNote>,
 }
 
-/// `mark_build_note_looked_at`'s body: the owner marks the note of this (branch, tip) looked at.
+/// `mark_build_note_looked_at`'s body: the owner marks the note of this (branch, tip) looked at, and says what he
+/// made of it. A later mark changes the verdict and keeps the first time.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MarkBuildNoteLookedAt {
     pub branch: String,
     pub tip: String,
+    /// Since 15 Nov 2026. Absent keeps the verdict the note has.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<NoteVerdict>,
 }
 
 /// `send_build_note_feedback`'s body: the owner's words on the note of this (branch, tip).

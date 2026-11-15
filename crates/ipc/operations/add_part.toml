@@ -10,6 +10,8 @@ notes = """
 
 **Where it goes is Fleet's to say, not the job's** (`docs/concepts/artifact.md`, *Parts*). A part put under an id the artifact holds is that part's next revision. Otherwise it joins the artifact of this job that still asks him, whatever `title` says, and where none asks it starts one titled `title`. A lone draft or page that still asks becomes a part of it, so the job never leaves him two things to read.
 
+**A take's mocks are kept with their style set**, as `show_sketch` keeps a sketch's, and each carries `kept`, so native draws it in the repository's styles; a mock that cannot be drawn is refused with `fleet.sketch_refused`, saying what to change.
+
 **Refused with 422 and nothing written**: `fleet.part_refused`, naming every rule broken at once (a drawing sent here, a blank title, takes under two or over six, a `score` with no `parts`, an `asks` on buttons, an id holding `:` or `/`, a part over 48 KiB, more than twelve parts, a kind changed under an id); `fleet.part_unnamed` for a call that places no job.
 
 `agent_access` is `Yes`: it is the job's own words and pictures, and the owner answers them in Bridge with `answer_part`.

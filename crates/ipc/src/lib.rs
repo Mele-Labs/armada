@@ -219,6 +219,8 @@ mod requests_batch;
 mod request_runs;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
+/// A side question put to a Job, answered on a thrown-away copy of its conversation.
+mod asides;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// A pull request's change sets, its overview, and its sets held to the repository's practices.
@@ -308,6 +310,8 @@ mod autopilot;
 mod autopilot_decisions;
 /// How much of the plan's windows is used.
 mod plan_usage;
+/// One Job's For you tab: what waits on him, what it builds, what lands.
+mod for_you;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
 /// The agents' account signed out, for the whole Fleet.
@@ -387,7 +391,7 @@ pub use building::{
     HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
-    BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, SendBuildNoteFeedback, PreviewStep,
+    BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, NoteVerdict, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
 };
@@ -653,6 +657,7 @@ pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
 };
+pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use judge::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
     JudgeState, MarkJudgeRead, SendJudgeNote,
@@ -846,6 +851,10 @@ pub use model_downshift::{
 pub use agent_sign_in::AgentSignIn;
 pub use plan_usage::{
     PlanUsage, PlanWindow,
+};
+pub use for_you::{
+    AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding, ForYouOpens, LineForYou,
+    OrderForYou, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,

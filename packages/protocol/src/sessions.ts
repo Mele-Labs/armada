@@ -485,7 +485,9 @@ export type WaitingAct = {
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
- * `detail.settled`. Its press opens the document. `answer_document` answers it.
+ * `detail.settled`. Its press opens the document. `answer_document` answers it. A page that asks nothing waits as id `read:<path>` with
+ * the same source, text `Read: <title>` and `artifact` the page, while `detail.reads` stands and he has not opened its newest revision:
+ * opening it (`mark_artifact_seen`) is the answer, nothing approves it, and the Job is told nothing.
  * `gate` (id `gate:<group id>`, text `"<group title>" waits on <what>`, act `answer` whose `target` is the Job's own id) is the Job's
  * `all_done` held at a gate that nothing in the Job can close and he can: `Approve` (choice 0) and `Skip this group` (choice 1).
  * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of

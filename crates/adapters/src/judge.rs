@@ -320,4 +320,19 @@ fn reading_only(args: &mut Vec<String>, reading: &Reading) {
         "--disallowedTools".into(),
         denied.join(","),
     ]);
+    if let Some(fork) = reading.fork() {
+        args.extend([
+            // The conversation the call remembers, as a copy: `--fork-session` gives it `--session-id`
+            // rather than the original's, and `--no-session-persistence` writes it nowhere, so the
+            // original's file is read and never appended to.
+            "--resume".into(),
+            fork.session().into(),
+            "--fork-session".into(),
+            "--session-id".into(),
+            fork.copy().into(),
+            "--resume-session-at".into(),
+            fork.at().into(),
+            "--no-session-persistence".into(),
+        ]);
+    }
 }

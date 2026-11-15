@@ -80,6 +80,9 @@ pub enum Signal {
     /// `GET /fleet/build/offers`, on connect and after a `Missed`; `preview_offers.changed` carries it whole after that.
     Offers(ipc::PreviewOffers),
     OffersFailed(String),
+    /// `GET /fleet/build/notes`, on connect and after a `Missed`; `build_notes.changed` carries it whole after that.
+    BuildNotes(ipc::BuildNotes),
+    BuildNotesFailed(String),
     /// `GET /queued`, on connect and after a `Missed`; `queued.changed` carries it whole after that.
     Queued(ipc::QueuedList),
     QueuedFailed(String),
@@ -275,6 +278,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     tokio::spawn(fetch_plan(tx.clone(), fleet.port));
                     tokio::spawn(fetch_offers(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_build_notes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_queued(tx.clone(), fleet.port));
                     tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
@@ -290,6 +294,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_offers(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_build_notes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_queued(tx.clone(), fleet.port));
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
@@ -457,6 +462,15 @@ async fn fetch_offers(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<ipc::PreviewOffers>(port, "/fleet/build/offers", "preview offers").await {
         Ok(offers) => Signal::Offers(offers),
         Err(why) => Signal::OffersFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /fleet/build/notes`, retried as the Jobs are.
+async fn fetch_build_notes(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<ipc::BuildNotes>(port, "/fleet/build/notes", "build notes").await {
+        Ok(notes) => Signal::BuildNotes(notes),
+        Err(why) => Signal::BuildNotesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

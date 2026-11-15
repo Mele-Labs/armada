@@ -1,0 +1,14 @@
+[operations.add_for_you]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Add a row to this job's For you for something waiting on the person that Fleet cannot see on its own. Body: {title, kind, opens, line?, session_id?}: kind is walk, document, plan, draft, sketch, question, run or approve; opens is what a press opens, {kind: artifact, id}, {kind: walk, url}, {kind: waiting, id} or {kind: plan}. Answers {id}. A row whose opens names one already listed is that row"
+notes = """
+`POST /sessions/for_you/add`, body `AddForYou` `{ title, kind, opens, line?, session_id? }`. Answers 200 with `ForYouAdded` `{ id }`, and publishes `session.for_you`.
+
+**One thing is one row.** Where `opens` names what a row already listed opens, no row is added: the answer is that row's id, and a `line` given is put on it. Otherwise the row is kept as `added:<n>`, `added_by` `agent`, `since` now, and it is listed until it is withdrawn or the Job ends.
+
+Refused with 422 `fleet.for_you_blank` for a blank title, and `fleet.session_closed` for an ended Job.
+
+The Job is placed as `get_for_you`'s is.
+"""

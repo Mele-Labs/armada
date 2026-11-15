@@ -1,0 +1,14 @@
+[operations.tell_aside]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Send an answered aside to its Job as the owner's message"
+notes = """
+`POST /sessions/aside/tell`, body `TellAside`: `session_id` and `aside_id`. Answers the `Aside` with `told_at` set. Since 15 Nov 2026.
+
+Sends the Job one normal message of the owner's, by the route `tell_session` takes: `Aside, answered on a read-only copy of this Job:`, the quote where there was one, the question and the answer. Fleet then publishes `session.aside`. **Once**: an aside is told one time.
+
+404 `fleet.no_such_session` where Fleet hosts no such Job, and 404 `fleet.no_such_aside` for an aside the Job does not hold. 409 `fleet.aside_not_answered` for one that is still asking or failed, and 409 `fleet.aside_told` for one already told.
+
+`agent_access` is `No`: the owner decides what his Job hears.
+"""
