@@ -1239,14 +1239,17 @@ impl Render for JobView {
             self.pages.values().for_each(|page| page.list.remeasure());
         }
         // The column follows the width the thread was last drawn at; a change draws once more at the new one.
-        let pane = head::drawn(window, cx, Role::Region, "Thread").map(|bounds| bounds.size.width);
+        let region = head::drawn(window, cx, Role::Region, "Thread");
+        let pane = region.map(|bounds| bounds.size.width);
         if pane.is_some() && pane != self.pane {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
         }
         // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
-        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        // The region's own height, not the list's: the call chip's room is padding inside the region, and a room that shrank
+        // with the chip would cut the pin again, measure the list, and so show or hide the chip, every frame.
+        let room = region.map(|bounds| bounds.size.height - look.length(token::SPACE_4)).filter(|room| *room > gpui::px(0.));
         if room.is_some() && room != self.pane_height {
             self.pane_height = room;
             if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {
