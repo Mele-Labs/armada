@@ -21,7 +21,7 @@ use crate::look::{token, Look};
 const KEY: &str = "account.clientId";
 const REGISTER: &str = "Register on GitHub";
 const OPENING: &str = "Opening";
-const TITLE: &str = "Sign-in app";
+const TITLE: &str = "Register the app";
 const WHAT: &str = "GitHub makes the app on your account and opens its settings page, where you tick Enable Device Flow.";
 
 /// The press's own state: whether Fleet has been asked and not yet answered, what it refused with, and the press's key.
