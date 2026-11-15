@@ -246,6 +246,9 @@ It holds a lock on `Armada/bridge-native.lock` and writes its pid, its executabl
 A second start brings the holder forward and exits; a start from launchd that finds a holder launchd did not start asks it to quit and takes its place.
 A notification press otherwise makes Launch Services open the bundle it registered, which has been an old build beside the running one (14 Nov 2026).
 So the live app also runs `lsregister -f` on its own bundle and `-u` on every other `builds/*/Armada.app` (`launch_services.rs`), and `scripts/keep-build` unregisters a bundle before it deletes it.
+A panic writes `Armada/crashes/crash-<UTC time>.txt` before the process goes, and writes the drafts the app had not yet kept, so the reopened app finds what he was typing.
+The first launch after a crash shows a centred panel with the panic, what was kept and a Start a Job to fix it button; Later and that button both mark the report seen with a `.seen` file beside it (`crates/bridge-native/src/crash.rs`).
+A run that quits as he meant marks its own reports seen, because a panic off the main thread ends only its thread.
 A restart opens it where its job is not loaded or runs from anywhere but `builds/current`, the kept app differs from the build before's (`native` in `build.toml`), or the running app was built for another protocol than the new Fleet's; otherwise it is left as it is.
 **The protocol is read off the running process**, not the build before: `scripts/running-bridge` finds the build the app's binary is in and reads that build's `protocol_id`.
 A restart that died after it moved `builds/current` left the next one seeing no difference, and native on the old protocol (13 Nov 2026).

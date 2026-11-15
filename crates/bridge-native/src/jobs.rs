@@ -2775,6 +2775,14 @@ impl JobsScreen {
                 }
                 return;
             }
+            // The crash panel started a Job to fix the crash: it opens.
+            if let crate::titlebar::Asked::OpenJob(id) = asked {
+                if let Some(list) = fleet_of.upgrade() {
+                    let id = id.clone();
+                    cx.defer(move |cx| list.update(cx, |list, cx| list.open(id.into(), cx)));
+                }
+                return;
+            }
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
                 crate::titlebar::Asked::ChangeBuild { build } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false })),

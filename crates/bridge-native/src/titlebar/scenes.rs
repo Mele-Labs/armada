@@ -373,8 +373,46 @@ fn fleet_live(name: &str) -> Option<LiveFleet> {
     })
 }
 
+/// The crash panel's scenes: a crash with what was kept, and a Start Fleet answers or refuses.
+pub fn crash_scene(name: &str, job: &str) -> Option<(super::CrashOffer, super::CrashStandIn)> {
+    use crate::crash::{Crash, KeptDraft};
+    let answer = match name {
+        "crash-panel" => Ok(job.to_string()),
+        "crash-panel-refused" => Err("Fleet serves no repository named armada".to_string()),
+        _ => return None,
+    };
+    let at = chrono::NaiveDate::from_ymd_opt(2026, 11, 14).and_then(|day| day.and_hms_opt(11, 1, 2)).map(|time| chrono::TimeZone::from_utc_datetime(&chrono::Utc, &time))?;
+    let crash = Crash {
+        file: "/Users/user/Library/Application Support/Armada/crashes/crash-2026-11-14T110102Z.txt".into(),
+        at,
+        panic: "already mutably borrowed: BorrowError".into(),
+        location: "crates/bridge-native/src/toasts/view.rs:412:18".into(),
+    };
+    let kept = |key: &str, kind: &'static str, label: &str, first_line: &str| KeptDraft { key: key.into(), kind, label: label.into(), first_line: first_line.into() };
+    let offer = super::CrashOffer {
+        crash,
+        macos: Some("/Users/user/Library/Logs/DiagnosticReports/Armada-2026-11-14-111520.ips".into()),
+        kept: vec![
+            kept("dispatch:request", "Dispatch sheet", "Dispatch sheet", "Fix the toast that sits over the title row"),
+            kept("mock-01", "Composer", "Composer", "Ask the Operator about the queue before the merge"),
+            kept("annotate:note", "Note", "Note", "The gap under the header is too tight"),
+        ],
+    };
+    let files = vec![
+        ("crash-2026-11-14T110102Z.txt".to_string(), b"panic: already mutably borrowed: BorrowError".to_vec()),
+        ("Armada-2026-11-14-111520.ips".to_string(), b"{}".to_vec()),
+    ];
+    Some((offer, super::CrashStandIn { files, answer, done: Default::default() }))
+}
+
 /// Move the bar to a named scene. A scene changes the part of the face it is about and leaves the rest.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
+    if let Some((offer, stand_in)) = crash_scene(name, "mock-02") {
+        let bar = live(cx).ok_or("no title bar is drawn yet")?;
+        cx.set_global(stand_in);
+        bar.update(cx, |bar: &mut TitleBar, cx| bar.crash_offered(Some(offer), None, cx));
+        return Ok(());
+    }
     if let Some(scene) = fleet_live(name).or_else(|| fleet_panel(name)) {
         // A clash Fleet cannot vouch for is not drawn: the marks go with the connection, as the live list clears them.
         let down = matches!(&scene, LiveFleet::Link(link) | LiveFleet::Panel(link, _) if link.state != crate::link::LinkState::Connected);
