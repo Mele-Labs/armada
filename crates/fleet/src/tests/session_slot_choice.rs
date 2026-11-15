@@ -415,7 +415,7 @@ async fn a_slot_that_cannot_be_made_puts_the_call_back_with_the_reason_and_creat
 }
 
 #[tokio::test]
-async fn a_wait_while_a_slot_is_made_takes_the_call_off_and_the_slot_still_goes_to_that_job() {
+async fn a_wait_while_a_slot_is_made_keeps_the_wait_shown_and_the_slot_still_goes_to_that_job() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
     let hold = rig.fleet.vcs().hold_makes();
@@ -423,10 +423,10 @@ async fn a_wait_while_a_slot_is_made_takes_the_call_off_and_the_slot_still_goes_
     eventually(|| async { hold.arrived() == 1 }).await;
 
     choose(&rig, &waiting, 0).await.expect("waits");
-    assert!(calls(&rig, &waiting).await.is_empty());
+    assert_eq!(calls(&rig, &waiting).await.len(), 1, "it still waits, so its record still says so");
     hold.open();
 
-    eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
+    eventually(|| async { resumes(&rig, &waiting).len() == 1 && calls(&rig, &waiting).await.is_empty() }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 9));
 }
 
