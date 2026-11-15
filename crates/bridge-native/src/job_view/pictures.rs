@@ -6,12 +6,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{anchored, deferred, div, img, prelude::*, px, size, Anchor, AnyElement, App, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, MouseButton, ObjectFit, Role, SharedString, Size, Window};
+use gpui::{div, img, prelude::*, px, size, AnyElement, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, ObjectFit, Role, SharedString, Size, Window};
 use ipc::SentFile;
 
-use super::rows::{glyph, Size as GlyphSize};
 use super::wire::{encoded, Done};
-use super::zoomer::{self, Stage, Zoomer, Zooms};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -25,20 +23,10 @@ pub(super) enum Picture {
     Unread,
 }
 
-/// The picture open over the window, and how far it is zoomed and moved.
-pub(super) struct Viewing {
-    image: Arc<Image>,
-    natural: Size<f32>,
-    name: SharedString,
-    focus: FocusHandle,
-    back: Option<FocusHandle>,
-    zoom: Zoomer,
-}
-
 #[derive(Default)]
 pub(super) struct Pictures {
     held: HashMap<String, Picture>,
-    pub(super) viewing: Option<Viewing>,
+    pub(super) viewing: Option<super::picture_view::Viewing>,
 }
 
 fn key(job: &str, file: &str) -> String {
@@ -319,131 +307,6 @@ impl JobView {
             }
         }
         lost
-    }
-
-    pub(super) fn open_picture(&mut self, image: Arc<Image>, natural: Size<f32>, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let focus = cx.focus_handle();
-        let back = window.focused(cx);
-        window.focus(&focus, cx);
-        self.pictures.viewing = Some(Viewing { image, natural, name, focus, back, zoom: Zoomer::default() });
-        cx.notify();
-    }
-
-    /// Esc or Close: it shuts and the keys go back to the thumbnail.
-    fn close_picture(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(viewing) = self.pictures.viewing.take() {
-            if let Some(back) = viewing.back {
-                window.focus(&back, cx);
-            }
-        }
-        cx.notify();
-    }
-
-    /// The viewer's keys: Esc, and the zoom's own.
-    fn picture_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let key = &event.keystroke;
-        if key.key == "escape" && !key.modifiers.modified() {
-            self.close_picture(window, cx);
-        } else if !zoomer::keyed(self, key, window, cx) {
-            return;
-        }
-        cx.stop_propagation();
-    }
-
-    /// The picture open over the whole window, with Zoom out, Zoom in and Close at its top right and the zoom's corner at the foot.
-    pub(super) fn render_picture(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
-        let viewing = self.pictures.viewing.as_ref()?;
-        let look = cx.look();
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        // The first frame is the room's own size; the probe inside has the view's from then on.
-        let view = viewing.zoom.view().unwrap_or(size(f32::from(viewport.width), f32::from(viewport.height)));
-        let stage = Stage::of_picture(viewing.natural, view, f32::from(look.length(token::SPACE_6)));
-        let shown = size(stage.fit.width * viewing.zoom.scale, stage.fit.height * viewing.zoom.scale);
-        let button = |id: &'static str, icon: &'static str, said: &'static str, key: &'static str, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
-            let key = gpui::Keystroke::parse(key).ok();
-            labelled(
-                div()
-                    .id(id)
-                    .size(look.length(token::H_CONTROL))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_MD))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(glyph(look, icon, GlyphSize::Small, look.color(token::FG_DEFAULT)))
-                    .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _, window, cx| act(this, window, cx))),
-                Role::Button,
-                said,
-            )
-        };
-        let group = || {
-            div().flex().rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_OVERLAY))
-        };
-        let bar = div()
-            .absolute()
-            .top(look.length(token::SPACE_3))
-            .right(look.length(token::SPACE_3))
-            .flex()
-            .gap(look.length(token::SPACE_2))
-            .child(group().child(button("picture-close", "x", "Close", "escape", |this, window, cx| this.close_picture(window, cx))));
-        Some(
-            deferred(
-                anchored().position(room.origin).anchor(Anchor::TopLeft).child(labelled(
-                    zoomer::bind(
-                        div()
-                            .id("picture-view")
-                            .occlude()
-                            .track_focus(&viewing.focus)
-                            .relative()
-                            .overflow_hidden()
-                            .w(viewport.width)
-                            .h(viewport.height)
-                            .bg(look.color(token::BG_SUNKEN))
-                            .on_key_down(cx.listener(Self::picture_key)),
-                        cx,
-                        |_, _, _, _| {},
-                    )
-                    .child(viewing.zoom.probe())
-                    .child(
-                        div()
-                            .absolute()
-                            .left(px(view.width / 2. - shown.width / 2. + viewing.zoom.pan.x))
-                            .top(px(view.height / 2. - shown.height / 2. + viewing.zoom.pan.y))
-                            .w(px(shown.width))
-                            .h(px(shown.height))
-                            .overflow_hidden()
-                            .child(img(viewing.image.clone()).size_full().object_fit(ObjectFit::Contain)),
-                    )
-                    .child(bar)
-                    .child(zoomer::corner(look, viewing.zoom.readout(stage), |this, _, cx| zoomer::refit(this, cx), cx)),
-                    Role::Dialog,
-                    viewing.name.clone(),
-                )),
-            )
-            .with_priority(3),
-        )
-    }
-}
-
-impl Zooms for JobView {
-    fn zoomer(&mut self) -> Option<&mut Zoomer> {
-        if let Some(viewing) = self.pictures.viewing.as_mut() {
-            return Some(&mut viewing.zoom);
-        }
-        self.sketch_reading.as_mut().map(|reading| &mut reading.zoom)
-    }
-
-    fn stage(&self, view: Size<f32>, _: &Window, cx: &App) -> Option<Stage> {
-        if let Some(viewing) = self.pictures.viewing.as_ref() {
-            return Some(Stage::of_picture(viewing.natural, view, f32::from(cx.look().length(token::SPACE_6))));
-        }
-        let reading = self.sketch_reading.as_ref()?;
-        let (fit, actual) = crate::scene::fit_of(&Self::drawn_key(reading))?;
-        Some(Stage { view, fit, actual })
     }
 }
 

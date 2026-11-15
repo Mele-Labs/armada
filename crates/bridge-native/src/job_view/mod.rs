@@ -55,6 +55,7 @@ mod lines;
 mod menus;
 pub(crate) mod offer;
 mod perm;
+mod picture_view;
 mod pictures;
 mod pinned;
 mod place;

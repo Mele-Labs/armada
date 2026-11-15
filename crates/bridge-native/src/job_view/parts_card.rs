@@ -277,6 +277,50 @@ impl JobView {
         self.parts_artifacts(job).iter().any(|one| one.parts.iter().any(|part| part.id == id))
     }
 
+    /// A part by its key, as he reads it, with the id of the artifact it belongs to.
+    pub(super) fn part_of_key(&self, key: &str) -> Option<(String, ArtifactPart)> {
+        let (artifact, part) = split_key(key)?;
+        let job = self.shown.as_ref()?;
+        let page = self.pages.get(job)?;
+        let held = self.artifact_of(job, artifact)?.parts.iter().find(|held| held.id == part)?;
+        Some((artifact.to_string(), effective(held, key, &page.cards.parts)))
+    }
+
+    /// The takes of a takes part, whether a pick is still asked for, and the take he has chosen or picked, by its place.
+    pub(super) fn takes_of_key(&self, key: &str) -> Option<(Vec<PartTake>, bool, Option<usize>)> {
+        let (_, part) = self.part_of_key(key)?;
+        let PartContent::Takes { takes, form, .. } = &part.content else { return None };
+        let open = part.is_open_ask() && *form == VoteForm::Pick;
+        let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
+        let chosen = if open { self.pages.get(self.shown.as_ref()?)?.cards.parts.chosen.get(key).copied().filter(|at| *at < takes.len()) } else { picked };
+        Some((takes.clone(), open, chosen))
+    }
+
+    /// What stands under a picture of a part he is asked about: Send pick, with its note, under a vote that asks, and Approve and
+    /// Ask for changes under a drawing that asks. `None` where the part asks nothing.
+    pub(super) fn part_acts(&self, key: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let (artifact, part) = self.part_of_key(key)?;
+        let job = self.shown.clone()?;
+        let page = self.pages.get(&job)?;
+        let held = self.artifact_of(&job, &artifact)?;
+        let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(&artifact, &part.id), &page.cards.parts)).collect();
+        let c = Ctx {
+            ix: super::acts::SHEET,
+            id: &artifact,
+            job,
+            page,
+            look,
+            tab: true,
+            words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
+            takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+        };
+        if is_pick(&part) {
+            let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
+            return Some(self.pick_row(&c, key, ready, c.takes.as_deref() == Some(part.id.as_str()), cx));
+        }
+        (is_words_like(&part) && matches!(part.content, PartContent::Drawing { .. })).then(|| self.approve_row(&c, key, &part, cx))
+    }
+
     /// The list place of the card of an artifact's newest revision: under the item it was kept after, or among the extras.
     pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
         let job = self.shown.as_ref()?;
@@ -436,7 +480,7 @@ impl JobView {
     }
 
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
-    fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
+    pub(super) fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
         if let Some(state) = self.parts_state_mut() {
             state.chosen.insert(key.to_string(), take);
         }
@@ -945,7 +989,7 @@ impl JobView {
                     .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child(" (Job's pick)"))),
             )
             .child(expand);
-        let thumb = if c.tab { self.take_flat(c, key, at, take) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview) }
+        let thumb = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview).map(|picture| self.take_press(key, at, take, picture, cx)) }
             .map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
         let (press_key, key_key) = (key.to_string(), key.to_string());
         let tile = div()
@@ -1002,10 +1046,30 @@ impl JobView {
 
     /// A take's picture filling the reading column: the width of its place, the height its own shape gives, no taller than
     /// `tall_most`, and no frame round it.
-    fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake) -> Option<AnyElement> {
+    fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, cx: &Context<Self>) -> Option<AnyElement> {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
-        self.scene_column(&held, text, self.tall_most(), c.look)
+        let picture = self.scene_column(&held, text, self.tall_most(), c.look)?;
+        Some(self.take_press(key, at, take, picture, cx))
+    }
+
+    /// A take's picture made a button: a press reads it large over the app, and a press beside it still chooses the take.
+    fn take_press(&self, key: &str, at: usize, take: &PartTake, picture: AnyElement, cx: &Context<Self>) -> AnyElement {
+        let press = key.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("take-picture:{key}:{at}")))
+                .w_full()
+                .cursor_pointer()
+                .child(picture)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.open_take(&press, at, window, cx);
+                })),
+            Role::Button,
+            format!("Picture: {}", pick_mark(&take.title).0),
+        )
+        .into_any_element()
     }
 
     /// A scene's JSON drawn to fill its width: it stands as tall as its canvas's own shape asks, up to `tall`, and is centred
@@ -1130,7 +1194,7 @@ impl JobView {
                         "Back",
                     )),
             );
-        let picture = if c.tab { self.take_flat(c, key, at, take) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading) };
+        let picture = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading).map(|picture| self.take_press(key, at, take, picture, cx)) };
         let choose = open.then(|| {
             labelled(
                 act(look, format!("large-pick:{key}"), if on { "Chosen" } else { "Choose this take" }, Kind::Secondary, "", true)
@@ -1188,10 +1252,10 @@ impl JobView {
         let look = c.look;
         let held = format!("part:{}:{key}:{}", c.job, part.drawn);
         if c.tab {
-            return self.drawing_large(c, key, &held, scene);
+            return self.drawing_large(c, key, &held, scene, cx);
         }
         let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
-        let artifact = c.id.to_string();
+        let (artifact, press) = (c.id.to_string(), key.to_string());
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
             div()
@@ -1230,19 +1294,23 @@ impl JobView {
                 .cursor_pointer()
                 .child(drawn)
                 .child(eye)
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.open_named(&artifact, window, cx);
-                })),
-            Role::Group,
+                .on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+            Role::Button,
             "Drawing",
         )
         .into_any_element()
     }
 
     /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
-    fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str) -> AnyElement {
+    fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
         let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(), c.look) else { return div().into_any_element() };
-        labelled(div().id(SharedString::from(format!("drawing:{key}"))).w_full().child(drawn), Role::Group, "Drawing").into_any_element()
+        let press = key.to_string();
+        labelled(
+            div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+            Role::Button,
+            "Drawing",
+        )
+        .into_any_element()
     }
 
     /// Buttons in the Kept look: a row each, its words at the left and the button in a column of its own at the right. A

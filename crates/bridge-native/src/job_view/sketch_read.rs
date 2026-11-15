@@ -1,7 +1,6 @@
 //! A sketch read on its own, as Electron's `SketchReading` reads it in the panel: the whole drawing
-//! fitted to a sheet over the window, paused with every step lit until Play, read-only. Its rail, as
-//! `GraphCanvas` draws one, stops and restarts the steps and zooms; a wheel or `+`, `-` and `0`
-//! zoom it too, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
+//! fitted to a view that fills the app below the title bar, paused with every step lit until Play, read-only. Its rail, as
+//! `GraphCanvas` draws one, stops and restarts the steps and zooms with the one helper (`zoomer.rs`); Esc or Close shut it.
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -408,7 +407,8 @@ impl JobView {
     pub(super) fn render_sketch_reading(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
         let reading = self.sketch_reading.as_ref()?;
         let look = cx.look();
-        let room = crate::room::of(window, cx);
+        // It fills the app below the title bar: the sheet is the view, with no scrim or margin round it.
+        let room = super::picture_view::app_area(window, cx);
         let viewport = room.size;
         let inset = look.length(token::SPACE_6);
         let button = |id: &'static str, icon: &'static str, said: &'static str, key: &'static str, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
@@ -695,11 +695,9 @@ impl JobView {
                         .track_focus(&reading.focus)
                         .w(viewport.width)
                         .h(viewport.height)
-                        .p(inset)
                         .flex()
-                        .bg(look.color(token::SCRIM))
+                        .bg(look.color(token::BG_BASE))
                         .on_key_down(cx.listener(Self::sketch_key))
-                        .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close_reading(window, cx)))
                         .child(labelled(
                             div()
                                 .id("sketch-sheet")
@@ -707,10 +705,6 @@ impl JobView {
                                 .flex()
                                 .flex_col()
                                 .overflow_hidden()
-                                .rounded(look.length(token::RADIUS_LG))
-                                .border(look.length(token::BORDER_WIDTH))
-                                .border_color(look.color(token::BORDER_DEFAULT))
-                                .shadow(look.shadows(token::SHADOW_OVERLAY))
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .child(band)
                                 .children(against)
