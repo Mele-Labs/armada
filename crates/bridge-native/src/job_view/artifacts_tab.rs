@@ -64,6 +64,10 @@ pub(super) struct Artifacts {
     /// revision he opened, and how many revisions of his own were kept.
     seen_here: HashMap<(String, String), u32>,
     edits_here: HashMap<(String, String), u32>,
+    /// What the mock Fleet keeps of the artifact of parts, since it keeps nothing: the artifact as it stands once he has answered
+    /// parts of it, and every `answer_part` it was sent, in order.
+    mock_parts: Option<JobArtifact>,
+    mock_posts: Vec<ipc::AnswerPart>,
 }
 
 struct Read {
@@ -107,6 +111,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: None,
+                    parts: Vec::new(),
                 });
             }
             ThreadItem::Document(card) => {
@@ -125,6 +130,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: None,
+                    parts: Vec::new(),
                 });
             }
             ThreadItem::Row { row: SessionRow::Draft { id, at, title, settled, change: None, for_line, before, .. } } => {
@@ -149,6 +155,7 @@ pub(super) fn mock_artifacts(items: &[ThreadItem]) -> Vec<JobArtifact> {
                     presses: Vec::new(),
                     votes: Vec::new(),
                     seen: before.is_some().then_some(1),
+                    parts: Vec::new(),
                 });
             }
             _ => {}
@@ -180,6 +187,52 @@ impl JobView {
         self.artifacts.read.get(job)?.rows.as_ref()?.iter().find(|one| one.id == id)
     }
 
+    /// Every artifact of Job `job`, as Fleet last listed them.
+    pub(super) fn artifacts_of(&self, job: &str) -> Vec<&JobArtifact> {
+        self.artifacts.read.get(job).and_then(|read| read.rows.as_ref()).map(|rows| rows.iter().collect()).unwrap_or_default()
+    }
+
+    /// Every `answer_part` the mock Fleet was sent, oldest first.
+    #[cfg(test)]
+    pub(super) fn mock_part_posts(&self) -> &[ipc::AnswerPart] {
+        &self.artifacts.mock_posts
+    }
+
+    /// Mock data: Fleet takes the answer to a part as it does, in its own words where it refuses, and lists the artifact again.
+    pub(super) fn mock_part_answered(&mut self, job: &SharedString, body: Result<String, String>, cx: &mut Context<Self>) -> Result<(), String> {
+        let said = body.and_then(|body| ipc::decode::<ipc::AnswerPart>("AnswerPart", body.as_bytes()).map_err(|why| why.to_string()))?;
+        self.artifacts.mock_posts.push(said.clone());
+        let mut kept = self.artifacts.mock_parts.clone().ok_or_else(|| "the mock Fleet holds no artifact of parts".to_string())?;
+        crate::mock_parts::apply(&mut kept, &said)?;
+        self.mock_parts_kept(job, kept, cx);
+        Ok(())
+    }
+
+    /// Mock data: Fleet keeps a press on a buttons part and lists the artifact again.
+    pub(super) fn mock_part_pressed(&mut self, job: &SharedString, body: Result<String, String>, cx: &mut Context<Self>) {
+        let Ok(pressed) = body.map_err(|_| ()).and_then(|body| ipc::decode::<ipc::PressPageAction>("PressPageAction", body.as_bytes()).map_err(|_| ())) else { return };
+        let Some(mut kept) = self.artifacts.mock_parts.clone() else { return };
+        let Some(action) = kept.parts.iter().find_map(|part| match &part.content {
+            ipc::PartContent::Buttons { actions } => actions.iter().find(|action| action.id == pressed.action).cloned(),
+            _ => None,
+        }) else {
+            return;
+        };
+        kept.presses.push(ipc::PagePress { revision: pressed.revision, action: action.id, item: action.item, act: action.act, at: Instant::carried(Local::now().to_rfc3339()), did: ipc::PressDid::Sent });
+        self.mock_parts_kept(job, kept, cx);
+    }
+
+    fn mock_parts_kept(&mut self, job: &SharedString, kept: JobArtifact, cx: &mut Context<Self>) {
+        if let Some(rows) = self.artifacts.read.get_mut(job.as_ref()).and_then(|read| read.rows.as_mut()) {
+            match rows.iter_mut().find(|one| one.id == kept.id) {
+                Some(one) => *one = kept.clone(),
+                None => rows.insert(0, kept.clone()),
+            }
+        }
+        self.artifacts.mock_parts = Some(kept);
+        self.parts_redrawn(job, cx);
+    }
+
     /// A page's first screen, as it stands.
     pub(super) fn picture_of(&self, key: &PictureKey) -> Option<&Picture> {
         self.artifacts.pictures.get(key)
@@ -201,6 +254,13 @@ impl JobView {
     fn read_artifacts(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         if self.fleet.is_none() {
             let mut rows = self.thread(id, cx).map(|held| mock_artifacts(&held.items)).unwrap_or_default();
+            if id.as_ref() == crate::mock_parts::JOB {
+                if let Some(answered) = crate::mock_parts::scenario() {
+                    let kept = self.artifacts.mock_parts.get_or_insert_with(|| crate::mock_parts::artifact(answered)).clone();
+                    rows.retain(|one| one.id != kept.id);
+                    rows.insert(0, kept);
+                }
+            }
             for one in &mut rows {
                 match self.artifacts.folded_here.get(&(id.to_string(), one.id.clone())) {
                     Some(true) => one.archived = Some(ArtifactArchived { by: ArtifactBy::Owner, at: Instant::carried(Local::now().to_rfc3339()) }),
@@ -218,6 +278,7 @@ impl JobView {
             if let Some(read) = self.artifacts.read.get_mut(id.as_ref()) {
                 read.rows = Some(rows);
             }
+            self.parts_arrived(id, cx);
             return;
         }
         let (job, path) = (id.to_string(), format!("/sessions/artifacts?session_id={}", super::wire::encoded(id)));
@@ -231,6 +292,7 @@ impl JobView {
                     if let Some(read) = this.artifacts.read.get_mut(&job) {
                         read.rows = Some(rows);
                     }
+                    this.parts_arrived(&SharedString::from(job.clone()), cx);
                     cx.notify();
                 }
             }),

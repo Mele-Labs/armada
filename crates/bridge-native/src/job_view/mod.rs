@@ -66,6 +66,7 @@ mod review;
 mod row_tabs;
 mod web_pages;
 mod page_tab;
+mod parts_card;
 mod page_sketches;
 mod reader;
 mod reader_draw;
@@ -189,6 +190,8 @@ pub(crate) enum Extra {
     Moving,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The card of an artifact that holds parts, by the artifact's id (`parts_card`).
+    Parts(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -936,6 +939,11 @@ impl JobView {
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
         let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
+        // An artifact that holds parts is one card, which stands before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
+        let cards: Vec<Extra> = self.parts_artifacts(id).iter().map(|one| Extra::Parts(one.id.clone())).collect();
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        extras.splice(stands..stands, cards);
+        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -1194,6 +1202,7 @@ impl Render for JobView {
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
+        self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.

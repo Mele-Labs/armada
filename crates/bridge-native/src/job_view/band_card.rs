@@ -317,7 +317,7 @@ pub(super) fn well(look: &Look, cut: bool, inside: AnyElement) -> AnyElement {
 }
 
 /// The shapes of a screen that has not come, as the page's own tab draws them.
-fn shapes(look: &Look) -> AnyElement {
+pub(super) fn shapes(look: &Look) -> AnyElement {
     use gpui::AnimationExt as _;
     let bar = |width: f32| div().h(look.length(token::SPACE_3)).w(gpui::relative(width)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.07));
     labelled(
@@ -406,7 +406,7 @@ pub(super) fn openable(ix: usize) -> bool {
     ix != super::acts::SHEET
 }
 
-fn ghost(look: &Look, foot: &Foot, id: &str, name: &'static str, cap: &'static str, said: &'static str, act_is: Act, cx: &Context<JobView>) -> AnyElement {
+pub(super) fn ghost(look: &Look, foot: &Foot, id: &str, name: &'static str, cap: &'static str, said: &'static str, act_is: Act, cx: &Context<JobView>) -> AnyElement {
     let (run, key) = (foot.run.clone(), format!("{id}:{}", foot.key));
     let opens = act_is == Act::Open;
     labelled(
@@ -487,7 +487,7 @@ impl JobView {
     }
 
     /// What should change: the note, with Cancel and Send under it.
-    fn band_note(&self, foot: &Foot, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn band_note(&self, foot: &Foot, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = foot.key.as_str();
         let blank = self.typed_in(key, Mode::Note, cx).trim().is_empty();
         if foot.commit {
@@ -601,7 +601,7 @@ impl JobView {
     }
 
     /// How wide a page's first screen draws, in whole points: the thread's width less the card's own insets and the well's.
-    fn first_screen_width(&self, look: &Look) -> u32 {
+    pub(super) fn first_screen_width(&self, look: &Look) -> u32 {
         let card = self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2. + if self.band_narrow(look) { (look.length(token::SPACE_4) + look.length(token::SPACE_1)) * 2. } else { px(0.) };
         let inset = look.length(token::SPACE_4) * 4. + look.length(token::BORDER_WIDTH) * 4.;
         f32::from(card - inset).max(120.).round() as u32

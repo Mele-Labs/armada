@@ -190,7 +190,7 @@ pub(super) fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: 
             kbd(look, cap),
         ),
     };
-    styled.when(on, |button| button.cursor_pointer()).when(!on, |button| button.opacity(0.4)).child(said).child(key_cap)
+    styled.when(on, |button| button.cursor_pointer()).when(!on, |button| button.opacity(0.4)).child(said).children((!cap.is_empty()).then_some(key_cap))
 }
 
 /// The icon of one For link.

@@ -96,6 +96,8 @@ pub(super) struct CardState {
     /// A handoff card's sizes as last drawn, by card and part: the brief's whole height (over four lines it folds
     /// behind Show all) and the head's width (a narrow head puts the question under the figure).
     pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
+    /// What the cards of artifacts that hold parts remember (`parts_card`).
+    pub parts: super::parts_card::PartsState,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -471,6 +473,12 @@ impl JobView {
             match crate::mock::act_refused(route) {
                 Some(why) => failed(self, why.into(), cx),
                 None if route == "/sessions/sketch/answer" => self.mock_sketch_answered(&job, body, cx),
+                None if route == super::parts_card::ANSWER_PART => {
+                    if let Err(why) = self.mock_part_answered(&job, body, cx) {
+                        failed(self, why.into(), cx);
+                    }
+                }
+                None if route == super::parts_card::PRESS => self.mock_part_pressed(&job, body, cx),
                 None => {}
             }
             return;
