@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use gpui::{div, prelude::*, px, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window};
+use gpui::{div, prelude::*, px, svg, Animation, AnimationExt, AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, MouseButton, MouseDownEvent, Pixels, Point, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{CloudflareState, FoundMac, GatewaySetup, Mac, MacColour, MacLink, MacPairLink, PairedPhone, Served, UpdateMac, VouchedMac, VouchedMacs};
 
@@ -45,8 +45,8 @@ pub struct MacsPage {
     paste: Entity<InputState>,
     paste_focus: FocusHandle,
     /// A pairing act's refusal, said under it, by the act's key: `pair`, `claim`, `confirm:<id>`, `forget:<id>`,
-    /// `update:<id>`, `update-this:<id>`, `ask:<key>` or `found-update:<key>`, where a found Mac's key is its tunnel, or its
-    /// device where it has no tunnel.
+    /// `update:<id>`, `update-this:<id>` or `ask:<key>`, where a found Mac's key is its tunnel, or its device where it
+    /// has no tunnel.
     refused: BTreeMap<String, String>,
     /// The Macs whose Update was pressed and whose row still reads another build: the press says Updating.
     updating: BTreeSet<String>,
@@ -306,11 +306,6 @@ fn nameable(one: &VouchedMac) -> bool {
     vouch_of(one).is_some() || !one.mac.tunnel.is_empty()
 }
 
-/// The id Update names for a found Mac: the one its tunnel is drawn from, or its device.
-fn found_mac_id(one: &VouchedMac) -> &str {
-    if one.mac.tunnel.is_empty() { one.device.as_deref().unwrap_or_default() } else { one.mac.tunnel.strip_prefix("armada-").unwrap_or(&one.mac.tunnel) }
-}
-
 /// Where a found Mac can be reached now, which is the one chip its row carries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Presence {
@@ -561,12 +556,7 @@ impl SettingsOverlay {
         if let Some(Ok(phones)) = &self.macs.phones {
             names.extend(phones.iter().map(|one| format!("unpair:{}", one.id)));
         }
-        for one in self.macs.found.iter().flat_map(|found| unpaired(found)) {
-            names.push(format!("ask:{}", found_key(one)));
-            if one.mac.older_build {
-                names.push(format!("found-update:{}", found_key(one)));
-            }
-        }
+        names.extend(self.macs.found.iter().flat_map(|found| unpaired(found)).map(|one| format!("ask:{}", found_key(one))));
         for name in names {
             self.macs.keys.entry(name).or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
@@ -634,12 +624,7 @@ impl SettingsOverlay {
         if let Some(Ok(phones)) = &page.phones {
             stops.extend(phones.iter().filter_map(|one| key(&format!("unpair:{}", one.id))));
         }
-        for one in page.found.iter().flat_map(|found| unpaired(found)) {
-            if one.mac.older_build {
-                stops.extend(key(&format!("found-update:{}", found_key(one))));
-            }
-            stops.extend(key(&format!("ask:{}", found_key(one))));
-        }
+        stops.extend(page.found.iter().flat_map(|found| unpaired(found)).filter_map(|one| key(&format!("ask:{}", found_key(one)))));
         stops
     }
 
@@ -766,8 +751,6 @@ impl SettingsOverlay {
                     self.update_mac(id.to_string(), true, window, cx);
                 } else if let Some(id) = name.strip_prefix("update:") {
                     self.update_mac(id.to_string(), false, window, cx);
-                } else if let Some(key) = name.strip_prefix("found-update:") {
-                    self.update_found(key.to_string(), window, cx);
                 } else if let Some(key) = name.strip_prefix("ask:") {
                     self.ask_mac(key.to_string(), window, cx);
                 }
@@ -1072,28 +1055,6 @@ impl SettingsOverlay {
                             None => macs.push(mac),
                         }
                     }
-                    this.read_devices(cx);
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-        cx.notify();
-    }
-
-    /// `POST /macs/update` on Fleet for a found Mac on an older build: it moves onto this Mac's build. The next read of the
-    /// found list says whether it did. A refusal is said under the row, in Fleet's words.
-    fn update_found(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
-        let act = format!("found-update:{key}");
-        let Some(id) = self.macs.found.iter().flat_map(|found| unpaired(found)).find(|one| found_key(one) == key && one.mac.older_build).map(|one| found_mac_id(one).to_string()) else { return };
-        if !self.begin(&act) {
-            return;
-        }
-        let press = self.wire.update_mac(UpdateMac { mac: Some(id), ..UpdateMac::default() }, cx);
-        cx.spawn_in(window, async move |this, cx| {
-            let answer = press.await;
-            let _ = this.update_in(cx, |this, _, cx| {
-                if this.answered(&act, answer).is_some() {
                     this.read_devices(cx);
                 }
                 cx.notify();
@@ -1510,7 +1471,7 @@ impl SettingsOverlay {
     }
 
     /// The Macs found and not paired, each with the chip that says where it is reached and a Pair. A Mac on an older build
-    /// says so under its name and carries an Update beside its Pair, which stays off until it updates. Nothing is drawn
+    /// says so under its row and has its Pair off until it updates. Nothing is drawn
     /// while none is found, and the Gateway's sentence stands above the rows when it could not read the account.
     fn found_section(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let found = self.macs.found.as_ref()?;
@@ -1519,7 +1480,6 @@ impl SettingsOverlay {
             .map(|(at, one)| {
                 let key = found_key(one);
                 let act = format!("ask:{key}");
-                let update_act = format!("found-update:{key}");
                 let dot = match one.mac.colour {
                     Some(colour) => (colour_of(look, colour), format!("{} colour", colour.name())),
                     None => (look.color(token::FG_SUBTLE), "No colour".to_string()),
@@ -1537,7 +1497,6 @@ impl SettingsOverlay {
                     labelled(line, Role::Label, said)
                 });
                 let chip = presence_chip(look, format!("macs-found-chip-{key}"), presence_of(&one.mac), &one.mac.name);
-                let presses = div().flex().items_center().gap(look.length(token::SPACE_2)).children(self.found_update_button(one, look, window, cx)).children(self.ask_button(one, look, window, cx));
                 let row = div()
                     .flex()
                     .items_center()
@@ -1545,8 +1504,8 @@ impl SettingsOverlay {
                     .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().child(dot))
                     .child(div().flex_1().min_w_0().flex().flex_col().child(name))
                     .child(chip_column(look, Some(chip), FOUND_CHIP))
-                    .child(press_column(look, Some(presses.into_any_element())));
-                let refused = [act, update_act].into_iter().filter_map(|act| self.macs.refused.get(&act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said)));
+                    .child(div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_2)).flex().justify_end().children(self.ask_button(one, look, window, cx)));
+                let refused = self.macs.refused.get(&act).map(|said| alert(look, SharedString::from(format!("macs-{act}-refused")), said));
                 div()
                     .flex()
                     .flex_col()
@@ -1579,16 +1538,6 @@ impl SettingsOverlay {
         let button = button.when(one.mac.older_build, |button| button.tooltip(tip(format!("{} runs an older build. Pair is off until it updates", one.mac.name))));
         let button = button.when(asleep && !one.mac.older_build, |button| button.tooltip(tip(format!("{} is asleep, or Armada is closed there", one.mac.name))));
         Some(labelled(button, Role::Button, format!("Pair {}", one.mac.name)).into_any_element())
-    }
-
-    /// Update, beside the Pair of a found Mac on an older build: it moves that Mac onto this Mac's build.
-    fn found_update_button(&self, one: &VouchedMac, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
-        let key = format!("found-update:{}", found_key(one));
-        let focus = self.macs.keys.get(&key)?.clone();
-        let off = !self.live_gateway() || self.macs.out.as_deref() == Some(key.as_str());
-        let button = amber_press(look, SharedString::from(format!("macs-{key}")), "Update", false, off).tooltip(tip(format!("Update {} onto this Mac's build", one.mac.name)));
-        let button = ringed(look, button, &focus, window).track_focus(&focus).when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
-        Some(labelled(button, Role::Button, format!("Update {}", one.mac.name)).into_any_element())
     }
 
     /// Pair a phone: the QR code and the link its camera opens with the time left, a claim to Confirm or Decline, or
@@ -1702,7 +1651,31 @@ impl SettingsOverlay {
         let going = self.macs.updating.contains(&mac.id);
         let off = going || !self.live_gateway();
         let (name, tip_said) = press_said(mac, said, going);
-        let button = amber_press(look, SharedString::from(format!("macs-{key}")), said, going, off).when_some(tip_said, |button, said| button.tooltip(tip(said)));
+        let button = div()
+                .id(SharedString::from(format!("macs-{key}")))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .h(look.length(token::H_CONTROL_SM))
+            .px(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .when(going, |button| button.border_color(look.color(token::BORDER_DEFAULT)).text_color(look.color(token::FG_MUTED)))
+            .when(!going, |button| button.border_color(look.color(token::STATUS_ESCALATED)).bg(look.color(token::STATUS_ESCALATED_BG)).text_color(look.color(if off { token::FG_SUBTLE } else { token::FG_DEFAULT })))
+            .when(!off, |button| button.cursor_pointer())
+            .when(going, |button| {
+                button.child(svg().flex_none().path(icon_path("loader-circle")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)).with_animation(
+                    "macs-updating",
+                    Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
+                    |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
+                ))
+            })
+            .child(SharedString::from(if going { "Updating" } else { said }.to_string()))
+            .when_some(tip_said, |button, said| button.tooltip(tip(said)));
         let button = ringed(look, button, &focus, window).track_focus(&focus);
         let key = key.to_string();
         let button = button.when(!off, |button| button.on_click(cx.listener(move |this, _, window, cx| this.press_macs(&key, window, cx))));
@@ -1824,9 +1797,9 @@ fn step_name(look: &Look, said: &'static str) -> AnyElement {
     div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(said).into_any_element()
 }
 
-/// What a found Mac on an older build says under its name, as Fleet words it on a paired row.
+/// What a found Mac on an older build says under its row: it updates on itself, so there is no press here.
 fn older_said(name: &str) -> String {
-    format!("{name} runs an older build. Nothing crosses until it updates.")
+    format!("{name} runs an older build. Update Armada on it to pair.")
 }
 
 fn caption(look: &Look, said: &str) -> gpui::Div {
@@ -1848,34 +1821,6 @@ fn reach_line(look: &Look, id: &'static str, lead: &str, address: &str) -> gpui:
         .text_color(look.color(token::FG_MUTED))
         .child(SharedString::from(lead.to_string()))
         .child(labelled(div().id(id).min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).tooltip(tip(address.to_string())).child(SharedString::from(address.to_string())), Role::Label, address.to_string()))
-}
-
-/// An Update press: an amber outline on an amber wash, and while it runs, a muted Updating with a turning mark.
-fn amber_press(look: &Look, id: SharedString, said: &str, going: bool, off: bool) -> Stateful<gpui::Div> {
-    div()
-        .id(id)
-        .flex_none()
-        .flex()
-        .items_center()
-        .gap(look.length(token::SPACE_2))
-        .h(look.length(token::H_CONTROL_SM))
-        .px(look.length(token::SPACE_3))
-        .rounded(look.length(token::RADIUS_MD))
-        .border(look.length(token::BORDER_WIDTH))
-        .text_size(look.length(token::TEXT_XS))
-        .line_height(look.length(token::LEADING_XS))
-        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-        .when(going, |button| button.border_color(look.color(token::BORDER_DEFAULT)).text_color(look.color(token::FG_MUTED)))
-        .when(!going, |button| button.border_color(look.color(token::STATUS_ESCALATED)).bg(look.color(token::STATUS_ESCALATED_BG)).text_color(look.color(if off { token::FG_SUBTLE } else { token::FG_DEFAULT })))
-        .when(!off, |button| button.cursor_pointer())
-        .when(going, |button| {
-            button.child(svg().flex_none().path(icon_path("loader-circle")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED)).with_animation(
-                "macs-updating",
-                Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
-                |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
-            ))
-        })
-        .child(SharedString::from(if going { "Updating" } else { said }.to_string()))
 }
 
 /// A build's short hash, with a tooltip saying what the figure is.
@@ -2493,23 +2438,16 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_found_mac_on_an_older_build_says_so_carries_update_and_has_pair_off(cx: &mut TestAppContext) {
+    fn a_found_mac_on_an_older_build_says_so_has_no_update_and_has_pair_off(cx: &mut TestAppContext) {
         let (overlay, cx) = opened_nearby(cx);
-        assert!(on_page(&overlay, Role::Label, "Studio mini runs an older build. Nothing crosses until it updates.", cx));
-        assert!(on_page(&overlay, Role::Button, "Update Studio mini", cx));
-        assert!(!on_page(&overlay, Role::Button, "Update Office iMac", cx), "a Mac on this build has no Update");
+        assert!(on_page(&overlay, Role::Label, "Studio mini runs an older build. Update Armada on it to pair.", cx));
+        assert!(on_page(&overlay, Role::Button, "Pair Studio mini", cx));
+        assert!(!on_page(&overlay, Role::Button, "Update Studio mini", cx), "it updates on itself: no press here");
+        assert!(!on_page(&overlay, Role::Label, "Office iMac runs an older build. Update Armada on it to pair.", cx), "a Mac on this build says nothing");
+        assert_eq!(updates(&overlay, cx), Vec::<UpdateMac>::new());
         press(&overlay, "ask:armada-mac-studio-mini", cx);
         assert_eq!(asked_of(&overlay, cx), Vec::<String>::new(), "Pair sends nothing while it runs an older build");
         assert_eq!(refused(&overlay, "ask:armada-mac-studio-mini", cx), None);
-    }
-
-    #[gpui::test]
-    fn update_on_a_found_mac_names_it_and_a_refusal_is_said_under_its_row_in_fleets_words(cx: &mut TestAppContext) {
-        let (overlay, cx) = opened_nearby(cx);
-        press(&overlay, "found-update:armada-mac-studio-mini", cx);
-        assert_eq!(updates(&overlay, cx), [UpdateMac { mac: Some("mac-studio-mini".into()), ..UpdateMac::default() }]);
-        assert_eq!(refused(&overlay, "found-update:armada-mac-studio-mini", cx).as_deref(), Some("This Mac is not linked to Mac mac-studio-mini."));
-        assert!(found_tunnels(&overlay, cx).contains(&"armada-mac-studio-mini".to_string()), "the row stays");
     }
 
     #[gpui::test]
@@ -2545,7 +2483,7 @@ mod tests {
         let (overlay, cx) = opened_nearby(cx);
         let stops = overlay.read_with(cx, |this, _| {
             let stops = this.macs_stops();
-            ["ask:armada-mac-office", "ask:armada-mac-book-pro", "ask:armada-mac-old", "found-update:armada-mac-studio-mini", "ask:armada-mac-studio-mini", "ask:armada-mac-home", "ask:device-den"].map(|key| this.macs.keys.get(key).and_then(|focus| stops.iter().position(|stop| stop == focus)))
+            ["ask:armada-mac-office", "ask:armada-mac-book-pro", "ask:armada-mac-old", "ask:armada-mac-studio-mini", "ask:armada-mac-home", "ask:device-den"].map(|key| this.macs.keys.get(key).and_then(|focus| stops.iter().position(|stop| stop == focus)))
         });
         assert!(stops.iter().all(Option::is_some), "each Pair is a stop: {stops:?}");
         assert!(stops.windows(2).all(|pair| pair[0] < pair[1]), "in the order they are drawn");

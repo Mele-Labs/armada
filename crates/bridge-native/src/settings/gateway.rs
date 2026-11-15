@@ -668,8 +668,7 @@ impl MockGateway {
             _ => return Err("The body names one Mac to update, or one to update this Mac like.".into()),
         };
         if !self.macs.iter().any(|one| !one.this_mac && one.id == id) {
-            // Fleet asks another Mac over the link, and a Mac that is not paired has none.
-            return Err(if this_moves { format!("No Mac {id} is paired with this one.") } else { format!("This Mac is not linked to Mac {id}.") });
+            return Err(format!("No Mac {id} is paired with this one."));
         }
         self.updating.push((id, this_moves, 2));
         Ok(FleetBuildChanging { build: BuildSource::Main })
