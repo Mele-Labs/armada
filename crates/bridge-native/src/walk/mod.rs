@@ -1838,6 +1838,22 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::PREVIEW_OFFERS,
     },
     Walk {
+        name: "native-waits-and-fleet-scroll",
+        title: "A waiting Job's row says what it waits on you for, and the Fleet panel scrolls its lists",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            right_on("A right press on a Job opens its menu, with the View group at its foot", "row", "Fix the merge line freshness chip", "menuitemcheckbox", "Now"),
+            press_on("Now puts a line under each title", "menuitemcheckbox", "Now", "menuitemcheckbox", "Now"),
+            step("A Job waiting on you says the first thing it waits for: Plan to approve, not what it last ran", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            step("A Job at work still says what it is doing", Verb::Look, "row", "Native Bridge foundation"),
+            scene("Ten branches are offered for the preview", "preview-offers-many", "button", "Fleet — Running"),
+            press_on("The panel stops at the window's edge. Refresh and Skip stay at its foot", "button", "Fleet — Running", "button", "Refresh"),
+            step("The lists scroll between the head and the foot", Verb::Wheel("group", "Waiting to be added", 320), "button", "Refresh"),
+            step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+        ],
+    },
+    Walk {
         name: "native-build-origin",
         title: "The build switcher's On origin row: a branch no Job here holds, picked into the next build",
         screen: Screen::Jobs,
