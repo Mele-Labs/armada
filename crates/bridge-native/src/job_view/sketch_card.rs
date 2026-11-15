@@ -207,7 +207,10 @@ pub(super) fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(format!("for-link:{}", link.target)))
-            .flex_none()
+            // A long label gives way to the For sentence: the chip shrinks and cuts its label, never the card's edge.
+            .flex_shrink_1()
+            .min_w_0()
+            .max_w(gpui::relative(0.4))
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
@@ -218,7 +221,7 @@ pub(super) fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
             .line_height(look.length(token::LEADING_2XS))
             .text_color(ink)
             .child(gpui::svg().path(icon_path(link_icon(link.kind))).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
-            .child(SharedString::from(link.label.clone())),
+            .child(div().min_w_0().truncate().child(SharedString::from(link.label.clone()))),
         Role::Label,
         link.label.clone(),
     )

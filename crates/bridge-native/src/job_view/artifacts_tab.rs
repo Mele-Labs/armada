@@ -382,8 +382,8 @@ impl JobView {
         }
     }
 
-    /// One artifact: its kind's tile, its title over what it is for, its revision, where it stands and when it was kept,
-    /// each in a column of its own so the rows read down the list.
+    /// One artifact: its kind's tile beside its title, what it is for, and a line of where it stands, its revision and
+    /// when it was kept. That line starts at the title's edge on every row, so the rows read down the list at any width.
     #[allow(clippy::too_many_arguments)]
     fn artifact_row(&self, id: &SharedString, one: &JobArtifact, on: bool, folded: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (key, job) = (one.id.clone(), id.to_string());
@@ -392,13 +392,17 @@ impl JobView {
         let number = last.map_or(1, |last| last.number);
         let said = last.map_or_else(String::new, |last| super::band_card::revision_said(last.number, last.by, last.at.as_str()));
         let line = one.for_line.as_ref().and_then(|line| line.text.clone()).filter(|text| !text.trim().is_empty());
-        let column = |width: gpui::Pixels| div().flex_none().w(width).flex().items_center();
-        let (revision_w, state_w, time_w) = (look.length(token::SPACE_12) + look.length(token::SPACE_3), look.length(token::SPACE_12) * 2. + look.length(token::SPACE_4), look.length(token::SPACE_12) * 2.);
+        let meta = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .child(state_chip(look, format!("artifact-state:{key}"), Stand::of(one.state), one.words.as_deref(), None))
+            .child(revision_chip(look, format!("artifact-revision:{key}"), number, said))
+            .children(last.map(|last| self.stamp(&last.at, look, now, true, cx)));
         let row = div()
             .id(SharedString::from(format!("artifact-row:{key}")))
             .flex()
-            .flex_wrap()
-            .items_center()
+            .items_start()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
@@ -412,7 +416,7 @@ impl JobView {
             .child(
                 div()
                     .flex_1()
-                    .min_w(look.length(token::SPACE_12) * 2.)
+                    .min_w_0()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
@@ -427,11 +431,9 @@ impl JobView {
                     )
                     .children(line.map(|line| {
                         div().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line))
-                    })),
-            )
-            .child(column(revision_w).child(revision_chip(look, format!("artifact-revision:{key}"), number, said)))
-            .child(column(state_w).child(state_chip(look, format!("artifact-state:{key}"), Stand::of(one.state), one.words.as_deref(), None)))
-            .child(column(time_w).justify_end().children(last.map(|last| self.stamp(&last.at, look, now, true, cx))));
+                    }))
+                    .child(meta),
+            );
         let pressed = (job, key.clone());
         let row = row.on_click(cx.listener(move |this, _, window, cx| {
             this.artifacts_cursor(&pressed.0, Some(pressed.1.clone()), cx);
