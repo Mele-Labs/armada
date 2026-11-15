@@ -48,6 +48,9 @@ pub(super) struct Placed {
 pub(super) struct Probe {
     pub view: View,
     pub placed: Vec<Placed>,
+    /// The whole drawing at the zoom that fits it, and that zoom: what a zoom over it is held to.
+    pub fit: gpui::Size<f32>,
+    pub base: f32,
 }
 
 thread_local! {
@@ -69,6 +72,12 @@ fn hit(placed: &[Placed], at: Pt) -> Option<&Placed> {
         .iter()
         .filter(|one| at.x >= one.rect.x && at.x <= one.rect.x + one.rect.w && at.y >= one.rect.y && at.y <= one.rect.y + one.rect.h)
         .max_by(|a, b| a.depth.cmp(&b.depth).then((b.rect.w * b.rect.h).total_cmp(&(a.rect.w * a.rect.h))))
+}
+
+/// The whole drawing as the last frame fitted it, and the scale that is its own size, for the zoom over it.
+pub(crate) fn fit_of(key: &str) -> Option<(gpui::Size<f32>, f32)> {
+    let probe = probe(key)?;
+    Some((probe.fit, 1. / probe.base))
 }
 
 /// The part under a point of the window, with where it stands there.

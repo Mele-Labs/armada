@@ -1,12 +1,11 @@
 //! An artifact of parts read whole in a tab of its own, as a page and a draft are read in theirs. Every part is answered
 //! there as it is on the card (`parts_card`): takes with 1 to 4 and Send pick, words with Approve and Ask for changes, buttons
-//! pressed. The drawing is large, with ⌘+, ⌘−, ⌘0 and the pinch; the card there never folds, so what he answered stays to read.
+//! pressed. The drawing is large; the card there never folds, so what he answered stays to read.
 
 use gpui::{div, prelude::*, AnyElement, Context, KeyDownEvent, Window};
 
 use super::acts::SHEET;
 use super::row_tabs::RowTab;
-use super::sketch_keys::lens_key;
 use super::JobView;
 use crate::look::{token, Look};
 
@@ -18,30 +17,35 @@ impl JobView {
         let Some(newest) = one.revisions.last().map(|last| last.number) else { return empty() };
         let card = self.parts_card(SHEET, &tab.key, newest, true, page, look, cx);
         let artifact = tab.key.clone();
+        let foot = self.arranged.focus_now.then(|| self.parts_pinned_footer(SHEET, &tab.key, page, look, cx)).flatten();
         // The scroller holds one block and no flex row: a row stretches its child to the pane's height, so a card taller than the
         // pane never overflowed it and nothing scrolled.
-        div()
+        let scroller = div()
             .id("row-tab-body")
             .track_focus(&self.row_focus)
             .track_scroll(&self.body_scroll)
-            .size_full()
+            .when(foot.is_some(), |one| one.flex_1().min_h_0())
+            .when(foot.is_none(), |one| one.size_full())
             .overflow_y_scroll()
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.artifact_key(&artifact, event, window, cx)))
-            .child(div().w_full().flex().justify_center().child(div().w_full().min_w_0().max_w(self.column(look)).children(card)))
-            .into_any_element()
+            .child(div().w_full().flex().justify_center().child(div().w_full().min_w_0().max_w(self.column(look)).children(card)));
+        let Some(foot) = foot else { return scroller.into_any_element() };
+        // The foot is pinned below the scrolling column, in the column's own width.
+        let pinned = div()
+            .flex_none()
+            .px(look.length(token::SPACE_4))
+            .pb(look.length(token::SPACE_3))
+            .flex()
+            .justify_center()
+            .child(div().w_full().min_w_0().max_w(self.column(look)).child(foot));
+        div().size_full().flex().flex_col().child(scroller).child(pinned).into_any_element()
     }
 
-    /// The keys over the open artifact: ⌘+ and ⌘− zoom the drawing and ⌘0 fits it. The rest are the card's own.
+    /// The keys over the open artifact: paging the column. The rest are the card's own.
     fn artifact_key(&mut self, artifact: &str, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
         if event.keystroke.modifiers.platform {
-            let drawing = self.artifact_of(&job, artifact).and_then(|one| one.parts.iter().find(|part| matches!(part.content, ipc::PartContent::Drawing { .. })).map(|part| part.id.clone()));
-            if let (Some(by), Some(part)) = (lens_key(&event.keystroke), drawing) {
-                self.zoom_part(&super::parts_card::part_key(artifact, &part), by, cx);
-                cx.stop_propagation();
-            }
             return;
         }
         let mods = event.keystroke.modifiers;

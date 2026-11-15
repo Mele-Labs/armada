@@ -91,7 +91,7 @@ impl JobView {
         let room = held.room();
         let editing = held.edit.is_some();
         let earlier = held.viewing.is_some_and(|at| at != subject.newest);
-        let head = self.reader_head(id, &name, held, &subject, earlier, look, cx);
+        let (head, foot) = self.reader_head(id, &name, held, &subject, earlier, look, cx);
         let strip = (!room.rail()).then(|| self.reader_strip(id, &name, held, look, cx)).flatten();
         let rail = room.rail().then(|| self.reader_rail(id, &name, held, look, cx));
         let words = self.reader_words(id, &name, held, &subject, room, look, cx);
@@ -157,6 +157,7 @@ impl JobView {
                 .child(head)
                 .child(body)
                 .children(said)
+                .children(foot)
                 .when(editing, |root| root),
             Role::Region,
             format!("Reader: {}", subject.title),
@@ -168,7 +169,11 @@ impl JobView {
     /// kind, the title, the revision and where it stands, with the answers at the right; then the For line cut to one
     /// line, with what else is his to press at the right. The title gives way first.
     #[allow(clippy::too_many_arguments)]
-    fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    ///
+    /// In the focus view the acts leave the header for a bar pinned at the foot: the revision picker, the notes toggle and what
+    /// he answers with. The header keeps the kind, the title, where it stands and the For line.
+    fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, Option<AnyElement>) {
+        let pinned = self.arranged.focus_now;
         let editing = held.edit.is_some();
         let ink: Token = if editing { token::YOU } else { subject.stand.ink() };
         let (fill, edge) = if editing { (mixed(look, ink, 0.16), look.color(ink).opacity(0.45)) } else { (mixed(look, ink, 0.18), look.color(ink).opacity(0.4)) };
@@ -190,6 +195,12 @@ impl JobView {
             )
             .into_any_element()
         };
+        let ask = asking.then(|| go(RAct::Ask, "Ask for changes", "C", "Send it back with your notes", Kind::Secondary));
+        let approve = asking.then(|| go(RAct::Approve, "Approve", "A", "Approve it as it stands, with your notes", Kind::Approve));
+        // The answers keep their order, Discard and Save while he edits, then Ask for changes and Approve.
+        let answers: Vec<AnyElement> = [discard, save, ask, approve].into_iter().flatten().collect();
+        let (picker_at_top, picker_pinned) = if pinned { (None, Some(picker)) } else { (Some(picker), None) };
+        let (answers_at_top, answers_pinned) = if pinned { (Vec::new(), answers) } else { (answers, Vec::new()) };
         let title = SharedString::from(subject.title.clone());
         let top = div()
             .flex()
@@ -209,12 +220,9 @@ impl JobView {
                     .tooltip(tip(title.clone()))
                     .child(title),
             )
-            .child(picker)
+            .children(picker_at_top)
             .children((!editing).then(|| state_chip(look, format!("reader-state:{name}"), subject.stand, subject.words.as_deref(), None)))
-            .children(asking.then(|| go(RAct::Ask, "Ask for changes", "C", "Send it back with your notes", Kind::Secondary)))
-            .children(asking.then(|| go(RAct::Approve, "Approve", "A", "Approve it as it stands, with your notes", Kind::Approve)))
-            .children(discard)
-            .children(save);
+            .children(answers_at_top);
         // What he can do besides answering: Edit, and putting it away.
         let away = if subject.asking && !earlier && !editing {
             Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost))
@@ -225,16 +233,42 @@ impl JobView {
         };
         let line = subject.for_line.as_ref().filter(|line| line.text.as_deref().is_some_and(|text| !text.trim().is_empty()) || !line.links.is_empty());
         let line = if editing { words } else { line.map(|line| self.reader_for_line(name, line, look)) };
+        let notes = self.reader_notes_button(id, name, held.notes_on, look, cx);
+        let (under_acts, foot_acts) = if pinned { ((None, None, None), (switch, away, Some(notes))) } else { ((switch, away, Some(notes)), (None, None, None)) };
         let under = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .child(div().flex_1().min_w_0().overflow_hidden().children(line))
             .children(yours.map(|said| super::band_card::yours_pill(look, format!("reader-yours:{name}"), said)))
-            .children(switch)
-            .children(away)
-            .child(self.reader_notes_button(id, name, held.notes_on, look, cx));
-        div()
+            .children(under_acts.0)
+            .children(under_acts.1)
+            .children(under_acts.2);
+        let foot = pinned.then(|| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("reader-foot:{name}")))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_4))
+                    .py(look.length(token::SPACE_3))
+                    .bg(look.color(token::BG_BASE))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .children(foot_acts.0)
+                    .children(foot_acts.1)
+                    .children(foot_acts.2)
+                    .children(picker_pinned)
+                    .children(answers_pinned),
+                Role::Group,
+                "Reader acts",
+            )
+            .into_any_element()
+        });
+        let head = div()
             .flex_none()
             .flex()
             .flex_col()
@@ -246,7 +280,8 @@ impl JobView {
             .border_color(edge)
             .child(top)
             .child(under)
-            .into_any_element()
+            .into_any_element();
+        (head, foot)
     }
 
     /// The For line on one line, cut with an ellipsis where it does not fit, its whole words in a tooltip.

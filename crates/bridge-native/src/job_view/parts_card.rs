@@ -24,7 +24,6 @@ use super::sketch_card::{act, mixed, Kind};
 use super::{Extra, JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use super::sketch_keys::{moved, Looking, KEY_STEP};
 use crate::scene::{Clock, Fit, Lens};
 
 /// The route `answer_part` is posted to.
@@ -35,6 +34,22 @@ pub(super) const PRESS: &str = crate::web::kit::PRESS;
 const JOIN: char = '\u{1f}';
 /// The most takes one row holds.
 const ACROSS: usize = 3;
+/// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
+const SIDE_BY_SIDE: f32 = 520.;
+/// How tall a picture may stand in the reading column, against the pane it is read in.
+const TALL_SHARE: f32 = 0.8;
+
+/// How many takes one row holds in a body `room` points wide with `gap` between: as many as would each be `SIDE_BY_SIDE` wide, and
+/// never more than `ACROSS`. Four stand two and two.
+fn across_in(room: f32, gap: f32, takes: usize) -> usize {
+    let fit = (((room + gap) / (SIDE_BY_SIDE + gap)).floor() as usize).clamp(1, ACROSS);
+    let across = fit.min(takes.max(1));
+    if takes == 4 && across > 2 {
+        2
+    } else {
+        across
+    }
+}
 
 /// The key a part is kept under in a Job's page: its artifact and its own id.
 pub(super) fn part_key(artifact: &str, part: &str) -> String {
@@ -57,8 +72,6 @@ pub(super) struct PartsState {
     sent: HashMap<String, (String, PartState, PartAnswer)>,
     /// What a button said when pressed, by part and action, until Fleet's press says it.
     went: HashMap<String, String>,
-    /// How a drawing part is zoomed and moved in the artifact's tab, by part.
-    lens: HashMap<String, Lens>,
     /// The one-line note on a pick, by takes part.
     notes: HashMap<String, Entity<InputState>>,
     typing: HashMap<String, gpui::Subscription>,
@@ -264,6 +277,50 @@ impl JobView {
         self.parts_artifacts(job).iter().any(|one| one.parts.iter().any(|part| part.id == id))
     }
 
+    /// A part by its key, as he reads it, with the id of the artifact it belongs to.
+    pub(super) fn part_of_key(&self, key: &str) -> Option<(String, ArtifactPart)> {
+        let (artifact, part) = split_key(key)?;
+        let job = self.shown.as_ref()?;
+        let page = self.pages.get(job)?;
+        let held = self.artifact_of(job, artifact)?.parts.iter().find(|held| held.id == part)?;
+        Some((artifact.to_string(), effective(held, key, &page.cards.parts)))
+    }
+
+    /// The takes of a takes part, whether a pick is still asked for, and the take he has chosen or picked, by its place.
+    pub(super) fn takes_of_key(&self, key: &str) -> Option<(Vec<PartTake>, bool, Option<usize>)> {
+        let (_, part) = self.part_of_key(key)?;
+        let PartContent::Takes { takes, form, .. } = &part.content else { return None };
+        let open = part.is_open_ask() && *form == VoteForm::Pick;
+        let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
+        let chosen = if open { self.pages.get(self.shown.as_ref()?)?.cards.parts.chosen.get(key).copied().filter(|at| *at < takes.len()) } else { picked };
+        Some((takes.clone(), open, chosen))
+    }
+
+    /// What stands under a picture of a part he is asked about: Send pick, with its note, under a vote that asks, and Approve and
+    /// Ask for changes under a drawing that asks. `None` where the part asks nothing.
+    pub(super) fn part_acts(&self, key: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let (artifact, part) = self.part_of_key(key)?;
+        let job = self.shown.clone()?;
+        let page = self.pages.get(&job)?;
+        let held = self.artifact_of(&job, &artifact)?;
+        let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(&artifact, &part.id), &page.cards.parts)).collect();
+        let c = Ctx {
+            ix: super::acts::SHEET,
+            id: &artifact,
+            job,
+            page,
+            look,
+            tab: true,
+            words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
+            takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+        };
+        if is_pick(&part) {
+            let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
+            return Some(self.pick_row(&c, key, ready, c.takes.as_deref() == Some(part.id.as_str()), cx));
+        }
+        (is_words_like(&part) && matches!(part.content, PartContent::Drawing { .. })).then(|| self.approve_row(&c, key, &part, cx))
+    }
+
     /// The list place of the card of an artifact's newest revision: under the item it was kept after, or among the extras.
     pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
         let job = self.shown.as_ref()?;
@@ -422,23 +479,8 @@ impl JobView {
         self.answer_part(&artifact, &held, PartHow::Picked, Some(take), words, window, cx);
     }
 
-    /// The drawing of an artifact's tab zoomed, moved or fitted again.
-    pub(super) fn zoom_part(&mut self, key: &str, by: Looking, cx: &mut Context<Self>) {
-        if let Some(state) = self.parts_state_mut() {
-            let lens = state.lens.get(key).copied().unwrap_or_default();
-            state.lens.insert(key.to_string(), moved(lens, by));
-        }
-        match split_key(key) {
-            Some((artifact, _)) => {
-                let artifact = artifact.to_string();
-                self.parts_changed(&artifact, cx);
-            }
-            None => cx.notify(),
-        }
-    }
-
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
-    fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
+    pub(super) fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
         if let Some(state) = self.parts_state_mut() {
             state.chosen.insert(key.to_string(), take);
         }
@@ -616,6 +658,33 @@ impl JobView {
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
+        let footer = (!(tab && self.arranged.focus_now)).then(|| self.parts_footer(ix, id, &parts, asking, page, look, cx));
+        let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
+        let artifact_id = id.to_string();
+        let card = frame(look, self.band_narrow(look))
+            .id(SharedString::from(format!("artifact:{id}")))
+            .track_focus(&spot.focus)
+            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+            .child(head)
+            .children(blocks)
+            .children(footer);
+        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
+        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
+    }
+
+    /// The footer of the artifact's own tab in the focus view, read as the card would read it.
+    pub(super) fn parts_pinned_footer(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let artifact = self.artifact_of(self.shown.as_ref()?, id)?;
+        let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
+        let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
+        let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
+        Some(self.parts_footer(ix, id, &parts, asking, page, look, cx))
+    }
+
+    /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
+    /// the reader instead of ending the card.
+    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let run: Do = {
             let id = id.to_string();
             Rc::new(move |this, act, window, cx| match act {
@@ -625,7 +694,7 @@ impl JobView {
             })
         };
         let foot = Foot { ix, key: id.to_string(), asking, archivable: !asking, openable: false, editable: false, commit: false, route: "/sessions/waiting/dismiss", run };
-        let line = settles_line(&parts).filter(|_| asking);
+        let line = settles_line(parts).filter(|_| asking);
         let away = if asking {
             ghost(look, &foot, "dismiss", "Dismiss", "D", "Put it away with no answer", Act::Dismiss, cx)
         } else {
@@ -649,18 +718,7 @@ impl JobView {
                 )
                 .child(div().flex_none().child(away)),
         );
-        let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
-        let artifact_id = id.to_string();
-        let card = frame(look, self.band_narrow(look))
-            .id(SharedString::from(format!("artifact:{id}")))
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
-            .child(head)
-            .children(blocks)
-            .child(footer);
-        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
-        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
+        footer.into_any_element()
     }
 
     /// One part: its caption and tag, what it holds and, where it asks, how he answers it.
@@ -867,7 +925,7 @@ impl JobView {
             Some(at) => self.large_take_view(c, key, takes, at, chosen, open, cx),
             None => {
                 // A narrow thread leaves a take too little room for its title: they stand one under another there.
-                let across = if self.band_narrow(look) { 1 } else if takes.len() == 4 { 2 } else { takes.len().clamp(1, ACROSS) };
+                let across = if c.tab { across_in(f32::from(self.part_room(c)), f32::from(look.length(token::SPACE_3)), takes.len()) } else if self.band_narrow(look) { 1 } else if takes.len() == 4 { 2 } else { takes.len().clamp(1, ACROSS) };
                 let rows: Vec<AnyElement> = takes
                     .chunks(across)
                     .enumerate()
@@ -947,7 +1005,8 @@ impl JobView {
                     .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child(" (Job's pick)"))),
             )
             .child(expand);
-        let thumb = self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview).map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
+        let thumb = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 2., Fit::Preview).map(|picture| self.take_press(key, at, take, picture, cx)) }
+            .map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
         let (press_key, key_key) = (key.to_string(), key.to_string());
         let tile = div()
             .id(SharedString::from(format!("take:{key}:{at}")))
@@ -984,6 +1043,75 @@ impl JobView {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}", c.job, text.len());
         self.scene_in(&held, text, height, c.look, fit, Lens::default())
+    }
+
+    /// What a part's body has to stand in, in the reader: the card's width less the part's own padding.
+    fn part_room(&self, c: &Ctx) -> gpui::Pixels {
+        let look = c.look;
+        let held = self.body_scroll.bounds().size.width;
+        let card = if held > px(0.) { (held - look.length(token::SPACE_4) * 2.).min(self.column(look)) } else { self.column(look) };
+        (card - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.))
+    }
+
+    /// The tallest a picture stands in the reading column: four fifths of the pane it is read in.
+    fn tall_most(&self) -> gpui::Pixels {
+        let pane = self.body_scroll.bounds().size.height;
+        let pane = if pane > px(0.) { pane } else { self.pane_height.unwrap_or(px(600.)) };
+        pane * TALL_SHARE
+    }
+
+    /// A take's picture filling the reading column: the width of its place, the height its own shape gives, no taller than
+    /// `tall_most`, and no frame round it.
+    fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, cx: &Context<Self>) -> Option<AnyElement> {
+        let text = take.scene.as_deref()?;
+        let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
+        let picture = self.scene_column(&held, text, self.tall_most(), c.look)?;
+        Some(self.take_press(key, at, take, picture, cx))
+    }
+
+    /// A take's picture made a button: a press reads it large over the app, and a press beside it still chooses the take.
+    fn take_press(&self, key: &str, at: usize, take: &PartTake, picture: AnyElement, cx: &Context<Self>) -> AnyElement {
+        let press = key.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("take-picture:{key}:{at}")))
+                .w_full()
+                .cursor_pointer()
+                .child(picture)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.open_take(&press, at, window, cx);
+                })),
+            Role::Button,
+            format!("Picture: {}", pick_mark(&take.title).0),
+        )
+        .into_any_element()
+    }
+
+    /// A scene's JSON drawn to fill its width: it stands as tall as its canvas's own shape asks, up to `tall`, and is centred
+    /// where that leaves room at the sides.
+    fn scene_column(&self, key: &str, text: &str, tall: gpui::Pixels, look: &Look) -> Option<AnyElement> {
+        let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
+        let scene = crate::scene::read(key, &raw)?;
+        // The canvas's shape is known once it has been drawn; the frame before that draws at a plain 16 to 10 and draws again.
+        let ratio = crate::scene::canvas_size(key).map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        Some(
+            div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .child(
+                    div()
+                        .relative()
+                        .w_full()
+                        .max_w(tall * ratio)
+                        .aspect_ratio(ratio)
+                        .overflow_hidden()
+                        .rounded(look.length(token::RADIUS_MD))
+                        .child(crate::scene::view(SharedString::from(key.to_string()), scene, Fit::Column, Clock::default(), Lens::default())),
+                )
+                .into_any_element(),
+        )
     }
 
     /// A scene's JSON drawn in a sunken box `height` tall, as a take's thumbnail and the drawing part are.
@@ -1082,7 +1210,7 @@ impl JobView {
                         "Back",
                     )),
             );
-        let picture = self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading);
+        let picture = if c.tab { self.take_flat(c, key, at, take, cx) } else { self.take_picture(c, key, at, take, look.length(token::SPACE_12) * 6., Fit::Reading).map(|picture| self.take_press(key, at, take, picture, cx)) };
         let choose = open.then(|| {
             labelled(
                 act(look, format!("large-pick:{key}"), if on { "Chosen" } else { "Choose this take" }, Kind::Secondary, "", true)
@@ -1143,7 +1271,7 @@ impl JobView {
             return self.drawing_large(c, key, &held, scene, cx);
         }
         let Some(drawn) = self.scene_in(&held, scene, look.length(token::SPACE_12) * 3., look, Fit::Preview, Lens::default()) else { return div().into_any_element() };
-        let artifact = c.id.to_string();
+        let (artifact, press) = (c.id.to_string(), key.to_string());
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
             div()
@@ -1182,47 +1310,20 @@ impl JobView {
                 .cursor_pointer()
                 .child(drawn)
                 .child(eye)
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.open_named(&artifact, window, cx);
-                })),
-            Role::Group,
+                .on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+            Role::Button,
             "Drawing",
         )
         .into_any_element()
     }
 
-    /// The drawing read large in the artifact's tab, with its zoom: the pinch, the buttons and the keys over it (`artifact_key`).
+    /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
-        let look = c.look;
-        let lens = c.state().lens.get(key).copied().unwrap_or_default();
-        let Some(drawn) = self.scene_in(held, scene, look.length(token::SPACE_12) * 10., look, Fit::Reading, lens) else { return div().into_any_element() };
-        let button = |id: &'static str, said: &'static str, cap: &'static str, by: Looking| {
-            let held = key.to_string();
-            labelled(
-                act(look, format!("{id}:{key}"), said, Kind::Ghost, cap, true).tooltip(tip(said)).on_click(cx.listener(move |this, _, _, cx| this.zoom_part(&held, by, cx))),
-                Role::Button,
-                said,
-            )
-        };
-        let pinched = key.to_string();
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(), c.look) else { return div().into_any_element() };
+        let press = key.to_string();
         labelled(
-            div()
-                .id(SharedString::from(format!("drawing:{key}")))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .child(div().w_full().on_pinch(cx.listener(move |this, event: &gpui::PinchEvent, _, cx| this.zoom_part(&pinched, Looking::Zoom((1. + event.delta).max(0.05)), cx))).child(drawn))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap(look.length(token::SPACE_2))
-                        .child(button("zoom-out", "Zoom out", "\u{2318}\u{2212}", Looking::Zoom(1. / KEY_STEP)))
-                        .child(button("zoom-in", "Zoom in", "\u{2318}+", Looking::Zoom(KEY_STEP)))
-                        .child(button("zoom-fit", "Fit", "\u{2318}0", Looking::Fit)),
-                ),
-            Role::Group,
+            div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+            Role::Button,
             "Drawing",
         )
         .into_any_element()
@@ -1407,6 +1508,19 @@ mod tests {
     fn the_jobs_pick_is_the_words_it_wrote_in_the_title() {
         assert_eq!(pick_mark("B Rail (Job's pick)"), ("B Rail", true));
         assert_eq!(pick_mark("A Bar"), ("A Bar", false));
+    }
+
+    #[test]
+    fn takes_stand_one_a_row_until_each_would_be_five_hundred_and_twenty_wide_side_by_side() {
+        let gap = 12.;
+        assert_eq!(across_in(700., gap, 3), 1, "a column of seven hundred has no room for two");
+        assert_eq!(across_in(1051., gap, 3), 1, "one short of two takes of 520 and the gap between");
+        assert_eq!(across_in(1052., gap, 3), 2);
+        assert_eq!(across_in(1600., gap, 3), 3);
+        assert_eq!(across_in(2600., gap, 2), 2, "never more across than there are takes");
+        assert_eq!(across_in(1600., gap, 4), 2, "four stand two and two");
+        assert_eq!(across_in(1052., gap, 4), 2);
+        assert_eq!(across_in(700., gap, 4), 1);
     }
 
     #[test]

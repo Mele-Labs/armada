@@ -1,19 +1,14 @@
 //! The pictures his messages carried, drawn in the bubble under the words as Electron's `Enlargeable`
-//! thumbnails (`SessionThread.tsx` `Sent`), and opened larger over the window on a press, where it zooms as
-//! `ZoomablePicture` does: a wheel or pinch about the pointer, a drag when zoomed, a double press between fit
-//! and 2.5x, `+`, `-`, `0` and the arrows. A picture is read from Fleet on its row's first draw
+//! thumbnails (`SessionThread.tsx` `Sent`), and opened larger over the window on a press, where it zooms with the one
+//! helper every picture view uses (`zoomer.rs`). A picture is read from Fleet on its row's first draw
 //! (`get_session_file`) and kept, so a thread read again after a restart draws it the same.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{
-    anchored, deferred, div, img, point, prelude::*, px, size, Anchor, AnyElement, App, Context, FocusHandle, Image, ImageFormat, KeyDownEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit, Point, Role, ScrollDelta, ScrollWheelEvent, SharedString, Size, Window,
-};
+use gpui::{div, img, prelude::*, px, size, AnyElement, Context, FocusHandle, Image, ImageFormat, KeyDownEvent, ObjectFit, Role, SharedString, Size, Window};
 use ipc::SentFile;
 
-use super::rows::{glyph, Size as GlyphSize};
 use super::wire::{encoded, Done};
 use super::JobView;
 use crate::labels::labelled;
@@ -28,49 +23,10 @@ pub(super) enum Picture {
     Unread,
 }
 
-/// The picture open over the window, and how far it is zoomed and moved from the window's middle.
-pub(super) struct Viewing {
-    image: Arc<Image>,
-    natural: Size<f32>,
-    name: SharedString,
-    focus: FocusHandle,
-    back: Option<FocusHandle>,
-    scale: f32,
-    pan: Point<f32>,
-    /// The press held: where it began, where the pointer was last, and whether it has travelled.
-    press: Option<(Point<f32>, Point<f32>, bool)>,
-}
-
-/// `ZoomablePicture`'s numbers: fit is 1, the most is 8, a double press goes to 2.5, a key steps by
-/// 1.5 and pans 64, a press that travels further than 8 is a drag, and a pinch and a wheel each have
-/// their own speed.
-const MOST: f32 = 8.;
-const DOUBLE_TAP_SCALE: f32 = 2.5;
-const KEY_STEP: f32 = 1.5;
-const KEY_PAN: f32 = 64.;
-const TAP_SLOP: f32 = 8.;
-const PINCH_SPEED: f32 = 0.01;
-const WHEEL_SPEED: f32 = 0.002;
-const LINE_HEIGHT: f32 = 16.;
-
-fn limited(scale: f32) -> f32 {
-    scale.clamp(1., MOST)
-}
-
-/// How far one axis may be moved: an edge of a picture larger than the window never comes inside it,
-/// and a smaller one stays in the middle.
-fn panned(pan: f32, length: f32, scale: f32, whole: f32) -> f32 {
-    let half = length * scale / 2.;
-    if half * 2. <= whole {
-        return 0.;
-    }
-    pan.clamp(whole / 2. - half, half - whole / 2.)
-}
-
 #[derive(Default)]
 pub(super) struct Pictures {
     held: HashMap<String, Picture>,
-    pub(super) viewing: Option<Viewing>,
+    pub(super) viewing: Option<super::picture_view::Viewing>,
 }
 
 fn key(job: &str, file: &str) -> String {
@@ -161,14 +117,7 @@ pub(super) fn natural_size(bytes: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-/// `natural` made to fit inside `most`, keeping its shape and never made larger.
-pub(super) fn fitted(natural: Size<f32>, most: Size<f32>) -> Size<f32> {
-    if natural.width <= 0. || natural.height <= 0. {
-        return most;
-    }
-    let scale = (most.width / natural.width).min(most.height / natural.height).min(1.);
-    size(natural.width * scale, natural.height * scale)
-}
+pub(super) use super::zoomer::fitted;
 
 /// What a mock thread's pictures read as, with no Fleet to ask: a window with a sidebar and a few rows, in
 /// the shape its name says (`Wide`, `Tall`), else 960 by 600.
@@ -359,213 +308,6 @@ impl JobView {
         }
         lost
     }
-
-    pub(super) fn open_picture(&mut self, image: Arc<Image>, natural: Size<f32>, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let focus = cx.focus_handle();
-        let back = window.focused(cx);
-        window.focus(&focus, cx);
-        self.pictures.viewing = Some(Viewing { image, natural, name, focus, back, scale: 1., pan: point(0., 0.), press: None });
-        cx.notify();
-    }
-
-    /// Esc, Close or a press beside the picture: it shuts and the keys go back to the thumbnail.
-    fn close_picture(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(viewing) = self.pictures.viewing.take() {
-            if let Some(back) = viewing.back {
-                window.focus(&back, cx);
-            }
-        }
-        cx.notify();
-    }
-
-    /// The picture fitted inside the window less `--space-6` all round, never made larger than it is.
-    fn fit_of(viewing: &Viewing, window: &Window, cx: &App) -> Size<f32> {
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        let inset = f32::from(cx.look().length(token::SPACE_6)) * 2.;
-        fitted(viewing.natural, size(f32::from(viewport.width) - inset, f32::from(viewport.height) - inset))
-    }
-
-    /// Zoom to `scale` about `at`, a point measured from the window's middle; the pan follows, held to the edges.
-    fn zoom_about(&mut self, at: Point<f32>, scale: f32, window: &Window, cx: &mut Context<Self>) {
-        let Some(fit) = self.pictures.viewing.as_ref().map(|viewing| Self::fit_of(viewing, window, cx)) else { return };
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        let Some(viewing) = self.pictures.viewing.as_mut() else { return };
-        let to = limited(scale);
-        let by = to / viewing.scale;
-        let pan = point(at.x - (at.x - viewing.pan.x) * by, at.y - (at.y - viewing.pan.y) * by);
-        viewing.scale = to;
-        viewing.pan = point(panned(pan.x, fit.width, to, f32::from(viewport.width)), panned(pan.y, fit.height, to, f32::from(viewport.height)));
-        cx.notify();
-    }
-
-    fn pan_by(&mut self, by: Point<f32>, window: &Window, cx: &mut Context<Self>) {
-        let Some(fit) = self.pictures.viewing.as_ref().map(|viewing| Self::fit_of(viewing, window, cx)) else { return };
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        let Some(viewing) = self.pictures.viewing.as_mut() else { return };
-        viewing.pan = point(
-            panned(viewing.pan.x + by.x, fit.width, viewing.scale, f32::from(viewport.width)),
-            panned(viewing.pan.y + by.y, fit.height, viewing.scale, f32::from(viewport.height)),
-        );
-        cx.notify();
-    }
-
-    fn zoom_by(&mut self, by: f32, window: &Window, cx: &mut Context<Self>) {
-        let scale = self.pictures.viewing.as_ref().map_or(1., |viewing| viewing.scale);
-        self.zoom_about(point(0., 0.), scale * by, window, cx);
-    }
-
-    /// The viewer's keys: Esc, `+` or `=`, `-`, `0`, and the arrows while zoomed.
-    fn picture_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let key = &event.keystroke;
-        if key.modifiers.platform || key.modifiers.control || key.modifiers.alt {
-            return;
-        }
-        let zoomed = self.pictures.viewing.as_ref().is_some_and(|viewing| viewing.scale > 1.);
-        match key.key.as_str() {
-            "escape" => self.close_picture(window, cx),
-            "+" | "=" => self.zoom_by(KEY_STEP, window, cx),
-            "-" => self.zoom_by(1. / KEY_STEP, window, cx),
-            "0" => self.zoom_about(point(0., 0.), 1., window, cx),
-            "left" if zoomed => self.pan_by(point(KEY_PAN, 0.), window, cx),
-            "right" if zoomed => self.pan_by(point(-KEY_PAN, 0.), window, cx),
-            "up" if zoomed => self.pan_by(point(0., KEY_PAN), window, cx),
-            "down" if zoomed => self.pan_by(point(0., -KEY_PAN), window, cx),
-            _ => return,
-        }
-        cx.stop_propagation();
-    }
-
-    /// A press let go without travelling: beside the picture at fit it closes; a second in a row toggles fit and 2.5x there.
-    fn picture_tap(&mut self, at: Point<f32>, clicks: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(viewing) = self.pictures.viewing.as_ref() else { return };
-        let fit = Self::fit_of(viewing, window, cx);
-        let (w, h) = (fit.width * viewing.scale / 2., fit.height * viewing.scale / 2.);
-        let on = (at.x - viewing.pan.x).abs() <= w && (at.y - viewing.pan.y).abs() <= h;
-        if viewing.scale <= 1. && !on {
-            self.close_picture(window, cx);
-        } else if clicks >= 2 {
-            let scale = if viewing.scale > 1. { 1. } else { DOUBLE_TAP_SCALE };
-            self.zoom_about(at, scale, window, cx);
-        }
-    }
-
-    /// The picture open over the whole window, with Zoom out, Zoom in and Close at its top right.
-    pub(super) fn render_picture(&self, window: &Window, cx: &Context<Self>) -> Option<impl IntoElement> {
-        let viewing = self.pictures.viewing.as_ref()?;
-        let look = cx.look();
-        let room = crate::room::of(window, cx);
-        let viewport = room.size;
-        let middle = point(f32::from(viewport.width) / 2., f32::from(viewport.height) / 2.);
-        let fit = Self::fit_of(viewing, window, cx);
-        let shown = size(fit.width * viewing.scale, fit.height * viewing.scale);
-        let from_middle = move |at: Point<gpui::Pixels>| point(f32::from(at.x - room.origin.x) - middle.x, f32::from(at.y - room.origin.y) - middle.y);
-        let button = |id: &'static str, icon: &'static str, said: &'static str, key: &'static str, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
-            let key = gpui::Keystroke::parse(key).ok();
-            labelled(
-                div()
-                    .id(id)
-                    .size(look.length(token::H_CONTROL))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_MD))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(glyph(look, icon, GlyphSize::Small, look.color(token::FG_DEFAULT)))
-                    .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _, window, cx| act(this, window, cx))),
-                Role::Button,
-                said,
-            )
-        };
-        let group = || {
-            div().flex().rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_OVERLAY))
-        };
-        let bar = div()
-            .absolute()
-            .top(look.length(token::SPACE_3))
-            .right(look.length(token::SPACE_3))
-            .flex()
-            .gap(look.length(token::SPACE_2))
-            .child(
-                group()
-                    .child(button("picture-zoom-out", "minus", "Zoom out", "-", |this, window, cx| this.zoom_by(1. / KEY_STEP, window, cx)))
-                    .child(button("picture-zoom-in", "plus", "Zoom in", "+", |this, window, cx| this.zoom_by(KEY_STEP, window, cx))),
-            )
-            .child(group().child(button("picture-close", "x", "Close", "escape", |this, window, cx| this.close_picture(window, cx))));
-        Some(
-            deferred(
-                anchored().position(room.origin).anchor(Anchor::TopLeft).child(labelled(
-                    div()
-                        .id("picture-view")
-                        .occlude()
-                        .track_focus(&viewing.focus)
-                        .relative()
-                        .overflow_hidden()
-                        .w(viewport.width)
-                        .h(viewport.height)
-                        .bg(look.color(token::SCRIM))
-                        .on_key_down(cx.listener(Self::picture_key))
-                        .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, _, _| {
-                            if let Some(viewing) = this.pictures.viewing.as_mut() {
-                                let at = from_middle(event.position);
-                                viewing.press = Some((at, at, false));
-                            }
-                        }))
-                        .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, window, cx| {
-                            let Some((from, was, moved)) = this.pictures.viewing.as_ref().and_then(|viewing| viewing.press) else { return };
-                            if event.pressed_button != Some(MouseButton::Left) {
-                                return;
-                            }
-                            let now = from_middle(event.position);
-                            let moved = moved || (now.x - from.x).hypot(now.y - from.y) > TAP_SLOP;
-                            if let Some(viewing) = this.pictures.viewing.as_mut() {
-                                viewing.press = Some((from, now, moved));
-                            }
-                            if moved && this.pictures.viewing.as_ref().is_some_and(|viewing| viewing.scale > 1.) {
-                                this.pan_by(point(now.x - was.x, now.y - was.y), window, cx);
-                            }
-                        }))
-                        .on_mouse_up(MouseButton::Left, cx.listener(move |this, event: &MouseUpEvent, window, cx| {
-                            let Some((_, _, moved)) = this.pictures.viewing.as_mut().and_then(|viewing| viewing.press.take()) else { return };
-                            if !moved {
-                                this.picture_tap(from_middle(event.position), event.click_count, window, cx);
-                            }
-                        }))
-                        .on_scroll_wheel(cx.listener(move |this, event: &ScrollWheelEvent, window, cx| {
-                            let delta = match event.delta {
-                                ScrollDelta::Pixels(by) => f32::from(by.y),
-                                ScrollDelta::Lines(by) => by.y * LINE_HEIGHT,
-                            };
-                            // gpui's wheel is the page's moving, the DOM's `deltaY` the finger's: the sign turns.
-                            let speed = if event.modifiers.control { PINCH_SPEED } else { WHEEL_SPEED };
-                            let scale = this.pictures.viewing.as_ref().map_or(1., |viewing| viewing.scale);
-                            this.zoom_about(from_middle(event.position), scale * (delta * speed).exp(), window, cx);
-                        }))
-                        .child(
-                            div()
-                                .absolute()
-                                .left(px(middle.x - shown.width / 2. + viewing.pan.x))
-                                .top(px(middle.y - shown.height / 2. + viewing.pan.y))
-                                .w(px(shown.width))
-                                .h(px(shown.height))
-                                .overflow_hidden()
-                                .rounded(look.length(token::RADIUS_MD))
-                                .shadow(look.shadows(token::SHADOW_OVERLAY))
-                                .child(img(viewing.image.clone()).size_full().object_fit(ObjectFit::Contain)),
-                        )
-                        .child(bar),
-                    Role::Dialog,
-                    viewing.name.clone(),
-                )),
-            )
-            .with_priority(3),
-        )
-    }
 }
 
 /// The thumbnail's box: `max-width: calc(var(--space-12) * 4)`, `max-height: calc(var(--space-12) * 3)`.
@@ -589,15 +331,6 @@ mod tests {
         assert_eq!(fit(size(2880., 1800.)), size(192., 120.));
         assert_eq!(fit(size(600., 1200.)), size(72., 144.));
         assert_eq!(fit(size(100., 50.)), size(100., 50.));
-    }
-
-    #[test]
-    fn a_zoomed_picture_moves_only_as_far_as_its_edges_and_one_that_fits_stays_in_the_middle() {
-        assert_eq!(panned(500., 400., 2., 1000.), 0.);
-        assert_eq!(panned(500., 800., 2., 1000.), 300.);
-        assert_eq!(panned(-500., 800., 2., 1000.), -300.);
-        assert_eq!(limited(20.), MOST);
-        assert_eq!(limited(0.5), 1.);
     }
 
     #[test]
