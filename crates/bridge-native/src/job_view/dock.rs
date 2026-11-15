@@ -109,6 +109,11 @@ impl RunMark {
     }
 }
 
+/// Whether a thing is Fleet's row for a Ready to try card.
+fn is_ready(thing: &Thing) -> bool {
+    matches!(thing, Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry)
+}
+
 /// One thing the panel lists.
 pub(super) enum Thing<'a> {
     Ask(&'a ThreadAsk),
@@ -325,7 +330,13 @@ impl JobView {
         for group in self.groups(id, cx) {
             if group.kind != NeedsYouSectionKind::ToReview {
                 things.extend(group.things);
-            } else if !in_band && crate::ways::looks() {
+                continue;
+            }
+            // A card to try is a row of the panel in any band: the review sheet holds no body for it.
+            let (cards, group_things): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
+            things.extend(cards);
+            let group = Group { kind: group.kind, label: group.label, things: group_things };
+            if !in_band && crate::ways::looks() {
                 // In Look a sketch to review is an item of the panel, opened whole there.
                 things.extend(group.things.into_iter().filter(|thing| matches!(thing, Thing::Row(row) if matches!(row.act, NeedsYouAct::OpenSketch { .. }))));
             } else if in_band {
@@ -343,7 +354,8 @@ impl JobView {
     pub(super) fn folds(&self, id: &str, cx: &gpui::App) -> bool {
         let (things, _) = self.things(id, cx);
         let fleet_folds = self.needs_of(id, cx).is_some_and(|view| view.fold);
-        things.iter().any(|thing| !matches!(thing, Thing::Row(_))) || (fleet_folds && !things.is_empty())
+        // A card to try has no sheet to stand in, so a band holding one lists it though Fleet's `fold` counts only the sections it lists.
+        things.iter().any(|thing| !matches!(thing, Thing::Row(_)) || is_ready(thing)) || (fleet_folds && !things.is_empty())
     }
 
     /// The restarts the Job's items ask for, one key per command: Fleet's Restart section, whichever items ask it.
@@ -468,6 +480,8 @@ impl JobView {
                 Thing::Ask(ask) if on_a_row(&ask.call.call) => None,
                 Thing::Ask(ask) => Some(("message-circle-question-mark", ask_label(ask))),
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
+                // Fleet marks a card to try only where the review sheet is in the band; alone it has no mark, and the band would not draw.
+                Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry && !view.is_some_and(|view| view.review_in_band) => Some((icon_of(row.glyph.kind), row.text.clone())),
                 Thing::Row(_) => None,
             })
             .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
@@ -889,6 +903,8 @@ impl JobView {
             .gap(look.length(token::SPACE_4))
             .children(self.groups(id, cx).into_iter().map(|group| {
                 let label = SharedString::from(group.label.to_string());
+                // A card to try is its own row beside the review sheet's: the sheet holds no body for it.
+                let (cards, rest): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
                 labelled(
                     div()
                         .id(SharedString::from(format!("needs-group:{label}")))
@@ -907,9 +923,10 @@ impl JobView {
                                 .child(label.clone()),
                         )
                         .children(if group.kind == NeedsYouSectionKind::ToReview && in_band {
-                            vec![self.sheet_row(&group.things, look, cx)]
+                            let sheet = (!rest.is_empty()).then(|| self.sheet_row(&rest, look, cx));
+                            sheet.into_iter().chain(cards.iter().map(|thing| self.thing_row(id, thing, look, cx))).collect()
                         } else {
-                            group.things.iter().map(|thing| self.thing_row(id, thing, look, cx)).collect()
+                            rest.iter().chain(cards.iter()).map(|thing| self.thing_row(id, thing, look, cx)).collect::<Vec<_>>()
                         }),
                     Role::Region,
                     label,
@@ -1036,8 +1053,10 @@ impl JobView {
         let artifact = row.and_then(|row| self.row_artifact(id, &row.id, cx));
         let gone = artifact.as_deref().is_some_and(|named| self.artifact_gone(id, named));
         let own = row.is_some_and(|row| !matches!(row.act, NeedsYouAct::None));
+        // A card to try goes to the card, whatever act Fleet gave its row: Message would only go to the box.
+        let card = row.is_some_and(|row| row.source == ipc::WaitingSource::ReadyToTry);
         let press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)> = match &artifact {
-            Some(named) if !own => {
+            Some(named) if !own || card => {
                 let named = named.clone();
                 Box::new(move |this, window, cx| {
                     this.open_named(&named, window, cx);
@@ -1061,7 +1080,7 @@ impl JobView {
             let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
             self.answer_buttons(row, keyed, look, cx)
         });
-        let words = match artifact.as_ref().filter(|_| own && !gone) {
+        let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
             Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };

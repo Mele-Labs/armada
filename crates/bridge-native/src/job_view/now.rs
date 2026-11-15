@@ -642,6 +642,12 @@ impl JobView {
                 self.open_review(window, cx);
                 self.review_at(item, window, cx);
             }
+            // A card waiting to be tried is in the thread: the press goes to it and pulses it once.
+            WaitingSource::ReadyToTry => {
+                if let Some(job) = self.shown.clone() {
+                    self.go_to_ready(&job, item, window, cx);
+                }
+            }
             WaitingSource::FirstMessage | WaitingSource::Done => {}
             _ => {
                 // A question's item is `ask:<call>`, which the panel holds as `question:<call>`.

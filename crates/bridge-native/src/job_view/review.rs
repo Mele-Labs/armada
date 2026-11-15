@@ -267,6 +267,8 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
                     Some(SessionRow::Draft { title, change, for_line, .. }) => Some(item(Kind::Draft, title.clone(), for_text(for_line.as_ref()), None, change.is_none())),
                     _ => None,
                 },
+                // A card to try is answered on its own card, so Approve all passes it by.
+                WaitingSource::ReadyToTry => None,
                 _ => None,
             }
         })
@@ -1543,6 +1545,16 @@ mod tests {
                {"kind":"document","id":"document:design:r2","at":"2026-11-09T14:03:00Z","page":"design","title":"Stale branch design","revision":2,"asked":true},
                {"kind":"row","row":{"kind":"draft","id":"d1","at":"2026-11-09T14:10:00Z","title":"Comment","text":"words"}}"#,
         )
+    }
+
+    #[test]
+    fn a_card_to_try_is_left_out_of_the_sheet_so_approve_all_passes_it_by() {
+        let (head, items) = held();
+        let mut with_card = owed();
+        with_card.extend(waiting(r#"[{"id":"try:native/chip@aaaa1111","text":"Try: Chip","since":"2026-11-09T14:20:00Z","source":"ready_to_try","artifact":"try:native/chip@aaaa1111"}]"#));
+        let built = build("j", &with_card, &head, &items, true);
+        assert!(built.iter().all(|item| !item.id.starts_with("try:")), "no item of the sheet names the card");
+        assert_eq!(built.len(), build("j", &owed(), &head, &items, true).len(), "the card adds nothing to what Approve all sends");
     }
 
     #[test]

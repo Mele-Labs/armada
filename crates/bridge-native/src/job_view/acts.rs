@@ -39,6 +39,8 @@ pub(super) enum Answer {
     Judging(Option<String>),
     /// A pick on a handoff card.
     Handoff(ipc::HandoffPick),
+    /// A Ready to try card put off: the time it comes back at, as it was sent.
+    Later(String),
 }
 
 impl CardState {
@@ -98,6 +100,11 @@ pub(super) struct CardState {
     pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
     /// What the cards of artifacts that hold parts remember (`parts_card`).
     pub parts: super::parts_card::PartsState,
+    /// The Ready to try card a press on its Needs you item asked to go to, until its draw has focused it.
+    pub go: std::cell::RefCell<Option<String>>,
+    /// The Ready to try card pulsing once, and how many times one has pulsed, so each pulse is a new animation.
+    pub pulse: Option<(String, u64)>,
+    pub pulses: u64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -479,6 +486,11 @@ impl JobView {
                     }
                 }
                 None if route == super::parts_card::PRESS => self.mock_part_pressed(&job, body, cx),
+                None if route == super::ready_card::ANSWER_READY => {
+                    if let Err(why) = self.mock_ready_answered(&job, body, cx) {
+                        failed(self, why.into(), cx);
+                    }
+                }
                 None => {}
             }
             return;

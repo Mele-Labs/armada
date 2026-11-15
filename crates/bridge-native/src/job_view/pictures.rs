@@ -297,8 +297,13 @@ impl JobView {
 
     /// A file of his message inside the bubble: its picture, a placeholder while it is read, or `None` for a chip.
     pub(super) fn picture_tile(&self, file: &SentFile, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        self.picture_in(file, thumb_most(look), look, cx)
+    }
+
+    /// A picture of the Job fitted inside `most`, never made larger, that a press opens over the window: the thumbnail's
+    /// own draw, at the size a card asks for.
+    pub(super) fn picture_in(&self, file: &SentFile, most: Size<f32>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.shown.as_ref()?;
-        let most = thumb_most(look);
         let tile = |id: String| {
             div()
                 .id(SharedString::from(id))

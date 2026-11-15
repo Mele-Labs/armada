@@ -197,6 +197,10 @@ impl JobView {
     /// Whether Fleet has listed Job `job`'s artifacts and `artifact` is not among them: it no longer holds it. Until the list
     /// is read nothing is said to be gone.
     pub(super) fn artifact_gone(&self, job: &str, artifact: &str) -> bool {
+        // A card is held by the thread, and its row says whether it is there: Fleet lifts the item with the card.
+        if super::ready_card::is_card(artifact) {
+            return false;
+        }
         self.artifacts.read.get(job).is_some_and(|read| read.rows.as_ref().is_some_and(|rows| rows.iter().all(|one| one.id != artifact)))
     }
 
@@ -232,6 +236,14 @@ impl JobView {
     /// Open, a Needs you item and a folded line. Returns whether the Job holds it: one it no longer holds opens nothing.
     pub(super) fn open_named(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
+        // A Ready to try card is no artifact of the Job: its id names the card in the thread (`try:<branch>@<tip>`).
+        if super::ready_card::is_card(artifact) {
+            let held = self.go_to_ready(&job, artifact, window, cx);
+            if held {
+                self.set_needs(false, None, window, cx);
+            }
+            return held;
+        }
         if self.artifact_of(&job, artifact).is_none() {
             return false;
         }
@@ -671,6 +683,10 @@ impl JobView {
     /// Every artifact is read whole in its own tab. One that holds parts opens in the artifact's tab, with every part answerable
     /// and its drawing large; a page opens in its tab, a draft in its tab, and a sketch large over the window, where it zooms.
     pub(super) fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if super::ready_card::is_card(artifact) {
+            self.go_to_ready(job, artifact, window, cx);
+            return;
+        }
         let Some(one) = self.artifact_of(job, artifact).cloned() else { return };
         if !one.parts.is_empty() {
             self.open_artifact_tab(&one.id, window, cx);
