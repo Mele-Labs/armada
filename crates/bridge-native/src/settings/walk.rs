@@ -166,6 +166,7 @@ pub static MACS_LONG_STEPS: &[Step] = &[
 
 /// `native-nearby-macs`: his other Macs found on this network and on his account, each with where it is reached and a
 /// Pair. Pair on the one nearby asks it with no link, and its row waits on Confirm; the one only on his account refuses.
+/// A Mac on an older build has Update and no Pair, and one his store lists pairs at once.
 pub const MACS_NEARBY: &str = "native-nearby-macs";
 
 pub static MACS_NEARBY_STEPS: &[Step] = &[
@@ -177,6 +178,11 @@ pub static MACS_NEARBY_STEPS: &[Step] = &[
     press_on("Pair on the Mac nearby asks it, with no link: its row waits on Confirm and shows the four digits", "button", "Pair Office iMac", "img", "Confirm on Office iMac if it shows 4821."),
     press_on("The Mac only on his account does not answer, and the Gateway's sentence stands under its row", "button", "Pair MacBook Pro", "alert", "MacBook Pro did not answer. Check Armada is open there, then press Pair again."),
     step("Tab goes on to the next Pair", Verb::Key("tab"), "button", "Pair Old iMac"),
+    step("Studio mini runs an older build: its row says so in amber, and Update stands beside Pair", Verb::Look, "button", "Update Studio mini"),
+    step("Pair stays off until it updates, and its tooltip says why", Verb::Hover, "button", "Pair Studio mini"),
+    press_on("Update asks Studio mini onto this Mac's build. This Mac holds no link to it yet, and Fleet's sentence stands under its row", "button", "Update Studio mini", "alert", "This Mac is not linked to Mac mac-studio-mini."),
+    press_on("Home laptop is one his store lists: Pair pairs it at once, with no Confirm, and the keys go to its Forget", "button", "Pair Home laptop", "button", "Forget Home laptop"),
+    step("Den iMac is only in his store and has no tunnel: its Pair pairs it the same way", Verb::Wheel("region", "Devices", 900), "button", "Pair Den iMac"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
