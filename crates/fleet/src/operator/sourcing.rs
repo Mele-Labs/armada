@@ -34,8 +34,6 @@ pub(crate) struct Sources {
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
     /// The open notes sent to no Job yet, by repository and id, read again each tick.
     watching: Mutex<BTreeMap<(String, String), Watched>>,
-    /// How long they are watched where it is not [`NOTE_SENT_WAIT`], which a test shortens.
-    sent_wait: Mutex<Option<Duration>>,
 }
 
 /// An open note the person may still send to a Job.
@@ -89,13 +87,7 @@ impl Seat {
 
     /// How long a note waits to be sent to a Job.
     fn note_wait(&self) -> Duration {
-        held(&self.sources.sent_wait).unwrap_or(NOTE_SENT_WAIT)
-    }
-
-    /// Watch notes for a shorter time than [`NOTE_SENT_WAIT`].
-    #[cfg(test)]
-    pub(crate) fn note_wait_is(&self, wait: Duration) {
-        *held(&self.sources.sent_wait) = Some(wait);
+        NOTE_SENT_WAIT
     }
 }
 
