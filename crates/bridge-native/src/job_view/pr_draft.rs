@@ -215,7 +215,7 @@ impl JobView {
                 .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.5)))
                 .rounded(look.length(token::RADIUS_MD))
                 .bg(look.color(token::BG_RAISED))
-                .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).bg(hue))
+                .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
                 .child(head)
                 .child(body)
                 .child(foot),

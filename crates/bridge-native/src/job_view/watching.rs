@@ -374,7 +374,7 @@ impl JobView {
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).bg(hue))
+                .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
                 .children(rows)
         });
         Some(

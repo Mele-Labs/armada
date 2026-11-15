@@ -359,7 +359,7 @@ pub(super) fn job_card(job: &SessionRecord, look: &Look, cx: &Context<JobView>) 
         .text_color(look.color(token::FG_DEFAULT))
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).bg(hue))
+        .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
         .child(labelled(div().id(SharedString::from(format!("job-card-kind:{id}"))).flex_none().tooltip(tip("Job")).child(glyph(look, "bot", Size::Large, look.color(token::FG_MUTED))), Role::Image, "Job"))
         .child(
             div()

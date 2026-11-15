@@ -12,6 +12,8 @@
 
 mod aa;
 mod acts;
+mod artifacts_tab;
+mod band_card;
 mod bands;
 mod bar;
 mod calls;
@@ -386,6 +388,8 @@ pub struct JobView {
     aged: bool,
     /// How Done lists what was made, for the run.
     ledger_view: done::LedgerView,
+    /// What each Job's artifacts list holds, and the first screens of its pages.
+    artifacts: artifacts_tab::Artifacts,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -612,6 +616,7 @@ impl JobView {
             starts: start_card::Starts::default(),
             composer,
             aged: false,
+            artifacts: artifacts_tab::Artifacts::default(),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -1191,6 +1196,7 @@ impl Render for JobView {
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
+        self.sync_artifacts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
@@ -1241,6 +1247,7 @@ impl Render for JobView {
                     .on_action(cx.listener(Self::on_to_end))
                     .size_full()
                     .pt(look.length(token::SPACE_4))
+                    .pb(self.chip_room(&id, cx))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
                     .child(fade(&look, true))
