@@ -1997,7 +1997,7 @@ impl JobsList {
         // Move to a project, after Move to Mac: it reaches the whole selection where this row is in it.
         if let Some(job) = self.record(&id).filter(|job| crate::move_to_project::movable(job)) {
             let off = crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx).map(Into::into);
-            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: Some("P".into()), off });
+            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: Some("\u{21e7}P".into()), off });
         }
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
@@ -2586,9 +2586,10 @@ impl JobsList {
         let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
         let drop_here = self.drop.as_ref().filter(|(at, _)| dragging && *at == row.id).map(|(_, after)| *after);
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
-        // A selected row wears the open row's accent fill and edge, and no hover over it.
+        // A selected row wears an accent edge over a faint accent fill: the open row's fill is the stronger one.
         let selected = self.selected.contains(&row.id);
-        let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened || selected, focused, !row.place, pad)
+        let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place && !selected, pad)
+            .when(selected && !opened, |strip| strip.border_color(look.color(token::ACCENT)).bg(look.color(token::ACCENT_FAINT)))
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
@@ -2603,7 +2604,7 @@ impl JobsList {
                 ))
             })
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
-            .when(!opened && !needs, |strip| strip.child(row_wash(look, lamp_ink)))
+            .when(!opened && !selected && !needs, |strip| strip.child(row_wash(look, lamp_ink)))
             .child(row_edge(look, lamp_ink))
             .child(
                 div()
