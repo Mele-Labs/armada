@@ -921,7 +921,7 @@ impl JobView {
                         this.settle(ix, key.clone(), Answer::SentBack(note.clone()), "/sessions/waiting/answer", answer(Some(note)), window, cx);
                     }
                 }
-                Act::Cancel => this.shut_note(ix, &key, window, cx),
+                Act::Cancel => this.shut_band_note(ix, &key, window, cx),
                 Act::Dismiss => {
                     let body = encoded(&DismissWaiting { session_id: session.clone(), item_id: item.clone(), reason: None, misread: false });
                     this.settle(ix, key.clone(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);

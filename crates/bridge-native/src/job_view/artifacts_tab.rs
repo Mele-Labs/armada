@@ -305,11 +305,11 @@ impl JobView {
         .detach();
     }
 
-    fn picture_made(&mut self, key: PictureKey, made: Result<(Arc<RenderImage>, f32), String>, window: &mut Window, cx: &mut Context<Self>) {
+    fn picture_made(&mut self, key: PictureKey, made: Result<crate::scene::mock_view::Picture, String>, window: &mut Window, cx: &mut Context<Self>) {
         self.artifacts.making = self.artifacts.making.saturating_sub(1);
         // An older width or theme of the same revision is let go.
         self.artifacts.pictures.retain(|held, _| held == &key || !(held.job == key.job && held.page == key.page && held.revision == key.revision));
-        self.artifacts.pictures.insert(key, made.map_or(Picture::Failed, |(image, height)| Picture::Ready(image, height)));
+        self.artifacts.pictures.insert(key, made.map_or(Picture::Failed, |(image, height, _)| Picture::Ready(image, height)));
         self.pages.values().for_each(|page| page.list.remeasure());
         cx.notify();
         self.make_pictures(window, cx);

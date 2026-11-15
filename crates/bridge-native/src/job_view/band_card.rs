@@ -565,7 +565,7 @@ impl JobView {
     }
 
     /// The note shuts and the keys go back to the card.
-    pub(super) fn shut_note(&mut self, ix: usize, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn shut_band_note(&mut self, ix: usize, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.close_box(ix, key, cx);
         let spot = self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.keys.spot_of(&format!("card:{key}")));
         if let Some(spot) = spot {
@@ -646,7 +646,7 @@ impl JobView {
                             this.settle(ix, id.clone(), Answer::SentBack(note.clone()), "/sessions/document/answer", answer(DocumentHow::SentBack, Some(note)), window, cx);
                         }
                     }
-                    Act::Cancel => this.shut_note(ix, &id, window, cx),
+                    Act::Cancel => this.shut_band_note(ix, &id, window, cx),
                     Act::Dismiss => {
                         let body = ipc::encode(&DismissWaiting { session_id: session.clone(), item_id: format!("document:{page_name}"), reason: None, misread: false }).map_err(|why| format!("{why:?}"));
                         this.settle(ix, id.clone(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
