@@ -597,3 +597,98 @@ impl JobView {
         .into_any_element()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    const JOB: &str = "mock-01";
+
+    /// The For you walk's Job on the mock Fleet, with its list read as the tab reads it the first time.
+    fn open<'a>(cx: &'a mut TestAppContext) -> (Entity<JobView>, &'a mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view(|window, cx| JobView::new(list, None, window, cx));
+        view.update_in(cx, |view, window, cx| view.read_for_you(JOB, window, cx));
+        (view, cx)
+    }
+
+    fn waiting(view: &Entity<JobView>, cx: &mut VisualTestContext) -> Vec<(String, bool)> {
+        view.read_with(cx, |view, _| view.for_you.read.get(JOB).and_then(Option::as_ref).map(|read| read.waiting.iter().map(|one| (one.id.clone(), one.placed)).collect()).unwrap_or_default())
+    }
+
+    #[gpui::test]
+    fn the_sections_stand_waiting_then_building_then_landing_and_one_with_no_rows_is_not_drawn(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let mut read = view.read_with(cx, |view, _| view.for_you.read.get(JOB).cloned().flatten()).expect("read");
+        let parts = |read: &ForYou| sections(read).into_iter().map(|(part, rows)| (part, rows.len())).collect::<Vec<_>>();
+        assert_eq!(parts(&read), [(Part::Waiting, 2), (Part::Building, 2), (Part::Landing, 2)]);
+        assert_eq!(sections(&read)[0].1[0], Rowed::Waiting("document:design".into()), "Fleet's order is kept: the placed row first");
+        read.building.clear();
+        assert_eq!(parts(&read), [(Part::Waiting, 2), (Part::Landing, 2)]);
+        read.waiting.clear();
+        read.landing.clear();
+        assert!(sections(&read).is_empty(), "a Job with nothing in any section draws nothing");
+        assert!(rows(&read).is_empty());
+    }
+
+    #[gpui::test]
+    fn option_down_on_the_first_waiting_row_posts_every_waiting_id_in_the_new_order(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let sent = view.update_in(cx, |view, window, cx| view.for_you_move(JOB, "document:design", 1, window, cx));
+        assert_eq!(sent, Some(OrderForYou { session_id: Some(SessionId::carried(JOB.to_string())), ids: vec!["sketch:Chip states".into(), "document:design".into()] }));
+        assert_eq!(waiting(&view, cx), [("sketch:Chip states".to_string(), true), ("document:design".to_string(), true)], "moved at once, every row placed");
+        let past_the_end = view.update_in(cx, |view, window, cx| view.for_you_move(JOB, "document:design", 1, window, cx));
+        assert_eq!(past_the_end, None, "the last row does not move down");
+        let up = view.update_in(cx, |view, window, cx| view.for_you_move(JOB, "document:design", -1, window, cx));
+        assert_eq!(up.map(|order| order.ids), Some(vec!["document:design".to_string(), "sketch:Chip states".to_string()]));
+    }
+
+    #[gpui::test]
+    fn withdraw_posts_the_id_of_the_row_and_takes_only_that_row_off(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let sent = view.update_in(cx, |view, window, cx| view.for_you_withdraw(JOB, "sketch:Chip states", window, cx));
+        assert_eq!(sent, Some(WithdrawForYou { session_id: Some(SessionId::carried(JOB.to_string())), id: "sketch:Chip states".into() }));
+        assert_eq!(waiting(&view, cx), [("document:design".to_string(), true)]);
+        let unknown = view.update_in(cx, |view, window, cx| view.for_you_withdraw(JOB, "nothing:here", window, cx));
+        assert_eq!(unknown, None, "a row that is not there sends nothing");
+    }
+
+    #[gpui::test]
+    fn a_refused_withdrawal_puts_the_row_back_with_fleets_sentence(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let before = view.read_with(cx, |view, _| view.for_you.read.get(JOB).cloned().flatten()).expect("read");
+        view.update_in(cx, |view, _, cx| {
+            view.for_you_answered(JOB, "sketch:Chip states", before, Err("The id names no row".to_string()), cx);
+        });
+        assert_eq!(waiting(&view, cx).len(), 2);
+        let said = view.read_with(cx, |view, _| view.for_you.refused.get(&(JOB.to_string(), "sketch:Chip states".to_string())).cloned());
+        assert_eq!(said.as_deref(), Some("The id names no row"));
+    }
+
+    #[test]
+    fn a_row_moves_one_place_and_stays_inside_the_waiting_rows() {
+        let at = ipc::Instant::carried("2026-11-09T13:45:15Z");
+        let item = |id: &str| ForYouItem { id: id.into(), kind: ipc::ForYouKind::Question, title: id.into(), line: None, placed: false, since: at.clone(), added_by: ipc::ForYouBy::Fleet, opens: ForYouOpens::Plan, approves: false };
+        let read = ForYou { job: SessionId::carried("j".to_string()), waiting: vec![item("a"), item("b"), item("c")], building: Vec::new(), landing: Vec::new() };
+        assert_eq!(moved(&read, "b", 1), Some(vec!["a".into(), "c".into(), "b".into()]));
+        assert_eq!(moved(&read, "b", -1), Some(vec!["b".into(), "a".into(), "c".into()]));
+        assert_eq!(moved(&read, "a", -1), None);
+        assert_eq!(moved(&read, "c", 1), None);
+        assert_eq!(moved(&read, "gone", 1), None);
+    }
+
+    #[test]
+    fn for_you_is_a_tab_a_pane_can_hold_the_plus_offers_and_a_zone_that_draws_it() {
+        assert!(super::super::pane_tree::is_tab_kind("for_you"));
+        assert_eq!(super::super::panes_place::zone_of("for_you").map(Zone::id), Some("for_you"));
+        let top = super::super::pane_tree::default_arrangement();
+        let panes = super::super::pane_tree::panes_of(&top.root);
+        assert_eq!(panes[1].tabs.first().map(|tab| tab.kind.as_str()), Some("for_you"), "first in the column, before Now");
+    }
+}
