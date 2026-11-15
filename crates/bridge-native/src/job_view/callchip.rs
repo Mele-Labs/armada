@@ -68,3 +68,26 @@ impl JobView {
         Some(div().flex().justify_center().child(chip).into_any_element())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A thread at its tail with a plan set aside and a sketch pinned after it, on a window tall enough for the card.
+    #[gpui::test]
+    fn the_height_a_pinned_sketch_is_cut_to_settles_while_the_chip_may_come_and_go(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = crate::job_view::parts_fold::rooted_job(cx, "thread-jump", "tool-edit", gpui::size(gpui::px(1624.), gpui::px(1061.)), |_| {});
+        let mut heights = Vec::new();
+        let mut chips = Vec::new();
+        for _ in 0..24 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            heights.push(view.read_with(cx, |view, _| view.pane_height));
+            chips.push(crate::job_view::parts_fold::drawn(cx, Role::Button, "Go to what waits"));
+        }
+        let last = heights[23];
+        assert!(last.is_some(), "the thread was never measured");
+        assert!(heights[12..].iter().all(|height| *height == last), "the room the pin is cut to changed from frame to frame: {heights:?}");
+        assert!(chips[12..].iter().all(|chip| *chip == chips[23]), "the chip came and went from frame to frame: {chips:?}");
+    }
+}
