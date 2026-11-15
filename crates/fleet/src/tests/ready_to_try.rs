@@ -250,3 +250,46 @@ async fn a_mark_on_the_build_note_answers_its_card() {
     let one = card(&rig, &session, &tip).await;
     assert_eq!((one.state, one.verdict), (ReadyState::Answered, Some(NoteVerdict::Good)));
 }
+
+/// The Job's Needs you items for its cards.
+async fn tries(rig: &Rig, session: &str) -> Vec<ipc::WaitingItem> {
+    let items = rig.fleet.waiting_now(session).await.expect("the Job's list");
+    items.into_iter().filter(|one| one.source == ipc::WaitingSource::ReadyToTry).collect()
+}
+
+#[tokio::test]
+async fn an_open_card_waits_in_needs_you_until_answered_and_comes_back_with_its_reminder() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    let id = format!("try:{BRANCH}@{tip}");
+
+    let raised = tries(&rig, &session).await;
+    let [item] = raised.as_slice() else { panic!("one item an open card: {raised:?}") };
+    assert_eq!((item.id.as_str(), item.text.as_str(), item.artifact.as_deref()), (id.as_str(), "Try: Keeps one thing", Some(id.as_str())));
+    let said = ipc::AnswerWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), choice: None, text: Some("Fine".into()), mode: None, fixed: None };
+    let refused = Arc::clone(&rig.fleet).settle_waiting(said).await;
+    assert_eq!(code(refused), "fleet.session_waiting_empty", "answered on its card, not here");
+
+    answer(&rig, &session, &tip, ReadyAnswer::Remind { until: from_now(&rig, 3600) }).await.expect("put off");
+    assert!(tries(&rig, &session).await.is_empty(), "a reminder holds it");
+    rig.fleet.store().lock().await.keep_build_note_later(BRANCH, &tip, from_now(&rig, -1).as_str()).unwrap();
+    rig.fleet.ready_cards_come_back().await;
+    assert_eq!(tries(&rig, &session).await.len(), 1, "back when the reminder comes due");
+
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+    assert!(tries(&rig, &session).await.is_empty(), "an answer takes it off");
+}
+
+#[tokio::test]
+async fn a_withdrawn_or_replaced_card_waits_on_nobody() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    let newer = branch_with(&rig, BRANCH, BRANCH, "crates/x/more.rs", "2");
+    offer(&rig, offered(&session)).await.expect("offered again");
+
+    let ids: Vec<String> = tries(&rig, &session).await.into_iter().map(|one| one.id).collect();
+    assert_eq!(ids, [format!("try:{BRANCH}@{newer}")], "the replaced card {tip} waits on nobody");
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: None }).await.expect("withdrawn");
+    assert!(tries(&rig, &session).await.is_empty());
+}

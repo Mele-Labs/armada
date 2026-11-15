@@ -711,6 +711,11 @@ Only an open or later card takes an answer: any other is a 409, `fleet.ready_to_
 A card the Job's thread does not hold is a 404, `fleet.ready_to_try_unknown`, and a reminder time that has passed or does not read is a 422, `fleet.ready_to_try_remind_past`.
 An offer made again at the tip it was withdrawn at opens its card again.
 
+**An open card waits in Needs you**, so a card in the thread reaches him as a reading page does.
+The item is `ready_to_try`, derived on every read: id the card's, text `Try: <about>`, and `artifact` the card's id, so a client opens the card.
+It goes when the card is answered, withdrawn or replaced, and while a reminder holds it, and it comes back when the reminder comes due.
+It is answered only on the card: `answer_waiting` refuses it, Approve all passes it by, and dismissing it tells the Job nothing.
+
 ### Restarting Fleet
 
 **Restarting Fleet is a `launchctl` call from Bridge, not an API command.** `restart_fleet` cannot be served by the process being restarted.

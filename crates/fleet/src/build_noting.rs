@@ -71,6 +71,29 @@ fn card_state(note: &KeptBuildNote, newest: bool, now: &str) -> ReadyState {
     }
 }
 
+/// Each open card of the Job's notes as the item that waits on him: id the card's, text `Try: <about>`, the card as
+/// its artifact, opening the Job. A card answered, withdrawn, replaced or put off raises none.
+pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str) -> impl Iterator<Item = ipc::WaitingItem> {
+    let session = session.to_string();
+    cards_of(notes, &BTreeMap::new(), now).into_iter().filter(|card| card.state == ReadyState::Open).map(move |card| ipc::WaitingItem {
+        approves: false,
+        text: format!("Try: {}", card.about),
+        since: card.at,
+        source: ipc::WaitingSource::ReadyToTry,
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Message, target: session.clone() }),
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
+        operator_read: None,
+        artifact: Some(card.id.clone()),
+        id: card.id,
+    })
+}
+
 /// The Job's notes as its cards. `held` is what the running preview build holds, branch to tip.
 fn cards_of(notes: Vec<KeptBuildNote>, held: &BTreeMap<String, String>, now: &str) -> Vec<ThreadReadyToTry> {
     let mut newest: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
@@ -231,10 +254,12 @@ where
         cards_of(notes, &held, self.now().as_str())
     }
 
-    /// The Job's cards moved: its thread, where a client holds it, is folded again with them.
+    /// The Job's cards moved: its thread, where a client holds it, is folded again with them, and its record, whose
+    /// Needs you holds each open card, is published.
     pub(crate) async fn ready_cards_moved(self: &Arc<Self>, session: &str) {
         let cards = self.ready_cards_of(session).await;
         self.job_thread_changed(session, vec![Change::Ready(cards)]).await;
+        let _ = self.published_hosted(session).await;
     }
 
     /// Bring back each card whose reminder came: drawn at that time, open again. **A tick of the notice loop

@@ -65,6 +65,7 @@ fn cases() -> Vec<Case> {
         case(item("handoff:r2", Source::Handoff, Some((Act::Answer, "handoff:r2")), &["Carry on in a new Job", "Stay here"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("sketch:Flow", Source::Sketch, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("document:/w/a.html", Source::Document, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
+        case(item("try:armada/one@abc", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("first", Source::FirstMessage, Some(own), &[], &[]), Section::Questions, Dismiss::None, false),
         case(item("replied:1", Source::Replied, None, &[], &[]), Section::Questions, Dismiss::NotAQuestion, true),
         case(item("done:1", Source::Done, None, &[], &[]), Section::Done, Dismiss::Plain, false),
@@ -118,6 +119,7 @@ fn counted(source: Source) -> usize {
         Source::OperatorUndone => 25,
         Source::JobConflict => 26,
         Source::JobHeld => 27,
+        Source::ReadyToTry => 28,
     }
 }
 
@@ -164,7 +166,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..28).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..29).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);
