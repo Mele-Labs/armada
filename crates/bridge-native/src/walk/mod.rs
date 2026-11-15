@@ -642,7 +642,8 @@ pub static WALKS: &[Walk] = &[
             step("Then what has not landed: an issue still open and a pull request not merged that no group still to finish works", Verb::Wheel("region", "Open, Done and Deferred", 200), "list", "Not landed"),
             step("Then what Fleet is to do for the Job, with why in its tooltip", Verb::Wheel("region", "Open, Done and Deferred", 400), "group", "Restart the agent once this call ends"),
             press_on("A Job with no plan and nothing unlanded: Open draws nothing", "row", "Quiet the write-clash notices", "region", "Open, Done and Deferred"),
-            press_on("A plan being drafted waits on you: Open lists its groups, and Now draws nothing", "row", "Paginate the audit log", "button", "Plan group: Serve the log in pages"),
+            press_on("A plan being drafted waits on you", "row", "Paginate the audit log", "tab", "Job column: Open"),
+            press_on("Open lists its groups, and Now draws nothing", "tab", "Job column: Open", "button", "Plan group: Serve the log in pages"),
         ],
     },
     Walk {
