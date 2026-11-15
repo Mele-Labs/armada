@@ -710,13 +710,6 @@ where
             items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // A page in the Job's browser asks him something: Bridge told Fleet, and the agent is told nothing.
             items.extend(self.browser_ask_items(&session.id));
-            // Every slot is held and it is in the line for one: Wait or Add, until he says.
-            items.extend(
-                self.hosts()
-                    .slot_queue()
-                    .pending(&session.id)
-                    .map(super::queueing::slot_choice_item),
-            );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
                 plan.as_ref()
@@ -1154,6 +1147,10 @@ where
         walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
+        // A slot wait is no listed item: Add and Wait are pressed on the record's `slot_wait`.
+        if said.item_id == super::queueing::SLOT_CHOICE_ITEM {
+            return self.slot_chosen(&id, said.choice).await;
+        }
         let terminal = self.terminal_session(&id).await?.is_some();
         if terminal {
             self.terminal_ask_standing(&id).await;

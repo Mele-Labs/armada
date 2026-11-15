@@ -72,6 +72,11 @@ where
         Ok(self.preview_offers_read().await)
     }
 
+    /// The notes of the build the owner runs — [`crate::build_noting`].
+    async fn get_build_notes(&self) -> Result<ipc::BuildNotes, Refusal> {
+        Ok(self.build_notes_read().await)
+    }
+
     /// Every rule a person always-allowed for this Manifest's repository —
     /// `crate::allowed::repository`.
     async fn get_repository_allowed_commands(

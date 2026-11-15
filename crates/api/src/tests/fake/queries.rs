@@ -83,6 +83,11 @@ impl Queries for FakeDaemon {
         Ok(shapes::preview_offers())
     }
 
+    /// One note of the running build.
+    async fn get_build_notes(&self) -> Result<ipc::BuildNotes, Refusal> {
+        Ok(shapes::build_notes())
+    }
+
     async fn get_fleet_build(&self) -> Result<ipc::FleetBuildReport, Refusal> {
         let mut report = shapes::fleet_build();
         report.restarting = self

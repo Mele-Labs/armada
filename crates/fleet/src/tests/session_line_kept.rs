@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use api::HostedSessions;
-use ipc::WaitingSource;
 
 use super::session_queue::{close, queued_and_idle, with_slot_one_held};
 
@@ -26,6 +25,6 @@ async fn a_line_kept_across_a_restart_is_served_in_the_order_it_was_in() {
 
     let queue = rig.fleet.hosts().slot_queue();
     assert_eq!((queue.ahead_of(&manifest, first.as_str()), queue.ahead_of(&manifest, second.as_str())), (0, 1));
-    let asked = Arc::clone(&rig.fleet).get_session(second.clone()).await.expect("read").session.waiting_for;
-    assert!(asked.iter().any(|one| one.source == WaitingSource::SlotChoice), "the person is asked again: {asked:?}");
+    let wait = Arc::clone(&rig.fleet).get_session(second.clone()).await.expect("read").session.slot_wait;
+    assert_eq!(wait.map(|wait| wait.ahead), Some(1), "its wait shows again, behind the first");
 }

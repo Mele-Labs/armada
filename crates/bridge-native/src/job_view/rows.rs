@@ -710,6 +710,7 @@ impl JobView {
             Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),
             Extra::ClaimWaits => return self.claim_waits_card(&self.shown.clone()?, look, cx),
             Extra::Moving => return self.moving_card(&self.shown.clone()?, look, cx),
+            Extra::SlotWait => return self.slot_wait_card(&self.shown.clone()?, look, cx),
             Extra::Spoken(card, _) => return self.spoken_card(*card, look, cx),
             Extra::MovedTo => {
                 let id = self.shown.clone()?;

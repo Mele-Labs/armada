@@ -22,10 +22,12 @@ mod callchip;
 mod choose;
 mod claim_waits;
 mod moving;
+mod slot_wait;
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
+mod delivery_line;
 mod draft_doc;
 mod dock;
 mod done;
@@ -188,6 +190,8 @@ pub(crate) enum Extra {
     ClaimWaits,
     /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
     Moving,
+    /// The Job waits for a worktree slot: its place, and Add and Free (`slot_wait`).
+    SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
     /// The card of an artifact that holds parts, by the artifact's id (`parts_card`).
@@ -959,6 +963,10 @@ impl JobView {
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
         }
+        // A wait for a slot asks him nothing, and stands with the Job's other waits.
+        if self.record(id, cx).is_some_and(|job| job.slot_wait.is_some()) {
+            extras.push(Extra::SlotWait);
+        }
         // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
         if self.record(id, cx).is_some_and(moving::on_its_way) {
             extras.push(Extra::Moving);
@@ -1374,3 +1382,4 @@ mod tests {
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
 pub(crate) use page_tab::page_in_front;
+pub(crate) use bar::plain_of;
