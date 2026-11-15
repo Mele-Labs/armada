@@ -1,0 +1,8 @@
+[operations.revise_card]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Change what an open card says: its read, its options, or both. The title and the Jobs it is about stay. Give card (turn:<n>) and read and options as you would raise them; the first option is the pick"
+notes = """
+Since 14 Nov 2026. `POST /operator/cards/revise`, body `ReviseCard`: `card`, and `read` and `options` where either changes. Answered with `CardRevised`: `card`. **Only the Operator's own session may call it**, as `raise_card`. 404 `fleet.card_unknown` where no open card has the id; 422 `fleet.card_refused` for an empty read or options Fleet would refuse on a new card. Publishes `operator.page_changed`.
+"""

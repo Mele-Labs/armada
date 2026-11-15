@@ -194,20 +194,16 @@ async fn a_sketch_drawn_against_another_keeps_the_earlier_scene_whole_and_a_late
     rig.fleet.show_sketch(None, drawn(&id, "Before", &scene("Fleet"))).await.unwrap();
     let record = rig.fleet.show_sketch(None, drawn_against(&id, "After", &scene("Daemon"), " Before ")).await.unwrap();
 
-    let after = sketches(&record).into_iter().find(|one| one.detail["title"] == "After").unwrap();
+    // A drawing against an earlier title is that sketch's next revision, retitled: one artifact, never two.
+    let held = sketches(&record);
+    assert_eq!(held.len(), 1, "{:?}", held.iter().map(|one| &one.target).collect::<Vec<_>>());
+    let after = held.into_iter().next().unwrap();
+    assert_eq!(after.detail["title"], "After");
     let kept: Against = ipc::decode("an against", after.detail["against"].as_bytes()).unwrap();
     assert_eq!(kept.title, "Before");
     same(&kept.scene, &scene("Fleet"));
     same(&after.detail["scene"], &scene("Daemon"));
-    assert_eq!(revisions(after).map(|held| held.len()), Some(1), "an against sketch keeps its revision too");
-    let before = sketches(&record).into_iter().find(|one| one.detail["title"] == "Before").unwrap();
-    assert!(!before.detail.contains_key("against"), "a sketch with no against has none");
-
-    // Replacing the earlier sketch afterwards leaves the diff where it was.
-    let record = rig.fleet.show_sketch(None, drawn(&id, "Before", &scene("Store"))).await.unwrap();
-    let after = sketches(&record).into_iter().find(|one| one.detail["title"] == "After").unwrap();
-    let kept: Against = ipc::decode("an against", after.detail["against"].as_bytes()).unwrap();
-    same(&kept.scene, &scene("Fleet"));
+    assert_eq!(revisions(after).map(|held| held.len()), Some(2), "the earlier drawing and this one are its two revisions");
 }
 
 #[tokio::test]

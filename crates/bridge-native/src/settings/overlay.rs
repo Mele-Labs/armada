@@ -5,7 +5,7 @@
 //! time it opens, and Esc clears a search first, then closes, the keys going back where they were.
 //! Everything else is Classic's System page (`apps/desktop/src/renderer/src/system-surface.tsx`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -80,12 +80,18 @@ pub struct Scope {
     /// The confirm's keys: Delete, then Cancel.
     pub delete_stop: FocusHandle,
     pub cancel_stop: FocusHandle,
+    /// The Learned chip's key: Enter and Space take the keys to the value it is about (`SettingsOverlay::go_to`).
+    pub learned: FocusHandle,
+    /// The page's scroll, so a row asked for is brought into view.
+    pub page_scroll: gpui::ScrollHandle,
+    /// The value whose row is to be scrolled into view as the page next draws it: taken by the row that draws it.
+    pub reveal: Rc<Cell<Option<Key>>>,
 }
 
 impl Scope {
     fn new(cx: &mut App) -> Scope {
         let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
-        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle() }
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle(), learned: cx.focus_handle().tab_stop(true), page_scroll: gpui::ScrollHandle::new(), reveal: Rc::new(Cell::new(None)) }
     }
 }
 
@@ -137,6 +143,9 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
+    /// Settings › Claims store.
+    pub store: super::store::StorePage,
+    pub sign_in_app: super::sign_in_app::SignInApp,
     /// Settings › Layout and Settings › Time: the preferences they write.
     pub prefs: super::prefs::Prefs,
     /// Settings › Ways of working: what the helper and Whisper said, and the sample.
@@ -193,7 +202,7 @@ impl SettingsOverlay {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
         let theme = super::theme::ThemeField::new(cx);
         let lanes = super::lanes::WorkflowLanes::new(cx);
-        let typing = vec![
+        let mut typing = vec![
             cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
                 if matches!(event, InputEvent::Change) {
                     this.query_changed(cx);
@@ -203,6 +212,19 @@ impl SettingsOverlay {
             cx.on_focus(&theme.focus, window, |this, _, cx| this.theme_focused(cx)),
             cx.on_blur(&theme.focus, window, |this, _, cx| this.theme_shut(cx)),
         ];
+        // Settings Fleet publishes while this is open (the sign-in app's client id, written from the browser) are read again.
+        if let Wire::Live(fleet) = &wire {
+            let mut seen = fleet.read(cx).held().settings_stamp;
+            typing.push(cx.observe_in(fleet, window, move |this, fleet, window, cx| {
+                let now = fleet.read(cx).held().settings_stamp;
+                if now != seen {
+                    seen = now;
+                    if this.open {
+                        this.read(window, cx);
+                    }
+                }
+            }));
+        }
         SettingsOverlay {
             wire,
             open: false,
@@ -230,6 +252,8 @@ impl SettingsOverlay {
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(window, cx),
+            store: super::store::StorePage::new(window, cx),
+            sign_in_app: super::sign_in_app::SignInApp::new(cx),
             prefs: super::prefs::Prefs::new(),
             ways: super::ways::WaysPage::new(cx),
             lanes,
@@ -265,6 +289,7 @@ impl SettingsOverlay {
         self.mods.refused.clear();
         self.models.reopen();
         self.macs.reopen();
+        self.store.reopen();
         self.prefs.reopen();
         self.ways.reopen();
         self.lanes.reopen(cx);
@@ -804,6 +829,9 @@ impl SettingsOverlay {
         if let Body::Workflows = shown.body {
             return self.workflow_stops(window, cx);
         }
+        if let Body::Store = shown.body {
+            return self.store_stops(cx);
+        }
         if let Body::Macs = shown.body {
             let mut stops = self.grid_stops(cx);
             stops.extend(self.macs_stops());
@@ -830,6 +858,9 @@ impl SettingsOverlay {
             return super::limits::stops(self, list, cx);
         }
         stops.push(self.file_stop.clone());
+        if let Body::Schema(["account"]) = shown.body {
+            stops.extend(self.sign_in_app_stops());
+        }
         let Some(list) = &self.list else { return stops };
         let sections: Vec<&str> = match shown.body {
             Body::Schema(ids) => ids.to_vec(),
@@ -966,6 +997,9 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
             return true;
         }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Store) && self.store_key(key, window, cx) {
+            return true;
+        }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Ways) && self.ways_key(key, window, cx) {
             return true;
         }
@@ -980,6 +1014,10 @@ impl SettingsOverlay {
         // Enter and Space open the picker where it holds the keys.
         if bare && matches!(key.key.as_str(), "enter" | "space" | "down") && self.scope.picker.is_focused(window) {
             self.open_picker(true, window, cx);
+            return true;
+        }
+        if bare && matches!(key.key.as_str(), "enter" | "space") && self.scope.learned.is_focused(window) {
+            self.go_to_learned(window, cx);
             return true;
         }
         if bare && self.grid_key(&key.key, window, cx) {

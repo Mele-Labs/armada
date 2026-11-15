@@ -20,6 +20,24 @@ pub struct OfferPreview {
     /// branch**; a re-offer with none keeps the one it had.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    /// One sentence on what the owner should look at once the preview holds the branch. A re-offer with none
+    /// keeps the one it had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look: Option<String>,
+    /// How to get there, in order. A re-offer with none keeps the ones it had; an empty list clears them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steps: Option<Vec<PreviewStep>>,
+}
+
+/// One step of a preview note: what the owner does, and the act that takes him there.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewStep {
+    /// What he does, as he reads it: "Press Projects", "Look at the toast pile".
+    pub say: String,
+    /// An act's id in the acts registry (`crates/core-model/domain/actions.toml`). Bridge shows its key, and
+    /// Go runs it. Absent for a step that goes nowhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub act: Option<String>,
 }
 
 /// Where Fleet's check of an offer stands.
@@ -101,6 +119,60 @@ pub struct PreviewOffers {
     /// Absent when every ready offer is in the build, or the row was skipped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refresh: Option<PreviewRefresh>,
+}
+
+/// One Job's note in the build the owner is running: what its branch brought in, and what to look at.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildNote {
+    pub branch: String,
+    /// The tip the build holds, in full. Looked at is kept for this (branch, tip).
+    pub tip: String,
+    pub session_id: SessionId,
+    /// The Job's title, or its id where it has none.
+    pub title: String,
+    pub about: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<PreviewStep>,
+    /// The Job has ended: feedback starts a new Job instead of going to its thread.
+    pub job_ended: bool,
+    /// The owner marked it looked at.
+    pub looked_at: bool,
+}
+
+/// What `get_build_notes` answers, and `build_notes.changed` carries whole: a note for each offered branch the
+/// running build holds. Empty off the preview.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildNotes {
+    /// The running build's commit; absent off the preview.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// In the order the branches were offered.
+    pub notes: Vec<BuildNote>,
+}
+
+/// `mark_build_note_looked_at`'s body: the owner marks the note of this (branch, tip) looked at.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkBuildNoteLookedAt {
+    pub branch: String,
+    pub tip: String,
+}
+
+/// `send_build_note_feedback`'s body: the owner's words on the note of this (branch, tip).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SendBuildNoteFeedback {
+    pub branch: String,
+    pub tip: String,
+    pub words: String,
+}
+
+/// What `send_build_note_feedback` answers: the Job the words went to, and whether Fleet started it because the
+/// note's Job had ended.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildNoteFeedbackSent {
+    pub session_id: SessionId,
+    pub started: bool,
 }
 
 /// `skip_preview_refresh`'s body: the owner skips the Refresh row with this id.

@@ -39,7 +39,7 @@ rest of a Drone's brief and turns as `prompts.drone…`, `prompts.crossing…`,
 `prompts.peers…`, `prompts.fix…`, `prompts.plan…` and `prompts.heal…`;
 the turns injected while it works as `prompts.poke…`, `prompts.interrupt`, `prompts.permit…`, and the
 gate's `prompts.outcome…` and `prompts.base…`; a piloted job's preface as
-`prompts.pilot…`; `prompts.thoughtRoute` for the thought reader; `prompts.scoutAsk`
+`prompts.pilot…`; `prompts.scoutAsk`
 (5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
 `prompts.proposer`; `prompts.testMapReading` (5g); `prompts.workflowChange` (5h); the repair briefs as `prompts.repair…` (5i); Autopilot's reader and picker as `prompts.autopilot…`;
 `prompts.retro…`; and the Judge's briefs as

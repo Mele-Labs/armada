@@ -197,7 +197,7 @@ pub(super) fn tab(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static st
         .when(front, |tab| tab.bg(look.color(token::BG_RAISED)))
         .when(!front, |tab| tab.cursor_pointer().hover(|style| style.text_color(look.color(token::FG_DEFAULT))))
         .child(glyph(look, icon, Size::Small, look.color(if front { token::FG_DEFAULT } else { token::FG_MUTED })))
-        .child(said.into())
+        .child(div().min_w_0().truncate().child(said.into()))
 }
 
 impl JobView {

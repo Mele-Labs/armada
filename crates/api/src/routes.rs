@@ -28,13 +28,13 @@ use axum::Router;
 
 use crate::amending::edit_manifest;
 use crate::commands::{catch_up_checkout, change_slot_pool, checkout_to_pull_request, rescue_slot};
-use crate::conversing::{ask_the_person, read_thought, tell_session};
+use crate::conversing::{ask_the_person, tell_session};
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
 use crate::building::{
     change_fleet_build, get_fleet_build, get_preview_offers, keep_fleet_build, pick_fleet_build_job, revert_fleet_build, update_mac,
-    skip_preview_refresh, swap_fleet_build,
+    skip_preview_refresh, swap_fleet_build, get_build_notes, mark_build_note_looked_at, send_build_note_feedback,
 };
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
@@ -410,6 +410,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/report_bug", post(crate::sessions::report_bug::<D>))
         .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
         .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
+        .route("/operator/cards", post(crate::sessions::raise_card::<D>))
+        .route("/operator/cards/revise", post(crate::sessions::revise_card::<D>))
+        .route("/operator/cards/settle", post(crate::sessions::settle_card::<D>))
+        .route("/operator/acts", get(crate::sessions::list_operator_acts::<D>).post(crate::sessions::set_operator_acts::<D>))
         .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
         .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
         .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
@@ -452,10 +456,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::operator_answer::<D>),
         )
         .route(
-            "/operator/page/undo",
-            post(crate::hosted_sessions::operator_undo_ruling::<D>),
-        )
-        .route(
             "/operator/page/order",
             post(crate::hosted_sessions::operator_turn_order::<D>),
         )
@@ -464,20 +464,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::operator_later::<D>),
         )
         .route(
-            "/operator/board",
-            get(crate::hosted_sessions::get_operator_board::<D>),
-        )
-        .route(
-            "/operator/board/move",
-            post(crate::hosted_sessions::move_on_operator_board::<D>),
-        )
-        .route(
             "/operator/errors",
             post(crate::hosted_sessions::report_bridge_error::<D>),
-        )
-        .route(
-            "/operator/suggestions/answer",
-            post(crate::hosted_sessions::answer_operator_suggestion::<D>),
         )
         .route(
             "/operator/orders",
@@ -711,6 +699,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::cast_page_vote::<D>),
         )
         .route(
+            "/sessions/artifacts/part",
+            post(crate::hosted_sessions::add_part::<D>),
+        )
+        .route(
+            "/sessions/artifacts/part/answer",
+            post(crate::hosted_sessions::answer_part::<D>),
+        )
+        .route(
+            "/sessions/artifacts/page/source",
+            get(crate::hosted_sessions::get_artifact_page_source::<D>),
+        )
+        .route(
             "/sessions/artifacts/seen",
             post(crate::hosted_sessions::mark_artifact_seen::<D>),
         )
@@ -870,6 +870,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/fleet/build/keep", post(keep_fleet_build::<D>))
         .route("/fleet/build/offers", get(get_preview_offers::<D>))
         .route("/fleet/build/offers/skip", post(skip_preview_refresh::<D>))
+        .route("/fleet/build/notes", get(get_build_notes::<D>))
+        .route("/fleet/build/notes/looked_at", post(mark_build_note_looked_at::<D>))
+        .route("/fleet/build/notes/feedback", post(send_build_note_feedback::<D>))
         .route("/limits", get(get_limits::<D>))
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))
@@ -880,6 +883,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/phone/setup", get(crate::settling::get_mac_setup::<D>).post(crate::settling::set_up_mac::<D>))
         .route("/accounts", get(crate::accounting::get_accounts::<D>))
         .route("/accounts/start_sign_in", post(crate::accounting::start_sign_in::<D>))
+        .route("/accounts/sign_in_app", post(crate::accounting::register_sign_in_app::<D>))
+        .route("/accounts/sign_in_app/form", get(crate::accounting::get_sign_in_app_form::<D>))
+        .route("/accounts/sign_in_app/registered", get(crate::accounting::sign_in_app_registered::<D>))
         .route("/accounts/sign_out", post(crate::accounting::sign_out::<D>))
         .route("/accounts/set_repository_profile", post(crate::accounting::set_repository_profile::<D>))
         .route("/shared_home", get(crate::homing::get_shared_home::<D>))
@@ -1084,7 +1090,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/worktrees", get(list_worktrees::<D>))
         .route("/worktrees/slots", post(change_slot_pool::<D>))
         .route("/worktrees/slots/rescue", post(rescue_slot::<D>))
-        .route("/operator/read_thought", post(read_thought::<D>))
         .route("/operator/tell_session", post(tell_session::<D>))
         .route("/calls/permission", post(ask_the_person::<D>))
         .route("/studios", get(list_studios::<D>))

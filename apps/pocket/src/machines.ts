@@ -14,10 +14,11 @@ export type Machine = {
 const DB = "armada-pocket";
 const OLD = "device";
 const STORE = "machines";
+const SIGN_IN = "store_sign_in";
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB, 2);
+    const request = indexedDB.open(DB, 3);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(OLD)) db.createObjectStore(OLD);
@@ -25,6 +26,7 @@ function open(): Promise<IDBDatabase> {
         db.createObjectStore(STORE, {
           keyPath: "origin",
         });
+      if (!db.objectStoreNames.contains(SIGN_IN)) db.createObjectStore(SIGN_IN);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -142,4 +144,43 @@ export const forgetMachine = (origin: string) =>
     ],
     "readwrite",
     (tx) => tx.objectStore(STORE).delete(origin),
+  );
+
+/**
+ * The store this phone signed in to with GitHub, and the key that signs for it. It is the phone's own key for that store,
+ * never one of the Macs' keys, and it is not extractable either.
+ */
+export type StoreSignIn = {
+  store: string;
+  deviceId: string;
+  key: CryptoKey;
+};
+
+const KEPT = "kept";
+
+export const storeSignIn = () =>
+  run<StoreSignIn | undefined>(
+    [
+      SIGN_IN,
+    ],
+    "readonly",
+    (tx) => tx.objectStore(SIGN_IN).get(KEPT),
+  );
+
+export const keepStoreSignIn = (kept: StoreSignIn) =>
+  run(
+    [
+      SIGN_IN,
+    ],
+    "readwrite",
+    (tx) => tx.objectStore(SIGN_IN).put(kept, KEPT),
+  );
+
+export const forgetStoreSignIn = () =>
+  run(
+    [
+      SIGN_IN,
+    ],
+    "readwrite",
+    (tx) => tx.objectStore(SIGN_IN).delete(KEPT),
   );

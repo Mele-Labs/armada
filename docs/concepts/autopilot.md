@@ -12,7 +12,7 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decisi
 **Autopilot is the away state of the [Operator](operator.md).**
 The switch means the person is away.
 While it runs, Autopilot's own loop answers the kinds checked at start, and what was already waiting on the person when it started is offered once more.
-The Operator's Answer role is retired (10 Nov 2026): the Operator takes no card, and takes a question only under a rule the person kept, so there is one loop and nothing is answered twice.
+The Operator's Answer role is retired (10 Nov 2026): the Operator takes no card and keeps no rule for a question, so there is one loop and nothing is answered twice.
 What the Operator does take is `operator.md`.
 
 ## What it holds
@@ -71,7 +71,7 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 While an Autopilot is running and has a kind checked, a loop of Autopilot's own answers these kinds, so a landing never waits behind a call; it goes over the repository on Fleet's noticing interval.
 The Operator is never handed a card.
-Where the Operator is on and a rule of its covers a repository's questions, Autopilot's pass leaves that repository's questions to it, and answers them as it always has everywhere else.
+Autopilot's pass answers every repository's questions the same way, whether or not the Operator is on.
 A paused or stopped Autopilot answers nothing.
 
 1. **The Jobs in scope.** Every live Job of the repository where *on autopilot* holds `running`, and otherwise only the ones it started.
@@ -107,7 +107,7 @@ A question asked in the walk, a start card, and every other item.
 ## What it keeps
 
 Every answer is kept once, with the Job, what was asked, what was chosen, why, and when. An answer is not a call.
-An answer is a row of the Operator's Log, and the list of what was answered is the Log filtered to answers.
+An answer is a row of the Operator's Log, kept as it was, and the list of what was answered is the Log filtered to answers.
 The person keeps one with Agree, or corrects it with Change, which sends the Job `Re: <asked>` and then their words.
 A correction is read the next time, beside the answer it replaces.
 

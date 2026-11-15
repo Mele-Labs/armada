@@ -159,7 +159,7 @@ WebSocket event stream, read this first.
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
 | [A Job waits on another](protocol/a-job-waits-on-another.md) |
 | [A Job reads and commands the Jobs it started](protocol/a-job-reads-and-commands-the-jobs-it-started.md) |
-| [A full pool asks the person: `slot_choice`](protocol/a-full-pool-asks-the-person-slot-choice.md) |
+| [A full pool shows a wait: `slot_wait`](protocol/a-full-pool-shows-a-wait-slot-wait.md) |
 | [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
@@ -219,7 +219,7 @@ WebSocket event stream, read this first.
 | [A Job's wait on a held item: `SessionRecord.claim_waits`, `claims_unsent`](protocol/a-jobs-wait-on-a-held-item.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
-| [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
+| [The Operator's page, kept by Fleet: `operator_page`, the card acts and `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
 | [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
 | [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
 | [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
@@ -229,6 +229,7 @@ WebSocket event stream, read this first.
 | [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
 | [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
 | [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
 | [Open questions](#open-questions) |
@@ -1202,10 +1203,16 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
+| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at}` and a step is `{say, act?}` |
+| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
+| `build_notes.changed` | Fleet writes, Bridge reads | `BuildNotes`, whole, published when the answer differs from the last one sent |
 | Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
 
 **A Bridge that matches `Event` exhaustively** meets a kind it did not know. Native matches with a fallback.
-**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+`OfferPreview` gained `look` and `steps`, each absent to keep what the last offer said.
+**Skew.** As above.
+**The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` and the `build_notes` table.
 
 ## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
 
@@ -1605,6 +1612,10 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
+**A record of what was.** Fleet keeps no suggestion now: the Operator rules nothing, and no row is raised with `WaitingSource::OperatorSuggestion` except Fleet's own red main and disk hold on the Operator's page.
+Pressing an old one is refused with `fleet.session_waiting_empty`.
+`WaitingItem.operator_read` is never set.
+
 An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
@@ -1618,6 +1629,10 @@ A suggestion on a report with no Job behind it, or on a note the person left on 
 A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
 ## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
+
+**What stands now.** `talk_to_operator` delivers his words to the Operator's own session and answers an empty `OperatorSaid`; it is refused with `fleet.operator_session_not_running` while none runs.
+`operator_talk` reads the old conversation back and nothing writes to it.
+The call that read his words, `cites`, `job`, `started`, `forgot`, `lifted` and the other fields of the answer are gone from what Fleet fills; the holds and `confirm_operator_order` stand as below.
 
 The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
@@ -1636,6 +1651,9 @@ The box at the foot of the Operator panel, and the holds it turns words into. No
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
 ## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion`, `report_bridge_error` and `operator.board_changed`
+
+**A record of what was**, save `report_bridge_error` and `operator.board_changed`.
+`get_operator_board`, `move_on_operator_board` and `answer_operator_suggestion` are removed with their types, and the router answers 404. `report_bridge_error` now tells the Operator's session, and `operator.board_changed` is published when the switch moves.
 
 The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 

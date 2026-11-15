@@ -1,199 +1,278 @@
 {
  "on": true,
- "top": "Since you left, the red main's fix is up as #3414, waiting on ci. **Quick dispatch's plan** is still the one two Jobs wait on.",
  "looked_at": "2026-11-11T12:10:00-05:00",
- "on_it": { "reading": "Store reports its size: Review pull request #3415", "since": "2026-11-11T13:02:00-05:00" },
  "mains": [
-  { "manifest_id": "storefront", "repository": "storefront", "state": "red", "commit": "9c41e07d2b5a8f3e6d1c0b9a8e7f6d5c4b3a2f10", "since": "2026-11-11T11:24:00-05:00" },
-  { "manifest_id": "armada", "repository": "armada", "state": "green", "commit": "4dd23c54ac1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d" }
- ],
- "slots": { "used": 7, "total": 10 },
- "turn": [
   {
-   "id": "turn:1",
-   "kind": "decision",
-   "session_id": "mock-01",
-   "job": "Quick dispatch",
-   "manifest_id": "armada",
-   "repository": "armada",
-   "item": {
-    "id": "plan",
-    "text": "Approve plan version 2",
-    "since": "2026-11-11T11:40:00-05:00",
-    "source": "plan"
-   },
-   "read": {
-    "read": "It adds the repository chips you asked for on 15 Oct. Nothing else changes from the version you approved, and two Jobs start once you do.",
-    "pick": "Approve"
-   },
-   "raised_at": "2026-11-11T11:40:00-05:00",
-   "also_raised_by": ["Dispatch panel", "Helm composer"]
-  },
-  {
-   "id": "turn:2",
-   "kind": "go_ahead",
-   "manifest_id": "armada",
-   "repository": "armada",
-   "item": {
-    "id": "note:41",
-    "text": "the slot meter flickers when a Job ends, and for a second the count reads one slot more than the pool holds before it settles",
-    "since": "2026-11-11T11:52:00-05:00",
-    "source": "agent"
-   },
-   "read": {
-    "read": "No open issue covers it. #3413 changed the meter this morning, and Slot pool controls is live on the same files, so I'd file it and hand it to that Job.",
-    "pick": "File and hand to Slot pool controls"
-   },
-   "raised_at": "2026-11-11T11:52:00-05:00",
-   "then": [
-    { "then": "just_file" },
-    { "then": "file_and_start" },
-    { "then": "file_and_hand", "hand_to": { "session_id": "mock-05", "job": "Slot pool controls" }, "pick": true }
-   ],
-   "keeps": true
-  },
-  {
-   "id": "turn:3",
-   "kind": "decision",
-   "session_id": "mock-03",
-   "job": "Rework the Map legend",
-   "manifest_id": "armada",
-   "repository": "armada",
-   "item": {
-    "id": "walk:armada://walk/map-legend",
-    "text": "Review its walk",
-    "since": "2026-11-11T12:30:00-05:00",
-    "source": "walk",
-    "act": { "kind": "walk", "target": "armada://walk/map-legend" }
-   },
-   "read": {
-    "read": "The new key sits beside the old one, and yesterday's change is in its last step.",
-    "pick": "Open it"
-   },
-   "raised_at": "2026-11-11T12:30:00-05:00"
-  },
-  {
-   "id": "turn:4",
-   "kind": "decision",
-   "session_id": "mock-04",
-   "job": "Fix desktop_unit after #412",
    "manifest_id": "storefront",
    "repository": "storefront",
-   "item": {
-    "id": "pr:412",
-    "text": "Approve its pull request: storefront asks before a fix merges",
-    "since": "2026-11-11T12:44:00-05:00",
-    "source": "agent",
-    "act": { "kind": "approve_pr", "target": "418" }
-   },
-   "read": {
-    "read": "The fix is one line in the test's setup and ci is green on it.",
-    "pick": "Approve"
-   },
-   "raised_at": "2026-11-11T12:44:00-05:00"
+   "state": "red",
+   "commit": "9c41e07d2b5a8f3e6d1c0b9a8e7f6d5c4b3a2f10",
+   "since": "2026-11-11T11:24:00-05:00"
   },
   {
-   "id": "turn:9",
-   "kind": "go_ahead",
-   "urgency": "urgent",
    "manifest_id": "armada",
    "repository": "armada",
-   "item": {
-    "id": "red:armada:4c1d2e9",
-    "text": "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test",
-    "since": "2026-11-11T12:58:00-05:00",
-    "source": "operator_suggestion",
-    "options": [{ "label": "Start a fix" }, { "label": "Hand to Slot pool controls" }]
-   },
-   "read": {
-    "read": "Slot pool controls changed the slot meter an hour ago and is live on the same files, so I'd hand the red to it.",
-    "pick": "Hand to Slot pool controls"
-   },
-   "raised_at": "2026-11-11T12:58:00-05:00",
-   "keeps": true
-  },
-  {
-   "id": "turn:10",
-   "kind": "decision",
-   "session_id": "mock-06",
-   "job": "Pocket sign-in on the phone",
-   "manifest_id": "armada",
-   "repository": "armada",
-   "item": {
-    "id": "agent-6",
-    "text": "Which sign-in should Pocket offer first?",
-    "since": "2026-11-11T13:00:00-05:00",
-    "source": "agent",
-    "options": [{ "label": "Passkey" }, { "label": "Email link" }]
-   },
-   "read": {
-    "read": "Passkeys work on every phone you use, and the email link stays as the way back in.",
-    "pick": "Passkey"
-   },
-   "raised_at": "2026-11-11T13:00:00-05:00",
-   "group": "mock-06"
-  },
-  {
-   "id": "turn:11",
-   "kind": "decision",
-   "session_id": "mock-06",
-   "job": "Pocket sign-in on the phone",
-   "manifest_id": "armada",
-   "repository": "armada",
-   "item": {
-    "id": "ask:call-6",
-    "text": "Keep the old sign-in page for a week?",
-    "since": "2026-11-11T13:03:00-05:00",
-    "source": "ask_card",
-    "act": { "kind": "answer", "target": "call-6" }
-   },
-   "read": {
-    "read": "Nothing links to it now, so a week covers anyone signed in halfway.",
-    "pick": ""
-   },
-   "raised_at": "2026-11-11T13:03:00-05:00",
-   "group": "mock-06"
+   "state": "green",
+   "commit": "4dd23c54ac1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d"
   }
  ],
- "digest": {
-  "landed": [
-   { "session_id": "mock-05", "job": "Slot pool controls", "number": "3413", "title": "Slot meter shows free slots", "at": "2026-11-11T12:58:00-05:00" },
-   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading", "at": "2026-11-11T12:44:00-05:00" },
-   { "session_id": "mock-10", "job": "Sentence case labels", "number": "3409", "title": "Every label in Bridge and Pocket is sentence case", "at": "2026-11-11T12:18:00-05:00" },
-   { "session_id": "mock-11", "job": "Walk window takes", "number": "3406", "title": "Walk window keeps each take", "at": "2026-11-11T12:12:00-05:00" },
-   { "session_id": "mock-12", "job": "Store reports its size", "number": "3404", "title": "Store reports its size on the Settings page", "at": "2026-11-11T12:11:00-05:00" },
-   { "session_id": "mock-13", "job": "Merge strip freshness", "number": "3401", "title": "Merge strip says how fresh each line is", "at": "2026-11-11T12:10:00-05:00" }
-  ],
-  "handled": {
-   "acts": [
-    { "at": "2026-11-11T12:47:00-05:00", "title": "The build switcher report", "outcome": "Linked: the build switcher report to #3390" },
-    { "at": "2026-11-11T12:33:00-05:00", "title": "Map legend follow-up", "outcome": "Passed on" },
-    { "at": "2026-11-11T12:20:00-05:00", "title": "Fix desktop_unit after #412", "outcome": "Started" },
-    { "at": "2026-11-11T12:18:00-05:00", "title": "Sentence case labels", "outcome": "Ended: every label in Bridge and Pocket is sentence case" },
-    { "at": "2026-11-11T12:15:00-05:00", "title": "Fleet's orphans test", "outcome": "Raised: the orphans test fails once in five runs" },
-    { "at": "2026-11-11T12:12:00-05:00", "title": "Walk window takes", "outcome": "Merged: #3406 Walk window keeps each take" }
-   ],
-   "log": { "week": "2026-W46", "path": "/Users/user/.armada/operator/journal/2026-W46.md" }
+ "slots": {
+  "used": 7,
+  "total": 10
+ },
+ "turn": [
+  {
+   "id": "turn:31",
+   "kind": "decision",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "card:001f",
+    "text": "Two Jobs are changing paging.rs",
+    "since": "2026-11-11T13:01:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:001f"
+    },
+    "options": [
+     {
+      "label": "Hold Pocket until Jobs screens pushes",
+      "description": "Pocket waits about 20 min"
+     },
+     {
+      "label": "Let both run",
+      "description": "A conflict to fix, about 10 min"
+     },
+     {
+      "label": "Hand Pocket's change to Jobs screens",
+      "description": "Pocket ends; Jobs screens' PR grows"
+     }
+    ]
+   },
+   "read": {
+    "read": "Move Bridge's thread rows into Fleet and Pocket sign-in on the phone both edit paging.rs. The first pushes in about 20 minutes. A merge of both now conflicts on the page boundaries.",
+    "pick": "Hold Pocket until Jobs screens pushes"
+   },
+   "raised_at": "2026-11-11T13:01:00-05:00",
+   "card": {
+    "kind": "raise",
+    "sessions": [
+     "mock-03",
+     "mock-05"
+    ]
+   }
   },
-  "running": [
-   { "session_id": "mock-05", "title": "Slot pool controls", "repository": "armada" },
-   { "session_id": "mock-04", "title": "Fix desktop_unit after #412", "repository": "storefront" },
-   { "session_id": "mock-07", "title": "Store reports its size", "repository": "armada" }
-  ],
-  "coming_up": [
-   { "session_id": "mock-08", "title": "Quick dispatch: repository chips", "needs": "Quick dispatch's plan" }
-  ],
-  "learned": [
-   { "id": 1, "scope": { "kind": "repository", "manifest_id": "armada" }, "repository": "armada", "said": "File your notes without asking", "at": "2026-11-10T16:00:00-05:00" },
-   { "id": 2, "scope": { "kind": "repository", "manifest_id": "storefront" }, "repository": "storefront", "said": "A red main's fix waits for you", "at": "2026-11-10T17:00:00-05:00" },
-   { "id": 3, "scope": { "kind": "everywhere" }, "said": "Start a fix when main is red", "at": "2026-11-09T10:30:00-05:00" },
-   { "id": 4, "scope": { "kind": "repository", "manifest_id": "armada" }, "repository": "armada", "said": "Hand a note to the Job on its files", "at": "2026-11-08T15:10:00-05:00" },
-   { "id": 5, "scope": { "kind": "everywhere" }, "said": "Link a report to the open issue it names", "at": "2026-11-07T09:45:00-05:00" },
-   { "id": 6, "scope": { "kind": "repository", "manifest_id": "storefront" }, "repository": "storefront", "said": "Approve a pull request whose ci is green", "at": "2026-11-06T11:20:00-05:00" }
-  ],
-  "holds": [
-   { "id": 11, "manifest_id": "armada", "repository": "armada", "said": "Only Slot pool controls writes under apps/cockpit until it pushes", "paths": ["apps/cockpit"], "job": "mock-05", "until": "pushes", "at": "2026-11-11T12:40:00-05:00" },
-   { "id": 12, "manifest_id": "storefront", "repository": "storefront", "said": "Only Fix desktop_unit after #412 writes under tests/unit until it ends", "at": "2026-11-11T12:22:00-05:00" }
-  ]
- }
+  {
+   "id": "turn:32",
+   "kind": "decision",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "card:0020",
+    "text": "Main is red at 4c1d2e9",
+    "since": "2026-11-11T12:58:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:0020"
+    },
+    "options": [
+     {
+      "label": "Start a fix Job",
+      "description": "About 15 min of a slot"
+     },
+     {
+      "label": "Hand it to Pocket sign-in on the phone",
+      "description": "Its PR grows by one test"
+     },
+     {
+      "label": "Wait for the next push",
+      "description": "Main stays red"
+     }
+    ]
+   },
+   "read": {
+    "read": "desktop_unit fails in the slot meter test. Pocket sign-in on the phone changed the slot meter an hour ago.",
+    "pick": "Start a fix Job"
+   },
+   "raised_at": "2026-11-11T12:58:00-05:00",
+   "card": {
+    "kind": "deal",
+    "sessions": [
+     "mock-05"
+    ]
+   }
+  },
+  {
+   "id": "turn:33",
+   "kind": "decision",
+   "manifest_id": "sample-api",
+   "repository": "sample-api",
+   "item": {
+    "id": "card:0021",
+    "text": "Retry webhooks on a 503 asks for a backoff",
+    "since": "2026-11-11T12:44:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:0021"
+    },
+    "options": [
+     {
+      "label": "Double the spacing, capped at 5 min",
+      "description": "One test more"
+     },
+     {
+      "label": "Fixed 30 s spacing",
+      "description": "Floods a slow receiver"
+     }
+    ]
+   },
+   "read": {
+    "read": "The sender retries at once on a 503. Fixed spacing is one line. Doubling spacing needs a cap and a test.",
+    "pick": "Double the spacing, capped at 5 min"
+   },
+   "raised_at": "2026-11-11T12:44:00-05:00",
+   "card": {
+    "kind": "raise",
+    "sessions": [
+     "mock-12"
+    ]
+   }
+  },
+  {
+   "id": "turn:34",
+   "kind": "decision",
+   "manifest_id": "sample-web",
+   "repository": "sample-web",
+   "item": {
+    "id": "card:0022",
+    "text": "Dark mode for the settings page needs a palette",
+    "since": "2026-11-11T12:30:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:0022"
+    },
+    "options": [
+     {
+      "label": "Read the system setting",
+      "description": "No new control"
+     },
+     {
+      "label": "Add a switch",
+      "description": "One more setting to keep"
+     },
+     {
+      "label": "Ship light only",
+      "description": "Dark mode waits"
+     }
+    ]
+   },
+   "read": {
+    "read": "Two palettes fit the page. The first reads the system setting. The second adds a switch beside the theme.",
+    "pick": "Read the system setting"
+   },
+   "raised_at": "2026-11-11T12:30:00-05:00",
+   "card": {
+    "kind": "deal",
+    "sessions": [
+     "mock-08"
+    ]
+   }
+  },
+  {
+   "id": "turn:35",
+   "kind": "decision",
+   "manifest_id": "sample-api",
+   "repository": "sample-api",
+   "item": {
+    "id": "card:0023",
+    "text": "Rate limits per token have no default",
+    "since": "2026-11-11T12:10:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:0023"
+    },
+    "options": [
+     {
+      "label": "Default 600 a minute",
+      "description": "Heavy tokens near the edge"
+     },
+     {
+      "label": "Default 1200 a minute",
+      "description": "Looser than the doc says"
+     }
+    ]
+   },
+   "read": {
+    "read": "Tokens made before the limit have none. A default of 600 a minute covers the heaviest one.",
+    "pick": "Default 600 a minute"
+   },
+   "raised_at": "2026-11-11T12:10:00-05:00",
+   "card": {
+    "kind": "raise",
+    "sessions": [
+     "mock-11"
+    ]
+   }
+  }
+ ],
+ "feed": [
+  {
+   "at": "2026-11-11T13:04:00-05:00",
+   "kind": "dispatched",
+   "title": "Fix desktop_unit after #412",
+   "session_id": "mock-04",
+   "said": "Started for the red main"
+  },
+  {
+   "at": "2026-11-11T13:02:00-05:00",
+   "kind": "merged",
+   "title": "Slot meter shows free slots",
+   "session_id": "mock-02",
+   "number": "3413"
+  },
+  {
+   "at": "2026-11-11T12:55:00-05:00",
+   "kind": "ended",
+   "title": "An ended Job stays out of the list",
+   "session_id": "mock-15",
+   "said": "Pushed and merged"
+  },
+  {
+   "at": "2026-11-11T12:48:00-05:00",
+   "kind": "asked",
+   "title": "Pocket sign-in on the phone",
+   "session_id": "mock-05",
+   "said": "May I touch paging.rs?"
+  },
+  {
+   "at": "2026-11-11T12:40:00-05:00",
+   "kind": "told",
+   "title": "Quiet the write-clash notices",
+   "session_id": "mock-06",
+   "said": "Pushed, waiting on ci"
+  },
+  {
+   "at": "2026-11-11T12:31:00-05:00",
+   "kind": "settled",
+   "title": "Hold apps/cockpit for Slot pool controls",
+   "said": "You picked Hold until it pushes"
+  }
+ ],
+ "session_id": "mock-op",
+ "operator_acts": [
+  {
+   "project": "armada",
+   "name": "armada",
+   "acts": "act_then_tell"
+  },
+  {
+   "project": "storefront",
+   "name": "storefront"
+  }
+ ]
 }

@@ -121,10 +121,6 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn operator_undo_ruling(self: Arc<Self>, _undo: ipc::operator_page::OperatorUndoRuling) -> Result<ipc::operator_page::OperatorPage, Refusal> {
-        Err(nothing_hosted())
-    }
-
     async fn operator_turn_order(self: Arc<Self>, _order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
         Err(nothing_hosted())
     }
@@ -137,19 +133,7 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        Err(nothing_hosted())
-    }
-
-    async fn move_on_operator_board(self: Arc<Self>, _moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        Err(nothing_hosted())
-    }
-
     async fn report_bridge_error(self: Arc<Self>, _error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
-        Err(nothing_hosted())
-    }
-
-    async fn answer_operator_suggestion(self: Arc<Self>, _answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         Err(nothing_hosted())
     }
 
@@ -322,6 +306,18 @@ impl HostedSessions for FakeDaemon {
 
     async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", cast.artifact), run_id())))
+    }
+
+    async fn add_part(&self, _caller: Option<crate::Caller>, add: ipc::AddPart) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.part_unnamed", format!("no job for `{}`", add.title), run_id())))
+    }
+
+    async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", answer.artifact), run_id())))
+    }
+
+    async fn get_artifact_page_source(&self, _id: SessionId, artifact: String, _revision: Option<u32>) -> Result<String, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
     }
 
     async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {

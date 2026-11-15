@@ -176,6 +176,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts/vote",
     },
     Route {
+        operation: "add_part",
+        method: "POST",
+        path: "/sessions/artifacts/part",
+    },
+    Route {
+        operation: "answer_part",
+        method: "POST",
+        path: "/sessions/artifacts/part/answer",
+    },
+    Route {
+        operation: "get_artifact_page_source",
+        method: "GET",
+        path: "/sessions/artifacts/page/source",
+    },
+    Route {
         operation: "mark_artifact_seen",
         method: "POST",
         path: "/sessions/artifacts/seen",

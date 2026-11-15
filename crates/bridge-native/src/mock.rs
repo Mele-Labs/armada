@@ -72,6 +72,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.
+        "delivery-line" => include_bytes!("../fixtures/jobs-delivery-line.json"),
         // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
         "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
@@ -128,9 +130,11 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
         // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
         "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs, Audit the docs index waiting for a worktree slot, second in line (`slot_wait`).
+        "slot-wait" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
-        "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => include_bytes!("../fixtures/jobs-screens.json"),
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
@@ -151,7 +155,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -178,9 +182,15 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // The tour's Jobs with three on another Mac: the one that needs him, a quiet one and one a walk has removed.
-    if scenario == "jobs-pairing" {
+    if matches!(scenario, "jobs-pairing" | "jobs-other-mac") {
         for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
             one.mac = Some("air".into());
+        }
+    }
+    // The Job on Air that needs him showed a walk of a web page and serves its dev server.
+    if scenario == "jobs-other-mac" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            other_mac_pages(one)?;
         }
     }
     // The box's Jobs with Native Bridge foundation at work, so its working line says what it is doing.
@@ -283,16 +293,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "job-web-walk" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
             let url = format!("file://{}/fixtures/web-walk-page.html", env!("CARGO_MANIFEST_DIR"));
-            let target = |role: &str, name: &str| format!(r#"{{"role":"{role}","name":"{name}"}}"#);
-            let steps = format!(
-                "[{},{},{},{},{},{}]",
-                format!(r#"{{"say":"The page's heading names what changed","look":{}}}"#, target("heading", "Orders")),
-                format!(r#"{{"say":"The search box carries its label","look":{}}}"#, target("searchbox", "Search orders")),
-                format!(r#"{{"say":"Add order opens the form","press":{}}}"#, target("button", "Add order")),
-                format!(r#"{{"say":"The form stands over the list","look":{}}}"#, target("dialog", "New order")),
-                format!(r#"{{"say":"Cancel shuts the form","press":{}}}"#, target("button", "Cancel")),
-                format!(r#"{{"say":"Export sits under the list","look":{}}}"#, target("button", "Export orders")),
-            );
+            let steps = orders_steps();
             one.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);
             one.attachments.retain(|attachment| !attachment.target.starts_with("armada://walk/"));
             let wire = format!(r#"{{"kind":"artifact","target":"{url}","state":"standing","detail":{{"form":"window","title":"Orders page","brief":"The orders list has a search box and Add order. Export moved under the list.","steps":{}}},"since":"2026-11-09T14:05:00Z","changed_at":"2026-11-09T14:05:00Z"}}"#, ipc::encode(&steps).map_err(|why| format!("{why:?}"))?);
@@ -319,6 +320,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
+    if scenario == "slot-wait" {
+        slot_wait(&mut sessions);
+    }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
         for ask in watch_reads().asks {
@@ -331,6 +335,27 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
 }
 
 /// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
+/// Audit the docs index waits for a slot, second in line for twelve minutes. Native Bridge foundation holds slot 9 and
+/// has been quiet forty minutes, so Free offers it; Pocket sign-in holds slot 4 and is working, so Free leaves it.
+fn slot_wait(sessions: &mut [SessionRecord]) {
+    let ago = |minutes: i64| crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(minutes));
+    let holder = |slot: u32, id: &str, title: &str, quiet: i64, keeps: Option<ipc::SlotKeeps>| ipc::SlotHolder {
+        slot,
+        job: ipc::SlotHolderJob { id: id.to_string(), title: title.to_string() },
+        quiet_since: ago(quiet),
+        keeps,
+    };
+    if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
+        one.slot_wait = Some(ipc::SlotWait {
+            since: ago(12),
+            ahead: 1,
+            holders: vec![holder(9, "mock-02", "Native Bridge foundation", 40, None), holder(4, "mock-05", "Pocket sign-in on the phone", 2, Some(ipc::SlotKeeps::Running))],
+            creating_since: None,
+            create_refused: None,
+        });
+    }
+}
+
 fn claim_waits(sessions: &mut [SessionRecord]) -> Result<(), String> {
     #[derive(Deserialize)]
     struct Held {
@@ -473,6 +498,49 @@ pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
     ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
+/// The steps of the walk of the orders page, as a Job passes them to `show_window`.
+fn orders_steps() -> String {
+    let target = |role: &str, name: &str| format!(r#"{{"role":"{role}","name":"{name}"}}"#);
+    format!(
+        "[{},{},{},{},{},{}]",
+        format!(r#"{{"say":"The page's heading names what changed","look":{}}}"#, target("heading", "Orders")),
+        format!(r#"{{"say":"The search box carries its label","look":{}}}"#, target("searchbox", "Search orders")),
+        format!(r#"{{"say":"Add order opens the form","press":{}}}"#, target("button", "Add order")),
+        format!(r#"{{"say":"The form stands over the list","look":{}}}"#, target("dialog", "New order")),
+        format!(r#"{{"say":"Cancel shuts the form","press":{}}}"#, target("button", "Cancel")),
+        format!(r#"{{"say":"Export sits under the list","look":{}}}"#, target("button", "Export orders")),
+    )
+}
+
+/// The walk Air's Job showed, as it names it: a page on Air's own loopback.
+pub const AIR_WALK: &str = "http://localhost:5173/orders?walk=orders";
+
+/// The page Air's Job serves from its dev server.
+pub const AIR_LIVE: &str = "http://localhost:5173/";
+
+/// What Fleet answers on a walk for a page of Air's Job: an address on this Mac, here the orders page on disk.
+pub const AIR_PAGE: &str = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/fixtures/web-walk-page.html");
+
+/// Air's Job showed a walk of a page, which it owes him, and serves its dev server as the page it is building.
+fn other_mac_pages(job: &mut SessionRecord) -> Result<(), String> {
+    let why = |why: ipc::Undecodable| why.to_string();
+    let since = job.started_at.clone();
+    let steps = ipc::encode(&orders_steps()).map_err(|why| format!("{why:?}"))?;
+    let window = format!(
+        r#"{{"kind":"artifact","target":"{AIR_WALK}","state":"standing","detail":{{"form":"window","title":"Orders page","brief":"The orders list has a search box and Add order. Export moved under the list.","steps":{steps}}},"since":"{since}","changed_at":"{since}"}}"#,
+        since = since.as_str()
+    );
+    job.attachments.retain(|attachment| !attachment.target.starts_with("armada://walk/"));
+    job.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);
+    job.attachments.push(ipc::decode("window attachment", window.as_bytes()).map_err(why)?);
+    let item = format!(r#"{{"id":"walk:{AIR_WALK}","text":"Walk the orders page","since":"{since}","source":"walk","act":{{"kind":"walk","target":"{AIR_WALK}"}}}}"#, since = since.as_str());
+    job.waiting_for.push(ipc::decode("walk item", item.as_bytes()).map_err(why)?);
+    let activity = job.activity.get_or_insert_with(Default::default);
+    let live = format!(r#"{{"url":"{AIR_LIVE}","title":"Orders dev server"}}"#);
+    activity.live = Some(ipc::decode("live page", live.as_bytes()).map_err(why)?);
+    Ok(())
+}
+
 /// The threads a scenario's fixtures hold.
 fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     #[derive(Deserialize)]
@@ -480,7 +548,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
-        "jobs-screens" | "jobs-pairing" => return screens_threads(),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
         "job-view" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
@@ -502,7 +570,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" | "slot-wait" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -521,6 +589,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
         "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        // The same two sketches, Freshness chip's mock drawn as a small form: a note may name the box, or an element inside the mock.
+        "sketch-reader" => include_bytes!("../fixtures/sketch-reader-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
         "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
@@ -537,6 +607,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
         // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
         "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        "delivery-line" => include_bytes!("../fixtures/delivery-line-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
@@ -1093,7 +1164,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "owner-fixes" | "jobs-screens" | "jobs-pairing" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
+    if !matches!(named.as_str(), "job-view-composer" | "owner-fixes" | "jobs-screens" | "jobs-pairing" | "jobs-other-mac" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {

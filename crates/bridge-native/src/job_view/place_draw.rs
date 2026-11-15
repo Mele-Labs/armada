@@ -549,6 +549,7 @@ impl JobView {
         };
         let (pick, menu_for, keys_for) = (tab_id.clone(), tab_id.clone(), tab_id.clone());
         let field = (tab_of.kind == "terminal").then(|| self.view_rename_field(job, tab_of, look, cx)).flatten();
+        let field_free = field.is_none();
         let said: SharedString = if field.is_some() { SharedString::default() } else { word.clone() };
         let pulses = row.is_some_and(|(key, kind)| kind == super::row_tabs::RowKind::Walk && self.row_tab_of(job, kind, key).is_some_and(|held| !held.seen));
         let close = self.close_button(&tab_id, &word, group.clone(), front, look, cx);
@@ -568,7 +569,9 @@ impl JobView {
                 .track_focus(&handle)
                 .tab_stop(front)
                 .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                .when(row.is_some(), |one| one.max_w(look.length(token::SPACE_12) * 5.).border_r(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_GLASS)))
+                .max_w(look.length(token::SPACE_12) * 5.)
+                .when(row.is_some(), |one| one.border_r(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_GLASS)))
+                .when(field_free, |one| one.tooltip(super::head::tip(word.clone())))
                 .when(pulses, |one| {
                     one.relative().child(div().absolute().inset_0().with_animation(
                         SharedString::from(format!("row-tab-owes:{tab_id}")),

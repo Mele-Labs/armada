@@ -54,6 +54,7 @@ impl Sessions for FakeDaemon {
             from_job: None,
             from_tab: None,
             mod_of_bay: false,
+            operator: false,
             side_job: false,
             auto_land: false,
             activity: None,
@@ -68,6 +69,7 @@ impl Sessions for FakeDaemon {
             waits: None,
             later: Vec::new(),
             held_open_by: Vec::new(),
+            slot_wait: None,
             stopped: None,
             repairing: None,
             stop_told_by: None,
@@ -776,6 +778,26 @@ impl Sessions for FakeDaemon {
         _conflict: ipc::RaiseConflict,
     ) -> Result<ipc::ConflictRaised, Refusal> {
         Ok(ipc::ConflictRaised { id: String::from("conflict:s-a:s-b"), folded: false })
+    }
+
+    async fn raise_card(self: std::sync::Arc<Self>, _caller: Option<crate::Caller>, _card: ipc::RaiseCard) -> Result<ipc::CardRaised, Refusal> {
+        Ok(ipc::CardRaised { card: String::from("turn:1") })
+    }
+
+    async fn revise_card(self: std::sync::Arc<Self>, _caller: Option<crate::Caller>, revise: ipc::ReviseCard) -> Result<ipc::CardRevised, Refusal> {
+        Ok(ipc::CardRevised { card: revise.card })
+    }
+
+    async fn settle_card(self: std::sync::Arc<Self>, _caller: Option<crate::Caller>, settle: ipc::SettleCard) -> Result<ipc::OperatorCardSettled, Refusal> {
+        Ok(ipc::OperatorCardSettled { card: settle.card })
+    }
+
+    async fn list_operator_acts(&self) -> Result<ipc::OperatorActsList, Refusal> {
+        Ok(ipc::OperatorActsList::default())
+    }
+
+    async fn set_operator_acts(&self, _set: ipc::SetOperatorActs) -> Result<ipc::OperatorActsList, Refusal> {
+        Ok(ipc::OperatorActsList::default())
     }
 
     async fn ask_held(

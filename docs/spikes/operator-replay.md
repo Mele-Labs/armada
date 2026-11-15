@@ -1,5 +1,7 @@
 # Spike: Is the Operator's one fresh call good enough to build on, and on which model?
 
+**The call this measured is removed**: the Operator is one agent session now and Fleet rules nothing. `concepts/operator.md`, *What went*.
+
 **Answer: yes, on Sonnet, as a safe call that does little.**
 Over 120 arrivals from last week, all 113 calls on each model returned a readable ruling.
 It took a median 5.2 s on Sonnet and 5.9 s on Haiku, with the slowest call at 15.2 s, so every call was inside the 20 second first-write limit.

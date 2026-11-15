@@ -38,11 +38,18 @@ pub enum Asked {
     /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
     Start { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String> },
-    /// New Side Job, from the card under the sheet: what ⌘T starts, in the repository the picker named if it did. The sheet has shut.
-    JobHere(Option<String>),
+    /// New Side Job, from the card under the sheet: what ⌘T starts, in the row the picker named if it did. The sheet has shut.
+    JobHere(Option<PickedRow>),
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
+
+/// A row of the picker as a start takes it: the repository, and the project it is for, by Fleet's id.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PickedRow {
+    pub repository: String,
+    pub project: Option<String>,
+}
 
 /// The `@` or `#` being typed, and the rows it offers.
 pub(super) struct Menu {
@@ -177,6 +184,14 @@ impl DispatchSheet {
         self.face.chosen().map(|chip| chip.name.to_string())
     }
 
+    /// The row the picker names, as a repository and the project it is for, where the rail is not scoped.
+    pub(super) fn named_row(&self) -> Option<PickedRow> {
+        if self.face.reading == Reading::Scoped {
+            return None;
+        }
+        self.face.chosen().map(|chip| PickedRow { repository: chip.name.to_string(), project: chip.project.as_ref().map(|one| one.id.to_string()) })
+    }
+
     /// Where the card under the sheet, and ⌘T over it, start a Job: the repository the picker names, else where the title bar is.
     pub(super) fn here_in(&self) -> Option<SharedString> {
         let here = self.here.as_ref()?;
@@ -188,7 +203,7 @@ impl DispatchSheet {
         if self.here.is_none() {
             return;
         }
-        let picked = self.named_repository();
+        let picked = self.named_row();
         self.close(window, cx);
         cx.emit(Asked::JobHere(picked));
     }
@@ -934,6 +949,20 @@ mod tests {
             }
         });
         assert_eq!(*asked.borrow(), [("sample-api".to_string(), Some("storefront".to_string())), ("sample-docs".to_string(), None)]);
+    }
+
+    #[gpui::test]
+    fn the_card_and_command_t_take_the_row_picked_with_its_project(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, _, _| {
+            assert_eq!(sheet.named_row(), None, "nothing picked: the title bar says where");
+            let row = sheet.face.chips.iter().find(|chip| chip.key == Some(3)).expect("Storefront in sample-api").id();
+            sheet.face.pick(&row);
+            assert_eq!(sheet.named_row(), Some(PickedRow { repository: "sample-api".into(), project: Some("storefront".into()) }));
+            let row = sheet.face.chips.iter().find(|chip| chip.key == Some(7)).expect("sample-docs in no project").id();
+            sheet.face.pick(&row);
+            assert_eq!(sheet.named_row(), Some(PickedRow { repository: "sample-docs".into(), project: None }));
+        });
     }
 
     #[gpui::test]

@@ -58,7 +58,7 @@ pub enum Verb {
     /// A press on the button of this name inside the article of this name: where one card among several
     /// has a button the others have too.
     OpenIn(&'static str, &'static str),
-    /// A press on the button of this name inside the element of this role and name: where a button's name is
+    /// A press on the button, or the radio, of this name inside the element of this role and name: where its name is
     /// one the walk's own bar or another place also draws.
     PressWithin(&'static str, &'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
@@ -115,6 +115,9 @@ pub enum Verb {
     /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
     /// side, or the step fails. For a thing that must wrap rather than run past its column.
     Fits(&'static str, &'static str),
+    /// Nothing pressed: the target must be drawn no wider than this many points, or the step fails.
+    /// For a title that must be cut inside its tab rather than widen it.
+    NoWiderThan(u32),
     /// Nothing of this role and name is drawn; the target is.
     Absent(&'static str, &'static str),
     /// This many milliseconds go by before the target is ringed, as they do while a person reads the
@@ -224,9 +227,6 @@ pub enum Screen {
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
-const PRECEDENT_ANSWER: &str = "Follows your answer in Walk window takes: Only the tests it reaches: the whole suite is CI's";
-const PRECEDENT_RULED: &str = "Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
-const PRECEDENT_UNDO: &str = "Undo Pocket install banner: Rebase on main before pushing? Rebase, as you answered in Tail-first thread loading";
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
     Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
@@ -359,11 +359,6 @@ static EDGE_PARTS: &[&[Step]] = &[
         part("A subagent's own thread", Screen::Jobs, "subagent", "row", "Brief a reviewer"),
         press_on("Open the Job", "row", "Brief a reviewer", "button", "Subagent Review the merge line change, finished"),
         press_on("A press on a subagent opens its thread as a tab beside the Job's: what it was asked, its calls and what it said", "button", "Subagent Review the merge line change, finished", "tab", "Job tab: Review the merge line change"),
-    ],
-    &[
-        part("Your turn: an option the Operator did not pick", Screen::Operator, "jobs-many", "tab", "Jobs"),
-        step("↓ opens a red main. Its card lists Start a fix and Hand to a Job, the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
-        step("1 picks Start a fix. Yes, Always here and Always now carry it in place of the Operator's pick", Verb::Key("1"), "radio", "Start a fix"),
     ],
     &[
         part("A sketch read against an earlier one", Screen::Jobs, "sketch-changes", "row", "Edit the merge line"),
@@ -1126,6 +1121,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-claim-wait-names",
+        title: "A Job's wait names a Job of this Mac as a Job, and another Mac by its own name",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that waits on a fix by a Job of this Mac names the Job, not the Mac the person sits at", "row", "Audit the docs index", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("The row opens that Job on a press, and says so", Verb::Hover, "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("It has no Mac chip", Verb::Absent("img", "Nicks-MacBook-Pro-2026"), "region", "Claims"),
+            step("A wait on a Job of another Mac names that Mac without its .local, in the chip too", Verb::Hover, "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A press on the first opens the Job fixing it", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today", "region", "Thread"),
+            step("It waits on nothing, so it has no claims card", Verb::Absent("region", "Claims"), "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-claim-waits",
         title: "A Job waiting on an item another Job or a person holds",
         screen: Screen::Jobs,
@@ -1139,6 +1148,20 @@ pub static WALKS: &[Walk] = &[
             step("It has waited two hours", Verb::Look, "timer", "2 h"),
             press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
             step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
+        ],
+    },
+    Walk {
+        name: "native-slot-wait",
+        title: "A Job waiting for a worktree slot, asking nothing",
+        screen: Screen::Jobs,
+        scenario: "slot-wait",
+        steps: &[
+            step("A Job waiting for a slot wears a drive beside its state, its place in the tooltip", Verb::Hover, "img", "Waiting for a slot, 2nd in line"),
+            press_on("Its thread ends on the wait: its place, how long, and that it moves in by itself", "row", "Audit the docs index", "region", "Waiting for a slot"),
+            step("Add a slot has Fleet make one for this Job", Verb::Hover, "button", "Add a slot"),
+            step("Free gives this Job the slot of the quietest Job nothing keeps", Verb::Hover, "button", "Free slot 9"),
+            step("The card stays inside the thread", Verb::Fits("region", "Waiting for a slot"), "button", "Free slot 9"),
+            press_on("Now says it too", "tab", "Job column: Now", "group", "Waiting for a slot, 2nd in line"),
         ],
     },
     Walk {
@@ -1240,6 +1263,9 @@ pub static WALKS: &[Walk] = &[
             step("The first stand at the top", Verb::Wheel("region", "Open, Done and Deferred", -1400), "button", "Read the chip's stories"),
             press_on("A press opens its thread as a tab beside the Job's", "button", "Read the chip's stories", "tab", "Job tab: Read the chip's stories"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Read the chip's stories"),
+            press_on("A subagent with a long task opens its tab", "button", "Check the tooltip wording against the voice rules", "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("The title is cut inside its tab, which keeps its width, and its × is drawn after it", Verb::NoWiderThan(240), "tab", "Job tab: Check the tooltip wording against the voice rules"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Check the tooltip wording against the voice rules"),
             press_on("+ again", "button", "Add tab: Done", "menuitem", "Judge"),
             press_on("Judge: the Judge of the whole Job", "menuitem", "Judge", "region", "Judge"),
         ],
@@ -1530,6 +1556,34 @@ pub static WALKS: &[Walk] = &[
             step("The picture keeps the hops", Verb::Look, "region", "What they see when they open Crossing arrows.png"),
             step("Esc puts it away", Verb::Key("escape"), "button", "Share"),
             step("Esc again shuts the sketch", Verb::Key("escape"), "button", "Open sketch Crossing arrows"),
+        ],
+    },
+    Walk {
+        name: "native-sketch-reader-fixes",
+        title: "Notes on a sketch, its full screen, and a sketch once answered",
+        screen: Screen::Jobs,
+        scenario: "sketch-reader",
+        steps: &[
+            press_on("A Job puts a sketch to him", "row", "Edit the merge line", "article", "Sketch to approve: Freshness chip"),
+            step("Open in the panel reads it full screen", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
+            press_on("Opened", "button", "Open in the panel", "dialog", "Sketch: Freshness chip"),
+            step("A right press on a box offers Add note", Verb::RightOpen("group", "Merge queue"), "menuitem", "Add note"),
+            press_on("Add note opens a box under the box, named Note", "menuitem", "Add note", "textbox", "Note"),
+            step("He says what it is about", Verb::Type("Say what the queue waits on."), "textbox", "Note"),
+            step("Enter holds the note: its number stands on the box", Verb::Key("enter"), "dialog", "Sketch: Freshness chip"),
+            step("A right press on an element inside a mock offers it too", Verb::RightOpen("group", "Send invite"), "menuitem", "Add note"),
+            press_on("The box opens under that element", "menuitem", "Add note", "textbox", "Note"),
+            step("A second note", Verb::Type("Name who it goes to."), "textbox", "Note"),
+            step("Held: number 2 stands on the element, number 1 stays on the box", Verb::Key("enter"), "dialog", "Sketch: Freshness chip"),
+            step("Zoom in, or the rail's +, or a pinch or the wheel with ⌘", Verb::Key("cmd-="), "dialog", "Sketch: Freshness chip"),
+            step("Zoom out, or the rail's -", Verb::Key("cmd--"), "dialog", "Sketch: Freshness chip"),
+            press_on("The rail's Zoom in works the same", "button", "Zoom in", "dialog", "Sketch: Freshness chip"),
+            press_on("Fit fits it again", "button", "Fit", "dialog", "Sketch: Freshness chip"),
+            step("The sketch still asks, so its answers stand at the foot of the full screen", Verb::Look, "toolbar", "Answers"),
+            step("Send back opens its note box", Verb::PressWithin("dialog", "Sketch: Freshness chip", "Send back"), "textbox", "Note"),
+            step("What to change", Verb::Type("Grey the chip once it is current."), "textbox", "Note"),
+            step("⌘↵ sends it back from here", Verb::Key("cmd-enter"), "status", "Sent back"),
+            step("Esc shuts it. Its card in the thread is one line: the sketch, its verdict and the start of his note", Verb::Key("escape"), "button", "Open sketch Freshness chip"),
         ],
     },
     Walk {
@@ -1838,6 +1892,22 @@ pub static WALKS: &[Walk] = &[
         steps: &title_bar::PREVIEW_OFFERS,
     },
     Walk {
+        name: "native-waits-and-fleet-scroll",
+        title: "A waiting Job's row says what it waits on you for, and the Fleet panel scrolls its lists",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            right_on("A right press on a Job opens its menu, with the View group at its foot", "row", "Fix the merge line freshness chip", "menuitemcheckbox", "Now"),
+            press_on("Now puts a line under each title", "menuitemcheckbox", "Now", "menuitemcheckbox", "Now"),
+            step("A Job waiting on you says the first thing it waits for: Plan to approve, not what it last ran", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
+            step("A Job at work still says what it is doing", Verb::Look, "row", "Native Bridge foundation"),
+            scene("Ten branches are offered for the preview", "preview-offers-many", "button", "Fleet — Running"),
+            press_on("The panel stops at the window's edge. Refresh and Skip stay at its foot", "button", "Fleet — Running", "button", "Refresh"),
+            step("The lists scroll between the head and the foot", Verb::Wheel("group", "Waiting to be added", 320), "button", "Refresh"),
+            step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+        ],
+    },
+    Walk {
         name: "native-build-origin",
         title: "The build switcher's On origin row: a branch no Job here holds, picked into the next build",
         screen: Screen::Jobs,
@@ -1907,11 +1977,11 @@ pub static WALKS: &[Walk] = &[
         scenario: "jobs-many",
         steps: &[
             step("The Jobs screen in front, the Operator's page behind it", Verb::Press, "tab", "Jobs"),
-            answer("Work asks to pair with this Mac. A press on its banner brings the Operator's page forward with Work's card first in Your turn", "pairing", "article", "Confirm Work pairing"),
+            answer("Work asks to pair with this Mac. A press on its banner brings the Operator's page forward with Work's card in front", "pairing", "article", "Confirm Work pairing"),
             step("It is blocked, as a question is: it says the code Work shows, and when it asked. The keys are on Confirm", Verb::Look, "button", "Confirm"),
             answer("Decline forgets the ask here and on Work", "pairing-refused", "button", "Decline"),
             step("The Gateway refused it, and its sentence stands on the card. Confirm and Decline press again", Verb::Open("button", "Decline"), "alert", "Work's ask ran out. Ask again from Work's Settings."),
-            step("Confirm pairs the two Macs, and the card leaves Your turn", Verb::Gone, "button", "Confirm"),
+            step("Confirm pairs the two Macs, and the card leaves the page", Verb::Gone, "button", "Confirm"),
         ],
     },
     Walk {
@@ -1921,14 +1991,14 @@ pub static WALKS: &[Walk] = &[
         scenario: "jobs-many",
         steps: &[
             step("The Jobs screen in front, the Operator's page behind it", Verb::Press, "tab", "Jobs"),
-            answer("At 14:10 three items join Your turn: each raises a toast in the corner, the newest by the corner", "raised", "alert", "Toast: File your note as an issue"),
+            answer("At 14:10 three items join the queue: each raises a toast in the corner, the newest by the corner", "raised", "alert", "Toast: File your note as an issue"),
             step("A red main is urgent: its edge is red and it holds its place. With no window of the app in front it would also post a banner, with the blocked sound", Verb::Look, "alert", "Toast: storefront's main is red at 9f2c1e0"),
             step("A decision's edge is amber, a go-ahead's the accent; the pick is filled, then Later and Open the Operator", Verb::Look, "alert", "Toast: Slot pool controls"),
             step("The bell in the title bar has a dot: a toast not seen yet", Verb::Look, "button", "Toasts"),
             step("⌥⌘J puts the keys on the newest toast: A is its pick, L Later, Esc closes", Verb::Key("alt-cmd-j"), "alert", "Toast: File your note as an issue"),
-            step("L puts it Later, last in Your turn for today; the keys go to the next", Verb::Key("l"), "alert", "Toast: Slot pool controls"),
+            step("L puts it Later, last in the queue for today; the keys go to the next", Verb::Key("l"), "alert", "Toast: Slot pool controls"),
             step("A says its pick, Open it, as the page's Yes would", Verb::Key("a"), "alert", "Toast: storefront's main is red at 9f2c1e0"),
-            step("× closes it; the item still waits in Your turn", Verb::Gone, "button", "Close toast: storefront's main is red at 9f2c1e0"),
+            step("× closes it; the item still waits in the queue", Verb::Gone, "button", "Close toast: storefront's main is red at 9f2c1e0"),
             step("⌥⌘N opens the history: every toast this sitting and how it went. The bell's dot is gone", Verb::Key("alt-cmd-n"), "dialog", "Toasts"),
             step("A row opens the Operator's page on its item", Verb::Look, "listitem", "Slot pool controls, Settled"),
             step("Esc shuts it", Verb::Key("escape"), "button", "Toasts"),
@@ -1970,56 +2040,6 @@ pub static WALKS: &[Walk] = &[
             step("Return presses Reopen Armada", Verb::Key("enter"), "button", "Reopening Armada"),
             scene("Fleet answers on this protocol: the panel goes, and the face is green again", "fleet-live-running", "button", "Fleet — Running"),
             step("Nothing stands over the screen", Verb::Absent("dialog", "This app runs an older build"), "button", "Fleet — Running"),
-        ],
-    },
-    Walk {
-        name: "native-operator-options",
-        title: "Choose an option the Operator did not pick",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            step("A new design to approve, not a port: Electron never had Your turn. ↓ opens a red main, which offers Start a fix or Hand to a Job; the card lists both under Options with the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
-            step("1 picks Start a fix, the option the Operator did not pick. A press on the row picks it too", Verb::Key("1"), "radio", "Start a fix"),
-            step("Yes, Always here and Always now carry Start a fix in place of the Operator's pick", Verb::Look, "button", "Always here"),
-            step("H is Always here: Start a fix goes to Fleet with the answer, and the rule keeps it for armada", Verb::Key("h"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test, done"),
-        ],
-    },
-    Walk {
-        name: "native-operator-groups",
-        title: "A Job's asks as one card",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            answer("A Job with two asks waiting is one row: its title, and what each asks under it", "rest", "row", "Pocket sign-in on the phone"),
-            press_on("A press opens its card where the row was", "row", "Pocket sign-in on the phone", "article", "Pocket sign-in on the phone"),
-            step("The Job's title and project once, then each ask with its own answers, Later and Ask. The edge marks the ask the keys act on", Verb::Wheel("article", "Pocket sign-in on the phone", -320), "group", "Which sign-in should Pocket offer first?"),
-            step("J puts the keys on the second ask: the edge moves to it, and so do the keys under its presses. It has its own Yes, Later and Ask", Verb::Key("j"), "group", "Keep the old sign-in page for a week?"),
-            step("⌥↑ moves the card whole: both asks go above the red main", Verb::Key("alt-up"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test"),
-            step("Yes on the second ask answers it alone: it leaves for Answered today, and the card keeps the first", Verb::Open("button", "Yes"), "button", "Passkey"),
-            step("One ask left is a card like any other, its kind beside the title", Verb::Look, "article", "Pocket sign-in on the phone"),
-            step("⌥↓ moves it back under the red main", Verb::Key("alt-down"), "article", "Pocket sign-in on the phone"),
-        ],
-    },
-    Walk {
-        name: "native-operator-precedent",
-        title: "The Operator follows what you said before",
-        screen: Screen::Operator,
-        scenario: "jobs-many",
-        steps: &[
-            answer("A go-ahead question whose pick follows your own answer: under My read, the Job you gave it in, when, and what you said", "precedent", "group", PRECEDENT_ANSWER),
-            step("Its tooltip says what you were asked then", Verb::Hover, "group", PRECEDENT_ANSWER),
-            step("The Job's name is a link: Enter or a press opens that Job", Verb::Look, "link", "Open Walk window takes"),
-            step("Yes answers this one. Always here keeps the rule, and then such a question is answered as it arrives", Verb::Look, "button", "Always here"),
-            step("↓ opens the next: this pick follows a setting of yours, its key and value in mono", Verb::Key("down"), "group", "Follows your setting time_format = 24h"),
-            step("Ruled, first in Since you last looked: the questions it answered by following you, under each Job, newest first", Verb::Look, "button", "Ruled"),
-            step("Each row is the question, then the pick and what it followed, and its time", Verb::Look, "listitem", PRECEDENT_RULED),
-            step("A ruling you took back is struck through and says so", Verb::Hover, "img", "You took it back at 12:40:00. It is in Your turn"),
-            step("A ruling whose Job has ended cannot be given back", Verb::Hover, "img", "Its Job has ended, so it cannot be given back"),
-            step("Undo, or U while it has the keys, gives the question back: the row reads Taken back at once, and the keys go to Ruled", Verb::Open("button", PRECEDENT_UNDO), "img", "You took it back at 13:05:00. It is in Your turn"),
-            answer("The question joins Your turn at its end, as yours", "rest", "row", "Pocket install banner"),
-            press_on("A press opens it where its row was", "row", "Pocket install banner", "article", "Pocket install banner"),
-            step("Its head says it was taken back, beside its kind; the tooltip says when, and that the Operator does not answer it again", Verb::Wheel("article", "Pocket install banner", -320), "img", "You took back the Operator's answer at 13:05:00. It does not answer this again"),
-            step("Its options are the ones the Job asked with, and the Operator gives no read. As on any question with no pick, the first is filled until you pick another; A sends it to the Job", Verb::Look, "radio", "Merge main in"),
         ],
     },
     Walk {
@@ -2213,7 +2233,7 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-bands",
         steps: &[
             press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
-            step("Each wait is a row with its kind's glyph in its state's hue", Verb::Look, "row", "Held open by ci on branch"),
+            step("Each wait is a row with its kind's glyph in its state's hue; the card is one line until a press opens it", Verb::Open("button", "Waiting on"), "row", "Held open by ci on branch"),
             step("A right press offers its stop", Verb::RightOpen("row", "Held open by ci on branch"), "menuitem", "Stop the watch"),
             step("Esc shuts the menu; the card has no close and leaves when the wait ends", Verb::Key("escape"), "region", "Waiting on"),
             step("A Job whose agent came up without its tools says so", Verb::Press, "row", "Upgrade the router"),
@@ -2865,7 +2885,7 @@ pub static WALKS: &[Walk] = &[
             step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
             step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),
             press_on("A Job held open by what is not you shows what it waits on in a card at the thread's end", "row", "Quiet the write-clash notices", "region", "Waiting on"),
-            step("A row for each wait, its stop behind a right press", Verb::Look, "row", "Held open by ci on branch"),
+            step("A row for each wait, its stop behind a right press", Verb::Open("button", "Waiting on"), "row", "Held open by ci on branch"),
             step("Another Job: its box, its pickers and its quick bar", Verb::Press, "row", "Audit the docs index"),
             step("Words are typed", Verb::Type("Check the index again"), "textbox", "Message"),
             step("Enter sends them, and they stand in the thread the same frame", Verb::Key("enter"), "region", "Your message"),
@@ -3066,6 +3086,20 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::MACS_BUILD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MACS_MODELS,
+        title: "Settings › Macs and Models use the width",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_MODELS_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::MACS_LONG,
+        title: "Settings › Macs: long names and addresses",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MACS_LONG_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::MACS_NEARBY,
         title: "Settings › Macs: Macs nearby and on your account",
         screen: Screen::Settings,
@@ -3139,6 +3173,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::LANES_ADD_STEPS,
     },
     Walk {
+        name: crate::settings::walk::LEARNED_LINKS,
+        title: "A learned setting links to its setting",
+        screen: Screen::Settings,
+        scenario: "delivery-line",
+        steps: crate::settings::walk::LEARNED_LINKS_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::FOLLOWS_PICKER,
         title: "Workflows follow the Editing picker",
         screen: Screen::Settings,
@@ -3158,6 +3199,20 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::DELETE_PROJECT_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::CLAIMS_STORE,
+        title: "Settings › Claims store: deploy, use none and join",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::CLAIMS_STORE_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::SIGN_IN_APP,
+        title: "Settings › Account: register the sign-in app on GitHub",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::SIGN_IN_APP_STEPS,
     },
     Walk {
         name: crate::settings::walk::TAKE,
@@ -3331,6 +3386,25 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-other-mac-page",
+        title: "A walk and the dev server of a Job on the other Mac, in a tab",
+        screen: Screen::JobsInApp,
+        scenario: "jobs-other-mac",
+        steps: &[
+            press_on("A Job on Air owes a walk of a page: its tab arrives behind the thread", "row", "Fix the merge line freshness chip", "tab", "Job tab: Orders page"),
+            press_on("The tab names the walk and the page, with Air's chip and Open", "tab", "Job tab: Orders page", "button", "Open"),
+            press_on("Open while Air sleeps: nothing opens, and Fleet's words stand under it", "button", "Open", "status", "Air is asleep. Its pages open when it wakes."),
+            pairing("Air wakes", "air-awake", "button", "Open"),
+            press_on("Open again: the page is drawn under the walk's bar, step 1 ringed", "button", "Open", "img", "The target of this step"),
+            press_on("Next acts on the ringed target and rings the next", "button", "Act on the ringed target and go on", "img", "The target of this step"),
+            step("Its dev server stands in Now with Air's chip and Open", Verb::Look, "button", "Open Orders dev server"),
+            pairing("The link to Air stops carrying", "link-down", "button", "Open Orders dev server"),
+            press_on("Open on the dev server: its tab says what the link answered", "button", "Open Orders dev server", "alert", crate::terminal::shells::UNREACHED),
+            pairing("The link carries again", "link-up", "button", "Open"),
+            press_on("Open tries again: the page is drawn under a bar of its name and Reload, with no steps and no Approve", "button", "Open", "button", "Reload"),
+        ],
+    },
+    Walk {
         name: "native-move-job-to-mac",
         title: "Move a Job to the other Mac, and bring one back",
         screen: Screen::JobsInApp,
@@ -3354,6 +3428,27 @@ pub static WALKS: &[Walk] = &[
             step("⌘K opens the palette", Verb::Key("cmd-k"), "dialog", "Command palette"),
             step("A Job found by its words", Verb::Type("Audit"), "searchbox", "Search actions, jobs and settings"),
             step("⌘K again: its acts offer Move to Air, with ⌥⌘M", Verb::Key("cmd-k"), "menuitem", "Move to Air"),
+        ],
+    },
+    Walk {
+        name: "crash-panel",
+        title: "Armada quit on an error",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            scene("Armada quit on an error and reopened: the screen dims below the title row, and one red panel stands in its middle", "crash-panel", "dialog", "Armada quit"),
+            step("The panic and where it was", Verb::Look, "status", "already mutably borrowed: BorrowError, crates/bridge-native/src/toasts/view.rs:412:18"),
+            step("What he had typed is back where it was, each by the place that kept it", Verb::Look, "list", "Kept"),
+            step("The Job gets the crash file and macOS's own report", Verb::Look, "list", "The Job gets"),
+            step("Start a Job to fix it has the keys, so Return presses it", Verb::Look, "button", "Start a Job to fix it"),
+            step("Tab goes to Open crash file", Verb::Key("tab"), "button", "Open crash file"),
+            step("Tab goes to Later", Verb::Key("tab"), "button", "Later"),
+            step("Tab comes back to Start a Job to fix it", Verb::Key("tab"), "button", "Start a Job to fix it"),
+            step("Return presses it: the Job starts with both files, and it opens", Verb::Key("enter"), "tab", "Job column: Open"),
+            step("The panel is gone", Verb::Absent("dialog", "Armada quit"), "tab", "Job column: Open"),
+            scene("Start refused", "crash-panel-refused", "dialog", "Armada quit"),
+            step("Return presses Start a Job to fix it; what Fleet said stands under the files, and the panel stays", Verb::Key("enter"), "status", "Fleet serves no repository named armada"),
+            step("Esc is Later: the panel goes", Verb::Key("escape"), "tab", "Job column: Open"),
         ],
     },
 ];

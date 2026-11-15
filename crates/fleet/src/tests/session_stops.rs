@@ -160,7 +160,7 @@ async fn an_item_for_him_or_a_live_watch_excuses_a_stop() {
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -206,6 +206,22 @@ async fn a_shown_walk_is_him_to_act_and_no_stop() {
     assert!(record(&rig, &id).await.stop_told_by.is_some(), "owed before it");
     super::session_waiting::show(&rig, &id, "http://localhost:5187/?walk=anything").await;
     assert!(record(&rig, &id).await.stop_told_by.is_none(), "a shown walk waits on him");
+}
+
+/// The 14 Nov 2026 Job told to stop by a full pool, whose owner chose Wait, and was then told its turn ended
+/// with nothing running: the line is a wait Fleet holds itself.
+#[tokio::test]
+async fn a_job_waiting_in_the_slot_line_has_no_stop() {
+    let (rig, _holder) = super::session_queue::with_slot_one_held().await;
+    let (id, _) = super::session_queue::queued_and_idle(&rig, "change a file").await;
+    let wait = ipc::AnswerWaiting { session_id: id.clone(), item_id: "slot-choice".into(), choice: Some(0), text: None, mode: None, fixed: None };
+    Arc::clone(&rig.fleet).answer_waiting(wait).await.expect("he chose to wait");
+    aged(&rig, &id).await;
+    let row = record(&rig, &id).await;
+    assert!(row.waiting_for.is_empty(), "his answer took the call off");
+    assert!(row.stop_told_by.is_none(), "Fleet moves it when a slot frees");
+    tell_ripe(&rig, &id).await;
+    assert_eq!(nudges(&rig.rows(&id).await), 0, "never nudged while it is in the line");
 }
 
 /// The 13 Nov 2026 answer that was told to carry on, then to draw a picture before it could end.
@@ -482,7 +498,7 @@ async fn nothing_waiting_on_him_is_the_only_stop_a_quiet_repair_is_started_for()
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -567,7 +583,7 @@ async fn a_quiet_turn_that_waits_on_him_is_no_hung_command() {
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -656,7 +672,7 @@ async fn a_red_pull_request_never_draws_a_repair_while_something_waits_on_him() 
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await

@@ -38,6 +38,7 @@ pub(super) fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
         act: None,
         options: options.iter().map(|one| (*one).into()).collect(),
         pictures: String::new(),
+        artifact: String::new(),
         steps: Vec::new(),
     }
 }
@@ -314,6 +315,7 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     };
     let kind = |card: ipc::CallInFlight| sorted(&item(&card), Some(&card));
     assert_eq!(kind(card("Read", "src/lib.rs")), Some(AutopilotDecision::Reads));
@@ -460,6 +462,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         };
         assert_eq!(sorted(&one, None), None, "{source:?}");
     }
@@ -478,6 +481,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     };
     assert_eq!(sorted(&errand, None), None, "an errand always waits");
 }

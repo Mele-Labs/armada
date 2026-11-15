@@ -17,7 +17,7 @@ use gpui::{
     Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
+use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState, WaitingSource};
 
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
@@ -89,6 +89,8 @@ struct Row {
     paused: bool,
     /// Kept quiet until this time: it works on and raises nothing to him (`snoozed_until`).
     snoozed: Option<chrono::DateTime<chrono::Local>>,
+    /// Waiting for a worktree slot, as its glyph's tooltip says it (`slot_wait`).
+    slot_wait: Option<SharedString>,
     ended: bool,
     /// Asked to carry on in a new Job and told yes: a turning ring until the new one is up.
     handing_off: bool,
@@ -451,6 +453,25 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
     Some(placed)
 }
 
+/// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
+/// by its kind where its words do not. Otherwise what it is doing now, or what it last summed up.
+fn now_of(job: &SessionRecord) -> Option<String> {
+    let waits = job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
+    let waiting = job.waiting_for.iter().find(|item| item.source != WaitingSource::Done).filter(|_| waits).map(|item| {
+        let kind = match item.source {
+            WaitingSource::Walk => "Walk",
+            WaitingSource::Sketch => "Sketch",
+            WaitingSource::Draft => "Draft",
+            WaitingSource::Document => "Document",
+            _ => "",
+        };
+        let named = kind.is_empty() || item.text.to_lowercase().starts_with(&kind.to_lowercase());
+        if named { item.text.clone() } else { format!("{kind}: {}", item.text) }
+    });
+    let line = waiting.or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
+    Some(crate::job_view::plain_of(&line)).filter(|line| !line.is_empty())
+}
+
 fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names) -> Vec<Line> {
     lines_within(jobs, ideas, scope, query, order, names, None)
 }
@@ -543,6 +564,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 project: project.clone().into(),
                 paused: false,
                 snoozed: None,
+                slot_wait: None,
                 ended: false,
                 handing_off: false,
                 kids: None,
@@ -573,6 +595,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             project: project.clone().into(),
             paused: paused(job),
             snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
+            slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
             ended: job.state == SessionState::Ended,
             handing_off: handing_off(job),
             kids: None,
@@ -593,7 +616,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 (number.into(), title.into())
             }),
             flow: flow_of(job),
-            now: job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()).map(Into::into),
+            now: now_of(job).map(Into::into),
             queued: None,
             place: places.contains(job.id.as_str()),
             mac: job.mac.clone().map(Into::into),
@@ -929,7 +952,8 @@ impl JobsList {
             this.follow_scope(cx);
             let held = fleet.read(cx).held();
             let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-            let mut jobs = held.jobs.clone();
+            // The Operator's own session is never a Job in the list: its page is the Operator's.
+            let mut jobs: Vec<SessionRecord> = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
             this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs || names != this.names {
                 this.jobs = jobs;
@@ -945,7 +969,7 @@ impl JobsList {
         crate::queued::begin(true, cx);
         let held = fleet.read(cx).held();
         let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-        let jobs = held.jobs.clone();
+        let jobs = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
         Self::with(jobs, names, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
@@ -2226,6 +2250,17 @@ impl JobsList {
                 said,
             )
         });
+        // Waiting for a slot asks him nothing: a quiet glyph beside the state, its place in the tooltip.
+        let slot_wait = row.slot_wait.clone().map(|said| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("slot-wait-{}", row.id)))
+                    .child(svg().path(icon_path("hard-drive")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
+                    .tooltip(tip(said.clone())),
+                Role::Image,
+                said,
+            )
+        });
         let status_on = view.on("view:status");
         // Once a second Mac is listed, a row wears a dot in the colour of the Mac it runs on, right before its state glyph.
         let dotted = crate::pairing::shows_chips(crate::pairing::macs(cx));
@@ -2291,7 +2326,7 @@ impl JobsList {
                         Role::Image,
                         "Handing off",
                     ))
-                }).children(quiet).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
+                }).children(quiet).children(slot_wait).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     let said = moved_said.clone().unwrap_or(said);
                     labelled(
                         div()
@@ -2771,6 +2806,14 @@ impl JobsScreen {
                 match fleet_of.upgrade().and_then(|list| list.read(cx).fleet()) {
                     Some(fleet) => fleet.update(cx, |fleet, cx| fleet.skip_offers(id.clone(), cx)),
                     None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/offers/skip").emit(),
+                }
+                return;
+            }
+            // The crash panel started a Job to fix the crash: it opens.
+            if let crate::titlebar::Asked::OpenJob(id) = asked {
+                if let Some(list) = fleet_of.upgrade() {
+                    let id = id.clone();
+                    cx.defer(move |cx| list.update(cx, |list, cx| list.open(id.into(), cx)));
                 }
                 return;
             }
@@ -3581,9 +3624,31 @@ mod tests {
         });
         assert_eq!(flow, Some(Some(("Ship a screen".into(), "Build".into()))));
         assert_eq!(first.flow, None);
-        assert_eq!(first.now.as_deref(), Some("Asked which chip colour the stale state takes"));
+        // Waiting on him, a row says the first thing it waits on him for, not what it last did.
+        assert_eq!(first.now.as_deref(), Some("Plan to approve"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
+    }
+
+    #[test]
+    fn a_waiting_row_names_what_it_waits_on_him_for_in_plain_words() {
+        let jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let mut job = jobs.into_iter().find(|job| job.id.as_str() == "mock-01").expect("mock-01 waits on him");
+        let item = |id: &str, text: &str, source: &str| -> ipc::WaitingItem {
+            serde_json::from_value(serde_json::json!({"id": id, "text": text, "since": "2026-11-09T14:00:00Z", "source": source})).expect("an item decodes")
+        };
+        job.waiting_for = vec![item("done:1", "Done", "done"), item("walk:u", "Macs and Models layout", "walk")];
+        assert_eq!(now_of(&job).as_deref(), Some("Walk: Macs and Models layout"), "a walk is named as one; Done is no wait");
+        job.waiting_for = vec![item("walk:u", "Walk the chip states", "walk")];
+        assert_eq!(now_of(&job).as_deref(), Some("Walk the chip states"), "words that already say walk are not said twice");
+        job.waiting_for = vec![item("sketch:t", "Tail layout", "sketch")];
+        assert_eq!(now_of(&job).as_deref(), Some("Sketch: Tail layout"));
+        job.waiting_for = vec![item("agent-1", "Land [#3680](https://github.com/x/y/pull/3680) with `gh pr merge`?", "agent")];
+        assert_eq!(now_of(&job).as_deref(), Some("Land #3680 with gh pr merge?"), "markdown is drawn as plain words");
+        // Not waiting on him: what it is doing, still in plain words.
+        job.mark = job.mark.map(|mark| JobMark { lamp: JobLamp::Running, ..mark });
+        job.activity = serde_json::from_value(serde_json::json!({"now": "Running `gh pr view`"})).expect("activity decodes");
+        assert_eq!(now_of(&job).as_deref(), Some("Running gh pr view"));
     }
 
     #[test]

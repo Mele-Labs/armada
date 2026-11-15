@@ -11,12 +11,14 @@ mod arrows;
 pub(crate) mod export;
 mod geometry;
 mod labels;
+mod notes;
 pub(crate) mod mock_page;
 pub(crate) mod mock_view;
 mod route;
 mod screen;
 mod settle;
 mod start;
+mod tile;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -24,13 +26,14 @@ use std::rc::Rc;
 use std::time::Instant;
 
 use gpui::{
-    canvas, point, px, quad, size, AnyElement, App, AvailableSpace, BorderStyle, Bounds, ContentMask, Corners, Edges, Font, FontWeight, Hsla, IntoElement, PathBuilder,
+    canvas, point, px, quad, size, AnyElement, App, AvailableSpace, BorderStyle, Bounds, BoxShadow, ContentMask, Corners, Font, FontWeight, Hsla, IntoElement, PathBuilder,
     PathStyle, Pixels, Point, SharedString, StrokeOptions, Styled, TextAlign, TextRun, TransformationMatrix, Window,
 };
-use ipc::{Scene, SceneColor, SceneKind, SceneNode, SceneShape, ScreenElement, WirePart};
+use ipc::{Scene, SceneColor, SceneKind, SceneNode, ScreenElement, WirePart};
 use lyon::tessellation::{LineCap, LineJoin};
 
 use crate::look::{token, Look};
+pub(crate) use notes::{bounds_of, nodes, part_at, Mark, Marks, Part};
 use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
@@ -45,7 +48,6 @@ const LEAD: f32 = 18.;
 /// The head band's and body's padding: `8px 12px`.
 const PAD_Y: f32 = 8.;
 const PAD_X: f32 = 12.;
-const ICON: f32 = 12.;
 const RADIUS: f32 = 6.;
 /// What a step lasts (`--duration-pulse`), and how long its dot travels (three quarters of it).
 const STEP_MS: f32 = 1600.;
@@ -62,11 +64,11 @@ const HOP_CUTS: usize = 12;
 /// How far a hop over another arrow stands off the line, in scene units.
 const HOP: f32 = 6.;
 /// An arrowhead's length, and how far a way runs straight into one: two of them, so the head points along its line.
-const HEAD: f32 = 16.;
+const HEAD: f32 = 9.;
 const RUN: f32 = HEAD * 2.;
-/// A dotted line's dots: a round dot as long as nothing, one every `--space-1` and a half over the line's own width.
+/// A dotted line's dots: a round dot as long as nothing, one every `--space-2` over the line's own width.
 const DOT: f32 = 0.5;
-const DOT_PERIOD: f32 = 6.;
+const DOT_PERIOD: f32 = 8.;
 
 /// How the scene is drawn: shrunk on a thread card, or read in a sheet of its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -242,9 +244,15 @@ pub(crate) fn against(key: &str, before: &Scene, after: &Scene) -> (Rc<Scene>, R
 /// The scene, drawn to fill its parent, with what changed against an earlier one marked: added
 /// green, changed amber, removed red and struck through, the rest stood back.
 pub(crate) fn view_changes(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
+    view_marked(key, scene, changes, fit, clock, lens, Rc::default())
+}
+
+/// As [`view_changes`], with the notes' numbers standing on the parts they are about and the parts picked ringed. A reading
+/// view keeps where it put each part (`part_at`, `nodes`, `bounds_of`), which a press and the keys ask for.
+pub(crate) fn view_marked(key: SharedString, scene: Rc<Scene>, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>) -> impl IntoElement {
     let held = scene.clone();
     canvas(
-        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, bounds, window, cx),
+        move |bounds, window, cx| prepare(&key, &held, changes, fit, clock, lens, marks, bounds, window, cx),
         move |bounds, mut prepared, window, cx| paint(&scene, &mut prepared, fit, clock, bounds, window, cx),
     )
     .size_full()
@@ -291,9 +299,14 @@ struct Laid {
     rects: Vec<Rect>,
     /// Each arrow's way, by its index in the scene, with its words placed. An arrow the router found no way for is `None`.
     ways: Vec<Option<Way>>,
+    /// The canvas the drawing stands on: everything it holds, with air round it.
     bounds: Rect,
-    /// The "Start" tab over each node the sketch starts at, by node index.
-    tabs: Vec<Option<Rect>>,
+    /// The "Start" pill of each node the sketch starts at, by node index.
+    marks: Vec<Option<Rect>>,
+    /// The step's badge and its number, by node index, where the node has a step.
+    badges: Vec<Option<(Rect, String)>>,
+    /// What each node is, in the word its head band carries, by node index.
+    kinds: Vec<&'static str>,
     /// The step numbers, sorted and unique: the same number plays together.
     steps: Vec<f64>,
     /// The content height each mock was laid out with, by node index: the layout is worked out again when one is known that was not.
@@ -328,6 +341,11 @@ impl Measure<'_> {
             .fold(0., f32::max)
     }
 
+    /// The words in capitals' width with `tile::TRACKING` after each letter, as a browser sets `letter-spacing`.
+    fn tracked(&self, text: &str, at: f32, weight: f32) -> f32 {
+        text.chars().map(|ch| self.width(&ch.to_string(), at, weight, false) + at * tile::TRACKING).sum()
+    }
+
     /// How many lines the text takes, wrapped at `wrap`.
     fn lines(&self, text: &str, at: f32, weight: f32, mono: bool, wrap: f32) -> usize {
         let run = TextRun { len: text.len(), font: self.font(weight, mono), ..Default::default() };
@@ -343,25 +361,44 @@ fn ground(node: &SceneNode) -> bool {
     matches!(node.kind, SceneKind::Group | SceneKind::Lane)
 }
 
-/// A box drawn in an outline of its own rather than the frame: no head band, its words centred.
-fn shaped(node: &SceneNode) -> Option<SceneShape> {
-    (node.kind == SceneKind::Box).then_some(node.shape).flatten().filter(|shape| *shape != SceneShape::Box)
+/// What a tile's size depends on beyond the node: the word in its head band, and whether it carries the Start pill.
+#[derive(Clone, Copy)]
+struct Facts {
+    kind: &'static str,
+    started: bool,
 }
 
-/// `.shaped`'s padding for a shape: inline, then top and bottom.
-fn shaped_padding(shape: SceneShape, w: f32) -> (f32, f32, f32) {
-    match shape {
-        SceneShape::Pill => (24., 12., 12.),
-        SceneShape::Diamond => (w * 0.25, 12., 16.),
-        SceneShape::Hexagon => (32., 12., 12.),
-        SceneShape::Cylinder => (16., 24., 12.),
-        _ => (16., 12., 12.),
-    }
+/// A tile's size: wide enough for its head band and its words between the box's floor and ceiling, as tall as the band and the
+/// words under it.
+fn tile_size(node: &SceneNode, facts: Facts, measure: &Measure, (floor, ceiling): (f32, f32)) -> (f32, f32) {
+    let title = node.title.as_deref().unwrap_or("");
+    let title_w = measure.width(title, tile::TITLE_AT, tile::TITLE_WEIGHT, false);
+    let body_w = node.body.as_deref().map_or(0., |body| measure.width(body, tile::BODY_AT, 400., true));
+    let icon_w = if node.icon.is_some() { tile::BAND_ICON + tile::BAND_GAP } else { 0. };
+    let lang_w = node.lang.as_deref().map_or(0., |lang| 2. * tile::BAND_GAP + measure.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true));
+    let mark_w = if facts.started {
+        2. * tile::BAND_GAP
+            + measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT)
+            + 2. * tile::PILL_PAD
+            + if node.step.is_some() { tile::PILL_CLEAR } else { 0. }
+    } else {
+        0.
+    };
+    let band = 2. * tile::BAND_PAD + icon_w + measure.tracked(facts.kind, tile::KIND_AT, tile::KIND_WEIGHT) + lang_w + mark_w;
+    let content = band.max(title_w.max(body_w) + 2. * tile::BODY_PAD_X).clamp(floor, ceiling);
+    let w = node.w.map_or(content, |at| content.max(at as f32));
+    let wrap = (w - 2. * tile::BODY_PAD_X).max(1.);
+    let title_lines = if title.is_empty() { 0 } else { measure.lines(title, tile::TITLE_AT, tile::TITLE_WEIGHT, false, wrap) };
+    let body_lines = node.body.as_deref().map_or(0, |body| measure.lines(body, tile::BODY_AT, 400., true, wrap));
+    let words = title_lines as f32 * tile::TITLE_LEAD + if title_lines > 0 && body_lines > 0 { tile::BODY_GAP } else { 0. } + body_lines as f32 * tile::BODY_LEAD;
+    let below = if words > 0. { tile::BODY_PAD_TOP + words + tile::BODY_PAD_BOTTOM } else { tile::BODY_PAD_BOTTOM };
+    let h = tile::BAND_H + below;
+    (w, node.h.map_or(h, |at| h.max(at as f32)))
 }
 
 /// The node's size as the browser lays it out: `max-content` between the box's floor and ceiling,
 /// `w` and `h` as floors, and the height its words take.
-fn size_of(node: &SceneNode, measure: &Measure, (floor, ceiling): (f32, f32)) -> (f32, f32) {
+fn size_of(node: &SceneNode, facts: Facts, measure: &Measure, (floor, ceiling): (f32, f32)) -> (f32, f32) {
     let fixed = |w: f32, h: f32| (node.w.map_or(w, |at| at as f32), node.h.map_or(h, |at| at as f32));
     let floored = |w: f32, h: f32| (node.w.map_or(w, |at| w.max(at as f32)), node.h.map_or(h, |at| h.max(at as f32)));
     let clamp = |content: f32| content.clamp(floor, ceiling);
@@ -388,41 +425,7 @@ fn size_of(node: &SceneNode, measure: &Measure, (floor, ceiling): (f32, f32)) ->
             };
             floored(w, h)
         }
-        SceneKind::Box if shaped(node).is_some() => {
-            let shape = shaped(node).unwrap_or(SceneShape::Box);
-            let named = node.icon.is_some() || node.title.is_some();
-            let name = if node.icon.is_some() { ICON + 8. } else { 0. } + heading;
-            let body = node.body.as_deref().map_or(0., |body| measure.width(body, TEXT, 400., false));
-            let w = match shape {
-                SceneShape::Circle => floor * 0.75,
-                SceneShape::Diamond => floor * 1.25,
-                _ => {
-                    let (inline, _, _) = shaped_padding(shape, 0.);
-                    floored(clamp(name.max(body) + 2. * inline + 2. * BORDER), 0.).0
-                }
-            };
-            let (inline, top, bottom) = shaped_padding(shape, w);
-            let wrap = (w - 2. * BORDER - 2. * inline).max(1.);
-            let lines = node.body.as_deref().map_or(0, |body| measure.lines(body, TEXT, 400., false, wrap));
-            let content = if named { LEAD } else { 0. } + if named && lines > 0 { 4. } else { 0. } + lines as f32 * LEAD;
-            match shape {
-                SceneShape::Circle => (w, w),
-                SceneShape::Diamond => (w, w * 3. / 5.),
-                _ => floored(w, 2. * BORDER + top + bottom + content),
-            }
-        }
-        SceneKind::Box | SceneKind::Code => {
-            let mono = node.kind == SceneKind::Code;
-            let head = node.title.is_some() || node.icon.is_some();
-            let lang = node.lang.as_deref().map_or(0., |lang| 8. + measure.width(lang, TEXT, 600., false));
-            let band = if node.icon.is_some() { ICON + 8. } else { 0. } + heading + lang;
-            let body = node.body.as_deref().map_or(0., |body| measure.width(body, TEXT, 400., mono));
-            let (w, _) = floored(clamp(band.max(body) + 2. * PAD_X + 2. * BORDER), 0.);
-            let wrap = (w - 2. * PAD_X - 2. * BORDER).max(1.);
-            let band_h = if head { 2. * PAD_Y + LEAD * measure.lines(title, TEXT, 600., false, (wrap - (band - heading)).max(1.)) as f32 } else { 0. };
-            let body_h = node.body.as_deref().map_or(0., |body| 2. * PAD_Y + LEAD * measure.lines(body, TEXT, 400., mono, wrap) as f32);
-            floored(w, 2. * BORDER + band_h + body_h)
-        }
+        SceneKind::Box | SceneKind::Code => tile_size(node, facts, measure, (floor, ceiling)),
     }
 }
 
@@ -433,14 +436,49 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
         mono: look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_else(|| "IBM Plex Mono".into()),
     };
     let limits = (f32::from(look.length(token::W_SKETCH_BOX)), f32::from(look.length(token::W_SKETCH_BOX_MAX)));
-    let sizes: Vec<(f32, f32)> = scene.nodes.iter().zip(sheets).map(|(node, sheet)| sheet.unwrap_or_else(|| size_of(node, &measure, limits))).collect();
-    let order = arrange(scene, &sizes);
-    let rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
-    let ways = ways(scene, &order, &rects, HOP);
     let starts = start::nodes(scene);
-    let word_w = measure.width(start::TAB_WORD, f32::from(look.length(token::TEXT_2XS)), look.number(token::WEIGHT_HEADING), false);
-    let tabs: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::tab(node, *rect, word_w))).collect();
-    let bounds = rects.iter().copied().chain(tabs.iter().flatten().copied()).reduce(union).unwrap_or_default();
+    let facts: Vec<Facts> = scene.nodes.iter().map(|node| Facts { kind: tile::kind_word(node, tile::leaves(scene, node), starts.contains(node.id.as_str())), started: starts.contains(node.id.as_str()) }).collect();
+    let sizes: Vec<(f32, f32)> =
+        scene.nodes.iter().zip(sheets).zip(&facts).map(|((node, sheet), facts)| sheet.unwrap_or_else(|| size_of(node, *facts, &measure, limits))).collect();
+    let order = arrange(scene, &sizes);
+    let mut rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
+    let ways = ways(scene, &order, &rects, HOP);
+    let pill_w = measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT);
+    let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(node, *rect, pill_w))).collect();
+    let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
+    // The canvas holds every node, its mark and badge, every arrow's way and its words, with air round it.
+    let reach = |way: &Way| {
+        let points = route::polyline(&way.path);
+        let (xs, ys): (Vec<f32>, Vec<f32>) = points.iter().map(|p| (p.x, p.y)).unzip();
+        let least = |all: &[f32]| all.iter().copied().fold(f32::INFINITY, f32::min);
+        let most = |all: &[f32]| all.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        (!points.is_empty()).then(|| Rect { x: least(&xs), y: least(&ys), w: most(&xs) - least(&xs), h: most(&ys) - least(&ys) })
+    };
+    let held = rects
+        .iter()
+        .copied()
+        .chain(marks.iter().flatten().copied())
+        .chain(badges.iter().flatten().map(|(rect, _)| *rect))
+        .chain(ways.iter().flatten().filter_map(reach))
+        .chain(ways.iter().flatten().filter_map(|way| way.words.as_ref().map(|(rect, _)| *rect)))
+        .reduce(union)
+        .unwrap_or_default();
+    let bounds = Rect { x: held.x - tile::CANVAS_PAD, y: held.y - tile::CANVAS_PAD, w: held.w + 2. * tile::CANVAS_PAD, h: held.h + 2. * tile::CANVAS_PAD };
+    // A lane is a row of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
+    let lanes: Vec<usize> = scene.nodes.iter().enumerate().filter(|(_, node)| node.kind == SceneKind::Lane).map(|(at, _)| at).collect();
+    let top = lanes.iter().copied().min_by(|a, b| rects[*a].y.total_cmp(&rects[*b].y));
+    let foot = lanes.iter().copied().max_by(|a, b| (rects[*a].y + rects[*a].h).total_cmp(&(rects[*b].y + rects[*b].h)));
+    for &at in &lanes {
+        rects[at].x = bounds.x;
+        rects[at].w = bounds.w;
+    }
+    if let Some(at) = top {
+        rects[at].h += rects[at].y - bounds.y;
+        rects[at].y = bounds.y;
+    }
+    if let Some(at) = foot {
+        rects[at].h = bounds.y + bounds.h - rects[at].y;
+    }
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
         .nodes
@@ -451,7 +489,8 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
         .collect();
     steps.sort_by(f64::total_cmp);
     steps.dedup();
-    Laid { rects, ways, bounds, tabs, steps, mocks }
+    let kinds = facts.iter().map(|facts| facts.kind).collect();
+    Laid { rects, ways, bounds, marks, badges, kinds, steps, mocks }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -483,13 +522,13 @@ fn arrange(scene: &Scene, sizes: &[(f32, f32)]) -> Vec<(String, Rect)> {
 }
 
 fn metrics() -> labels::LabelMetrics {
-    labels::LabelMetrics { char_w: TEXT * 0.56, line_h: LEAD, pad: 4. }
+    labels::LabelMetrics { char_w: tile::LABEL_AT * 0.6, line_h: tile::LABEL_LEAD, pad: 4. }
 }
 
 fn ways(scene: &Scene, order: &[(String, Rect)], rects: &[Rect], hop_radius: f32) -> Vec<Option<Way>> {
     let grounds: HashSet<String> = scene.nodes.iter().filter(|node| ground(node)).map(|node| node.id.clone()).collect();
-    let pointed: HashSet<String> =
-        scene.nodes.iter().filter(|node| node.shape.is_some_and(|shape| !matches!(shape, SceneShape::Box | SceneShape::Cylinder))).map(|node| node.id.clone()).collect();
+    // Every node is a tile with flat sides now, so an arrow may meet any of them anywhere along a side.
+    let pointed: HashSet<String> = HashSet::new();
     let edges: Vec<route::RouteEdge> =
         scene.edges.iter().map(|edge| route::RouteEdge { id: &edge.id, from: &edge.from, to: &edge.to, path: arrows::path(edge), heads: arrows::heads(edge) }).collect();
     let found = route::route_all(order, &edges, GAP, &grounds, &pointed, RUN, GAP / 4.);
@@ -653,11 +692,6 @@ fn hue(look: &Look, color: Option<SceneColor>, default: SceneColor) -> Hsla {
     })
 }
 
-/// `color-mix(hue 14%, --bg-raised)`.
-fn tint(look: &Look, hue: Hsla) -> Hsla {
-    look.color(token::BG_RAISED).blend(hue.opacity(look.percent(token::ROW_TINT_RECENT)))
-}
-
 #[derive(Clone)]
 struct Ink<'a> {
     look: &'a Look,
@@ -666,6 +700,8 @@ struct Ink<'a> {
     mono: SharedString,
     /// A change's hue in place of the part's own, read against an earlier scene.
     over: Option<Hsla>,
+    /// The hue of a frame that says something other than a hue does: the accent on the node a sketch starts at.
+    frame: Option<Hsla>,
     /// Its words struck through: a part the earlier scene had and this one drops.
     struck: bool,
 }
@@ -682,11 +718,10 @@ impl<'a> Ink<'a> {
         Ink { over, struck: change == Some(Change::Removed), ..self.clone() }
     }
 
-    /// The ink for the node a sketch starts at: its frame in the accent, unless a change already has its own hue. Only a box
-    /// or a block of code has a frame to colour; the others carry the tab alone.
+    /// The ink for the node a sketch starts at: its frame in the accent, and its hue its own. Only a box or a block of code
+    /// has a frame to colour; the others carry the pill alone.
     fn started(&self, node: &SceneNode) -> Ink<'a> {
-        let frame = matches!(node.kind, SceneKind::Box | SceneKind::Code);
-        Ink { over: self.over.or_else(|| frame.then(|| self.look.color(token::ACCENT))), ..self.clone() }
+        Ink { frame: tile::is_tile(node).then(|| self.look.color(token::ACCENT)), ..self.clone() }
     }
 
     /// The part's hue: its change's where it has one, else its own colour.
@@ -697,10 +732,16 @@ impl<'a> Ink<'a> {
     /// Words at scene size `at`, wrapped at `wrap` scene units, from `origin`. The height they took, in scene units.
     #[allow(clippy::too_many_arguments)]
     fn words(&self, text: &str, origin: Pt, wrap: Option<f32>, at: f32, weight: f32, mono: bool, color: Hsla, align: TextAlign, window: &mut Window, cx: &mut App) -> f32 {
+        self.led(text, origin, wrap, at, LEAD, weight, mono, color, align, window, cx)
+    }
+
+    /// `words` with lines `lead` scene units tall.
+    #[allow(clippy::too_many_arguments)]
+    fn led(&self, text: &str, origin: Pt, wrap: Option<f32>, at: f32, lead: f32, weight: f32, mono: bool, color: Hsla, align: TextAlign, window: &mut Window, cx: &mut App) -> f32 {
         let font = Font { weight: FontWeight(weight), ..gpui::font(if mono { self.mono.clone() } else { self.sans.clone() }) };
         let strikethrough = self.struck.then(|| gpui::StrikethroughStyle { thickness: self.view.len(1.), color: Some(color) });
         let run = TextRun { len: text.len(), font, color, strikethrough, ..Default::default() };
-        let lead = self.view.len(LEAD);
+        let lead = self.view.len(lead);
         let width = wrap.map(|wrap| self.view.len(wrap));
         let Ok(lines) = window.text_system().shape_text(SharedString::from(text.to_string()), self.view.len(at), &[run], width, None) else { return 0. };
         let mut down = 0.;
@@ -713,8 +754,22 @@ impl<'a> Ink<'a> {
         down
     }
 
-    fn icon(&self, name: &str, at: Pt, color: Hsla, window: &mut Window, cx: &mut App) {
-        let bounds = self.view.rect(Rect { x: at.x, y: at.y, w: ICON, h: ICON });
+    /// The words in capitals, one letter at a time with `tile::TRACKING` after each, since gpui's text has no letter-spacing.
+    /// Their line is `lead` tall, from `origin`; the width they took, in scene units.
+    #[allow(clippy::too_many_arguments)]
+    fn caps(&self, text: &str, origin: Pt, at: f32, lead: f32, weight: f32, color: Hsla, window: &mut Window, cx: &mut App) -> f32 {
+        let measure = Measure { window, sans: self.sans.clone(), mono: self.mono.clone() };
+        let widths: Vec<f32> = text.chars().map(|ch| measure.width(&ch.to_string(), at, weight, false) + at * tile::TRACKING).collect();
+        let mut x = origin.x;
+        for (ch, width) in text.chars().zip(&widths) {
+            self.led(&ch.to_string(), Pt { x, y: origin.y }, None, at, lead, weight, false, color, TextAlign::Left, window, cx);
+            x += width;
+        }
+        x - origin.x
+    }
+
+    fn icon(&self, name: &str, at: Pt, size: f32, color: Hsla, window: &mut Window, cx: &mut App) {
+        let bounds = self.view.rect(Rect { x: at.x, y: at.y, w: size, h: size });
         let _ = window.paint_svg(bounds, crate::assets::icon_path(name), None, TransformationMatrix::unit(), color, cx);
     }
 }
@@ -730,6 +785,27 @@ struct Prepared {
     sheets: Vec<Option<(AnyElement, f32)>>,
     /// Each mock's picture, where one has come, by its node's index: `None` for a node that is not a mock.
     mocks: Vec<Option<mock_view::Shown>>,
+    /// Where each part stands, for the notes' numbers, which stand on them.
+    placed: Vec<notes::Placed>,
+    marks: Rc<Marks>,
+}
+
+/// Every node and, inside a mock, every element of its page, where it stands in scene units. Only a reading view holds them.
+fn placed_of(scene: &Scene, laid: &Laid, sources: &[Option<Rc<mock_view::Mock>>], dark: bool, cx: &App) -> Vec<notes::Placed> {
+    let mut placed = Vec::new();
+    for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
+        placed.push(notes::Placed { part: Part { id: node.id.clone(), label: part_label(node).to_string() }, rect: *rect, depth: if ground(node) { 0 } else { 1 }, node: true });
+        let (Some(Some(mock)), Some(width)) = (sources.get(index), node.w) else { continue };
+        let Some(parts) = mock_view::parts(mock, width as f32, dark, cx) else { continue };
+        let top = sheet_top(node);
+        placed.extend(parts.iter().map(|part| notes::Placed {
+            part: Part { id: format!("{}#{}", node.id, part.key), label: part.label.clone() },
+            rect: Rect { x: rect.x + part.x, y: rect.y + top + part.y, w: part.w, h: part.h },
+            depth: 1 + part.depth,
+            node: false,
+        }));
+    }
+    placed
 }
 
 /// The nodes the step playing lights: those it names and those its arrows reach.
@@ -745,7 +821,7 @@ fn lit<'a>(scene: &'a Scene, now: Option<&Playing>) -> HashSet<&'a str> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
+fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let view = View::fit(bounds, laid.bounds, fit, lens);
@@ -778,7 +854,11 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
             sheets.push(Some((sheet, alpha)));
         }
     });
-    Prepared { laid, view, changes, now, sheets, mocks }
+    let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
+    if fit == Fit::Reading {
+        notes::keep(key, notes::Probe { view, placed: placed.clone() });
+    }
+    Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -793,6 +873,7 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
         sans: look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_else(|| "IBM Plex Sans".into()),
         mono: look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_else(|| "IBM Plex Mono".into()),
         over: None,
+        frame: None,
         struck: false,
     };
     let node_change = |node: &SceneNode| changes.and_then(|changes| changes.nodes.get(&node.id).copied());
@@ -803,10 +884,20 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
     };
     let lit = lit(scene, now.as_ref());
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
+        paint_canvas(&ink, laid.bounds, window);
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| ground(node)) {
             // A ground does not stand back for a step, but an unchanged one does against an earlier scene.
             let change = node_change(node);
-            paint_ground(&ink.changed(change), node, *rect, if change == Some(Change::Same) { DIMMED } else { 1. }, window, cx);
+            paint_ground(&ink.changed(change), node, *rect, laid.bounds, if change == Some(Change::Same) { DIMMED } else { 1. }, window, cx);
+        }
+        // Every tile's shadow goes down first, so none falls over an arrow where its head meets the tile.
+        for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
+            let sheet = matches!(prepared.mocks.get(index), Some(Some(_))) || matches!(prepared.sheets.get(index), Some(Some(_)));
+            if !tile::is_tile(node) && !sheet {
+                continue;
+            }
+            let dim = (now.is_some() && !lit.contains(node.id.as_str())) || node_change(node) == Some(Change::Same);
+            paint_shadow(&ink, if sheet { sheet_frame(node, *rect) } else { *rect }, if dim { DIMMED } else { 1. }, window);
         }
         for (edge, way) in scene.edges.iter().zip(&laid.ways) {
             let Some(way) = way else { continue };
@@ -814,18 +905,21 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
             let active = now.as_ref().is_some_and(|now| edge.step == Some(now.at));
             let dim = (now.is_some() && !active) || change == Some(Change::Same);
             let phase = if arrows::crawls(edge) { crawl.unwrap_or(0.) } else { 0. };
-            paint_edge(&Ink { struck: false, ..ink.changed(change) }, way, edge.color, arrows::pattern(edge), phase, arrows::heads(edge), active, dim, window, cx);
+            let color = tile::arrow_color(scene, edge);
+            paint_edge(&Ink { struck: false, ..ink.changed(change) }, way, color, arrows::pattern(edge), phase, arrows::heads(edge), active, dim, window, cx);
         }
         for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate().filter(|(_, (node, _))| !ground(node)) {
             let change = node_change(node);
             let sheet = prepared.sheets.get_mut(index).and_then(Option::take);
             let lit_here = lit.contains(node.id.as_str());
             let dim = (now.is_some() && !lit_here) || change == Some(Change::Same);
-            let tab = laid.tabs.get(index).copied().flatten();
+            let alpha = if dim { DIMMED } else { 1. };
+            let mark = laid.marks.get(index).copied().flatten();
             if let Some(Some(shown)) = prepared.mocks.get(index) {
-                mock_view::paint(&ink.changed(change), node, *rect, shown, if dim { DIMMED } else { 1. }, now.is_some() && lit_here, window, cx);
-                if let Some(tab) = tab {
-                    paint_tab(&ink, tab, window, cx);
+                mock_view::paint(&ink.changed(change), node, *rect, shown, alpha, now.is_some() && lit_here, window, cx);
+                paint_hairline(&ink, sheet_frame(node, *rect), alpha, window);
+                if let Some(mark) = mark {
+                    paint_mark(&ink, mark, window, cx);
                 }
                 continue;
             }
@@ -837,35 +931,33 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                     ink.changed(change).words(title, Pt { x: rect.x, y: rect.y }, Some(rect.w), at, look.number(token::WEIGHT_HEADING), false, muted.opacity(muted.a * alpha), TextAlign::Left, window, cx);
                 }
                 sheet.paint(window, cx);
+                paint_hairline(&ink, sheet_frame(node, *rect), alpha, window);
                 if now.is_some() && lit_here {
                     let top = sheet_top(node);
                     let ring = Rect { x: rect.x - 2., y: rect.y + top - 2., w: rect.w + 4., h: rect.h - top + 4. };
                     let radius = f32::from(look.length(token::RADIUS_SM));
                     window.paint_quad(quad(view.rect(ring), view.len(radius + 2.), gpui::transparent_black(), view.len(2.), look.color(token::EDGE_FOCUS), BorderStyle::Solid));
                 }
-                if let Some(tab) = tab {
-                    paint_tab(&ink, tab, window, cx);
+                if let Some(mark) = mark {
+                    paint_mark(&ink, mark, window, cx);
                 }
                 continue;
             }
             let node_ink = ink.changed(change);
-            paint_node(&if tab.is_some() { node_ink.started(node) } else { node_ink }, node, *rect, if dim { DIMMED } else { 1. }, window, cx);
-            if let Some(tab) = tab {
-                paint_tab(&ink, tab, window, cx);
+            let kind = laid.kinds.get(index).copied().unwrap_or("STEP");
+            paint_node(&if mark.is_some() { node_ink.started(node) } else { node_ink }, node, *rect, kind, mark, laid.badges.get(index).and_then(Option::as_ref), alpha, window, cx);
+            if let Some(mark) = mark {
+                paint_mark(&ink, mark, window, cx);
             }
             if now.is_some() && !dim {
-                let radius = match shaped(node) {
-                    Some(SceneShape::Pill) => rect.h / 2.,
-                    Some(SceneShape::Circle) => rect.w / 2.,
-                    _ => RADIUS,
-                };
                 let ring = Rect { x: rect.x - 2., y: rect.y - 2., w: rect.w + 4., h: rect.h + 4. };
-                window.paint_quad(quad(view.rect(ring), view.len(radius + 2.), gpui::transparent_black(), view.len(2.), look.color(token::EDGE_FOCUS), BorderStyle::Solid));
+                window.paint_quad(quad(view.rect(ring), view.len(tile::RADIUS + 2.), gpui::transparent_black(), view.len(2.), look.color(token::EDGE_FOCUS), BorderStyle::Solid));
             }
         }
         for stroke in &scene.strokes {
             paint_ink(&ink, &stroke.points.iter().map(|p| Pt { x: p.x as f32, y: p.y as f32 }).collect::<Vec<_>>(), window);
         }
+        notes::paint(&ink, &prepared.placed, &prepared.marks, window, cx);
         // A reading view names each part as Electron's does, its change first, so a walk can ring one.
         if fit == Fit::Reading {
             for (index, (node, rect)) in scene.nodes.iter().zip(&laid.rects).enumerate() {
@@ -873,8 +965,12 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                     Some(change) => format!("{}, {}", change.said(), part_label(node)),
                     None => part_label(node).to_string(),
                 };
-                let name = if laid.tabs.get(index).is_some_and(Option::is_some) { format!("{}, {name}", start::TAB_WORD) } else { name };
-                crate::labels::note(gpui::Role::Group, name, view.rect(*rect), Some(view.len(RADIUS)), window, cx);
+                let name = if laid.marks.get(index).is_some_and(Option::is_some) { format!("{}, {name}", start::TAB_WORD) } else { name };
+                crate::labels::note(gpui::Role::Group, name, view.rect(*rect), Some(view.len(tile::RADIUS)), window, cx);
+            }
+            // An element of a mock's page is named too, so a note aims at it as at a node.
+            for one in prepared.placed.iter().filter(|one| !one.node) {
+                crate::labels::note(gpui::Role::Group, one.part.label.clone(), view.rect(one.rect), None, window, cx);
             }
         }
         if let Some(now) = &now {
@@ -893,37 +989,87 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
     }
 }
 
-/// A group or a lane: a dashed outline in its hue with its title in a band at the top left.
-fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
+/// A hairline that stays one pixel wide however far the drawing is shrunk.
+fn hair(view: View, width: f32) -> Pixels {
+    px(width * view.zoom.max(1.))
+}
+
+/// Where a mock's picture and a screen's sheet stand in their node: under the title.
+fn sheet_frame(node: &SceneNode, rect: Rect) -> Rect {
+    let top = sheet_top(node);
+    Rect { x: rect.x, y: rect.y + top, w: rect.w, h: rect.h - top }
+}
+
+/// The canvas the drawing stands on: the ground colour in a rounded frame, round everything the drawing holds.
+fn paint_canvas(ink: &Ink, rect: Rect, window: &mut Window) {
     let (look, view) = (ink.look, ink.view);
-    let hue = ink.hue(node.color, SceneColor::Blue);
-    let hue = hue.opacity(hue.a * alpha);
-    let lane = node.kind == SceneKind::Lane;
-    let edges = if lane { Edges { top: view.len(BORDER), bottom: view.len(BORDER), left: px(0.), right: px(0.) } } else { Edges::all(view.len(BORDER)) };
-    let radius = if lane { px(0.) } else { view.len(RADIUS) };
-    window.paint_quad(quad(view.rect(rect), radius, gpui::transparent_black(), edges, hue, BorderStyle::Dashed));
+    window.paint_quad(quad(view.rect(rect), view.len(tile::CANVAS_RADIUS), look.color(token::BG_SUNKEN), hair(view, tile::HAIRLINE), look.color(token::BORDER_SUBTLE), BorderStyle::Solid));
+}
+
+/// The soft drop under a tile, a mock's picture or a screen's sheet, at `alpha` of its strength.
+fn paint_shadow(ink: &Ink, rect: Rect, alpha: f32, window: &mut Window) {
+    let view = ink.view;
+    let shadows: Vec<BoxShadow> = ink
+        .look
+        .shadows(token::SHADOW_CARD)
+        .into_iter()
+        .map(|layer| BoxShadow {
+            color: layer.color.opacity(layer.color.a * alpha),
+            offset: point(layer.offset.x * view.zoom, layer.offset.y * view.zoom),
+            blur_radius: layer.blur_radius * view.zoom,
+            spread_radius: layer.spread_radius * view.zoom,
+            inset: false,
+        })
+        .collect();
+    window.paint_drop_shadows(view.rect(rect), Corners::all(view.len(tile::RADIUS)), &shadows);
+}
+
+/// The frame a mock or a screen has: a hairline round its picture, over it, as a tile has.
+fn paint_hairline(ink: &Ink, rect: Rect, alpha: f32, window: &mut Window) {
+    let (look, view) = (ink.look, ink.view);
+    let edge = look.color(token::BORDER_SUBTLE);
+    window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), gpui::transparent_black(), hair(view, tile::HAIRLINE), edge.opacity(edge.a * alpha), BorderStyle::Solid));
+}
+
+/// A group or a lane: a group is a hairline frame round its children and a lane a row of the canvas under a hairline, each
+/// named at its top left in small capitals. Neither has a fill. A change's hue, where there is one, is the frame's and the name's.
+fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, canvas: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
+    let (look, view) = (ink.look, ink.view);
+    let faded = |color: Hsla| color.opacity(color.a * alpha);
+    let edge = faded(ink.over.unwrap_or_else(|| look.color(token::BORDER_SUBTLE)));
+    if node.kind == SceneKind::Lane {
+        // The canvas's own edge is the first lane's top.
+        if rect.y > canvas.y + 0.5 {
+            let line = Bounds::new(view.at(Pt { x: rect.x, y: rect.y }), size(view.len(rect.w), hair(view, tile::HAIRLINE)));
+            window.paint_quad(quad(line, px(0.), edge, px(0.), gpui::transparent_black(), BorderStyle::Solid));
+        }
+    } else {
+        window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), gpui::transparent_black(), hair(view, tile::HAIRLINE), edge, BorderStyle::Solid));
+    }
     let Some(title) = node.title.as_deref() else { return };
-    let measure = Measure { window, sans: ink.sans.clone(), mono: ink.mono.clone() };
-    let w = measure.width(title, TEXT, 600., false) + 2. * PAD_X;
-    let inset = if lane { 0. } else { BORDER };
-    let band = Rect { x: rect.x + inset, y: rect.y + BORDER, w, h: LEAD + 2. * PAD_Y };
-    let corners = Corners { top_left: if lane { px(0.) } else { view.len(RADIUS - BORDER) }, top_right: px(0.), bottom_right: view.len(RADIUS), bottom_left: px(0.) };
-    window.paint_quad(quad(view.rect(band), corners, hue, px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    let ink_on = look.color(token::FG_INVERSE);
-    ink.words(title, Pt { x: band.x + PAD_X, y: band.y + PAD_Y }, None, TEXT, 600., false, ink_on.opacity(ink_on.a * alpha), TextAlign::Left, window, cx);
+    let name = faded(ink.over.unwrap_or_else(|| look.color(token::FG_MUTED)));
+    ink.caps(&title.to_uppercase(), Pt { x: rect.x + tile::BAND_PAD, y: rect.y + tile::BAND_PAD - 2. }, tile::KIND_AT, tile::KIND_AT + 4., tile::KIND_WEIGHT, name, window, cx);
 }
 
-/// The "Start" tab on a node's top edge: the accent with its word on it. It is drawn at full strength whatever step plays.
-fn paint_tab(ink: &Ink, tab: Rect, window: &mut Window, cx: &mut App) {
+/// The Start pill: the accent with its word on it, in a tile's head band or over the top left of a node with none. It is
+/// drawn at full strength whatever step plays.
+fn paint_mark(ink: &Ink, pill: Rect, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
-    let corners = Corners { top_left: view.len(RADIUS), top_right: view.len(RADIUS), bottom_right: px(0.), bottom_left: px(0.) };
-    window.paint_quad(quad(view.rect(tab), corners, look.color(token::ACCENT), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    let at = f32::from(look.length(token::TEXT_2XS));
-    ink.words(start::TAB_WORD, Pt { x: tab.x + start::TAB_PAD, y: tab.y }, None, at, look.number(token::WEIGHT_HEADING), false, look.color(token::TEXT_ON_ACCENT), TextAlign::Left, window, cx);
+    window.paint_quad(quad(view.rect(pill), view.len(tile::PILL_H / 2.), look.color(token::ACCENT), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    ink.caps(&start::TAB_WORD.to_uppercase(), Pt { x: pill.x + tile::PILL_PAD, y: pill.y }, tile::PILL_AT, tile::PILL_H, tile::KIND_WEIGHT, look.color(token::TEXT_ON_ACCENT), window, cx);
 }
 
-fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
+/// A step's badge: a light circle with its number in the ground's dark.
+fn paint_badge(ink: &Ink, rect: Rect, number: &str, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
+    let faded = |color: Hsla| color.opacity(color.a * alpha);
+    window.paint_quad(quad(view.rect(rect), view.len(tile::BADGE / 2.), faded(look.color(token::FG_DEFAULT)), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    ink.led(number, Pt { x: rect.x, y: rect.y }, Some(rect.w), tile::BADGE_AT, tile::BADGE, tile::BADGE_WEIGHT, false, faded(look.color(token::FG_INVERSE)), TextAlign::Center, window, cx);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<Rect>, badge: Option<&(Rect, String)>, alpha: f32, window: &mut Window, cx: &mut App) {
+    let look = ink.look;
     let faded = |color: Hsla| color.opacity(color.a * alpha);
     match node.kind {
         // A mock is drawn by `mock_view` and a screen as a sheet, before this is reached: their place is kept, nothing drawn.
@@ -933,114 +1079,56 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
             ink.words(words, Pt { x: rect.x, y: rect.y }, None, 14., 600., false, faded(look.color(token::FG_MUTED)), TextAlign::Left, window, cx);
         }
         SceneKind::Wire => paint_wire(ink, node, rect, alpha, window, cx),
-        SceneKind::Box if shaped(node).is_some() => paint_shaped(ink, node, rect, alpha, window, cx),
         SceneKind::Box | SceneKind::Code => {
-            let mono = node.kind == SceneKind::Code;
-            let hue = ink.hue(node.color, if mono { SceneColor::Grey } else { SceneColor::Blue });
-            window.paint_quad(quad(view.rect(rect), view.len(RADIUS), faded(tint(look, hue)), view.len(BORDER), faded(hue), BorderStyle::Solid));
-            let inner = Rect { x: rect.x + BORDER, y: rect.y + BORDER, w: rect.w - 2. * BORDER, h: rect.h - 2. * BORDER };
-            let mut top = inner.y;
-            if node.title.is_some() || node.icon.is_some() {
-                let measure = Measure { window, sans: ink.sans.clone(), mono: ink.mono.clone() };
-                let lang_w = node.lang.as_deref().map_or(0., |lang| measure.width(lang, TEXT, 600., false));
-                let icon_w = if node.icon.is_some() { ICON + 8. } else { 0. };
-                let wrap = (inner.w - 2. * PAD_X - icon_w - if lang_w > 0. { lang_w + 8. } else { 0. }).max(1.);
-                let lines = measure.lines(node.title.as_deref().unwrap_or(""), TEXT, 600., false, wrap);
-                let band = Rect { x: inner.x, y: inner.y, w: inner.w, h: 2. * PAD_Y + LEAD * lines as f32 };
-                let corners = Corners { top_left: view.len(RADIUS - BORDER), top_right: view.len(RADIUS - BORDER), bottom_right: px(0.), bottom_left: px(0.) };
-                window.paint_quad(quad(view.rect(band), corners, faded(hue), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-                let fg = faded(look.color(token::FG_INVERSE));
-                let mut x = band.x + PAD_X;
-                if let Some(icon) = node.icon.as_deref() {
-                    ink.icon(icon, Pt { x, y: band.y + PAD_Y + (LEAD - ICON) / 2. }, fg, window, cx);
-                    x += icon_w;
-                }
-                if let Some(title) = node.title.as_deref() {
-                    ink.words(title, Pt { x, y: band.y + PAD_Y }, Some(wrap), TEXT, 600., false, fg, TextAlign::Left, window, cx);
-                }
-                if let Some(lang) = node.lang.as_deref() {
-                    ink.words(lang, Pt { x: band.x + band.w - PAD_X - lang_w, y: band.y + PAD_Y }, None, TEXT, 600., false, fg.opacity(fg.a * 0.8), TextAlign::Left, window, cx);
-                }
-                top += band.h;
-            }
-            if let Some(body) = node.body.as_deref() {
-                ink.words(body, Pt { x: inner.x + PAD_X, y: top + PAD_Y }, Some(inner.w - 2. * PAD_X), TEXT, 400., mono, faded(look.color(token::FG_DEFAULT)), TextAlign::Left, window, cx);
+            paint_tile(ink, node, rect, kind, mark, alpha, window, cx);
+            if let Some((at, number)) = badge {
+                paint_badge(ink, *at, number, alpha, window, cx);
             }
         }
     }
 }
 
-/// A box in an outline of its own: a pill or a circle are the frame's own corners; a diamond, a
-/// hexagon and a cylinder are drawn in a hundred-unit square stretched over the box, 2px inside it.
-fn paint_shaped(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
+/// A tile: a raised surface in a hairline, its head band in the node's hue with the node's glyph and the word for what it is,
+/// then its title and, under it, its body as a line of mono. The start's frame is the accent, a change's its hue.
+#[allow(clippy::too_many_arguments)]
+fn paint_tile(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<Rect>, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
-    let shape = shaped(node).unwrap_or(SceneShape::Box);
-    let hue = faded(ink.hue(node.color, SceneColor::Blue));
-    let fill = faded(tint(look, hue.opacity(1.)));
-    match shape {
-        SceneShape::Pill | SceneShape::Circle => {
-            let radius = if shape == SceneShape::Pill { rect.h / 2. } else { rect.w / 2. };
-            window.paint_quad(quad(view.rect(rect), view.len(radius), fill, view.len(BORDER), hue, BorderStyle::Solid));
-        }
-        _ => {
-            let inner = Rect { x: rect.x + BORDER, y: rect.y + BORDER, w: rect.w - 2. * BORDER, h: rect.h - 2. * BORDER };
-            let at = |x: f32, y: f32| view.at(Pt { x: inner.x + inner.w * x / 100., y: inner.y + inner.h * y / 100. });
-            let outline = |builder: &mut PathBuilder| match shape {
-                SceneShape::Diamond => builder.add_polygon(&[at(50., 0.), at(100., 50.), at(50., 100.), at(0., 50.)], true),
-                SceneShape::Hexagon => builder.add_polygon(&[at(12., 0.), at(88., 0.), at(100., 50.), at(88., 100.), at(12., 100.), at(0., 50.)], true),
-                _ => {
-                    let radii = point(view.len(inner.w / 2.), view.len(inner.h * 0.1));
-                    builder.move_to(at(0., 10.));
-                    builder.arc_to(radii, px(0.), false, true, at(100., 10.));
-                    builder.line_to(at(100., 90.));
-                    builder.arc_to(radii, px(0.), false, true, at(0., 90.));
-                    builder.close();
-                }
-            };
-            let mut body = PathBuilder::fill();
-            outline(&mut body);
-            if let Ok(path) = body.build() {
-                window.paint_path(path, fill);
-            }
-            let mut edge = PathBuilder::stroke(px(BORDER));
-            outline(&mut edge);
-            if shape == SceneShape::Cylinder {
-                let radii = point(view.len(inner.w / 2.), view.len(inner.h * 0.1));
-                edge.move_to(at(0., 10.));
-                edge.arc_to(radii, px(0.), false, false, at(100., 10.));
-            }
-            if let Ok(path) = edge.build() {
-                window.paint_path(path, hue);
-            }
-        }
+    let hue = ink.hue(node.color, SceneColor::Grey);
+    let surface = look.color(token::BG_RAISED);
+    let (edge, width) = match ink.over.or(ink.frame) {
+        Some(color) => (color, tile::FRAME),
+        None => (look.color(token::BORDER_SUBTLE), tile::HAIRLINE),
+    };
+    window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), faded(surface), hair(view, width), faded(edge), BorderStyle::Solid));
+    // The band stands inside the frame, with the corners it leaves.
+    let inset = tile::HAIRLINE;
+    let band = Rect { x: rect.x + inset, y: rect.y + inset, w: rect.w - 2. * inset, h: tile::BAND_H - inset };
+    let round = view.len(tile::RADIUS - inset);
+    let corners = Corners { top_left: round, top_right: round, bottom_right: px(0.), bottom_left: px(0.) };
+    window.paint_quad(quad(view.rect(band), corners, faded(surface.blend(hue.opacity(tile::BAND_TINT))), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    let said = faded(hue);
+    let mut x = rect.x + tile::BAND_PAD;
+    if let Some(icon) = node.icon.as_deref() {
+        ink.icon(icon, Pt { x, y: rect.y + (tile::BAND_H - tile::BAND_ICON) / 2. }, tile::BAND_ICON, said, window, cx);
+        x += tile::BAND_ICON + tile::BAND_GAP;
     }
-    let (inline, top, bottom) = shaped_padding(shape, rect.w);
-    let wrap = (rect.w - 2. * BORDER - 2. * inline).max(1.);
-    let measure = Measure { window, sans: ink.sans.clone(), mono: ink.mono.clone() };
-    let named = node.icon.is_some() || node.title.is_some();
-    let lines = node.body.as_deref().map_or(0, |body| measure.lines(body, TEXT, 400., false, wrap));
-    let content = if named { LEAD } else { 0. } + if named && lines > 0 { 4. } else { 0. } + lines as f32 * LEAD;
-    let title_w = node.title.as_deref().map_or(0., |title| measure.width(title, TEXT, 600., false));
-    // The column stands in the middle of the space inside the padding.
-    let room = rect.h - 2. * BORDER - top - bottom;
-    let mut y = rect.y + BORDER + top + (room - content).max(0.) / 2.;
-    let fg = faded(look.color(token::FG_DEFAULT));
-    let middle = rect.x + rect.w / 2.;
-    if named {
-        let name_w = if node.icon.is_some() { ICON + 8. } else { 0. } + title_w;
-        let mut x = middle - name_w / 2.;
-        if let Some(icon) = node.icon.as_deref() {
-            ink.icon(icon, Pt { x, y: y + (LEAD - ICON) / 2. }, fg, window, cx);
-            x += ICON + 8.;
-        }
-        if let Some(title) = node.title.as_deref() {
-            ink.words(title, Pt { x, y }, None, TEXT, 600., false, fg, TextAlign::Left, window, cx);
-        }
-        y += LEAD + if lines > 0 { 4. } else { 0. };
+    ink.caps(kind, Pt { x, y: rect.y }, tile::KIND_AT, tile::BAND_H, tile::KIND_WEIGHT, said, window, cx);
+    if let Some(lang) = node.lang.as_deref() {
+        let measure = Measure { window, sans: ink.sans.clone(), mono: ink.mono.clone() };
+        let lang_w = measure.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true);
+        let stop = mark.map_or(rect.x + rect.w - tile::BAND_PAD - if node.step.is_some() { tile::PILL_CLEAR } else { 0. }, |mark| mark.x - tile::BAND_GAP);
+        ink.led(lang, Pt { x: stop - lang_w, y: rect.y }, None, tile::KIND_AT, tile::BAND_H, tile::KIND_WEIGHT, true, faded(hue.opacity(hue.a * 0.8)), TextAlign::Left, window, cx);
+    }
+    let wrap = rect.w - 2. * tile::BODY_PAD_X;
+    let mut y = rect.y + tile::BAND_H + tile::BODY_PAD_TOP;
+    if let Some(title) = node.title.as_deref().filter(|title| !title.is_empty()) {
+        y += ink.led(title, Pt { x: rect.x + tile::BODY_PAD_X, y }, Some(wrap), tile::TITLE_AT, tile::TITLE_LEAD, tile::TITLE_WEIGHT, false, faded(look.color(token::FG_DEFAULT)), TextAlign::Left, window, cx);
+        y += tile::BODY_GAP;
     }
     if let Some(body) = node.body.as_deref() {
-        ink.words(body, Pt { x: middle - wrap / 2., y }, Some(wrap), TEXT, 400., false, fg, TextAlign::Center, window, cx);
+        let color = look.color(if node.kind == SceneKind::Code { token::FG_DEFAULT } else { token::FG_MUTED });
+        ink.led(body, Pt { x: rect.x + tile::BODY_PAD_X, y }, Some(wrap), tile::BODY_AT, tile::BODY_LEAD, 400., true, faded(color), TextAlign::Left, window, cx);
     }
 }
 
@@ -1089,31 +1177,29 @@ fn paint_wire(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
     }
 }
 
-/// An arrow along its way: 2px in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its
-/// words on a sunken backing. A dashed line carries its dashes' phase: how far along the way they have crawled.
+/// An arrow along its way: 3px, round, in its hue, solid, dashed or dotted, a solid head at the ends that carry one, and its
+/// words in the same hue on a backing the colour of the canvas. A dashed line carries its dashes' phase: how far along the
+/// way they have crawled.
 #[allow(clippy::too_many_arguments)]
-fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, pattern: Pattern, phase: f32, heads: (bool, bool), active: bool, dim: bool, window: &mut Window, cx: &mut App) {
+fn paint_edge(ink: &Ink, way: &Way, color: SceneColor, pattern: Pattern, phase: f32, heads: (bool, bool), active: bool, dim: bool, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
-    let base = if active {
-        look.color(token::EDGE_FOCUS)
-    } else {
-        ink.over.unwrap_or_else(|| color.map_or(look.color(token::FG_MUTED), |color| hue(look, Some(color), SceneColor::Grey)))
-    };
+    let base = if active { look.color(token::EDGE_FOCUS) } else { ink.over.unwrap_or_else(|| hue(look, Some(color), SceneColor::Grey)) };
     let stroke = if dim { base.opacity(base.a * DIMMED) } else { base };
+    let width = view.len(tile::ARROW);
+    let round = StrokeOptions::default().with_line_width(f32::from(width)).with_line_cap(LineCap::Round).with_line_join(LineJoin::Round);
     let mut line = match pattern {
-        // A dot is a round cap on a run of no length.
-        Pattern::Dotted => {
-            let width = view.len(2.);
-            PathBuilder::stroke(width).with_style(PathStyle::Stroke(StrokeOptions::default().with_line_width(f32::from(width)).with_line_cap(LineCap::Round)))
-        }
-        _ => PathBuilder::stroke(view.len(2.)),
+        // A dot is a round cap on a run of no length, and a solid line ends round.
+        Pattern::Dotted | Pattern::Solid => PathBuilder::stroke(width).with_style(PathStyle::Stroke(round)),
+        Pattern::Dashed => PathBuilder::stroke(width),
     };
+    // The line stops inside each head, so its end does not show past the head's point.
+    let shown = shortened(&way.path, if heads.0 { HEAD / 2. } else { 0. }, if heads.1 { HEAD / 2. } else { 0. });
     match pattern {
-        Pattern::Dashed => dashes(&mut line, &flat(&way.path), phase, DASH, DASH * 2., view),
-        Pattern::Dotted => dashes(&mut line, &flat(&way.path), 0., DOT, DOT_PERIOD, view),
+        Pattern::Dashed => dashes(&mut line, &flat(&shown), phase, DASH, DASH * 2., view),
+        Pattern::Dotted => dashes(&mut line, &flat(&shown), 0., DOT, DOT_PERIOD, view),
         Pattern::Solid => {
             let mut cursor = Pt::default();
-            for seg in &way.path {
+            for seg in &shown {
                 match *seg {
                     Seg::Move(p) => line.move_to(view.at(p)),
                     Seg::Line(p) => line.line_to(view.at(p)),
@@ -1143,16 +1229,44 @@ fn paint_edge(ink: &Ink, way: &Way, color: Option<SceneColor>, pattern: Pattern,
         }
     }
     if let Some((rect, lines)) = &way.words {
-        window.paint_quad(quad(view.rect(*rect), view.len(3.), look.color(token::BG_SUNKEN), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-        let muted = look.color(token::FG_MUTED);
-        let muted = if dim { muted.opacity(muted.a * DIMMED) } else { muted };
+        window.paint_quad(quad(view.rect(*rect), view.len(4.), look.color(token::BG_SUNKEN), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+        let words = if dim { base.opacity(base.a * DIMMED) } else { base };
         for (at, text) in lines.iter().enumerate() {
-            ink.words(text, Pt { x: rect.x, y: rect.y + 4. + at as f32 * LEAD }, Some(rect.w), TEXT, 400., false, muted, TextAlign::Center, window, cx);
+            ink.led(text, Pt { x: rect.x, y: rect.y + 4. + at as f32 * tile::LABEL_LEAD }, Some(rect.w), tile::LABEL_AT, tile::LABEL_LEAD, tile::LABEL_WEIGHT, false, words, TextAlign::Center, window, cx);
         }
     }
 }
 
-/// The marker's 10-unit triangle drawn `HEAD` long, its tip on where the way ends and pointing away from `from`.
+/// The way with its ends drawn in by `start` and `end`: where it runs straight there, the end moves along it. A short run
+/// is left as it is.
+fn shortened(path: &[Seg], start: f32, end: f32) -> Vec<Seg> {
+    let mut out = path.to_vec();
+    let pull = |from: Pt, to: Pt, by: f32| {
+        let long = (to.x - from.x).hypot(to.y - from.y);
+        (by > 0. && long > 2. * by).then(|| Pt { x: to.x + (from.x - to.x) * by / long, y: to.y + (from.y - to.y) * by / long })
+    };
+    if end > 0. && out.len() >= 2 {
+        let last = out.len() - 1;
+        let before = match out[last - 1] {
+            Seg::Move(p) | Seg::Line(p) | Seg::Quad(_, p) | Seg::Cubic(_, _, p) | Seg::Arc(p, _, _) => p,
+        };
+        if let Seg::Line(to) = out[last] {
+            if let Some(moved) = pull(before, to, end) {
+                out[last] = Seg::Line(moved);
+            }
+        }
+    }
+    if start > 0. && out.len() >= 2 {
+        if let (Seg::Move(from), Seg::Line(to)) = (out[0], out[1]) {
+            if let Some(moved) = pull(to, from, start) {
+                out[0] = Seg::Move(moved);
+            }
+        }
+    }
+    out
+}
+
+/// A solid triangle `HEAD` long and as wide, its tip on where the way ends and pointing away from `from`.
 fn paint_head(view: View, at: Pt, from: Pt, color: Hsla, window: &mut Window) {
     let Some(corners) = route::head_triangle(at, from, HEAD, HEAD / 2.) else { return };
     let mut head = PathBuilder::fill();

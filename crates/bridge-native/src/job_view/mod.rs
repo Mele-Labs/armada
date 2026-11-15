@@ -20,10 +20,12 @@ mod callchip;
 mod choose;
 mod claim_waits;
 mod moving;
+mod slot_wait;
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
+mod delivery_line;
 mod draft_doc;
 mod dock;
 mod done;
@@ -62,6 +64,7 @@ mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_pages;
 mod page_tab;
 mod web_walk;
 pub(crate) mod rows;
@@ -74,6 +77,8 @@ mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
+mod sketch_keys;
+mod sketch_notes;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
@@ -177,6 +182,8 @@ pub(crate) enum Extra {
     ClaimWaits,
     /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
     Moving,
+    /// The Job waits for a worktree slot: its place, and Add and Free (`slot_wait`).
+    SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -419,6 +426,8 @@ pub struct JobView {
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
     refused_code: Option<String>,
+    /// What each web page's last Open that did not draw it came to: a walk's tab, and the live page in Now.
+    pages_open: web_pages::PagesOpen,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -448,6 +457,8 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
+    /// His notes on a sketch's parts, held until he sends them, by the sketch they are on (`sketch:<job>:<card>`).
+    sketch_notes: HashMap<String, Vec<sketch_notes::Held>>,
     /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
     /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
@@ -622,6 +633,7 @@ impl JobView {
             choose_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
+            pages_open: Default::default(),
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
@@ -639,6 +651,7 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
+            sketch_notes: HashMap::new(),
             subagents_read: Vec::new(),
             subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),
@@ -932,6 +945,10 @@ impl JobView {
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
         }
+        // A wait for a slot asks him nothing, and stands with the Job's other waits.
+        if self.record(id, cx).is_some_and(|job| job.slot_wait.is_some()) {
+            extras.push(Extra::SlotWait);
+        }
         // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
         if self.record(id, cx).is_some_and(moving::on_its_way) {
             extras.push(Extra::Moving);
@@ -1174,6 +1191,7 @@ impl Render for JobView {
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
+        self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
@@ -1343,3 +1361,4 @@ mod tests {
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
 pub(crate) use page_tab::page_in_front;
+pub(crate) use bar::plain_of;

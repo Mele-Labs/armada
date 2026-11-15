@@ -1,0 +1,18 @@
+[operations.get_build_notes]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The note of each branch the running preview build holds: what its Job said to look at, the steps there, and whether the owner has looked"
+notes = """
+`GET /fleet/build/notes`, answered `BuildNotes {commit?, notes}`. Fleet-wide, `get_preview_offers`' reason: the build is a fact about Fleet and no Job's.
+
+`commit` is the running build's commit. **Off the preview, `commit` is absent and `notes` is empty**: the build is `main`, or a restart is under way.
+
+`notes` holds one note for each (branch, tip) `Armada/preview-held` records the running build as holding, in the order the branches were offered. Each is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at}`. `tip` is the tip the build holds, in full. `title` is the Job's, or its id where it has none. `look` is the one line the Job wrote on what to look at, and `steps` are `{say, act?}`, each `act` an id in `crates/core-model/domain/actions.toml`. `job_ended` is true once the Job's state is `Ended`, which makes feedback start a new Job. `looked_at` is true once the owner marked the note.
+
+**A note outlives its offer.** Fleet drops an offer when its Job ends or its tip lands on `main`; the note stays, because the build he loaded still holds that branch. A branch the build holds that no Job offered at that tip has no note and is left out.
+
+`build_notes.changed` carries this answer whole. A Bridge that missed one reads this again on the resync that follows a `Missed`.
+
+`agent_access` is `No`: what the owner is asked to look at is his to see.
+"""

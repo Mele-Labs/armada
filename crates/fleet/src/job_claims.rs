@@ -125,6 +125,9 @@ pub(crate) struct Kept {
     /// The pull requests the merge queue threw out for each test, by repository root and test, each
     /// with when (epoch milliseconds). A test that failed two pull requests is a flake.
     pub queue_failed: BTreeMap<(String, String), BTreeMap<u64, i64>>,
+    /// What the Macs call this one, as the last pass read it: a wait on a holder of this name is on a Job
+    /// of this Mac's. Empty before the first pass, when no Job waits yet.
+    pub machine: String,
 }
 
 /// The fields a Job's record carries: each item it waits on, and whether its claims are unsent.
@@ -132,6 +135,8 @@ pub(crate) struct Kept {
 pub(crate) struct Shown {
     pub waits: Vec<(String, Wait)>,
     pub unsent: bool,
+    /// What the Macs call this one, so a wait on a Job of its own is told from one on another Mac's.
+    pub machine: String,
 }
 
 /// The Jobs' claims, behind one lock that is never held across an await.
@@ -147,9 +152,10 @@ impl JobClaims {
     /// What `session`'s record shows of its claims.
     pub(crate) fn shown(&self, session: &str) -> Shown {
         self.with(|kept| {
+            let machine = kept.machine.clone();
             kept.jobs
                 .get(session)
-                .map(|held| Shown { waits: held.waits.iter().map(|(item, wait)| (item.clone(), wait.clone())).collect(), unsent: held.unsent })
+                .map(|held| Shown { waits: held.waits.iter().map(|(item, wait)| (item.clone(), wait.clone())).collect(), unsent: held.unsent, machine })
                 .unwrap_or_default()
         })
     }
@@ -167,14 +173,18 @@ impl Shown {
                     Some(_) => ipc::ClaimWaitEnds::FixMerges,
                     None => ipc::ClaimWaitEnds::ClaimEnds,
                 };
+                let none = ipc::ClaimWait { item: item.clone(), holder: String::new(), machine: None, title: None, this_mac: false, job: None, since, ends };
                 match &wait.on {
-                    WaitedOn::Job(by) => {
-                        ipc::ClaimWait { item: item.clone(), holder: by.name.clone(), machine: known(&by.holder.machine), title: known(&by.title), since, ends }
-                    }
-                    WaitedOn::Person(person) => {
-                        ipc::ClaimWait { item: item.clone(), holder: person.clone(), machine: None, title: None, since, ends: ipc::ClaimWaitEnds::Unassigned }
-                    }
-                    WaitedOn::Main => ipc::ClaimWait { item: item.clone(), holder: String::new(), machine: None, title: None, since, ends },
+                    WaitedOn::Job(by) => ipc::ClaimWait {
+                        holder: by.name.clone(),
+                        machine: known(&by.holder.machine),
+                        title: known(&by.title),
+                        this_mac: !self.machine.is_empty() && by.holder.machine == self.machine,
+                        job: known(&by.holder.id),
+                        ..none
+                    },
+                    WaitedOn::Person(person) => ipc::ClaimWait { holder: person.clone(), ends: ipc::ClaimWaitEnds::Unassigned, ..none },
+                    WaitedOn::Main => none,
                 }
             })
             .collect()

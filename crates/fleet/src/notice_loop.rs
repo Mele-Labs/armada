@@ -30,8 +30,6 @@ where
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));
     crate::autopilot::keep_deciding(Arc::clone(&fleet), tick, Arc::clone(&adrift));
-    // The Operator rules on what arrives from here on, with one call already started.
-    fleet.operator_seated();
     // The moves into a slot live in memory, so a wait a restart cut off ended with it, but for the
     // moves owed again to a process reattached in the checkout. The line is kept, and read back
     // after, so its waits begin again.
@@ -106,6 +104,8 @@ where
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
+            // The Operator's own session, started while its switch is on and ended once it is off.
+            fleet.operator_session_kept().await;
             // Snoozed Jobs whose time has come, back in front of the person.
             fleet.snoozes_ended().await;
             // Jobs a terminal Job's answer signed back in, woken with `Continue`.
@@ -118,11 +118,9 @@ where
                 fleet.stops_swept().await;
             }
             fleet.stops_told().await;
-            // The Operator's call kept started, or stopped, as its switch now reads.
-            fleet.operator_kept_in_step().await;
             // A Later that ran out puts its item back, which the page is told of.
             fleet.laters_run_out().await;
-            // A bug report, a new issue or a note left, handed to the Operator once.
+            // A bug report, a new issue or a note left, told to the Operator's session once.
             fleet.sources_handed().await;
             // What each live Job holds, claimed in its project's store, renewed and waited on.
             fleet.claims_kept().await;

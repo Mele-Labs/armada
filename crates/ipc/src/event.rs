@@ -19,7 +19,7 @@ use crate::thought::WordsSent;
 use crate::hosted_sessions::{SessionRowChanged, SessionSubagentChanged};
 use crate::merge_line::MergeLines;
 use crate::mods::ModList;
-use crate::preview::PreviewOffers;
+use crate::preview::{BuildNotes, PreviewOffers};
 use crate::protocol_id::ProtocolId;
 use crate::reading::ManifestReading;
 use crate::review_runs::ReviewRun;
@@ -150,6 +150,10 @@ pub enum Event {
     // What `get_preview_offers` answers, whole, when an offer or the Refresh row moved.
     #[serde(rename = "preview_offers.changed")]
     PreviewOffersChanged(PreviewOffers),
+    // What `get_build_notes` answers, whole, when a note was marked looked at, a held note's Job ended, or the
+    // running build changed.
+    #[serde(rename = "build_notes.changed")]
+    BuildNotesChanged(BuildNotes),
     // What calls the person, whole, and the news since the last one: when the list or the news moved.
     #[serde(rename = "calls.changed")]
     CallsChanged(CallsChanged),

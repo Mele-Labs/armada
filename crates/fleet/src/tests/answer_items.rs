@@ -64,7 +64,9 @@ fn refused_code(outcome: &ItemSettled) -> &str {
 async fn one_call_approves_a_sketch_a_draft_a_page_and_a_plan_across_two_jobs_each_told_as_its_own_answer() {
     let rig = rig_placing(None);
     let (pages, _work, _file, path) = one_page(&rig).await;
-    sketched(&rig, &pages, "Bay flow").await;
+    // One artifact is open per Job, so the sketch is in a Job of its own: beside the page it would be a part of it.
+    let drawing = rig.start().await;
+    sketched(&rig, &drawing, "Bay flow").await;
     let plans = running_second(&rig).await;
     let draft = drafted(&rig, &plans).await;
     recorded(&rig, first(&plans)).await;
@@ -74,7 +76,7 @@ async fn one_call_approves_a_sketch_a_draft_a_page_and_a_plan_across_two_jobs_ea
     let outcomes = answered(
         &rig,
         vec![
-            answering(&pages, "sketch:Bay flow", ItemHow::Approve, &["Tighter spacing"]),
+            answering(&drawing, "sketch:Bay flow", ItemHow::Approve, &["Tighter spacing"]),
             answering(&plans, &draft, ItemHow::Approve, &["Say why", " ", "Shorter"]),
             answering(&pages, &page, ItemHow::Approve, &[]),
             answering(&plans, "plan:1", ItemHow::Approve, &[]),
@@ -83,14 +85,16 @@ async fn one_call_approves_a_sketch_a_draft_a_page_and_a_plan_across_two_jobs_ea
     .await;
     assert_eq!(outcomes, vec![ItemSettled::Settled; 4]);
 
+    let to_drawing = sent(&rig.rows(&drawing).await);
+    assert!(to_drawing.contains(&sketching::approved("Bay flow", Some("1. Tighter spacing"))), "{to_drawing:?}");
     let to_pages = sent(&rig.rows(&pages).await);
-    assert!(to_pages.contains(&sketching::approved("Bay flow", Some("1. Tighter spacing"))), "{to_pages:?}");
     assert!(to_pages.contains(&String::from("Approved document: Lease expiry, revision 1\nGo on from it as written.")), "{to_pages:?}");
     let to_plans = sent(&rig.rows(&plans).await);
     assert!(to_plans.contains(&drafting::approved(DRAFT, Some("1. Say why\n2. Shorter"))), "{to_plans:?}");
     assert!(to_plans.iter().all(|one| !one.contains("Tighter")), "a note stays on its own item: {to_plans:?}");
     eventually(|| async { told(&rig, &plans, "approved plan v1") == 1 }).await;
     assert!(ids(&record_of(&rig, &pages).await).is_empty(), "{:?}", ids(&record_of(&rig, &pages).await));
+    assert!(ids(&record_of(&rig, &drawing).await).is_empty(), "{:?}", ids(&record_of(&rig, &drawing).await));
     assert!(ids(&record_of(&rig, &plans).await).is_empty(), "{:?}", ids(&record_of(&rig, &plans).await));
 }
 
@@ -123,17 +127,19 @@ async fn a_question_in_the_batch_is_refused_while_the_sketch_beside_it_settles()
 async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
+    // One artifact is open per Job, so the second sketch is in a Job of its own.
+    let other = rig.start().await;
     sketched(&rig, &id, "One").await;
-    sketched(&rig, &id, "Two").await;
+    sketched(&rig, &other, "Two").await;
 
     let outcomes = answered(
         &rig,
-        vec![answering(&id, "sketch:One", ItemHow::SendBack, &["  "]), answering(&id, "sketch:Two", ItemHow::SendBack, &["Bigger"])],
+        vec![answering(&id, "sketch:One", ItemHow::SendBack, &["  "]), answering(&other, "sketch:Two", ItemHow::SendBack, &["Bigger"])],
     )
     .await;
     assert_eq!(refused_code(&outcomes[0]), "fleet.items_send_back_empty");
     assert_eq!(outcomes[1], ItemSettled::Settled);
-    assert!(sent(&rig.rows(&id).await).contains(&sketching::sent_back("Two", "1. Bigger")));
+    assert!(sent(&rig.rows(&other).await).contains(&sketching::sent_back("Two", "1. Bigger")));
     // Drawn in the turn still running, the one left waits once that turn ends.
     rig.stand_in.finishes(0, "Drawn.");
     eventually(|| async { !ids(&record_of(&rig, &id).await).is_empty() }).await;
@@ -141,23 +147,26 @@ async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
 }
 
 #[tokio::test]
-async fn dismissing_a_draft_and_a_sketch_of_one_job_tells_it_once_and_both_leave_needs_you() {
+async fn dismissing_a_draft_and_a_sketch_of_one_job_is_one_artifact_one_item_and_one_line() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
     let draft = drafted(&rig, &id).await;
     sketched(&rig, &id, "Bay flow").await;
+    // Drawn in the turn still running, it waits once that turn ends.
+    rig.stand_in.finishes(0, "Drawn.");
+    eventually(|| async { !ids(&record_of(&rig, &id).await).is_empty() }).await;
     let before = sent(&rig.rows(&id).await).len();
+    // One artifact is open per Job: the sketch took the draft in, and his list holds the one item.
+    let item = record_of(&rig, &id).await.waiting_for.into_iter().find(|one| one.id == "sketch:Bay flow").expect("the artifact waits");
+    assert!(item.text.contains("Bay flow") && item.text.contains(DRAFT), "it names what is open: {}", item.text);
+    assert!(!ids(&record_of(&rig, &id).await).contains(&draft.as_str()), "the draft is a part, no item of its own");
 
-    let items = vec![ItemRef { session_id: id.clone(), item: draft }, ItemRef { session_id: id.clone(), item: "sketch:Bay flow".into() }];
+    let items = vec![ItemRef { session_id: id.clone(), item: "sketch:Bay flow".into() }];
     let settled = Arc::clone(&rig.fleet).dismiss_items(DismissItems { items }, Vec::new()).await;
     assert!(settled.outcomes.iter().all(|one| one.outcome == ItemSettled::Settled), "{:?}", settled.outcomes);
 
     let to_job = sent(&rig.rows(&id).await);
-    assert_eq!(
-        &to_job[before..],
-        [format!("He passed on \"{DRAFT}\" with no verdict.\nHe passed on \"Bay flow\" with no verdict.")],
-        "one message, a line each, and no draft's own withdrawal"
-    );
+    assert_eq!(&to_job[before..], [format!("He passed on \"{}\" with no verdict.", item.text)], "one message, and no draft's own withdrawal");
     assert!(ids(&record_of(&rig, &id).await).is_empty(), "{:?}", ids(&record_of(&rig, &id).await));
 }
 

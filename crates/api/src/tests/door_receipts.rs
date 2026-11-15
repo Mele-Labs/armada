@@ -43,6 +43,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -123,6 +124,7 @@ fn long_lived() -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        operator: false,
         side_job: false,
         auto_land: false,
         activity: None,
@@ -137,6 +139,7 @@ fn long_lived() -> SessionRecord {
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
+        slot_wait: None,
         stopped: None,
         repairing: None,
         stop_told_by: None,

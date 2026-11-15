@@ -25,6 +25,8 @@ fn sees(to: &Side, side: &Side, door: &Door) {
         name: crate::machine::this_mac(&side.gateway).unwrap().name,
         colour: Some(MacColour::Teal),
         build: None,
+        wire: Some(side.gateway.way_in.wire.clone()),
+        built_at: side.gateway.way_in.built_at.clone(),
         address: format!("https://127.0.0.1:{}", door.port),
     };
     to.gateway.macs.nearby.saw(format!("{}._armada._tcp.local.", tunnel_name(&side.id())), mac);
@@ -65,6 +67,7 @@ async fn two_macs_with_no_tunnel_find_each_other_nearby_and_pair_at_their_doors(
         paired: false,
         build: None,
         nearby: true,
+        older_build: false,
     };
     assert_eq!(listed, vec![expected], "found nearby, with no address on any account");
 
@@ -109,6 +112,8 @@ async fn a_paired_door_with_another_certificate_is_refused() {
         name: "Home".into(),
         colour: None,
         build: None,
+        wire: None,
+        built_at: None,
         address: format!("https://127.0.0.1:{}", impostor.port),
     });
     assert!(hello().await.is_err(), "a certificate it did not pair with");
@@ -139,6 +144,8 @@ fn bonjour_is_read_for_a_routable_ipv4_and_a_mac_that_says_who_it_is() {
             "id" => Some(id.clone()),
             "name" => Some("Home".to_string()),
             "colour" => Some("teal".to_string()),
+            "wire" => Some("w2".to_string()),
+            "built_at" => Some("2026-11-14T10:00:00Z".to_string()),
             _ => None,
         }
     };
@@ -146,8 +153,66 @@ fn bonjour_is_read_for_a_routable_ipv4_and_a_mac_that_says_who_it_is() {
         ["169.254.1.2", "fe80::1", "192.168.1.20", "2001:db8::1"].into_iter().map(|ip| ip.parse().unwrap()).collect();
     let mac = read_mac(said("ab12"), &ips, 5000).unwrap();
     assert_eq!((mac.address.as_str(), mac.colour), ("https://192.168.1.20:5000", Some(MacColour::Teal)));
+    assert_eq!((mac.wire.as_deref(), mac.built_at.as_deref()), (Some("w2"), Some("2026-11-14T10:00:00Z")));
     assert_eq!(read_mac(said("not hex"), &ips, 5000), None);
     assert_eq!(read_mac(said("ab12"), &ips, 0), None);
     let only_scoped: HashSet<IpAddr> = ["fe80::1".parse().unwrap()].into();
     assert_eq!(read_mac(said("ab12"), &only_scoped, 5000), None, "a scoped address cannot be written in a URL");
+}
+
+/// This Mac's way in, on wire `w2` and built at noon.
+fn mine(side: &Side) -> crate::WayIn {
+    crate::WayIn { wire: "w2".into(), built_at: Some("2026-11-14T12:00:00Z".into()), ..side.gateway.way_in.clone() }
+}
+
+#[tokio::test]
+async fn a_mac_is_older_on_another_wire_built_no_later_and_never_on_the_same_wire() {
+    let me = mine(&Side::unaddressed("Work").await);
+    let older = |wire, built_at| crate::macs::older_build(wire, built_at, &me);
+    assert!(older(Some("w1"), Some("2026-11-14T09:00:00Z")), "another wire, built before");
+    assert!(older(Some("w1"), Some("2026-11-14T12:00:00Z")), "another wire, built at the same time");
+    assert!(!older(Some("w3"), Some("2026-11-14T15:00:00Z")), "another wire, built after, so newer");
+    assert!(!older(Some("w2"), Some("2026-11-01T00:00:00Z")), "the same wire is never older, whatever its date");
+    assert!(!older(Some("w2"), None), "the same wire, with no date");
+    assert!(older(None, Some("2026-11-14T15:00:00Z")), "a build from before wires");
+    assert!(older(Some("w1"), None), "another wire that named no build time");
+}
+
+#[tokio::test]
+async fn a_found_mac_is_marked_older_from_what_it_says_nearby_and_false_where_nothing_was_heard() {
+    let home = Side::unaddressed("Home").await;
+    let work = Side::unaddressed("Work").await;
+    let door = open_door(&home);
+    let near = |wire: Option<&str>, built_at: Option<&str>| NearbyMac {
+        id: home.id(),
+        name: "Home".into(),
+        colour: None,
+        build: None,
+        wire: wire.map(str::to_string),
+        built_at: built_at.map(str::to_string),
+        address: format!("https://127.0.0.1:{}", door.port),
+    };
+    let key = format!("{}._armada._tcp.local.", tunnel_name(&home.id()));
+    // The test Gateway has no build time, so only the wire and a missing build time tell here; the dates are above.
+    let wire = work.gateway.way_in.wire.clone();
+    let cases = [
+        (near(Some("another-wire"), None), true, "another wire that named no build time"),
+        (near(Some("another-wire"), Some("9999-01-01T00:00:00Z")), false, "another wire, built later than a build with no time"),
+        (near(Some(&wire), None), false, "the same wire"),
+        (near(None, None), true, "a TXT record with no wire is a build from before wires"),
+    ];
+    for (mac, older, why) in cases {
+        work.gateway.macs.nearby.saw(key.clone(), mac);
+        assert_eq!(found(&work).await.macs[0].older_build, older, "{why}");
+    }
+    let never = Side::unaddressed("Never").await;
+    assert!(found(&never).await.macs.iter().all(|mac| !mac.older_build), "a Mac never heard from stays false");
+}
+
+#[tokio::test]
+async fn a_hello_with_no_wire_is_a_build_from_before_wires_and_so_older() {
+    let me = mine(&Side::unaddressed("Work").await);
+    let hello: crate::macs::MacGreeting = ipc::decode("a hello", r#"{"name":"Home","colour":"teal","build":"abc"}"#.as_bytes()).unwrap();
+    assert_eq!((hello.wire.as_deref(), hello.built_at.as_deref()), (None, None));
+    assert!(crate::macs::older_build(hello.wire.as_deref(), hello.built_at.as_deref(), &me));
 }

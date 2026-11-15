@@ -73,7 +73,7 @@ async fn a_full_pool_queues_the_session_and_a_freed_slot_moves_it_in() {
     let keeper = the_keeper(&rig);
     let (waiting, told) = queued_and_idle(&rig, "change a file").await;
     assert!(told.contains("first in the queue"), "{told}");
-    assert!(told.contains("Stop here"), "{told}");
+    assert!(told.contains("End your turn now"), "{told}");
     assert!(resumes(&rig, &waiting).is_empty(), "nothing to move into yet");
 
     close(&rig, &holder).await;

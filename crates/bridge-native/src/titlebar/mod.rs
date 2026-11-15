@@ -16,6 +16,7 @@ mod centred;
 mod disk;
 mod face;
 mod fleet_down;
+mod crash_layer;
 mod link_layer;
 mod link_panel;
 pub mod offers;
@@ -40,6 +41,7 @@ use gpui::{
 use ipc::{BuildSource, ModelDownshift};
 
 pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
+pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;
@@ -68,6 +70,8 @@ pub enum Asked {
     /// Settings, scoped to a project or to a repository in none: the switcher's Settings, and ⌘, in it.
     ProjectSettings(usize),
     RepositorySettings(usize),
+    /// Settings on a value's page, with its project picked and its row focused: a line that names a setting links here.
+    SettingsAt(crate::settings::SettingsAt),
     ProjectMembers(usize),
     NewProject,
     ChangeBuild { build: BuildSource },
@@ -94,6 +98,8 @@ pub enum Asked {
     Teach(&'static str),
     /// The interface's press sound: the snapshot turned ready.
     Chime,
+    /// Open this Job: the crash panel started it.
+    OpenJob(String),
     /// Noted on the dropped-events alert: this many are said to have been seen.
     EventsNoted(u32),
 }
@@ -234,10 +240,23 @@ pub struct TitleBar {
     _restart_wait: Option<Task<()>>,
     /// The centred Fleet panel, while Fleet is stopped, restarting or on another build (`link_layer.rs`).
     link: link_layer::LinkPanel,
+    /// The centred crash panel, on the first launch after Armada quit on a panic (`crash_layer.rs`).
+    crash: crash_layer::CrashPanel,
     /// The search over the switcher's On origin row.
     origin: origin::OriginSearch,
     /// Which rows at the Fleet panel's foot are open.
     folds: Folds,
+    /// Where the Fleet panel's lists of what runs and what waits are scrolled to.
+    fleet_lists: gpui::ScrollHandle,
+    /// The presses inside those lists: Keep and Revert at their top, Swap at their foot. Tab to one scrolls it in.
+    list_stops: ListStops,
+}
+
+/// The tab stops inside the Fleet panel's scrolled lists, so a Tab onto one can bring it into view.
+struct ListStops {
+    keep: FocusHandle,
+    revert: FocusHandle,
+    swap: FocusHandle,
 }
 
 /// The rows at the Fleet panel's foot that open in place: Add a branch and Disk. Both start shut.
@@ -338,6 +357,8 @@ impl TitleBar {
             build_read: None,
             origin: Default::default(),
             folds: Folds::default(),
+            fleet_lists: gpui::ScrollHandle::new(),
+            list_stops: ListStops { keep: cx.focus_handle().tab_stop(true), revert: cx.focus_handle().tab_stop(true), swap: cx.focus_handle().tab_stop(true) },
             offers_read: None,
             link_read: None,
             opened: std::time::Instant::now(),
@@ -345,6 +366,7 @@ impl TitleBar {
             restart_from: None,
             _restart_wait: None,
             link: link_layer::LinkPanel::new(window, cx),
+            crash: crash_layer::CrashPanel::new(window, cx),
         }
     }
 
@@ -364,6 +386,7 @@ impl TitleBar {
         self._swap_tick = None;
         self._swap_keys = None;
         self.link.clear();
+        self.crash.clear();
     }
 
     /// The plan's rings and the step down, as Fleet last said them. A Fleet that dropped keeps what it said.
@@ -1541,6 +1564,7 @@ impl Render for TitleBar {
             .children(self.trying_bar(look, cx))
             .children(self.dropped_alert(look, cx))
             .children(self.link_layer(look, crate::room::of(window, cx), cx))
+            .children(self.crash_layer(look, crate::room::of(window, cx), cx))
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, crate::room::of(window, cx), cx))
             .children(self.toast(look, viewport, cx))

@@ -1,11 +1,11 @@
-//! A session that finds every worktree slot held is in the line, and the person is asked whether it
-//! waits for the next slot or Fleet adds one. Wait changes nothing about the order; Add leases the
-//! new slot to that session, ahead of whoever heads the line.
+//! A session that finds every worktree slot held is in the line, and its record shows the wait;
+//! nobody is asked. The person may press Add, which leases the new slot to that session ahead of
+//! whoever heads the line, or Free; a Wait pressed changes nothing.
 
 use std::sync::Arc;
 
 use api::HostedSessions;
-use ipc::{AnswerWaiting, SessionId, SessionMode, SessionRecord, TuneSession, WaitingActKind, WaitingSource};
+use ipc::{AnswerWaiting, SessionId, SessionMode, SessionRecord, TuneSession, WaitingSource};
 
 use super::session_host::{eventually, reason, rig_placing};
 use super::session_queue::{close, queued_and_idle, resumes, the_keeper, with_slot_one_held, write_to_main};
@@ -16,8 +16,9 @@ async fn record(rig: &super::session_host::Rig, id: &SessionId) -> SessionRecord
     Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session
 }
 
-async fn calls(rig: &super::session_host::Rig, id: &SessionId) -> Vec<ipc::WaitingItem> {
-    record(rig, id).await.waiting_for.into_iter().filter(|one| one.source == WaitingSource::SlotChoice).collect()
+/// The Job's wait for a slot, as its record shows it: none, or the one.
+async fn calls(rig: &super::session_host::Rig, id: &SessionId) -> Vec<ipc::SlotWait> {
+    record(rig, id).await.slot_wait.into_iter().collect()
 }
 
 async fn choose(rig: &super::session_host::Rig, id: &SessionId, choice: u32) -> Result<SessionRecord, api::Refusal> {
@@ -34,22 +35,17 @@ async fn choose(rig: &super::session_host::Rig, id: &SessionId, choice: u32) -> 
 }
 
 #[tokio::test]
-async fn a_full_pool_asks_the_person_and_tells_the_agent_so() {
+async fn a_full_pool_shows_the_wait_on_the_record_and_asks_nobody() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, told) = queued_and_idle(&rig, "change a file").await;
 
     assert!(told.contains("Every worktree slot is in use"), "{told}");
-    assert!(told.contains("The owner is being asked"), "{told}");
-    assert!(told.contains("Stop here"), "{told}");
+    assert!(told.contains("End your turn now and say nothing to the owner"), "{told}");
     let asked = calls(&rig, &waiting).await;
-    assert_eq!(asked.len(), 1, "one call, however many writes were refused");
+    assert_eq!(asked.len(), 1, "one wait, however many writes were refused");
     let item = &asked[0];
-    assert_eq!(item.id, "slot-choice");
-    assert_eq!(item.text, "Every slot is in use");
-    let labels: Vec<_> = item.options.iter().map(|one| (one.label.as_str(), one.description.is_some())).collect();
-    assert_eq!(labels, [("Wait for a slot", false), ("Add a slot", false)]);
-    let act = item.act.as_ref().expect("an act");
-    assert_eq!(act.kind, WaitingActKind::Answer);
+    assert_eq!(item.ahead, 0, "first in the line");
+    assert!(record(&rig, &waiting).await.waiting_for.is_empty(), "nothing on his list");
 
     // Another refused write raises nothing new and keeps when it began.
     rig.gate(&waiting, "Edit", &write_to_main(&rig)).await;
@@ -58,7 +54,7 @@ async fn a_full_pool_asks_the_person_and_tells_the_agent_so() {
 }
 
 #[tokio::test]
-async fn waiting_takes_the_call_off_and_the_next_freed_slot_is_the_sessions() {
+async fn a_wait_pressed_changes_nothing_and_the_next_freed_slot_is_the_sessions() {
     let (rig, holder) = with_slot_one_held().await;
     let keeper = the_keeper(&rig);
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
@@ -67,14 +63,48 @@ async fn waiting_takes_the_call_off_and_the_next_freed_slot_is_the_sessions() {
 
     let answered = choose(&rig, &waiting, 0).await.expect("answered");
     assert!(answered.waiting_for.iter().all(|one| one.source != WaitingSource::SlotChoice));
-    assert!(calls(&rig, &waiting).await.is_empty());
+    assert_eq!(calls(&rig, &waiting).await.len(), 1, "it still waits");
     assert_eq!(rig.stand_in.process(at).sent.lock().unwrap().len(), before, "the agent is sent nothing");
     assert!(resumes(&rig, &waiting).is_empty(), "no slot is free yet");
-    assert!(choose(&rig, &waiting, 0).await.is_err(), "answered once");
 
     close(&rig, &holder).await;
     eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 1));
+    keeper.abort();
+}
+
+/// While it waits for a slot Fleet tells it nothing: the notice is left unsettled, for its caller to tell once it is in.
+#[tokio::test]
+async fn a_job_waiting_for_a_slot_is_sent_no_notice() {
+    let (rig, _holder) = with_slot_one_held().await;
+    let (waiting, _) = queued_and_idle(&rig, "change a file").await;
+    choose(&rig, &waiting, 0).await.expect("answered");
+    let at = rig.stand_in.starts().len() - 1;
+    let before = rig.stand_in.process(at).sent.lock().unwrap().len();
+
+    let told = rig.fleet.told_by_fleet(waiting.as_str(), "#7 merged: its wire change is on main.", ipc::Notice::WireChanged).await;
+
+    assert!(!told.expect("answered"), "unsettled, so it is told again once it is in a slot");
+    assert_eq!(rig.stand_in.process(at).sent.lock().unwrap().len(), before, "the agent is sent nothing");
+}
+
+/// A freed slot wakes the waiting Job with one message, which says the slot is its now.
+#[tokio::test]
+async fn a_freed_slot_wakes_the_waiting_job_with_one_message() {
+    let (rig, holder) = with_slot_one_held().await;
+    let keeper = the_keeper(&rig);
+    let (waiting, _) = queued_and_idle(&rig, "change a file").await;
+    choose(&rig, &waiting, 0).await.expect("answered");
+
+    close(&rig, &holder).await;
+    eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
+    let at = rig.stand_in.starts().len() - 1;
+    eventually(|| async { !rig.stand_in.process(at).sent.lock().unwrap().is_empty() }).await;
+
+    let sent = rig.stand_in.process(at).sent.lock().unwrap().clone();
+    let [arrived] = sent.as_slice() else { panic!("one message: {sent:?}") };
+    assert!(arrived.contains("You are now in"), "{arrived}");
+    assert!(arrived.contains(&adapter_traits::slot_path(&rig.root, 1)), "{arrived}");
     keeper.abort();
 }
 
@@ -91,7 +121,7 @@ async fn adding_a_slot_gives_the_new_one_to_that_session_ahead_of_the_line() {
     assert_eq!(resumes(&rig, &second)[0].directory, adapter_traits::slot_path(&rig.root, 9));
     assert!(resumes(&rig, &first).is_empty(), "the head of the line is not served ahead of its turn");
     assert!(calls(&rig, &second).await.is_empty());
-    assert_eq!(calls(&rig, &first).await.len(), 1, "the other still waits on his answer");
+    assert_eq!(calls(&rig, &first).await.len(), 1, "the other still waits");
     keeper.abort();
 }
 
@@ -114,12 +144,12 @@ async fn a_session_that_ends_while_asked_leaves_the_line_and_its_call() {
     let (gone, _) = queued_and_idle(&rig, "gone").await;
     let (next, _) = queued_and_idle(&rig, "next").await;
     let queue = rig.fleet.hosts().slot_queue();
-    assert!(queue.pending(gone.as_str()).is_some());
+    assert!(queue.slot_wait(gone.as_str()).is_some());
 
     close(&rig, &gone).await;
 
-    assert!(queue.pending(gone.as_str()).is_none());
-    assert!(queue.pending(next.as_str()).is_some(), "the one behind it still waits on his answer");
+    assert!(queue.slot_wait(gone.as_str()).is_none());
+    assert_eq!(queue.slot_wait(next.as_str()).map(|wait| wait.ahead), Some(0), "the one behind it moves up");
     assert!(choose(&rig, &gone, 1).await.is_err(), "an ended session has no call to answer");
 }
 
@@ -149,12 +179,12 @@ async fn an_answer_that_is_not_one_of_the_two_choices_is_refused() {
         })
         .await;
     assert!(dismissed.is_err(), "it is answered, not dismissed");
-    assert_eq!(calls(&rig, &waiting).await.len(), 1, "still asked");
+    assert_eq!(calls(&rig, &waiting).await.len(), 1, "still waits");
 }
 
 /// A session resumed onto a full pool is asked about at once, before any write.
 #[tokio::test]
-async fn a_resume_onto_a_full_pool_raises_the_same_call() {
+async fn a_resume_onto_a_full_pool_shows_the_same_wait() {
     let rig = rig_placing(None);
     for n in 1..=8 {
         rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
@@ -230,7 +260,7 @@ async fn free(rig: &super::session_host::Rig, waiting: &SessionId, slot: u32) ->
 }
 
 /// The Job waits, and Fleet has read who holds the slots.
-async fn waiting_with_rows(rig: &super::session_host::Rig) -> (SessionId, ipc::WaitingItem) {
+async fn waiting_with_rows(rig: &super::session_host::Rig) -> (SessionId, ipc::SlotWait) {
     let (waiting, _) = queued_and_idle(rig, "change a file").await;
     rig.fleet.refresh_slot_holders().await;
     let call = calls(rig, &waiting).await.remove(0);
@@ -272,7 +302,6 @@ async fn the_call_lists_the_hosted_holders_longest_quiet_first_and_says_why_one_
     );
     assert_eq!((rows[2].0, rows[2].1, rows[2].3), (2, running.as_str(), Some(SlotKeeps::Running)));
     assert_eq!(rows.len(), 3, "the five slots nobody hosted holds have no row: {rows:?}");
-    assert_eq!(call.options.len(), 2, "both choices are still sent");
 }
 
 #[tokio::test]
@@ -322,13 +351,12 @@ async fn a_free_is_refused_while_the_holder_runs_holds_uncommitted_work_or_lost_
 }
 
 #[tokio::test]
-async fn a_free_for_a_call_that_is_gone_is_the_settled_refusal() {
+async fn a_free_for_a_job_that_waits_for_no_slot_is_the_settled_refusal() {
     let rig = pool_for_holders(1);
-    holder(&rig, "first", true).await;
-    let (waiting, _) = waiting_with_rows(&rig).await;
-    choose(&rig, &waiting, 0).await.expect("waits");
+    let idle = holder(&rig, "first", true).await;
+    waiting_with_rows(&rig).await;
 
-    let refused = free(&rig, &waiting, 1).await.expect_err("refused");
+    let refused = free(&rig, &idle, 1).await.expect_err("refused");
 
     assert_eq!(refused.error().code, "fleet.session_waiting_unheld");
     assert!(rig.fleet.vcs().parked_slots().is_empty());
@@ -346,7 +374,7 @@ async fn create_answers_before_the_slot_is_made_and_the_job_is_moved_in_when_it_
         .expect("it answered while the checkout was still under way")
         .expect("answered");
 
-    let call = answered.waiting_for.iter().find(|one| one.source == WaitingSource::SlotChoice).expect("the call stays");
+    let call = answered.slot_wait.as_ref().expect("the wait stays");
     assert!(call.creating_since.is_some());
     assert!(call.create_refused.is_none());
     eventually(|| async { hold.arrived() == 1 }).await;
@@ -387,7 +415,7 @@ async fn a_slot_that_cannot_be_made_puts_the_call_back_with_the_reason_and_creat
 }
 
 #[tokio::test]
-async fn a_wait_while_a_slot_is_made_takes_the_call_off_and_the_slot_still_goes_to_that_job() {
+async fn a_wait_while_a_slot_is_made_keeps_the_wait_shown_and_the_slot_still_goes_to_that_job() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
     let hold = rig.fleet.vcs().hold_makes();
@@ -395,10 +423,10 @@ async fn a_wait_while_a_slot_is_made_takes_the_call_off_and_the_slot_still_goes_
     eventually(|| async { hold.arrived() == 1 }).await;
 
     choose(&rig, &waiting, 0).await.expect("waits");
-    assert!(calls(&rig, &waiting).await.is_empty());
+    assert_eq!(calls(&rig, &waiting).await.len(), 1, "it still waits, so its record still says so");
     hold.open();
 
-    eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
+    eventually(|| async { resumes(&rig, &waiting).len() == 1 && calls(&rig, &waiting).await.is_empty() }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 9));
 }
 

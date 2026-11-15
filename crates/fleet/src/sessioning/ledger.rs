@@ -325,6 +325,7 @@ where
         record.from_tab = reads.hosting.as_ref().and_then(|hosting| hosting.from_tab.clone());
         record.mod_of_bay = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_of_bay);
         record.side_job = reads.hosting.as_ref().is_some_and(|hosting| hosting.side_job);
+        record.operator = reads.hosting.as_ref().is_some_and(|hosting| hosting.operator);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
             record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
@@ -362,6 +363,8 @@ where
         // Whether the Job that owns a failure has been told of it is read by the calls, which hear the row next.
         self.hosts().calls.told_noted(&session.id, waited.told.as_deref());
         record.waiting_for = waited.items;
+        // Waiting for a slot is no question to him: the record says so, and the Job is moved in when one frees.
+        record.slot_wait = self.hosts().slot_queue().slot_wait(&session.id);
         // A call held at a gate only the person can close is his to settle.
         if session.state == store::SessionState::Live {
             let nothing_runs = record.running.is_empty();
@@ -434,6 +437,8 @@ where
             || record.attachments.iter().any(|one| open_pull_request(one) && !red_of(one, &reads.red_pulls))
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
             || self.hosts().of(&session.id).state().moving.is_some()
+            // In the slot line, or its lease still asking, it was told to stop, and Fleet moves it when a slot frees.
+            || self.hosts().slot_queue().waits(&session.id)
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
             || !record.running.is_empty()
             // A Side Job with no plan was asked something and answered it: its turn ending is the answer.

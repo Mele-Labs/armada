@@ -7,12 +7,10 @@ use adapter_traits::PullRequestStanding;
 use api::{HostedSessions, Sessions};
 use ipc::{AnswerWaiting, AskHeld, CloseSession, RaiseConflict, SessionId, WaitingSource};
 
-use super::operator_raises::{page, queued, seated};
 use super::operator_sources::on;
 use super::pull_requesting::facts;
 use super::rule_acting::notices_in;
 use super::session_host::{eventually, rig_placing, Rig};
-use crate::operator::keep_the_raises;
 use crate::session_host::address_of;
 
 fn address(job: &SessionId) -> String {
@@ -134,11 +132,10 @@ async fn a_landing_question_about_a_pull_request_or_a_branch_the_repository_lack
 }
 
 #[tokio::test]
-async fn a_merged_or_closed_pull_request_is_answered_by_fleet_to_the_job_with_no_call_and_nothing_is_kept() {
+async fn a_merged_or_closed_pull_request_is_answered_by_fleet_to_the_job_and_nothing_is_kept() {
     let rig = rig_placing(None);
     let one = rig.start().await;
     on(&rig).await;
-    let call = seated(&rig, &[]).await;
 
     rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Merged)));
     let merged = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(12), None)).await.expect("answered");
@@ -150,7 +147,6 @@ async fn a_merged_or_closed_pull_request_is_answered_by_fleet_to_the_job_with_no
     let told = notes_to(&rig, &one).await;
     assert!(told.iter().any(|text| text == "held? #12: merged.") && told.iter().any(|text| text == "held? #13: closed."), "{told:?}");
     rig.fleet.sources_handed().await;
-    assert!(call.asked().is_empty(), "the Operator was never called");
     assert!(rig.fleet.store().lock().await.open_job_ask(&merged.id).expect("read").is_none());
     assert!(items(&rig, &one, WaitingSource::JobHeld).await.is_empty());
 }
@@ -334,79 +330,13 @@ async fn a_branch_is_asked_about_and_land_it_tells_the_asker() {
 }
 
 #[tokio::test]
-async fn while_the_operator_is_on_a_conflict_it_raises_reaches_your_turn_with_both_jobs_and_what_breaks() {
+async fn with_the_operator_on_and_its_session_not_running_a_conflict_goes_to_the_senders_needs_you() {
     let rig = rig_placing(None);
     let (one, two) = two(&rig).await;
     on(&rig).await;
-    let call = seated(&rig, &[Some("item: 1\nway: 2\nbecause: both Jobs write the same card"), None]).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
-    let raised = Arc::clone(&rig.fleet).raise_conflict(None, conflict(&one, &two)).await.expect("raised");
-    assert!(items(&rig, &one, WaitingSource::JobConflict).await.is_empty(), "it waits for the Operator, not for the Job's Needs you");
-
-    rig.fleet.sources_handed().await;
-
-    let turn = queued(&rig, &one, &raised.id).await;
-    assert_eq!(turn.item.source, WaitingSource::JobConflict);
-    let card = turn.conflict.expect("the card's fields");
-    assert_eq!((card.raised_by.address.as_str(), card.raised_by.title.as_str()), (address(&one).as_str(), "Add the field"));
-    assert_eq!((card.with.address.as_str(), card.with.title.as_str()), (address(&two).as_str(), "Rename the card"));
-    assert_eq!((card.files.as_slice(), card.wire.as_slice()), (["crates/ipc/src/operator_page.rs".to_string()].as_slice(), ["OperatorTurnItem".to_string()].as_slice()));
-    assert_eq!((card.mine.as_str(), card.theirs.as_str(), card.breaks.as_str()), ("Adds a field to the card.", "Renames the card.", "The native card no longer reads the item."));
-    assert!(turn.held.is_none());
-    assert_eq!(turn.item.options.len(), 3);
-    let asked = call.asked();
-    assert!(asked[0].contains("A Job raised a conflict with another Job") && asked[0].contains("If both land: The native card no longer reads the item."), "{}", asked[0]);
-    assert!(asked[0].contains("The ways it is offered: 1. tell:") && asked[0].contains("2. raise"), "{}", asked[0]);
-}
-
-#[tokio::test]
-async fn while_the_operator_is_on_it_may_tell_the_job_whose_side_changes_and_nothing_reaches_your_turn() {
-    let rig = rig_placing(None);
-    let (one, two) = two(&rig).await;
-    on(&rig).await;
-    let said = format!("item: 1\nway: 1\njob: {}\nbecause: the second Job renamed the card first", two.as_str());
-    seated(&rig, &[Some(&said)]).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
-    let raised = Arc::clone(&rig.fleet).raise_conflict(None, conflict(&one, &two)).await.expect("raised");
-
-    rig.fleet.sources_handed().await;
-
-    eventually(|| async { notes_to(&rig, &two).await.iter().any(|text| text.contains("The Operator says your side changes.") && text.contains("the second Job renamed the card first")) }).await;
-    assert!(notes_to(&rig, &one).await.iter().all(|text| !text.contains("Conflict with")));
-    assert!(rig.fleet.store().lock().await.open_job_ask(&raised.id).expect("read").is_none(), "it is answered");
-    assert!(page(&rig).await.turn.iter().all(|turn| turn.item.id != raised.id));
-}
-
-#[tokio::test]
-async fn a_conflict_the_operator_could_not_rule_goes_to_the_senders_needs_you_so_it_is_never_lost() {
-    let rig = rig_placing(None);
-    let (one, two) = two(&rig).await;
-    on(&rig).await;
-    seated(&rig, &[None, None]).await;
     let raised = Arc::clone(&rig.fleet).raise_conflict(None, conflict(&one, &two)).await.expect("raised");
 
     rig.fleet.sources_handed().await;
 
     eventually(|| async { items(&rig, &one, WaitingSource::JobConflict).await.iter().any(|item| item.id == raised.id) }).await;
-}
-
-#[tokio::test]
-async fn while_the_operator_is_on_a_landing_question_it_raises_reaches_your_turn_with_the_pull_request() {
-    let rig = rig_placing(None);
-    let one = rig.start_titled(Some("Add the field")).await;
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
-    on(&rig).await;
-    let call = seated(&rig, &[Some("item: 1\nway: 2\nbecause: no ruling covers it"), None]).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
-    let asked = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(14), None)).await.expect("asked");
-
-    rig.fleet.sources_handed().await;
-
-    let turn = queued(&rig, &one, &asked.id).await;
-    let held = turn.held.expect("the card's fields");
-    assert_eq!((held.pull, held.branch.as_deref(), held.title.as_deref()), (Some(14), None, Some("Take a draft out")));
-    assert_eq!((held.asked_by.address.as_str(), held.asked_by.title.as_str()), (address(&one).as_str(), "Add the field"));
-    assert!(turn.conflict.is_none());
-    assert_eq!(turn.item.options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), ["Land it", "Hold it"]);
-    assert!(call.asked()[0].contains("asks whether #14 \"Take a draft out\" should land"), "{}", call.asked()[0]);
 }

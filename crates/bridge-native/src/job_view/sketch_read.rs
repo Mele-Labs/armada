@@ -14,11 +14,15 @@ use gpui::{
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
 
-use super::cards::{shown_against, shown_scene};
+use super::acts::SHEET;
+use super::cards::{settled_of, Subject};
+
+use super::cards::{picked_revision, shown_against, shown_scene};
+use super::sketch_keys::{lens_key, moved, Looking, KEY_STEP};
 use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook};
+use crate::look::{token, ActiveLook, Look};
 use crate::dropdown::{Entry, Row};
 use crate::scene::{export, Clock, Fit, Lens};
 
@@ -53,40 +57,66 @@ enum Face {
 
 /// The sketch open over the window.
 pub(super) struct Reading {
-    key: String,
-    title: SharedString,
-    scene: Rc<Scene>,
+    pub(super) key: String,
+    pub(super) title: SharedString,
+    pub(super) scene: Rc<Scene>,
     /// The sketch it is read as a change to, its title and drawing, and whether it is read so
     /// (Changes) or alone (Whole).
     against: Option<(SharedString, Rc<Scene>)>,
-    changes: bool,
+    pub(super) changes: bool,
+    /// The card it is the drawing of, and the key its answers are kept under (the pinned card's is not its id).
+    pub(super) card: String,
+    pub(super) answer: String,
+    /// An earlier revision is read: it asks nothing, and takes no note.
+    pub(super) earlier: bool,
+    /// The part a note would be about: the one last pressed or walked to.
+    pub(super) target: Option<super::sketch_notes::Part>,
+    /// The note being written.
+    pub(super) writing: Option<super::sketch_notes::Writing>,
     /// When the steps started playing, or `None` while they are stopped.
     steps: Option<Instant>,
     /// When the sheet opened: the flows crawl from it while no step plays.
     opened: Instant,
-    focus: FocusHandle,
+    pub(super) focus: FocusHandle,
     back: Option<FocusHandle>,
-    lens: Lens,
+    pub(super) lens: Lens,
     /// The press held, and where the pointer was last.
     drag: Option<gpui::Point<f32>>,
+    /// Where the press began, and whether it travelled: a press that did not picks the part under it.
+    down: Option<(gpui::Point<f32>, bool)>,
     /// What a save or a copy came to, said in the band for a moment.
     said: Option<SharedString>,
     handed: Option<Handed>,
 }
 
-/// A key's zoom step and pan, and the most and least the reader may zoom past the fit.
-const KEY_STEP: f32 = 1.5;
-const KEY_PAN: f32 = 64.;
-const MOST: f32 = 4.;
-const LEAST: f32 = 0.5;
+impl Reading {
+    /// Whether it is read against an earlier sketch, so it is drawn under the key of the change.
+    pub(super) fn has_against(&self) -> bool {
+        self.against.is_some()
+    }
+}
+
 const WHEEL_SPEED: f32 = 0.002;
 const LINE_HEIGHT: f32 = 16.;
+/// How far a press may travel and still be a press, in points.
+const TAP_SLOP: f32 = 4.;
 
 /// The card with this id: the pinned one, else the one in the thread.
-fn card_of<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
+pub(super) fn card_of<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], id: &str) -> Option<&'a ThreadSketch> {
     head.sketch.as_ref().filter(|card| card.id == id).or_else(|| {
         items.iter().find_map(|item| match item {
             ThreadItem::Sketch(card) if card.id == id => Some(card),
+            _ => None,
+        })
+    })
+}
+
+/// The newest card of a sketch (its ledger id): the pinned one, else the last in the thread. A Job that redraws a sketch under
+/// its title puts a card after the one that was read, and it is that one the read follows.
+pub(super) fn newest_card<'a>(head: &'a ipc::ThreadHead, items: &'a [ThreadItem], sketch: &str) -> Option<&'a ThreadSketch> {
+    head.sketch.as_ref().filter(|card| card.sketch == sketch).or_else(|| {
+        items.iter().rev().find_map(|item| match item {
+            ThreadItem::Sketch(card) if card.sketch == sketch => Some(card),
             _ => None,
         })
     })
@@ -96,11 +126,13 @@ impl JobView {
     /// A press on a sketch card: its drawing, the revision shown under `shown`, opens over the window.
     pub(super) fn read_sketch(&mut self, key: &str, shown: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let picked = self.pages.get(&job).and_then(|page| page.cards.revision.get(shown).copied());
-        let Some((title, (scene_key, scene), against)) = self
+        let Some((title, (scene_key, scene), against, earlier)) = self
             .thread(&job, cx)
             .and_then(|held| card_of(&held.head, &held.items, key))
-            .map(|card| (card.title.clone(), shown_scene(card, picked), shown_against(card, picked).map(|(title, scene)| (title.into(), scene))))
+            .map(|card| {
+                let picked = self.pages.get(&job).and_then(|page| picked_revision(&page.cards.revision, shown, card.revisions.len()));
+                (card.title.clone(), shown_scene(card, picked), shown_against(card, picked).map(|(title, scene)| (title.into(), scene)), picked.is_some_and(|at| at + 1 < card.revisions.len()))
+            })
         else {
             return;
         };
@@ -109,7 +141,58 @@ impl JobView {
         let back = window.focused(cx);
         window.focus(&focus, cx);
         // It opens paused with every step drawn lit, and Play starts it from the first.
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, against, changes: true, steps: None, opened: Instant::now(), focus, back, lens: Lens::default(), drag: None, said: None, handed: None });
+        let reading = Reading {
+            key: scene_key,
+            title: title.into(),
+            scene,
+            against,
+            changes: true,
+            card: key.to_string(),
+            answer: shown.to_string(),
+            earlier,
+            target: None,
+            writing: None,
+            steps: None,
+            opened: Instant::now(),
+            focus,
+            back,
+            lens: Lens::default(),
+            drag: None,
+            down: None,
+            said: None,
+            handed: None,
+        };
+        self.sketch_reading = Some(reading);
+        cx.notify();
+    }
+
+    /// A sketch read on its own follows the Job's redraws: where a newer drawing of it has come, and he has picked no earlier
+    /// revision by hand, the read shows that one. A revision he picked stays picked until a newer one arrives.
+    pub(super) fn follow_reading(&mut self, cx: &mut Context<Self>) {
+        let (Some(job), Some(reading)) = (self.shown.clone(), self.sketch_reading.as_ref()) else { return };
+        let Some(held) = self.thread(&job, cx) else { return };
+        let Some(read) = card_of(&held.head, &held.items, &reading.card) else { return };
+        let Some(newest) = newest_card(&held.head, &held.items, &read.sketch) else { return };
+        // The pinned card keeps its answers under `pin:<id>`, and a card in the thread under its own id.
+        let pinned = held.head.sketch.as_ref().is_some_and(|pin| pin.id == newest.id);
+        let answer = if pinned { format!("pin:{}", newest.id) } else { newest.id.clone() };
+        let picks = self.pages.get(&job).map(|page| &page.cards.revision);
+        let picked = picks.and_then(|picks| picked_revision(picks, &answer, newest.revisions.len()));
+        let (key, scene) = shown_scene(newest, picked);
+        if key == reading.key {
+            return;
+        }
+        let Some(scene) = scene else { return };
+        let against = shown_against(newest, picked).map(|(title, scene)| (title.into(), scene));
+        let earlier = picked.is_some_and(|at| at + 1 < newest.revisions.len());
+        let (card, title) = (newest.id.clone(), newest.title.clone());
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            (reading.key, reading.scene, reading.against, reading.card, reading.answer, reading.title) = (key, scene, against, card, answer, title.into());
+            reading.earlier = earlier;
+            // A drawing that is new starts paused and whole, as one opened does.
+            reading.steps = None;
+            reading.opened = Instant::now();
+        }
         cx.notify();
     }
 
@@ -252,11 +335,15 @@ impl JobView {
         .detach();
     }
 
-    fn fit_sketch(&mut self, cx: &mut Context<Self>) {
+    fn move_sketch_view(&mut self, by: Looking, cx: &mut Context<Self>) {
         if let Some(reading) = self.sketch_reading.as_mut() {
-            reading.lens = Lens::default();
+            reading.lens = moved(reading.lens, by);
         }
         cx.notify();
+    }
+
+    fn fit_sketch(&mut self, cx: &mut Context<Self>) {
+        self.move_sketch_view(Looking::Fit, cx);
     }
 
     fn close_reading(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -267,22 +354,37 @@ impl JobView {
     }
 
     fn zoom_sketch(&mut self, by: f32, cx: &mut Context<Self>) {
-        if let Some(reading) = self.sketch_reading.as_mut() {
-            reading.lens.zoom = (reading.lens.zoom * by).clamp(LEAST, MOST);
-        }
-        cx.notify();
+        self.move_sketch_view(Looking::Zoom(by), cx);
     }
 
     fn pan_sketch(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        if let Some(reading) = self.sketch_reading.as_mut() {
-            reading.lens.pan = (reading.lens.pan.0 + x, reading.lens.pan.1 + y);
-        }
-        cx.notify();
+        self.move_sketch_view(Looking::Pan(x, y), cx);
     }
 
     fn sketch_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let key = &event.keystroke;
-        if key.modifiers.platform || key.modifiers.control || key.modifiers.alt {
+        // Keys in a text box are the box's own; only Esc leaves the Send back note it is in.
+        if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
+            if key.key == "escape" && !key.modifiers.modified() {
+                if let Some((answer, focus)) = self.sketch_reading.as_ref().map(|reading| (reading.answer.clone(), reading.focus.clone())) {
+                    self.close_box(SHEET, &answer, cx);
+                    window.focus(&focus, cx);
+                    cx.stop_propagation();
+                }
+            }
+            return;
+        }
+        if let Some(by) = lens_key(key) {
+            self.move_sketch_view(by, cx);
+            cx.stop_propagation();
+            return;
+        }
+        if key.modifiers.platform && key.key == "enter" && !key.modifiers.control && !key.modifiers.alt {
+            self.send_sketch_notes(window, cx);
+            cx.stop_propagation();
+            return;
+        }
+        if key.modifiers.control || key.modifiers.alt || key.modifiers.platform {
             return;
         }
         match key.key.as_str() {
@@ -291,16 +393,41 @@ impl JobView {
                     self.close_reading(window, cx);
                 }
             }
-            "+" | "=" => self.zoom_sketch(KEY_STEP, cx),
-            "-" => self.zoom_sketch(1. / KEY_STEP, cx),
-            "0" => self.fit_sketch(cx),
-            "left" => self.pan_sketch(KEY_PAN, 0., cx),
-            "right" => self.pan_sketch(-KEY_PAN, 0., cx),
-            "up" => self.pan_sketch(0., KEY_PAN, cx),
-            "down" => self.pan_sketch(0., -KEY_PAN, cx),
+            "f10" if key.modifiers.shift => self.note_menu_by_keys(window, cx),
+            "tab" => self.walk_parts(key.modifiers.shift, cx),
             _ => return,
         }
         cx.stop_propagation();
+    }
+
+    /// The foot: Approve and Send back, the card's own, while the sketch still asks, or what he answered. Nothing for a sketch
+    /// that asks nothing, an earlier revision, or one the plan waiting answers.
+    fn reading_foot(&self, reading: &Reading, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.shown.as_ref()?;
+        let (page, held) = (self.pages.get(job)?, self.thread(job, cx)?);
+        let card = card_of(&held.head, &held.items, &reading.card)?;
+        if reading.earlier {
+            return None;
+        }
+        let settled = settled_of(card.settled.as_ref(), page.cards.pressed(&reading.answer, card));
+        let asking = settled.is_none() && card.asked && !card.replaced && !card.withdrawn && !self.sketch_waits_with_plan(&card.sketch, cx);
+        if !asking && settled.is_none() {
+            return None;
+        }
+        let drawn = self.drawn_of(&card.sketch, cx);
+        let answers = self.approval(SHEET, &reading.answer, Subject::Sketch { sketch: card.sketch.clone(), drawn }, asking, false, settled, false, page, look, cx);
+        Some(
+            div()
+                .id("sketch-foot")
+                .flex_none()
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_3))
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_RAISED))
+                .child(answers)
+                .into_any_element(),
+        )
     }
 
     /// The sheet: the scrim over the window, and on it a frame with the sketch's band and its drawing.
@@ -464,10 +591,19 @@ impl JobView {
             .overflow_hidden()
             .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, _, cx| {
                 if let Some(reading) = this.sketch_reading.as_mut() {
-                    reading.drag = Some(point(f32::from(event.position.x), f32::from(event.position.y)));
+                    let at = point(f32::from(event.position.x), f32::from(event.position.y));
+                    reading.drag = Some(at);
+                    reading.down = Some((at, false));
                 }
                 cx.stop_propagation();
             }))
+            // A right press names the part under it: the menu offers Add note about it.
+            .on_mouse_down(MouseButton::Right, cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                let part = this.sketch_reading.as_ref().and_then(|reading| crate::scene::part_at(&Self::drawn_key(reading), event.position)).map(|(part, _)| part);
+                this.note_menu(event.position, part, window, cx);
+                cx.stop_propagation();
+            }))
+            .on_pinch(cx.listener(|this, event: &gpui::PinchEvent, _, cx| this.zoom_sketch((1. + event.delta).max(0.05), cx)))
             .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
                 let Some(was) = this.sketch_reading.as_ref().and_then(|reading| reading.drag) else { return };
                 if event.pressed_button != Some(MouseButton::Left) {
@@ -476,12 +612,19 @@ impl JobView {
                 let now = point(f32::from(event.position.x), f32::from(event.position.y));
                 if let Some(reading) = this.sketch_reading.as_mut() {
                     reading.drag = Some(now);
+                    if let Some((from, moved)) = reading.down.as_mut() {
+                        *moved |= (now.x - from.x).hypot(now.y - from.y) > TAP_SLOP;
+                    }
                 }
                 this.pan_sketch(now.x - was.x, now.y - was.y, cx);
             }))
-            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _, _| {
-                if let Some(reading) = this.sketch_reading.as_mut() {
-                    reading.drag = None;
+            .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                let Some(reading) = this.sketch_reading.as_mut() else { return };
+                reading.drag = None;
+                // A press that did not travel picks the part under it, as Classic's click picks a node.
+                if reading.down.take().is_some_and(|(_, moved)| !moved) {
+                    let part = crate::scene::part_at(&Self::drawn_key(reading), event.position).map(|(part, _)| part);
+                    this.pick_part(part, cx);
                 }
             }))
             .on_scroll(cx.listener(|this, event: &ScrollEvent, _, cx| {
@@ -493,13 +636,14 @@ impl JobView {
             }))
             .child({
                 let clock = Clock { steps: reading.steps, flows: Some(reading.opened) };
+                let marks = self.marks_of(reading);
                 match reading.against.as_ref().filter(|_| reading.changes) {
                     Some((_, before)) => {
                         let key = format!("{}:changes", reading.key);
                         let (scene, changes) = crate::scene::against(&key, before, &reading.scene);
-                        crate::scene::view_changes(key.into(), scene, Some(changes), Fit::Reading, clock, reading.lens).into_any_element()
+                        crate::scene::view_marked(key.into(), scene, Some(changes), Fit::Reading, clock, reading.lens, marks).into_any_element()
                     }
-                    None => crate::scene::view(reading.key.clone().into(), reading.scene.clone(), Fit::Reading, clock, reading.lens).into_any_element(),
+                    None => crate::scene::view_marked(reading.key.clone().into(), reading.scene.clone(), None, Fit::Reading, clock, reading.lens, marks).into_any_element(),
                 }
             });
         // `SketchReading`'s band: what the sketch is read against, and Changes or Whole.
@@ -597,11 +741,14 @@ impl JobView {
         });
         // The rail is a column of the frame beside the drawing, never a layer over it.
         let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
+        let foot = self.reading_foot(reading, &look, cx);
+        let note_box = self.render_note_box(reading, room, &look, cx);
         Some(
             deferred(
                 anchored().position(room.origin).anchor(Anchor::TopLeft).child(
                     div()
                         .id("sketch-view")
+                        .relative()
                         .occlude()
                         .track_focus(&reading.focus)
                         .w(viewport.width)
@@ -625,14 +772,94 @@ impl JobView {
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .child(band)
                                 .children(against)
-                                .child(drawing),
+                                .child(drawing)
+                                .children(foot),
                             Role::Dialog,
                             format!("Sketch: {}", reading.title),
                         ))
+                        .children(note_box)
                         .children(handed),
                 ),
             )
             .with_priority(3),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+    use crate::job_view::cards::picked_revision;
+
+    fn drawn(node: &str) -> String {
+        format!(r#"{{"nodes":[{{"id":"{node}","kind":"box","x":0,"y":0,"title":"{node}"}}],"edges":[]}}"#)
+    }
+
+    /// The pinned card of `sketch:Tail` as Fleet builds it: its id is the ledger's, and the same under every redraw.
+    fn pinned(at: &str, kept: &[&str]) -> ThreadSketch {
+        let revisions = kept.iter().map(|node| drawn(node)).collect::<Vec<_>>().join(",");
+        let now = drawn(kept.last().expect("a drawing"));
+        let wire = format!(r#"{{"id":"sketch:Tail","at":"{at}","sketch":"sketch:Tail","title":"Tail","drawing":{now},"asked":true,"revisions":[{revisions}]}}"#);
+        ipc::decode::<ThreadSketch>("a card", wire.as_bytes()).expect("a sketch card")
+    }
+
+    fn first_node(scene: Option<Rc<Scene>>) -> String {
+        scene.expect("a scene that reads").nodes[0].id.clone()
+    }
+
+    #[test]
+    fn a_sketch_redrawn_under_its_title_shows_revision_two_and_its_scene() {
+        let one = pinned("2026-11-14T10:00:00Z", &["first"]);
+        let two = pinned("2026-11-14T10:05:00Z", &["first", "second"]);
+        let (was, scene_one) = shown_scene(&one, None);
+        assert_eq!(first_node(scene_one), "first");
+        let (now, scene_two) = shown_scene(&two, None);
+        assert_ne!(was, now, "the redraw is read again, not found under the key the first drawing was read by");
+        assert_eq!(first_node(scene_two), "second");
+        assert_eq!(two.revisions.len(), 2, "the card is at revision 2");
+    }
+
+    #[test]
+    fn a_revision_picked_by_hand_stays_picked_until_a_newer_one_arrives() {
+        let picks = HashMap::from([("pin:sketch:Tail".to_string(), (0, 2))]);
+        assert_eq!(picked_revision(&picks, "pin:sketch:Tail", 2), Some(0));
+        assert_eq!(picked_revision(&picks, "pin:sketch:Tail", 3), None, "a third drawing takes its place");
+        assert_eq!(picked_revision(&picks, "other", 2), None);
+    }
+
+    #[test]
+    fn a_read_follows_the_newest_card_of_its_sketch() {
+        let (head, items) = {
+            let wire = format!(
+                r#"{{"session_id":"j","head":{{"trail":{{"started":"2026-11-14T09:00:00Z"}}}},"items":[{{"kind":"sketch","id":"row-1","at":"2026-11-14T10:00:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{},"asked":true}},{{"kind":"sketch","id":"row-2","at":"2026-11-14T10:05:00Z","sketch":"sketch:Tail","title":"Tail","drawing":{},"asked":true}}]}}"#,
+                drawn("first"),
+                drawn("second")
+            );
+            let read = ipc::decode::<ipc::JobThread>("thread", wire.as_bytes()).expect("a thread");
+            (read.head, read.items)
+        };
+        assert_eq!(newest_card(&head, &items, "sketch:Tail").map(|card| card.id.as_str()), Some("row-2"));
+        assert!(newest_card(&head, &items, "sketch:Other").is_none());
+    }
+
+    #[test]
+    fn a_sketch_sent_back_then_redrawn_asks_again_at_revision_two() {
+        use crate::job_view::acts::{Answer, CardState};
+        use crate::job_view::cards::{newest_of, settled_of};
+        let key = "pin:sketch:Tail";
+        let one = pinned("2026-11-14T10:00:00Z", &["first"]);
+        let mut cards = CardState::default();
+        cards.answers.insert(key.to_string(), Answer::SentBack("Move the tail left".into()));
+        cards.answered_on.insert(key.to_string(), newest_of(&one));
+        let sent_back = settled_of(one.settled.as_ref(), cards.pressed(key, &one));
+        assert!(matches!(sent_back, Some((crate::job_view::cards::Said::SentBack, _))), "it reads as sent back while it is the drawing he answered");
+        let two = pinned("2026-11-14T10:05:00Z", &["first", "second"]);
+        assert!(cards.pressed(key, &two).is_none(), "the redraw is not the drawing he answered");
+        assert!(settled_of(two.settled.as_ref(), cards.pressed(key, &two)).is_none());
+        assert!(two.asked, "it asks again");
+        assert_eq!(two.revisions.len(), 2, "at revision 2");
+        assert_eq!(first_node(shown_scene(&two, None).1), "second");
     }
 }

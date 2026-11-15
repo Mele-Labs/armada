@@ -349,6 +349,10 @@ async fn a_queued_act_the_mac_refuses_stays_with_its_why_and_the_acts_after_it_s
     // Work writes the message before Home reads its answer, so Home's queue lets it go a moment later.
     let home_ref = &home;
     until("and left Home's queue", || async { queued(home_ref).await.queued.len() == 1 }).await;
+    // Home still holds Work's queue as being sent for a moment after the act leaves it, and a take-back meanwhile
+    // is refused as in flight.
+    let work_id = work.id.clone();
+    until("and Home is done sending to Work", || async { !home_ref.rig.fleet.phone_held().flushing.lock().expect("not poisoned").contains(&work_id) }).await;
     let left = queued(&home).await.queued;
     assert_eq!(left.len(), 1, "{left:?}");
     assert_eq!(left[0].id, refused.id);

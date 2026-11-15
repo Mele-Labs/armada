@@ -94,10 +94,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("change_slot_pool", "changes the slot pool"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
-    ("move_on_operator_board", "moves the Operator's board"),
-    ("answer_operator_suggestion", "answers the Operator"),
     ("operator_answer", "answers the Operator"),
-    ("operator_undo_ruling", "answers the Operator"),
     ("operator_turn_order", "orders the Operator's Your turn"),
     ("operator_later", "puts an item of the Operator's Your turn last"),
     ("talk_to_operator", "talks to the Operator"),
@@ -115,7 +112,10 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("revert_fleet_build", "chooses the build Fleet runs"),
     ("pick_fleet_build_job", "chooses the build Fleet runs"),
     ("skip_preview_refresh", "chooses the build Fleet runs"),
+    ("mark_build_note_looked_at", "marks the notes of his preview build looked at"),
+    ("send_build_note_feedback", "answers the notes of his preview build"),
     ("start_sign_in", "signs this Mac in and out"),
+    ("register_sign_in_app", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),
     // What his other Macs hold, as this Mac's Phone Gateway hands it in: a Job planting rows would be drawn
     // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.

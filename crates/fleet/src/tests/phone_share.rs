@@ -132,7 +132,7 @@ async fn needs_you_holds_only_jobs_in_a_shared_project() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
     for job in [&jobs.private, &jobs.loose, &jobs.open] {
-        let item = WaitingInput { approves: false, id: "look".into(), text: "Review the Shop pane".into(), act: None, options: Vec::new(), steps: Vec::new() };
+        let item = WaitingInput { approves: false, id: "look".into(), text: "Review the Shop pane".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None };
         phone.rig.fleet.set_waiting(None, SetWaitingFor { items: vec![item], session_id: Some(job.clone()) }).await.expect("raised");
     }
 

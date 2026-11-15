@@ -200,14 +200,6 @@ pub trait HostedSessions: Send + Sync + 'static {
         press: ipc::operator_page::OperatorAnswerPress,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
 
-    /// `operator_undo_ruling`: take back a ruling the Operator made by following something he said.
-    /// [`Refusal::NotFound`] where no precedent ruling has the id, [`Refusal::Unacceptable`] where it is taken
-    /// back already or its Job has ended.
-    fn operator_undo_ruling(
-        self: Arc<Self>,
-        undo: ipc::operator_page::OperatorUndoRuling,
-    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
-
     /// `operator_turn_order`: Your turn as he dragged it.
     fn operator_turn_order(
         self: Arc<Self>,
@@ -221,29 +213,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         later: ipc::operator_page::OperatorLater,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
 
-    /// `get_operator_board`: what the Operator is ruling on, what waits and what it settled.
-    fn get_operator_board(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
-    /// `move_on_operator_board`: one press reorders what waits. [`Refusal::NotFound`] where the item,
-    /// or the one it goes before, is not waiting. Answers the board.
-    fn move_on_operator_board(
-        self: Arc<Self>,
-        moved: ipc::operator_board::MoveOnOperatorBoard,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
     /// `report_bridge_error`: an error Bridge showed the person, handed to the Operator. Never refused for
     /// the Operator being off: it is let go and `repeated` is `false`.
     fn report_bridge_error(
         self: Arc<Self>,
         error: ipc::operator_errors::ReportBridgeError,
     ) -> impl Future<Output = Result<ipc::operator_errors::BridgeErrorTaken, Refusal>> + Send;
-
-    /// `answer_operator_suggestion`: one press on a suggestion no Job holds. [`Refusal::NotFound`] where
-    /// none has that id, [`Refusal::IllegalMove`] where it is settled already. Answers the board.
-    fn answer_operator_suggestion(
-        self: Arc<Self>,
-        answer: ipc::operator_board::AnswerOperatorSuggestion,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 
     /// `confirm_operator_order`: the person presses to have an order stand. [`Refusal::Unacceptable`]
     /// while the Operator is off, or where the form names what Fleet does not know.
@@ -484,6 +459,32 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         cast: ipc::CastPageVote,
     ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
+
+    /// `add_part`: the Job puts one more part on the artifact that still asks him, or makes one. `caller` places a
+    /// hosted session as `show_sketch`'s does. Answers with the row. [`Refusal::Unacceptable`] for a part that breaks a
+    /// rule, naming each, or a call that places no session.
+    fn add_part(
+        &self,
+        caller: Option<crate::Caller>,
+        add: ipc::AddPart,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `answer_part`: he answers one asking part of an artifact on its own, and the Job is told as his message.
+    /// Answers with the artifact. [`Refusal::IllegalMove`] for a part put again since he read it,
+    /// [`Refusal::Unacceptable`] for one not open to an answer, a way the part does not take, or a send back with no note.
+    fn answer_part(
+        self: Arc<Self>,
+        answer: ipc::AnswerPart,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `get_artifact_page_source`: one kept revision of a page as the Job wrote it, the newest where `revision` is
+    /// `None`. [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page_source(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<String, Refusal>> + Send;
 
     /// `mark_artifact_seen`: the newest revision of an artifact he opened, kept where it is newer than what is kept.
     /// Answers with the newest kept; an older revision is answered, not refused. Nothing is sent to the Job.

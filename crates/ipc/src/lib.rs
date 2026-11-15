@@ -163,7 +163,7 @@ pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
-/// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
+/// The Operator's events: the page changed, and what became of a dispatch. `crates/ipc/operations/operator.board_changed.toml`.
 pub mod operator_board;
 /// An error Bridge showed the person, sent to the Operator. `crates/ipc/operations/report_bridge_error.toml`.
 pub mod operator_errors;
@@ -171,6 +171,8 @@ pub mod operator_errors;
 pub mod operator_talk;
 /// The Operator's page: Your turn and the digest beside it. `crates/ipc/operations/operator_page.toml`.
 pub mod operator_page;
+/// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
+pub mod operator_cards;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -280,6 +282,8 @@ mod show_file;
 mod package_manifest;
 /// A Job's sketches, drafts and pages as one record. `get_job_artifacts`.
 mod artifact;
+/// An artifact's parts. `add_part`, `answer_part`.
+mod artifact_parts;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -358,6 +362,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
@@ -384,6 +389,7 @@ pub use building::{
     HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
+    BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
 };
@@ -436,7 +442,7 @@ pub use health::{
     FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
-    WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    WordsSent, TellSession, ThoughtKind,
     ThoughtTarget,
 };
 pub use session_system::{
@@ -703,7 +709,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps};
+pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps, SlotWait};
 pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
@@ -734,11 +740,17 @@ pub use artifact::{
     ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
+pub use artifact_parts::{
+    AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
+    ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
+};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
+pub use sketch_scene::SceneNodeState;
+pub use sketch::SCENE_STATES;
 pub use sketch_screen::{
     ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
@@ -843,7 +855,7 @@ pub use for_you::{
 };
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
-    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
@@ -886,7 +898,7 @@ pub use underway::{
 pub use protocol_id::ProtocolId;
 // The Macs setup that leads him: its one press, the Macs on his account, and pairing one without a link.
 pub use phone::{MacSetup, MacSetupStep};
-pub use macs::{AskMacPair, FoundMac, FoundMacs};
+pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, VouchedMacs};
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };

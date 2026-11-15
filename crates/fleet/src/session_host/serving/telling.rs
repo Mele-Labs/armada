@@ -166,7 +166,7 @@ where
         self.noticed(session, text, false, notice).await
     }
 
-    /// **The one check for every word**, so no notice is sent past it: the person's mute first, then
+    /// **The one check for every word**, so no notice is sent past it: a Job waiting for a slot, the person's mute, then
     /// the Fleet mods' rule (the Job's own, else the repository's, else everywhere's, of those whose
     /// pattern finds words in this notice) with the first of its conditions that holds, then the
     /// notice as it has always been sent.
@@ -176,6 +176,10 @@ where
         // about one is not its to hear, and it is settled rather than asked again later.
         if notice.about_code_delivery() && self.job_carries_no_code(session).await {
             return Ok(Told::Withheld);
+        }
+        // A Job waiting for a slot hears nothing until it is moved in, and the caller tells it then.
+        if self.hosts().slot_queue().waits(session) {
+            return Ok(Told::Unheard);
         }
         match self.verdict_on(session, text, notice).await {
             Verdict::Muted => Ok(Told::Unheard),
@@ -238,6 +242,12 @@ where
     /// Fleet's word to a Job a repair put right: carry on. Kept from no mute or rule, since Fleet
     /// started the repair itself and a Job that missed the word would stay where it stopped.
     pub(crate) async fn told_of_a_repair(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, None).await
+    }
+
+    /// Fleet's word to the Operator of what the person just did on a card of his. Kept from no mute or rule,
+    /// since it answers his own press and the Operator can only act on it by being told.
+    pub(crate) async fn told_of_his_act(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
         self.fleet_word(session, text, false, None).await
     }
 
