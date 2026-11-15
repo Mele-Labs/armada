@@ -166,6 +166,7 @@ pub static MACS_LONG_STEPS: &[Step] = &[
 
 /// `native-nearby-macs`: his other Macs found on this network and on his account, each with where it is reached and a
 /// Pair. Pair on the one nearby asks it with no link, and its row waits on Confirm; the one only on his account refuses.
+/// A Mac on an older build has Pair off, and one his store lists pairs at once.
 pub const MACS_NEARBY: &str = "native-nearby-macs";
 
 pub static MACS_NEARBY_STEPS: &[Step] = &[
@@ -177,6 +178,10 @@ pub static MACS_NEARBY_STEPS: &[Step] = &[
     press_on("Pair on the Mac nearby asks it, with no link: its row waits on Confirm and shows the four digits", "button", "Pair Office iMac", "img", "Confirm on Office iMac if it shows 4821."),
     press_on("The Mac only on his account does not answer, and the Gateway's sentence stands under its row", "button", "Pair MacBook Pro", "alert", "MacBook Pro did not answer. Check Armada is open there, then press Pair again."),
     step("Tab goes on to the next Pair", Verb::Key("tab"), "button", "Pair Old iMac"),
+    step("Studio mini runs an older build and updates on itself: its row says so in amber and its Pair is off", Verb::Look, "label", "Studio mini runs an older build. Update Armada on it to pair."),
+    step("The tooltip on its Pair says why", Verb::Hover, "button", "Pair Studio mini"),
+    press_on("Home laptop is one his store lists: Pair pairs it at once, with no Confirm, and the keys go to its Forget", "button", "Pair Home laptop", "button", "Forget Home laptop"),
+    step("Den iMac is only in his store and has no tunnel: its Pair pairs it the same way", Verb::Wheel("region", "Devices", 900), "button", "Pair Den iMac"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
@@ -761,4 +766,15 @@ pub static CLAIMS_STORE_STEPS: &[Step] = &[
     press_on("Join is refused", "button", "Join", "alert", "GitHub says you are not a member of acme/platform."),
     step("Fleet's words stand under the press, the press is back, and what was typed is kept", Verb::Wheel("region", "Claims store", 600), "alert", "GitHub says you are not a member of acme/platform."),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-sign-in-app`: Settings › Account with no sign-in app yet. The one press asks GitHub to make the app on his
+/// account and opens its settings page, and draws busy while Fleet answers.
+pub const SIGN_IN_APP: &str = "native-sign-in-app";
+
+pub static SIGN_IN_APP_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Account: no sign-in app is registered, so the page opens with the press that registers one", "button", "Account", "button", "Register on GitHub"),
+    step("The pointer rests on it: GitHub makes the app on his account and opens its settings page, where he ticks Enable Device Flow", Verb::Hover, "button", "Register on GitHub"),
+    press_on("The press asks Fleet for the page that carries the app to GitHub, and draws busy while it answers", "button", "Register on GitHub", "button", "Opening"),
 ];

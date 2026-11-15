@@ -3,6 +3,24 @@
 :root { background: var(--bg-base); color-scheme: dark; }
 body { margin: 0; padding: var(--space-6); }
 
+/* House style, a calm default under the page's own CSS. Every selector is :where(), so a page's rules and the kit's win.
+   Text is muted and headings are not, depth is surface steps edged by hairlines, and colour is for state and the ask. */
+:where(body) { color: var(--fg-muted); line-height: var(--leading-base); }
+:where(h1, h2, h3, h4, h5, h6, strong, th) { color: var(--fg-default); }
+:where(p, ul, ol, table, figure, details, pre, blockquote, armada-sketch, armada-vote) { margin-block: 0 var(--space-4); }
+:where(h2) { margin-block: var(--space-12) var(--space-3); }
+:where(h3) { margin-block: var(--space-6) var(--space-2); }
+:where(figure, details, armada-sketch) {
+  padding: var(--space-4); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-raised);
+}
+:where(pre, code) { background: var(--bg-sunken); border-radius: var(--radius-sm); }
+:where(pre) { padding: var(--space-3); border: var(--border-width) solid var(--border-subtle); border-radius: var(--radius-md); }
+:where(table) { inline-size: 100%; border-collapse: collapse; }
+:where(th) { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-default); color: var(--fg-muted); font-weight: var(--weight-medium); text-align: start; }
+:where(td) { padding: var(--space-2) var(--space-3); border-block-end: var(--border-width) solid var(--border-subtle); }
+:where(hr) { border: 0; border-block-start: var(--border-width) solid var(--border-subtle); margin-block: var(--space-6); }
+:where(armada-vote) { padding: var(--space-4); border: var(--border-width) solid color-mix(in srgb, var(--accent) 35%, var(--border-subtle)); border-radius: var(--radius-lg); background: var(--accent-faint); }
+
 .armada-act, .armada-send, .armada-expand, .armada-move, .armada-segmented > button {
   min-block-size: var(--h-control-sm); padding: 0 var(--space-3); border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-md); background: var(--bg-raised); color: var(--fg-default);

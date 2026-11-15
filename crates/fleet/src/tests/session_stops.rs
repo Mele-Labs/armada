@@ -160,7 +160,7 @@ async fn an_item_for_him_or_a_live_watch_excuses_a_stop() {
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -498,7 +498,7 @@ async fn nothing_waiting_on_him_is_the_only_stop_a_quiet_repair_is_started_for()
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -583,7 +583,7 @@ async fn a_quiet_turn_that_waits_on_him_is_no_hung_command() {
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await
@@ -672,7 +672,7 @@ async fn a_red_pull_request_never_draws_a_repair_while_something_waits_on_him() 
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None }],
             },
         )
         .await

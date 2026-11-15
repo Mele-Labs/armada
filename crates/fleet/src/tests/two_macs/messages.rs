@@ -158,7 +158,7 @@ fn arrivals_for(told: &Arc<Mutex<Vec<CallsChanged>>>, job: &SessionId) -> usize 
 }
 
 async fn asks(mac: &OneMac, job: &SessionId, id: &str, text: &str) {
-    let item = WaitingInput { approves: false, id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let item = WaitingInput { approves: false, id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None };
     mac.rig.fleet.waiting_for(None, SetWaitingFor { items: vec![item], session_id: Some(job.clone()) }).await.expect("set");
 }
 

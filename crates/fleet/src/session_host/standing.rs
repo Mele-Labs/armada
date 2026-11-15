@@ -210,6 +210,7 @@ fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingIt
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 

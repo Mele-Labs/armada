@@ -1128,6 +1128,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-claim-wait-names",
+        title: "A Job's wait names a Job of this Mac as a Job, and another Mac by its own name",
+        screen: Screen::Jobs,
+        scenario: "claim-waits",
+        steps: &[
+            press_on("A Job that waits on a fix by a Job of this Mac names the Job, not the Mac the person sits at", "row", "Audit the docs index", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("The row opens that Job on a press, and says so", Verb::Hover, "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today"),
+            step("It has no Mac chip", Verb::Absent("img", "Nicks-MacBook-Pro-2026"), "region", "Claims"),
+            step("A wait on a Job of another Mac names that Mac without its .local, in the chip too", Verb::Hover, "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
+            press_on("A press on the first opens the Job fixing it", "button", "Waiting on the Job fixing it: Fix the flaky test the_repository_has_no_duplicate_today", "region", "Thread"),
+            step("It waits on nothing, so it has no claims card", Verb::Absent("region", "Claims"), "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-claim-waits",
         title: "A Job waiting on an item another Job or a person holds",
         screen: Screen::Jobs,
@@ -3292,6 +3306,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::CLAIMS_STORE_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::SIGN_IN_APP,
+        title: "Settings › Account: register the sign-in app on GitHub",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::SIGN_IN_APP_STEPS,
     },
     Walk {
         name: crate::settings::walk::TAKE,

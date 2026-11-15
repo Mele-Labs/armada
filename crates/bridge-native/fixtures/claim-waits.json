@@ -2,7 +2,8 @@
   {
     "session_id": "mock-04",
     "claim_waits": [
-      { "item": "armada-zasx.3", "holder": "nick", "machine": "Home", "title": "Fix the flaky queue test", "since": "2026-11-09T14:33:00Z", "ends": "claim_ends" }
+      { "item": "armada-zasx.3", "holder": "nick", "machine": "Home.local", "title": "Fix the flaky queue test", "since": "2026-11-09T14:33:00Z", "ends": "claim_ends" },
+      { "item": "tests::the_repository_has_no_duplicate_today", "holder": "nick", "machine": "Nicks-MacBook-Pro-2026.local", "title": "Fix the flaky test the_repository_has_no_duplicate_today", "this_mac": true, "job": "mock-10", "since": "2026-11-09T14:41:00Z", "ends": "fix_merges" }
     ]
   },
   {

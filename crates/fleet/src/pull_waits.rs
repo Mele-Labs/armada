@@ -82,6 +82,7 @@ mod tests {
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         }
     }
 

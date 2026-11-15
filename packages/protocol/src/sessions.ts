@@ -318,6 +318,10 @@ export type ClaimWait = {
   holder: string;
   machine?: string;
   title?: string;
+  /** Whether the holding Job is one of this Mac's. Absent where it is not, and for a person in beads. Since 14 Nov 2026. */
+  this_mac?: boolean;
+  /** The holding Job's id on its Mac. Absent for a person in beads and where main's own fix ends the wait. Since 14 Nov 2026. */
+  job?: string;
   since: string;
   ends: ClaimWaitEnds;
 };
@@ -711,6 +715,8 @@ export type WaitingItem = {
   create_refused?: string;
   /** On a question or a card, where the Answer role stands at Suggest: what the Operator read and the option it would pick. His press on that option is the one press. */
   operator_read?: OperatorRead;
+  /** The id of one of the Job's artifacts this item is about, on an agent's item, so a client names it and opens it. Absent otherwise. */
+  artifact?: string;
 };
 
 /** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */

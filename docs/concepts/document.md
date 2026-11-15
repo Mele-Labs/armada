@@ -67,6 +67,15 @@ It is read off the page Fleet kept, never off the Job's tool call.
 A page kept before asking began has no `asked` and asks nothing.
 Why: on 12 Nov 2026 the owner could not tell whether his approval was needed on a status page the orchestrator revised all day, and it was not.
 
+**Rule.** A page that asks does not bury its ask.
+A page asks by its Approve mark, by a gate waiting on it, or by holding an `<armada-vote>` or `<armada-action>`.
+Fleet measures it as it keeps the revision (`crates/fleet/src/session_host/page_measure.rs`): the words of body text before the first block that holds the ask, an `<armada-vote>`, an `<armada-action>` or the first `<h2>`, or before the end of the page where it has none, headings, the head, scripts, styles and comments left out.
+More than 120 words, or none at all, and the revision is kept as one for reading: `asked` reads `"false"`, nothing waits on him, and the Job is told in the `document_sketch` notice what to move: `In the page <path>, <n> words come before the first <h2>, and he reads 120 at most before what he decides.` and to open with one sentence on what he decides, then the ask, with detail folded below.
+It is not his answer and it leaves nothing for him to Send back.
+The next revision that opens short asks.
+His own Edit is never measured.
+The owner, 14 Nov 2026, of Jobs' pages: "holy shit talk about text overload. MY EYES... I have no idea what to look at here."
+
 **Rule.** A reading page's revision reaches the thread as its card with Open and notes, and no Approve.
 It is not in his Needs you, holds no plan, and an answer to it is refused: the page is for reading.
 His notes on it still reach the Job as numbered notes.
