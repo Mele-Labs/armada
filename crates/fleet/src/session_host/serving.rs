@@ -571,8 +571,8 @@ where
     }
 
     async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
-        // A failure here leaves the takes as they were; `job_artifacts` says what is wrong with the Job.
-        self.old_takes_styled(id.as_str()).await.ok();
+        // A failure here leaves the mocks as they were; `job_artifacts` says what is wrong with the Job.
+        self.old_mocks_styled(id.as_str()).await.ok();
         self.job_artifacts(id.as_str()).await
     }
 

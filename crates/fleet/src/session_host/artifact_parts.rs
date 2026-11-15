@@ -61,6 +61,12 @@ fn store_parts(detail: &mut BTreeMap<String, String>, parts: &[ArtifactPart]) ->
     Ok(())
 }
 
+/// Whether `scene` holds a `mock` with no `kept`, which native draws without the app's styles.
+fn unkept(scene: &str) -> bool {
+    ipc::decode::<ipc::Scene>("a kept scene", scene.as_bytes())
+        .is_ok_and(|scene| scene.nodes.iter().any(|node| matches!(node.kind, ipc::SceneKind::Mock) && node.kept.is_none()))
+}
+
 /// Whether a row's detail is a sketch row, which is what an artifact is kept as.
 fn is_sketch(one: &ipc::Attachment) -> bool {
     one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch")
@@ -418,18 +424,23 @@ where
         Ok(checked)
     }
 
-    /// **Takes a Fleet kept before `takes_styled` are styled once, the first time they are read**: each take's mocks
-    /// with no `kept` are kept with their style set and the part is written back, so they stop drawing blank. A take
-    /// that cannot be styled now is left as it was.
-    pub(crate) async fn old_takes_styled(&self, id: &str) -> Result<(), Refusal> {
-        let unkept = |scene: &str| {
-            ipc::decode::<ipc::Scene>("a take's scene", scene.as_bytes())
-                .is_ok_and(|scene| scene.nodes.iter().any(|node| matches!(node.kind, ipc::SceneKind::Mock) && node.kept.is_none()))
-        };
+    /// **Drawings and takes a Fleet kept before their mocks carried `kept` are styled once, the first time they are
+    /// read**: each mock with no `kept` is kept with its style set and the row is written back, so it stops drawing
+    /// blank. One that cannot be styled now is left as it was.
+    pub(crate) async fn old_mocks_styled(&self, id: &str) -> Result<(), Refusal> {
         let held = self.held_rows(id).await?;
         for row in held.into_iter().filter(is_sketch) {
-            let mut parts = stored(&row.detail);
+            let mut detail = row.detail;
             let mut changed = false;
+            if let Some(scene) = detail.get("scene").filter(|scene| unkept(scene)).cloned() {
+                let title = detail.get("title").cloned().unwrap_or_default();
+                let sketch = ipc::Sketch { title, scene: scene.clone(), nodes: 0, edges: 0, against: detail.get("against").cloned() };
+                if let Ok(styled) = self.sketch_styled(id, sketch, "show_sketch").await {
+                    changed |= styled.scene != scene;
+                    detail.insert("scene".into(), styled.scene);
+                }
+            }
+            let mut parts = stored(&detail);
             for part in parts.iter_mut() {
                 let PartContent::Takes { takes, .. } = &mut part.content else { continue };
                 for take in takes.iter_mut() {
@@ -448,8 +459,9 @@ where
                 let store = self.store().lock().await;
                 store.session(id).map_err(|why| self.ledger_fault(why))?.map(|session| session.harness).unwrap_or_default()
             };
-            let mut detail = row.detail;
-            store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
+            if !parts.is_empty() {
+                store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
+            }
             self.report_session(SessionReport {
                 harness,
                 session_id: SessionId::carried(id),
