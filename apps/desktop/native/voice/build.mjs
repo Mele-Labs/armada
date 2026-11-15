@@ -94,8 +94,15 @@ if (process.platform !== "darwin") {
   ]);
   copyFileSync(join(here, "Info.plist"), join(app, "Contents", "Info.plist"));
   // With this Mac's "Armada Local Signing" certificate where it has one, so its microphone grant outlasts the build.
-  execFileSync(join(here, "..", "..", "..", "..", "scripts", "signing-identity"), ["sign", app], {
-    stdio: "inherit",
-  });
+  execFileSync(
+    join(here, "..", "..", "..", "..", "scripts", "signing-identity"),
+    [
+      "sign",
+      app,
+    ],
+    {
+      stdio: "inherit",
+    },
+  );
   console.log(`voice: built ${app}`);
 }
