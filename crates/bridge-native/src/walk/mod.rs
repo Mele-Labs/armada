@@ -3157,6 +3157,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::CLAIMS_STORE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::SIGN_IN_APP,
+        title: "Settings › Account: register the sign-in app on GitHub",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::SIGN_IN_APP_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::TAKE,
         title: "Choose what to take from Armada",
         screen: Screen::Settings,

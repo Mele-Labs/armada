@@ -650,7 +650,7 @@ fn field(look: &Look, id: &'static str, label: &'static str, input: &Entity<Inpu
 }
 
 /// What Fleet refused with, in its own words, in a red box with a mark.
-fn refused_line(look: &Look, id: &'static str, said: &str) -> AnyElement {
+pub(super) fn refused_line(look: &Look, id: &'static str, said: &str) -> AnyElement {
     let ink = look.color(token::STATUS_COMPLETED_FAILED);
     let line = div()
         .id(id)

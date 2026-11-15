@@ -73,6 +73,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of the sign-in app's press: Fleet takes a few seconds to answer it, so the press is drawn busy.
+    pub fn registration_takes_a_while(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.sign_in_app.wait = Some(std::time::Duration::from_secs(30));
+            }
+        });
+    }
+
     /// For the walk of a Mac nothing is set up on.
     pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

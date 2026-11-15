@@ -166,6 +166,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
+                if walk.name == crate::settings::walk::SIGN_IN_APP {
+                    over.update(cx, |over, cx| over.registration_takes_a_while(cx));
+                }
                 if walk.name == crate::settings::walk::WAYS {
                     over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
                 }
