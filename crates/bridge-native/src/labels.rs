@@ -35,6 +35,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "group" => Role::Group,
         "radiogroup" => Role::RadioGroup,
         "switch" => Role::Switch,
+        "slider" => Role::Slider,
         "toolbar" => Role::Toolbar,
         "status" => Role::Status,
         "timer" => Role::Timer,

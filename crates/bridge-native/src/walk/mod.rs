@@ -3226,6 +3226,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::PAGES_STEPS,
     },
     Walk {
+        name: crate::settings::walk::METER,
+        title: "Settings: one meter you drag or type",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::METER_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::LIMITS,
         title: "Settings › Limits",
         screen: Screen::Settings,

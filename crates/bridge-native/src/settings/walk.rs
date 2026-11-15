@@ -94,6 +94,25 @@ pub static PAGES_STEPS: &[Step] = &[
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 
+/// `native-settings-meter`: a figure that slides is one meter you drag or type. Plan's "Offer a lower default at":
+/// hover says how, a drag and the arrows move it, a click types 65, Save keeps it and Reset puts it back.
+pub const METER: &str = "native-settings-meter";
+
+pub static METER_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
+    press_on("Plan: one meter holds the figure, its unit and its most", "button", "Plan", "slider", "Offer a lower default at slider"),
+    step("Hovering it says how it takes a value", Verb::Hover, "slider", "Offer a lower default at slider"),
+    step("Dragging across sets the value by where the pointer is", Verb::DragBy("slider", "Offer a lower default at slider", -100, 0), "slider", "Offer a lower default at slider"),
+    step("\u{2192} steps one, and Shift with it ten", Verb::Keys(&["right", "right", "right", "shift-right"]), "slider", "Offer a lower default at slider"),
+    press_on("A click without a drag types: the figure is the field, the fill stays behind it", "slider", "Offer a lower default at slider", "textbox", "Offer a lower default at"),
+    step("\u{2318}A takes what is there", Verb::Key("cmd-a"), "textbox", "Offer a lower default at"),
+    step("65 replaces it", Verb::Typed("65"), "textbox", "Offer a lower default at"),
+    step("Enter ends the typing and the keys stay on the meter; Save keeps the figure", Verb::Key("enter"), "button", "Save Offer a lower default at"),
+    press_on("Saved: the Changed chip stands, and Reset puts back what ships", "button", "Save Offer a lower default at", "button", "Reset to 80%: Offer a lower default at"),
+    press_on("Reset puts it back to 80", "button", "Reset to 80%: Offer a lower default at", "slider", "Offer a lower default at slider"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
 /// `native-settings-limits`: Settings › Limits as tiles, group by group, then a count stepped and put back.
 pub const LIMITS: &str = "native-settings-limits";
 
