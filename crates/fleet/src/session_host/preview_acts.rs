@@ -33,13 +33,18 @@ const STEPS_AT_MOST: usize = 9;
 /// The most a step says.
 const STEP_AT_MOST: usize = 120;
 
-/// The ids of the acts registry, `crates/core-model/domain/actions.toml`, read once from the copy built in.
+/// The ids of the acts registry, `crates/core-model/domain/actions.toml`, read once from the copy built in: each
+/// `[actions.<id>]` header, read by line as the gate's `rules_actions` reads it.
 fn act_ids() -> &'static BTreeSet<String> {
     static IDS: OnceLock<BTreeSet<String>> = OnceLock::new();
-    IDS.get_or_init(|| {
-        let registry: toml::Table = include_str!("../../../core-model/domain/actions.toml").parse().unwrap_or_default();
-        registry.get("actions").and_then(toml::Value::as_table).map(|acts| acts.keys().cloned().collect()).unwrap_or_default()
-    })
+    IDS.get_or_init(|| act_ids_in(include_str!("../../../core-model/domain/actions.toml")))
+}
+
+fn act_ids_in(registry: &str) -> BTreeSet<String> {
+    registry
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("[actions.")?.strip_suffix(']').map(str::to_string))
+        .collect()
 }
 
 impl<H, V, W> Fleet<H, V, W>

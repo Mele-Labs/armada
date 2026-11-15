@@ -1208,7 +1208,9 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 
 **A Bridge that matches `Event` exhaustively** meets a kind it did not know. Native matches with a fallback.
 `OfferPreview` gained `look` and `steps`, each absent to keep what the last offer said.
-**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`. A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` and the `build_notes` table.
+**Skew.** As above.
+**The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` and the `build_notes` table.
 
 ## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
 
