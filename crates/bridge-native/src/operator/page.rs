@@ -1,4 +1,4 @@
-//! The page's state and acts: the card in front, the cards waiting behind it, the talk about a card, and what the
+//! The page's state and acts: the card in front, the cards queued behind it in Next up, the talk about a card, and what the
 //! Operator is allowed to do unasked. Every press answers at once: the page moves first and takes Fleet's page when it
 //! comes. A refusal puts the card back and says why on it.
 
@@ -9,7 +9,7 @@ use std::rc::Rc;
 use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
-use ipc::{OperatorActs, SessionId, WaitingAct};
+use ipc::{OperatorActs, ParkedIdea, SessionId, WaitingAct};
 
 use super::composer::{Composed, OperatorComposer, Outgoing};
 use super::face;
@@ -60,7 +60,7 @@ pub struct OperatorPageView {
     pub(super) wire: Wire,
     /// Fleet's page, with this sitting's presses already on it. `None` until it is read: a skeleton.
     pub(super) page: Option<OperatorPage>,
-    /// The card in front, by id: where he brought one from Waiting, else the first.
+    /// The card in front, by id: where he brought one from Next up, else the first.
     pub(super) open: Option<String>,
     /// The cards settled here, which stay out of the queue though Fleet keeps one whose act it left to him to open.
     pub(super) settled: BTreeSet<String>,
@@ -73,11 +73,13 @@ pub struct OperatorPageView {
     pub(super) talk: Option<Talk>,
     /// The box under the card, whose send is a dispatch, or a talk where it holds a tag.
     pub(super) composer: Entity<OperatorComposer>,
-    /// The ideas the Operator kept for later.
+    /// The ideas the Operator kept for later: Next up lists them after the cards.
     pub(super) parked: Entity<ParkedIdeas>,
+    /// The kept idea brought to the front from Next up, by id, drawn as a card in place of the Operator's own.
+    pub(super) idea_front: Option<String>,
     parked_reading: bool,
     pub focus: FocusHandle,
-    /// Every time on the page read as its age, after a press on one: they flip together, as the thread's do.
+    /// Every time on the page read as its age, with the clock in its tooltip; a press on one flips them together, as the thread's do.
     pub(super) aged: bool,
     /// The clock the page reads its times against: the walk's 13:05, else this Mac's.
     pub(super) clock_now: Option<chrono::DateTime<chrono::Local>>,
@@ -101,19 +103,26 @@ pub struct OperatorPageView {
     pub(super) talk_scroll: ScrollHandle,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
-    /// The open card's Discuss later, so a test can put the keys on a press.
+    /// The open card's Snooze, so a test can put the keys on a press.
     pub(super) later_focus: FocusHandle,
+    /// The option rows' focus handles, by card and place: a row lifts while it has the keys.
+    pub(super) option_focus: RefCell<HashMap<String, FocusHandle>>,
     /// Where each press that opens a menu was drawn, by name, so the menu opens under it.
     pub(super) drawn: Bounded,
-    /// Discuss later's menu of when the card comes back, while it is open.
+    /// Snooze's menu of when the card comes back, while it is open.
     pub(super) later_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
     /// The menu of what the Operator may do unasked, while it is open.
     pub(super) acts_menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
     /// Fleet's sentence where it refused the last change of that value.
     pub(super) acts_refused: Option<SharedString>,
-    /// The list of the cards waiting behind the one in front, while it is open, with the row the keys are on.
-    pub(super) waiting_open: bool,
-    pub(super) waiting_focus: FocusHandle,
+    /// Next up, the cards queued behind the one in front and the kept ideas, while it is open.
+    pub(super) next_open: bool,
+    /// Next up's head, where the keys come back to when it folds.
+    pub(super) next_head: FocusHandle,
+    /// Next up's first row, where the keys go when it opens.
+    pub(super) next_first: FocusHandle,
+    /// Everything Next up draws, so the page can tell the keys are inside it.
+    pub(super) next_group: FocusHandle,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -135,7 +144,7 @@ impl OperatorPageView {
             Wire::Mock(_) => None,
         };
         let composer = cx.new(|cx| OperatorComposer::new(fleet, window, cx));
-        let parked = cx.new(|_| ParkedIdeas::new(None));
+        let parked = cx.new(|_| ParkedIdeas::new());
         subs.push(cx.subscribe_in(&composer, window, |this, _, event: &Composed, window, cx| this.composed(event, window, cx)));
         subs.push(cx.subscribe(&parked, |this, _, asked: &ParkedAsked, cx| this.idea_asked(asked, cx)));
         OperatorPageView {
@@ -149,9 +158,10 @@ impl OperatorPageView {
             talk: None,
             composer,
             parked,
+            idea_front: None,
             parked_reading: false,
             focus: cx.focus_handle(),
-            aged: false,
+            aged: true,
             clock_now: None,
             switching: false,
             switching_off: false,
@@ -166,12 +176,15 @@ impl OperatorPageView {
             talk_scroll: ScrollHandle::new(),
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
+            option_focus: RefCell::new(HashMap::new()),
             drawn: Default::default(),
             later_menu: None,
             acts_menu: None,
             acts_refused: None,
-            waiting_open: false,
-            waiting_focus: cx.focus_handle(),
+            next_open: false,
+            next_head: cx.focus_handle(),
+            next_first: cx.focus_handle(),
+            next_group: cx.focus_handle(),
             seen: None,
             read_at: 0,
             reading: false,
@@ -215,7 +228,6 @@ impl OperatorPageView {
         let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), window, cx);
         this.clock_now = Some(scenes::now());
         this.titles = scenes::titles();
-        this.parked.update(cx, |parked, _| parked.set_clock(Some(scenes::now())));
         this.read(cx);
         this.read_parked(cx);
         this
@@ -351,15 +363,21 @@ impl OperatorPageView {
             }
             return;
         }
-        if self.waiting_open {
+        // Inside Next up the arrows, j, k, Enter and Esc are its own: they go on to its rows.
+        if self.next_open && self.next_group.contains_focused(window, cx) {
             return cx.propagate();
+        }
+        // Esc puts the Operator's own card back where a kept idea is in front.
+        if act.is("close") && self.idea_front.take().is_some() {
+            cx.notify();
+            return;
         }
         match act.id {
             // The registry's slots are j, k, ↓, ↑: even slots go down. They go through the cards waiting.
             "call_move_focus" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
             "call_yes" => self.answer(OperatorAnswer::Yes, window, cx),
             "call_send" => self.enter(window, cx),
-            "call_later" => self.open_later(true, window, cx),
+            "call_snooze" => self.open_later(true, window, cx),
             // `/` is Discuss, which the registry knows as Ask the Operator.
             "call_ask" => self.discuss(window, cx),
             "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
@@ -456,7 +474,7 @@ impl OperatorPageView {
             self.composer.update(cx, |composer, cx| composer.untag(cx));
         }
         self.open = Some(id.to_string());
-        self.waiting_open = false;
+        self.idea_front = None;
         self.main_scroll.set_offset(gpui::Point::default());
         cx.notify();
     }
@@ -466,32 +484,77 @@ impl OperatorPageView {
         self.bring(id, cx);
     }
 
-    /// Waiting opens its list, or shuts it.
-    pub fn toggle_waiting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.waiting_open && self.waiting().is_empty() {
+    /// Next up opens, with the keys on its first row, or folds, with the keys back on its head.
+    pub fn toggle_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.next_open && self.next_count(cx) == 0 {
             return;
         }
-        self.waiting_open = !self.waiting_open;
-        if self.waiting_open {
-            let keys = self.waiting_focus.clone();
+        self.next_open = !self.next_open;
+        if self.next_open {
+            let keys = self.next_first.clone();
             window.defer(cx, move |window, cx| window.focus(&keys, cx));
         } else {
-            window.focus(&self.focus, cx);
+            window.focus(&self.next_head, cx);
         }
         cx.notify();
     }
 
-    pub fn close_waiting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if std::mem::take(&mut self.waiting_open) {
-            window.focus(&self.focus, cx);
+    /// Esc inside Next up folds it.
+    pub fn close_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if std::mem::take(&mut self.next_open) {
+            window.focus(&self.next_head, cx);
             cx.notify();
         }
+    }
+
+    /// The kept ideas, newest first.
+    pub(super) fn ideas(&self, cx: &App) -> Vec<ParkedIdea> {
+        self.parked.read(cx).ideas().into_iter().cloned().collect()
+    }
+
+    /// What Next up counts: the cards queued behind the one in front, and the kept ideas.
+    pub fn next_count(&self, cx: &App) -> usize {
+        self.waiting().len() + self.parked.read(cx).ideas().len()
+    }
+
+    /// The kept idea in front, while it is still kept.
+    pub(super) fn front_idea(&self, cx: &App) -> Option<ParkedIdea> {
+        let id = self.idea_front.as_deref()?;
+        self.parked.read(cx).ideas().into_iter().find(|idea| idea.id == id).cloned()
+    }
+
+    /// A kept idea comes to the front as a card. A talk about the card that was there ends: its card is still waiting.
+    pub fn bring_idea(&mut self, id: &str, cx: &mut Context<Self>) {
+        if self.parked.read(cx).ideas().iter().all(|idea| idea.id != id) {
+            return;
+        }
+        if self.talk.take().is_some() {
+            self.composer.update(cx, |composer, cx| composer.untag(cx));
+        }
+        self.idea_front = Some(id.to_string());
+        self.main_scroll.set_offset(gpui::Point::default());
+        cx.notify();
+    }
+
+    /// The front idea's press: Start sends it as a dispatch, Remove lets it go. The page answers both as it answers
+    /// a press on the idea's own row, once Fleet has the dispatch or the removal.
+    pub fn ask_idea(&mut self, asked: ParkedAsked, cx: &mut Context<Self>) {
+        self.parked.update(cx, |_, cx| cx.emit(asked));
     }
 
     // -- settling ----------------------------------------------------------------------------------
 
     /// A digit: the option in that place settles the card; on a go-ahead to file, the Then in that place.
     pub fn digit(&mut self, digit: usize, cx: &mut Context<Self>) {
+        // A kept idea in front has two options: 1 starts it and 2 lets it go.
+        if let Some(idea) = self.front_idea(cx) {
+            match digit {
+                1 => self.ask_idea(ParkedAsked::Start(idea), cx),
+                2 => self.ask_idea(ParkedAsked::Remove(idea.id), cx),
+                _ => {}
+            }
+            return;
+        }
         let Some(turn) = self.target().cloned() else { return };
         let Some(at) = digit.checked_sub(1) else { return };
         if face::chooses(&turn) {
@@ -517,6 +580,9 @@ impl OperatorPageView {
 
     /// Yes: the Operator's pick, on the card the keys act on. A walk is his to look at, so it opens its Job and answers nothing.
     pub fn answer(&mut self, answer: OperatorAnswer, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.idea_front.is_some() {
+            return;
+        }
         let Some(turn) = self.target().cloned() else { return };
         if answer != OperatorAnswer::Yes {
             return;
@@ -624,11 +690,14 @@ impl OperatorPageView {
         }
     }
 
-    // -- Discuss later -----------------------------------------------------------------------------
+    // -- Snooze -----------------------------------------------------------------------------
 
-    /// Discuss later's menu, under its press: when the card comes back. From the keys, they rest on its first choice;
+    /// Snooze's menu, under its press: when the card comes back. From the keys, they rest on its first choice;
     /// picked, the card goes back until then.
     pub fn open_later(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.idea_front.is_some() {
+            return;
+        }
         let Some(turn) = self.target().cloned() else { return };
         let Some(bounds) = self.drawn.borrow().get("later").copied() else { return };
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
@@ -636,7 +705,7 @@ impl OperatorPageView {
         let entries = choices.iter().map(|(id, label, at)| Entry::Row(Row::new(id, *label).detail(face::back_at(*at, now)))).collect();
         let gap = cx.look().length(crate::look::token::SPACE_1);
         let at = gpui::point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
-        let menu = cx.new(|cx| Dropdown::new("Discuss later", entries, at, gpui::Anchor::TopRight, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Snooze", entries, at, gpui::Anchor::TopRight, from_keys, cx));
         let id = turn.id.clone();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id: choice, .. } = picked;
@@ -660,8 +729,11 @@ impl OperatorPageView {
         cx.notify();
     }
 
-    /// Discuss later: the card goes back until `until`, or for the rest of the day, and the next one comes to the front.
+    /// Snooze: the card goes back until `until`, or for the rest of the day, and the next one comes to the front.
     pub fn later(&mut self, until: Option<chrono::DateTime<chrono::Local>>, cx: &mut Context<Self>) {
+        if self.idea_front.is_some() {
+            return;
+        }
         let Some(turn) = self.target().cloned() else { return };
         let at = self.queue().iter().position(|one| one.id == turn.id).unwrap_or(0);
         let until = until.map(|until| until.to_rfc3339());
@@ -704,10 +776,12 @@ impl OperatorPageView {
 
     /// Discuss: the box under the card takes the keys, with a tag naming the card in it. The card stays in sight.
     pub fn discuss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(turn) = self.target().cloned() else { return self.composer.update(cx, |composer, cx| composer.focus(window, cx)) };
+        // A kept idea has no Discuss: the keys go to the box, untagged.
+        let target = if self.idea_front.is_some() { None } else { self.target().cloned() };
+        let Some(turn) = target else { return self.composer.update(cx, |composer, cx| composer.focus(window, cx)) };
         let title = face::card_title(&turn);
         self.composer.update(cx, |composer, cx| {
-            composer.tag(turn.id.clone(), title, cx);
+            composer.tag(turn.id.clone(), title, window, cx);
             composer.focus(window, cx);
         });
         cx.notify();
@@ -784,28 +858,59 @@ impl OperatorPageView {
 
     // -- what the Operator may do unasked -----------------------------------------------------------
 
-    /// The project the head's value is for: the one the window is scoped to, else the first Fleet lists.
+    /// The project the head's value is for: the one the window is scoped to, else the first Fleet lists. On All there is
+    /// none: the value is each project's own, and the chip says so.
     pub fn acts_project(&self, cx: &App) -> Option<ipc::ProjectOperatorActs> {
         let list = &self.page.as_ref()?.operator_acts;
-        let scoped = crate::dispatch::screen::scope(cx).and_then(|(id, _)| id);
+        let (scoped, _) = crate::dispatch::screen::scope(cx)?;
         scoped.and_then(|id| list.iter().find(|one| one.project == id.as_ref())).or_else(|| list.first()).cloned()
     }
 
-    /// The menu of values, under the chip.
+    /// The window is on All and Fleet lists projects: the chip is for every project at once.
+    pub fn acts_on_all(&self, cx: &App) -> bool {
+        self.page.as_ref().is_some_and(|page| !page.operator_acts.is_empty()) && crate::dispatch::screen::scope(cx).is_none()
+    }
+
+    /// The menu of values, under the chip. On All each project is a header with its three values under it.
     pub fn open_acts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(project) = self.acts_project(cx) else { return };
+        let on_all = self.acts_on_all(cx);
         let Some(bounds) = self.drawn.borrow().get("acts").copied() else { return };
-        let entries = ACTS.iter().map(|(id, acts, label, _)| Entry::Choice { id, label: (*label).into(), on: project.acts == Some(*acts) }).collect();
         let gap = cx.look().length(crate::look::token::SPACE_1);
         let at = gpui::point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
+        // Each pick by its id: the project it is for, and the value.
+        let mut picks: Vec<(&'static str, String, OperatorActs)> = Vec::new();
+        let entries: Vec<Entry> = if on_all {
+            let list = self.page.as_ref().map(|page| page.operator_acts.clone()).unwrap_or_default();
+            list.iter()
+                .flat_map(|project| {
+                    let head = Entry::Label(interned(project.name.clone()));
+                    let values: Vec<Entry> = ACTS
+                        .iter()
+                        .map(|(word, acts, label, _)| {
+                            let id = interned(format!("{}:{word}", project.project));
+                            picks.push((id, project.project.clone(), *acts));
+                            Entry::Row(Row::new(id, *label).member().ticked(project.acts == Some(*acts)))
+                        })
+                        .collect();
+                    std::iter::once(head).chain(values)
+                })
+                .collect()
+        } else {
+            let Some(project) = self.acts_project(cx) else { return };
+            ACTS.iter()
+                .map(|(id, acts, label, _)| {
+                    picks.push((id, project.project.clone(), *acts));
+                    Entry::Choice { id, label: (*label).into(), on: project.acts == Some(*acts) }
+                })
+                .collect()
+        };
         let menu = cx.new(|cx| Dropdown::new("What the Operator does unasked", entries, at, gpui::Anchor::TopRight, true, cx));
-        let id = project.project.clone();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id: choice, .. } = picked;
             this.acts_menu = None;
             window.focus(&this.focus, cx);
-            if let Some((_, acts, ..)) = ACTS.iter().find(|(word, ..)| word == choice) {
-                this.set_acts(id.clone(), Some(*acts), cx);
+            if let Some((_, project, acts)) = picks.iter().find(|(word, ..)| word == choice) {
+                this.set_acts(project.clone(), Some(*acts), cx);
             }
             cx.notify();
         });
@@ -1063,7 +1168,7 @@ impl OperatorPageView {
             // Fleet refuses the next answer, or its reply never arrives.
             "refuse" => mock.fail_answer = Some(Failed::Refused("The Operator could not settle the card.".into())),
             "lose" => mock.fail_answer = Some(Failed::Lost("no answer in 30 seconds".into())),
-            // Fleet refuses the next Discuss later: the time it names has passed by the time it reads it.
+            // Fleet refuses the next Snooze: the time it names has passed by the time it reads it.
             "late" => mock.refuse_later = Some("That time has passed. Pick a later one.".into()),
             "acts-refused" => mock.refuse_acts = Some("No project has that id".into()),
             "off" => {
@@ -1075,6 +1180,13 @@ impl OperatorPageView {
         }
         Ok(())
     }
+}
+
+/// A menu entry's id lives as long as the app: one per project and value, kept once however often the menu opens.
+fn interned(text: String) -> &'static str {
+    static HELD: std::sync::OnceLock<std::sync::Mutex<HashMap<String, &'static str>>> = std::sync::OnceLock::new();
+    let mut held = HELD.get_or_init(Default::default).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    held.entry(text.clone()).or_insert_with(|| Box::leak(text.into_boxed_str()))
 }
 
 /// What the Operator may do unasked, as the menu words it: its wire word, its value, its label and what it means.
@@ -1098,6 +1210,10 @@ mod tests {
         let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
         cx.run_until_parked();
         (page, cx)
+    }
+
+    fn acts_of(page: &OperatorPageView, project: &str) -> Option<OperatorActs> {
+        page.page.as_ref()?.operator_acts.iter().find(|one| one.project == project)?.acts
     }
 
     fn front(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> String {
@@ -1207,7 +1323,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn discuss_later_takes_the_card_out_of_line_and_a_refusal_brings_it_back(cx: &mut TestAppContext) {
+    fn snooze_takes_the_card_out_of_line_and_a_refusal_brings_it_back(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         page.update(cx, |page, cx| page.later(None, cx));
         cx.run_until_parked();
@@ -1226,15 +1342,99 @@ mod tests {
         let (page, cx) = open(cx);
         page.update(cx, |page, cx| page.set_acts("armada".into(), Some(OperatorActs::OnlyWhenTold), cx));
         cx.run_until_parked();
-        page.read_with(cx, |page, cx| assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold)));
+        page.read_with(cx, |page, _| assert_eq!(acts_of(page, "armada"), Some(OperatorActs::OnlyWhenTold)));
         page.update(cx, |page, cx| {
             page.mock_fleet().expect("the walk's Fleet").refuse_acts = Some("No project has that id".into());
             page.set_acts("armada".into(), Some(OperatorActs::ActThenTell), cx);
         });
         cx.run_until_parked();
-        page.read_with(cx, |page, cx| {
-            assert_eq!(page.acts_project(cx).and_then(|one| one.acts), Some(OperatorActs::OnlyWhenTold), "the value stays");
+        page.read_with(cx, |page, _| {
+            assert_eq!(acts_of(page, "armada"), Some(OperatorActs::OnlyWhenTold), "the value stays");
             assert!(page.acts_refused.is_some());
         });
+    }
+
+    #[gpui::test]
+    fn on_all_the_chip_is_for_every_project_and_its_menu_sets_the_project_a_pick_is_under(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.read_with(cx, |page, cx| {
+            assert!(page.acts_on_all(cx), "the walk's window is on All");
+            assert!(page.acts_project(cx).is_none(), "no project stands for All");
+        });
+        page.update_in(cx, |page, window, cx| {
+            page.drawn.borrow_mut().insert("acts", Bounds::default());
+            page.open_acts(window, cx);
+        });
+        let menu = page.read_with(cx, |page, cx| {
+            let (menu, _) = page.acts_menu.as_ref().expect("the menu is open");
+            // Each project is a header with its three values under it.
+            let entries = &menu.read(cx).entries;
+            assert_eq!(entries.len(), 8);
+            assert!(matches!(entries[0], Entry::Label("armada")) && matches!(entries[4], Entry::Label("storefront")));
+            assert!(matches!(&entries[1], Entry::Row(row) if row.ticked == Some(true)), "armada's Act then tell is ticked where it is set");
+            assert!(matches!(&entries[5], Entry::Row(row) if row.ticked == Some(false)), "storefront has none set");
+            menu.clone()
+        });
+        menu.update(cx, |_, cx| cx.emit(Picked::Entry { id: "storefront:only_when_told", keep: false }));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert_eq!(acts_of(page, "storefront"), Some(OperatorActs::OnlyWhenTold));
+            assert_eq!(acts_of(page, "armada"), Some(OperatorActs::ActThenTell), "the other project is not touched");
+        });
+    }
+
+    #[gpui::test]
+    fn next_up_counts_the_queue_and_the_kept_ideas_and_an_idea_comes_to_the_front(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.read_with(cx, |page, cx| {
+            assert_eq!(page.next_count(cx), 7, "four queued cards and three kept ideas");
+            assert_eq!(page.ideas(cx).iter().map(|idea| idea.id.as_str()).collect::<Vec<_>>(), ["idea:3", "idea:2", "idea:1"], "newest first");
+        });
+        page.update(cx, |page, cx| page.bring_idea("idea:2", cx));
+        page.read_with(cx, |page, cx| assert_eq!(page.front_idea(cx).map(|idea| idea.id), Some("idea:2".to_string())));
+        // An idea has no Snooze: the card behind it stays where it is.
+        page.update(cx, |page, cx| page.later(None, cx));
+        assert_eq!(front(&page, cx), "turn:31");
+        // Esc puts the Operator's own card back.
+        page.update_in(cx, |page, window, cx| page.on_act(&Act { id: "close", slot: 0, digit: None }, window, cx));
+        page.read_with(cx, |page, cx| assert!(page.front_idea(cx).is_none()));
+        // A press on a queued card brings it in place of the idea.
+        page.update(cx, |page, cx| page.bring_idea("idea:1", cx));
+        page.update(cx, |page, cx| page.bring("turn:34", cx));
+        page.read_with(cx, |page, cx| assert!(page.front_idea(cx).is_none()));
+        assert_eq!(front(&page, cx), "turn:34");
+    }
+
+    #[gpui::test]
+    fn an_ideas_first_option_starts_it_and_its_second_removes_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let parked = page.read_with(cx, |page, _| page.parked.clone());
+        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let seen = asked.clone();
+        let _held = cx.update(|_, cx| cx.subscribe(&parked, move |_, event: &ParkedAsked, _| seen.borrow_mut().push(event.clone())));
+        page.update(cx, |page, cx| page.bring_idea("idea:2", cx));
+        page.update(cx, |page, cx| page.digit(1, cx));
+        assert!(matches!(asked.borrow().as_slice(), [ParkedAsked::Start(idea)] if idea.id == "idea:2"));
+        page.update(cx, |page, cx| page.digit(2, cx));
+        cx.run_until_parked();
+        assert!(matches!(asked.borrow().as_slice(), [ParkedAsked::Start(_), ParkedAsked::Remove(id)] if id == "idea:2"));
+        page.read_with(cx, |page, cx| {
+            assert!(page.ideas(cx).iter().all(|idea| idea.id != "idea:2"), "Fleet let it go");
+            assert!(page.front_idea(cx).is_none(), "so the Operator's card is back in front");
+        });
+        assert_eq!(front(&page, cx), "turn:31");
+    }
+
+    #[gpui::test]
+    fn next_up_opens_and_folds_and_takes_the_keys_in(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.read_with(cx, |page, _| assert!(!page.next_open, "folded until he opens it"));
+        page.update_in(cx, |page, window, cx| page.toggle_next(window, cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(page.next_open));
+        let inside = page.update_in(cx, |page, window, cx| page.next_group.contains_focused(window, cx));
+        assert!(inside, "the keys are in it");
+        page.update_in(cx, |page, window, cx| page.close_next(window, cx));
+        page.read_with(cx, |page, _| assert!(!page.next_open));
     }
 }

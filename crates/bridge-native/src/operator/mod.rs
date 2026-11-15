@@ -1,4 +1,4 @@
-//! The Operator's page: one card in front, the box under it with a Discuss tag, Waiting behind, and the feed Since you
+//! The Operator's page: one card in front, the box under it with a Discuss tag, Next up and the feed Since you
 //! last looked (`docs/concepts/operator.md`). The Operator is one long-running session that writes the cards; the page
 //! draws what `operator_page` serves and derives nothing. `docs/practices/protocol/the-operators-page-fleet-keeps.md`
 //! is the wire.
@@ -7,13 +7,14 @@
 //! |---|---|
 //! | A card's kind chip, a feed entry's glyph, the head's pills and the words a pick is said in | `face.rs` |
 //! | The page's state, keys and presses, each answered at once | `page.rs` |
-//! | The page drawn: the head, the main column, the feed beside it | `view.rs` |
+//! | The page drawn: the head, the main column, Next up and the feed beside it | `view.rs` |
 //! | The card in front, its options and footer, and the card folded to a line | `card.rs` |
-//! | Waiting's list of the cards behind the front one | `waiting.rs` |
+//! | Next up: the cards behind the front one, then the kept ideas, folded in the right column | `next_up.rs` |
+//! | A kept idea brought to the front, drawn as a card with Start it and Remove | `idea.rs` |
 //! | The talk under a folded card, in the Operator's thread, with the cards it raises | `talk.rs` |
 //! | The feed Since you last looked | `feed.rs` |
 //! | The box under the card, whose send is a dispatch or, tagged, a talk about a card | `composer.rs` |
-//! | The ideas the Operator kept for later | `parked.rs` |
+//! | The ideas the Operator kept for later: what Next up and the idea card read | `parked.rs` |
 //! | Another Mac waiting for his Confirm to pair, as a card atop the page | `pairing.rs` |
 //! | The routes, live or mock | `wire.rs` |
 //! | The walk's Fleet and its scenes | `scenes.rs` |
@@ -29,6 +30,8 @@ mod card;
 pub mod composer;
 pub mod face;
 mod feed;
+mod idea;
+mod next_up;
 pub mod page;
 mod pairing;
 mod parked;
@@ -36,7 +39,6 @@ pub mod scenes;
 pub mod screen;
 mod talk;
 pub(crate) mod view;
-mod waiting;
 mod wire;
 
 pub use screen::{live, OperatorScreen};
