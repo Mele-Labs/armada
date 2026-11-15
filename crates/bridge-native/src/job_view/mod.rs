@@ -20,6 +20,7 @@ mod callchip;
 mod choose;
 mod claim_waits;
 mod moving;
+mod slot_wait;
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
@@ -178,6 +179,8 @@ pub(crate) enum Extra {
     ClaimWaits,
     /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
     Moving,
+    /// The Job waits for a worktree slot: its place, and Add and Free (`slot_wait`).
+    SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
 }
@@ -935,6 +938,10 @@ impl JobView {
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
+        }
+        // A wait for a slot asks him nothing, and stands with the Job's other waits.
+        if self.record(id, cx).is_some_and(|job| job.slot_wait.is_some()) {
+            extras.push(Extra::SlotWait);
         }
         // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
         if self.record(id, cx).is_some_and(moving::on_its_way) {

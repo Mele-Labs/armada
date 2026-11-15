@@ -461,6 +461,11 @@ impl JobView {
         });
         // A step held on a state an instance has yet to reach: a fact, so the clock does not pulse.
         let waits = job.workflow_waiting_on.iter().filter(|_| !only_now).map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
+        // Waiting for a worktree slot: a fact he asked to see in Now too, though nothing runs, and it asks nothing.
+        let slot_wait = job.slot_wait.as_ref().map(|wait| {
+            let said = crate::slot_wait::said(wait);
+            labelled(named("slot-wait", beat(look, lead(look, "slot-wait", "hard-drive", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said).into_any_element()
+        });
         let route = self.route(&job, cx);
         // A step of the route the workflow already names is that step, not a second row; a plan that
         // ends on gates says where it is in its stretches instead.
@@ -494,7 +499,7 @@ impl JobView {
             None
         };
 
-        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
+        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(slot_wait).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
         // plan that ends on gates draws it under the live stretch's tasks instead.
