@@ -245,6 +245,13 @@ pub fn open_build_notes(cx: &mut App) {
     reach(cx, |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show(window, cx)));
 }
 
+/// The sheet of the running build's notes, open on the note of this offer's branch and tip, as a card that names
+/// the offer asks.
+pub fn open_build_note(branch: String, tip: String, cx: &mut App) {
+    let key = crate::build_notes::NoteKey { branch, tip };
+    reach(cx, move |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show_note(key, window, cx)));
+}
+
 /// The notes of the running build, as Fleet last said them: the sheet holds them, and opens on its own for a build
 /// it has not opened for.
 pub fn hold_build_notes(notes: ipc::BuildNotes, cx: &mut App) {

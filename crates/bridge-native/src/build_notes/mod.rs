@@ -300,6 +300,10 @@ impl BuildNotesSheet {
 
     /// Choose a note and show its draft in the box.
     fn choose(&mut self, key: Option<NoteKey>, window: &mut Window, cx: &mut Context<Self>) {
+        // The words in the box stay with the note being left, however they got there.
+        if let Some(left) = self.chosen.as_ref().filter(|left| Some(*left) != key.as_ref()) {
+            crate::drafts::keep(&left.draft(), self.feedback.read(cx).value().as_ref(), cx);
+        }
         self.chosen = key;
         self.refused = None;
         let words = self.chosen.as_ref().and_then(|key| crate::drafts::kept(&key.draft(), cx)).unwrap_or_default();
@@ -335,6 +339,20 @@ impl BuildNotesSheet {
         let list = self.list.clone();
         window.defer(cx, move |window, cx| window.focus(&list, cx));
         cx.notify();
+    }
+
+    /// Open on the note of this (branch, tip), as a card that names an offer asks. A note the build does not hold
+    /// opens on the first to look at instead.
+    pub fn show_note(&mut self, key: NoteKey, window: &mut Window, cx: &mut Context<Self>) {
+        let held = self.notes().iter().any(|note| NoteKey::of(note) == key);
+        if held {
+            if self.open {
+                self.choose(Some(key), window, cx);
+                return;
+            }
+            self.chosen = Some(key);
+        }
+        self.show(window, cx);
     }
 
     /// Esc, the scrim or a Go: the sheet goes and the keys go back where they were.
@@ -654,6 +672,23 @@ mod tests {
             sheet.on_act(&pressed("move_focus", 1, None), window, cx);
             assert_eq!(sheet.at(), Some(1));
             assert_eq!(sheet.feedback.read(cx).value().as_ref(), "on b", "b's draft came back");
+        });
+    }
+
+    #[gpui::test]
+    fn a_card_naming_an_offer_opens_the_sheet_on_that_note_and_one_it_lacks_on_the_first_to_look_at(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.hold(notes("abc1234def"), window, cx);
+            sheet.show_note(key("c"), window, cx);
+            assert!(sheet.open);
+            assert_eq!(sheet.at(), Some(2), "the named note, not the first to look at");
+            sheet.show_note(key("a"), window, cx);
+            assert_eq!(sheet.at(), Some(0), "an open sheet moves to the named note");
+            sheet.close(window, cx);
+            sheet.chosen = None;
+            sheet.show_note(NoteKey { branch: "gone".into(), tip: "t".into() }, window, cx);
+            assert_eq!(sheet.at(), Some(1), "a note the build lacks opens on the first to look at");
         });
     }
 

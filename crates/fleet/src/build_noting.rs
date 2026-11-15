@@ -156,7 +156,7 @@ where
             on_your_words: None,
         };
         let then = vec![DispatchThen::Message(DispatchMessage { text: brief, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
-        let record = self.dispatch_started(DispatchJob { start, kind: None, then }, true).await?;
+        let record = self.dispatch_started(DispatchJob { start, kind: None, then }).await?;
         Ok(BuildNoteFeedbackSent { session_id: record.id, started: true })
     }
 
