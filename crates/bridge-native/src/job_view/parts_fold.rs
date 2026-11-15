@@ -479,33 +479,4 @@ mod tests {
             view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == kind), "a {form:?} opens in its own tab"));
         }
     }
-
-    #[gpui::test]
-    fn the_live_line_says_what_the_job_is_doing_above_the_composer(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |_| {});
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx).as_deref(), Some("Reading page_votes.rs")));
-        assert!(drawn(cx, Role::Status, "Now: Reading page_votes.rs"));
-    }
-
-    #[gpui::test]
-    fn the_live_line_is_hidden_when_the_job_is_idle(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |jobs| {
-            let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
-            one.mark = Some(ipc::JobMark { state: ipc::JobState::Idle, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Held });
-            one.hosted = None;
-        });
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx), None));
-        assert!(drawn_like(cx, Role::Status, "Now: ").is_empty());
-    }
-
-    #[gpui::test]
-    fn the_live_line_is_hidden_while_the_job_waits_on_him(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |jobs| {
-            let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
-            one.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
-            one.hosted = None;
-        });
-        view.read_with(cx, |view, cx| assert_eq!(view.live_line_of(JOB, cx), None));
-        assert!(drawn_like(cx, Role::Status, "Now: ").is_empty());
-    }
 }

@@ -1436,6 +1436,7 @@ impl JobView {
             .child(tune_button)
             .child(attach)
             .child(self.sketch_button(look, cx))
+            .children(self.render_live_pill(id, look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }), window, cx))
             .child(div().id("context-figure").flex_none().ml_auto())
             .child(self.render_talk(look, cx))
             .child(send);

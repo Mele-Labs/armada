@@ -1608,9 +1608,11 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             press_on("A Job keeps artifacts among what it does", "row", "Edit the merge line", "region", "Thread"),
             step("The one he approved is one line under the message that put it", Verb::Wheel("region", "Thread", -3000), "status", "Branch names: Approved"),
+            step("Read up the thread, what the Job is doing now stands as a pill in the box's tool row", Verb::Look, "button", "Now: Reading page_votes.rs"),
+            step("A press on the pill takes the thread to its end, and the pill goes: the running row there says it", Verb::Gone, "button", "Now: Reading page_votes.rs"),
+            step("Read up again, to the one he approved", Verb::Wheel("region", "Thread", -3000), "status", "Branch names: Approved"),
             step("Revision 1 of the merge line wording is one line where it was kept, with what he said of it", Verb::Wheel("region", "Thread", 500), "status", "Merge line wording: Sent back"),
             step("Revision 2 asks again further down, whole", Verb::Look, "article", "Artifact: Merge line wording, Revision 2"),
-            step("What the Job is doing now stands over the composer", Verb::Look, "status", "Now: Reading page_votes.rs"),
             step("Approve answers the words of a card still asking", Verb::OpenIn("Artifact: Commit words, Revision 1", "Approve"), "status", "Commit words: Approved"),
             step("Open reads the folded card whole in a tab of its own, its answer standing", Verb::OpenIn("Artifact: Commit words, Revision 1", "Open"), "region", "Reader: Commit words, Revision 1"),
             fresh("Back on the thread, as it was before", "row", "Edit the merge line"),
