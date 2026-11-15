@@ -386,10 +386,35 @@ pub(super) fn foot_box(look: &Look) -> gpui::Div {
         .border_color(look.color(token::BORDER_SUBTLE))
 }
 
+/// Whether a card drawn at `ix` offers Open: not the one drawn inside the page's own tab, where the page is open already.
+pub(super) fn openable(ix: usize) -> bool {
+    ix != super::acts::SHEET
+}
+
 fn ghost(look: &Look, foot: &Foot, id: &str, name: &'static str, cap: &'static str, said: &'static str, act_is: Act, cx: &Context<JobView>) -> AnyElement {
     let (run, key) = (foot.run.clone(), format!("{id}:{}", foot.key));
+    let opens = act_is == Act::Open;
     labelled(
-        act(look, key, name, Kind::Ghost, cap, true).tooltip(tip(said)).on_click(cx.listener(move |this, _, window, cx| run(this, act_is, window, cx))),
+        act(look, key, name, Kind::Ghost, cap, true)
+            .tooltip(tip(said))
+            // Open takes the focus in Tab's order and answers Enter and Space on its own: the key goes no further to the card, whose own Enter would open the page a second time.
+            .when(opens, |button| {
+                button
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                    .on_key_down(|event: &gpui::KeyDownEvent, _, cx| {
+                        if !event.keystroke.modifiers.modified() && matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            cx.stop_propagation();
+                        }
+                    })
+            })
+            .on_click(cx.listener(move |this, _, window, cx| {
+                // A press on Open is Open's alone, never the band's under it.
+                if opens {
+                    cx.stop_propagation();
+                }
+                run(this, act_is, window, cx)
+            })),
         Role::Button,
         name,
     )
@@ -585,7 +610,7 @@ impl JobView {
             (None, false) => Stand::Reading,
         };
         let asking = stand == Stand::Asking && !archived;
-        let here = ix == super::acts::SHEET;
+        let here = !openable(ix);
         let revision = Some((card.revision, kept.and_then(|one| one.revisions.iter().find(|r| r.number == card.revision)).map_or_else(|| format!("Revision {}", card.revision), |r| revision_said(r.number, r.by, r.at.as_str()))));
         let yours = kept.and_then(|one| one.revisions.last()).filter(|last| last.by == ArtifactBy::Owner && last.number == card.revision).map(|last| format!("r{} is your edit", last.number));
         let head = band(
@@ -693,6 +718,17 @@ mod tests {
         assert_eq!(key_act("d", false, false, true), Some(Act::Archive));
         assert_eq!(key_act("enter", false, false, true), Some(Act::Open));
         assert_eq!(key_act("enter", true, false, false), None, "a card in its own tab has nothing to open");
+    }
+
+    #[test]
+    fn a_card_in_the_thread_offers_open_and_the_one_in_its_own_tab_does_not() {
+        use super::super::acts::SHEET;
+        for asking in [true, false] {
+            assert!(openable(0) && openable(7), "a card in the thread opens its page");
+            assert_eq!(key_act("enter", asking, false, openable(3)), Some(Act::Open), "Enter opens it, asking or not");
+            assert!(!openable(SHEET), "the page is open already in its own tab");
+            assert_eq!(key_act("enter", asking, false, openable(SHEET)), None);
+        }
     }
 
     #[test]
