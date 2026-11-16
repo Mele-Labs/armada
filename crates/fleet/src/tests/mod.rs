@@ -335,6 +335,7 @@ mod autopilot_decisions;
 mod autopilot_decisions_repository;
 mod autopilot_reports;
 mod autopilot_project;
+mod start_default_project;
 mod autopilot_reviewing;
 mod operator_ends;
 mod operator_page_head;
