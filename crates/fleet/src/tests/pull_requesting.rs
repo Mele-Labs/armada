@@ -293,6 +293,34 @@ async fn the_forges_merge_state_rides_the_read_and_the_row_a_session_holds() {
     assert_eq!(row.detail.get("merge_state").map(String::as_str), Some("blocked"));
 }
 
+/// A list the forge will not answer, as the forge's times out on a repository with hundreds open: the
+/// row a Job holds is read by its number all the same, so a push that fixed its checks is not held red.
+#[tokio::test]
+async fn a_pull_reading_whose_list_the_forge_will_not_answer_still_reads_the_rows_jobs_hold() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home));
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(
+        &fleet,
+        WhatTheForgeRan::SomeFailed {
+            failed: vec![adapter_traits::FromOutside::verbatim("ci")],
+            checks: 2,
+            weight: adapter_traits::FailureWeight::Required,
+        },
+    );
+    fleet.get_pull_request(id, 12).await.expect("read");
+    assert_eq!(the_row(&fleet, "s1", "pr").await.detail.get("checks").map(String::as_str), Some("failed"));
+    forge_ran(&fleet, passed());
+    fleet.vcs().main_ci.followed_are(None);
+
+    let served = fleet.repositories().served().remove(0);
+    fleet.pulls_told(&served).await;
+
+    assert_eq!(the_row(&fleet, "s1", "pr").await.detail.get("checks").map(String::as_str), Some("passed"));
+}
+
 /// Stacked pull requests are drawn from the base, so a blank one is left off the row.
 #[tokio::test]
 async fn a_pull_request_with_no_base_leaves_it_out_of_the_row() {

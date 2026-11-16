@@ -395,10 +395,23 @@ where
         numbers.sort_unstable();
         numbers.dedup();
         for number in numbers {
-            let _ = self.pull_request_followed(manifest_id, root, number).await;
+            if let Err(refused) = self.pull_request_followed(manifest_id, root, number).await {
+                let why = format!("pull request {number}: {}", refused.error().message);
+                self.pull_reading_warned("a pull request a Job holds was not read", manifest_id.as_str(), why);
+            }
         }
         // After the pull requests, so an issue one of them closed this pass is read in it too.
         self.issue_ledger_kept_current(manifest_id, root).await;
+    }
+
+    /// A line on Fleet's standard error for a pull reading that read nothing, **so a row left as it
+    /// was is never silence**.
+    pub(crate) fn pull_reading_warned(&self, msg: &str, repository: &str, why: String) {
+        use core_model::{Component, Envelope, FieldValue, Level};
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("repository", FieldValue::Str(repository.to_string()))
+            .with_field("why", FieldValue::Str(why));
+        crate::transcript::note_aloud(&envelope);
     }
 
     /// Read, and let the ledger follow. Every act's last step and the query.

@@ -176,13 +176,23 @@ where
         self.slot_rows_followed(served).await;
         let gate = served.manifest().ci_gate().to_string();
         let list_gate = gate.clone();
-        let Some(mut followed) = self
+        let listed = self
             .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.pull_reading(root, &list_gate)
+                vcs.pull_reading_said(root, &list_gate)
             })
-            .await
-        else {
-            return;
+            .await;
+        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
+        let mut followed = match listed {
+            Ok(followed) => followed,
+            Err(why) => {
+                // **The rows a Job holds are still read, one by one**: a list the forge times out on
+                // would otherwise hold every row at its last reading, a red one through a push that
+                // fixed it.
+                let why = why.unwrap_or_else(|| "the forge did not answer".to_string());
+                self.pull_reading_warned("the open pull requests were not listed", manifest_id.as_str(), why);
+                self.pull_ledger_kept_current(&manifest_id, &root).await;
+                return;
+            }
         };
         // The list stops at 100: a pull request someone holds that it left out is read by number.
         let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
@@ -221,7 +231,6 @@ where
         self.merges_told(served, &base, &mine).await;
         self.pulls_attached(served, &followed).await;
         drop(reading);
-        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
         self.sweeping().lock().await.pulls_read.insert(manifest_id.as_str().to_string(), began);
         // **The merge line agrees with the rows just written**: its own visit comes round one
