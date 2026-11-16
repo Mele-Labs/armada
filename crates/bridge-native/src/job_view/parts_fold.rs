@@ -445,13 +445,17 @@ mod tests {
     }
 
     #[gpui::test]
-    fn open_reads_a_parts_artifact_whole_in_the_artifact_tab_one_with_no_drawing_too(cx: &mut gpui::TestAppContext) {
+    fn open_reads_a_parts_artifact_whole_in_the_review_panel_one_with_no_drawing_too(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |_| {});
         for id in ["sketch:Rollout order", "sketch:Step flow", "draft:Merge line wording"] {
             let opened = view.update_in(cx, |view, window, cx| view.open_named(id, window, cx));
             assert!(opened, "{id} is held");
             redraw(cx);
-            view.read_with(cx, |view, _| assert!(view.row_tab_of(JOB, RowKind::Artifact, id).is_some(), "{id} opens in the artifact's tab"));
+            view.read_with(cx, |view, _| {
+                assert!(view.review_open(), "{id} opens the review panel");
+                assert_eq!(view.review_chosen().and_then(|chosen| chosen.artifact.clone()).as_deref(), Some(id), "{id} is the one chosen");
+                assert!(view.row_tab_of(JOB, RowKind::Artifact, id).is_none(), "{id} opens no tab of its own");
+            });
         }
         assert!(drawn(cx, Role::Region, "Reader: Merge line wording, Revision 2"), "the reader holds the newest revision whole");
     }
