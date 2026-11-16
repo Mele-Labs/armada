@@ -39,9 +39,9 @@ fn quoted(text: &str) -> String {
     serde_json::to_string(text).unwrap_or_else(|_| "\"\"".into())
 }
 
-/// The script that lists the page's headings.
-pub fn words() -> String {
-    ask("ArmadaReader.words()")
+/// The script that lists the page's headings, after hiding a leading `h1` that says `title`, which the head says already.
+pub fn words(title: &str) -> String {
+    ask(&format!("ArmadaReader.words({})", quoted(title)))
 }
 
 /// The script that reads his selection.
@@ -96,6 +96,13 @@ mod tests {
         assert_eq!(picked_of(Some(r#"{"quote":"","block":"b7"}"#)).map(|one| one.quote), Some(String::new()));
         assert_eq!(picked_of(Some("null")), None);
         assert_eq!(picked_of(None), None);
+    }
+
+    #[test]
+    fn the_headings_call_carries_the_title_so_a_leading_h1_that_repeats_it_can_be_hidden() {
+        assert!(words("Stale branch design").ends_with(r#"ArmadaReader.words("Stale branch design")"#));
+        let source = include_str!("reader.js");
+        assert!(source.contains("first.tagName === \"H1\"") && source.contains("toLowerCase()"), "the title is matched trimmed and case-insensitive");
     }
 
     #[test]

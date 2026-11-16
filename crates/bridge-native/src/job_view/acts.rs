@@ -100,11 +100,8 @@ pub(super) struct CardState {
     pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
     /// What the cards of artifacts that hold parts remember (`parts_card`).
     pub parts: super::parts_card::PartsState,
-    /// The Ready to try card a press on its Needs you item asked to go to, until its draw has focused it.
-    pub go: std::cell::RefCell<Option<String>>,
-    /// The Ready to try card pulsing once, and how many times one has pulsed, so each pulse is a new animation.
-    pub pulse: Option<(String, u64)>,
-    pub pulses: u64,
+    /// The build opened under the Ready to try card, by card id: the one drawn whole in place.
+    pub ready_pick: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -287,6 +284,16 @@ impl JobView {
     }
 
     /// Shut a card's box and forget what was typed in it.
+    /// The box shut and its words kept, as `close_box` but for the words: Esc leaves them for the next time it opens.
+    pub(super) fn close_box_kept(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
+        if let Some(cards) = self.cards_mut() {
+            cards.modes.remove(key);
+            cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
+        }
+        self.card_changed(ix, cx);
+    }
+
     pub(super) fn close_box(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
         if let Some(cards) = self.cards_mut() {
             cards.modes.remove(key);
@@ -541,6 +548,10 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);
+            // A build to try whose answer was refused is opened again, so its sentence stands where he looks.
+            if super::ready_card::is_card(key) {
+                page.cards.ready_pick = Some(key.to_string());
+            }
             if ix == SHEET {
                 page.list.remeasure();
             } else {

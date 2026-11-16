@@ -110,6 +110,12 @@ impl JobView {
 
     /// The scene the view draws and the key it is kept by, where it holds a drawing rather than a file.
     fn scene_of(&self, what: &What) -> Option<(String, Rc<Scene>)> {
+        self.scene_of_as(what, "view")
+    }
+
+    /// The same, held under `prefix`: the review panel's detail draws a drawing beside the view that enlarges it, and the two
+    /// must not share one canvas.
+    pub(super) fn scene_of_as(&self, what: &What, prefix: &str) -> Option<(String, Rc<Scene>)> {
         let job = self.shown.as_ref()?;
         let (key, text, tag) = match what {
             What::Raster { .. } => return None,
@@ -126,7 +132,7 @@ impl JobView {
                 (key.clone(), scene, tag)
             }
         };
-        let held = format!("view:{job}:{key}:{tag}");
+        let held = format!("{prefix}:{job}:{key}:{tag}");
         let raw: ipc::RawScene = serde_json::from_str(&text).ok()?;
         let scene = crate::scene::read(&held, &raw)?;
         Some((held, scene))
@@ -355,15 +361,22 @@ impl Zooms for JobView {
         if let Some(viewing) = self.pictures.viewing.as_mut() {
             return Some(&mut viewing.zoom);
         }
-        self.sketch_reading.as_mut().map(|reading| &mut reading.zoom)
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            return Some(&mut reading.zoom);
+        }
+        self.detail_zoom.as_mut().map(|detail| &mut detail.zoom)
     }
 
     fn stage(&self, view: Size<f32>, _: &Window, cx: &App) -> Option<Stage> {
         if let Some(viewing) = self.pictures.viewing.as_ref() {
             return self.stage_of(viewing, view, cx);
         }
-        let reading = self.sketch_reading.as_ref()?;
-        let (fit, actual) = crate::scene::fit_of(&Self::drawn_key(reading))?;
+        if let Some(reading) = self.sketch_reading.as_ref() {
+            let (fit, actual) = crate::scene::fit_of(&Self::drawn_key(reading))?;
+            return Some(Stage { view, fit, actual });
+        }
+        let detail = self.detail_zoom.as_ref()?;
+        let (fit, actual) = crate::scene::fit_of(&detail.held.borrow())?;
         Some(Stage { view, fit, actual })
     }
 }

@@ -999,7 +999,7 @@ impl JobView {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
                 let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
                 if sheet {
-                    self.review_press(window, cx);
+                    self.review_press_item(Some(item), window, cx);
                 } else if let NeedsYouAct::OpenDraft { row } = act {
                     // A draft opens its card as a tab of the Job (`openDraftCard`).
                     self.set_needs(false, None, window, cx);
@@ -1652,6 +1652,8 @@ impl JobView {
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
+            // A Job's builds to try are never a question: its newest open build is drawn whole, with its own answers.
+            Thing::Row(row) if row.source == WaitingSource::ReadyToTry => Pinned::body(self.ready_in_band(id, look, cx)),
             Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
                 let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
                 let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));

@@ -12,6 +12,8 @@ pub(super) const FRAME: f32 = 1.5;
 /// The canvas a drawing stands on: its corner, and the air kept round what it holds.
 pub(super) const CANVAS_RADIUS: f32 = 14.;
 pub(super) const CANVAS_PAD: f32 = 32.;
+/// The air a drawing that fills its tile keeps round what it holds, so a hairline at the edge is not cut.
+pub(super) const EDGE: f32 = 4.;
 
 /// The room kept between cards: side by side, and from one row to the next.
 pub(super) const GAP_X: f32 = 64.;
