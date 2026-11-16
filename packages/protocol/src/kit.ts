@@ -100,10 +100,19 @@ export type SetupItem = {
   source: string;
   /** Output styles only. Absent on every other kind's rows. */
   style?: OutputStyleFacts;
-  /** The plugin that brought it, without its marketplace. Absent on the person's own. */
+  /** The plugin that brought it, without its marketplace; on a connected server, as the plugin list spells it, `name@marketplace`. Absent on the person's own. */
   plugin?: string;
   /** Plugins only: the command Remove runs, as Fleet spells it for the harness. */
   uninstall?: string;
+  /** Connected servers only: where one was configured, where that is neither the person's own file nor a plugin's. */
+  server?: ServerFacts;
+};
+
+/** Where a connected server was configured: the repository's own `.mcp.json`, or the person's local scope for a project. */
+export type ServerFacts = {
+  from: "repository" | "project";
+  /** The repository's root, or the project's folder. */
+  folder: string;
 };
 
 /** Where an output style came from. Armada's word, never a harness's. */

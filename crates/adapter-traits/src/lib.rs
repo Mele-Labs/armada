@@ -133,7 +133,7 @@ pub use tracker::{
 pub use tracker_writes::{not_able, IssueWrite, ReadOnly, TrackerWrites};
 pub use setup::{
     HarnessSetup, Inventory, ItemAsked, ItemKind, ItemRead, ItemWhose, KindRead, SetupFiles, SetupItem,
-    SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
+    ServerFacts, ServerFrom, SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 pub use slots::{
     BranchKept, CommitHome, RescueRefused, ReviewBay, SlotAfterMerge, SlotChange, SlotCommit,
