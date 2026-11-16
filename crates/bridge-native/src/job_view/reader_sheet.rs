@@ -324,6 +324,26 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_pick_sent_from_the_panels_foot_carries_the_take_and_his_words(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let key = super::super::parts_card::part_key(ID, "bar");
+        let pick = bounds_of(cx, Role::RadioButton, TAKES[1]);
+        let send = bounds_of(cx, Role::Button, "Send pick");
+        let words = bounds_of(cx, Role::TextInput, "Note on your pick");
+        assert!(send.top() > pick.bottom() && words.top() > pick.bottom(), "the words box and Send pick stand below the takes, in the foot");
+        view.update_in(cx, |view, window, cx| {
+            view.choose_take(&key, 1, cx);
+            let input = view.pages.get(JOB).and_then(|page| page.cards.parts.notes(&key)).expect("the words box");
+            input.update(cx, |input, cx| input.set_value("Rail, but narrower.", window, cx));
+            view.send_pick(&key, window, cx);
+        });
+        view.read_with(cx, |view, _| {
+            let sent = view.pages.get(JOB).and_then(|page| page.cards.parts.answer_sent(&key)).expect("the pick went");
+            assert_eq!((sent.take.as_deref(), sent.words.as_deref()), (Some("rail"), Some("Rail, but narrower.")), "one answer holds the pick and the note");
+        });
+    }
+
+    #[gpui::test]
     fn one_escape_closes_it_from_the_parts_and_from_the_list(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         cx.simulate_keystrokes("escape");

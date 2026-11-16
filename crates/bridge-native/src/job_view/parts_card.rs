@@ -244,6 +244,18 @@ struct Ctx<'a> {
     takes: Option<String>,
 }
 
+impl PartsState {
+    /// The words box of a takes part, where it has been made.
+    pub(super) fn notes(&self, key: &str) -> Option<Entity<InputState>> {
+        self.notes.get(key).cloned()
+    }
+
+    /// What he answered a part, as it was sent and not yet read back from Fleet.
+    pub(super) fn answer_sent(&self, key: &str) -> Option<&PartAnswer> {
+        self.sent.get(key).map(|(_, _, answer)| answer)
+    }
+}
+
 impl Ctx<'_> {
     fn state(&self) -> &PartsState {
         &self.page.cards.parts
@@ -487,7 +499,7 @@ impl JobView {
     }
 
     /// Send the pick: the take he chose, and the words in the note beside it.
-    fn send_pick(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn send_pick(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some((artifact, part)) = split_key(key) else { return };
         let (artifact, part) = (artifact.to_string(), part.to_string());
         let Some(job) = self.shown.clone() else { return };
@@ -716,7 +728,17 @@ impl JobView {
         let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
-        Some(self.parts_footer(ix, id, &parts, asking, page, look, cx))
+        let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
+        let pick = parts.iter().find(|part| is_pick(part)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        Some(match pick {
+            Some(pick) => div()
+                .flex()
+                .flex_col()
+                .child(div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(pick))
+                .child(footer)
+                .into_any_element(),
+            None => footer,
+        })
     }
 
     /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
@@ -986,7 +1008,8 @@ impl JobView {
                 div().flex().flex_col().gap(look.length(token::SPACE_3)).children(rows).into_any_element()
             }
         };
-        let send = open.then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
+        // In the review panel the words box and Send pick stand in its foot beside the answers, so the pick is never off screen.
+        let send = (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
         let answered = (!part.is_open_ask() && part.asks).then(|| self.answered_line(c, key, part));
         div()
             .flex()
