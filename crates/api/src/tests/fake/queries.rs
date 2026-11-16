@@ -187,6 +187,14 @@ impl Queries for FakeDaemon {
         })
     }
 
+    async fn get_kit_file(&self, asked: ipc::GetKitFile) -> Result<ipc::KitFile, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_file",
+            format!("no file for {}", asked.name),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     async fn get_kit_servers(
         &self,
         _manifest_id: Option<ipc::ManifestId>,

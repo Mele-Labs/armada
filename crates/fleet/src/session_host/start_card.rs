@@ -421,6 +421,7 @@ where
         }
         self.row_put(id, row).await;
         if his {
+            self.message_arrived(id, &row_id, &text).await;
             // The artifacts drawn from here on follow it, as they follow any message of his.
             if let Err(why) = self.store().lock().await.keep_session_message(id, &row_id) {
                 self.session_warned(id, "a job's latest message was not kept", format!("{why:?}"));

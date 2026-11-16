@@ -31,6 +31,8 @@ mod accounting;
 mod judge;
 /// Side questions put to a Job, kept out of its thread.
 mod asides;
+/// What the owner said in a Job, sorted by kind, his asks, and a Job's story.
+mod story;
 /// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
 mod homing;
 mod amending;
@@ -65,6 +67,7 @@ mod issues;
 mod autopilots;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
+mod kit_files;
 /// Share: pieces made into a package, read, added to Kit, and bound.
 mod sharing;
 /// The build Fleet runs on, read, and the restart onto another.
@@ -157,7 +160,7 @@ pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Asides, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Features, Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
-    SealedPage, ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,
+    SealedPage, ShownFile, StoredFile, Story, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

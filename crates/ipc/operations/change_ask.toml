@@ -1,0 +1,14 @@
+[operations.change_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner moves an ask: backlog or dropped, its kind, its title, or the features it is filed under"
+notes = """
+`POST /asks/change`, body `ChangeAsk` `{ ask_id, state?, kind?, title?, features? }`. Answers the `Ask` as kept. Each field present is set and absent is left. Since 16 Nov 2026.
+
+`state` takes `backlog` or `dropped` only: Fleet moves an ask to `building`, `handed` and `built` as it sees the work, and refuses the rest. `backlog` clears the builder. `features` is the whole list of slugs and replaces the ask's own, so an empty list files it under none; a slug is a plain string and is not checked against any library. Publishes `session.story` for the Job the ask was said in and the Job building it.
+
+404 `fleet.no_such_ask`. 422 `fleet.ask_state_not_set` for a `state` other than `backlog` or `dropped`, and `fleet.ask_title_blank` for a blank title.
+
+`agent_access` is `No`.
+"""

@@ -25,6 +25,7 @@ assuming it is restated here.
 | [file-panel.md](file-panel.md) | Any file Bridge opens, in the one side panel in a code editor: where it may come from, how it saves, what stops a save |
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
 | [job-proposer.md](job-proposer.md) | The Proposer: the model call that reads a Job's request and proposes its title, workflow or none, model and effort |
+| [job-story.md](job-story.md) | The owner's messages in a Job sorted into asks, and the story of each Job read from its asks, what he was shown and decided, what was built and what was handed on |
 | [judge.md](judge.md) | The one Judge: a read-only reading of any artifact of a Job on the owner's press, whose notes sit in the artifact, and Fleet's own step judges |
 | [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |

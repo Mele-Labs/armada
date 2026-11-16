@@ -14,6 +14,7 @@
 //! [`SERVED`] stays one slice. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
 mod judge;
+mod story;
 mod authoring;
 mod autopilot;
 mod events;
@@ -64,6 +65,7 @@ pub const SERVED: &[Route] = &joined::<
             + retro::ROUTES.len()
             + runs::ROUTES.len()
             + judge::ROUTES.len()
+            + story::ROUTES.len()
             + other_macs::ROUTES.len()
             + features::ROUTES.len()
     },
@@ -81,6 +83,7 @@ pub const SERVED: &[Route] = &joined::<
     retro::ROUTES,
     runs::ROUTES,
     judge::ROUTES,
+    story::ROUTES,
     other_macs::ROUTES,
     features::ROUTES,
 ]);

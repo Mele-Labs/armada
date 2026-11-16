@@ -352,7 +352,7 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
-    async fn snooze_session(&self, _asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
+    async fn snooze_session(self: std::sync::Arc<Self>, _asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 

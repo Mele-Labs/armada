@@ -312,6 +312,10 @@ fn fold(entries: &[Entry<'_>], keep: &HashSet<&str>) -> Vec<ThreadItem> {
                 Some(ThreadItem::Calls { rows, .. }) => rows.push(row.clone()),
                 _ => items.push(ThreadItem::Calls { id: row.id().to_string(), names: Vec::new(), rows: vec![row.clone()] }),
             },
+            SessionRow::Reasoning { .. } if thinks_on(entries.clone()) => match items.last_mut() {
+                Some(ThreadItem::Calls { rows, .. }) => rows.push(row.clone()),
+                _ => items.push(ThreadItem::Row { row: row.clone() }),
+            },
             other => items.push(ThreadItem::Row { row: other.clone() }),
         }
     }
@@ -321,6 +325,21 @@ fn fold(entries: &[Entry<'_>], keep: &HashSet<&str>) -> Vec<ThreadItem> {
         }
     }
     items
+}
+
+/// Whether a thought after a call stays in its run: the next row is another call, or nothing is written yet. The agent
+/// thinks before almost every call, and a thought that ended the run folded each call away a second after it began. A
+/// thought before words, a question or a card is a row of its own, where a question's reasoning can open.
+fn thinks_on<'e, 'a: 'e>(rest: impl Iterator<Item = &'e Entry<'a>>) -> bool {
+    for entry in rest {
+        match &entry.piece {
+            Piece::Row(SessionRow::Reasoning { .. }) => continue,
+            Piece::Row(SessionRow::Tool { text, subagent: None, .. }) => return !text.starts_with("AskUserQuestion"),
+            Piece::Row(row) => return matches!(row, SessionRow::Ask { .. }),
+            Piece::Card(_) => return false,
+        }
+    }
+    true
 }
 
 /// A notice Fleet wrote: a message from the session named `fleet`.

@@ -304,3 +304,52 @@ export type KitPieceRemoved = {
 export type RestoreKitPiece = {
   trashed: string;
 };
+
+/** The kinds of `get_kit_inventory` whose rows are a file. A plugin has none, so it is `KitOpenKind`'s alone. */
+export type KitFileKind = "skills" | "sub_agents" | "commands" | "agent_file" | "output_styles";
+
+/** What `open_kit_piece` opens: every `KitFileKind` and an installed plugin. */
+export type KitOpenKind = KitFileKind | "plugins";
+
+/** The query of `get_kit_file`. `name` is `SetupItem.name`. */
+export type GetKitFile = {
+  kind: KitFileKind;
+  name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
+};
+
+/** `get_kit_file`'s answer, and `save_kit_file`'s: a piece's file whole. `plugin` is left out of the person's own pieces. */
+export type KitFile = {
+  path: string;
+  text: string;
+  at: string;
+  plugin?: string;
+};
+
+/** The body of `save_kit_file`. `read` is `KitFile.text` as it was read, whole, and is required. */
+export type SaveKitFile = {
+  kind: KitFileKind;
+  name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
+  read: string;
+  text: string;
+};
+
+/** Where `open_kit_piece` opens a piece. A plugin opens in Finder alone. */
+export type KitPlace = "editor" | "finder";
+
+/** The body of `open_kit_piece`. */
+export type OpenKitPiece = {
+  kind: KitOpenKind;
+  name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
+  place: KitPlace;
+};
+
+/** `open_kit_piece`'s answer: the path Fleet opened. */
+export type KitPieceOpened = {
+  path: string;
+};
