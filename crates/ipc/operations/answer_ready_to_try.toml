@@ -12,7 +12,7 @@ notes = """
 - `needs_rework` with `words`: the note's verdict is `needs_work`, and his words go as `send_build_note_feedback` sends them: to the Job's thread as his message, or to a new Job started at once where that one has ended.
 - `remind` with `until`, the instant the card comes back: **Bridge works out `until`** from the Later choice he pressed (an hour, three hours, tomorrow morning, next week), as `operator_later` does. The card is `later` until then, and at `until` it comes back, `open`, drawn at that instant, which is the end of the thread. A second `remind` moves the time.
 
-**An `open` card waits in the Job's Needs you** as a `ready_to_try` item, id the card's, text `Try: <about>` and `artifact` the card's id: it goes on any answer, on a withdrawal or a replacement, and while a `remind` holds it, and comes back when the reminder comes due. `answer_waiting` refuses it, and Approve all passes it by.
+**A Job with an `open` card has one row in its Needs you**, a `ready_to_try` item, id and `artifact` `try:<session_id>` and text `Ready to try`, however many cards are open: it goes once none is, each answered, withdrawn, replaced or held by a `remind`, and comes back when a reminder comes due. `answer_waiting` refuses it, it is never dismissed, and Approve all passes it by.
 
 Show me how needs nothing from Fleet: the card carries the note's `look` and `steps`.
 

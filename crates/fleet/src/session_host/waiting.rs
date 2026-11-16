@@ -759,8 +759,8 @@ where
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A page that asks nothing waits to be read, until he opens its newest revision.
             items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
-            // A Ready to try card waits on him while it is open: answered on the card, back when a reminder comes due.
-            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str()).filter(|one| !dismissed.contains(&one.id)));
+            // One row for the Job while any Ready to try card is open: answered on its cards, never dismissed.
+            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str()));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.

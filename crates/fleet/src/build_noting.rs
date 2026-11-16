@@ -71,16 +71,17 @@ fn card_state(note: &KeptBuildNote, newest: bool, now: &str) -> ReadyState {
     }
 }
 
-/// Each open card of the Job's notes as the item that waits on him: id the card's, text `Try: <about>`, the card as
-/// its artifact, opening the Job. A card answered, withdrawn, replaced or put off raises none.
-pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str) -> impl Iterator<Item = ipc::WaitingItem> {
-    let session = session.to_string();
-    cards_of(notes, &BTreeMap::new(), now).into_iter().filter(|card| card.state == ReadyState::Open).map(move |card| ipc::WaitingItem {
+/// The one item that waits on him while any of the Job's cards is open: id and artifact `try:<session>`, text
+/// `Ready to try`, since the oldest open card, opening the Job. It goes once no card is open.
+pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str) -> Option<ipc::WaitingItem> {
+    let since = cards_of(notes, &BTreeMap::new(), now).into_iter().filter(|card| card.state == ReadyState::Open).map(|card| card.at).min()?;
+    let id = format!("try:{session}");
+    Some(ipc::WaitingItem {
         approves: false,
-        text: format!("Try: {}", card.about),
-        since: card.at,
+        text: "Ready to try".into(),
+        since,
         source: ipc::WaitingSource::ReadyToTry,
-        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Message, target: session.clone() }),
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Message, target: session.to_string() }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,
@@ -89,8 +90,8 @@ pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str) -
         creating_since: None,
         create_refused: None,
         operator_read: None,
-        artifact: Some(card.id.clone()),
-        id: card.id,
+        artifact: Some(id.clone()),
+        id,
     })
 }
 

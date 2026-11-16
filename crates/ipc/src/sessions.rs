@@ -903,12 +903,12 @@ pub enum WaitingSource {
     /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
     /// item waits until the Operator raises it. Since 14 Nov 2026.
     JobHeld,
-    /// Fleet: a Ready to try card in the Job's thread is open. Derived on every read off the Job's build notes, never
-    /// kept: id the card's, `try:<branch>@<tip>`, text `Try: <about>`, `artifact` the card's id so a client opens
-    /// the card, and a `message` act that opens the Job. Gone once he answers the card (`answer_ready_to_try`, or a
-    /// verdict on its build note), once it is withdrawn or replaced, and while a reminder holds it; back when the
-    /// reminder comes due. Answering it here is refused, Approve all passes it by, and dismissing it tells the Job
-    /// nothing. Listed only while the Job is live. Since 15 Nov 2026.
+    /// Fleet: one or more Ready to try cards in the Job's thread are open. One item for the Job, derived on every
+    /// read off its build notes, never kept: id and `artifact` `try:<session_id>`, text `Ready to try`, since the
+    /// oldest open card, and a `message` act that opens the Job. Gone once no card is open: each is answered
+    /// (`answer_ready_to_try`, or a verdict on its build note), withdrawn, replaced or held by a reminder; back when
+    /// a reminder comes due. Answering it here is refused, it is never dismissed, and Approve all passes it by.
+    /// Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
     ReadyToTry,
 }
 
