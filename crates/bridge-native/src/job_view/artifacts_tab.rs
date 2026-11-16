@@ -928,8 +928,8 @@ mod tests {
         let (room, offset) = view.read_with(cx, |view, _| (view.body_scroll.max_offset().y, view.body_scroll.offset().y));
         assert!(room > gpui::px(0.), "the tab's body is taller than its pane, so it has room to scroll: {room:?}");
         assert_eq!(offset, gpui::px(0.));
-        // Wherever the pointer is in the panel's detail below its band: over the words, the takes' pictures, the drawing or the gaps between.
-        for y in (260..440).step_by(40) {
+        // Wherever the pointer is in the panel's detail between its band and its foot: over the words, the takes' pictures, the drawing or the gaps between.
+        for y in (260..340).step_by(40) {
             view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.))));
             cx.simulate_event(gpui::ScrollWheelEvent { position: gpui::point(gpui::px(500.), gpui::px(y as f32)), delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-300.))), ..Default::default() });
             cx.run_until_parked();

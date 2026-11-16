@@ -2670,7 +2670,7 @@ pub static WALKS: &[Walk] = &[
             step("C with no notes puts the caret in the item's notes", Verb::Key("c"), "textbox", "Notes"),
             step("A note on this item", Verb::Typed("Name the pages it drops."), "textbox", "Notes"),
             step("⌘↵ asks for changes with that note", Verb::Key("cmd-enter"), "img", "Changes asked"),
-            step("Approve all and Dismiss all sit in the foot, away from the item's buttons", Verb::Look, "toolbar", "Every item"),
+            step("The foot holds the item's answers, then a rule, then Approve all and Dismiss all", Verb::Look, "toolbar", "Every item"),
             step("⇧A approves every item still asking. Fleet refuses one, and its row says why", Verb::Key("shift-a"), "status", "the sketch `Docs index layout` is not the drawing that was read: the job has drawn it again since"),
             step("The rest settled", Verb::Look, "button", "Release note for the clash mark"),
             step("⇧D dismisses what still asks", Verb::Key("shift-d"), "img", "Dismissed"),
