@@ -1,26 +1,34 @@
 //! `get_pull_request_detail`, `get_pull_request_file`, `get_pull_request_patches` and
 //! `write_pull_request`. Since 23.83; the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
 
+use std::net::SocketAddr;
+
 use axum::body::Bytes;
-use axum::extract::{Path, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use ipc::ManifestId;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::PullRequestPanel;
+use crate::daemon::{Admitting, PullRequestPanel};
+use crate::mcp::Caller;
 use crate::served::Served;
 
-pub(crate) async fn get_pull_request_detail<D: PullRequestPanel>(
+/// **A page answered to a caller no Job holds is him opening the pull request**, since Bridge reads it
+/// when he does; a Job reading the pull request it reviews says nothing of whether he has.
+pub(crate) async fn get_pull_request_detail<D: PullRequestPanel + Admitting>(
     State(served): State<Served<D>>,
+    peer: Option<ConnectInfo<SocketAddr>>,
     Path((repository, number)): Path<(String, u64)>,
 ) -> Response {
-    match served
-        .daemon()
-        .get_pull_request_detail(ManifestId::carried(repository), number)
-        .await
-    {
-        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+    let manifest_id = ManifestId::carried(repository);
+    match served.daemon().get_pull_request_detail(manifest_id.clone(), number).await {
+        Ok(page) => {
+            if !peer.is_some_and(|ConnectInfo(peer)| served.daemon().job_at(Caller::at(peer))) {
+                served.daemon().pull_request_opened(manifest_id, number).await;
+            }
+            answer(StatusCode::OK, &page, served.run_id())
+        }
         Err(refusal) => refused(refusal),
     }
 }
