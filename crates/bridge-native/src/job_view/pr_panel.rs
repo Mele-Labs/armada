@@ -616,18 +616,17 @@ impl JobView {
         );
     }
 
-    /// The pull request as the Job's record holds it now, or as it was pressed where the record lets it go.
-    /// One no Job holds takes its Checks from the forge's read of its page, once read.
+    /// The pull request as the Job's record holds it now, or as it was pressed where the record lets it go,
+    /// with its Checks from the forge's read of its page once read: the ledger's row can be stale.
     fn live_pull(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
-        if !pressed.held() {
-            let mut pull = pressed.clone();
-            if let Some(Ok(page)) = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page.as_ref()) {
-                (pull.checks, pull.failing) = super::pulls::checks_of_page(page);
-            }
-            return pull;
-        }
-        let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
-        self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
+        let page = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page());
+        let pull = if pressed.held() {
+            let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
+            self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
+        } else {
+            pressed.clone()
+        };
+        super::pulls::with_page_checks(pull, page)
     }
 
     fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {

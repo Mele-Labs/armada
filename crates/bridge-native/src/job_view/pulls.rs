@@ -181,6 +181,15 @@ pub(super) fn checks_of_page(page: &ipc::PullRequestPage) -> (PullChecks, String
     (checks, failing.join(", "))
 }
 
+/// The pull request with its Checks as its page says them once the page is read, so the head, the failing
+/// checks and the act agree with the Checks tab. Before, the ledger's row stands, though it can be stale.
+pub(super) fn with_page_checks(mut pull: Pull, page: Option<&ipc::PullRequestPage>) -> Pull {
+    if let Some(page) = page {
+        (pull.checks, pull.failing) = checks_of_page(page);
+    }
+    pull
+}
+
 /// A pull request attachment as its row reads it. A closed one is let go; a merged one is `spent`.
 pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: Option<String>) -> Option<Pull> {
     if !matches!(one.kind.as_str(), "pr" | "pull_request") || one.state == AttachmentState::GivenBack {
@@ -760,6 +769,28 @@ mod tests {
         assert_eq!(checks_said(&one), "Checks passed; not required, failing: lint");
         one.checks = PullChecks::Failed;
         assert_eq!(checks_said(&one), "Checks failed: lint");
+    }
+
+    #[test]
+    fn once_the_page_is_read_its_checks_stand_over_a_stale_ledger_row() {
+        let page: ipc::PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "review": "none", "approvals": 0,
+                "conversation": [], "files": [], "commits": [],
+                "checks": [{ "name": "lint", "state": "passed" }, { "name": "test", "state": "passed" }, { "name": "docs", "state": "skipped" }],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let mut ledger = pull(PullState::Open, PullChecks::Failed, false, false);
+        ledger.failing = "lint".into();
+        let read = with_page_checks(ledger.clone(), Some(&page));
+        assert_eq!((read.checks, read.failing.as_str()), (PullChecks::Passed, ""));
+        assert_eq!(act_of(&read).map(|one| one.0), Some(PullAct::Merge), "the act follows the page too");
+        let unread = with_page_checks(ledger, None);
+        assert_eq!((unread.checks, unread.failing.as_str()), (PullChecks::Failed, "lint"), "before the page is read the ledger stands");
     }
 
     #[test]
