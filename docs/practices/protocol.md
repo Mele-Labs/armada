@@ -1161,7 +1161,7 @@ Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessio
 | Where | Side | Carries |
 | --- | --- | --- |
 | `answer_sketch` (`POST /sessions/sketch/answer`, `agent_access = "No"`) | Bridge writes | `AnswerSketch` `{ session_id, sketch, drawn, how, words? }`, `how` `approved` or `sent_back`; answers the `SessionRecord`. 409 `fleet.sketch_redrawn` for a `drawn` that is not the sketch's now; 422 `fleet.sketch_not_open`, `fleet.sketch_answer_empty` and `fleet.sketch_answer_unnamed`, with nothing written or sent |
-| `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws, and `drawn` an id new on every draw. A plan's sketch has neither |
+| `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws unless the call passed `asks: false`, and `drawn` an id new on every draw. A plan's sketch has neither |
 | `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his note. Gone when the title is drawn again |
 
 **Not the agent's `waiting_for` item**: the owner answers a sketch on its card, and since 29 Oct Fleet raises it in his Needs you as `sketch` (below).
