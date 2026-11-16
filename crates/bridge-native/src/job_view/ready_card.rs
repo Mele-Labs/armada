@@ -391,6 +391,16 @@ impl JobView {
     /// A build whole, at the width it is given, drawn at thread item `ix` (or `SHEET` in the overlay): head band, title, pictures, his words, where to look with the steps,
     /// and the foot of four answers while it still asks.
     pub(super) fn ready_detail(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.ready_build(card, ix, wide, page, now, look, cx, true)
+    }
+
+    /// The open build under its row in the compact card: the same body without a frame or head of its own, so the card stays one.
+    pub(super) fn ready_detail_inside(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.ready_build(card, ix, wide, page, now, look, cx, false)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn ready_build(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>, framed: bool) -> AnyElement {
         let key = card.id.clone();
         let standing = Standing::of(card, page.cards.answers.get(&key));
         let parts = Parts::of(card);
@@ -424,6 +434,20 @@ impl JobView {
         // He cannot judge a build he cannot run: the answers wait until the preview holds it. Refresh preview stands in the head or the built picture's frame.
         let foot_row = (asking && card.in_build).then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
         let name = format!("Ready to try: {}", card.about);
+        if !framed {
+            let body = div()
+                .id(SharedString::from(format!("ready:{key}")))
+                .flex()
+                .flex_col()
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(ink.opacity(0.45))
+                .child(title)
+                .children(pictures)
+                .children(words)
+                .children(changed)
+                .children(foot_row);
+            return labelled(body, Role::Article, name).into_any_element();
+        }
         labelled(
             super::band_card::frame(look, false)
                 .id(SharedString::from(format!("ready:{key}")))

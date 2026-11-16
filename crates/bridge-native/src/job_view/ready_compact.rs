@@ -217,17 +217,19 @@ impl JobView {
         let ink = look.color(standing.ink());
         let open = page.cards.ready_pick.as_deref().and_then(|id| listed.iter().find(|build| build.card.id == id));
         let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
-        let detail = open.map(|build| self.ready_detail(build.card, ix, wide, page, now, look, cx));
+        // The open build reads under the rows inside the one card; a second card with its own head said the same head twice.
+        let detail = open.map(|build| self.ready_detail_inside(build.card, ix, wide, page, now, look, cx));
         let group = labelled(
             frame(look, false)
                 .id("ready-compact")
                 .border_color(ink.opacity(0.45))
                 .children(head)
-                .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows)),
+                .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows))
+                .children(detail),
             Role::Group,
             "Ready to try",
         );
-        div().id("ready-column").flex().flex_col().gap(look.length(token::SPACE_3)).child(group).children(detail).into_any_element()
+        div().id("ready-column").flex().flex_col().child(group).into_any_element()
     }
 
     /// A press on a build's row: it opens in place under the rows and the thread follows its tail to the card at its end; a press
@@ -550,6 +552,27 @@ mod tests {
     }
 
     #[gpui::test]
+    fn an_open_build_reads_inside_the_one_card_under_one_head(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        let shot = id_of(&view, SHOT, cx);
+        view.update(cx, |view, cx| view.ready_open("tool-edit", &shot, cx));
+        redraw(cx);
+        let (heads, inside) = cx.update(|window, cx| {
+            let all = cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).to_vec();
+            let within = |outer: &crate::labels::Drawn, inner: &crate::labels::Drawn| {
+                let (o, i) = (outer.bounds, inner.bounds);
+                i.origin.x >= o.origin.x && i.origin.y >= o.origin.y && i.origin.x + i.size.width <= o.origin.x + o.size.width && i.origin.y + i.size.height <= o.origin.y + o.size.height
+            };
+            let build = all.iter().find(|one| one.role == Role::Article && one.name.as_ref() == format!("Ready to try: {SHOT}")).expect("the open build is drawn");
+            let heads = all.iter().filter(|one| one.role == Role::Status && within(build, one)).count();
+            let inside = all.iter().any(|one| one.role == Role::Group && one.name.as_ref() == "Ready to try" && within(one, build));
+            (heads, inside)
+        });
+        assert_eq!(heads, 0, "the card's one head says its state; the open build draws no head of its own");
+        assert!(inside, "the open build is drawn inside the Ready to try card");
+    }
+
+    #[gpui::test]
     fn the_detail_is_the_build_whole_with_the_four_answers(cx: &mut gpui::TestAppContext) {
         let (view, cx) = on_screen(cx, "tool-edit", 2400.);
         let full = id_of(&view, FULL, cx);
@@ -689,7 +712,7 @@ mod tests {
         let outside = id_of(&view, SHOT, cx);
         view.update(cx, |view, cx| view.ready_open("tool-edit", &outside, cx));
         redraw(cx);
-        assert!(drawn(cx, Role::Status, "Not in your preview yet"), "the card's chip says it");
+        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "its row, right above it, says it");
         assert_eq!(super::super::ready_card::built_label(false).0, "Not in your preview yet", "and so does the built picture's frame");
         for name in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
             assert!(!drawn(cx, Role::Button, name), "{name} waits until the preview holds the build");
