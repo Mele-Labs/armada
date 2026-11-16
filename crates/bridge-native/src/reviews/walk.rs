@@ -81,7 +81,7 @@ pub static STEPS: [Step; 65] = [
     step("A new commit: its title, who made it and when", Verb::Look, "row", "Name each stage in the log"),
     step("Checks: one still running, the rest passed", Verb::Look, "row", "test: Running, 3 min"),
     step("Its glyph says the state in a tooltip", Verb::Hover, "img", "Running"),
-    step("Your draft from an earlier visit waits in its own box", Verb::Look, "textbox", "Draft comment on src/jobs/invoice.rs:41"),
+    step("Your draft from an earlier visit waits in its own box", Verb::Hover, "article", "Draft comment on src/jobs/invoice.rs:41"),
     step("What went with Tuesday's review, folded", Verb::Hover, "button", "Sent with your review on Tuesday"),
     step("The last critique says what it read in words; the commits are in its tooltip", Verb::Hover, "heading", "Suggestions on Mira's changes up to your review"),
 ];

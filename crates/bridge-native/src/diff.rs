@@ -179,6 +179,8 @@ pub struct Slots {
     pub gutter: Option<Gutter>,
     pub picked: Option<usize>,
     pub under: HashMap<usize, AnyElement>,
+    /// Wrap long lines inside the frame, for a card too narrow to scroll sideways (a draft's excerpt).
+    pub wrap: bool,
 }
 
 /// A file's lines alone, with no path above them: what a pull request's Files section and a thread's
@@ -195,6 +197,7 @@ pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, 
     let accent = look.color(token::ACCENT);
     let ring = look.color(token::ACCENT);
     let collides = look.color(token::STATUS_AWAITING_REVIEW);
+    let wrap = slots.wrap;
     let rows: Vec<AnyElement> = lines
         .iter()
         .enumerate()
@@ -266,13 +269,20 @@ pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, 
                 .relative()
                 .px(look.length(token::SPACE_3))
                 .when(line.kind == LineKind::Hunk, |row| row.py(look.length(token::SPACE_1)))
-                .whitespace_nowrap()
+                .when(!wrap, |row| row.whitespace_nowrap())
                 .when_some(ground, |row, ground| row.bg(look.color(ground)))
                 .text_color(if line.collides.is_some() { collides } else { look.color(ink) })
                 .children(picked.then(|| div().absolute().inset_0().bg(accent.opacity(0.16))))
                 .children(picked.then(|| div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).bg(accent)))
                 .when(line.collides.is_some(), |row| row.child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(collides)))
-                .child(div().relative().child(SharedString::from(line.text.clone())))
+                .child(if wrap && line.kind != LineKind::Hunk && !line.text.is_empty() {
+                    // The sign keeps a column of its own, so a wrapped line breaks in its words and
+                    // never between the sign and the indent.
+                    let (sign, rest) = line.text.split_at(line.text.chars().next().map_or(0, char::len_utf8));
+                    div().relative().flex().child(div().flex_none().child(SharedString::from(sign.to_string()))).child(div().flex_1().min_w_0().child(SharedString::from(rest.to_string())))
+                } else {
+                    div().relative().min_w_0().child(SharedString::from(line.text.clone()))
+                })
                 .children(gutter)
                 .children(swords);
             let under = slots.under.remove(&at).map(|under| {
@@ -295,12 +305,12 @@ pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, 
     div()
         .id(ElementId::Name(id.into()))
         .min_w_0()
-        .overflow_x_scroll()
+        .when(!wrap, |frame| frame.overflow_x_scroll())
         .bg(look.color(token::BG_BASE))
         .font_family(mono(look))
         .text_size(look.length(token::TEXT_2XS))
         .line_height(look.length(token::LEADING_2XS))
-        .child(div().flex().flex_col().min_w_full().children(rows))
+        .child(div().flex().flex_col().min_w_full().when(wrap, |rows| rows.w_full()).children(rows))
         .into_any_element()
 }
 

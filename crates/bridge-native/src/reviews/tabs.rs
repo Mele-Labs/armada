@@ -1,6 +1,6 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
-use gpui::{div, prelude::*, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
@@ -46,6 +46,28 @@ fn file_mark(status: PullRequestFileStatus) -> (&'static str, Token, &'static st
         PullRequestFileStatus::Modified => ("pencil", token::FG_MUTED, "Modified"),
         PullRequestFileStatus::Renamed => ("file-text", token::FG_MUTED, "Renamed"),
     }
+}
+
+/// A check's state as its glyph, turning slowly while it runs as the inbox's does; gpui draws it
+/// still when reduce motion is on.
+fn check_lead(id: String, state: PullRequestCheckState, look: &Look) -> AnyElement {
+    let (name, ink, said) = check_mark(state);
+    if state != PullRequestCheckState::Running {
+        return mark(id, name, ink, said, look);
+    }
+    let turning = glyph(name, look.length(token::SPACE_4), look.color(ink)).with_animation(
+        SharedString::from(format!("{id}-turn")),
+        Animation::new(look.duration(token::DURATION_PULSE)).repeat(),
+        |mark, at| mark.with_transformation(Transformation::rotate(gpui::percentage(at))),
+    );
+    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said)).child(turning), Role::Image, said).into_any_element()
+}
+
+/// A check's state in words at a row's end: in its hue once settled, muted while it runs.
+fn check_words(state: PullRequestCheckState, said: String, look: &Look) -> AnyElement {
+    let (_, ink, _) = check_mark(state);
+    let ink = if state == PullRequestCheckState::Running { token::FG_MUTED } else { ink };
+    div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(ink)).child(SharedString::from(said)).into_any_element()
 }
 
 /// A state as a registry glyph that says itself in a tooltip.
@@ -147,8 +169,9 @@ fn band(id: String, title: &'static str, look: &Look) -> AnyElement {
     .into_any_element()
 }
 
-/// One row of a table: a glyph column, a narrow fixed key column, and what it says.
-fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: Vec<AnyElement>, said: Option<String>, look: &Look) -> AnyElement {
+/// One row of a table: a glyph column, a narrow fixed key column where the rows have one, what it
+/// says in the rest of the width, and what stands at its end.
+fn table_row(id: String, name: String, lead: AnyElement, key: Option<AnyElement>, rest: Vec<AnyElement>, end: Option<AnyElement>, said: Option<String>, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(id))
@@ -162,8 +185,9 @@ fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: 
             .border_color(look.color(token::BORDER_SUBTLE))
             .text_size(look.length(token::TEXT_SM))
             .child(div().flex_none().w(look.length(token::SPACE_4)).child(lead))
-            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).overflow_hidden().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(key))
-            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(rest)),
+            .children(key.map(|key| div().flex_none().w(look.length(token::SPACE_12) * 2.).overflow_hidden().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(key)))
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(rest))
+            .children(end),
         Role::Row,
         name,
     )
@@ -257,8 +281,7 @@ impl ReviewsScreen {
                 div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(by)).into_any_element(),
             ];
             let lead = glyph("git-commit-horizontal", look.length(token::SPACE_4), look.color(token::STATUS_HANDED_IN)).into_any_element();
-            let key = div().into_any_element();
-            table = table.child(table_row(format!("changed-commit-{}", commit.sha), commit.headline.clone(), lead, key, rest, Some(format!("Commit {}", commit.sha)), look));
+            table = table.child(table_row(format!("changed-commit-{}", commit.sha), commit.headline.clone(), lead, None, rest, None, Some(format!("Commit {}", commit.sha)), look));
         }
         table = table.child(band("changed-band-files".into(), "Files changed", look));
         for (at, file) in page.files.iter().filter(|file| file.since).enumerate() {
@@ -275,7 +298,7 @@ impl ReviewsScreen {
                 // In a row of its own, so the chip keeps its own width.
                 rest.push(div().flex().child(chip(format!("changed-after-{at}"), "You had viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look)).into_any_element());
             }
-            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, None, look));
+            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), Some(key), rest, None, None, look));
         }
         if page.kept {
             table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
@@ -291,7 +314,7 @@ impl ReviewsScreen {
                 ];
                 let key = div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).truncate().child(SharedString::from(reply.author.clone())).into_any_element();
                 let lead = glyph("message-square-reply", look.length(token::SPACE_4), look.color(token::ACCENT)).into_any_element();
-                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, key, rest, None, look));
+                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, Some(key), rest, None, None, look));
             }
         }
         table = table.child(band("changed-band-checks".into(), "Checks", look));
@@ -299,15 +322,15 @@ impl ReviewsScreen {
             table = table.child(waiting("changed-checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
         }
         for (at, check) in page.checks.iter().enumerate() {
-            let (name, ink, said) = check_mark(check.state);
+            let (_, _, said) = check_mark(check.state);
             let state = match (check.state, check.seconds) {
                 (PullRequestCheckState::Running, Some(seconds)) if seconds >= 60 => format!("Running, {} min", seconds / 60),
                 _ => said.to_string(),
             };
             let rest = vec![div().child(SharedString::from(check.name.clone())).into_any_element()];
-            let key = div().text_color(look.color(ink)).child(SharedString::from(state.clone())).into_any_element();
             let row_name = format!("{}: {state}", check.name);
-            table = table.child(table_row(format!("changed-check-{at}"), row_name, mark(format!("changed-check-mark-{at}"), name, ink, said, look), key, rest, None, look));
+            let end = check_words(check.state, state, look);
+            table = table.child(table_row(format!("changed-check-{at}"), row_name, check_lead(format!("changed-check-mark-{at}"), check.state, look), None, rest, Some(end), None, look));
         }
         let table = labelled(table.id("changed-table"), Role::Table, "What changed");
         let diff = labelled(
@@ -525,7 +548,7 @@ impl ReviewsScreen {
                 .child(place_line(format!("draft-card-place-{}", draft.id), place.clone(), look))
                 .children(draft.excerpt.as_deref().map(|lines| {
                     // The commented line is the excerpt's last, picked as a change set's hot line is.
-                    let slots = diff::Slots { picked: lines.len().checked_sub(1), ..Default::default() };
+                    let slots = diff::Slots { picked: lines.len().checked_sub(1), wrap: true, ..Default::default() };
                     labelled(
                         frame(look).id(SharedString::from(format!("draft-card-diff-{}", draft.id))).child(diff::lines_with(SharedString::from(format!("draft-diff-{}", draft.id)), lines, look, slots)),
                         Role::Article,
@@ -1343,7 +1366,7 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
         table = table.child(waiting("checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
     }
     for (at, check) in page.checks.iter().enumerate() {
-        let (name, ink, said) = check_mark(check.state);
+        let (_, _, said) = check_mark(check.state);
         let took = check.seconds.map_or_else(String::new, |seconds| format!("{}m {}s", seconds / 60, seconds % 60));
         let rest = vec![div()
             .flex()
@@ -1351,8 +1374,8 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
             .child(div().flex_1().min_w_0().child(SharedString::from(check.name.clone())))
             .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(took)))
             .into_any_element()];
-        let key = div().text_color(look.color(ink)).child(said).into_any_element();
-        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), key, rest, None, look));
+        let end = check_words(check.state, said.to_string(), look);
+        table = table.child(table_row(format!("check-{at}"), check.name.clone(), check_lead(format!("check-mark-{at}"), check.state, look), None, rest, Some(end), None, look));
     }
     labelled(table.id("checks-table"), Role::Table, "Checks").into_any_element()
 }
