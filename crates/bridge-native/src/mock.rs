@@ -344,10 +344,13 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.activity = Some(ipc::SessionActivity { now: Some("Reading page_votes.rs".into()), ..Default::default() });
         }
     }
-    // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
+    // The first Job needs him and is snoozed until the afternoon: Fleet pauses it, and it keeps its items and raises nothing.
     if scenario == "jobs-snoozed" {
         if let (Some(one), Some(now)) = (sessions.iter_mut().find(|one| one.id.as_str() == "mock-01"), fixed_now()) {
             one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
+            if let Some(hosted) = one.hosted.as_mut() {
+                hosted.paused = Some(ipc::SessionPaused { at: crate::snooze::instant_of(now.with_timezone(&chrono::Utc)), resuming: false });
+            }
         }
     }
     if scenario == "claim-waits" {
