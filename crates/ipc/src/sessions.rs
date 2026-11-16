@@ -907,7 +907,7 @@ pub enum WaitingSource {
     /// read off its build notes, never kept: id and `artifact` `try:<session_id>`, text `Ready to try`, since the
     /// oldest open card, and a `message` act that opens the Job. Gone once no card is open: each is answered
     /// (`answer_ready_to_try`, or a verdict on its build note), withdrawn, replaced or held by a reminder; back when
-    /// a reminder comes due. Answering it here is refused, it is never dismissed, and Approve all passes it by.
+    /// a reminder comes due. Answering it here is refused and Approve all passes it by. Dismissing it puts away only the cards open then, so a card offered later raises it again.
     /// Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
     ReadyToTry,
 }

@@ -65,7 +65,7 @@ fn cases() -> Vec<Case> {
         case(item("handoff:r2", Source::Handoff, Some((Act::Answer, "handoff:r2")), &["Carry on in a new Job", "Stay here"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("sketch:Flow", Source::Sketch, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("document:/w/a.html", Source::Document, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
-        case(item("try:job-1", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::None, false),
+        case(item("try:job-1", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("first", Source::FirstMessage, Some(own), &[], &[]), Section::Questions, Dismiss::None, false),
         case(item("replied:1", Source::Replied, None, &[], &[]), Section::Questions, Dismiss::NotAQuestion, true),
         case(item("done:1", Source::Done, None, &[], &[]), Section::Done, Dismiss::Plain, false),

@@ -501,7 +501,7 @@ export type WaitingAct = {
  * `job_held` (id `held:<repository>:<pull or branch>`, act `answer`) is an `ask_held` Fleet could not answer: `Land it` (choice 0) and `Hold it` (choice 1);
  * the Job that asked is told. Neither can be dismissed. Since 14 Nov 2026.
  * `ready_to_try` (id and `artifact` `try:<session_id>`, text `Ready to try`, act `message`) is the Job's one row while any Ready to try
- * card in its thread is open; each card is answered with `answer_ready_to_try`, and the row is never dismissed. Since 15 Nov 2026, one per Job since 16 Nov 2026.
+ * card in its thread is open; each card is answered with `answer_ready_to_try`, and dismissing the row puts away only the cards open then. Since 15 Nov 2026, one per Job since 16 Nov 2026.
  */
 export type WaitingSource =
   | "agent"

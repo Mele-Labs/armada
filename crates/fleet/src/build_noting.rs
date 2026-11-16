@@ -72,9 +72,14 @@ fn card_state(note: &KeptBuildNote, newest: bool, now: &str) -> ReadyState {
 }
 
 /// The one item that waits on him while any of the Job's cards is open: id and artifact `try:<session>`, text
-/// `Ready to try`, since the oldest open card, opening the Job. It goes once no card is open.
-pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str) -> Option<ipc::WaitingItem> {
-    let since = cards_of(notes, &BTreeMap::new(), now).into_iter().filter(|card| card.state == ReadyState::Open).map(|card| card.at).min()?;
+/// `Ready to try`, since the oldest open card, opening the Job. It goes once no card is open. A card he dismissed
+/// the row for (`dismissed` holds its id) does not raise it, so a card offered later does.
+pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, dismissed: &[String]) -> Option<ipc::WaitingItem> {
+    let since = cards_of(notes, &BTreeMap::new(), now)
+        .into_iter()
+        .filter(|card| card.state == ReadyState::Open && !dismissed.contains(&card.id))
+        .map(|card| card.at)
+        .min()?;
     let id = format!("try:{session}");
     Some(ipc::WaitingItem {
         approves: false,

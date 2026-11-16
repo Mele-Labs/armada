@@ -4,7 +4,7 @@
 use std::fs;
 use std::sync::Arc;
 
-use api::{Refusal, Sessions};
+use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
     AnswerReadyToTry, AnswerSketch, ArtifactForm, Instant, JobThreadRead, NoteVerdict, OfferApproved, OfferPreview, PreviewOffered, ReadyAnswer,
     ReadyState, SessionId, ShowSketch, SketchHow, ThreadItem, ThreadReadyToTry, WithdrawPreview,
@@ -313,4 +313,22 @@ async fn two_open_cards_of_one_job_raise_one_item_and_answering_both_leaves_none
     let asked = AnswerReadyToTry { session_id: SessionId::carried(session.as_str()), branch: "armada/two".into(), tip: second, answer: ReadyAnswer::LooksGood };
     api::Commands::answer_ready_to_try(Arc::clone(&rig.fleet), asked).await.expect("second answered");
     assert!(tries(&rig, &session).await.is_empty(), "both answered leaves none");
+}
+
+#[tokio::test]
+async fn dismissing_the_ready_to_try_row_puts_away_only_the_cards_open_then() {
+    let rig = a_rig();
+    let (session, _tip) = an_offered_job(&rig).await;
+    let id = format!("try:{session}");
+
+    let dismissal = ipc::DismissWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), reason: None, misread: false };
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissal).await.expect("dismissed");
+    assert!(tries(&rig, &session).await.is_empty(), "the card open then is put away");
+
+    rig.holds_branch(&session, "armada/two").await;
+    branch_with(&rig, "armada/two", &base(&rig), "crates/x/two.rs", "2");
+    offer(&rig, OfferPreview { branch: Some("armada/two".into()), ..offered(&session) }).await.expect("offered a new card");
+    let raised = tries(&rig, &session).await;
+    let [item] = raised.as_slice() else { panic!("the new card raises the row again: {raised:?}") };
+    assert_eq!(item.id, id);
 }

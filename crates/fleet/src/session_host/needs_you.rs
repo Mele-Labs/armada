@@ -55,8 +55,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `replied` | by act | not a question |
 /// | `draft` | to review | reason |
 /// | `handoff` | questions | plain: Stay |
-/// | `sketch`, `document`, `plan` | to review | plain |
-/// | `ready_to_try` | to review | none |
+/// | `sketch`, `document`, `plan`, `ready_to_try` | to review | plain |
 /// | `done` | done | plain |
 /// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
 /// | `words_address`, `fleet_call`, `watch_not_ours`, `browser_ask` | questions | plain |
@@ -95,7 +94,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::Gate => rule(Questions, Dismiss::None),
         WaitingSource::JobConflict => rule(Questions, Dismiss::None),
         WaitingSource::JobHeld => rule(Questions, Dismiss::None),
-        WaitingSource::ReadyToTry => rule(Review, Dismiss::None),
+        WaitingSource::ReadyToTry => rule(Review, Dismiss::Plain),
     }
 }
 
