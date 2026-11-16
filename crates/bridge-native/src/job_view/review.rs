@@ -1002,7 +1002,12 @@ impl JobView {
         match event.keystroke.key.as_str() {
             // One Esc leaves from any depth, and the keys go back to what opened the sheet. The picture zoomer, drawn over it
             // with its own focus, hears its Esc first.
-            "escape" => self.close_review(window, cx),
+            "escape" => {
+                // A box he is typing in closes alone, its words kept: the panel stays for the next Esc.
+                if !self.review_close_box(window, cx) {
+                    self.close_review(window, cx);
+                }
+            }
             "tab" => self.review_tab(event.keystroke.modifiers.shift, window, cx),
             _ => {
                 let noting = self.review_noting(window, cx);
@@ -1013,6 +1018,21 @@ impl JobView {
             }
         }
         cx.stop_propagation();
+    }
+
+    /// Esc in the Notes box or in a box of the chosen artifact's parts: the box gives up the keys, the words stay kept in it, and
+    /// where an Ask for changes box is open it closes. False where he is in no box.
+    fn review_close_box(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.review_noting(window, cx) {
+            window.focus(&self.review_focus.list, cx);
+            return true;
+        }
+        let Some(artifact) = self.review_chosen().and_then(|item| super::reader_sheet::artifact_in(&item).map(str::to_string)) else { return false };
+        if !self.parts_typing(&artifact, window, cx) {
+            return false;
+        }
+        self.close_parts_boxes(&artifact, window, cx);
+        true
     }
 
     /// Tab stays inside the sheet: it goes round its stops and never out of them.

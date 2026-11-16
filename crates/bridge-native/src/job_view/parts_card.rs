@@ -418,6 +418,17 @@ impl JobView {
         page.cards.parts.notes.iter().any(|(key, input)| key.starts_with(&prefix) && input.read(cx).focus_handle(cx).is_focused(window)) || page.cards.modes.keys().any(|key| key.starts_with(&prefix))
     }
 
+    /// Esc in a part's box: an open Ask for changes box closes, its words kept as drafts, and the card has the keys again.
+    pub(super) fn close_parts_boxes(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let prefix = format!("{artifact}{JOIN}");
+        let open: Vec<String> = self.shown.as_ref().and_then(|job| self.pages.get(job)).map(|page| page.cards.modes.keys().filter(|key| key.starts_with(&prefix)).cloned().collect()).unwrap_or_default();
+        // Parts read in the review panel stand on its own place, not a card's in the thread.
+        for key in &open {
+            self.close_box_kept(super::acts::SHEET, key, cx);
+        }
+        self.focus_card(artifact, window, cx);
+    }
+
     // ---- what he does ------------------------------------------------------------------------------------------
 
     /// Answer a part: it reads the answer in this frame and Fleet is told. A refusal takes the answer back, and the part's
@@ -555,8 +566,8 @@ impl JobView {
     }
 
     /// Ask for changes on a part: its note box opens under it.
-    fn part_ask_for_changes(&mut self, artifact: &str, part: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(ix) = self.parts_ix(artifact) else { return };
+    pub(super) fn part_ask_for_changes(&mut self, artifact: &str, part: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(ix) = self.review_open().then_some(super::acts::SHEET).or_else(|| self.parts_ix(artifact)) else { return };
         self.ask_for_changes(ix, &part_key(artifact, part), window, cx);
     }
 

@@ -137,7 +137,8 @@ impl JobView {
                     if this.reader_of(&job_c, &name_c).is_some_and(|held| held.edit.is_some()) {
                         if key == "escape" && !mods.modified() {
                             cx.stop_propagation();
-                            this.reader_act(&job_c, &name_c, RAct::Discard, window, cx);
+                            this.reader_edit_leave(&job_c, &name_c, cx);
+                            window.focus(&this.row_focus, cx);
                         } else if key == "s" && mods.platform && !mods.shift && !mods.alt {
                             cx.stop_propagation();
                             this.reader_act(&job_c, &name_c, RAct::Save, window, cx);

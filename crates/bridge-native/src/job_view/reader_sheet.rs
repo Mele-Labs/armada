@@ -344,6 +344,20 @@ mod tests {
     }
 
     #[gpui::test]
+    fn escape_in_an_ask_for_changes_box_closes_the_box_and_the_next_one_closes_the_panel(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
+        redraw(cx);
+        let boxed = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.pages.get(JOB).is_some_and(|page| !page.cards.modes.is_empty()));
+        assert!(boxed(&view, cx), "the box is open");
+        cx.simulate_keystrokes("escape");
+        assert!(!boxed(&view, cx), "the first Esc closes the box");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and leaves the panel");
+        cx.simulate_keystrokes("escape");
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the next Esc closes the panel");
+    }
+
+    #[gpui::test]
     fn one_escape_closes_it_from_the_parts_and_from_the_list(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         cx.simulate_keystrokes("escape");
