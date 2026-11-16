@@ -320,6 +320,19 @@ fn the_kept_build_is_the_folder_under_builds_the_executable_sits_in_and_none_fro
 }
 
 #[test]
+fn the_fleet_launchd_runs_from_its_one_path_is_the_build_placed_there() {
+    let support = TempDir::new();
+    let placed = support.path().join("fleet/Armada Fleet.app/Contents/MacOS");
+    std::fs::create_dir_all(&placed).expect("it creates");
+    std::fs::write(placed.join("armada"), "").expect("it writes");
+    std::fs::create_dir_all(support.path().join("builds")).expect("it creates");
+
+    assert_eq!(runtime::kept_build_of(&placed.join("armada"), support.path()), None, "nothing says which build it is yet");
+    std::fs::write(support.path().join("fleet/build"), "2026-11-16T153915Z-6aa1c22\n").expect("it writes");
+    assert_eq!(runtime::kept_build_of(&placed.join("armada"), support.path()), Some("2026-11-16T153915Z-6aa1c22".to_string()));
+}
+
+#[test]
 fn the_build_is_left_out_of_the_file_when_there_is_none_and_read_back_when_there_is() {
     let file = RuntimeFile { protocol_id: id(), pid: 7, port: 40000, started_at: our_start(), build: None };
     let body = ipc::encode(&file).expect("it encodes");

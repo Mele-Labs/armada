@@ -10,6 +10,10 @@ notes = """
 
 **Detached, and not marked.** The wrapper starts in a job of its own and carries no `ARMADA_SPAWNED_BY` mark, so neither Fleet stopping nor the next Fleet's orphan sweep ends it. It keeps its output in `~/Library/Logs/Armada/restart-build.log`. Run once more after `cargo clean -p libsqlite3-sys` where the first run failed on that stale build script.
 
+**`clear` moves aside what stops `main` fast-forwarding, then fast-forwards it.** `stash` or `delete`, absent by default. Fleet reads the files `get_fleet_build` calls `blocked` again, stashes them with `git stash push --include-untracked -m "armada: before updating main <UTC time>" -- <files>` or removes them, then runs `git pull --ff-only --quiet origin main` in the checkout, stopped after two minutes. A checkout with nothing blocking it is left as it is. A stash, removal or pull that fails is a 500 `fleet.build_not_started` with git's line, and nothing is started.
+
+**Fleet waits on the wrapper.** Its stdout and stderr go to `Armada/restart-build.start.log`, emptied at each start. Where it exits non-zero while `Armada/restart-build.status` still holds Fleet's own two lines, it never took over, and Fleet writes `failed` with the last line of that log, else `restart-build exited N`, so `get_fleet_build` says so within seconds. A wrapper that wrote a stage owns the status.
+
 A second request while one is under way is a 409 `fleet.build_restarting`. A checkout that is not on `main` is refused by the wrapper, which reports it as `failed`. A Fleet with no checkout holding `scripts/restart-build` is a 409 `fleet.build_not_offered`.
 
 `Bridge only`: restarting the Fleet that serves a Job on your words is a person's act, whatever the action authority setting says.
