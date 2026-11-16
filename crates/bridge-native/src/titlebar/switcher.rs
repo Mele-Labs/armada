@@ -752,13 +752,14 @@ mod tests {
 
     #[gpui::test]
     fn stash_and_refresh_restarts_onto_the_build_with_stash(cx: &mut TestAppContext) {
-        let (_bar, cx, asked) = opened(cx, &format!("{PREVIEW},{BLOCKED}"));
+        let (bar, cx, asked) = opened(cx, &format!("{PREVIEW},{BLOCKED}"));
         let at = drawn(cx, Role::Button, "Stash and refresh").expect("Stash and refresh is drawn");
         cx.simulate_click(at.center(), Modifiers::none());
         redraw(cx);
         assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Preview, clear: Some(ClearBlocked::Stash) }]);
-        assert!(drawn(cx, Role::Button, "Refreshing").is_some(), "the restart is under way in the same frame");
-        assert!(drawn(cx, Role::Button, "Stash and refresh").is_none(), "the files and their presses go");
+        // A bare bar's label book is never cleared, so what went is read from the bar and not the book.
+        let restarting = bar.read_with(cx, |bar, _| bar.face.build.as_ref().and_then(|held| held.report.restarting));
+        assert_eq!(restarting, Some(BuildSource::Preview), "the restart is under way in the same frame, so the files and their presses go");
     }
 
     #[gpui::test]
