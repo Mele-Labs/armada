@@ -194,6 +194,31 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Withdraw every note of `branch` the Job offered that no answer or withdrawal has settled. How many it
+    /// touched: a branch whose offer has left the preview list still holds its notes, and this takes them back.
+    pub fn keep_build_notes_withdrawn_of(&mut self, session_id: &str, branch: &str, at: &str) -> Result<usize, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE build_notes SET withdrawn_at = ?3 WHERE session_id = ?1 AND branch = ?2 AND withdrawn_at IS NULL AND verdict IS NULL",
+                params![session_id, branch, at],
+            )
+            .map_err(fault("withdrawing the notes of a branch"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Withdraw every unsettled note of a branch no Job offers any more: the offer left the preview list, by a
+    /// merge or by being dropped, so its card has nothing to try. How many it touched.
+    pub fn keep_build_notes_withdrawn_without_offer(&mut self, at: &str) -> Result<usize, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE build_notes SET withdrawn_at = ?1 WHERE withdrawn_at IS NULL AND verdict IS NULL
+                 AND NOT EXISTS (SELECT 1 FROM preview_offered WHERE preview_offered.session_id = build_notes.session_id AND preview_offered.branch = build_notes.branch)",
+                params![at],
+            )
+            .map_err(fault("withdrawing the notes of offers that are gone"))
+            .map_err(WriteError::Database)
+    }
+
     /// Mark the note of `branch` at `tip` looked at, **once**: a second mark keeps the first time. A `verdict`
     /// replaces the one kept, and none keeps it. Whether there is such a note.
     pub fn keep_build_note_looked_at(&mut self, branch: &str, tip: &str, at: &str, verdict: Option<&str>) -> Result<bool, WriteError> {
