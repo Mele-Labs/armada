@@ -228,6 +228,7 @@
    "additions": 96,
    "deletions": 14,
    "mergeable": "mergeable",
+   "merge_state": "blocked",
    "review": "required",
    "approvals": 0,
    "body": "Shows where a Session's pull request stands in the merge line.\n\n- reads `placeOf` from the merge lines Fleet serves\n- draws nothing when the pull request is not in one",
@@ -348,6 +349,7 @@
    "additions": 233,
    "deletions": 41,
    "mergeable": "conflicting",
+   "merge_state": "dirty",
    "review": "changes_requested",
    "approvals": 0,
    "conversation": [

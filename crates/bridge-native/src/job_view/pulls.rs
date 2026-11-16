@@ -57,6 +57,42 @@ pub(super) struct Pull {
     pub root_base: Option<String>,
     /// The number of the pull request it is stacked on, where that is not the row above (`chip`).
     pub stacked_on: Option<u64>,
+    /// Whether the forge would merge it now. Unknown from a Fleet before it carried one.
+    pub merge: ipc::PullRequestMergeState,
+}
+
+/// What the forge's merge verdict lets a pull request do, as the head, the panel's act and the row's act read it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Gate {
+    /// No verdict: its Checks decide, as they did before Fleet carried one.
+    Checks,
+    /// Clean, unstable or with hooks: the forge merges it now.
+    Merges,
+    /// A rule of the base branch stops it, such as a review it asks for.
+    Blocked,
+    Behind,
+    Conflicts,
+}
+
+/// The gate a merge verdict stands for. A draft's verdict is its state's, which is drawn already.
+pub(super) fn gate_of(merge: ipc::PullRequestMergeState) -> Gate {
+    use ipc::PullRequestMergeState as Merge;
+    match merge {
+        Merge::Clean | Merge::Unstable | Merge::HasHooks => Gate::Merges,
+        Merge::Blocked => Gate::Blocked,
+        Merge::Behind => Gate::Behind,
+        Merge::Dirty => Gate::Conflicts,
+        Merge::Draft | Merge::Unknown => Gate::Checks,
+    }
+}
+
+/// The verdict a ledger row's `merge_state` detail spells, Unknown where it carries none.
+fn merge_named(word: Option<&str>) -> ipc::PullRequestMergeState {
+    use ipc::PullRequestMergeState as Merge;
+    [Merge::Clean, Merge::Blocked, Merge::Behind, Merge::Dirty, Merge::Unstable, Merge::HasHooks, Merge::Draft]
+        .into_iter()
+        .find(|merge| Some(merge.word()) == word)
+        .unwrap_or(Merge::Unknown)
 }
 
 /// An act that moves a pull request on, and the route Fleet takes it at (`PRESS_ROUTE`).
@@ -112,6 +148,7 @@ pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> 
         base: None,
         root_base: None,
         stacked_on: None,
+        merge: ipc::PullRequestMergeState::Unknown,
     }
 }
 
@@ -164,6 +201,7 @@ pub(super) fn addressed(manifest: String, address: &str, number: u64, title: Str
         base: None,
         root_base: None,
         stacked_on: None,
+        merge: ipc::PullRequestMergeState::Unknown,
     }
 }
 
@@ -181,11 +219,15 @@ pub(super) fn checks_of_page(page: &ipc::PullRequestPage) -> (PullChecks, String
     (checks, failing.join(", "))
 }
 
-/// The pull request with its Checks as its page says them once the page is read, so the head, the failing
-/// checks and the act agree with the Checks tab. Before, the ledger's row stands, though it can be stale.
-pub(super) fn with_page_checks(mut pull: Pull, page: Option<&ipc::PullRequestPage>) -> Pull {
+/// The pull request with its Checks and merge verdict as its page says them once the page is read, so the
+/// head, the failing checks and the act agree with the tabs. Before, the ledger's row stands, though it can
+/// be stale; so does its verdict where the page could not say one.
+pub(super) fn with_page_read(mut pull: Pull, page: Option<&ipc::PullRequestPage>) -> Pull {
     if let Some(page) = page {
         (pull.checks, pull.failing) = checks_of_page(page);
+        if page.merge_state != ipc::PullRequestMergeState::Unknown {
+            pull.merge = page.merge_state;
+        }
     }
     pull
 }
@@ -225,6 +267,7 @@ pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: 
         base: detail("base").filter(|base| !base.is_empty()).map(str::to_string),
         root_base: None,
         stacked_on: None,
+        merge: merge_named(detail("merge_state")),
     })
 }
 
@@ -333,6 +376,9 @@ fn standing_of(pull: &Pull) -> Option<(&'static str, &'static str, &'static str,
     if pull.checks == PullChecks::Running && pull.auto {
         return Some(("git-merge", "Auto-merge on, merges when every Check has passed", "Auto-merge", token::ACCENT));
     }
+    if pull.auto && gate_of(pull.merge) == Gate::Blocked {
+        return Some(("git-merge", "Auto-merge on, merges once nothing blocks it", "Auto-merge", token::ACCENT));
+    }
     None
 }
 
@@ -344,10 +390,16 @@ fn act_of(pull: &Pull) -> Option<(PullAct, &'static str, &'static str, &'static 
     if pull.state == PullState::Draft {
         return Some((PullAct::Ready, "git-pull-request-arrow", "Ready for review", "Marks the pull request ready for review"));
     }
-    match pull.checks {
-        PullChecks::Passed => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now, every Check has passed")),
-        PullChecks::Running if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed")),
-        _ => None,
+    // The forge's verdict decides where Fleet carried one; a Fleet before it leaves the Checks to.
+    match gate_of(pull.merge) {
+        Gate::Merges => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now")),
+        Gate::Blocked if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it once nothing blocks it")),
+        Gate::Blocked | Gate::Behind | Gate::Conflicts => None,
+        Gate::Checks => match pull.checks {
+            PullChecks::Passed => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now, every Check has passed")),
+            PullChecks::Running if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed")),
+            _ => None,
+        },
     }
 }
 
@@ -745,7 +797,7 @@ mod tests {
     use super::*;
 
     fn pull(state: PullState, checks: PullChecks, auto: bool, queued: bool) -> Pull {
-        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None, base: None, root_base: None, stacked_on: None }
+        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None, base: None, root_base: None, stacked_on: None, merge: ipc::PullRequestMergeState::Unknown }
     }
 
     #[test]
@@ -786,11 +838,53 @@ mod tests {
         .expect("a page");
         let mut ledger = pull(PullState::Open, PullChecks::Failed, false, false);
         ledger.failing = "lint".into();
-        let read = with_page_checks(ledger.clone(), Some(&page));
+        let read = with_page_read(ledger.clone(), Some(&page));
         assert_eq!((read.checks, read.failing.as_str()), (PullChecks::Passed, ""));
         assert_eq!(act_of(&read).map(|one| one.0), Some(PullAct::Merge), "the act follows the page too");
-        let unread = with_page_checks(ledger, None);
+        let unread = with_page_read(ledger, None);
         assert_eq!((unread.checks, unread.failing.as_str()), (PullChecks::Failed, "lint"), "before the page is read the ledger stands");
+    }
+
+    #[test]
+    fn the_forges_merge_verdict_picks_the_act_and_without_one_the_checks_do() {
+        use ipc::PullRequestMergeState as Merge;
+        let act = |merge, checks, auto| {
+            let mut one = pull(PullState::Open, checks, auto, false);
+            one.merge = merge;
+            act_of(&one).map(|one| one.0)
+        };
+        assert_eq!(act(Merge::Blocked, PullChecks::Passed, false), Some(PullAct::AutoMerge), "every check passed, and a review is still asked for");
+        assert_eq!(act(Merge::Blocked, PullChecks::Passed, true), None, "auto-merge is on already");
+        assert_eq!(act(Merge::Behind, PullChecks::Passed, false), None);
+        assert_eq!(act(Merge::Dirty, PullChecks::Passed, false), None);
+        assert_eq!(act(Merge::Clean, PullChecks::Passed, false), Some(PullAct::Merge));
+        assert_eq!(act(Merge::HasHooks, PullChecks::Passed, false), Some(PullAct::Merge));
+        assert_eq!(act(Merge::Unstable, PullChecks::Failed, false), Some(PullAct::Merge), "the failing checks are not required");
+        assert_eq!(act(Merge::Unknown, PullChecks::Passed, false), Some(PullAct::Merge), "an older Fleet: the checks decide");
+        assert_eq!(act(Merge::Unknown, PullChecks::Running, false), Some(PullAct::AutoMerge));
+        assert_eq!(act(Merge::Unknown, PullChecks::Failed, false), None);
+        assert_eq!((merge_named(Some("has_hooks")), merge_named(Some("blocked")), merge_named(None)), (Merge::HasHooks, Merge::Blocked, Merge::Unknown));
+    }
+
+    #[test]
+    fn once_the_page_is_read_its_merge_verdict_stands_over_the_ledgers() {
+        let page = |merge: &str| -> ipc::PullRequestPage {
+            ipc::decode(
+                "PullRequestPage",
+                serde_json::json!({
+                    "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "merge_state": merge, "review": "required", "approvals": 0,
+                    "conversation": [], "files": [], "commits": [], "checks": [],
+                })
+                .to_string()
+                .as_bytes(),
+            )
+            .expect("a page")
+        };
+        let mut ledger = pull(PullState::Open, PullChecks::Passed, false, false);
+        ledger.merge = ipc::PullRequestMergeState::Clean;
+        assert_eq!(with_page_read(ledger.clone(), Some(&page("blocked"))).merge, ipc::PullRequestMergeState::Blocked);
+        assert_eq!(with_page_read(ledger.clone(), Some(&page("unknown"))).merge, ipc::PullRequestMergeState::Clean, "a page that cannot say leaves the ledger's");
+        assert_eq!(with_page_read(ledger, None).merge, ipc::PullRequestMergeState::Clean);
     }
 
     #[test]

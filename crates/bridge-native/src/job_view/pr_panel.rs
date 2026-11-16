@@ -15,7 +15,7 @@ use ipc::{
     PullReviewThread,
 };
 
-use super::pulls::{Pull, PullAct, PullChecks, PullState};
+use super::pulls::{gate_of, Gate, Pull, PullAct, PullChecks, PullState};
 use super::rows::{age, glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -148,8 +148,9 @@ fn ordinal(place: u32) -> String {
     format!("{place}{suffix}")
 }
 
-/// What the status plate says, its glyph and its hue (`standing`). `at` is its place in the merge queue.
-fn standing(pull: &Pull, at: Option<u32>) -> (SharedString, &'static str, Tone) {
+/// What the status plate says, its glyph and its hue (`standing`). `at` is its place in the merge queue;
+/// `review` what the page says the reviews came to, once it is read.
+fn standing(pull: &Pull, at: Option<u32>, review: Option<PullRequestReviewState>) -> (SharedString, &'static str, Tone) {
     let (what, icon, tone): (&'static str, &'static str, Tone) = if pull.state == PullState::Merged {
         ("Merged", "git-merge", Tone::Success)
     } else if pull.state == PullState::Closed {
@@ -160,13 +161,48 @@ fn standing(pull: &Pull, at: Option<u32>) -> (SharedString, &'static str, Tone) 
     } else if pull.state == PullState::Draft {
         ("Draft", "git-pull-request", Tone::Neutral)
     } else {
-        match pull.checks {
-            PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
-            PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
-            PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+        match gate_of(pull.merge) {
+            Gate::Merges => ("Ready to merge", "git-merge", Tone::Success),
+            Gate::Blocked if matches!(review, Some(PullRequestReviewState::Required | PullRequestReviewState::ChangesRequested)) => ("Review required", "user-check", Tone::Neutral),
+            Gate::Blocked => ("Merging is blocked", "ban", Tone::Failed),
+            Gate::Behind => ("Branch is behind", "arrow-down", Tone::Neutral),
+            Gate::Conflicts => ("Conflicts", "git-branch", Tone::Failed),
+            // A Fleet before the forge's verdict: the Checks decide.
+            Gate::Checks => match pull.checks {
+                PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
+                PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
+                PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+            },
         }
     };
     (what.into(), icon, tone)
+}
+
+/// What stands in the way of a blocked merge, in one muted line under the head: its checks, its
+/// conflicts and its reviews, as far as the page says them.
+fn blocked_facts(pull: &Pull, page: Option<&PullRequestPage>) -> Option<String> {
+    if pull.ended() || gate_of(pull.merge) != Gate::Blocked {
+        return None;
+    }
+    let mut facts = vec![match pull.checks {
+        PullChecks::Passed => "Checks passed",
+        PullChecks::Running => "Checks running",
+        PullChecks::Failed => "Checks failed",
+    }];
+    if let Some(page) = page {
+        match page.mergeable {
+            PullRequestMergeable::Mergeable => facts.push("No conflicts"),
+            PullRequestMergeable::Conflicting => facts.push("Conflicts"),
+            PullRequestMergeable::Unknown => {}
+        }
+        match page.review {
+            PullRequestReviewState::Required => facts.push("Needs an approving review"),
+            PullRequestReviewState::ChangesRequested => facts.push("Changes requested"),
+            PullRequestReviewState::Approved => facts.push("Approved"),
+            PullRequestReviewState::None => {}
+        }
+    }
+    Some(facts.join(" \u{b7} "))
 }
 
 /// One row of the merge queue a pull request is in (`PlaceRow`).
@@ -675,7 +711,7 @@ impl JobView {
         } else {
             pressed.clone()
         };
-        super::pulls::with_page_checks(pull, page)
+        super::pulls::with_page_read(pull, page)
     }
 
     fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
@@ -978,7 +1014,7 @@ impl JobView {
         let page = panel.page();
         let place = self.place_of_open(pull, cx);
         let at = place.as_ref().and_then(|rows| rows.iter().find(|row| row.current)).map(|row| row.place);
-        let (what, icon, tone) = standing(pull, at);
+        let (what, icon, tone) = standing(pull, at, page.map(|page| page.review));
         let hue = look.color(tone.hue());
         let failing: Vec<String> = if pull.checks == PullChecks::Failed && !pull.ended() {
             pull.failing.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect()
@@ -995,6 +1031,9 @@ impl JobView {
             .bg(hue.opacity(0.16))
             .child(glyph(look, icon, Size::Large, hue));
         let why = (!failing.is_empty()).then(|| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(failing.join(", "))));
+        // A blocked merge says why in one muted line, so the facts below do not say it again.
+        let blocked = blocked_facts(pull, page);
+        let why = why.or_else(|| blocked.clone().map(|line| div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line))));
         let status = div()
             .flex()
             .items_center()
@@ -1021,13 +1060,13 @@ impl JobView {
         let mut facts: Vec<(&'static str, &'static str, &'static str, Option<Tone>)> = Vec::new();
         let (check_icon, check_said, check_tone) = checks_fact(pull);
         let said_already = matches!((what.as_ref(), pull.checks), ("Checks failed", _) | ("Checks running", _) | ("Ready to merge", PullChecks::Passed));
-        if !said_already {
+        if !said_already && blocked.is_none() {
             facts.push(("checks", check_icon, check_said, Some(check_tone)));
         }
         if pull.auto && !pull.ended() {
             facts.push(("auto", "git-merge", "Auto-merge on", None));
         }
-        if let Some(page) = page {
+        if let Some(page) = page.filter(|_| blocked.is_none()) {
             match (page.review, page.approvals) {
                 (PullRequestReviewState::ChangesRequested, _) => facts.push(("review", "ban", "Changes requested", Some(Tone::Failed))),
                 (PullRequestReviewState::Approved, _) | (_, 1..) => facts.push(("review", "check", "Approved", Some(Tone::Success))),
@@ -1036,6 +1075,7 @@ impl JobView {
             }
             if !pull.ended() {
                 match page.mergeable {
+                    PullRequestMergeable::Conflicting if gate_of(pull.merge) == Gate::Conflicts => {}
                     PullRequestMergeable::Conflicting => facts.push(("conflicts", "git-branch", "Conflicts", Some(Tone::Failed))),
                     PullRequestMergeable::Mergeable => facts.push(("conflicts", "git-branch", "No conflicts", Some(Tone::Success))),
                     PullRequestMergeable::Unknown => {}
@@ -1390,11 +1430,18 @@ impl JobView {
         } else if pull.state == PullState::Draft {
             Some((Some(PullAct::Ready), "Ready for review", "Marks it ready for review"))
         } else {
-            match pull.checks {
-                PullChecks::Passed => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
-                PullChecks::Running if pull.auto => Some((None, "Auto-merge on", "It merges when every check passes")),
-                PullChecks::Running => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it when every check passes")),
-                PullChecks::Failed => None,
+            match gate_of(pull.merge) {
+                Gate::Merges => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
+                Gate::Blocked if pull.auto => Some((None, "Auto-merge on", "It merges once nothing blocks it")),
+                Gate::Blocked => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it once nothing blocks it")),
+                Gate::Behind | Gate::Conflicts => None,
+                // A Fleet before the forge's verdict: the Checks decide.
+                Gate::Checks => match pull.checks {
+                    PullChecks::Passed => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
+                    PullChecks::Running if pull.auto => Some((None, "Auto-merge on", "It merges when every check passes")),
+                    PullChecks::Running => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it when every check passes")),
+                    PullChecks::Failed => None,
+                },
             }
         };
         let act = act.map(|(which, word, said)| {
@@ -1909,6 +1956,43 @@ mod tests {
     #[test]
     fn a_template_comment_leaves_the_description() {
         assert_eq!(strip_comments("Fixes it.<!-- fill in --> Done."), "Fixes it. Done.");
+    }
+
+    #[test]
+    fn the_head_says_what_stops_a_merge_and_a_blocked_one_says_why_under_it() {
+        use ipc::PullRequestMergeState as Merge;
+        use PullRequestReviewState as Review;
+        let head = |merge, checks, review| {
+            let mut pull = super::super::pulls::addressed("m".into(), "", 7, String::new());
+            (pull.merge, pull.checks) = (merge, checks);
+            standing(&pull, None, review).0.to_string()
+        };
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::Required)), "Review required");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::ChangesRequested)), "Review required");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::Approved)), "Merging is blocked");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, None), "Merging is blocked");
+        assert_eq!(head(Merge::Behind, PullChecks::Passed, None), "Branch is behind");
+        assert_eq!(head(Merge::Dirty, PullChecks::Passed, None), "Conflicts");
+        assert_eq!(head(Merge::Clean, PullChecks::Passed, None), "Ready to merge");
+        assert_eq!(head(Merge::Unstable, PullChecks::Failed, None), "Ready to merge");
+        assert_eq!(head(Merge::Unknown, PullChecks::Passed, None), "Ready to merge", "an older Fleet: the checks decide");
+        assert_eq!(head(Merge::Unknown, PullChecks::Failed, None), "Checks failed");
+
+        let page: PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "merge_state": "blocked", "review": "required", "approvals": 0,
+                "conversation": [], "files": [], "commits": [], "checks": [],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let mut pull = super::super::pulls::addressed("m".into(), "", 7, String::new());
+        (pull.merge, pull.checks) = (Merge::Blocked, PullChecks::Passed);
+        assert_eq!(blocked_facts(&pull, Some(&page)).as_deref(), Some("Checks passed \u{b7} No conflicts \u{b7} Needs an approving review"));
+        pull.merge = Merge::Clean;
+        assert_eq!(blocked_facts(&pull, Some(&page)), None, "only a blocked merge says why");
     }
 
     #[test]
