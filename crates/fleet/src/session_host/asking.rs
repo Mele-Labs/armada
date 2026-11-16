@@ -349,6 +349,7 @@ where
             notice: None,
             queued: false,
             edited_at: None,
+            aside: None,
             sketches: Vec::new(),
         };
         let row_id = row.id().to_string();

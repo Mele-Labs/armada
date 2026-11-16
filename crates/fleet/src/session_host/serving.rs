@@ -81,6 +81,16 @@ enum Written {
     Noticed(ipc::Notice),
     /// A row of the caller's own, in place of a message: the words are still what the agent is sent.
     Row(SessionRow),
+    /// The person's message telling the Job a side question's answer (`tell_aside`): his, as
+    /// `Message(You)` is, and marked with the aside it came from.
+    Told(String),
+}
+
+impl Written {
+    /// Whether these are the person's words, read and kept as his.
+    fn yours(&self) -> bool {
+        matches!(self, Written::Message(SessionVoice::You) | Written::Told(_))
+    }
 }
 
 /// What Fleet marks a hosted session as at its start. **No `start_session` call can**: the mark is
