@@ -184,6 +184,8 @@ pub(crate) enum Extra {
     Working,
     /// The card of the subagents running now.
     Subagents,
+    /// A background task the agent left running past its turn, by its place in the record's `running`.
+    Background(usize),
     /// The agent's last word: what it made and the two ways on (`DoneBody`).
     End,
     /// Where a moved Job went, at the foot of its thread (`movedRowsOf`'s tail).
@@ -967,7 +969,10 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
-        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        // Each background task Fleet lists stands at the thread's end until Fleet stops listing it.
+        let background = self.record(id, cx).map(|job| job.running.iter().enumerate().filter(|(_, one)| one.kind == ipc::RunningKind::BackgroundTask).map(|(at, _)| Extra::Background(at)).collect::<Vec<_>>()).unwrap_or_default();
+        extras.extend(background);
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents | Extra::Background(_))).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
         extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
         let bands = self.bands_of(id, cx);

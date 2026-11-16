@@ -715,6 +715,34 @@ impl JobView {
                 line.into_any_element()
             }
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
+            Extra::Background(one) => {
+                let id = self.shown.clone()?;
+                let work = self.record(&id, cx)?.running.get(*one)?.clone();
+                let since = elapsed_words(work.since.as_str(), &super::runs::running_now(&id).to_rfc3339());
+                let what = SharedString::from(work.what.clone());
+                let said = SharedString::from(match &since {
+                    Some(since) => format!("Running in the background: {} for {since}", work.what),
+                    None => format!("Running in the background: {}", work.what),
+                });
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("background-{one}")))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .py(look.length(token::SPACE_1))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_SM))
+                        .text_color(look.color(token::FG_MUTED))
+                        .tooltip(tip(said.clone()))
+                        .child(div().id(SharedString::from(format!("background-mark-{one}"))).child(self.working_mark(look, look.color(token::STATUS_RUNNING))).tooltip(tip("Running in the background")))
+                        .child(div().min_w_0().truncate().child(what))
+                        .children(since.map(|since| div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(since))),
+                    Role::Status,
+                    said,
+                )
+                .into_any_element()
+            }
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
             Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),

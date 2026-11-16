@@ -236,4 +236,24 @@ mod tests {
         assert!(drawn_like(cx, Role::Button, "Now: ").is_empty(), "no room, so no pill");
         assert_eq!(row(cx), at_end, "Auto, the model and the rest measure as they do with no pill");
     }
+
+    #[gpui::test]
+    fn an_idle_job_shows_each_background_task_at_its_threads_end_until_fleet_stops_listing_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |jobs| {
+            let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
+            one.mark = Some(ipc::JobMark { state: ipc::JobState::Idle, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Held });
+            one.hosted = None;
+            one.running = vec![serde_json::from_value(serde_json::json!({"kind": "background_task", "what": "Break down develop folder by project", "since": "2026-11-16T16:40:10Z"})).expect("work decodes")];
+        });
+        let rows = drawn_like(cx, Role::Status, "Running in the background: Break down develop folder by project");
+        assert_eq!(rows.len(), 1, "one row for the one task");
+        view.update(cx, |view, cx| {
+            view.list.update(cx, |list, cx| {
+                list.record_mut(JOB).expect("the folds' Job").running.clear();
+                cx.notify();
+            });
+        });
+        redraw(cx);
+        assert!(drawn_like(cx, Role::Status, "Running in the background").is_empty(), "gone once Fleet stops listing it");
+    }
 }
