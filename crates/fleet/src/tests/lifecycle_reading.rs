@@ -66,7 +66,6 @@ fn comment(author: &str) -> Said {
         bot: false,
         at: "t".into(),
         edited_at: None,
-        aside: None,
         body: "b".into(),
     }
 }
