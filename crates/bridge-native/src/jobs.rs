@@ -87,7 +87,7 @@ struct Row {
     title: SharedString,
     project: SharedString,
     paused: bool,
-    /// Kept quiet until this time: it works on and raises nothing to him (`snoozed_until`).
+    /// Paused and kept quiet until this time, when Fleet resumes it (`snoozed_until`).
     snoozed: Option<chrono::DateTime<chrono::Local>>,
     /// Waiting for a worktree slot, as its glyph's tooltip says it (`slot_wait`).
     slot_wait: Option<SharedString>,
@@ -506,7 +506,8 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
     let picked: Vec<&SessionRecord> = match scope {
         Scope::Needs => lives.iter().copied().filter(|job| needs(job) && !snoozed(job)).collect(),
         Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job) && !snoozed(job)).collect(),
-        Scope::Paused => lives.iter().copied().filter(|job| paused(job)).collect(),
+        // A snoozed Job is paused as well, and listed under Snoozed alone.
+        Scope::Paused => lives.iter().copied().filter(|job| paused(job) && !snoozed(job)).collect(),
         Scope::Snoozed => lives.iter().copied().filter(|job| snoozed(job)).collect(),
         Scope::Quiet => lives.iter().copied().filter(|job| quiet(job)).collect(),
         Scope::Ended => ended,
@@ -1802,6 +1803,10 @@ impl JobsList {
         let at = until.map(crate::snooze::instant_of);
         if self.fleet.is_none() {
             if let Some(job) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) {
+                // Fleet pauses a Job it snoozes, and Wake now resumes it.
+                if let Some(hosted) = job.hosted.as_mut() {
+                    hosted.paused = at.is_some().then(|| ipc::SessionPaused { at: crate::snooze::instant_of(crate::snooze::now().with_timezone(&chrono::Utc)), resuming: false });
+                }
                 job.snoozed_until = at;
             }
             self.relist(cx);
@@ -2016,8 +2021,12 @@ impl JobsList {
             act("close", "Close", Some("x"), true),
             Entry::Rule,
         ];
+        // Fleet pauses a Job it snoozes and Wake now resumes it, so a snoozed Job offers no Resume of its own.
+        if row.snoozed.is_some() {
+            entries.remove(0);
+        }
         // Move to the other Mac, or bring the Job here, under Snooze: the Job's own state acts stand together.
-        let mut after = 2;
+        let mut after = if row.snoozed.is_some() { 1 } else { 2 };
         if let Some(offer) = self.record(&id).and_then(|job| crate::move_to_mac::offer(job, crate::pairing::macs(cx))) {
             entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
             after += 1;
@@ -2613,7 +2622,7 @@ impl JobsList {
                         Role::Image,
                         said,
                     )
-                })).when(row.paused, |slot| {
+                })).when(row.paused && row.snoozed.is_none(), |slot| {
                     slot.child(labelled(
                         div()
                             .id(SharedString::from(format!("paused-{}", row.id)))
@@ -3855,6 +3864,10 @@ mod tests {
             .map(|mut job| {
                 if ids.iter().any(|id| id == job.id.as_str()) {
                     job.snoozed_until = Some(ipc::Instant::carried("2026-11-13T16:30:00.000Z"));
+                    // Fleet pauses a Job it snoozes.
+                    if let Some(hosted) = job.hosted.as_mut() {
+                        hosted.paused = Some(ipc::SessionPaused { at: ipc::Instant::carried("2026-11-13T14:00:00.000Z"), resuming: false });
+                    }
                 }
                 job
             })
@@ -3890,6 +3903,13 @@ mod tests {
         snoozed.sort();
         ids.sort();
         assert_eq!(snoozed, ids);
+    }
+
+    #[test]
+    fn a_snoozed_job_is_not_in_paused() {
+        let (all, [asking, working]) = with_two_snoozed();
+        let paused = listed(&all, Scope::Paused);
+        assert!(!paused.contains(&asking) && !paused.contains(&working), "{paused:?}");
     }
 
     #[test]
