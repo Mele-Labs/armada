@@ -3524,7 +3524,7 @@ pub static WALKS: &[Walk] = &[
             step("The row's card opens, with the Mac as a line of its own: Air and since when it sleeps", Verb::Later(900), "tooltip", "Audit the docs index"),
             pairing("Air wakes: the laptop stays as it was, and the row's card no longer says it sleeps", "air-awake", "img", "On Air"),
             press_on("A press opens a Job on Air: its thread reads as any other", "row", "Fix the merge line freshness chip", "textbox", "Message"),
-            step("The head carries the chip with the Job's other marks", Verb::Look, "img", "Air"),
+            step("The head carries the same muted laptop with the Job's other marks", Verb::Look, "img", "On Air"),
             step("A right press on a row of Air opens its menu: the acts are listed, off", Verb::RightPress("Fix the merge line freshness chip"), "menuitem", "Pause"),
             step("The tooltip is the same sentence", Verb::Hover, "menuitem", "Close"),
             step("Esc shuts it", Verb::Key("escape"), "row", "Fix the merge line freshness chip"),
@@ -3533,7 +3533,7 @@ pub static WALKS: &[Walk] = &[
             step("Its row is not in the list", Verb::Absent("row", "Quiet the write-clash notices"), "row", "Audit the docs index"),
             step("Nor is its tab: the Job open on it is let go of, and the box with it", Verb::Absent("textbox", "Message"), "row", "Audit the docs index"),
             pairing("Air is forgotten: only this Mac is listed, its Jobs go, and nothing changes anywhere", "one-mac", "row", "Native Bridge foundation"),
-            step("No dot is drawn, and a row is as it was", Verb::Absent("img", "Studio"), "row", "Native Bridge foundation"),
+            step("No mark is drawn, and a row is as it was", Verb::Absent("img", "On Studio"), "row", "Native Bridge foundation"),
         ],
     },
     Walk {
@@ -3542,7 +3542,7 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-pairing",
         steps: &[
-            step("Air is asleep: its dot is dimmed, and the row's card says since when", Verb::Hover, "img", "Air"),
+            step("Air is asleep: the row's card says since when", Verb::Hover, "img", "On Air"),
             press_on("A press opens Fix the merge line freshness chip, which runs on Air: its box takes words, as on this Mac", "row", "Fix the merge line freshness chip", "textbox", "Message"),
             press_on("Needs you folds, so the thread can be read to its end: the Waits for Air card holds what was sent to the Job while Air sleeps", "button", "Needs you", "region", "Waits for Air"),
             step("Its head's tooltip says since when Air sleeps", Verb::Hover, "heading", "Waits for Air"),
