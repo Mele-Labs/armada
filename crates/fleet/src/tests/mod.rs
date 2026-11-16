@@ -120,6 +120,8 @@ mod notice_rules;
 mod session_import;
 mod session_limit;
 mod session_snooze;
+/// A snooze pauses a hosted Job, and its end resumes the Job the snooze paused.
+mod session_snooze_pause;
 mod peer;
 mod piece_places;
 mod built_in_project;
