@@ -4,9 +4,9 @@
 use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Context, FontWeight, Hsla, Pixels, Role, SharedString,
 };
-use ipc::BuildSource;
+use ipc::{BuildSource, CheckoutBlocked, ClearBlocked};
 
-use super::face::{ahead_said, behind_said, built_said, kept_said, stage_word, Build, Position};
+use super::face::{ahead_said, behind_said, blocked_said, built_said, kept_said, stage_word, Build, Position};
 use super::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
 use super::{story, Dialog, MenuKind, TitleBar};
 use crate::dropdown::Entry;
@@ -294,7 +294,7 @@ impl TitleBar {
                 .draw(look, cx)
                 .flex_1()
                 .tooltip(tip("Merge the offered branches onto latest main and restart Fleet"));
-            let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, window, cx))) };
+            let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, None, window, cx))) };
             let skip = refresh_row.map(|refresh| {
                 let id = refresh.id.clone();
                 let button = Btn::new("skip-offers", "Skip", Weight::Secondary).draw(look, cx).tooltip(tip("Hide what waits until the offers change"));
@@ -318,7 +318,7 @@ impl TitleBar {
                 .full()
                 .draw(look, cx)
                 .tooltip(tip(if idle { "On latest main" } else { "Restart Fleet on latest main" }));
-            let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Main, window, cx))) };
+            let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Main, None, window, cx))) };
             div()
                 .flex()
                 .flex_col()
@@ -328,9 +328,10 @@ impl TitleBar {
         });
         // A restart under way says its stage where the sentences stood.
         let stage = matches!(held.position(), Position::Restarting { stage: Some(_), .. }).then(|| self.position_marks(held, look, cx));
+        let blocked = (!restarting).then_some(report.blocked.as_ref()).flatten().map(|blocked| self.blocked_section(blocked, held.restart().target, busy, look, cx));
         let failed = (!restarting).then(|| report.failed.clone()).flatten().map(|said| self.failed_line(look, "build-failed", said.into()));
         let lists = div().id("fleet-build").flex().flex_col().gap(look.length(token::SPACE_3)).child(running).children(self.notes_row(look, cx)).children(self.waiting_section(held, look, cx)).into_any_element();
-        let presses = div().id("fleet-build-presses").flex().flex_col().gap(look.length(token::SPACE_3)).children(update).children(refresh).children(stage).children(failed).into_any_element();
+        let presses = div().id("fleet-build-presses").flex().flex_col().gap(look.length(token::SPACE_3)).children(update).children(refresh).children(blocked).children(stage).children(failed).into_any_element();
         (lists, presses)
     }
 
@@ -355,6 +356,58 @@ impl TitleBar {
                 .child(said.clone()),
             Role::Alert,
             said,
+        )
+        .into_any_element()
+    }
+
+    /// The untracked files that stop the checkout's main updating, and the two presses that move them and restart
+    /// onto `target`, the build the restart button would restart onto.
+    fn blocked_section(&self, blocked: &CheckoutBlocked, target: BuildSource, busy: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let amber = look.color(token::STATUS_AWAITING_REVIEW);
+        let said: SharedString = blocked_said(blocked.behind).into();
+        let line = div()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .child(div().flex_none().h(look.length(token::LEADING_XS)).flex().items_center().child(state_glyph("blocked-mark".into(), "triangle-alert", amber, "Main cannot update".into())))
+            .child(labelled(div().id("blocked-said").flex_1().min_w_0().text_color(look.color(token::FG_MUTED)).child(said.clone()), Role::Label, said));
+        // A long list scrolls in place, so the presses under it stay in view.
+        let files = labelled(
+            div()
+                .id("blocked-files")
+                .flex()
+                .flex_col()
+                .max_h(look.length(token::LEADING_XS) * 6.)
+                .overflow_y_scroll()
+                .font_family(mono(look))
+                .text_color(look.color(token::FG_DEFAULT))
+                .children(blocked.files.iter().enumerate().map(|(at, path)| {
+                    let path = SharedString::from(path.clone());
+                    labelled(div().id(("blocked-file", at)).truncate().tooltip(tip(path.clone())).child(path.clone()), Role::ListItem, path)
+                })),
+            Role::List,
+            "Untracked files",
+        );
+        let press = |id: &'static str, label: &'static str, weight: Weight, icon: &'static str, said: &'static str, clear: ClearBlocked| {
+            let button = Btn::new(id, label, weight).icon(icon).disabled(busy).full().draw(look, cx).flex_1().tooltip(tip(said));
+            let button = if busy { button } else { button.on_click(cx.listener(move |this, _, window, cx| this.change_build(target, Some(clear), window, cx))) };
+            labelled(button, Role::Button, label)
+        };
+        let stash = press("blocked-stash", "Stash and refresh", Weight::Primary, "archive", "Keeps these files in a git stash, then updates main and restarts", ClearBlocked::Stash);
+        let delete = press("blocked-delete", "Delete and refresh", Weight::Secondary, "trash-2", "Deletes these files for good, then updates main and restarts", ClearBlocked::Delete);
+        labelled(
+            div()
+                .id("blocked")
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .child(line)
+                .child(files)
+                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(stash).child(delete)),
+            Role::Group,
+            "Main cannot update",
         )
         .into_any_element()
     }
@@ -617,4 +670,103 @@ impl TitleBar {
             .into_any_element()
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use gpui::{Entity, Modifiers, Role, TestAppContext, VisualTestContext};
+    use ipc::{BuildSource, ClearBlocked, FleetBuildReport};
+
+    use super::super::face::{build_of, Face};
+    use super::super::{scenes, Asked, AskedSink, TitleBar};
+
+    const PREVIEW: &str = r#""on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{"ahead":5,"behind":2}"#;
+    const BLOCKED: &str = r#""blocked":{"behind":4,"files":[".armada/workflows/bug.yml",".armada/workflows/review.yml"]}"#;
+    const SAID: &str = "Main is 4 commits behind origin. These untracked files block its update:";
+
+    fn redraw(cx: &mut VisualTestContext) {
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    /// A bar whose Fleet panel stands open on `rest` of a build report, and what the bar asked.
+    fn opened<'a>(cx: &'a mut TestAppContext, rest: &str) -> (Entity<TitleBar>, &'a mut VisualTestContext, Rc<RefCell<Vec<Asked>>>) {
+        cx.update(crate::init_app);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let heard = Rc::clone(&asked);
+        cx.update(|cx| cx.set_global(AskedSink(Rc::new(move |one: &Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        let report = ipc::decode::<FleetBuildReport>("FleetBuildReport", format!("{{{rest}}}").as_bytes()).expect("the report decodes");
+        bar.update(cx, |bar, cx| {
+            bar.reset(Face { build: Some(build_of(&report)), ..scenes::rest() });
+            cx.notify();
+        });
+        redraw(cx);
+        cx.update(|window, cx| bar.update(cx, |bar, cx| bar.fleet_pressed(window, cx)));
+        redraw(cx);
+        (bar, cx, asked)
+    }
+
+    fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> Option<gpui::Bounds<gpui::Pixels>> {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, name)).map(|one| one.shown))
+    }
+
+    fn changes(asked: &RefCell<Vec<Asked>>) -> Vec<Asked> {
+        asked.borrow().iter().filter(|one| matches!(one, Asked::ChangeBuild { .. })).cloned().collect()
+    }
+
+    #[gpui::test]
+    fn a_blocked_checkout_draws_how_far_behind_its_files_and_both_presses(cx: &mut TestAppContext) {
+        let (_bar, cx, _) = opened(cx, &format!("{PREVIEW},{BLOCKED}"));
+        assert!(drawn(cx, Role::Label, SAID).is_some(), "the line says how far main is behind");
+        assert!(drawn(cx, Role::List, "Untracked files").is_some());
+        for file in [".armada/workflows/bug.yml", ".armada/workflows/review.yml"] {
+            assert!(drawn(cx, Role::ListItem, file).is_some(), "{file} is listed");
+        }
+        let stash = drawn(cx, Role::Button, "Stash and refresh").expect("Stash and refresh is drawn");
+        let delete = drawn(cx, Role::Button, "Delete and refresh").expect("Delete and refresh is drawn");
+        assert_eq!((stash.origin.y, stash.size.height), (delete.origin.y, delete.size.height), "the two presses share a line and a height");
+    }
+
+    #[gpui::test]
+    fn nothing_is_drawn_for_a_checkout_that_is_not_blocked(cx: &mut TestAppContext) {
+        let (_bar, cx, _) = opened(cx, PREVIEW);
+        assert!(drawn(cx, Role::Button, "Refresh").is_some(), "the panel is open");
+        assert!(drawn(cx, Role::Button, "Stash and refresh").is_none());
+        assert!(drawn(cx, Role::List, "Untracked files").is_none());
+    }
+
+    #[gpui::test]
+    fn nothing_is_drawn_while_a_restart_is_under_way(cx: &mut TestAppContext) {
+        let (_bar, cx, _) = opened(cx, &format!(r#"{PREVIEW},"restarting":"preview",{BLOCKED}"#));
+        assert!(drawn(cx, Role::Button, "Refreshing").is_some(), "the panel is open on the restart");
+        assert!(drawn(cx, Role::Label, SAID).is_none());
+        assert!(drawn(cx, Role::Button, "Stash and refresh").is_none());
+        assert!(drawn(cx, Role::Button, "Delete and refresh").is_none());
+    }
+
+    #[gpui::test]
+    fn stash_and_refresh_restarts_onto_the_build_with_stash(cx: &mut TestAppContext) {
+        let (_bar, cx, asked) = opened(cx, &format!("{PREVIEW},{BLOCKED}"));
+        let at = drawn(cx, Role::Button, "Stash and refresh").expect("Stash and refresh is drawn");
+        cx.simulate_click(at.center(), Modifiers::none());
+        redraw(cx);
+        assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Preview, clear: Some(ClearBlocked::Stash) }]);
+        assert!(drawn(cx, Role::Button, "Refreshing").is_some(), "the restart is under way in the same frame");
+        assert!(drawn(cx, Role::Button, "Stash and refresh").is_none(), "the files and their presses go");
+    }
+
+    #[gpui::test]
+    fn delete_and_refresh_restarts_onto_the_build_with_delete(cx: &mut TestAppContext) {
+        let (_bar, cx, asked) = opened(cx, &format!(r#""on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":3}},{BLOCKED}"#));
+        let at = drawn(cx, Role::Button, "Delete and refresh").expect("Delete and refresh is drawn");
+        cx.simulate_click(at.center(), Modifiers::none());
+        redraw(cx);
+        assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Main, clear: Some(ClearBlocked::Delete) }]);
+    }
 }
