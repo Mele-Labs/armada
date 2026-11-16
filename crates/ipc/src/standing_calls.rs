@@ -28,7 +28,7 @@ pub enum StandingCallKind {
     /// `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`. Never opened while it waits.
     MacPairing,
     /// Somebody asked him by name to review a pull request, and he is still asked. `review` names it.
-    /// **Opened once he has opened the pull request**, or his review stands. On the Dock count until
+    /// **Opened once he has opened the pull request since he was asked.** On the Dock count until
     /// then, and counted apart by `StandingCalls::reviews_unopened`.
     ReviewRequested,
 }

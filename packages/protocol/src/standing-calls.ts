@@ -5,7 +5,7 @@
 /**
  * What a call is about: a live Job (an item it waits on him for, or its row where it needs him), main read red, a pull request of his that failed or waits to be merged by hand, a held checkout, another Mac waiting for his Confirm here to pair (`mac_pairing`), or a pull request somebody asked him by name to review (`review_requested`).
  * A `mac_pairing` call's acts are the Phone Gateway's: Confirm is `POST /admin/macs/pair/confirm` and Decline is `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`.
- * A `review_requested` call stands while he is asked, is opened once he has opened the pull request or reviewed it, and is on the Dock count until then: the reviews' own count is the `review_requested` calls not opened.
+ * A `review_requested` call stands while he is asked, is opened once he has opened the pull request since he was asked, and is on the Dock count until then: the reviews' own count is the `review_requested` calls not opened.
  */
 export type StandingCallKind =
   | "job"

@@ -142,7 +142,7 @@ async fn a_review_he_submitted_moments_ago_is_not_read_as_asked_again() {
 }
 
 #[tokio::test]
-async fn the_reviews_count_falls_when_he_has_opened_the_pull_request_or_reviewed_it() {
+async fn the_reviews_count_falls_when_he_has_opened_the_pull_request() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
@@ -151,15 +151,15 @@ async fn the_reviews_count_falls_when_he_has_opened_the_pull_request_or_reviewed
     reviewed.my_latest = reviewed_at("2026-01-02T09:00:00Z");
     fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(12, SLUG), pull(13, SLUG), reviewed]);
     fleet.review_requests_looked().await;
-    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2, "a request he has reviewed before is opened");
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 3, "a request asked again after his review is unopened too");
 
     // Bridge marks it seen when he leaves the pull request: the count falls then, not at the next tick.
     fleet.mark_pull_request_seen(id, MarkPullSeen { number: 12, head: HEAD.into() }).await.expect("kept");
-    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 1);
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2);
     fleet.review_requests_looked().await;
     let calls = reviews(&fleet);
     let opened: Vec<(u64, bool)> = calls.iter().map(|one| (one.review.as_ref().expect("named").number, one.opened)).collect();
-    assert_eq!(opened, [(12, true), (13, false), (14, true)]);
+    assert_eq!(opened, [(12, true), (13, false), (14, false)]);
 }
 
 #[tokio::test]
@@ -253,4 +253,26 @@ async fn a_tick_forgets_the_requests_no_longer_asked_of_him_and_tells_one_asked_
     fleet.review_requests_looked().await;
     assert_eq!(told.lock().expect("not poisoned").len(), 3, "asked again after it was taken back is a new request");
     assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2, "the read before it was of the request taken back");
+}
+
+#[tokio::test]
+async fn a_review_asked_again_after_his_review_stays_unopened_until_he_reads_its_page() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "NickMele");
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    // He read the page before his review, and was asked again after it.
+    let before = store::KeptPullOpened { manifest_id: id.as_str().to_string(), number: 12, opened_at: "2026-01-01T09:00:00.000Z".into() };
+    fleet.store().lock().await.keep_pull_request_opened(&before).expect("kept");
+    let mut again = pull(12, SLUG);
+    again.my_latest = reviewed_at("2026-01-02T09:00:00Z");
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![again]);
+
+    fleet.review_requests_looked().await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 1, "his review and what he read before it do not open a request made after them");
+    opens(&fleet, &id, 12).await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 0);
+    fleet.review_requests_looked().await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 0, "read since the request, the next look keeps it opened");
 }

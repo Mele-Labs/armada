@@ -36,9 +36,10 @@ pub(crate) fn read_since(after: &str, read: &str) -> bool {
 }
 
 /// The call on him for one pull request, standing while he is asked. **Opened once he has opened it
-/// or a review of his stands**: its page read since the request, a seen head kept, or an inbox other
-/// than a first look.
-fn call_of(row: &PullReviewRow, since: Instant, read: bool) -> StandingCall {
+/// since he was asked**: its page read since the request. A first request is opened too by a seen
+/// head kept or an inbox other than a first look; one made again after his review is not, since his
+/// review and his visits were before it.
+fn call_of(row: &PullReviewRow, since: Instant, read: bool, first: bool) -> StandingCall {
     let key = key_of(&row.repository, row.number);
     StandingCall {
         owner: key.clone(),
@@ -49,7 +50,7 @@ fn call_of(row: &PullReviewRow, since: Instant, read: bool) -> StandingCall {
         text: format!("Review requested on {}#{}, opened by {}", row.repository, row.number, row.author),
         since,
         tone: CallTone::Waiting,
-        opened: read || row.seen.is_some() || row.inbox != PullInbox::NeedsFirstLook,
+        opened: read || (first && (row.seen.is_some() || row.inbox != PullInbox::NeedsFirstLook)),
         mac: None,
         review: Some(ReviewAsked {
             manifest_id: row.manifest_id.clone(),
@@ -177,7 +178,7 @@ where
                     .iter()
                     .find(|it| it.manifest_id == row.manifest_id.as_str() && it.number == row.number)
                     .is_some_and(|it| read_since(after, &it.opened_at));
-                calls.push(call_of(row, Instant::carried(since), read));
+                calls.push(call_of(row, Instant::carried(since), read, after.is_empty()));
             }
             // The list read whole: what it no longer holds was taken back, reviewed or closed.
             let still: Vec<(String, u64)> = rows.iter().map(|row| (row.repository.to_lowercase(), row.number)).collect();

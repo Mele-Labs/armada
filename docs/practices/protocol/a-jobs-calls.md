@@ -127,11 +127,12 @@ What stood the first time a Fleet ever looks is told, so the first tick tells ev
 A tick that reads the list forgets every kept request the list no longer holds, since one taken back, reviewed or closed leaves it.
 A pull request listed again after that is a new request, and is told again.
 
-**A call stands while he is asked**, and is `opened` once he has opened the pull request or a review of his stands on it.
+**A call stands while he is asked**, and is `opened` once he has opened the pull request since he was asked.
 Bridge reads `get_pull_request_detail` when he opens a pull request's page, and Fleet keeps that instant in `pull_requests_opened` and opens the call at once.
 A read from inside a Job opens nothing, since a Job reading the pull request it reviews says nothing of whether he has.
 A read counts for a request when it is later than his review before the request, and any read counts for a first request.
-A call is opened too when its row in `get_review_lists` has a `seen` head, or an `inbox` other than `needs_first_look`.
+A first request is opened too when its row in `get_review_lists` has a `seen` head, or an `inbox` other than `needs_first_look`.
+A request made again after his review is not, since his review and his visits were before it: it waits for a read of its page.
 Bridge sends `mark_pull_request_seen` when he leaves the pull request, and Fleet opens the call then as well.
 A read already counted sends no `calls.changed`, so a page read again while it is open tells nothing.
 The tick that forgets a request forgets the reads of pull requests it no longer lists.
