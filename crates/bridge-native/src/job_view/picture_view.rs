@@ -398,8 +398,10 @@ mod tests {
         (view, cx)
     }
 
+    /// The last drawn with this role and name: with the review panel up, the thread behind draws its own beneath the panel's.
     fn bounds_of(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Bounds<Pixels> {
-        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds))
+            .unwrap_or_else(|| panic!("{name} was not drawn"))
     }
 
     #[test]
@@ -494,16 +496,18 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_tall_take_is_held_to_three_fifths_of_the_pane_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
+    fn a_tall_take_is_held_to_its_share_of_the_review_panel_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1100.), px(700.)), |_| {});
         view.update_in(cx, |view, window, cx| view.open_artifact_tab(ID, window, cx));
         redraw(cx);
-        let pane = view.read_with(cx, |view, _| view.body_scroll.bounds().size.height);
-        assert!(pane > px(0.), "the reader's pane has a height");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the take is read in the review panel");
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(panel > px(0.), "the panel has a height");
+        let cap = panel * super::super::reader_sheet::TALL_SHARE;
         let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {B} (Job's pick)"));
         let picture = bounds_of(cx, Role::Button, &format!("Picture: {B}"));
-        assert!(picture.size.height <= pane * 0.6 + px(1.), "no taller than three fifths of the pane: {picture:?} in a pane {pane:?} high");
-        assert!((picture.size.height - pane * 0.6).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
+        assert!(picture.size.height <= cap + px(1.), "no taller than its share of the panel: {picture:?} in a panel {panel:?} high");
+        assert!((picture.size.height - cap).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
         assert!((picture.center().x - tile.center().x).abs() < px(2.), "and stands in the middle of its tile: {picture:?} in {tile:?}");
     }
 
