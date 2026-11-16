@@ -1919,7 +1919,7 @@ mod tests {
             {"id":"e","kind":"box","shape":"hexagon","x":300,"y":200,"title":"Work","body":"A process."},
             {"id":"f","kind":"code","x":600,"y":200,"lang":"rs","title":"Code","body":"let x = 1;"}],
             "edges":[{"id":"e1","from":"a","to":"b"}]}"#;
-        let raw: ipc::RawScene = serde_json::from_str(text).expect("a raw scene");
+        let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
         let drawn = raw.scene().expect("it reads");
         let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
         let svg = cx.update(|window, cx| svg(&SharedString::from("kinds"), &drawn, window, cx));

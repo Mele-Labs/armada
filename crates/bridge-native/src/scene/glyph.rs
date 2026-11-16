@@ -118,7 +118,7 @@ mod tests {
 
     fn node(kind: &str, shape: Option<&str>) -> SceneNode {
         let shape = shape.map(|shape| format!(r#","shape":"{shape}""#)).unwrap_or_default();
-        serde_json::from_str(&format!(r#"{{"id":"a","kind":"{kind}","x":0,"y":0{shape}}}"#)).unwrap()
+        ipc::decode("a node", format!(r#"{{"id":"a","kind":"{kind}","x":0,"y":0{shape}}}"#).as_bytes()).unwrap()
     }
 
     #[test]

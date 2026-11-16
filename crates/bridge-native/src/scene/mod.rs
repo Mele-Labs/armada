@@ -1573,9 +1573,9 @@ mod tests {
 
     /// The version-check sketch of the mock fleet: a start over a row of three over a row of two, with arrows fanning between rows.
     fn version_checks() -> Rc<Scene> {
-        let all: serde_json::Value = serde_json::from_str(include_str!("../../fixtures/sketch-shapes-threads.json")).expect("the fixture reads");
+        let all: serde_json::Value = ipc::decode("the fixture", include_bytes!("../../fixtures/sketch-shapes-threads.json")).expect("the fixture reads");
         let drawing = all["threads"].as_array().expect("threads").iter().flat_map(|thread| thread["items"].as_array().expect("items").iter()).find(|item| item["id"] == "sk-shapes").expect("the sketch")["drawing"].to_string();
-        let raw: ipc::RawScene = serde_json::from_str(&drawing).expect("a raw scene");
+        let raw: ipc::RawScene = ipc::decode("a raw scene", drawing.as_bytes()).expect("a raw scene");
         Rc::new(raw.scene().expect("it reads"))
     }
 
@@ -1753,7 +1753,7 @@ mod tests {
             {"id":"top","kind":"box","x":142,"y":0,"w":220,"title":"Above"},
             {"id":"foot","kind":"box","x":142,"y":340,"w":220,"title":"Below"}],
             "edges":[{"id":"e","from":"top","to":"foot"}]}"#;
-        let raw: ipc::RawScene = serde_json::from_str(text).expect("a raw scene");
+        let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
         let drawn = Rc::new(raw.scene().expect("it reads"));
         let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
         let laid = cx.update(|window, cx| {
