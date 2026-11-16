@@ -40,6 +40,16 @@ impl Act {
     }
 }
 
+/// What the token ask says first: our words, over Cloudflare's own under it.
+const ASK_HEADLINE: &str = "Cloudflare needs a token that can make Workers on your account.";
+
+/// How to make that token on Cloudflare's page, which opens filled in with the two rights a deploy needs.
+const ASK_STEPS: [&str; 3] = [
+    "Open Cloudflare's token page. It opens filled in with the two rights a deploy needs: Workers Scripts Edit and Account Settings Read.",
+    "Press Continue to summary, then Create Token.",
+    "Copy the token Cloudflare shows once and paste it here. Not the Global API Key, and not the test command under it.",
+];
+
 /// Cloudflare refused every sign-in this Mac has: its sentence, and the page that makes a token.
 struct TokenAsk {
     said: String,
@@ -309,6 +319,7 @@ impl SettingsOverlay {
         let typed = if self.store.ask.is_some() { self.store.token.read(cx).value().trim().to_string() } else { String::new() };
         let team = self.store.state().and_then(|state| state.store.as_ref()).and_then(|store| store.team.clone());
         let Some(project) = self.begin_store(Act::Deploy) else { return };
+        let sent_token = !typed.is_empty();
         let deploy = DeployProjectStore { team, cloudflare_token: (!typed.is_empty()).then_some(typed) };
         let press = self.wire.deploy_project_store(&project, deploy, cx);
         self.store._act = Some(cx.spawn_in(window, async move |this, cx| {
@@ -332,6 +343,10 @@ impl SettingsOverlay {
                         }
                     }
                     Some(StoreDeployed::NeedsToken { page, said }) => {
+                        // A token Cloudflare turned down is no use to edit: the field is emptied for the next paste.
+                        if sent_token {
+                            this.store.token.update(cx, |state, cx| state.set_value("", window, cx));
+                        }
                         this.store.ask = Some(TokenAsk { said, page });
                         let token = this.store.token.read(cx).focus_handle(cx);
                         window.defer(cx, move |window, cx| window.focus(&token, cx));
@@ -515,15 +530,41 @@ impl SettingsOverlay {
         rows_card(look, "store-rows", rows).into_any_element()
     }
 
-    /// The ask that opens under Deploy: Fleet's sentence, Cloudflare's page, a masked field and Deploy again.
+    /// The ask that opens under Deploy: our headline over Cloudflare's own sentence, Cloudflare's page with the steps to
+    /// make a token on it, a masked field and Deploy again.
     fn token_ask(&self, ask: &TokenAsk, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let ink = look.color(token::STATUS_AWAITING_REVIEW);
+        let muted = |id: &'static str, said: &str| {
+            labelled(div().id(id).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.to_string())), Role::Status, said.to_string())
+        };
         let said = div()
             .flex()
             .items_start()
             .gap(look.length(token::SPACE_2))
             .child(svg().flex_none().mt(look.length(token::SPACE_1) / 2.).path(icon_path("triangle-alert")).size(look.length(token::SPACE_4)).text_color(ink))
-            .child(labelled(div().id("store-ask-said").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(ask.said.clone())), Role::Status, ask.said.clone()));
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(labelled(div().id("store-ask-headline").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(ASK_HEADLINE), Role::Status, ASK_HEADLINE))
+                    .children((!ask.said.is_empty()).then(|| muted("store-ask-said", &ask.said))),
+            );
+        let steps = div().id("store-ask-steps").w_full().flex().flex_col().gap(look.length(token::SPACE_1)).children(ASK_STEPS.iter().enumerate().map(|(at, step)| {
+            let item = div()
+                .id(SharedString::from(format!("store-ask-step-{}", at + 1)))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .child(div().flex_none().w(look.length(token::SPACE_4)).child(SharedString::from(format!("{}.", at + 1))))
+                .child(div().flex_1().min_w_0().child(*step));
+            labelled(item, Role::ListItem, *step)
+        }));
         let deploying = self.store.out == Some(Act::Deploy);
         let line = div()
             .flex()
@@ -544,6 +585,7 @@ impl SettingsOverlay {
             .bg(look.color(token::BG_SUNKEN).blend(ink.opacity(0.08)))
             .child(said)
             .child(div().flex().child(self.press(look, "open-page", "Open Cloudflare's token page", Some("external-link"), Weight::Plain, false, false, window, cx)))
+            .child(labelled(steps, Role::List, "Steps to make the token"))
             .child(line)
             .children(self.store.refused.get(Act::Deploy.key()).map(|said| refused_line(look, "store-deploy-refused", said)))
             .into_any_element()
@@ -768,6 +810,28 @@ mod tests {
             assert!(this.store.token.read(cx).value().is_empty(), "and the token is dropped");
             assert!(this.store.state().is_some_and(|state| state.store.is_some() && state.macs.len() == 3));
         });
+    }
+
+    #[gpui::test]
+    fn a_token_cloudflare_cannot_read_asks_again_with_its_sentence_and_an_empty_field(cx: &mut TestAppContext) {
+        let said = "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token.";
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        press(&overlay, "deploy", cx);
+        assert!(on_page(&overlay, Role::Status, ASK_HEADLINE, cx), "our headline leads the ask");
+        assert!(on_page(&overlay, Role::Status, "Cloudflare refused every sign-in this Mac has.", cx), "Cloudflare's own sentence stands under it");
+        for step in ASK_STEPS {
+            assert!(on_page(&overlay, Role::ListItem, step, cx), "{step}");
+        }
+        type_into(&overlay, "token", "curl https://api.cloudflare.com/client/v4/user/tokens/verify", cx);
+        press(&overlay, "deploy-again", cx);
+        overlay.read_with(cx, |this, cx| {
+            assert!(this.store.ask.is_some(), "the ask stays open");
+            assert!(this.store.token.read(cx).value().is_empty(), "the paste Cloudflare could not read is dropped");
+        });
+        assert!(on_page(&overlay, Role::Status, said, cx), "and says why");
+        type_into(&overlay, "token", "cfut_typed", cx);
+        press(&overlay, "deploy-again", cx);
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_none()), "a token it can read deploys");
     }
 
     #[gpui::test]
