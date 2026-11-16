@@ -1762,4 +1762,14 @@ mod tests {
             assert!(!(down && between && hi - lo > 4. && hi > p.y && lo < p.y + p.h), "the arrow runs down the gap between the cards: {points:?}");
         }
     }
+
+    #[gpui::test]
+    fn the_arrows_out_of_the_start_go_out_as_one_trunk_and_hop_nothing(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        for id in ["s1", "s2", "s3"] {
+            let at = drawn.edges.iter().position(|edge| edge.id == id).expect("an edge");
+            let hops = laid.ways[at].as_ref().expect("a way").path.iter().filter(|seg| matches!(seg, Seg::Arc(..))).count();
+            assert_eq!(hops, 0, "{id} crosses nothing, and meets its trunk's other arrows where they leave");
+        }
+    }
 }

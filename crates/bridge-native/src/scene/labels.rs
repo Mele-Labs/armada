@@ -224,7 +224,13 @@ pub(crate) fn place_labels(
                 spots.push((run.at(run.len() / 2.0 + share * room), run.across));
             }
         }
-        // A way with no straight run that fits them, a curve, has them along it as before.
+        // No run is long enough for them: the middle of the longest, with the words past its ends, rather than on a corner.
+        if spots.is_empty() {
+            if let Some(run) = straights(edge.path).into_iter().max_by(|a, b| a.len().total_cmp(&b.len())) {
+                spots.push((run.at(run.len() / 2.0), run.across));
+            }
+        }
+        // A way with no straight run at all, a curve, has them along it as before.
         if spots.is_empty() {
             for t in ALONG {
                 let (at, ahead, behind) = (path_at(edge.path, t), path_at(edge.path, (t + 0.02).min(1.0)), path_at(edge.path, (t - 0.02).max(0.0)));

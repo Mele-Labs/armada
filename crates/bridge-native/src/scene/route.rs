@@ -278,6 +278,8 @@ const OFF_FACING: f32 = 400.0;
 /// How near a way may pass a box it does not join, and the room parallel runs keep from each other.
 const CLEAR: f32 = 8.0;
 pub(crate) const PARALLEL: f32 = 12.0;
+/// How far from a corner of a box the straight run between two boxes keeps.
+const MEET_CLEAR: f32 = 14.0;
 /// What running down the gap between two boxes side by side costs, and running along another way's run.
 const SQUEEZE: f32 = 8_000.0;
 const CROWDED: f32 = 4_000.0;
@@ -547,7 +549,7 @@ fn hop_sweep(from: Pt, to: Pt) -> bool {
 }
 
 /// Every way hopping the ways before it: each is drawn over the ones laid earlier, so a crossing is one hop, on the
-/// later way. `keeps` are how far from each way's ends it must stay straight, as `hop` takes them.
+/// later way, except where the ways go out of one place together. `keeps` are how far from each way's ends it must stay straight, as `hop` takes them.
 pub(crate) fn hop_all(paths: &[Option<Vec<Seg>>], r: f32, keeps: &[(f32, f32)]) -> Vec<Option<Vec<Seg>>> {
     let lines: Vec<Option<Vec<Pt>>> = paths.iter().map(|path| path.as_deref().map(polyline)).collect();
     paths
@@ -555,7 +557,10 @@ pub(crate) fn hop_all(paths: &[Option<Vec<Seg>>], r: f32, keeps: &[(f32, f32)]) 
         .enumerate()
         .map(|(at, path)| {
             let path = path.as_ref()?;
-            let under: Vec<Vec<Pt>> = lines[..at].iter().flatten().cloned().collect();
+            // Ways that go out of one place together are one trunk: they meet there and do not hop each other.
+            let here = lines[at].as_ref().and_then(|line| line.first().copied());
+            let together = |line: &Vec<Pt>| matches!((here, line.first()), (Some(a), Some(b)) if (a.x - b.x).abs() < 0.5 && (a.y - b.y).abs() < 0.5);
+            let under: Vec<Vec<Pt>> = lines[..at].iter().flatten().filter(|line| !together(line)).cloned().collect();
             Some(hop(path, &under, r, keeps.get(at).copied().unwrap_or_default()))
         })
         .collect()
@@ -942,10 +947,33 @@ pub(crate) fn route_all(
         let facing_sides = matches!((held.out, held.into), (Side::Right, Side::Left) | (Side::Left, Side::Right) | (Side::Top, Side::Bottom) | (Side::Bottom, Side::Top));
         let alone = |box_id: &str, side: Side| crowd.get(&(box_id, side)).copied() == Some(1);
         let (start_alone, end_alone) = (alone(edge.from, held.out), alone(edge.to, held.into));
-        if !facing_sides || start_alone == end_alone {
+        if !facing_sides {
             continue;
         }
         let across = held.out == Side::Right || held.out == Side::Left;
+        if start_alone && end_alone {
+            // Two boxes that are each other's only arrow on their sides meet in one straight run where they share enough of a
+            // side: the run keeps its distance from each corner, and is as near the middle of the first as that lets it be.
+            let (lo, hi) = if across {
+                (from.y.max(to.y) + MEET_CLEAR, (from.y + from.h).min(to.y + to.h) - MEET_CLEAR)
+            } else {
+                (from.x.max(to.x) + MEET_CLEAR, (from.x + from.w).min(to.x + to.w) - MEET_CLEAR)
+            };
+            if lo <= hi && !pointed_ids.contains(edge.from) && !pointed_ids.contains(edge.to) {
+                let at = if across { held.start.y } else { held.start.x }.clamp(lo, hi);
+                if across {
+                    moved[k].start.y = at;
+                    moved[k].end.y = at;
+                } else {
+                    moved[k].start.x = at;
+                    moved[k].end.x = at;
+                }
+            }
+            continue;
+        }
+        if start_alone == end_alone {
+            continue;
+        }
         let inside = |r: Rect, at: Pt| if across { at.y > r.y && at.y < r.y + r.h } else { at.x > r.x && at.x < r.x + r.w };
         if start_alone && !pointed_ids.contains(edge.from) {
             let at = if across { Pt { x: held.start.x, y: held.end.y } } else { Pt { x: held.end.x, y: held.start.y } };
@@ -1280,5 +1308,16 @@ mod tests {
         assert_eq!(arcs(&hopped), 1, "{hopped:?}");
         assert_eq!(hopped.last().map(|seg| end_of(*seg)), Some(pt(100.0, 100.0)));
         assert_eq!(tips(&hopped).map(|t| t.end), Some(pt(100.0, 100.0)));
+    }
+
+    #[test]
+    fn two_boxes_of_unlike_height_that_share_a_side_meet_in_one_straight_run() {
+        let rects = vec![("a".to_string(), rect(0.0, 0.0, 100.0, 100.0)), ("b".to_string(), rect(300.0, 20.0, 100.0, 40.0))];
+        let ways = ways_of(&rects, &[edge("e", "a", "b", ScenePath::Elbow, (false, true))]);
+        let segs = &ways[0].1;
+        assert_eq!(segs.len(), 2, "one run, no jog: {segs:?}");
+        let (Seg::Move(start), Seg::Line(end)) = (segs[0], segs[1]) else { panic!("{segs:?}") };
+        assert_eq!(start.y, end.y);
+        assert!(start.y >= 34.0 && start.y <= 46.0, "the run keeps off the corners of the lower box: {segs:?}");
     }
 }
