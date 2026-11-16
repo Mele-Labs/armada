@@ -491,8 +491,11 @@ impl JobView {
                 // The shown Job's artifacts of parts that still ask stand with what else waits on him, and the one he opened.
                 if job == first {
                     items.extend(self.artifact_items(job, opened));
-                    items.sort_by_key(|item| instant(&item.since));
                 }
+                // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
+                let mut seen = std::collections::HashSet::new();
+                items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
+                items.sort_by_key(|item| instant(&item.since));
                 Group { job: job.to_string(), title: record.title.clone().unwrap_or_else(|| "New Job".into()), state: record.mark.map(|mark| mark.state), items }
             })
             .collect();

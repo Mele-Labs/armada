@@ -385,6 +385,22 @@ mod tests {
     }
 
     #[gpui::test]
+    fn an_artifact_a_waiting_row_names_is_listed_once_in_the_panel(cx: &mut gpui::TestAppContext) {
+        let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {
+            let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+            jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the job").waiting_for.extend(held);
+        });
+        view.update_in(cx, |view, window, cx| view.open_review_on("sketch:takes:bar", window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let review = view.review().expect("review");
+            let listed: Vec<_> = review.groups.iter().flat_map(|group| group.items.iter()).filter(|item| artifact_in(item) == Some(ID)).map(|item| item.id.clone()).collect();
+            assert_eq!(listed.len(), 1, "the waiting row and the asking artifact are one item: {listed:?}");
+        });
+    }
+
+    #[gpui::test]
     fn a_pick_sent_from_the_panels_foot_carries_the_take_and_his_words(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         let key = super::super::parts_card::part_key(ID, "bar");
