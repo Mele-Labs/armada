@@ -179,6 +179,7 @@ async fn a_pull_request_thrown_out_for_a_test_another_mac_fixes_waits_naming_it_
     assert_eq!(holder_of(&shared, ClaimKind::Test, TEST), None, "the fix merged and main is green");
 
     work.rig.fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing: adapter_traits::PullRequestStanding::Open,
         branch: "armada/12".into(),
         base: "main".into(),

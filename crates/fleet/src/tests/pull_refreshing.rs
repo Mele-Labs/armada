@@ -20,6 +20,7 @@ fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<Follo
     let failed = followed.iter().any(FollowedPull::failed);
     if let Some(one) = followed.first() {
         vcs.now_pull_request(Some(PullRequestFacts {
+            merge_state: adapter_traits::MergeState::Unknown,
             standing,
             branch: one.branch.as_written().to_string(),
             base: "main".into(),

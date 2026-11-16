@@ -76,6 +76,10 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.pull_reading(in_repo, gate)
     }
 
+    fn pull_reading_said(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        self.forge.pull_reading_said(in_repo, gate)
+    }
+
     fn followed_pull(
         &self,
         in_repo: &str,
@@ -194,6 +198,10 @@ impl<F: Forge> Forge for GitVcs<F> {
         head: &str,
     ) -> Option<adapter_traits::ComparedPatches> {
         self.forge.pull_request_compare(in_repo, base, head)
+    }
+
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.forge.commit_patches(in_repo, commit)
     }
 
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {

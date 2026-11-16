@@ -136,6 +136,7 @@ fn a_page_over_the_api_is_the_page_gh_reads() {
     assert_eq!(page, folded(&lines(PAGE_GH)).unwrap());
     let read = (page.conversation.len(), page.checks.len(), page.files.len(), page.commits.len());
     assert_eq!(read, (2, 4, 7, 4));
+    assert_eq!(page.merge_state, adapter_traits::MergeState::Blocked, "the forge's own verdict on a merge");
 }
 
 #[test]
@@ -318,4 +319,22 @@ fn a_compare_answers_the_files_between_two_commits_and_a_base_the_forge_lost_is_
     );
     assert_eq!(forge.pull_request_compare(&root, "cccc3333", "bbbb2222"), Some(ComparedPatches::BaseGone));
     assert_eq!(forge.pull_request_compare(&root, "not a sha", "bbbb2222"), None);
+}
+
+/// The commit endpoint lists its files under `files` as a compare does, so the same files come
+/// back; a commit the forge does not have, and a name that is not one, are silence.
+#[test]
+fn one_commits_files_are_read_from_the_commit_endpoint_and_a_commit_the_forge_lacks_is_silence() {
+    let committed = format!(r#"{{"sha":"aaaa1111","files":{PATCHES}}}"#);
+    let server = serve(move |seen| match seen.target.as_str() {
+        "/repos/mele-labs/armada/commits/aaaa1111?per_page=100" => ok(&committed),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let root = repo.root_str();
+
+    assert_eq!(forge.commit_patches(&root, "aaaa1111"), Some(listed(&lines(PATCHES_GH))));
+    assert_eq!(forge.commit_patches(&root, "cccc3333"), None);
+    assert_eq!(forge.commit_patches(&root, "not a sha"), None);
 }

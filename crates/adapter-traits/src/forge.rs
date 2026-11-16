@@ -137,6 +137,12 @@ pub trait Forge {
     /// forge call for all of them.** `None` is the forge's silence.
     fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<crate::FollowedPulls>;
 
+    /// [`pull_reading`](Forge::pull_reading), with the forge's reason when it would not answer,
+    /// **so a pass that reads nothing says why** rather than leaving every row as it was in silence.
+    fn pull_reading_said(&self, in_repo: &str, gate: &str) -> Result<crate::FollowedPulls, Option<String>> {
+        self.pull_reading(in_repo, gate).ok_or(None)
+    }
+
     /// One pull request as [`pull_reading`](Forge::pull_reading) reads it, **by its number**. `None`
     /// is the forge's silence, and also a pull request that is no longer open.
     fn followed_pull(
@@ -322,6 +328,15 @@ pub trait Forge {
         head: &str,
     ) -> Option<crate::ComparedPatches> {
         let _ = (in_repo, base, head);
+        None
+    }
+
+    /// The patches of the files one commit changed, against its first parent, in the forge's order:
+    /// one commit of a pull request read on its own. **`None` is the forge's silence**, for
+    /// [`landed`](crate::Delivery::landed)'s reason, a commit it does not have included, and a forge
+    /// with no call for it is silent by default.
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<crate::PatchedFile>> {
+        let _ = (in_repo, commit);
         None
     }
 

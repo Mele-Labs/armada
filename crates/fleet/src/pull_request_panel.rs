@@ -36,6 +36,8 @@ const WRITE_REFUSED: &str = "fleet.pull_request_write_refused";
 const RANGE_BACKWARDS: &str = "fleet.pull_request_range_backwards";
 /// A file the pull request does not list. A 422.
 const FILE_UNKNOWN: &str = "fleet.pull_request_file_unknown";
+/// A commit asked for by a name that is not one. A 422.
+const COMMIT_INVALID: &str = "fleet.pull_request_commit_invalid";
 /// What a file says where the forge sent no patch for it.
 const NO_PATCH: &str = "The forge sent no patch for this file. It is binary, or the change is too large for the forge to show.";
 
@@ -153,6 +155,7 @@ fn page_of(manifest_id: ManifestId, number: u64, facts: PullRequestPageFacts) ->
             Mergeability::Conflicting => PullRequestMergeable::Conflicting,
             Mergeability::Unknown => PullRequestMergeable::Unknown,
         },
+        merge_state: crate::pull_requesting::merge_state_of(facts.merge_state),
         review: review_state(facts.review),
         approvals: facts.approvals,
         conversation: facts
@@ -431,6 +434,33 @@ where
                 Refusal::Fault(self.pr_refusal(
                     UNREADABLE,
                     format!("the forge would not say what changed on pull request {number}"),
+                ))
+            })?;
+        let files = found.into_iter().map(|file| file_patch_of(&manifest_id, number, file)).collect();
+        Ok(PullRequestFilePatches { files })
+    }
+
+    async fn get_pull_request_commit_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        commit: String,
+    ) -> Result<PullRequestFilePatches, Refusal> {
+        // The name goes into the forge's path, so it is a commit's or it is refused here.
+        if !((7..=64).contains(&commit.len()) && commit.bytes().all(|byte| byte.is_ascii_hexdigit())) {
+            return Err(Refusal::Unacceptable(
+                self.pr_refusal(COMMIT_INVALID, format!("{commit} is not a commit")),
+            ));
+        }
+        let served = self.served_named(Some(&manifest_id))?;
+        let asked = commit.clone();
+        let found = self
+            .forge_asked(served.root(), move |vcs: &V, root| vcs.commit_patches(root, &asked))
+            .await
+            .ok_or_else(|| {
+                Refusal::Fault(self.pr_refusal(
+                    UNREADABLE,
+                    format!("the forge would not say what commit {commit} changed on pull request {number}"),
                 ))
             })?;
         let files = found.into_iter().map(|file| file_patch_of(&manifest_id, number, file)).collect();

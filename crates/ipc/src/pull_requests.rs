@@ -84,6 +84,10 @@ pub struct PullRequestState {
     /// The issues the forge says it closes when it merges, by number, ascending. Absent where none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub closes: Vec<u64>,
+    /// Whether the forge would merge it now. **Not worked out from `checks`**, which pass on a pull
+    /// request still waiting on a review the base branch asks for. `unknown` from a Fleet before it.
+    #[serde(default)]
+    pub merge_state: PullRequestMergeState,
 }
 
 /// Where the forge says a merge would stand against the base branch.
@@ -94,6 +98,44 @@ pub enum PullRequestMergeable {
     Conflicting,
     #[default]
     Unknown,
+}
+
+/// Whether the forge would merge a pull request now, and if not what stops it, in the
+/// forge's own words. Only `clean`, `unstable` and `has_hooks` merge.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestMergeState {
+    Clean,
+    /// A rule of the base branch stops it, such as a review it asks for.
+    Blocked,
+    /// The base branch moved on and its rules ask for the branch to be brought up to date.
+    Behind,
+    /// It conflicts with the base branch.
+    Dirty,
+    /// It can merge, with checks that did not pass.
+    Unstable,
+    /// It can merge, and the forge's hooks will run.
+    HasHooks,
+    Draft,
+    /// The forge is still working it out, or would not say.
+    #[default]
+    Unknown,
+}
+
+impl PullRequestMergeState {
+    /// The word the wire spells it with, which a ledger row's `merge_state` detail carries.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Clean => "clean",
+            Self::Blocked => "blocked",
+            Self::Behind => "behind",
+            Self::Dirty => "dirty",
+            Self::Unstable => "unstable",
+            Self::HasHooks => "has_hooks",
+            Self::Draft => "draft",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 /// What the reviews have come to. `Required` is a review the base branch asks
@@ -263,6 +305,9 @@ pub struct PullRequestPage {
     pub additions: u64,
     pub deletions: u64,
     pub mergeable: PullRequestMergeable,
+    /// Whether the forge would merge it now, as `PullRequestState::merge_state` says.
+    #[serde(default)]
+    pub merge_state: PullRequestMergeState,
     pub review: PullRequestReviewState,
     /// Reviews that approved, counted once per reviewer's latest.
     pub approvals: u64,
