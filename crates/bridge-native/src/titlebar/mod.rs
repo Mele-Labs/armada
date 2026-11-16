@@ -314,6 +314,18 @@ pub fn offers_refused(cx: &mut App) {
     }
 }
 
+/// The figure beside a place's name: on the bar drawn now, and on the one the next screen opens with.
+pub fn figure(id: &'static str, count: usize, cx: &mut App) {
+    if let Some(mut opening) = cx.try_global::<scenes::Opening>().map(|opening| opening.0.clone()) {
+        opening.figures.retain(|(one, _)| *one != id);
+        opening.figures.push((id, count));
+        cx.set_global(scenes::Opening(opening));
+    }
+    if let Some(bar) = live(cx) {
+        bar.update(cx, |bar, cx| bar.set_figure(id, count, cx));
+    }
+}
+
 /// The bar of the window in front, for a walk to move between scenes.
 pub fn live(cx: &App) -> Option<Entity<TitleBar>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())

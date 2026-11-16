@@ -853,9 +853,7 @@ impl ReviewsScreen {
     /// The strip's figure beside Reviews, from the walk's stand-in calls as the live app reads Fleet's.
     fn tell_asked(&self, cx: &mut App) {
         let Some(count) = self.asked.as_ref().map(ipc::StandingCalls::reviews_unopened) else { return };
-        if let Some(bar) = crate::titlebar::live(cx) {
-            bar.update(cx, |bar, cx| bar.set_figure("reviews", count, cx));
-        }
+        crate::titlebar::figure("reviews", count, cx);
     }
 
     /// The walk's `Lands`: every piece of the mock's work in flight ends now, as its clock would have
