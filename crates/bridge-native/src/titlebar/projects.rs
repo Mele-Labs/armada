@@ -484,6 +484,17 @@ mod tests {
     }
 
     #[test]
+    fn a_copy_of_another_macs_project_is_not_a_scope_the_window_can_take() {
+        let served = served();
+        let json = r#"{"projects":[
+            {"id":"own","name":"Armada","rows":[],"members":[],"place":{"place":"this_mac"}},
+            {"id":"theirs","name":"Armada","rows":[],"members":[],"place":{"place":"this_mac"},"mac":"866126a3"}],"loose":[],"left_out":[]}"#;
+        let read: ipc::Projects = ipc::decode("Projects", json.as_bytes()).expect("projects");
+        let ids: Vec<String> = super::super::face::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
+        assert_eq!(ids, vec!["own"]);
+    }
+
+    #[test]
     fn a_project_kept_in_a_synced_folder_or_a_bucket_says_where() {
         let served = served();
         let json = r#"{"projects":[
