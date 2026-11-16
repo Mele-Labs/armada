@@ -419,6 +419,13 @@ pub enum CallProgress {
     /// settling one at a time, and `crates/fleet/src/proposing.rs` is the one
     /// reader that turns this into them. **Nothing puts this text on the wire.**
     Answering { characters: u64, text: String },
+    /// The model asked to look at something with one of its read tools: which
+    /// tool, and what it was pointed at (a file, a pattern, a pattern and the
+    /// directory it searches). **The vendor's own words for both**, so a caller
+    /// that shows it makes no claim the stream did not. Only a call that holds
+    /// read tools ever says this; every other caller ignores it, as it ignores
+    /// the arms it has no use for.
+    Reading { tool: String, target: String },
     /// The call is over, and this is what it cost. **Not the answer** — the
     /// answer is the call's return value, and this says only that there will be
     /// no more progress.

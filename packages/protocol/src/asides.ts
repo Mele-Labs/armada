@@ -23,6 +23,12 @@ export type Aside = {
   answered_at?: string;
   /** When the person told it to the Job. Absent: not told. */
   told_at?: string;
+  /**
+   * What the copy has looked at so far, in order, one `<Tool> <target>` each: `Read <file>`, `Grep <pattern>` (and
+   * ` in <path>` where it gave one) or `Glob <pattern>`. Paths inside the Job's directory are relative to it. Always
+   * sent; empty until the copy reads something.
+   */
+  reads: string[];
 };
 
 /** `POST /sessions/aside`. Answered 202 with the new `Aside`, `asking`. */

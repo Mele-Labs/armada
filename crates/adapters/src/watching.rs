@@ -37,6 +37,9 @@ pub fn heard(line: &str) -> Heard {
         return Heard::Nothing;
     };
     match read {
+        // A turn that asked to read something is reported as the read, ahead of any "let me look" it said
+        // first: that text is not an answer, and the turn that follows the read replaces it either way.
+        Line::Assistant(message) if reading_of(&message).is_some() => moved(reading_of(&message)),
         Line::Assistant(message) => match text_of(&message) {
             // A turn that said nothing is not an answer, and reporting one as
             // an empty answer would let a call that printed nothing look like a
@@ -118,12 +121,35 @@ fn text_of(message: &AssistantLine) -> String {
         .iter()
         .filter_map(|block| match block {
             Block::Text { text } => Some(text.as_str()),
-            Block::Other => None,
+            Block::ToolUse { .. } | Block::Other => None,
         })
         .collect::<Vec<&str>>()
         .join("")
         .trim()
         .to_string()
+}
+
+/// The first read tool a turn called, as what it read. **`Read`, `Grep` and `Glob` only**: they are the tools an
+/// aside's copy holds, and a call that names another says nothing this reports. One reading a turn, because the
+/// harness prints each content block as a line of its own.
+fn reading_of(message: &AssistantLine) -> Option<CallProgress> {
+    message.message.content.iter().find_map(|block| {
+        let Block::ToolUse { name, input } = block else {
+            return None;
+        };
+        let target = match name.as_str() {
+            "Read" => input.file_path.clone()?,
+            "Grep" => match &input.path {
+                Some(path) => format!("{} in {path}", input.pattern.as_deref()?),
+                None => input.pattern.clone()?,
+            },
+            "Glob" => input.pattern.clone()?,
+            _ => return None,
+        };
+        // One line, so a target is kept and shown as one.
+        let target = target.split_whitespace().collect::<Vec<_>>().join(" ");
+        Some(CallProgress::Reading { tool: name.clone(), target })
+    })
 }
 
 /// What a watched call prints, as far as this cares.
@@ -185,8 +211,25 @@ struct AssistantMessage {
 enum Block {
     #[serde(rename = "text")]
     Text { text: String },
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        name: String,
+        #[serde(default)]
+        input: ToolInput,
+    },
     #[serde(other)]
     Other,
+}
+
+/// What a read tool was pointed at. Every field is optional because each tool names its own.
+#[derive(Deserialize, Default)]
+struct ToolInput {
+    #[serde(default)]
+    file_path: Option<String>,
+    #[serde(default)]
+    pattern: Option<String>,
+    #[serde(default)]
+    path: Option<String>,
 }
 
 /// One frame of the model's own streamed message.
