@@ -856,7 +856,7 @@ impl JobView {
     }
 
     /// Mock data: Fleet's row for these words arrives at once.
-    fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>) {
+    pub(super) fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>) {
         let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         if let Some(held) = self.mock.get_mut(id.as_str()) {
             held.items.push(ThreadItem::Row {
@@ -1436,6 +1436,7 @@ impl JobView {
             .child(tune_button)
             .child(attach)
             .child(self.sketch_button(look, cx))
+            .child(self.side_chat_button(look, cx))
             .children(self.render_live_pill(id, look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }), window, cx))
             .child(div().id("context-figure").flex_none().ml_auto())
             .child(self.render_talk(look, cx))

@@ -77,6 +77,7 @@ Each step is its own Job, and at most two run at once.
 | Operator and Projects | The Operator's page (one card, its box with a Discuss tag, Waiting and the feed), toasts, and Projects |
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. The pull request side panel's Review tab arrives with Reviews, with the Reviews page's keys; until then the panel has four tabs |
 | Job tools | Terminal, the Request pane and the Browser tool |
+| Asides | The side chat: a Side chat button under the composer and ⌘J open a split tab that asks a read-only copy of the Job. The copy's reads, its answer, Tell the Job and Copy, a Told chip, and Ask on the selection bar, read back from `list_asides` after ⌘W |
 | Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
 
 ### 7. Switch day

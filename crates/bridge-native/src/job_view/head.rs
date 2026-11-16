@@ -130,7 +130,7 @@ pub(super) fn act_button(look: &Look, id: &'static str, icon: &'static str, act:
     icon_frame(look, id, icon, lit, off).tooltip(keyed_tip(act, tip_said))
 }
 
-fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
+pub(super) fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
     let ink = if lit { look.color(token::FG_DEFAULT) } else { look.color(token::FG_SUBTLE) };
     div()
         .id(id)
@@ -1522,6 +1522,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return false };
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
             return false;
+        }
+        // ⌘W shuts the side chat's split, from its own box too.
+        if self.side_chat_key(event, window, cx) {
+            return true;
         }
         if self.zoom_key(event, window, cx) {
             return true;
