@@ -1,7 +1,7 @@
 //! What the person remembers of a pull request between visits, kept across a restart.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+use crate::{KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 
 fn seen(number: u64, head: &str, at: &str) -> KeptSeenHead {
     KeptSeenHead {
@@ -99,4 +99,22 @@ fn the_review_fleet_wrote_is_kept_per_pull_request_and_a_later_one_replaces_it()
     let mut kept = open(&dir).written_reviews().expect("read");
     kept.sort_by_key(|it| it.number);
     assert_eq!(kept, [written(41, "approved", "2026-11-13T10:00:00Z"), written(42, "changes_requested", "2026-11-13T09:30:00Z")]);
+}
+
+fn asked(number: u64, after_review: &str, at: &str) -> KeptReviewRequest {
+    KeptReviewRequest { repository: "example-org/harbour".to_string(), number, after_review: after_review.to_string(), told_at: at.to_string() }
+}
+
+#[test]
+fn a_review_request_told_is_kept_by_its_pull_request_and_the_review_before_it() {
+    let dir = TempDir::new();
+    {
+        let mut store = open(&dir);
+        store.keep_review_request_told(&asked(41, "", "2026-11-16T09:00:00Z")).expect("kept");
+        store.keep_review_request_told(&asked(41, "", "2026-11-16T09:05:00Z")).expect("kept");
+        store.keep_review_request_told(&asked(41, "2026-11-16T10:00:00Z", "2026-11-16T10:30:00Z")).expect("kept");
+    }
+    let mut kept = open(&dir).review_requests_told().expect("read");
+    kept.sort_by(|a, b| a.after_review.cmp(&b.after_review));
+    assert_eq!(kept, [asked(41, "", "2026-11-16T09:00:00Z"), asked(41, "2026-11-16T10:00:00Z", "2026-11-16T10:30:00Z")], "told again keeps the first instant");
 }

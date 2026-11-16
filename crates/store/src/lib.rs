@@ -329,7 +329,7 @@ pub use review_runs::KeptReviewRun;
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
-pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+pub use pull_review_memory::{KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{

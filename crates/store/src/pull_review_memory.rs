@@ -94,6 +94,27 @@ fn written(row: &Row<'_>) -> rusqlite::Result<KeptWrittenReview> {
     })
 }
 
+/// A review asked of the person by name that Fleet told him of.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptReviewRequest {
+    /// As the forge names it, lowercase: `owner/name`.
+    pub repository: String,
+    pub number: u64,
+    /// When his latest review before the request was submitted, as the forge wrote it; empty for none.
+    /// The forge drops him from the request when he reviews, so a request after one is a new request.
+    pub after_review: String,
+    pub told_at: String,
+}
+
+fn told(row: &Row<'_>) -> rusqlite::Result<KeptReviewRequest> {
+    Ok(KeptReviewRequest {
+        repository: row.get(0)?,
+        number: row.get::<_, i64>(1)?.try_into().unwrap_or_default(),
+        after_review: row.get(2)?,
+        told_at: row.get(3)?,
+    })
+}
+
 fn layout(row: &Row<'_>) -> rusqlite::Result<KeptReviewLayout> {
     Ok(KeptReviewLayout { name: row.get(0)?, arrangement: row.get(1)?, saved_at: row.get(2)? })
 }
@@ -263,6 +284,29 @@ impl Store {
             .prepare("SELECT manifest_id, repository, number, said, commit_sha, submitted_at FROM pull_request_reviewed")
             .map_err(unreadable)?;
         let rows = statement.query_map([], written).map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Keep a review request as told. One told before keeps its first instant.
+    pub fn keep_review_request_told(&mut self, kept: &KeptReviewRequest) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO review_requests_told (repository, number, after_review, told_at) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![kept.repository, number_of(kept.number), kept.after_review, kept.told_at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping a review request told"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every review request told.
+    pub fn review_requests_told(&self) -> Result<Vec<KeptReviewRequest>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading review requests told")(why));
+        let mut statement = self
+            .conn
+            .prepare("SELECT repository, number, after_review, told_at FROM review_requests_told")
+            .map_err(unreadable)?;
+        let rows = statement.query_map([], told).map_err(unreadable)?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
     }
 
