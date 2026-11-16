@@ -760,7 +760,7 @@ impl JobView {
         let Some(page) = self.pages.get_mut(job) else { return false };
         page.cards.ready_pick = Some(id);
         page.remeasure(to);
-        page.list.scroll_to_reveal_item(page.entry(to));
+        page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(to), offset_in_item: gpui::px(0.) });
         cx.notify();
         true
     }

@@ -213,7 +213,7 @@ impl JobView {
         page.cards.ready_pick = (!shut).then(|| id.to_string());
         page.remeasure(at);
         if !shut {
-            page.list.scroll_to_reveal_item(page.entry(at));
+            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: gpui::px(0.) });
         }
         cx.notify();
     }
