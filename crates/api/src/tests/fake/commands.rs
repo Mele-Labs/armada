@@ -315,6 +315,24 @@ impl Commands for FakeDaemon {
         )))
     }
 
+    /// Holds no file, so has nothing to save.
+    async fn save_kit_file(&self, asked: ipc::SaveKitFile) -> Result<ipc::KitFile, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_file",
+            format!("no file for {}", asked.name),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
+    /// Holds nothing, so has nothing to open.
+    async fn open_kit_piece(&self, asked: ipc::OpenKitPiece) -> Result<ipc::KitPieceOpened, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(
+            "fake.no_such_kit_file",
+            format!("no file for {}", asked.name),
+            crate::tests::shapes::run_id(),
+        )))
+    }
+
     /// Trashed nothing, so has nothing to put back.
     async fn restore_kit_piece(&self, asked: ipc::RestoreKitPiece) -> Result<ipc::KitInventory, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised(

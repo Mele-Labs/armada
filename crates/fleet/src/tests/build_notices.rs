@@ -421,3 +421,43 @@ async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_ke
     assert!(said.contains("Fleet and Bridge now run the preview at"), "{said}");
     assert!(rig.told("term-1").await);
 }
+
+/// Fleet runs `builds/current`, a build made at `built_at`.
+fn running_a_build_made(rig: &Rig, built_at: &str) {
+    let builds = rig.support().join(crate::kept_builds::BUILDS);
+    fs::create_dir_all(builds.join("new")).unwrap();
+    fs::write(builds.join("new").join("build.toml"), format!("built_at = \"{built_at}\"\ncommit = \"{}\"\nsource = \"preview\"\n", rig.build)).unwrap();
+    std::os::unix::fs::symlink("new", builds.join(crate::kept_builds::CURRENT)).unwrap();
+}
+
+#[tokio::test]
+async fn an_ask_to_restart_settles_itself_once_fleet_runs_a_build_made_after_it_and_the_job_is_told() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session().await;
+    rig.waits_to_run(&session, "scripts/preview --restart").await;
+    assert_eq!(rig.waiting_on(&session).await, ["restart"]);
+
+    running_a_build_made(&rig, "2000-01-01T00:00:00Z");
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
+    assert_eq!(rig.waiting_on(&session).await, ["restart"], "raised after the build was made, so it stays");
+
+    fs::remove_file(rig.support().join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)).unwrap();
+    running_a_build_made(&rig, "2999-01-01T00:00:00Z");
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
+
+    assert!(rig.waiting_on(&session).await.is_empty(), "raised before the build was made, so it is done");
+    let said = rig.thread_of(&session).await;
+    assert!(said.iter().any(|one| one.contains("Owner removed") && one.contains("Restart onto the new build")), "told as a dismissal is: {said:?}");
+}
+
+#[tokio::test]
+async fn a_command_that_is_not_a_restart_is_left_when_a_newer_build_runs() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session().await;
+    rig.waits_to_run(&session, "cargo xtask verify-docs --write").await;
+
+    running_a_build_made(&rig, "2999-01-01T00:00:00Z");
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
+
+    assert_eq!(rig.waiting_on(&session).await, ["restart"]);
+}

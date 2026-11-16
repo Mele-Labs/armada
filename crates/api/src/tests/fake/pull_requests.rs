@@ -113,6 +113,10 @@ impl PullRequestPanel for FakeDaemon {
         Ok(page(manifest_id, number))
     }
 
+    async fn pull_request_opened(&self, manifest_id: ManifestId, number: u64) {
+        self.opened.lock().expect("not poisoned").push((manifest_id.as_str().to_string(), number));
+    }
+
     async fn get_pull_request_file(
         &self,
         manifest_id: ManifestId,

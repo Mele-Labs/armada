@@ -340,8 +340,9 @@ impl JobView {
             .collect();
         let refs: Vec<&str> = texts.iter().map(String::as_str).filter(|text| !text.is_empty()).collect();
         let label = format!("Tool calls: {}", calls::names_of(&refs).join(", "));
-        // Each call ended when the next began; the last, when the item after the run did.
-        let last = rows.len().saturating_sub(1);
+        // Each call ended when the next began; the last, when the item after the run did. A thought after the last call
+        // leaves it the running one, as the agent is still at it.
+        let last = rows.iter().rposition(|row| !matches!(row, SessionRow::Reasoning { .. })).unwrap_or(0);
         let job = self.shown.clone().unwrap_or_default();
         // The Check run each shell call started, by the call's row id.
         let ran: HashMap<String, (String, u64)> = self
@@ -355,6 +356,11 @@ impl JobView {
         let lines = rows.iter().enumerate().map(|(at, row)| {
             let running = live && at == last;
             let end = rows.get(at + 1).map(SessionRow::at).or(end);
+            // A thought between two calls is the run's, drawn as the thread draws one alone.
+            if let SessionRow::Reasoning { id: thought, at: thought_at, text } = row {
+                let seconds = super::lines::seconds_from(at.checked_sub(1).and_then(|before| rows.get(before)).map(SessionRow::at), thought_at);
+                return self.reasoning(ix, thought, text, seconds, false, page, look, cx);
+            }
             let one = match row {
                 SessionRow::WindowAsk { question, .. } => Call::plain(Kind::Other, question.clone(), None),
                 SessionRow::Tool { message: Some(message), .. } => self.message_call(&format!("tool-message:{id}:{at}"), message, page, look, cx),

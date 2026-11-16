@@ -473,7 +473,7 @@ where
         let wire = |project: Option<&str>, rows: Vec<KeptProjectRow>| rows.into_iter().map(|row| row_on_the_wire(row, project, &said, &pulled)).collect();
         // **The file is the truth for a name and the members**, and the store's name is the last it saw,
         // shown where the file cannot be read, with no members.
-        let held = self.projects_held();
+        let held = self.projects_held_read().await;
         let places: Vec<Option<KeptPlace>> = {
             let store = self.store().lock().await;
             kept.projects.iter().map(|project| store.project_place(&project.id).ok().flatten()).collect()
@@ -547,7 +547,7 @@ where
             None => false,
         };
         if reading || followed {
-            self.projects_reload().await;
+            self.projects_read().await;
         }
         let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects.clone()));
@@ -697,7 +697,7 @@ where
         if !self.members_followed((project.to_string(), repositories)).await? {
             return Ok(false);
         }
-        self.projects_reload().await;
+        self.projects_read().await;
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects));

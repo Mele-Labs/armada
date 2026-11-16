@@ -72,6 +72,8 @@ mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
+/// Every call to GitHub's API, counted by caller, API and answer, for Fleet's log and debug report.
+pub mod forge_tally;
 mod gh_forge;
 /// Claude Code's folder, as the shared home writes into it.
 mod harness_home;
