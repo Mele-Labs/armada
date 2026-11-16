@@ -100,7 +100,7 @@ pub(super) struct CardState {
     pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
     /// What the cards of artifacts that hold parts remember (`parts_card`).
     pub parts: super::parts_card::PartsState,
-    /// The build the Ready to try tab has picked, by card id: the one drawn whole on its right.
+    /// The build opened under the Ready to try card, by card id: the one drawn whole in place.
     pub ready_pick: Option<String>,
 }
 
@@ -538,11 +538,11 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);
+            // A build to try whose answer was refused is opened again, so its sentence stands where he looks.
+            if super::ready_card::is_card(key) {
+                page.cards.ready_pick = Some(key.to_string());
+            }
             if ix == SHEET {
-                // A build to try whose answer was refused is picked again, so its sentence stands where he looks.
-                if super::ready_card::is_card(key) {
-                    page.cards.ready_pick = Some(key.to_string());
-                }
                 page.list.remeasure();
             } else {
                 page.remeasure(ix);

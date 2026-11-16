@@ -253,6 +253,18 @@ impl JobView {
                         .collect();
                     (!read.is_empty()).then_some((read, Some(true)))
                 }
+                // And the shots of the builds under the compact card, read from the Job's own tree as a `Read` call's are.
+                Some(ThreadItem::ReadyToTry(_)) if super::ready_compact::place_in(&held.items) == ix.checked_sub(page.lead + page.before) => {
+                    let shots: Vec<ipc::SentFile> = held
+                        .items
+                        .iter()
+                        .filter_map(|item| match item {
+                            ThreadItem::ReadyToTry(card) if matches!(card.state, ipc::ReadyState::Open | ipc::ReadyState::Later) => card.pictures.first().and_then(|path| super::pictures::read_picture(path)),
+                            _ => None,
+                        })
+                        .collect();
+                    (!shots.is_empty()).then_some((shots, Some(true)))
+                }
                 // And a picture the Job showed, as Fleet keeps it.
                 Some(ThreadItem::File { path, .. }) => super::pictures::read_picture(path).map(|picture| (vec![picture], None)),
                 _ => None,

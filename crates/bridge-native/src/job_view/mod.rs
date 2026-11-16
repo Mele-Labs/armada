@@ -66,7 +66,7 @@ mod plan_sketches;
 mod pop;
 mod quick;
 mod ready_card;
-mod ready_tab;
+mod ready_compact;
 mod teach;
 mod records;
 mod refs;
@@ -999,7 +999,7 @@ impl JobView {
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
         // The builds to try are one compact card at the newest open one's place: where a build changed, it and the place measure again.
-        let ready = (ready_tab::signature(&held.items), ready_tab::place_in(&held.items));
+        let ready = (ready_compact::signature(&held.items), ready_compact::place_in(&held.items));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);

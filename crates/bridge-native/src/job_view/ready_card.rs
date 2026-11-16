@@ -1,7 +1,8 @@
 //! What the Ready to try tab and the thread's compact card are made of: a build's standing, its parts and its answer, and the
 //! pieces the tab's detail draws it with. The Pictures first take the owner picked on 15 Nov 2026 stands in the detail: a green
 //! head band, the title, what he approved beside what was built, his words, where to look with the steps, and a foot of four
-//! answers. The thread draws no such card of its own: it holds one compact card per Job (`ready_tab`).
+//! answers. The thread draws no such card of its own: it holds one compact card per Job (`ready_compact`) that opens a build
+//! whole in place.
 //!
 //! **A build is the build note of its branch at its tip, seen from the Job's thread**, so Fleet carries its state
 //! (`ThreadReadyToTry`) and the thread moves when he answers. A press answers at once, as every card does (`acts`), and a
@@ -14,7 +15,7 @@ use chrono::{DateTime, Local};
 use gpui::{canvas, div, prelude::*, px, size, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
 
-use super::acts::{kbd, refusal, Answer, Mode, SHEET};
+use super::acts::{kbd, refusal, Answer, Mode};
 use super::artifacts_tab::{Picture, PictureKey};
 use super::band_card::{foot_box, kind_look, shapes, tile, well, Act, Do, Foot};
 use super::cards::{quote, shown_scene};
@@ -30,6 +31,21 @@ use crate::scene::{Clock, Fit, Lens};
 /// Whether an id names a Ready to try card (`try:<branch>@<tip>`) or a Job's one item to try (`try:<session_id>`), and not an artifact.
 pub(super) fn is_card(id: &str) -> bool {
     id.starts_with("try:")
+}
+
+/// The card an id names in a thread, with where it stands. A card's own id (`try:<branch>@<tip>`) names that card; the Job's
+/// one Needs you row (`try:<session>`, no `@`) names its newest open card, else its newest card.
+fn card_named(items: &[ThreadItem], id: &str) -> Option<(usize, String)> {
+    let cards = || items.iter().enumerate().rev().filter_map(|(at, item)| match item {
+        ThreadItem::ReadyToTry(card) => Some((at, card)),
+        _ => None,
+    });
+    let found = if id.contains('@') {
+        cards().find(|(_, card)| card.id == id)
+    } else {
+        cards().find(|(_, card)| card.state == ReadyState::Open).or_else(|| cards().next())
+    };
+    found.map(|(at, card)| (at, card.id.clone()))
 }
 
 /// Where Fleet takes his answer to a card.
@@ -195,10 +211,10 @@ impl JobView {
         let held = self.thread(&job, cx)?;
         let standing = Standing::of(card, page.cards.answers.get(&card.id));
         if standing.folds() {
-            return Some(self.ready_folded(card, standing, page, look, now, cx));
+            return Some(self.ready_folded(card, standing, look, now));
         }
-        let all = super::ready_tab::builds(&held.items, &page.cards.answers);
-        (super::ready_tab::place(&all) == Some(ix)).then(|| self.ready_compact(&all, page, look, now, cx))
+        let all = super::ready_compact::builds(&held.items, &page.cards.answers);
+        (super::ready_compact::place(&all) == Some(ix)).then(|| self.ready_compact(&all, ix, page, look, now, cx))
     }
 
     /// What each press on a build's answers does. Looks good answers, Needs rework opens its box and Send sends it, Show me how
@@ -207,7 +223,15 @@ impl JobView {
         let (key, card) = (card.id.clone(), card.clone());
         Rc::new(move |this, act, window, cx| match act {
             Act::Approve => this.answer_ready(ix, &card, ReadyAnswer::LooksGood, window, cx),
-            Act::Ask => this.ask_for_changes(ix, &key, window, cx),
+            // With his words in the box the press sends them with the mark; with the box empty it puts the keys there.
+            Act::Ask => {
+                let words = this.typed_in(&key, Mode::Note, cx).trim().to_string();
+                if words.is_empty() {
+                    this.ask_for_changes(ix, &key, window, cx);
+                } else {
+                    this.answer_ready(ix, &card, ReadyAnswer::NeedsRework { words }, window, cx);
+                }
+            }
             Act::Send => {
                 let words = this.typed_in(&key, Mode::Note, cx).trim().to_string();
                 if !words.is_empty() {
@@ -224,8 +248,9 @@ impl JobView {
         })
     }
 
-    /// His answer: the tab reads it in this frame, Fleet is told off the main thread, and a refusal takes it back with Fleet's
-    /// sentence on the build's row. The pick moves to the next open build, and the keys to the list.
+    /// His answer: the card reads it in this frame, Fleet is told off the main thread, and a refusal takes it back with Fleet's
+    /// sentence on the build. The build opened moves to the next open one. `ix` is the thread item the card is drawn at, or
+    /// `SHEET` where the review overlay hosts it.
     pub(super) fn answer_ready(&mut self, ix: usize, card: &ThreadReadyToTry, answer: ReadyAnswer, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let pressed = match &answer {
@@ -234,21 +259,16 @@ impl JobView {
             ReadyAnswer::Remind { until } => Answer::Later(until.as_str().to_string()),
         };
         let next = match (self.pages.get(&job), self.thread(&job, cx)) {
-            (Some(page), Some(held)) => super::ready_tab::next_open(&super::ready_tab::builds(&held.items, &page.cards.answers), &card.id),
+            (Some(page), Some(held)) => super::ready_compact::next_open(&super::ready_compact::builds(&held.items, &page.cards.answers), &card.id),
             _ => None,
         };
         let body = answer_body(&job, card, answer);
         self.settle(ix, card.id.clone(), pressed, ANSWER_READY, body, window, cx);
-        if ix != SHEET {
-            return;
-        }
+        // A refusal came back at once, so the build stays open with Fleet's sentence on it; else the next open one opens.
         if let Some(cards) = self.cards_mut() {
-            if cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
+            if !cards.said.contains_key(&card.id) && cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
                 cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
             }
-        }
-        if let Some(list) = self.pages.get(&job).map(|page| page.keys.spot(super::ready_tab::LIST, cx).focus) {
-            window.focus(&list, cx);
         }
     }
 
@@ -339,22 +359,22 @@ impl JobView {
         }
     }
 
-    /// The picked build whole, at the width the tab gives it: head band, title, pictures, his words, where to look with the steps,
+    /// A build whole, at the width it is given, drawn at thread item `ix` (or `SHEET` in the overlay): head band, title, pictures, his words, where to look with the steps,
     /// and the foot of four answers while it still asks.
-    pub(super) fn ready_detail(&self, card: &ThreadReadyToTry, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn ready_detail(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = card.id.clone();
         let standing = Standing::of(card, page.cards.answers.get(&key));
         let parts = Parts::of(card);
         let asking = standing.asks();
         let job = self.shown.clone().unwrap_or_default();
-        let run = self.ready_run(SHEET, card, parts.clone());
-        let foot = Foot { ix: SHEET, key: key.clone(), asking, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run };
+        let run = self.ready_run(ix, card, parts.clone());
+        let foot = Foot { ix, key: key.clone(), asking, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run };
         let ink = look.color(standing.ink());
-        let word: SharedString = match (standing, super::ready_tab::until(card, &page.cards.answers)) {
+        let word: SharedString = match (standing, super::ready_compact::until(card, &page.cards.answers)) {
             (Standing::Later, Some(until)) => format!("Later until {}", clock(&until, now)).into(),
             _ => standing.word().into(),
         };
-        let head = self.ready_head(&format!("tab:{key}"), standing, word, &card.at, Some(&card.offered_at), asking && !card.in_build, now, look, cx);
+        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), asking && !card.in_build && !matches!(parts.pictures, Pictures::Both | Pictures::Built), now, look, cx);
         let title = div()
             .id(SharedString::from(format!("ready-title:{key}")))
             .px(look.length(token::SPACE_4))
@@ -417,7 +437,7 @@ impl JobView {
     }
 
     /// One picture's frame: its label over a sunken box the picture is centred in.
-    fn ready_frame(&self, id: String, label: SharedString, ink: Token, body: AnyElement, look: &Look) -> gpui::Stateful<gpui::Div> {
+    fn ready_frame(&self, id: String, label: SharedString, extra: Option<AnyElement>, ink: Token, body: AnyElement, look: &Look) -> gpui::Stateful<gpui::Div> {
         let ink_color = look.color(ink);
         div()
             .id(SharedString::from(id))
@@ -438,7 +458,12 @@ impl JobView {
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .text_color(ink_color)
-                    .child(label),
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(look.length(token::SPACE_2))
+                    .child(label)
+                    .children(extra),
             )
             .child(div().flex().items_center().justify_center().h(picture_height(look)).p(look.length(token::SPACE_2)).child(body))
     }
@@ -451,7 +476,9 @@ impl JobView {
             div().text_size(look.length(token::TEXT_XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.name.clone())).into_any_element()
         });
         let label = if card.in_build { "Built \u{b7} in the preview" } else { "Built" };
-        self.ready_frame(format!("ready-built:{}", card.id), label.into(), token::STATUS_COMPLETED_SUCCESS, body, look).into_any_element()
+        // A build the running preview does not hold yet offers the title bar's Refresh preview beside its chip.
+        let refresh = (!card.in_build).then(|| self.refresh_preview_button(&format!("built:{}", card.id), look, cx));
+        self.ready_frame(format!("ready-built:{}", card.id), label.into(), refresh, token::STATUS_COMPLETED_SUCCESS, body, look).into_any_element()
     }
 
     /// What he approved, at the revision he approved, drawn as the card of its kind draws it. A press reads it large in its own tab.
@@ -500,7 +527,7 @@ impl JobView {
         };
         let (artifact, named) = (approved.artifact.clone(), format!("{}, {}", kind_look(approved.form).2, approved.title));
         labelled(
-            self.ready_frame(format!("ready-approved:{}", card.id), label.into(), token::YOU, body, look)
+            self.ready_frame(format!("ready-approved:{}", card.id), label.into(), None, token::YOU, body, look)
                 .cursor_pointer()
                 .tooltip(tip(format!("Read {} larger", approved.title)))
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -567,7 +594,7 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The foot: Looks good, Needs rework and Show me how, a spacer, then Remind me. Needs rework opens its box in their place.
+    /// The foot: Looks good, Needs rework and Show me how, a spacer, then Remind me. Needs rework opens its box under them.
     fn ready_footer(&self, foot: &Foot, card: &ThreadReadyToTry, parts: &Parts, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = foot.key.as_str();
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2));
@@ -576,9 +603,6 @@ impl JobView {
         }
         if let Some(why) = page.cards.said.get(key) {
             column = column.child(refusal(look, key, why.clone()));
-        }
-        if page.cards.modes.get(key) == Some(&Mode::Note) {
-            return column.child(self.band_note(foot, page, look, cx)).into_any_element();
         }
         let (good, rework, how) = (foot.run.clone(), foot.run.clone(), foot.run.clone());
         let button = |id: &str, said: &'static str, kind: Kind, cap: &str, on: bool| act(look, format!("{id}:{key}"), said, kind, cap, on).tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT)));
@@ -618,7 +642,13 @@ impl JobView {
                 Role::Button,
                 "Remind me",
             ));
-        column.child(super::acts::gated(row, self.off_shown_to(ANSWER_READY, cx))).into_any_element()
+        let column = column.child(super::acts::gated(row, self.off_shown_to(ANSWER_READY, cx)));
+        // The box for what should change stands under the answers, and Needs rework stays among them: pressed with words in the
+        // box it sends them with the mark, and with the box empty it puts the keys there.
+        if page.cards.modes.get(key) == Some(&Mode::Note) {
+            return column.child(self.band_note(foot, page, look, cx)).into_any_element();
+        }
+        column.into_any_element()
     }
 
     /// Remind me's menu under its button: each choice of the Later ladder with the time it brings the build back.
@@ -657,8 +687,7 @@ impl JobView {
     }
 
     /// A build he answered, or the Job withdrew or replaced, in one line at its own time: where it stands, its title and the time.
-    /// A press, or Enter, opens the tab on it.
-    fn ready_folded(&self, card: &ThreadReadyToTry, standing: Standing, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    fn ready_folded(&self, card: &ThreadReadyToTry, standing: Standing, look: &Look, now: DateTime<Local>) -> AnyElement {
         let key = card.id.clone();
         let ink = look.color(standing.ink());
         let chip = labelled(
@@ -700,27 +729,40 @@ impl JobView {
             .text_color(look.color(token::FG_MUTED))
             .child(SharedString::from(clock(&card.at, now)))
             .into_any_element();
-        let spot = page.keys.spot(&format!("card:{key}"), cx);
-        let (job, pressed, keyed) = (self.shown.clone().unwrap_or_default(), key.clone(), key.clone());
-        let again = job.clone();
-        let line = self
-            .quiet_base(&format!("ready:{key}"), "circle-dot", vec![chip, about, time], look)
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .relative()
-            .cursor_pointer()
-            .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
-            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
-                if event.keystroke.modifiers.modified() || !matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    return;
-                }
-                cx.stop_propagation();
-                this.open_ready_tab(&again, Some(&keyed), window, cx);
-            }))
-            .on_click(cx.listener(move |this, _, window, cx| {
-                this.open_ready_tab(&job, Some(&pressed), window, cx);
-            }));
-        labelled(line, Role::Button, format!("Ready to try: {}, {}", card.about, standing.word())).into_any_element()
+        let line = self.quiet_base(&format!("ready:{key}"), "circle-dot", vec![chip, about, time], look);
+        labelled(line, Role::ListItem, format!("Ready to try: {}, {}", card.about, standing.word())).into_any_element()
+    }
+
+    /// The Job's newest open build whole, for the band's focus view of its one Ready to try row: the same detail, with Looks good,
+    /// Needs rework, Show me how, Remind me and Refresh preview, and never the generic question deck with its Answer button.
+    pub(super) fn ready_in_band(&self, job: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let drawn = (|| {
+            let (page, held) = (self.pages.get(job)?, self.thread(job, cx)?);
+            let (at, _) = card_named(&held.items, &format!("try:{job}"))?;
+            let ThreadItem::ReadyToTry(card) = held.items.get(at)? else { return None };
+            let wide = f32::from(self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2.);
+            Some(self.ready_detail(card, super::acts::SHEET, wide, page, Local::now(), look, cx))
+        })();
+        drawn.unwrap_or_else(|| div().into_any_element())
+    }
+
+    /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card, and the thread
+    /// scrolled to it. A build already settled is one line, and the thread scrolls to that line. A Job whose thread holds no such
+    /// build opens nothing.
+    pub(super) fn go_to_ready(&mut self, job: &str, id: &str, _window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((id, to)) = self.thread(job, cx).and_then(|held| {
+            let (at, id) = card_named(&held.items, id)?;
+            let asks = matches!(held.items.get(at), Some(ThreadItem::ReadyToTry(card)) if matches!(card.state, ReadyState::Open | ReadyState::Later));
+            Some((id, if asks { super::ready_compact::place_in(&held.items).unwrap_or(at) } else { at }))
+        }) else {
+            return false;
+        };
+        let Some(page) = self.pages.get_mut(job) else { return false };
+        page.cards.ready_pick = Some(id);
+        page.remeasure(to);
+        page.list.scroll_to_reveal_item(page.entry(to));
+        cx.notify();
+        true
     }
 
     /// Mock data: Fleet takes his answer as it does, and refuses it in its own words (`answer_ready_to_try`).
@@ -777,6 +819,29 @@ pub(super) mod tests {
 
     pub(in crate::job_view) fn thread_card(wire: &str) -> ThreadItem {
         ThreadItem::ReadyToTry(card(wire))
+    }
+
+    #[test]
+    fn the_jobs_ready_to_try_row_names_its_newest_open_card_and_a_card_id_names_that_card() {
+        let one = |id: &str, state: &str| ThreadItem::ReadyToTry(card(&format!(r#","state":"{state}""#)).tap_id(id));
+        let items = [one("try:native/a@1111", "open"), one("try:native/b@2222", "open"), one("try:native/c@3333", "answered")];
+        assert_eq!(card_named(&items, "try:job-1"), Some((1, "try:native/b@2222".into())), "the newest open card");
+        assert_eq!(card_named(&items, "try:native/a@1111"), Some((0, "try:native/a@1111".into())));
+        assert_eq!(card_named(&items, "try:native/z@9999"), None, "a card the thread lacks opens nothing");
+        let settled = [one("try:native/a@1111", "answered"), one("try:native/c@3333", "withdrawn")];
+        assert_eq!(card_named(&settled, "try:job-1"), Some((1, "try:native/c@3333".into())), "with none open, the newest card");
+        assert_eq!(card_named(&[], "try:job-1"), None);
+    }
+
+    trait TapId {
+        fn tap_id(self, id: &str) -> Self;
+    }
+
+    impl TapId for ThreadReadyToTry {
+        fn tap_id(mut self, id: &str) -> Self {
+            self.id = id.to_string();
+            self
+        }
     }
 
     #[test]

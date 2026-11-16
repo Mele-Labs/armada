@@ -636,7 +636,7 @@ impl JobView {
         let Some((item, row)) = self.review_current() else { return };
         if item.kind == Kind::Ready && row.verdict.is_none() {
             self.close_review(window, cx);
-            self.open_ready_tab(&item.job, None, window, cx);
+            self.go_to_ready(&item.job, &format!("try:{}", item.job), window, cx);
             return;
         }
         let Some(page) = page_of_item(&item.id).map(str::to_string).filter(|_| item.read && row.verdict.is_none()) else { return };

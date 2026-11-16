@@ -1652,6 +1652,8 @@ impl JobView {
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
+            // A Job's builds to try are never a question: its newest open build is drawn whole, with its own answers.
+            Thing::Row(row) if row.source == WaitingSource::ReadyToTry => Pinned::body(self.ready_in_band(id, look, cx)),
             Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
                 let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
                 let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));
