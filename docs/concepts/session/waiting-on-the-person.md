@@ -124,6 +124,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
+The native Bridge names a lone plan, sketch or draft in the band all the same, since its card can sit far up a long thread.
 An open Ready to try card is always in the band, alone or not: `fold` and `review_in_band` are true, and `glyphs` carries its mark, `Ready to try`.
 A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
