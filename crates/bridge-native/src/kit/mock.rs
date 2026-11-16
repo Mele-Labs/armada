@@ -8,8 +8,11 @@ use serde_json::json;
 
 use super::model::{Gone, Kind, Row, Scope};
 
-/// The mock's home for the harness: a path a person would read as their own.
-pub const HOME: &str = "~/.claude";
+/// The mock's home for the harness.
+pub const HOME: &str = "/Users/you/.claude";
+
+/// Where the mock's person keeps their things, for a path to be written as `~/...`.
+pub const USER: &str = "/Users/you";
 
 pub fn scope() -> Scope {
     Scope { name: "armada".into(), repositories: vec!["armada".into()] }
@@ -24,13 +27,13 @@ fn row(kind: &str, items: Vec<SetupItem>) -> SetupKindRow {
 }
 
 pub fn inventory() -> KitInventory {
-    let mut style = item("Concise", "Short answers, no preamble", "output-styles/concise.md", None);
+    let mut style = item("Concise", "Short answers, no preamble", "/Users/you/.claude/output-styles/concise.md", None);
     style.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "active".into(), plugin: None });
-    let mut other = item("Explainer", "Walks through the why of a change", "output-styles/explainer.md", None);
+    let mut other = item("Explainer", "Walks through the why of a change", "/Users/you/.claude/output-styles/explainer.md", None);
     other.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "available".into(), plugin: None });
-    let mut plugin = item("design-kit@design-kit", "version 1.4.0", "plugins/design-kit", None);
+    let mut plugin = item("design-kit@design-kit", "version 1.4.0", "/Users/you/.claude/plugins/design-kit", None);
     plugin.uninstall = Some("claude plugin uninstall design-kit@design-kit".into());
-    let mut notes = item("release-notes", "Writes release notes from merged pull requests", "skills/release-notes", None);
+    let mut notes = item("release-notes", "Writes release notes from merged pull requests", "/Users/you/.claude/skills/release-notes", None);
     notes.plugin = None;
     KitInventory {
         harness: "Claude Code".into(),
@@ -41,16 +44,16 @@ pub fn inventory() -> KitInventory {
                 "skills",
                 vec![
                     notes,
-                    item("review-pr", "Reviews a pull request against the house rules", "skills/review-pr", None),
-                    item("pdf-tools", "Reads and fills PDF forms", "skills/pdf-tools", None),
-                    item("frontend-design", "Builds a screen in the repository's own look", "plugins/design-kit/skills/frontend-design", Some("design-kit")),
+                    item("review-pr", "Reviews a pull request against the house rules", "/Users/you/.claude/skills/review-pr", None),
+                    item("pdf-tools", "Reads and fills PDF forms", "/Users/you/.claude/skills/pdf-tools", None),
+                    item("frontend-design", "Builds a screen in the repository's own look", "/Users/you/.claude/plugins/design-kit/skills/frontend-design", Some("design-kit")),
                     item("deploy-check", "Checks a deploy before it is announced", "/work/armada/.claude/skills/deploy-check", None),
                 ],
             ),
             row("plugins", vec![plugin]),
-            row("sub_agents", vec![item("code-reviewer", "Reads a diff the way the house rules ask", "agents/code-reviewer.md", None)]),
-            row("commands", vec![item("ship", "Merges the open pull request and tags it", "commands/ship.md", None)]),
-            row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "CLAUDE.md", None)]),
+            row("sub_agents", vec![item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/you/.claude/agents/code-reviewer.md", None)]),
+            row("commands", vec![item("ship", "Merges the open pull request and tags it", "/Users/you/.claude/commands/ship.md", None)]),
+            row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "/Users/you/.claude/CLAUDE.md", None)]),
             row("output_styles", vec![style, other]),
             row("mcp_servers", vec![item("linear", "linear.app", "", None)]),
             row("allowlist", vec![item("cargo check", "", "always allow", None), item("git status", "", "written by hand", None)]),
@@ -81,14 +84,14 @@ impl MockKit {
     pub fn new() -> MockKit {
         let mut skills_off = BTreeMap::new();
         skills_off.insert("armada".to_string(), vec!["pdf-tools".to_string()]);
-        let files = HashMap::from([("skills:skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string())]);
+        let files = HashMap::from([("skills:/Users/you/.claude/skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string())]);
         MockKit { inventory: inventory(), servers: servers(), skills_off, files, trash: Vec::new() }
     }
 
     /// A skill this mock removed before the screen drew, so the first look shows one amber and struck through.
     pub fn removed_first(&mut self) -> Gone {
         let name = "old-triage";
-        let item = item(name, "Sorts new issues by how long they have waited", "skills/old-triage", None);
+        let item = item(name, "Sorts new issues by how long they have waited", "/Users/you/.claude/skills/old-triage", None);
         let row = super::model::read_kind(Kind::Skills, &KitInventory { kinds: vec![row("skills", vec![item.clone()])], ..inventory() }, &[]);
         let super::model::Read::Rows(mut rows) = row else { unreachable!("a skill reads as rows") };
         let row: Row = rows.remove(0);

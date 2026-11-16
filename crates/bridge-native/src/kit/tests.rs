@@ -72,10 +72,10 @@ fn j_and_k_move_the_piece_picked_and_tab_moves_between_the_panes(cx: &mut TestAp
     assert_eq!(picked(&screen, cx).as_deref(), Some("release-notes"));
     cx.simulate_keystrokes("j");
     assert_eq!(picked(&screen, cx).as_deref(), Some("review-pr"));
-    cx.simulate_keystrokes("j j");
-    assert_eq!(picked(&screen, cx).as_deref(), Some("frontend-design"), "past the group's chip, to the next group's first piece");
+    cx.simulate_keystrokes("j j j");
+    assert_eq!(picked(&screen, cx).as_deref(), Some("frontend-design"), "past the removed piece and the group's chip, to the next group's first");
     cx.simulate_keystrokes("k");
-    assert_eq!(picked(&screen, cx).as_deref(), Some("pdf-tools").or(Some("pdf-tools")));
+    assert_eq!(picked(&screen, cx).as_deref(), Some("old-triage"));
     cx.simulate_keystrokes("tab");
     assert_eq!(screen.read_with(cx, |screen, _| screen.pane), Pane::Detail);
     cx.simulate_keystrokes("tab");

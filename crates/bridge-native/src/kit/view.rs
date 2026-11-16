@@ -480,7 +480,10 @@ impl KitScreen {
             .child(switch)
             .child(acts);
 
-        let home = std::env::var("HOME").ok();
+        let home = match &self.source {
+            super::Source::Mock(_) => Some(super::mock::USER.to_string()),
+            super::Source::Live(_) => std::env::var("HOME").ok(),
+        };
         let place = row.opens().or_else(|| row.path.clone()).or_else(|| row.server.as_ref().map(|server| server.address.clone())).map(|path| model::tilded(&path, home.as_deref()));
         let meta = div()
             .flex_none()

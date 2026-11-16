@@ -98,14 +98,8 @@ impl OperatorScreen {
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::mock(window, cx));
-        Self::new(jobs, page, Front::Jobs, Some(reviews), None, window, cx)
-    }
-
-    /// On the walk's Fleet, with the Jobs screen in front and Kit in the strip, on its own mock.
-    pub fn mock_kit(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
-        Self::new(jobs, page, Front::Jobs, None, Some(kit), window, cx)
+        Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), window, cx)
     }
 
     fn new(
