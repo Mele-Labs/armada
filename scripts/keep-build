@@ -12,7 +12,8 @@
 # worktree under `.armada/` is deleted when its branch lands.
 #
 #   keep-build make <src> <armada binary> <main|preview> <protocol id> [<native binary>]
-#       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path.
+#       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path. Fleet is in it as
+#       `Armada Fleet.app`, with `armada` a link to the bundled binary.
 #       Touches no link. A folder is made under a temporary name and renamed into
 #       place, so a half copy is never a build.
 #   keep-build point <snapshot path>
@@ -159,12 +160,35 @@ make() {
   making="$builds/.making-$name.$$"
   rm -rf "$making"
   mkdir -p "$making/bridge"
-  clone "$armada_bin" "$making/armada"
-  # Fleet opens Pocket's door to the network, so macOS asks it for Local Network. Signed with a fixed identifier,
-  # and the Mac's certificate where it has one, the grant outlasts the build (`scripts/signing-identity`). The clone
-  # is signed, never the binary it came from. Only a Mac has codesign: CI runs this on Linux.
+  # Fleet opens Pocket's door to the network, so macOS asks it for Local Network. **It is kept in a bundle**,
+  # `Armada Fleet.app`, because macOS keeps a bare binary's grant against its resolved path, and every build is a
+  # new folder: seven Refreshes left seven grants, each asked for (16 Nov). A bundle's grant is kept against its
+  # bundle id and signature, as the native `Armada.app`'s is, so it outlasts the build where the Mac's certificate
+  # signs it (`scripts/signing-identity`). `armada` beside it is a link to the bundled binary, so launchd's
+  # `builds/current/armada` and every caller name it as before. The clone is signed, never the binary it came from.
+  # Only a Mac has codesign: CI runs this on Linux.
+  local fleet_app="$making/Armada Fleet.app"
+  mkdir -p "$fleet_app/Contents/MacOS"
+  clone "$armada_bin" "$fleet_app/Contents/MacOS/armada"
+  python3 - "$fleet_app/Contents/Info.plist" <<'PY'
+import plistlib, sys
+
+plistlib.dump(
+    {
+        "CFBundleName": "Armada Fleet",
+        "CFBundleExecutable": "armada",
+        "CFBundleIdentifier": "dev.armada.fleet",
+        "CFBundlePackageType": "APPL",
+        "CFBundleInfoDictionaryVersion": "6.0",
+        # No Dock icon and no menu bar: launchd runs it, and nobody opens it.
+        "LSUIElement": True,
+    },
+    open(sys.argv[1], "wb"),
+)
+PY
+  ln -s "Armada Fleet.app/Contents/MacOS/armada" "$making/armada"
   if command -v codesign >/dev/null; then
-    "$here/signing-identity" sign "$making/armada" dev.armada.fleet >/dev/null 2>&1 || fail "could not sign $making/armada"
+    "$here/signing-identity" sign "$fleet_app" >/dev/null 2>&1 || fail "could not sign $fleet_app"
   fi
   cp "$src/apps/desktop/package.json" "$making/bridge/package.json"
   clone "$src/apps/desktop/out" "$making/bridge/out"

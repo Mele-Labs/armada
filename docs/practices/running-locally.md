@@ -299,7 +299,9 @@ Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.br
 **Builds are signed with this Mac's own certificate, "Armada Local Signing", where it has one, so macOS remembers what was allowed.**
 macOS keeps a privacy grant, such as Local Network, against an app's designated requirement, and an ad hoc signature's requirement is its code hash, which every build changes, so each new build asked again.
 Signed with the certificate, the requirement is the identifier and the certificate, which stay the same from build to build.
-Fleet is the one that asks for Local Network, since Pocket's door listens on the network and advertises itself over Bonjour, so `scripts/keep-build` signs the kept `armada` binary as `dev.armada.fleet`; `scripts/native-app`, `scripts/armada-electron` and Armada Voice's `build.mjs` sign their apps the same way.
+Fleet is the one that asks for Local Network, since Pocket's door listens on the network and advertises itself over Bonjour, so `scripts/keep-build` keeps it as a bundle, `Armada Fleet.app`, with bundle id `dev.armada.fleet` and no Dock icon, and signs it; `scripts/native-app`, `scripts/armada-electron` and Armada Voice's `build.mjs` sign their apps the same way.
+A bundle, because macOS keeps a bare binary's Local Network grant against its resolved path, and every kept build is a new folder: signed alone, each Refresh preview asked again (16 Nov 2026).
+The build's `armada` is a link to the bundled binary, so launchd's `builds/current/armada` and everything else that names it are unchanged.
 
 | Command | What it does | Needs | What comes back |
 |---|---|---|---|
