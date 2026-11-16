@@ -1053,7 +1053,7 @@ pub static WALKS: &[Walk] = &[
             press_on("The top pane's +", "button", "Add tab: Done", "menuitem", "Pull Requests"),
             press_on("Pull Requests: each one framed in the hue of where it stands, with its act at the right", "menuitem", "Pull Requests", "list", "Pull requests"),
             press_on("A press opens its panel. The plates beside it say where it stands: 3rd in the merge queue", "button", "Pull request #2209 Open pull requests in Armada", "region", "Status"),
-            step("Who reviews it: a team, and each person's verdict", Verb::Look, "region", "Reviewers"),
+            step("Reviewers: a team in bold, its people under it, each one's review state at the edge. On a wide pane it stands in a column at the right", Verb::Look, "region", "Reviewers"),
             step("The merge queue it is in, in place order. Its own row is marked; a press on another opens it on the forge", Verb::Look, "region", "Merge line"),
             step("Who it was registered to: the Job's short id, and a laptop for this machine", Verb::Look, "group", "Job 8f3c21d0, This machine"),
             step("Conversation: the description, then what was said and the threads, in the order they were said", Verb::Look, "list", "Conversation"),

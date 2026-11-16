@@ -18,7 +18,8 @@
      "kind": "person",
      "verdict": "approved",
      "name": "Marta Ruiz",
-     "url": "https://forge.example/marta"
+     "url": "https://forge.example/marta",
+     "team": "platform"
     },
     {
      "login": "nina",

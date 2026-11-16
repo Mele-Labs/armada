@@ -369,6 +369,26 @@ pub(super) fn small_button(look: &Look, id: impl Into<gpui::ElementId>, said: &s
     }
 }
 
+/// A part of the plates' column under the title: the merge box, Reviewers, the merge line and the failing checks.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Plate {
+    Status,
+    Reviewers,
+    Place,
+    Failing,
+}
+
+/// The parts in the main column, in order, and those in the side column at its right, at a pane `width`.
+/// Reviewers stands beside the main column where the pane is `beside` wide or more, as the forge's page
+/// has it; narrower, it stands under the merge box.
+pub(super) fn plates_at(width: Pixels, beside: Pixels) -> (Vec<Plate>, Vec<Plate>) {
+    if width >= beside {
+        (vec![Plate::Status, Plate::Place, Plate::Failing], vec![Plate::Reviewers])
+    } else {
+        (vec![Plate::Status, Plate::Reviewers, Plate::Place, Plate::Failing], Vec::new())
+    }
+}
+
 /// A secondary small button (`Button variant="secondary" size="sm"`): a hairline frame on a raised fill, its
 /// glyph before its word, lighter under the pointer and sunk while pressed. A small button's height, so it
 /// sits on a card head's line as the primary one does.
@@ -809,7 +829,7 @@ impl JobView {
         let high = crate::room::of(window, cx).size.height;
         let aside_w = px(336.);
         let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
-        let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
+        let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, width, look, cx);
         let foot = self.pull_composer(panel, look, cx);
         let sheet = labelled(
             div()
@@ -835,8 +855,9 @@ impl JobView {
         Some(div().size_full().flex().items_stretch().gap(look.length(token::SPACE_3)).children(beside.map(|list| div().flex_none().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list))).child(sheet).into_any_element())
     }
 
-    /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, and the failing checks.
-    fn pull_plates(&self, panel: &PullPanel, pull: &Pull, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, the merge line and the
+    /// failing checks, those of them `parts` names, in its order.
+    fn pull_plates(&self, panel: &PullPanel, pull: &Pull, parts: &[Plate], look: &Look, cx: &Context<Self>) -> AnyElement {
         let page = panel.page();
         let place = self.place_of_open(pull, cx);
         let at = place.as_ref().and_then(|rows| rows.iter().find(|row| row.current)).map(|row| row.place);
@@ -940,8 +961,8 @@ impl JobView {
             }
             labelled(div().id("pull-facts").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Facts")
         });
-        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts), Role::Region, "Status");
-        let reviewers = page.map(|page| page.reviewers.as_slice()).filter(|reviewers| !reviewers.is_empty()).map(|reviewers| self.pull_reviewers(reviewers, look, cx));
+        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts), Role::Region, "Status").into_any_element();
+        let reviewers = if parts.contains(&Plate::Reviewers) { self.pull_reviewers(panel, look, cx) } else { None };
         let failing_plate = (!failing.is_empty()).then(|| {
             let sent = panel.sent_back;
             let held = pull.clone();
@@ -968,9 +989,20 @@ impl JobView {
                 Role::Region,
                 "Failing checks",
             )
+            .into_any_element()
         });
         let place = place.map(|rows| self.place_plate(rows, look, cx));
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(reviewers).children(place).children(failing_plate).into_any_element()
+        let (mut status, mut reviewers, mut place, mut failing_plate) = (Some(status), reviewers, place, failing_plate);
+        let column: Vec<AnyElement> = parts
+            .iter()
+            .filter_map(|part| match part {
+                Plate::Status => status.take(),
+                Plate::Reviewers => reviewers.take(),
+                Plate::Place => place.take(),
+                Plate::Failing => failing_plate.take(),
+            })
+            .collect();
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(column).into_any_element()
     }
 
     /// The merge lines the open pull request is read against: the mock's in a walk, else Fleet's.
@@ -1069,19 +1101,27 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Reviewers (`PullRequestReviewers`): a row each, a requested team's people under its row.
-    fn pull_reviewers(&self, reviewers: &[PullRequestReviewer], look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Reviewers (`PullRequestReviewers`), as the forge's side column has them: a muted label, a requested
+    /// team in bold with its people indented under it, and each one's review state in a column of its own
+    /// at the right. Nothing where the page names no reviewer.
+    fn pull_reviewers(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let reviewers = panel.page()?.reviewers.as_slice();
+        if reviewers.is_empty() {
+            return None;
+        }
         let teams: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Team).collect();
         let people: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Person).collect();
-        let row = |one: &PullRequestReviewer| -> AnyElement {
+        let row = |one: &PullRequestReviewer, under: bool| -> AnyElement {
             let (icon, said, tone) = verdict_look(one.verdict);
+            let team = one.kind == PullRequestReviewerKind::Team;
             let login = SharedString::from(one.login.clone());
             let who = div()
                 .id(SharedString::from(format!("reviewer:{}", one.login)))
                 .min_w_0()
                 .truncate()
                 .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(FontWeight(look.number(if team { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
                 .child(login.clone());
             let who = who.when_some(one.name.clone(), |who, name| who.tooltip(tip(name)));
             let who = match one.url.clone() {
@@ -1093,33 +1133,28 @@ impl JobView {
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .min_w_0()
+                .when(under, |row| row.pl(look.length(token::SPACE_4)))
                 .child(who)
-                .children((one.kind == PullRequestReviewerKind::Team).then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)))
+                .children(team.then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)))
                 .child(div().flex_1())
-                .child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone))
+                .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_end().child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone)))
                 .into_any_element()
         };
         let mut out: Vec<AnyElement> = Vec::new();
         for team in &teams {
-            out.push(row(team));
-            let under: Vec<&PullRequestReviewer> = people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).copied().collect();
-            if !under.is_empty() {
-                out.push(div().flex().flex_col().gap(look.length(token::SPACE_2)).pl(look.length(token::SPACE_4)).children(under.into_iter().map(row)).into_any_element());
-            }
+            out.push(row(team, false));
+            out.extend(people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).map(|one| row(one, true)));
         }
-        out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one)));
-        labelled(
-            plate(look, Tone::Neutral).id("pull-reviewers").child(eyebrow(look).child("Reviewers")).child(div().flex().flex_col().gap(look.length(token::SPACE_2)).children(out)),
-            Role::Region,
-            "Reviewers",
-        )
-        .into_any_element()
+        out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one, false)));
+        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().child(eyebrow(look).child("Reviewers")).children(out), Role::Region, "Reviewers").into_any_element())
     }
 }
 
 impl JobView {
-    /// The body: what Fleet refused, the title, its meta row, its acts, then the tabs.
-    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The body: what Fleet refused, the title, its meta row, its acts, then the plates and the tabs, with
+    /// Reviewers beside them on a pane `width` wide enough.
+    #[allow(clippy::too_many_arguments)]
+    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, width: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
         let page = panel.page();
         let number = pull.number;
         let refused = self
@@ -1180,11 +1215,34 @@ impl JobView {
         let owner = page.and_then(|page| page.owner.clone()).or_else(|| self.owner_in_lines(pull, cx)).map(|owner| owner_chip(&owner, look));
         let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size).children(owner);
         let acts = self.pull_acts(panel, pull, look, cx);
-        let plates = plates_inside.then(|| self.pull_plates(panel, pull, look, cx));
+        let (main, side) = plates_at(width, look.length(token::LAYOUT_BREAKPOINT_DESKTOP));
+        let plates = plates_inside.then(|| self.pull_plates(panel, pull, &main, look, cx));
+        let side = if plates_inside && side.contains(&Plate::Reviewers) { self.pull_reviewers(panel, look, cx) } else { None };
         let tabs = match &panel.page {
             None => labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element(),
             Some(Err(said)) => labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element(),
             Some(Ok(page)) => self.pull_tabs(panel, pull, page, tree_inside, look, cx),
+        };
+        let column = div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .min_w_0()
+            .children(plates)
+            .children(self.notes_bar(panel, pull, look, cx))
+            .children(self.notes_resolved_toggle(panel, look, cx))
+            .child(tabs);
+        // Wide enough, Reviewers stands in a column of its own at the right, as on the forge's page.
+        let lower = match side {
+            Some(side) => div()
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_6))
+                .min_w_0()
+                .child(column.flex_1())
+                .child(div().id("pull-side").flex_none().w(look.length(token::SIDEBAR_DEFAULT)).child(side))
+                .into_any_element(),
+            None => column.into_any_element(),
         };
         div()
             .id("pull-body")
@@ -1201,10 +1259,7 @@ impl JobView {
             .child(div().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(pull.title.clone())))
             .child(meta)
             .child(acts)
-            .children(plates)
-            .children(self.notes_bar(panel, pull, look, cx))
-            .children(self.notes_resolved_toggle(panel, look, cx))
-            .child(tabs)
+            .child(lower)
             .into_any_element()
     }
 
@@ -1651,5 +1706,14 @@ mod tests {
     #[test]
     fn a_template_comment_leaves_the_description() {
         assert_eq!(strip_comments("Fixes it.<!-- fill in --> Done."), "Fixes it. Done.");
+    }
+
+    #[test]
+    fn reviewers_stand_beside_a_wide_pane_and_under_the_merge_box_in_a_narrow_one() {
+        let beside = px(768.);
+        let wide = (vec![Plate::Status, Plate::Place, Plate::Failing], vec![Plate::Reviewers]);
+        assert_eq!(plates_at(px(1100.), beside), wide);
+        assert_eq!(plates_at(beside, beside), wide, "the breakpoint itself holds both");
+        assert_eq!(plates_at(px(767.), beside), (vec![Plate::Status, Plate::Reviewers, Plate::Place, Plate::Failing], Vec::new()));
     }
 }
