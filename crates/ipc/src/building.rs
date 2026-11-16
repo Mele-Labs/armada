@@ -144,6 +144,30 @@ pub struct FleetBuildReport {
     /// pressed or a pick made. Empty on a build that holds none. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub holds: Vec<HeldBranch>,
+    /// The checkout is on `main`, behind `origin/main` as last fetched, and holds untracked files
+    /// `origin/main` tracks, so `main` cannot fast-forward and a restart cannot update it. Absent
+    /// otherwise. `change_fleet_build`'s `clear` moves them out of the way. Since 16 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked: Option<CheckoutBlocked>,
+}
+
+/// Untracked files in the checkout that stop `main` fast-forwarding to `origin/main`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckoutBlocked {
+    /// Commits `origin/main` holds that local `main` lacks.
+    pub behind: u32,
+    /// The untracked files `origin/main` tracks, relative to the checkout, sorted.
+    pub files: Vec<String>,
+}
+
+/// What `change_fleet_build` does with the files `CheckoutBlocked` names before it restarts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClearBlocked {
+    /// Keep them in a `git stash` entry, so they can be brought back.
+    Stash,
+    /// Remove them.
+    Delete,
 }
 
 /// A branch on origin a snapshot can take, and when its tip was committed.
@@ -266,6 +290,10 @@ pub struct ChangeFleetBuild {
     /// script refuses without it, and the answer is the refusal.
     #[serde(default)]
     pub adopt: bool,
+    /// Stash or delete the files `FleetBuildReport::blocked` names, then fast-forward `main`, before
+    /// the restart. Absent leaves the checkout as it is. Since 16 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear: Option<ClearBlocked>,
 }
 
 /// `change_fleet_build`'s answer: the restart has begun, and this is what it
