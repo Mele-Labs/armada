@@ -39,7 +39,7 @@ fn chip(look: &Look, hue: Token, words: String, caps: bool) -> Div {
 fn mark_hue(mark: &Mark) -> Token {
     match mark {
         Mark::Yours => token::ACCENT,
-        Mark::Plugin(_) => token::KIND_GATE,
+        Mark::Plugin(_) | Mark::Market(_) => token::KIND_GATE,
         Mark::Repository => token::KIND_SETUP,
         Mark::Armada => token::OPERATOR,
         Mark::Plain(_) => token::FG_MUTED,
@@ -434,7 +434,8 @@ impl KitScreen {
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
         let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);
-        if row.kind.file().is_some() && !gone && !editing {
+        let has_file = row.kind.file().is_some() && !matches!(self.files.get(&row.id), Some(FileState::Refused { .. }));
+        if has_file && !gone && !editing {
             // Edit is offered once the file is read and no plugin brought it; Open works for either.
             let can = self.can_edit();
             let why = match self.files.get(&row.id) {
@@ -448,7 +449,7 @@ impl KitScreen {
                 format!("Edit {name}"),
             ));
         }
-        if row.kind.opens().is_some() && row.kind != Kind::Plugins && !gone && !editing {
+        if has_file && row.kind.opens().is_some() && !gone && !editing {
             acts = acts.child(labelled(
                 button(look, "kit-open", "Open", false, false).tooltip(tip("Open the file in your editor")).on_click(cx.listener(|this, _, _, cx| this.open_piece(KitPlace::Editor, cx))),
                 Role::Button,
@@ -473,6 +474,11 @@ impl KitScreen {
                     ))
                 }
                 Removal::None => acts,
+                Removal::Server(_) => acts.child(labelled(
+                    button(look, "kit-remove", "Forget", false, false).tooltip(tip("Kit stops holding this server")).on_click(cx.listener(|this, _, _, cx| this.remove(cx))),
+                    Role::Button,
+                    format!("Forget {name}"),
+                )),
                 _ => acts.child(labelled(button(look, "kit-remove", "Remove", false, false).on_click(cx.listener(|this, _, _, cx| this.remove(cx))), Role::Button, format!("Remove {name}"))),
             };
         } else if matches!(shown.gone, Some(Some(_))) {
@@ -546,12 +552,15 @@ impl KitScreen {
 
         let said = self.refused.clone().map(|said| labelled(refusal(look, said.clone()).id("kit-refused").px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)), Role::Alert, said));
 
-        div().flex_1().min_h_0().flex().flex_col().child(head).child(meta).children(said).child(self.render_file(row, look))
+        div().flex_1().min_h_0().flex().flex_col().child(head).child(meta).children(said).child(self.render_file(row, look, cx))
     }
 
     /// The file's text in a sunken pane with line numbers, as Fleet read it, or a textarea over it while it is edited. Where
     /// Fleet reads no file for the kind, the piece's own words stand in; where it says there is none, there is no pane.
-    fn render_file(&self, row: &Row, look: &Look) -> gpui::AnyElement {
+    fn render_file(&self, row: &Row, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+        if row.kind.file().is_none() || matches!(self.files.get(&row.id), Some(FileState::Refused { code, .. }) if code.as_deref() == Some(super::wire::FILE_NONE)) {
+            return self.render_facts(row, look, cx);
+        }
         let pane = || div().id("kit-file").flex_1().min_h_0().flex().bg(look.color(token::BG_SUNKEN)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(px(20.));
         let text = match self.files.get(&row.id) {
             Some(FileState::Reading) => {
@@ -562,19 +571,17 @@ impl KitScreen {
                 )
                 .into_any_element();
             }
-            Some(FileState::Refused { code, said }) => {
-                if code.as_deref() == Some(super::wire::FILE_NONE) {
-                    return div().flex_1().bg(look.color(token::BG_SUNKEN)).into_any_element();
-                }
+            Some(FileState::Refused { said, .. }) => {
                 let said = SharedString::from(said.clone());
                 return labelled(pane().flex_col().child(refusal(look, said.clone()).id("kit-file-refused").px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2))), Role::Region, "File").into_any_element();
             }
             Some(FileState::Read(file)) => {
                 if let Some(edit) = self.editing.as_ref().filter(|edit| edit.id == row.id) {
-                    let area = Textarea::new(&edit.area).appearance(false);
+                    // The box takes the pane's height and scrolls and wraps inside it.
+                    let area = Textarea::new(&edit.area).appearance(false).h_full();
                     return labelled(
-                        pane().overflow_y_scroll().p(look.length(token::SPACE_3)).child(labelled(
-                            div().id("kit-file-text").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(area),
+                        pane().p(look.length(token::SPACE_3)).child(labelled(
+                            div().id("kit-file-text").key_context(crate::keymap::TEXT_BOX).size_full().min_w_0().child(area),
                             Role::TextInput,
                             "File text",
                         )),
@@ -589,38 +596,119 @@ impl KitScreen {
         };
         let text = text.or_else(|| row.says.clone()).unwrap_or_default();
         let lines: Vec<String> = if text.is_empty() { Vec::new() } else { text.lines().map(str::to_string).collect() };
-        let numbers = div()
-            .flex_none()
-            .flex()
-            .flex_col()
-            .items_end()
-            .min_w(look.length(token::SPACE_8) - look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_2))
-            .py(look.length(token::SPACE_3))
-            .border_r(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .text_color(look.color(token::FG_SUBTLE))
-            .children((1..=lines.len()).map(|n| div().child(SharedString::from(n.to_string()))));
+        // One row to a line: its number on the first visual row, the text wrapping beside it, so the gutter scrolls with
+        // the text and leaves a wrapped line's other rows blank.
+        let hue = look.color(row.kind.hue());
         let mut fenced = false;
-        let mut body = div().flex_1().min_w_0().flex().flex_col().p(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT));
+        let mut body = div().flex().flex_col().w_full().py(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT));
         for (n, line) in lines.iter().enumerate() {
             // The front matter's fences and keys wear the kind's hue, as the mock's file does.
             let fence = line == "---";
-            let lit = fence || (fenced && !fence && line.split(':').next().is_some_and(|key| line.contains(':') && !key.contains(' ')));
+            let lit = fence || (fenced && line.split(':').next().is_some_and(|key| line.contains(':') && !key.contains(' ')));
             if fence {
                 fenced = n == 0 || !fenced;
             }
-            let key_end = line.find(':').filter(|_| lit && !fence);
-            let hue = look.color(row.kind.hue());
-            let mut one = div().id(SharedString::from(format!("kit-line-{n}"))).flex().whitespace_nowrap();
-            one = match key_end {
-                Some(at) => one.child(div().text_color(hue).child(SharedString::from(line[..=at].to_string()))).child(SharedString::from(line[at + 1..].to_string())),
-                None if fence => one.text_color(hue).child("---"),
-                None => one.child(SharedString::from(if line.is_empty() { " ".to_string() } else { line.clone() })),
-            };
-            body = body.child(one);
+            let lit_to = if fence { Some(line.len()) } else { line.find(':').filter(|_| lit).map(|at| at + 1) };
+            let shown = if line.is_empty() { " ".to_string() } else { line.clone() };
+            let mut styled = gpui::StyledText::new(SharedString::from(shown));
+            if let Some(end) = lit_to {
+                styled = styled.with_highlights([(0..end, gpui::HighlightStyle { color: Some(hue), ..Default::default() })]);
+            }
+            body = body.child(
+                div()
+                    .id(SharedString::from(format!("kit-line-{n}")))
+                    .flex()
+                    .child(
+                        div()
+                            .flex_none()
+                            .w(look.length(token::SPACE_8) + look.length(token::SPACE_1))
+                            .flex()
+                            .justify_end()
+                            .px(look.length(token::SPACE_2))
+                            .border_r(look.length(token::BORDER_WIDTH))
+                            .border_color(look.color(token::BORDER_SUBTLE))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .child(SharedString::from((n + 1).to_string())),
+                    )
+                    .child(div().flex_1().min_w_0().px(look.length(token::SPACE_3)).child(styled)),
+            );
         }
-        labelled(pane().overflow_y_scroll().child(numbers).child(body), Role::Region, "File").into_any_element()
+        labelled(pane().flex_col().overflow_y_scroll().track_scroll(&self.file_scroll).child(body), Role::Region, "File").into_any_element()
+    }
+
+
+    // ---- a piece with no file: what it is ----------------------------------------------------
+
+    /// Facts for a piece that has no file to show, so the pane is never empty.
+    fn render_facts(&self, row: &Row, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+        let fact = |label: &str, value: String, mono_value: bool| {
+            div()
+                .flex()
+                .gap(look.length(token::SPACE_4))
+                .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(label.to_string())))
+                .child(div().flex_1().min_w_0().text_color(look.color(token::FG_DEFAULT)).when(mono_value, |one| one.font_family(mono(look))).child(SharedString::from(value)))
+        };
+        let scope = self.scope_name();
+        let mut card = div().flex().flex_col().gap(look.length(token::SPACE_3));
+        match (row.kind, &row.server) {
+            (Kind::Servers, Some(server)) => {
+                card = card
+                    .child(fact("Transport", server.transport.to_string(), false))
+                    .child(fact(if server.transport == "stdio" { "Program" } else { "Host" }, server.address.clone(), true))
+                    .child(fact("From", "Kit".into(), false))
+                    .child(fact("By default", if server.by_default { "Reaches Drones" } else { "Reaches no Drone" }.into(), false))
+                    .child(fact(&format!("In {scope}"), if server.resolves { "Reaches Drones" } else { "Reaches no Drone" }.into(), false));
+            }
+            (Kind::Servers, None) => {
+                let program = row.says.clone().unwrap_or_default();
+                card = card
+                    .child(fact("From", "Connected outside Armada".into(), false))
+                    .when(!program.is_empty(), |card| card.child(fact("Program or host", program, true)))
+                    .child(fact("Reach", "Reaches no Drone".into(), false));
+            }
+            (Kind::Plugins, _) => {
+                let version = row.says.clone().unwrap_or_default();
+                card = card.when(!version.is_empty(), |card| card.child(fact("Version", version, false)));
+                if let Some(market) = &row.marketplace {
+                    card = card.child(fact("From", market.clone(), false));
+                }
+                let brings = self.brings_pieces(row);
+                if brings.is_empty() {
+                    card = card.child(fact("Brings", "Nothing Kit lists".into(), false));
+                } else {
+                    let links = div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(brings.into_iter().map(|(kind, id, name)| {
+                        let words = format!("{} {name}", kind.label());
+                        let (to, name) = (id.clone(), name.clone());
+                        labelled(
+                            div()
+                                .id(SharedString::from(format!("kit-brings-{id}")))
+                                .w_full()
+                                .cursor_pointer()
+                                .text_color(look.color(token::ACCENT))
+                                .hover(|style| style.underline())
+                                .on_click(cx.listener(move |this, _, _, cx| this.go_to(kind, to.clone(), cx)))
+                                .child(SharedString::from(format!("{} · {name}", kind.label()))),
+                            Role::Link,
+                            words,
+                        )
+                    }));
+                    card = card.child(div().flex().gap(look.length(token::SPACE_4)).child(div().flex_none().w(look.length(token::SPACE_12) * 2.).text_color(look.color(token::FG_SUBTLE)).child("Brings")).child(links));
+                }
+            }
+            (Kind::Allowed, _) => {
+                card = card.child(fact("Command", row.command.clone().unwrap_or_else(|| row.name.clone()), true)).child(fact("From", row.mark.label(), false));
+            }
+            _ => {
+                let said = row.says.clone().filter(|said| !said.is_empty()).unwrap_or_else(|| format!("{} {}, with no file of its own.", row.kind.label(), row.name));
+                card = card.child(fact("What it is", said, false)).child(fact("From", row.mark.label(), false));
+            }
+        }
+        labelled(
+            div().id("kit-facts").flex_1().min_h_0().overflow_y_scroll().p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_SM)).font_family(sans(look)).child(card),
+            Role::Region,
+            "Facts",
+        )
+        .into_any_element()
     }
 
     // ---- the keys' strip ---------------------------------------------------------------------
@@ -628,6 +716,7 @@ impl KitScreen {
     fn render_keys(&self, look: &Look) -> impl IntoElement {
         let on = format!("On in {}", self.scope_name());
         let editing = self.editing.is_some();
+        let scrolling = self.pane == Pane::Detail;
         let item = |keys: &[&str], words: String| {
             div()
                 .flex()
@@ -654,7 +743,10 @@ impl KitScreen {
             .font_family(sans(look))
             .children(editing.then(|| item(&["⌘S"], "Save".into())))
             .children(editing.then(|| item(&["esc"], "Cancel".into())))
-            .children((!editing).then(|| item(&["j", "k"], "Move".into())))
+            .children((!editing && !scrolling).then(|| item(&["j", "k"], "Move".into())))
+            .children((!editing && scrolling).then(|| item(&["j", "k"], "Scroll".into())))
+            .children((!editing && scrolling).then(|| item(&["pgup", "pgdn"], "Page".into())))
+            .children((!editing && scrolling).then(|| item(&["home", "end"], "Ends".into())))
             .child(item(&["⇥"], "Next pane".into()))
             .child(item(&["space"], on))
             .child(item(&["e"], "Edit".into()))

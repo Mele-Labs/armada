@@ -50,6 +50,7 @@ pub fn inventory() -> KitInventory {
                     item("pdf-tools", "Reads and fills PDF forms", "/Users/you/.claude/skills/pdf-tools", None),
                     item("frontend-design", "Builds a screen in the repository's own look", "/Users/you/.claude/plugins/design-kit/skills/frontend-design", Some("design-kit")),
                     item("deploy-check", "Checks a deploy before it is announced", "/work/armada/.claude/skills/deploy-check", None),
+                    item("long-notes", "A long file, for scrolling", "/work/armada/.claude/skills/long-notes", None),
                 ],
             ),
             row("plugins", vec![plugin]),
@@ -74,6 +75,17 @@ pub fn servers() -> Vec<KitServerRow> {
 /// What review-pr's file says, for the detail's pane.
 const REVIEW_PR: &str = "---\nname: review-pr\ndescription: Reviews a pull request against the house rules\n---\n\nRead the diff first. Check each changed file against\nthe rules in docs/contracts before reading the tests.\n…";
 
+/// A long skill: sixty-odd lines, the description running well past any pane's width.
+pub const LONG_NOTES_ID: &str = "skills:/work/armada/.claude/skills/long-notes:long-notes";
+
+fn long_notes() -> String {
+    let mut text = String::from("---\nname: long-notes\ndescription: Use when a person asks for the long way round of anything, and keep going well past the point where a pane would have run out of width, because a line that long has to wrap inside the pane and not run off its right edge\n---\n\n");
+    for n in 1..=60 {
+        text.push_str(&format!("Step {n}: read the next part, and write down what it says before going on.\n"));
+    }
+    text
+}
+
 pub struct MockKit {
     pub inventory: KitInventory,
     pub servers: Vec<KitServerRow>,
@@ -86,7 +98,10 @@ impl MockKit {
     pub fn new() -> MockKit {
         let mut skills_off = BTreeMap::new();
         skills_off.insert("armada".to_string(), vec!["pdf-tools".to_string()]);
-        let files = HashMap::from([("skills:/Users/you/.claude/skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string())]);
+        let files = HashMap::from([
+            ("skills:/Users/you/.claude/skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string()),
+            (LONG_NOTES_ID.to_string(), long_notes()),
+        ]);
         MockKit { inventory: inventory(), servers: servers(), skills_off, files, trash: Vec::new() }
     }
 
@@ -143,7 +158,7 @@ impl MockKit {
             return Err(Refused { key: None, said: "This piece has no file.".into(), code: Some(super::wire::FILE_NONE.into()) });
         }
         let text = self.files.get(&row.id).cloned().unwrap_or_else(|| row.says.clone().unwrap_or_default());
-        Ok(ipc::KitFile { path: row.opens().unwrap_or_default(), text, at: ipc::Instant::carried("2026-11-16T09:00:00Z"), plugin: row.comes_with.clone() })
+        Ok(ipc::KitFile { path: row.opens().unwrap_or_default(), text, at: ipc::Instant::carried("2026-11-16T09:00:00Z"), plugin: row.plugin_id.clone() })
     }
 
     /// A save as Fleet guards it: refused for a plugin's piece, and refused where the disk no longer holds what the

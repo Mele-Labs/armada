@@ -86,6 +86,9 @@ pub struct KitScreen {
     confirming: Option<Confirm>,
     files: HashMap<String, file::FileState>,
     editing: Option<file::Edit>,
+    /// The read pane's scroll, which goes back to the top when another piece is picked.
+    file_scroll: gpui::ScrollHandle,
+    scrolled_for: Option<String>,
     /// A save was refused because the file moved: what is on disk now, where Fleet says.
     moved: Option<Option<String>>,
     work: HashMap<&'static str, Task<()>>,
@@ -154,6 +157,8 @@ impl KitScreen {
             confirming: None,
             files: HashMap::new(),
             editing: None,
+            file_scroll: gpui::ScrollHandle::new(),
+            scrolled_for: None,
             moved: None,
             work: HashMap::new(),
             bar: None,
@@ -341,7 +346,7 @@ impl KitScreen {
                 let id = self.listed.shown[next].row.id.clone();
                 self.pick(id, cx);
             }
-            Pane::Detail => {}
+            Pane::Detail => self.scroll_file(file::Scroll::Lines(by), cx),
         }
     }
 
@@ -471,6 +476,11 @@ impl KitScreen {
 
     /// The pieces of other kinds a plugin brings, by name.
     fn brings_of(&self, plugin: &Row) -> Vec<String> {
+        self.brings_pieces(plugin).into_iter().map(|(_, _, name)| name).collect()
+    }
+
+    /// The same, with each piece's kind and id, so a link can pick it.
+    fn brings_pieces(&self, plugin: &Row) -> Vec<(Kind, String, String)> {
         let Load::Read(inventory) = &self.inventory else { return Vec::new() };
         let provider = plugin.name.clone();
         [Kind::Skills, Kind::SubAgents, Kind::Commands, Kind::OutputStyles]
@@ -481,8 +491,14 @@ impl KitScreen {
             })
             .flatten()
             .filter(|row| row.comes_with.as_deref() == Some(provider.as_str()))
-            .map(|row| row.name)
+            .map(|row| (row.kind, row.id, row.name))
             .collect()
+    }
+
+    /// A link in a plugin's facts: the kind it is in, and the piece picked there.
+    pub(super) fn go_to(&mut self, kind: Kind, id: String, cx: &mut Context<Self>) {
+        self.select_kind(kind, cx);
+        self.pick(id, cx);
     }
 
     /// The press on a plugin's Remove, confirmed.
@@ -653,6 +669,20 @@ impl KitScreen {
             self.next_pane(if keys.modifiers.shift { -1 } else { 1 }, window, cx);
             cx.stop_propagation();
             return;
+        }
+        if self.pane == Pane::Detail {
+            let scroll = match (keys.key.as_str(), keys.modifiers.alt && !keys.modifiers.platform && !keys.modifiers.control) {
+                ("pagedown", _) | ("down", true) => Some(file::Scroll::Pages(1)),
+                ("pageup", _) | ("up", true) => Some(file::Scroll::Pages(-1)),
+                ("home", _) => Some(file::Scroll::Top),
+                ("end", _) => Some(file::Scroll::Bottom),
+                _ => None,
+            };
+            if let Some(scroll) = scroll {
+                self.scroll_file(scroll, cx);
+                cx.stop_propagation();
+                return;
+            }
         }
         if !plain {
             return;

@@ -127,6 +127,8 @@ impl Kind {
 pub enum Mark {
     Yours,
     Plugin(String),
+    /// A marketplace, which the plugins of Plugins are grouped under.
+    Market(String),
     Repository,
     Armada,
     Plain(String),
@@ -136,7 +138,9 @@ impl Mark {
     pub fn label(&self) -> String {
         match self {
             Mark::Yours => "Yours".into(),
-            Mark::Plugin(name) | Mark::Plain(name) => name.clone(),
+            // A plugin's group says so, so it never reads as Armada's own.
+            Mark::Plugin(name) => format!("{name} plugin"),
+            Mark::Market(name) | Mark::Plain(name) => name.clone(),
             Mark::Repository => "This repository".into(),
             Mark::Armada => "Armada".into(),
         }
@@ -146,7 +150,7 @@ impl Mark {
     fn order(&self) -> (u8, String) {
         match self {
             Mark::Yours => (0, String::new()),
-            Mark::Plugin(name) => (1, name.to_lowercase()),
+            Mark::Plugin(name) | Mark::Market(name) => (1, name.to_lowercase()),
             Mark::Repository => (2, String::new()),
             Mark::Armada => (3, String::new()),
             Mark::Plain(name) => (4, name.to_lowercase()),
@@ -164,7 +168,11 @@ pub struct Piece {
 /// A server Kit holds, and what this Manifest says of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Server {
+    /// `stdio` or `http`.
+    pub transport: &'static str,
     pub address: String,
+    /// Kit's own default: whether a Drone gets it where no Manifest says otherwise.
+    pub by_default: bool,
     /// Fleet's resolution, drawn as given.
     pub resolves: bool,
 }
@@ -181,8 +189,10 @@ pub struct Row {
     pub path: Option<String>,
     /// Set where Remove takes this piece out: a skill of his own, or a plugin.
     pub piece: Option<Piece>,
-    /// The plugin that brought it, which is what removes it.
+    /// The plugin that brought it, as it is drawn, which is what removes it.
     pub comes_with: Option<String>,
+    /// The same plugin as the inventory spells it, whole: what Fleet compares on every file act.
+    pub plugin_id: Option<String>,
     /// The name the list of skills switched off holds, where Jobs can start without this skill.
     pub jobs: Option<String>,
     /// A server Kit holds: its reach is the project's switch.
@@ -238,7 +248,7 @@ fn mark_of(item: &ipc::SetupItem, home: &str) -> Mark {
         return match style.from.as_str() {
             "person" => Mark::Yours,
             "repository" => Mark::Repository,
-            "plugin" => Mark::Plugin(style.plugin.clone().map_or_else(|| "A plugin".to_string(), |plugin| provider_of(&plugin).to_string())),
+            "plugin" => style.plugin.as_deref().map_or_else(|| Mark::Plain("A plugin".into()), |plugin| Mark::Plugin(provider_of(plugin).to_string())),
             "armada" => Mark::Armada,
             _ => Mark::Plain("Built in".into()),
         };
@@ -263,6 +273,7 @@ fn row_of(kind: Kind, item: &ipc::SetupItem, home: &str) -> Row {
         path,
         piece: None,
         comes_with: None,
+        plugin_id: item.plugin.clone().or_else(|| item.style.as_ref().and_then(|style| style.plugin.clone())),
         jobs: None,
         server: None,
         in_force: None,
@@ -277,7 +288,7 @@ fn row_of(kind: Kind, item: &ipc::SetupItem, home: &str) -> Row {
                 None => (item.name.clone(), None),
             };
             row.name = plain;
-            row.mark = marketplace.clone().map_or(Mark::Yours, Mark::Plugin);
+            row.mark = marketplace.clone().map_or(Mark::Yours, Mark::Market);
             row.marketplace = marketplace;
             row.piece = Some(Piece { kind: KitPieceKind::Plugin, name: item.name.clone() });
         }
@@ -297,7 +308,7 @@ fn row_of(kind: Kind, item: &ipc::SetupItem, home: &str) -> Row {
                 }
             }
         },
-        Kind::SubAgents | Kind::Commands | Kind::OutputStyles => row.comes_with = item.plugin.clone().map(|plugin| provider_of(&plugin).to_string()),
+        Kind::SubAgents | Kind::Commands | Kind::OutputStyles => row.comes_with = row.plugin_id.as_deref().map(|plugin| provider_of(plugin).to_string()),
         Kind::Servers => {
             row.mark = Mark::Plain("Outside Armada".into());
             row.path = None;
@@ -338,12 +349,21 @@ pub fn read_kind(kind: Kind, inventory: &KitInventory, servers: &[KitServerRow])
             kind,
             name: server.name.clone(),
             says: None,
-            mark: Mark::Armada,
+            mark: Mark::Yours,
             path: None,
             piece: None,
             comes_with: None,
+            plugin_id: None,
             jobs: None,
-            server: Some(Server { address: address_words(&server.address), resolves: server.resolves }),
+            server: Some(Server {
+                transport: match server.address {
+                    ipc::ServerAddress::Stdio { .. } => "stdio",
+                    ipc::ServerAddress::Http { .. } => "http",
+                },
+                address: address_words(&server.address),
+                by_default: server.drones.as_wire() == "yes",
+                resolves: server.resolves,
+            }),
             in_force: None,
             command: None,
             marketplace: None,

@@ -16,6 +16,15 @@ pub(super) enum FileState {
     Refused { code: Option<String>, said: String },
 }
 
+/// How the read pane moves.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Scroll {
+    Lines(isize),
+    Pages(isize),
+    Top,
+    Bottom,
+}
+
 /// The file in the pane as a textarea: what it started from, whole, so a save can say what it is over.
 pub(super) struct Edit {
     pub id: String,
@@ -53,7 +62,7 @@ impl KitScreen {
         }
         let Some(port) = self.port(cx) else { return };
         self.files.insert(row.id.clone(), FileState::Reading);
-        let ask = wire::file(port, kind, &row.name, row.comes_with.as_deref(), cx);
+        let ask = wire::file(port, kind, &row.name, row.plugin_id.as_deref(), cx);
         let id = row.id.clone();
         self.work.insert(
             "file",
@@ -81,8 +90,32 @@ impl KitScreen {
         }
     }
 
+    /// The read pane scrolled by a line or a page, or to an end.
+    pub(super) fn scroll_file(&mut self, by: Scroll, cx: &mut Context<Self>) {
+        let line = gpui::px(20.);
+        let (at, max) = (self.file_scroll.offset(), self.file_scroll.max_offset().y);
+        let top = match by {
+            Scroll::Lines(n) => at.y - line * n as f32,
+            Scroll::Pages(n) => at.y - (self.file_scroll.bounds().size.height - line).max(line) * n as f32,
+            Scroll::Top => gpui::px(0.),
+            Scroll::Bottom => -max,
+        };
+        // The offset is zero at the top and runs negative to `-max` at the bottom.
+        self.file_scroll.set_offset(gpui::point(at.x, top.clamp(-max, gpui::px(0.))));
+        cx.notify();
+    }
+
+    /// Another piece picked reads from its top.
+    fn reset_scroll_for_pick(&mut self) {
+        if self.scrolled_for != self.selected {
+            self.file_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
+            self.scrolled_for = self.selected.clone();
+        }
+    }
+
     /// An edit of one piece does not follow the keys to another: it is let go, and its kept draft stays.
     pub(super) fn leave_edit_of_another(&mut self) {
+        self.reset_scroll_for_pick();
         if self.editing.as_ref().is_some_and(|edit| Some(&edit.id) != self.selected.as_ref()) {
             self.editing = None;
             self.moved = None;
@@ -103,7 +136,7 @@ impl KitScreen {
         let key = keep_key(&id);
         let first = crate::drafts::kept(&key, cx).unwrap_or_else(|| file.text.clone());
         let area = cx.new(|cx| {
-            let state = TextareaState::new(window, cx).auto_grow(12, 5000);
+            let state = TextareaState::new(window, cx);
             state
         });
         area.update(cx, |area, cx| area.set_value(first, window, cx));
@@ -152,7 +185,7 @@ impl KitScreen {
             return;
         }
         let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be changed.", cx) };
-        let ask = wire::save_file(port, SaveKitFile { kind, name: row.name.clone(), read, text, plugin: row.comes_with.clone() }, cx);
+        let ask = wire::save_file(port, SaveKitFile { kind, name: row.name.clone(), read, text, plugin: row.plugin_id.clone() }, cx);
         self.work.insert(
             "save",
             cx.spawn_in(window, async move |this, cx| {
@@ -201,7 +234,7 @@ impl KitScreen {
             return;
         }
         let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be opened.", cx) };
-        let ask = wire::open(port, OpenKitPiece { kind, name, plugin: row.comes_with.clone(), place }, cx);
+        let ask = wire::open(port, OpenKitPiece { kind, name, plugin: row.plugin_id.clone(), place }, cx);
         self.work.insert(
             "open",
             cx.spawn(async move |this, cx| {

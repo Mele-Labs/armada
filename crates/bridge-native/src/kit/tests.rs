@@ -34,7 +34,7 @@ fn pieces_are_grouped_by_where_they_come_from_yours_first_and_a_plugin_before_th
     assert_eq!(heads, [Mark::Yours, Mark::Plugin("design-kit".into()), Mark::Repository]);
     // A group's chip is followed by its own pieces and no other's.
     let names: Vec<&str> = listed.shown.iter().map(|one| one.row.name.as_str()).collect();
-    assert_eq!(names, ["release-notes", "review-pr", "pdf-tools", "frontend-design", "deploy-check"]);
+    assert_eq!(names, ["release-notes", "review-pr", "pdf-tools", "frontend-design", "deploy-check", "long-notes"]);
 }
 
 #[test]
@@ -153,4 +153,45 @@ fn a_file_that_moved_on_disk_is_refused_in_fleets_words_with_a_way_to_reload_it(
     cx.run_until_parked();
     let after = screen.read_with(cx, |screen, _| (screen.editing.is_none(), screen.file_of_picked().map(|file| file.text.clone())));
     assert_eq!(after, (true, Some("changed elsewhere".to_string())));
+}
+
+#[gpui::test]
+fn the_read_pane_scrolls_on_a_page_key_and_goes_back_to_the_top_for_another_piece(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.update(|_, cx| screen.update(cx, |screen, cx| screen.pick(mock::LONG_NOTES_ID.to_string(), cx)));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("tab");
+    cx.run_until_parked();
+    let top = screen.read_with(cx, |screen, _| screen.file_scroll.offset().y);
+    assert_eq!(top, gpui::px(0.));
+    cx.simulate_keystrokes("pagedown");
+    cx.run_until_parked();
+    let moved = screen.read_with(cx, |screen, _| screen.file_scroll.offset().y);
+    assert!(moved < gpui::px(0.), "a page down moved the pane: {moved:?}");
+    cx.simulate_keystrokes("end");
+    let end = screen.read_with(cx, |screen, _| (screen.file_scroll.offset().y, screen.file_scroll.max_offset().y));
+    assert_eq!(end.0, -end.1, "End goes to the bottom");
+    cx.simulate_keystrokes("home");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.file_scroll.offset().y), gpui::px(0.));
+    cx.simulate_keystrokes("pagedown");
+    cx.update(|_, cx| screen.update(cx, |screen, cx| screen.pick("skills:/work/armada/.claude/skills/deploy-check:deploy-check".to_string(), cx)));
+    assert_eq!(screen.read_with(cx, |screen, _| screen.file_scroll.offset().y), gpui::px(0.), "another piece reads from its top");
+}
+
+#[test]
+fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group_says_so() {
+    let mut inventory = mock::inventory();
+    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/you/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None };
+    style.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
+    if let Some(one) = inventory.kinds.iter_mut().find(|one| one.kind == "output_styles") {
+        if let ipc::WhatWasRead::Read { items, .. } = &mut one.read {
+            items.push(style);
+        }
+    }
+    let Read::Rows(rows) = model::read_kind(Kind::OutputStyles, &inventory, &[]) else { panic!("output styles read") };
+    let armada = rows.iter().find(|row| row.name == "Armada").expect("the style is listed");
+    assert_eq!(armada.plugin_id.as_deref(), Some("armada@armada-local"), "the whole string, for Fleet to compare");
+    assert_eq!(armada.comes_with.as_deref(), Some("armada"), "the short name, for drawing");
+    assert_eq!(armada.mark.label(), "armada plugin", "a plugin's group never reads as Armada's own");
+    assert_eq!(Mark::Armada.label(), "Armada");
 }
