@@ -263,7 +263,7 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn drawing_in_place(&self, key: &str, held: &str, text: &str, room: Pixels, tall: Pixels, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let detail = self.detail_zoom.as_ref()?;
-        let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
+        let raw: ipc::RawScene = ipc::decode("a drawing part's scene", text.as_bytes()).ok()?;
         let scene = crate::scene::read(held, &raw)?;
         *detail.held.borrow_mut() = held.to_string();
         let zoom = &detail.zoom;
