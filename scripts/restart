@@ -675,7 +675,7 @@ if $dry_run; then
     echo "would take no snapshot — there is no database yet"
   fi
   kept_lock=$(shasum -a 256 "$src/pnpm-lock.yaml" 2>/dev/null | cut -c1-16 || true)
-  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada, a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
+  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada in Armada Fleet.app (bundle id dev.armada.fleet, signed by scripts/signing-identity), a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
   echo "would have the kept build open a copy of $support/armada.db first, and swap nothing if it cannot"
   echo "would point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds"
   echo "would write $plist: [$kept_current/armada, serve, $root]"
