@@ -88,6 +88,11 @@ pub(super) struct PullPanel {
     pub notes_resolved: bool,
     /// A description the Job proposed, drawn in the description's place (`pr_draft`).
     pub draft: pr_draft::DraftPane,
+    /// Note for the Job: the box open under the description's head, its words kept under `note_key`.
+    pub note: Option<Entity<TextareaState>>,
+    _noting: Option<Subscription>,
+    /// The note on the description reached the Job.
+    pub noted: bool,
     _typing: Subscription,
     _copied: Option<Task<()>>,
 }
@@ -95,6 +100,10 @@ pub(super) struct PullPanel {
 impl PullPanel {
     fn kept_key(pull: &Pull) -> String {
         format!("pull-request:panel:{}#{}", pull.manifest.as_deref().unwrap_or(""), pull.number)
+    }
+
+    fn note_key(pull: &Pull) -> String {
+        format!("pull-request:description-note:{}#{}", pull.manifest.as_deref().unwrap_or(""), pull.number)
     }
 
     pub(super) fn page(&self) -> Option<&PullRequestPage> {
@@ -325,6 +334,11 @@ pub(super) fn evaluate_message(number: u64, id: &str, author: &str, body: &str, 
     lines.push("Decide whether the comment is right, and put what you propose in waiting_for as one item for me.".into());
     lines.push("Never reply on the pull request, and never post a comment, review or reaction anywhere.".into());
     lines.join("\n")
+}
+
+/// The message Note for the Job hands the Job that holds the pull request, so it writes the description again.
+pub(super) fn description_note_message(number: u64, note: &str) -> String {
+    format!("A note on the description of #{number}. Rewrite the description with it.\n\n{}", note.trim())
 }
 
 /// One thing said on Comments: an entry of the conversation, or a thread on the diff.
@@ -602,6 +616,9 @@ impl JobView {
             note_boxes: Vec::new(),
             notes_resolved: false,
             draft: pr_draft::DraftPane::default(),
+            note: None,
+            _noting: None,
+            noted: false,
             _typing: typing,
             _copied: None,
         };
@@ -711,6 +728,75 @@ impl JobView {
             if let Some(panel) = this.pull_panel_mut() {
                 panel.evaluated.insert(id);
             }
+            cx.notify();
+        });
+    }
+
+    /// Note for the Job: a box under the description's head, holding what was typed in it before.
+    fn open_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        if let Some(open) = panel.note.clone() {
+            open.update(cx, |area, cx| area.focus(window, cx));
+            return;
+        }
+        let key = PullPanel::note_key(&panel.pull);
+        let kept = self.draft_words(&key);
+        let state = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
+        state.update(cx, |state, cx| state.set_value(kept, window, cx));
+        let typing = cx.subscribe_in(&state, window, move |this, state, event: &InputEvent, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                let text = state.read(cx).value().to_string();
+                this.keep_words(&key, &text, cx);
+                cx.notify();
+            }
+        });
+        if let Some(panel) = self.pull_panel_mut() {
+            panel.note = Some(state.clone());
+            panel._noting = Some(typing);
+            panel.noted = false;
+        }
+        state.update(cx, |area, cx| area.focus(window, cx));
+        cx.notify();
+    }
+
+    /// Cancel: the box goes, what was typed in it is forgotten, and the keys go back to the panel.
+    fn cancel_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.note = None;
+        panel._noting = None;
+        let key = PullPanel::note_key(&panel.pull);
+        self.keep_words(&key, "", cx);
+        self.focus_pull_panel(window, cx);
+        cx.notify();
+    }
+
+    /// The box that held the keys is gone: they go back to the panel, so its tab keys still work.
+    fn focus_pull_panel(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some((focus, _)) = self.pull_panel_focus() {
+            window.focus(&focus, cx);
+        }
+    }
+
+    /// Send to the Job, or ⌘↩ in the box: the note goes to the Job that holds the pull request, which
+    /// writes the description again. Nothing is posted to the forge.
+    fn send_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        let Some(state) = panel.note.clone() else { return };
+        let pull = panel.pull.clone();
+        let typed = state.read(cx).value().to_string();
+        if typed.trim().is_empty() || !pull.held() {
+            return;
+        }
+        let key = PullPanel::note_key(&pull);
+        let number = pull.number;
+        self.send_to_job(pull.job.clone(), description_note_message(number, &typed), format!("ledger:pr:{number}"), window, cx, move |this, window, cx| {
+            if let Some(panel) = this.pull_panel_mut().filter(|panel| panel.pull.number == number) {
+                panel.note = None;
+                panel._noting = None;
+                panel.noted = true;
+                this.focus_pull_panel(window, cx);
+            }
+            this.keep_words(&key, "", cx);
             cx.notify();
         });
     }
@@ -1383,7 +1469,7 @@ impl JobView {
             )
         }));
         let shown: Option<AnyElement> = match panel.tab {
-            PullTab::Overview => self.pull_overview(panel, page, look, cx),
+            PullTab::Overview => self.pull_overview(panel, pull, page, look, cx),
             PullTab::Comments => self.pull_comments(panel, pull, page, look, cx),
             PullTab::Checks => pull_checks(page, look, cx),
             PullTab::Files => self.pull_files(panel, page, tree_inside, look, cx),
@@ -1398,14 +1484,17 @@ impl JobView {
             .into_any_element()
     }
 
-    /// Overview: the description, or the draft of a new one in its place. Neither, nothing drawn.
-    fn pull_overview(&self, panel: &PullPanel, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Overview: the description, or the draft of a new one in its place. Neither, nothing drawn. One a
+    /// Job holds offers Note for the Job on the description's head.
+    fn pull_overview(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let description = strip_comments(page.body.as_deref().unwrap_or(""));
         let card = if let Some(draft) = &page.draft {
             self.pull_draft_card(panel, page, draft, look, cx)
         } else if !description.trim().is_empty() {
             let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
-            self.pull_card("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), None, &description, "Description".into(), look, Local::now(), cx)
+            let act = pull.held().then(|| self.description_note_act(panel, look, cx));
+            let under = panel.note.as_ref().map(|state| self.description_note_box(state, look, cx));
+            self.pull_card_under("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), act, under, &description, "Description".into(), look, Local::now(), cx)
         } else {
             return None;
         };
@@ -1459,9 +1548,80 @@ impl JobView {
         .into_any_element()
     }
 
+    /// Note for the Job at the description head's end, or, once the note reached the Job, the mark that
+    /// says so in its place, as Evaluate marks a comment.
+    fn description_note_act(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if panel.noted && panel.note.is_none() {
+            return mark(look, "pull-description-noted".into(), "check", "Sent to the Job", Some(Tone::Success));
+        }
+        let on = panel.note.is_none();
+        labelled(
+            secondary_button(look, "pull-description-note", "message-square-text", "Note for the Job", on)
+                .tooltip(tip("Tells the Job what to change in the description"))
+                .when(on, |button| button.on_click(cx.listener(|this, _, window, cx| this.open_description_note(window, cx)))),
+            Role::Button,
+            "Note for the Job",
+        )
+        .into_any_element()
+    }
+
+    /// The box Note for the Job opens under the description's head, with Cancel and Send to the Job.
+    fn description_note_box(&self, state: &Entity<TextareaState>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let ready = !state.read(cx).value().trim().is_empty();
+        let field = div()
+            .id("pull-description-note-box")
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if action.secondary {
+                    cx.stop_propagation();
+                    this.send_description_note(window, cx);
+                }
+            }))
+            .w_full()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_SUNKEN))
+            .child(Textarea::new(state).appearance(false));
+        let acts = div()
+            .flex()
+            .items_center()
+            .justify_end()
+            .gap(look.length(token::SPACE_2))
+            .child(labelled(
+                small_button(look, "pull-description-note-cancel", "Cancel", false, true).on_click(cx.listener(|this, _, window, cx| this.cancel_description_note(window, cx))),
+                Role::Button,
+                "Cancel",
+            ))
+            .child(labelled(
+                small_button(look, "pull-description-note-send", "Send to the Job", true, ready)
+                    .tooltip(tip("The Job writes the description again with your note \u{b7} \u{2318}\u{21a9}"))
+                    .when(ready, |button| button.on_click(cx.listener(|this, _, window, cx| this.send_description_note(window, cx)))),
+                Role::Button,
+                "Send to the Job",
+            ));
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(labelled(field, Role::TextInput, "Note for the Job"))
+            .child(acts)
+            .into_any_element()
+    }
+
     /// One card: its head band (what, who, when, and the act), then its words (`Entry`).
     #[allow(clippy::too_many_arguments)]
     pub(super) fn pull_card(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        self.pull_card_under(id, lead, who, bot, at, act, None, body, name, look, now, cx)
+    }
+
+    /// A card with something standing between its head and its words: the box Note for the Job opens.
+    #[allow(clippy::too_many_arguments)]
+    fn pull_card_under(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, under: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let head = card_head(look, lead, who, bot, at.and_then(|at| age(at, now)), act);
         let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.prose(format!("{id}:body"), body, look, cx)));
         labelled(
@@ -1474,6 +1634,7 @@ impl JobView {
                 .rounded(look.length(token::RADIUS_MD))
                 .bg(look.color(token::BG_RAISED))
                 .child(head)
+                .children(under)
                 .children(words),
             Role::Article,
             name,
@@ -1748,6 +1909,12 @@ mod tests {
     #[test]
     fn a_template_comment_leaves_the_description() {
         assert_eq!(strip_comments("Fixes it.<!-- fill in --> Done."), "Fixes it. Done.");
+    }
+
+    #[test]
+    fn a_note_on_the_description_names_the_pull_request_asks_for_a_rewrite_then_says_the_note() {
+        let said = description_note_message(418, "  Say why the cache moved.\n");
+        assert_eq!(said, "A note on the description of #418. Rewrite the description with it.\n\nSay why the cache moved.");
     }
 
     #[test]
