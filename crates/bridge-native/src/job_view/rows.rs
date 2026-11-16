@@ -106,6 +106,8 @@ enum Went {
 enum Act<'a> {
     Approved(&'a str),
     Answered { target: &'a str, said: &'a str },
+    /// He did what a To do asked, with his note.
+    Done { target: &'a str, said: &'a str },
 }
 
 const CLOSING: [&str; 2] = [
@@ -123,6 +125,11 @@ fn act_of(text: &str) -> Option<Act<'_>> {
         if !address.is_empty() && !address.contains(char::is_whitespace) {
             return Some(Act::Approved(address));
         }
+    }
+    // Fleet's `done_told`: the To do, and his note under it.
+    if let Some(rest) = text.strip_prefix("Done: ") {
+        let (target, said) = rest.split_once('\n').unwrap_or((rest, ""));
+        return (!target.trim().is_empty()).then(|| Act::Done { target: target.trim(), said: said.trim() });
     }
     let rest = text.strip_prefix("Re: ")?;
     let (target, said) = rest.split_once('\n').unwrap_or((rest, ""));
@@ -1072,9 +1079,11 @@ impl JobView {
     /// The person's act: an approval or an answer, drawn as his own bubble on the right (his pick, 13 Nov): a
     /// gold band with the act's glyph and time, what it answers quoted in quiet sans, then his answer.
     fn did(&self, id: &str, act: Act<'_>, at: &ipc::Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        let quoted = if matches!(act, Act::Done { .. }) { "To do" } else { "Question" };
         let (label, icon, target, said) = match act {
             Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
             Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
+            Act::Done { target, said } => ("You did", "square-check-big", target.to_string(), said),
         };
         let you = look.color(token::YOU);
         let edge = look.color(token::YOU_EDGE);
@@ -1112,7 +1121,7 @@ impl JobView {
                     .text_color(look.color(token::FG_MUTED))
                     .child(target),
                 Role::Group,
-                "Question",
+                quoted,
             )
         });
         let answer = (!said.is_empty()).then(|| {
@@ -1626,6 +1635,13 @@ mod tests {
         );
         assert_eq!(act_of("Re: Which branch?"), Some(Act::Answered { target: "Which branch?", said: "" }));
         assert_eq!(act_of("Please go on"), None);
+    }
+
+    #[test]
+    fn a_done_message_is_an_act_with_his_note_under_it() {
+        assert_eq!(act_of("Done: Rotate the key"), Some(Act::Done { target: "Rotate the key", said: "" }));
+        assert_eq!(act_of("Done: Rotate the key\n  Used the new vault.  "), Some(Act::Done { target: "Rotate the key", said: "Used the new vault." }));
+        assert_eq!(act_of("Done:"), None, "nothing done names no item");
     }
 
     #[test]

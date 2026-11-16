@@ -100,13 +100,23 @@ mod tests {
 
     /// The Job on screen with these items waiting on him, and nothing else of the scenario's.
     fn on_screen<'a>(cx: &'a mut gpui::TestAppContext, waiting: Vec<WaitingItem>) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        on_screen_saying(cx, waiting, None)
+    }
+
+    /// The same, with his message last in the thread.
+    fn on_screen_saying<'a>(cx: &'a mut gpui::TestAppContext, waiting: Vec<WaitingItem>, said: Option<&str>) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
         let mut jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
         jobs.iter_mut().find(|job| job.id.as_str() == JOB).expect("the scenario holds the Job").waiting_for = waiting;
-        let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
+        let mut threads = crate::mock::threads("ready-to-try").expect("the threads decode");
+        if let Some(said) = said {
+            let wire = serde_json::json!({"kind": "row", "row": {"kind": "message", "id": "m-done", "at": "2026-11-16T23:00:00Z", "from": {"kind": "you"}, "text": said}});
+            let row = ipc::decode::<ipc::ThreadItem>("item", wire.to_string().as_bytes()).expect("a row decodes");
+            threads.get_mut(JOB).expect("the scenario holds the thread").items.push(row);
+        }
         let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
         let (view, cx) = cx.add_window_view({
             let list = list.clone();
@@ -190,5 +200,13 @@ mod tests {
         let (_view, cx) = on_screen(cx, todos());
         assert!(!drawn(cx, Role::Button, "Needs you"), "nothing else waits, so no band");
         assert!(drawn(cx, Role::TextInput, "Message"), "the box is there to type in");
+    }
+
+    #[gpui::test]
+    fn his_done_reads_as_what_he_did_with_the_to_do_quoted(cx: &mut gpui::TestAppContext) {
+        let (_view, cx) = on_screen_saying(cx, Vec::new(), Some("Done: Follow three steps\nUsed the new vault."));
+        assert!(drawn(cx, Role::Region, "You did"), "drawn as his act: {:?}", where_drawn(cx, "You did"));
+        assert!(drawn(cx, Role::Group, "To do"), "the To do is quoted");
+        assert!(!drawn(cx, Role::Group, "Question"));
     }
 }
