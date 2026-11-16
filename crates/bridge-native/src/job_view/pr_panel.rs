@@ -369,6 +369,39 @@ pub(super) fn small_button(look: &Look, id: impl Into<gpui::ElementId>, said: &s
     }
 }
 
+/// A secondary small button (`Button variant="secondary" size="sm"`): a hairline frame on a raised fill, its
+/// glyph before its word, lighter under the pointer and sunk while pressed. A small button's height, so it
+/// sits on a card head's line as the primary one does.
+pub(super) fn secondary_button(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str, said: &str, on: bool) -> gpui::Stateful<gpui::Div> {
+    let ink = look.color(token::FG_DEFAULT);
+    let (lit, sunk, edge) = (ink.opacity(0.14), ink.opacity(0.03), look.color(token::BORDER_STRONG));
+    let button = div()
+        .id(id)
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap(look.length(token::SPACE_1))
+        .h(look.length(token::H_CONTROL_SM))
+        .pl(look.length(token::SPACE_2))
+        .pr(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(ink.opacity(0.08))
+        .text_color(ink)
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+        .child(SharedString::from(said.to_string()));
+    if on {
+        button.cursor_pointer().hover(move |style| style.bg(lit).border_color(edge)).active(move |style| style.bg(sunk))
+    } else {
+        button.opacity(0.5)
+    }
+}
+
 /// A ghost icon button (`Button variant="ghost" size="sm" iconOnly`).
 pub(super) fn icon_button(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str, said: SharedString) -> gpui::Stateful<gpui::Div> {
     let ground = look.color(token::BG_HOVER);
@@ -1320,7 +1353,7 @@ impl JobView {
         let name = format!("Evaluate: {author}{}", place.as_ref().map(|place| format!(" on {place}")).unwrap_or_default());
         let (held, id, author, body) = (pull.clone(), id.to_string(), author.to_string(), body.to_string());
         labelled(
-            small_button(look, SharedString::from(format!("pull-evaluate:{id}")), "Evaluate", false, true)
+            secondary_button(look, SharedString::from(format!("pull-evaluate:{id}")), "send", "Evaluate", true)
                 .tooltip(tip("Hands this comment to the Job to weigh"))
                 .on_click(cx.listener(move |this, _, window, cx| this.evaluate(&held, id.clone(), author.clone(), body.clone(), place.clone(), window, cx))),
             Role::Button,
