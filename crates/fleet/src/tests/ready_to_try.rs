@@ -332,3 +332,34 @@ async fn dismissing_the_ready_to_try_row_puts_away_only_the_cards_open_then() {
     let [item] = raised.as_slice() else { panic!("the new card raises the row again: {raised:?}") };
     assert_eq!(item.id, id);
 }
+
+#[tokio::test]
+async fn a_card_whose_offer_left_the_list_is_withdrawn_by_fleet() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    assert_eq!(tries(&rig, &session).await.len(), 1);
+
+    // The branch moved, so Fleet drops the offer; no Job calls anything.
+    branch_with(&rig, BRANCH, BRANCH, "crates/x/more.rs", "2");
+    rig.fleet.previews_watched().await;
+    checked(&rig).await;
+
+    assert!(tries(&rig, &session).await.is_empty(), "the Job's row goes with the offer");
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Withdrawn);
+}
+
+#[tokio::test]
+async fn withdrawing_a_branch_with_open_cards_and_no_offer_takes_the_cards_back() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    rig.fleet.store().lock().await.remove_preview_offered(&session, BRANCH).unwrap();
+    assert_eq!(tries(&rig, &session).await.len(), 1, "the card outlived its offer");
+
+    let withdraw = || WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: Some(BRANCH.into()) };
+    Arc::clone(&rig.fleet).withdraw_preview(None, withdraw()).await.expect("withdrawn with no offer standing");
+    assert!(tries(&rig, &session).await.is_empty());
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Withdrawn);
+
+    let again = Arc::clone(&rig.fleet).withdraw_preview(None, withdraw()).await;
+    assert_eq!(code(again), "fleet.preview_not_offered", "neither an offer nor an open card");
+}
