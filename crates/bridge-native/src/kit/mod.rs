@@ -5,6 +5,7 @@
 //! `model.rs` works out what each pane draws from them and nothing there touches the screen.
 
 mod add;
+mod file;
 mod mock;
 mod model;
 mod view;
@@ -83,6 +84,10 @@ pub struct KitScreen {
     refused: Option<SharedString>,
     adding: Option<Add>,
     confirming: Option<Confirm>,
+    files: HashMap<String, file::FileState>,
+    editing: Option<file::Edit>,
+    /// A save was refused because the file moved: what is on disk now, where Fleet says.
+    moved: Option<Option<String>>,
     work: HashMap<&'static str, Task<()>>,
     bar: Option<Subscription>,
     _subs: Vec<Subscription>,
@@ -147,6 +152,9 @@ impl KitScreen {
             refused: None,
             adding: None,
             confirming: None,
+            files: HashMap::new(),
+            editing: None,
+            moved: None,
             work: HashMap::new(),
             bar: None,
             source,
@@ -207,6 +215,9 @@ impl KitScreen {
             return;
         };
         self.scope = self.scope_now(cx);
+        if self.editing.is_none() {
+            self.files.clear();
+        }
         let inventory = wire::inventory(port, cx);
         let settings = wire::settings(port, cx);
         let manifest = self.scope.repositories.first().cloned();
@@ -267,6 +278,8 @@ impl KitScreen {
         if !self.listed.shown.iter().any(|one| Some(&one.row.id) == self.selected.as_ref()) {
             self.selected = self.listed.shown.first().map(|one| one.row.id.clone());
         }
+        self.leave_edit_of_another();
+        self.want_file(cx);
         cx.notify();
     }
 
@@ -300,6 +313,8 @@ impl KitScreen {
     fn pick(&mut self, id: String, cx: &mut Context<Self>) {
         self.selected = Some(id);
         self.refused = None;
+        self.leave_edit_of_another();
+        self.want_file(cx);
         if let Some(at) = self.picked_at() {
             // The list's lines hold a group's chip before its first piece.
             if let Some(line) = self.listed.lines.iter().position(|line| *line == Line::Row(at)) {
@@ -359,6 +374,8 @@ impl KitScreen {
     /// Another place in front: what he removed stops being offered back.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
         self.removed.clear();
+        self.editing = None;
+        self.moved = None;
         self.refused = None;
         self.adding = None;
         self.confirming = None;
@@ -575,13 +592,6 @@ impl KitScreen {
         );
     }
 
-    /// Show in Finder, on a piece that is a folder or a file.
-    fn show_in_finder(&mut self, cx: &mut Context<Self>) {
-        if let Some(path) = self.picked().and_then(|one| one.row.path.clone()) {
-            cx.reveal_path(std::path::Path::new(&path));
-        }
-    }
-
     /// Settings opens on the page for Models, Prompts or Workflows.
     fn settings_page(&mut self, page: &'static str, cx: &mut Context<Self>) {
         match cx.try_global::<AskedSink>().cloned() {
@@ -615,6 +625,16 @@ impl KitScreen {
             }
             return;
         }
+        if self.editing.is_some() {
+            if keys.key == "escape" {
+                self.cancel_edit(window, cx);
+                cx.stop_propagation();
+            } else if keys.modifiers.platform && keys.key == "s" {
+                self.save_edit(window, cx);
+                cx.stop_propagation();
+            }
+            return;
+        }
         let typing = self.filter.read(cx).focus_handle(cx).is_focused(window);
         if typing {
             if keys.key == "escape" {
@@ -642,8 +662,8 @@ impl KitScreen {
             "k" | "up" => self.step(-1, cx),
             "space" => self.toggle(cx),
             "backspace" | "delete" => self.remove(cx),
-            // Edit and Open wait on Fleet's file operations.
-            "e" | "enter" => {}
+            "e" => self.start_edit(window, cx),
+            "enter" => self.open_piece(ipc::KitPlace::Editor, cx),
             "/" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
                 window.focus(&filter, cx);
@@ -655,7 +675,7 @@ impl KitScreen {
     }
 
     fn on_act(&mut self, act: &Act, _: &mut Window, cx: &mut Context<Self>) {
-        if act.is("pane_undo") && self.removed.iter().any(|one| one.trashed.is_some()) {
+        if act.is("pane_undo") && self.editing.is_none() && self.removed.iter().any(|one| one.trashed.is_some()) {
             self.restore(cx);
         } else {
             cx.propagate();

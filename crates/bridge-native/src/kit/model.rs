@@ -86,6 +86,26 @@ impl Kind {
         }
     }
 
+    /// What `get_kit_file` and `save_kit_file` call it, where a piece of the kind is a file.
+    pub fn file(self) -> Option<ipc::KitFileKind> {
+        match self {
+            Kind::Skills => Some(ipc::KitFileKind::Skills),
+            Kind::SubAgents => Some(ipc::KitFileKind::SubAgents),
+            Kind::Commands => Some(ipc::KitFileKind::Commands),
+            Kind::Instructions => Some(ipc::KitFileKind::AgentFile),
+            Kind::OutputStyles => Some(ipc::KitFileKind::OutputStyles),
+            Kind::Plugins | Kind::Servers | Kind::Allowed => None,
+        }
+    }
+
+    /// What `open_kit_piece` calls it: a file kind, or a plugin, which opens in Finder alone.
+    pub fn opens(self) -> Option<ipc::KitOpenKind> {
+        match self {
+            Kind::Plugins => Some(ipc::KitOpenKind::Plugins),
+            kind => kind.file().map(ipc::KitOpenKind::from),
+        }
+    }
+
     /// What Fleet calls it in `get_kit_inventory`.
     fn word(self) -> &'static str {
         match self {

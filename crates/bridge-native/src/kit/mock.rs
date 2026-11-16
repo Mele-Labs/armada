@@ -7,6 +7,8 @@ use ipc::{KitInventory, KitServerRow, SetupItem, SetupKindRow, WhatWasRead};
 use serde_json::json;
 
 use super::model::{Gone, Kind, Row, Scope};
+use super::wire::Saved;
+use crate::settings::wire::Refused;
 
 /// The mock's home for the harness.
 pub const HOME: &str = "/Users/you/.claude";
@@ -132,6 +134,30 @@ impl MockKit {
                 items.retain(|item| item.name != name);
             }
         }
+    }
+
+    /// A piece's file as the mock's disk holds it: what was set for it, else its own words. A piece a server or an
+    /// allowed command is has none.
+    pub fn file(&self, row: &Row) -> Result<ipc::KitFile, Refused> {
+        if row.kind.file().is_none() {
+            return Err(Refused { key: None, said: "This piece has no file.".into(), code: Some(super::wire::FILE_NONE.into()) });
+        }
+        let text = self.files.get(&row.id).cloned().unwrap_or_else(|| row.says.clone().unwrap_or_default());
+        Ok(ipc::KitFile { path: row.opens().unwrap_or_default(), text, at: ipc::Instant::carried("2026-11-16T09:00:00Z"), plugin: row.comes_with.clone() })
+    }
+
+    /// A save as Fleet guards it: refused for a plugin's piece, and refused where the disk no longer holds what the
+    /// edit started from.
+    pub fn save(&mut self, row: &Row, read: &str, text: &str) -> Result<ipc::KitFile, Saved> {
+        if let Some(plugin) = &row.comes_with {
+            return Err(Saved { said: format!("It comes with the {plugin} plugin, so it is read-only here."), code: Some("fleet.kit_file_from_plugin".into()), on_disk: None });
+        }
+        let now = self.file(row).map_err(|why| Saved::said(why.said))?;
+        if now.text != read {
+            return Err(Saved { said: "The file changed on disk since you opened it.".into(), code: Some(super::wire::FILE_MOVED.into()), on_disk: Some(now.text) });
+        }
+        self.files.insert(row.id.clone(), text.to_string());
+        self.file(row).map_err(|why| Saved::said(why.said))
     }
 
     pub fn reach(&mut self, name: &str, on: bool) {

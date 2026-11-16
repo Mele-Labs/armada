@@ -2,17 +2,16 @@
 //! where they come from, and the piece picked with its acts. Every value is a token.
 
 use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Render, Role, SharedString, Stateful, Window};
-use gpui_component::input::Input;
+use gpui_component::input::{Input, Textarea};
+use ipc::KitPlace;
 
 use super::model::{self, Kind, Line, Mark, Read, Removal, Row, KINDS};
+use super::file::FileState;
 use super::{KitScreen, Load, Pane};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, refusal, ring_colour, switch_track, tip};
 use crate::titlebar::parts::{glyph, kbd, mono, sans, Btn, Weight};
-
-/// What an off Edit and Open say until Fleet can read and write the file.
-const NEEDS_FILE_OPS: &str = "Needs Fleet's Kit file ops";
 
 /// A hue as a tint: the ground a filled chip and a kind's tile wear (`color-mix(... 22%, transparent)`).
 fn tint(look: &Look, hue: Token) -> Hsla {
@@ -434,13 +433,34 @@ impl KitScreen {
         let switch = div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().justify_end().child(switch);
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
-        if row.opens().is_some() && !gone {
-            for (id, words) in [("edit", "Edit"), ("open", "Open")] {
-                acts = acts.child(labelled(button(look, SharedString::from(format!("kit-{id}")), words, id == "edit", true).tooltip(tip(NEEDS_FILE_OPS)), Role::Button, format!("{words} {name}")));
-            }
+        let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);
+        if row.kind.file().is_some() && !gone && !editing {
+            // Edit is offered once the file is read and no plugin brought it; Open works for either.
+            let can = self.can_edit();
+            let why = match self.files.get(&row.id) {
+                Some(FileState::Read(file)) if file.plugin.is_some() => "Comes with a plugin, so it is changed there",
+                Some(FileState::Read(_)) => "Change the text here",
+                _ => "Waiting for the file",
+            };
+            acts = acts.child(labelled(
+                button(look, "kit-edit", "Edit", true, !can).tooltip(tip(why)).when(can, |edit| edit.on_click(cx.listener(|this, _, window, cx| this.start_edit(window, cx)))),
+                Role::Button,
+                format!("Edit {name}"),
+            ));
+        }
+        if row.kind.opens().is_some() && row.kind != Kind::Plugins && !gone && !editing {
+            acts = acts.child(labelled(
+                button(look, "kit-open", "Open", false, false).tooltip(tip("Open the file in your editor")).on_click(cx.listener(|this, _, _, cx| this.open_piece(KitPlace::Editor, cx))),
+                Role::Button,
+                format!("Open {name}"),
+            ));
         }
         if row.path.is_some() && row.kind == Kind::Plugins && !gone {
-            acts = acts.child(labelled(button(look, "kit-finder", "Show in Finder", false, false).tooltip(tip("Show the plugin's folder in Finder")).on_click(cx.listener(|this, _, _, cx| this.show_in_finder(cx))), Role::Button, format!("Show {name} in Finder")));
+            acts = acts.child(labelled(
+                button(look, "kit-finder", "Show in Finder", false, false).tooltip(tip("Show the plugin's folder in Finder")).on_click(cx.listener(|this, _, _, cx| this.open_piece(KitPlace::Finder, cx))),
+                Role::Button,
+                format!("Show {name} in Finder"),
+            ));
         }
         if !gone {
             acts = match row.removal() {
@@ -483,8 +503,12 @@ impl KitScreen {
             super::Source::Mock(_) => Some(super::mock::USER.to_string()),
             super::Source::Live(_) => std::env::var("HOME").ok(),
         };
-        let place = row.opens().or_else(|| row.path.clone()).or_else(|| row.server.as_ref().map(|server| server.address.clone())).map(|path| model::tilded(&path, home.as_deref()));
-        let meta = div()
+        let from_file = match self.files.get(&row.id) {
+            Some(FileState::Read(file)) => Some(file.path.clone()),
+            _ => None,
+        };
+        let place = from_file.or_else(|| row.opens()).or_else(|| row.path.clone()).or_else(|| row.server.as_ref().map(|server| server.address.clone())).map(|path| model::tilded(&path, home.as_deref()));
+        let mut meta = div()
             .flex_none()
             .flex()
             .items_center()
@@ -496,20 +520,73 @@ impl KitScreen {
             .font_family(mono(look))
             .text_size(look.length(token::TEXT_2XS))
             .text_color(look.color(token::FG_SUBTLE))
-            .children(place.map(|place| labelled(div().id("kit-path").min_w_0().truncate().child(SharedString::from(place.clone())), Role::Label, place)));
+            .children(place.map(|place| labelled(div().id("kit-path").min_w_0().truncate().child(SharedString::from(place.clone())), Role::Label, place)))
+            .child(div().flex_1());
+        if let Some(edit) = self.editing.as_ref().filter(|edit| edit.id == row.id) {
+            if matches!(self.moved, Some(Some(_))) {
+                meta = meta.child(labelled(
+                    button(look, "kit-reload", "Reload from disk", true, false).tooltip(tip("Drop your text and show what the file holds now")).on_click(cx.listener(|this, _, window, cx| this.reload_from_disk(window, cx))),
+                    Role::Button,
+                    format!("Reload {name} from disk"),
+                ));
+            }
+            if edit.changed(cx) {
+                meta = meta.child(labelled(
+                    button(look, "kit-save", "Save", true, false).tooltip(tip("Write the text to the file (⌘S)")).on_click(cx.listener(|this, _, window, cx| this.save_edit(window, cx))),
+                    Role::Button,
+                    "Save",
+                ));
+            }
+            meta = meta.child(labelled(
+                button(look, "kit-cancel", "Cancel", false, false).tooltip(tip("Drop the changes (Esc)")).on_click(cx.listener(|this, _, window, cx| this.cancel_edit(window, cx))),
+                Role::Button,
+                format!("Cancel editing {name}"),
+            ));
+        }
 
         let said = self.refused.clone().map(|said| labelled(refusal(look, said.clone()).id("kit-refused").px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)), Role::Alert, said));
 
         div().flex_1().min_h_0().flex().flex_col().child(head).child(meta).children(said).child(self.render_file(row, look))
     }
 
-    /// The file's text in a sunken pane with line numbers, as Fleet's read has it: the file itself where Fleet has handed it
-    /// over, else the piece's own words.
-    fn render_file(&self, row: &Row, look: &Look) -> impl IntoElement {
-        let text = row.file.clone().or_else(|| match &self.source {
-            super::Source::Mock(kit) => kit.files.get(&row.id).cloned(),
-            super::Source::Live(_) => None,
-        });
+    /// The file's text in a sunken pane with line numbers, as Fleet read it, or a textarea over it while it is edited. Where
+    /// Fleet reads no file for the kind, the piece's own words stand in; where it says there is none, there is no pane.
+    fn render_file(&self, row: &Row, look: &Look) -> gpui::AnyElement {
+        let pane = || div().id("kit-file").flex_1().min_h_0().flex().bg(look.color(token::BG_SUNKEN)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(px(20.));
+        let text = match self.files.get(&row.id) {
+            Some(FileState::Reading) => {
+                return labelled(
+                    pane().flex_col().gap(look.length(token::SPACE_2)).p(look.length(token::SPACE_3)).children((0..4).map(|n| bone(look, px(120. + 48. * (n % 3) as f32), look.length(token::LEADING_2XS)))),
+                    Role::Region,
+                    "File",
+                )
+                .into_any_element();
+            }
+            Some(FileState::Refused { code, said }) => {
+                if code.as_deref() == Some(super::wire::FILE_NONE) {
+                    return div().flex_1().bg(look.color(token::BG_SUNKEN)).into_any_element();
+                }
+                let said = SharedString::from(said.clone());
+                return labelled(pane().flex_col().child(refusal(look, said.clone()).id("kit-file-refused").px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2))), Role::Region, "File").into_any_element();
+            }
+            Some(FileState::Read(file)) => {
+                if let Some(edit) = self.editing.as_ref().filter(|edit| edit.id == row.id) {
+                    let area = Textarea::new(&edit.area).appearance(false);
+                    return labelled(
+                        pane().overflow_y_scroll().p(look.length(token::SPACE_3)).child(labelled(
+                            div().id("kit-file-text").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(area),
+                            Role::TextInput,
+                            "File text",
+                        )),
+                        Role::Region,
+                        "File",
+                    )
+                    .into_any_element();
+                }
+                Some(file.text.clone())
+            }
+            None => row.file.clone(),
+        };
         let text = text.or_else(|| row.says.clone()).unwrap_or_default();
         let lines: Vec<String> = if text.is_empty() { Vec::new() } else { text.lines().map(str::to_string).collect() };
         let numbers = div()
@@ -543,28 +620,14 @@ impl KitScreen {
             };
             body = body.child(one);
         }
-        labelled(
-            div()
-                .id("kit-file")
-                .flex_1()
-                .min_h_0()
-                .flex()
-                .overflow_y_scroll()
-                .bg(look.color(token::BG_SUNKEN))
-                .font_family(mono(look))
-                .text_size(look.length(token::TEXT_2XS))
-                .line_height(px(20.))
-                .child(numbers)
-                .child(body),
-            Role::Region,
-            "File",
-        )
+        labelled(pane().overflow_y_scroll().child(numbers).child(body), Role::Region, "File").into_any_element()
     }
 
     // ---- the keys' strip ---------------------------------------------------------------------
 
     fn render_keys(&self, look: &Look) -> impl IntoElement {
         let on = format!("On in {}", self.scope_name());
+        let editing = self.editing.is_some();
         let item = |keys: &[&str], words: String| {
             div()
                 .flex()
@@ -589,10 +652,13 @@ impl KitScreen {
             .text_size(look.length(token::TEXT_2XS))
             .text_color(look.color(token::FG_SUBTLE))
             .font_family(sans(look))
-            .child(item(&["j", "k"], "Move".into()))
+            .children(editing.then(|| item(&["⌘S"], "Save".into())))
+            .children(editing.then(|| item(&["esc"], "Cancel".into())))
+            .children((!editing).then(|| item(&["j", "k"], "Move".into())))
             .child(item(&["⇥"], "Next pane".into()))
             .child(item(&["space"], on))
             .child(item(&["e"], "Edit".into()))
+            .child(item(&["⏎"], "Open".into()))
             .child(item(&["⌫"], "Remove".into()))
             .child(item(&["⌘Z"], "Restore".into()))
             .child(item(&["/"], "Filter".into()))

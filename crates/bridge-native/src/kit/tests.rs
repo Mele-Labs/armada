@@ -103,3 +103,54 @@ fn a_removed_skill_stays_amber_with_restore_until_kit_is_left(cx: &mut TestAppCo
     cx.update(|_, cx| screen.update(cx, |screen, cx| screen.leave(cx)));
     assert!(!names(&screen, cx).contains(&"old-triage".to_string()), "leaving Kit stops offering what was removed");
 }
+
+fn drawn(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> bool {
+    cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).is_some())
+}
+
+#[gpui::test]
+fn save_is_drawn_only_while_the_text_differs_from_what_was_read(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("j");
+    cx.run_until_parked();
+    assert!(!drawn(cx, gpui::Role::Button, "Save"), "nothing is being edited");
+    cx.simulate_keystrokes("e");
+    cx.run_until_parked();
+    assert!(screen.read_with(cx, |screen, _| screen.editing.is_some()), "E turns the pane into a textarea");
+    assert!(!drawn(cx, gpui::Role::Button, "Save"), "the text is as it was read");
+    cx.simulate_input("x");
+    cx.run_until_parked();
+    assert!(drawn(cx, gpui::Role::Button, "Save"), "the text now differs");
+    let (area, read) = screen.read_with(cx, |screen, _| screen.editing.as_ref().map(|edit| (edit.area.clone(), edit.read.clone())).expect("editing"));
+    cx.update(|window, cx| area.update(cx, |area, cx| area.set_value(read, window, cx)));
+    screen.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+    // The window's book of drawn things is only added to between roots, so what leaves is read from the edit itself.
+    assert!(!screen.read_with(cx, |screen, cx| screen.editing.as_ref().is_some_and(|edit| edit.changed(cx))), "put back to what was read, Save has nothing to save");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(screen.read_with(cx, |screen, _| screen.editing.is_none()), "Esc drops the edit");
+}
+
+#[gpui::test]
+fn a_file_that_moved_on_disk_is_refused_in_fleets_words_with_a_way_to_reload_it(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("j e");
+    cx.run_until_parked();
+    cx.simulate_input("x");
+    // Another hand changes the file after it was read.
+    screen.update(cx, |screen, _| {
+        let id = screen.selected.clone().expect("a piece is picked");
+        if let super::Source::Mock(kit) = &mut screen.source {
+            kit.files.insert(id, "changed elsewhere".into());
+        }
+    });
+    cx.simulate_keystrokes("cmd-s");
+    cx.run_until_parked();
+    assert!(drawn(cx, gpui::Role::Alert, "The file changed on disk since you opened it."), "Fleet's words, drawn");
+    assert!(drawn(cx, gpui::Role::Button, "Reload review-pr from disk"), "what is on disk can be loaded");
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.reload_from_disk(window, cx)));
+    cx.run_until_parked();
+    let after = screen.read_with(cx, |screen, _| (screen.editing.is_none(), screen.file_of_picked().map(|file| file.text.clone())));
+    assert_eq!(after, (true, Some("changed elsewhere".to_string())));
+}

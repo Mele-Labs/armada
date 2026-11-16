@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{App, Task};
+use gpui::{App, AppContext as _, Task};
 use ipc::{KitInventory, KitPieceInstalled, KitPieceRemoved, KitServers, KitSourceFound, SettingValue, SettingsList};
 
 use crate::settings::wire::{body, request, scoped, Ask, Refused};
@@ -64,4 +64,60 @@ pub fn look(port: u16, source: &str, cx: &App) -> Task<Result<KitSourceFound, Re
 /// `POST /kit/pieces/install`.
 pub fn install(port: u16, install: ipc::InstallKitPiece, cx: &App) -> Task<Result<KitPieceInstalled, Refused>> {
     request(port, Ask::Post("/kit/pieces/install".into(), body(&install)), "KitPieceInstalled", cx)
+}
+
+/// Fleet's codes for a file it would not read, save or open, which the pane words.
+pub const FILE_MOVED: &str = "fleet.kit_file_moved";
+pub const FILE_NONE: &str = "fleet.kit_file_none";
+
+/// Why a save did not take: Fleet's own words, its code, and what is on disk now where it says (`on_disk`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Saved {
+    pub said: String,
+    pub code: Option<String>,
+    pub on_disk: Option<String>,
+}
+
+impl Saved {
+    pub fn said(said: impl Into<String>) -> Saved {
+        Saved { said: said.into(), code: None, on_disk: None }
+    }
+}
+
+fn query(file: ipc::KitFileKind, name: &str, plugin: Option<&str>) -> String {
+    let kind = serde_json::to_value(file).ok().and_then(|word| word.as_str().map(str::to_string)).unwrap_or_default();
+    let plugin = plugin.map(|plugin| format!("&plugin={}", crate::link::percent_encoded(plugin))).unwrap_or_default();
+    format!("/kit/file?kind={kind}&name={}{plugin}", crate::link::percent_encoded(name))
+}
+
+/// `GET /kit/file`: one piece's file, whole.
+pub fn file(port: u16, kind: ipc::KitFileKind, name: &str, plugin: Option<&str>, cx: &App) -> Task<Result<ipc::KitFile, Refused>> {
+    request(port, Ask::Get(query(kind, name, plugin)), "KitFile", cx)
+}
+
+/// `POST /kit/file/save`. A save over a file that moved is a 409 carrying `on_disk`, so this reads the error itself.
+pub fn save_file(port: u16, ask: ipc::SaveKitFile, cx: &App) -> Task<Result<ipc::KitFile, Saved>> {
+    let said = body(&ask);
+    cx.background_spawn(async move {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| Saved::said(why.to_string()))?;
+        let (status, bytes) = runtime.block_on(crate::transport::post(port, "/kit/file/save", said)).map_err(Saved::said)?;
+        if !(200..300).contains(&status) {
+            return Err(match ipc::decode::<ipc::WireError>("WireError", &bytes) {
+                Ok(error) => {
+                    let on_disk = match error.fields.get("on_disk") {
+                        Some(ipc::WireValue::Str(text)) => Some(text.clone()),
+                        _ => None,
+                    };
+                    Saved { said: error.message, code: Some(error.code), on_disk }
+                }
+                Err(_) => Saved::said(format!("Fleet answered {status}")),
+            });
+        }
+        ipc::decode::<ipc::KitFile>("KitFile", &bytes).map_err(|why| Saved::said(why.to_string()))
+    })
+}
+
+/// `POST /kit/pieces/open`: the piece in the person's editor, or in Finder.
+pub fn open(port: u16, ask: ipc::OpenKitPiece, cx: &App) -> Task<Result<ipc::KitPieceOpened, Refused>> {
+    request(port, Ask::Post("/kit/pieces/open".into(), body(&ask)), "KitPieceOpened", cx)
 }
