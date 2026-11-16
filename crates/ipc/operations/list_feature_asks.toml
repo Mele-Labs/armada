@@ -1,0 +1,14 @@
+[operations.list_feature_asks]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A project's asks, narrowed to one feature slug where one is given"
+notes = """
+`GET /projects/asks?project=&feature=`. `FeatureAsks` `{ project, feature?, asks }`, each an `Ask` as `list_job_asks` answers it, oldest first. `project` is a project id, or a repository's Manifest id for a Job in no project. `feature` is a slug and optional: absent answers every ask of the project. Since 16 Nov 2026.
+
+An ask on two features is in the answer for both. Each ask names `said_in` and `building`, so a feature page opens the story of either with `get_job_story`.
+
+An unknown project or slug answers an empty list: asks are kept by the strings given, and no library is read here.
+
+`agent_access` is `No`.
+"""

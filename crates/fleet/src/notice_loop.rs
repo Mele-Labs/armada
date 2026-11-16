@@ -112,6 +112,9 @@ where
             fleet.sign_in_wakes_owed().await;
             // A turn that went quiet is stuck by time passing, which no event says: published when it does.
             fleet.standing_checked().await;
+            // His new words, sorted by a small model off this loop, and the asks whose pull request merged.
+            fleet.messages_sorting().await;
+            fleet.asks_built_checked().await;
             // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
             if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {
                 stops_swept = Some(tokio::time::Instant::now());

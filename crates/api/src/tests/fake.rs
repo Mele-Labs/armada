@@ -10,6 +10,7 @@
 pub(crate) mod accounts;
 mod judge;
 mod asides;
+mod story;
 mod app_runs;
 mod authoring;
 mod autopilots;

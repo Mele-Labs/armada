@@ -175,6 +175,7 @@ mod other_macs;
 mod other_mac_projects;
 mod two_macs;
 mod session_dispute_reading;
+mod story;
 mod session_done;
 mod session_finish_up;
 mod models_switched_off;
