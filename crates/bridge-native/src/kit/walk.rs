@@ -17,8 +17,8 @@ pub static STEPS: [Step; 11] = [
     step("Edit and Open wait on Fleet's file operations", Verb::Hover, "button", "Edit review-pr"),
     step("Off in the project: the lamp goes hollow", Verb::PressOn("switch", "In armada"), "img", "Off in armada"),
     step("A piece a plugin brought has no Remove: a lock says why", Verb::PressOn("option", "frontend-design"), "img", LOCK),
-    step("Remove a skill of your own: it stays, amber, with Restore", Verb::PressOn("option", "pdf-tools"), "button", "Remove pdf-tools"),
-    step("Removed", Verb::Press, "button", "Restore pdf-tools"),
-    step("Restore: it is back, as it was", Verb::Press, "option", "pdf-tools"),
+    step("A skill of your own can be removed", Verb::PressOn("option", "pdf-tools"), "button", "Remove pdf-tools"),
+    step("Remove: the folder goes to the Trash", Verb::PressOn("button", "Remove pdf-tools"), "button", "Restore pdf-tools"),
+    step("Restore: it is back, as it was", Verb::PressOn("button", "Restore pdf-tools"), "option", "pdf-tools"),
     step("Models, Prompts and Workflows open in Settings", Verb::Look, "button", "Models in Settings"),
 ];

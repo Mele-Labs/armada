@@ -61,7 +61,7 @@ fn button(look: &Look, id: impl Into<gpui::ElementId>, words: &str, line: bool, 
         .flex()
         .items_center()
         .h(look.length(token::H_CONTROL_SM))
-        .px(look.length(token::SPACE_3))
+        .px(look.length(token::SPACE_2))
         .rounded(look.length(token::RADIUS_MD))
         .border(look.length(token::BORDER_WIDTH))
         .border_color(if line { look.color(token::BORDER_DEFAULT) } else { gpui::transparent_black() })
@@ -319,8 +319,7 @@ impl KitScreen {
         });
         let card = div()
             .id(SharedString::from(format!("kit-piece-{id}")))
-            .mx(look.length(token::SPACE_2))
-            .my(px(2.))
+            .w_full()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
@@ -351,7 +350,7 @@ impl KitScreen {
                     .child(div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says))),
             )
             .children(restore);
-        labelled(card, Role::ListBoxOption, row.name.clone()).into_any_element()
+        div().w_full().px(look.length(token::SPACE_2)).py(px(2.)).child(labelled(card, Role::ListBoxOption, row.name.clone())).into_any_element()
     }
 
     // ---- the detail --------------------------------------------------------------------------
@@ -432,7 +431,7 @@ impl KitScreen {
         } else {
             div().into_any_element()
         };
-        let switch = div().flex_none().w(look.length(token::SPACE_12) * 3.).flex().justify_end().child(switch);
+        let switch = div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().justify_end().child(switch);
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
         if row.opens().is_some() && !gone {
@@ -464,7 +463,7 @@ impl KitScreen {
             .flex_none()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_3))
+            .gap(look.length(token::SPACE_2))
             .p(look.length(token::SPACE_4))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
