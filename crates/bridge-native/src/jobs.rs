@@ -1193,6 +1193,14 @@ impl JobsList {
         cx.notify();
     }
 
+    /// Every record as Fleet sends them anew, for a test that moves one under an open view.
+    #[cfg(test)]
+    pub fn replace_records(&mut self, jobs: Vec<SessionRecord>, cx: &mut Context<Self>) {
+        self.jobs = jobs;
+        self.relist(cx);
+        cx.notify();
+    }
+
     /// Fleet refused the rename: the title it holds comes back.
     pub fn untitle(&mut self, id: &str, cx: &mut Context<Self>) {
         let Some((was, _)) = self.asked.remove(id) else { return };

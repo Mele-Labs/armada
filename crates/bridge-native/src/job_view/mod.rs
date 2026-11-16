@@ -805,6 +805,7 @@ impl JobView {
         } else {
             self.synced(cx);
             self.review_sync(window, cx);
+            self.pull_row_sync(window, cx);
         }
         if picks != self.picked {
             self.picked = picks;

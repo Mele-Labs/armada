@@ -49,6 +49,9 @@ impl PullTab {
     }
 }
 
+/// How long an open panel waits before it asks for its page again.
+const REREAD: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// The open panel's own state.
 pub(super) struct PullPanel {
     /// The pull request as its row read it when pressed. Its live facts come from the Job's record.
@@ -56,6 +59,11 @@ pub(super) struct PullPanel {
     pub tab: PullTab,
     /// `GET /pull_request_details`: the tabs and the facts the row does not hold.
     pub page: Option<Result<PullRequestPage, String>>,
+    /// The held row as it stood when the page was last asked for: a row that moves since asks again.
+    pub read_as: Option<Pull>,
+    /// The page asked for again now and then while the panel is open, for what the forge changes
+    /// without the row moving, such as a reviewer asked by hand.
+    _rereading: Option<Task<()>>,
     /// The comment box, its words kept under `pull-request:panel:{repository}#{number}`.
     pub say: Entity<TextareaState>,
     pub write: PullRequestWriteKind,
@@ -474,25 +482,6 @@ pub(super) fn small_button(look: &Look, id: impl Into<gpui::ElementId>, said: &s
     }
 }
 
-/// A part of the plates' column under the title: the merge box, Reviewers, the merge line and the failing checks.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(super) enum Plate {
-    Status,
-    Reviewers,
-    Place,
-    Failing,
-}
-
-/// The parts in the main column, in order, and those in the side column at its right, at a pane `width`.
-/// Reviewers stands beside the main column where the pane is `beside` wide or more, as the forge's page
-/// has it; narrower, it stands under the merge box.
-pub(super) fn plates_at(width: Pixels, beside: Pixels) -> (Vec<Plate>, Vec<Plate>) {
-    if width >= beside {
-        (vec![Plate::Status, Plate::Place, Plate::Failing], vec![Plate::Reviewers])
-    } else {
-        (vec![Plate::Status, Plate::Reviewers, Plate::Place, Plate::Failing], Vec::new())
-    }
-}
 
 /// A secondary small button (`Button variant="secondary" size="sm"`): a hairline frame on a raised fill, its
 /// glyph before its word, lighter under the pointer and sunk while pressed. A small button's height, so it
@@ -656,6 +645,8 @@ impl JobView {
             pull,
             tab: PullTab::Overview,
             page: None,
+            read_as: None,
+            _rereading: None,
             say,
             write: PullRequestWriteKind::Comment,
             writing: false,
@@ -684,12 +675,37 @@ impl JobView {
         };
         self.open_pull_panel(panel, window, cx);
         self.read_pull_page(window, cx);
+        if self.fleet.is_some() {
+            let again = cx.spawn_in(window, async move |this, cx| loop {
+                cx.background_executor().timer(REREAD).await;
+                if this.update_in(cx, |this, window, cx| this.read_pull_page(window, cx)).is_err() {
+                    break;
+                }
+            });
+            if let Some(panel) = self.pull_panel_mut() {
+                panel._rereading = Some(again);
+            }
+        }
+    }
+
+    /// The held row moved under the open panel, as it does when a draft goes ready for review or the
+    /// forge's verdict changes: the page is asked for again, since the forge changes it too.
+    pub(super) fn pull_row_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel().filter(|panel| panel.pull.held()) else { return };
+        let now = self.held_row(&panel.pull, cx);
+        if panel.read_as.as_ref().is_some_and(|was| super::pulls::row_moved(was, &now)) {
+            self.read_pull_page(window, cx);
+        }
     }
 
     /// `GET /pull_request_details/:repository/:number`, on mock data the scenario's page.
     fn read_pull_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel() else { return };
         let pull = panel.pull.clone();
+        let row = self.held_row(&pull, cx);
+        if let Some(panel) = self.pull_panel_mut() {
+            panel.read_as = Some(row);
+        }
         let Some(manifest) = pull.manifest.clone() else {
             if let Some(panel) = self.pull_panel_mut() {
                 panel.page = Some(Err("This Job has no repository".into()));
@@ -715,7 +731,10 @@ impl JobView {
             Box::new(move |this, answer, window, cx| {
                 let read = answer.and_then(|bytes| ipc::decode::<PullRequestPage>("PullRequestPage", &bytes).map_err(|why| why.to_string()));
                 if let Some(panel) = this.pull_panel_mut().filter(|panel| panel.pull.number == number) {
-                    panel.page = Some(read);
+                    // A read again that fails leaves the page it read before.
+                    if read.is_ok() || !matches!(panel.page, Some(Ok(_))) {
+                        panel.page = Some(read);
+                    }
                 }
                 this.want_pull_patches(window, cx);
                 this.want_pull_reach(window, cx);
@@ -729,13 +748,16 @@ impl JobView {
     /// with its Checks from the forge's read of its page once read: the ledger's row can be stale.
     fn live_pull(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
         let page = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page());
-        let pull = if pressed.held() {
-            let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
-            self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
-        } else {
-            pressed.clone()
-        };
-        super::pulls::with_page_read(pull, page)
+        super::pulls::with_page_read(self.held_row(pressed, cx), page)
+    }
+
+    /// The pull request as the Job's record holds it now, or as it was pressed where none does.
+    fn held_row(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
+        if !pressed.held() {
+            return pressed.clone();
+        }
+        let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
+        self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
     }
 
     /// A commit pressed in Commits: Files opens on the files it changed alone, read from Fleet.
@@ -1051,7 +1073,7 @@ impl JobView {
         let wide = look.length(token::W_DIALOG_WIDE);
         let aside_w = px(336.);
         let files_beside = panel.tab == PullTab::Files && panel.files_page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
-        let (head, body) = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, width, look, cx);
+        let (head, body) = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
         let foot = self.pull_composer(panel, look, cx);
         // Files' list stands under the head at the left, and it and the files each scroll on their own.
         let beside: Option<AnyElement> = if files_beside { panel.files_page().map(|page| self.pull_file_list(panel, page, aside_w, look, cx)) } else { None };
@@ -1086,9 +1108,9 @@ impl JobView {
         Some(div().size_full().flex().child(sheet).into_any_element())
     }
 
-    /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, the merge line and the
-    /// failing checks, those of them `parts` names, in its order.
-    fn pull_plates(&self, panel: &PullPanel, pull: &Pull, parts: &[Plate], look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The column of plates (`PullRequestPlates`): the merge box with its facts and its reviewers under them,
+    /// the merge line and the failing checks.
+    fn pull_plates(&self, panel: &PullPanel, pull: &Pull, look: &Look, cx: &Context<Self>) -> AnyElement {
         let page = panel.page();
         let place = self.place_of_open(pull, cx);
         let at = place.as_ref().and_then(|rows| rows.iter().find(|row| row.current)).map(|row| row.place);
@@ -1196,8 +1218,8 @@ impl JobView {
             }
             labelled(div().id("pull-facts").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Facts")
         });
-        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts), Role::Region, "Status").into_any_element();
-        let reviewers = if parts.contains(&Plate::Reviewers) { self.pull_reviewers(panel, look, cx) } else { None };
+        let reviewers = self.pull_reviewers(panel, look, cx);
+        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts).children(reviewers), Role::Region, "Status").into_any_element();
         let failing_plate = (!failing.is_empty()).then(|| {
             let sent = panel.sent_back;
             let held = pull.clone();
@@ -1227,17 +1249,7 @@ impl JobView {
             .into_any_element()
         });
         let place = place.map(|rows| self.place_plate(rows, look, cx));
-        let (mut status, mut reviewers, mut place, mut failing_plate) = (Some(status), reviewers, place, failing_plate);
-        let column: Vec<AnyElement> = parts
-            .iter()
-            .filter_map(|part| match part {
-                Plate::Status => status.take(),
-                Plate::Reviewers => reviewers.take(),
-                Plate::Place => place.take(),
-                Plate::Failing => failing_plate.take(),
-            })
-            .collect();
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().children(column).into_any_element()
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(place).children(failing_plate).into_any_element()
     }
 
     /// The merge lines the open pull request is read against: the mock's in a walk, else Fleet's.
@@ -1336,9 +1348,10 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Reviewers (`PullRequestReviewers`), as the forge's side column has them: a muted label, a requested
-    /// team in bold with its people indented under it, and each one's review state in a column of its own
-    /// at the right. Nothing where the page names no reviewer.
+    /// Reviewers (`PullRequestReviewers`) in the merge box, under its facts: a muted label, then a row each,
+    /// its review state and a team's mark each in a column of their own at the left, then the name: a
+    /// requested team in bold with its people indented under it. A name wraps rather than clips. Nothing
+    /// where the page names none.
     fn pull_reviewers(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let reviewers = panel.page()?.reviewers.as_slice();
         if reviewers.is_empty() {
@@ -1353,7 +1366,6 @@ impl JobView {
             let who = div()
                 .id(SharedString::from(format!("reviewer:{}", one.login)))
                 .min_w_0()
-                .truncate()
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .font_weight(FontWeight(look.number(if team { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
@@ -1361,19 +1373,17 @@ impl JobView {
             let who = who.when_some(one.name.clone(), |who, name| who.tooltip(tip(name)));
             let who = match one.url.clone() {
                 Some(url) => labelled(who.cursor_pointer().hover(|style| style.underline()).on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))), Role::Link, login.clone()).into_any_element(),
-                None => who.into_any_element(),
+                None => labelled(who, Role::Label, login.clone()).into_any_element(),
             };
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .min_w_0()
-                .when(under, |row| row.pl(look.length(token::SPACE_4)))
-                .child(who)
-                .children(team.then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)))
-                .child(div().flex_1())
-                .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_end().child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone)))
-                .into_any_element()
+            let state = div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone));
+            let kind = div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().children(team.then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)));
+            let name = div().flex_1().min_w_0().when(under, |name| name.pl(look.length(token::SPACE_4))).child(who);
+            labelled(
+                div().id(SharedString::from(format!("reviewer-row:{}", one.login))).flex().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(state).child(kind).child(name),
+                Role::ListItem,
+                login,
+            )
+            .into_any_element()
         };
         let mut out: Vec<AnyElement> = Vec::new();
         for team in &teams {
@@ -1381,16 +1391,15 @@ impl JobView {
             out.extend(people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).map(|one| row(one, true)));
         }
         out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one, false)));
-        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_2)).min_w_0().child(eyebrow(look).child("Reviewers")).children(out), Role::Region, "Reviewers").into_any_element())
+        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().pt(look.length(token::SPACE_1)).child(eyebrow(look).child("Reviewers")).children(out), Role::Region, "Reviewers").into_any_element())
     }
 }
 
 impl JobView {
     /// The head, which stays put on every tab: what Fleet refused, the title, its meta row, its acts and the
-    /// tab strip, a hairline under it. Then the body that scrolls under it: the plates and the tab shown, with
-    /// Reviewers beside them on a pane `width` wide enough.
+    /// tab strip, a hairline under it. Then the body that scrolls under it: the plates and the tab shown.
     #[allow(clippy::too_many_arguments)]
-    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, width: Pixels, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
+    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
         let page = panel.page();
         let number = pull.number;
         let refused = self
@@ -1451,9 +1460,7 @@ impl JobView {
         let owner = page.and_then(|page| page.owner.clone()).or_else(|| self.owner_in_lines(pull, cx)).map(|owner| owner_chip(&owner, look));
         let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size).children(owner);
         let acts = self.pull_acts(panel, pull, look, cx);
-        let (main, side) = plates_at(width, look.length(token::LAYOUT_BREAKPOINT_DESKTOP));
-        let plates = plates_inside.then(|| self.pull_plates(panel, pull, &main, look, cx));
-        let side = if plates_inside && side.contains(&Plate::Reviewers) { self.pull_reviewers(panel, look, cx) } else { None };
+        let plates = plates_inside.then(|| self.pull_plates(panel, pull, look, cx));
         let (strip, tabs) = match &panel.page {
             None => (None, Some(labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element())),
             Some(Err(said)) => (None, Some(labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element())),
@@ -1468,18 +1475,6 @@ impl JobView {
             .children(self.notes_bar(panel, pull, look, cx))
             .children(self.notes_resolved_toggle(panel, look, cx))
             .children(tabs);
-        // Wide enough, Reviewers stands in a column of its own at the right, as on the forge's page.
-        let lower = match side {
-            Some(side) => div()
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_6))
-                .min_w_0()
-                .child(column.flex_1())
-                .child(div().id("pull-side").flex_none().w(look.length(token::SIDEBAR_DEFAULT)).child(side))
-                .into_any_element(),
-            None => column.into_any_element(),
-        };
         let head = div()
             .id("pull-head")
             .flex_none()
@@ -1504,7 +1499,7 @@ impl JobView {
             .overflow_y_scroll()
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
-            .child(lower)
+            .child(column)
             .into_any_element();
         (head, body)
     }
@@ -2026,6 +2021,45 @@ fn pull_commits(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> O
 mod tests {
     use super::*;
 
+    /// #2209's row on mock-01, with its state set as Fleet's ledger would say it.
+    fn row_2209(jobs: &mut [ipc::SessionRecord], state: Option<&str>) {
+        let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("mock-01 is in the fixture");
+        let row = job.attachments.iter_mut().find(|one| one.kind == "pr" && one.target == "2209").expect("mock-01 holds #2209");
+        row.detail.remove("queued");
+        match state {
+            Some(state) => row.detail.insert("state".into(), state.into()),
+            None => row.detail.remove("state"),
+        };
+    }
+
+    #[gpui::test]
+    fn a_reviewer_the_forge_adds_once_a_draft_goes_ready_shows_without_opening_the_tab_again(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |jobs| row_2209(jobs, Some("draft")));
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+        });
+        // The page as the forge gave it while a draft: nobody asked to review yet.
+        view.update(cx, |view, _| {
+            if let Some(Ok(page)) = view.pull_panel_mut().and_then(|panel| panel.page.as_mut()) {
+                page.reviewers.clear();
+            }
+        });
+        redraw(cx);
+        let reviewers = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.pull_panel().and_then(|panel| panel.page()).map_or(0, |page| page.reviewers.len()));
+        assert_eq!(reviewers(&view, cx), 0);
+        // Marked ready on the forge, which asks its reviewers: Fleet's row says open.
+        let list = view.read_with(cx, |view, _| view.list.clone());
+        list.update(cx, |list, cx| {
+            let mut jobs = list.records().to_vec();
+            row_2209(&mut jobs, None);
+            list.replace_records(jobs, cx);
+        });
+        redraw(cx);
+        assert_eq!(reviewers(&view, cx), 3, "the page is read again, and names the reviewers the forge asked");
+    }
+
     #[gpui::test]
     fn the_head_stays_put_while_a_tab_scrolls_and_the_file_list_stands_under_it(cx: &mut gpui::TestAppContext) {
         use super::super::parts_fold::{redraw, rooted_job};
@@ -2047,6 +2081,41 @@ mod tests {
         redraw(cx);
         assert!(at(cx, Role::Group, "apps/desktop/src/main/forge.ts").origin.y < file.origin.y, "the files scrolled");
         assert_eq!(at(cx, Role::TabList, "Pull request"), tabs, "the head stays where it was");
+    }
+
+    #[gpui::test]
+    fn reviewers_stand_in_the_merge_box_under_its_facts_whole_on_a_wide_pane_and_not_on_files(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+        });
+        redraw(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds));
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| find(cx, role, name).unwrap_or_else(|| panic!("{name} was not drawn"));
+        let status = at(cx, Role::Region, "Status");
+        let facts = at(cx, Role::List, "Facts");
+        let reviewers = at(cx, Role::Region, "Reviewers");
+        assert!(
+            reviewers.origin.x >= status.origin.x && reviewers.right() <= status.right() && reviewers.bottom() <= status.bottom(),
+            "Reviewers stands inside the merge box: it is at {reviewers:?}, the box at {status:?}"
+        );
+        assert!(reviewers.origin.y >= facts.bottom(), "Reviewers stands under the facts: it starts at {:?}, they end at {:?}", reviewers.origin.y, facts.bottom());
+        let mut verdicts = Vec::new();
+        for (who, state) in [("platform", "Waiting"), ("marta", "Approved"), ("nina", "Commented")] {
+            let row = at(cx, Role::ListItem, who);
+            assert!(row.origin.x >= reviewers.origin.x && row.right() <= reviewers.right(), "{who} stands whole inside Reviewers: it is at {row:?}");
+            let name = find(cx, Role::Link, who).or_else(|| find(cx, Role::Label, who)).unwrap_or_else(|| panic!("{who}'s name was not drawn"));
+            let verdict = at(cx, Role::Image, state);
+            assert!(verdict.origin.y >= row.origin.y && verdict.bottom() <= row.bottom(), "{who}'s review state is on its row: {verdict:?}, {row:?}");
+            assert!(name.origin.x >= verdict.right() && name.right() <= row.right(), "{who}'s name stands whole after its review state: {name:?}, {verdict:?}");
+            verdicts.push(verdict.origin.x);
+        }
+        assert!(verdicts.windows(2).all(|two| two[0] == two[1]), "each review state stands in one column: {verdicts:?}");
+        view.update_in(cx, |view, window, cx| view.pull_tab(PullTab::Files, window, cx));
+        redraw(cx);
+        assert!(find(cx, Role::Region, "Reviewers").is_none(), "Files draws no merge box, so no Reviewers");
     }
 
     #[test]
@@ -2152,14 +2221,5 @@ mod tests {
             .collect();
         assert_eq!(ids, ["C1", "T1", "R2"], "a thread with no comment is not one");
         assert_eq!(comment_count(&page), 4, "a reply in a thread is a comment of its own");
-    }
-
-    #[test]
-    fn reviewers_stand_beside_a_wide_pane_and_under_the_merge_box_in_a_narrow_one() {
-        let beside = px(768.);
-        let wide = (vec![Plate::Status, Plate::Place, Plate::Failing], vec![Plate::Reviewers]);
-        assert_eq!(plates_at(px(1100.), beside), wide);
-        assert_eq!(plates_at(beside, beside), wide, "the breakpoint itself holds both");
-        assert_eq!(plates_at(px(767.), beside), (vec![Plate::Status, Plate::Reviewers, Plate::Place, Plate::Failing], Vec::new()));
     }
 }

@@ -271,6 +271,12 @@ pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: 
     })
 }
 
+/// Whether the held row says something about the pull request it did not when its page was read: its
+/// state, Checks, queue, auto-merge, base or the forge's merge verdict. The page is read again then.
+pub(super) fn row_moved(was: &Pull, now: &Pull) -> bool {
+    (was.state, was.checks, was.queued, was.auto, was.merge, &was.failing, &was.base) != (now.state, now.checks, now.queued, now.auto, now.merge, &now.failing, &now.base)
+}
+
 /// Where a stacked row's lane starts and ends (`StackRow.lane`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) struct Lane {
