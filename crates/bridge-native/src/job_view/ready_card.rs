@@ -204,17 +204,19 @@ fn small(look: &Look) -> gpui::Div {
 }
 
 impl JobView {
-    /// A build in the thread: the one line of a build that is settled, the one compact card where the newest open build stands,
-    /// and nothing where an older one is listed by the compact card already.
-    pub(super) fn ready_card(&self, card: &ThreadReadyToTry, ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.clone()?;
-        let held = self.thread(&job, cx)?;
+    /// A build in the thread: the one line of a build that is settled, and nothing for one the compact card at the thread's end
+    /// lists.
+    pub(super) fn ready_card(&self, card: &ThreadReadyToTry, look: &Look, now: DateTime<Local>, page: &Page) -> Option<AnyElement> {
         let standing = Standing::of(card, page.cards.answers.get(&card.id));
-        if standing.folds() {
-            return Some(self.ready_folded(card, standing, look, now));
-        }
+        standing.folds().then(|| self.ready_folded(card, standing, look, now))
+    }
+
+    /// The Job's one compact card, drawn after the thread's items at `ix`. None where he has answered every build before Fleet has
+    /// said so.
+    pub(super) fn ready_pinned(&self, ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+        let held = self.thread(self.shown.as_ref()?, cx)?;
         let all = super::ready_compact::builds(&held.items, &page.cards.answers);
-        (super::ready_compact::place(&all) == Some(ix)).then(|| self.ready_compact(&all, ix, page, look, now, cx))
+        all.iter().any(|build| build.standing.asks()).then(|| self.ready_compact(&all, ix, page, look, now, cx))
     }
 
     /// What each press on a build's answers does. Looks good answers, Needs rework opens its box and Send sends it, Show me how
@@ -264,6 +266,12 @@ impl JobView {
         };
         let body = answer_body(&job, card, answer);
         self.settle(ix, card.id.clone(), pressed, ANSWER_READY, body, window, cx);
+        // The build's own item turns from nothing to its one line.
+        if let (Some(page), Some(held)) = (self.pages.get(&job), self.thread(&job, cx)) {
+            if let Some(at) = held.items.iter().position(|item| matches!(item, ThreadItem::ReadyToTry(one) if one.id == card.id)) {
+                page.remeasure(at);
+            }
+        }
         // A refusal came back at once, so the build stays open with Fleet's sentence on it; else the next open one opens.
         if let Some(cards) = self.cards_mut() {
             if !cards.said.contains_key(&card.id) && cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
@@ -746,21 +754,29 @@ impl JobView {
         drawn.unwrap_or_else(|| div().into_any_element())
     }
 
-    /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card, and the thread
-    /// scrolled to it. A build already settled is one line, and the thread scrolls to that line. A Job whose thread holds no such
-    /// build opens nothing.
+    /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card at the thread's end,
+    /// and the thread following its tail to it. A build already settled is one line, and the thread scrolls to that line. A Job
+    /// whose thread holds no such build opens nothing.
     pub(super) fn go_to_ready(&mut self, job: &str, id: &str, _window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some((id, to)) = self.thread(job, cx).and_then(|held| {
+        let Some((id, at, asks)) = self.thread(job, cx).and_then(|held| {
             let (at, id) = card_named(&held.items, id)?;
             let asks = matches!(held.items.get(at), Some(ThreadItem::ReadyToTry(card)) if matches!(card.state, ReadyState::Open | ReadyState::Later));
-            Some((id, if asks { super::ready_compact::place_in(&held.items).unwrap_or(at) } else { at }))
+            Some((id, at, asks))
         }) else {
             return false;
         };
         let Some(page) = self.pages.get_mut(job) else { return false };
         page.cards.ready_pick = Some(id);
-        page.remeasure(to);
-        page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(to), offset_in_item: gpui::px(0.) });
+        match page.ready_at().filter(|_| asks) {
+            Some(card) => {
+                page.remeasure(card);
+                page.list.set_follow_mode(gpui::FollowMode::Tail);
+            }
+            None => {
+                page.remeasure(at);
+                page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: gpui::px(0.) });
+            }
+        }
         cx.notify();
         true
     }
