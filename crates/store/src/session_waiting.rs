@@ -58,6 +58,25 @@ pub struct KeptApproval {
 const CLOSED_KEPT: i64 = 50;
 
 impl Store {
+    /// Every item a live Job's `waiting_for` holds whose act is a command to run: its Job, its id, when it began to
+    /// wait and the command.
+    pub fn waiting_run_items(&self) -> Result<Vec<(String, String, String, String)>, WriteError> {
+        let doing = "reading the commands jobs wait on the person to run";
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT w.session_id, w.item_id, w.since, w.act_target FROM session_waiting w JOIN sessions s ON s.id = w.session_id
+                 WHERE w.act_kind = 'run' AND s.state != 'ended'",
+            )
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get::<_, Option<String>>(3)?.unwrap_or_default())))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
     /// The agent's items for a session, in the order it gave them.
     pub fn waiting_for(&self, session_id: &str) -> Result<Vec<KeptWaiting>, WriteError> {
         let doing = "reading what a job waits on";

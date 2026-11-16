@@ -28,6 +28,10 @@ const SAID_AT_MOST: usize = 200;
 const WORKER_WRONG_CODES: [u64; 1] = [10021];
 /// Cloudflare's code for an account with no `workers.dev` subdomain.
 const NO_SUBDOMAIN_CODE: u64 = 10007;
+/// Cloudflare's codes, 6100 to 6199, for an Authorization header or a token it cannot read at all.
+const TOKEN_UNREADABLE_CODES: std::ops::RangeInclusive<u64> = 6100..=6199;
+/// What a token Cloudflare cannot read is told, so the token ask comes back with a way on.
+const TOKEN_UNREADABLE_SAID: &str = "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token.";
 
 /// One request, before the token is added.
 #[derive(Debug, PartialEq, Eq)]
@@ -68,6 +72,22 @@ struct Said {
     code: u64,
     #[serde(default)]
     message: String,
+    /// The reasons under this one: a 400 `Invalid request headers` says in its chain which header and why.
+    #[serde(default)]
+    error_chain: Vec<Said>,
+}
+
+impl Said {
+    /// This error's code and message, then each error under it, in the order Cloudflare gave them.
+    fn spread<'a>(&'a self, codes: &mut Vec<u64>, messages: &mut Vec<&'a str>) {
+        codes.push(self.code);
+        if !self.message.is_empty() {
+            messages.push(&self.message);
+        }
+        for under in &self.error_chain {
+            under.spread(codes, messages);
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -145,10 +165,13 @@ fn at_most(text: &str) -> String {
 /// was an upload carrying `ENROL_LIMIT`.
 pub(crate) fn refusal(reply: &Reply, limit_sent: bool) -> CloudflareError {
     let (codes, messages) = match ipc::decode::<Envelope<IgnoredAny>>("refusal", &reply.body) {
-        Ok(answer) => (
-            answer.errors.iter().map(|said| said.code).collect(),
-            answer.errors.iter().map(|said| said.message.as_str()).filter(|said| !said.is_empty()).collect::<Vec<_>>().join("; "),
-        ),
+        Ok(answer) => {
+            let (mut codes, mut messages) = (Vec::new(), Vec::new());
+            for said in &answer.errors {
+                said.spread(&mut codes, &mut messages);
+            }
+            (codes, messages.join("; "))
+        }
         Err(_) => (Vec::new(), String::from_utf8_lossy(&reply.body).into_owned()),
     };
     let messages = at_most(&messages);
@@ -162,6 +185,10 @@ pub(crate) fn refusal(reply: &Reply, limit_sent: bool) -> CloudflareError {
     let signs_in = reply.status == 401 || (reply.status == 403 && !codes.iter().any(|code: &u64| WORKER_WRONG_CODES.contains(code)));
     if signs_in {
         return CloudflareError::Refused(if messages.is_empty() { format!("status {}", reply.status) } else { messages });
+    }
+    // A 400 whose chain says the header or the token cannot be read is the token he pasted, so it is asked for again.
+    if reply.status == 400 && codes.iter().any(|code| TOKEN_UNREADABLE_CODES.contains(code)) {
+        return CloudflareError::Refused(TOKEN_UNREADABLE_SAID.to_string());
     }
     let said = if messages.is_empty() { format!("status {}", reply.status) } else { format!("status {}: {messages}", reply.status) };
     CloudflareError::Failed(at_most(&said))

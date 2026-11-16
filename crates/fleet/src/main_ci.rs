@@ -301,6 +301,7 @@ where
         self.red_offered(&changed).await;
         self.pulls_told_when_due().await;
         self.builds_told_when_due().await;
+        self.build_asks_settled().await;
         self.previews_watched().await;
         Ok(())
     }
