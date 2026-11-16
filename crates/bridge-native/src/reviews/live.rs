@@ -598,7 +598,7 @@ impl ReviewsScreen {
             return;
         }
         let ids: Vec<String> = unsent.iter().map(|note| note.id.clone()).collect();
-        let text = crate::job_view::pr_notes::message_of(number, &unsent);
+        let text = message_of(number, &unsent);
         let manifest = pull.row.manifest.clone();
         let body = ipc::encode(&ipc::SendSessionMessageBody {
             message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(holder.id.clone()), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
@@ -699,6 +699,20 @@ impl ReviewsScreen {
             this.live_pick_layout(name, cx);
         });
     }
+}
+
+/// What the Job reads: each note numbered, with the file and line the forge names it by and the id to
+/// resolve it with. The same words as the Job's PR panel sends (`messageOf`), which keeps its own private.
+fn message_of(number: u64, notes: &[&PullRequestNote]) -> String {
+    let mut lines = vec![
+        format!("Notes on #{number} from the owner, kept on his Mac and not posted to the pull request. When you have dealt with a note, call resolve_pull_request_note with its id."),
+        String::new(),
+    ];
+    for (at, note) in notes.iter().enumerate() {
+        let removed = if note.side == ipc::NoteSide::Left { " on the removed line" } else { "" };
+        lines.push(format!("{}. {}:{}{removed} [{}]: {}", at + 1, note.path, note.line, note.id, note.body));
+    }
+    lines.join("\n")
 }
 
 /// The manifest of a pull request held, or empty.
