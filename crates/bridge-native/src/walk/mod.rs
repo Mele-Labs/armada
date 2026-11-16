@@ -1807,6 +1807,21 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sketch-shapes",
+        title: "A sketch's nodes and arrows: a plain card with its kind as a small outline, room between them, and calm arrows",
+        screen: Screen::Jobs,
+        scenario: "sketch-shapes",
+        steps: &[
+            press_on("A Job puts a sketch of a version check to him, pinned at the thread's end", "row", "Edit the merge line", "article", "Sketch to approve: Version checks"),
+            step("Open in the panel reads it on its own", Verb::Wheel("region", "Thread", -120), "button", "Open in the panel"),
+            press_on("Every node is the same plain card; the start wears a Start pill", "button", "Open in the panel", "group", "Start, New version"),
+            step("Three checks stand in a row with room between them, and the arrows from the start fan out of one trunk", Verb::Look, "group", "1. Configuration check"),
+            step("Each arrow leaves the side that faces its target and reaches the next row spread along the card's top", Verb::Look, "group", "Blocking ON (later)"),
+            step("A dashed arrow and a dotted one with its words, each on a straight run", Verb::Look, "group", "3. 20 guardrail loans"),
+            step("Esc shuts it", Verb::Key("escape"), "button", "Open in the panel"),
+        ],
+    },
+    Walk {
         name: "native-sketch-reader-fixes",
         title: "Notes on a sketch, its full screen, and a sketch once answered",
         screen: Screen::Jobs,
