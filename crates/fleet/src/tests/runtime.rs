@@ -303,8 +303,10 @@ fn a_runtime_file_from_before_ids_reads_as_an_id_nothing_equals() {
 fn the_kept_build_is_the_folder_under_builds_the_executable_sits_in_and_none_from_a_tree() {
     let support = TempDir::new();
     let build = support.path().join("builds").join("2026-11-13T004852Z-126b4bb");
-    std::fs::create_dir_all(&build).expect("it creates");
-    std::fs::write(build.join("armada"), "").expect("it writes");
+    let bundled = build.join("Armada Fleet.app/Contents/MacOS");
+    std::fs::create_dir_all(&bundled).expect("it creates");
+    std::fs::write(bundled.join("armada"), "").expect("it writes");
+    std::os::unix::fs::symlink("Armada Fleet.app/Contents/MacOS/armada", build.join("armada")).expect("it links");
     std::os::unix::fs::symlink("2026-11-13T004852Z-126b4bb", support.path().join("builds").join("current")).expect("it links");
     let tree = support.path().join("tree").join("target").join("debug");
     std::fs::create_dir_all(&tree).expect("it creates");
@@ -312,8 +314,22 @@ fn the_kept_build_is_the_folder_under_builds_the_executable_sits_in_and_none_fro
 
     let kept = Some("2026-11-13T004852Z-126b4bb".to_string());
     assert_eq!(runtime::kept_build_of(&build.join("armada"), support.path()), kept);
+    assert_eq!(runtime::kept_build_of(&bundled.join("armada"), support.path()), kept, "the bundled binary is in its build");
     assert_eq!(runtime::kept_build_of(&support.path().join("builds/current/armada"), support.path()), kept, "current resolves to its build");
     assert_eq!(runtime::kept_build_of(&tree.join("armada"), support.path()), None);
+}
+
+#[test]
+fn the_fleet_launchd_runs_from_its_one_path_is_the_build_placed_there() {
+    let support = TempDir::new();
+    let placed = support.path().join("fleet/Armada Fleet.app/Contents/MacOS");
+    std::fs::create_dir_all(&placed).expect("it creates");
+    std::fs::write(placed.join("armada"), "").expect("it writes");
+    std::fs::create_dir_all(support.path().join("builds")).expect("it creates");
+
+    assert_eq!(runtime::kept_build_of(&placed.join("armada"), support.path()), None, "nothing says which build it is yet");
+    std::fs::write(support.path().join("fleet/build"), "2026-11-16T153915Z-6aa1c22\n").expect("it writes");
+    assert_eq!(runtime::kept_build_of(&placed.join("armada"), support.path()), Some("2026-11-16T153915Z-6aa1c22".to_string()));
 }
 
 #[test]

@@ -328,6 +328,9 @@ backups="$support/backups"
 # Where the builds this script keeps are, and the one launchd runs. `scripts/keep-build`.
 builds="$support/builds"
 kept_current="$builds/current"
+# What launchd runs Fleet as: `keep-build point` copies `current`'s bundle here, one path for every build,
+# since macOS keeps Fleet's Local Network grant against the path it is run from.
+fleet_program="$support/fleet/Armada Fleet.app/Contents/MacOS/armada"
 
 # The migration guard, for `--from`. **Names, never a count**: a migration is
 # a file in `crates/store/migrations/` (the 113 before files are named in
@@ -675,10 +678,10 @@ if $dry_run; then
     echo "would take no snapshot — there is no database yet"
   fi
   kept_lock=$(shasum -a 256 "$src/pnpm-lock.yaml" 2>/dev/null | cut -c1-16 || true)
-  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada, a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
+  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada in Armada Fleet.app (bundle id dev.armada.fleet, signed by scripts/signing-identity), a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
   echo "would have the kept build open a copy of $support/armada.db first, and swap nothing if it cannot"
-  echo "would point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds"
-  echo "would write $plist: [$kept_current/armada, serve, $root]"
+  echo "would copy its Armada Fleet.app to $support/fleet, renaming each file over the last build's, and point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds"
+  echo "would write $plist: [$fleet_program, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would wait up to 60 s for the new Fleet to answer /health, and otherwise mark the build and swap back onto the one before"
   echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
@@ -894,10 +897,11 @@ fi
 # run for minutes and Fleet's own state is not this script's to assume.
 $keep_only || refuse_if_drone_working
 
-# **Keep the build, then run it from where it is kept.** Launchd runs Fleet and
-# Bridge through `$support/builds/current`, so `scripts/keep-build` has the
-# build copied out of this tree (which the next restart rebuilds in place) before
-# either job is touched, and `current` flips to it here. `armada build revert`
+# **Keep the build, then run it from where it is kept.** Launchd runs Bridge
+# through `$support/builds/current` and Fleet from `$fleet_program`, so
+# `scripts/keep-build` has the build copied out of this tree (which the next
+# restart rebuilds in place) before either job is touched, and `point` copies its
+# Fleet to that one path and flips `current` to it here. `armada build revert`
 # flips the links back and reboots the two jobs; it never builds. What was kept
 # and how is `scripts/keep-build`'s own header.
 #
@@ -970,7 +974,7 @@ if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null && ! $already_ours; the
   fi
 fi
 
-python3 - "$plist" "$label" "$kept_current/armada" "$root" "$home" "$PATH" <<'PY'
+python3 - "$plist" "$label" "$fleet_program" "$root" "$home" "$PATH" <<'PY'
 import plistlib, sys
 
 path, label, armada_bin, root, home, path_env = sys.argv[1:7]
@@ -1030,8 +1034,8 @@ if launchctl print "$service" >/dev/null 2>&1; then
 fi
 launchctl bootstrap "$domain" "$plist"
 loaded_program=$(launchctl print "$service" 2>/dev/null | sed -n 's/^[[:space:]]*program = //p')
-if [[ "$loaded_program" != "$kept_current/armada" ]]; then
-  fail "launchd loaded Fleet from ${loaded_program:-nowhere}, not $kept_current/armada — it would run the wrong build"
+if [[ "$loaded_program" != "$fleet_program" ]]; then
+  fail "launchd loaded Fleet from ${loaded_program:-nowhere}, not $fleet_program — it would run the wrong build"
 fi
 
 # **A Fleet other than the old one answers `/health` within a minute, or the

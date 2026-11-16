@@ -5,18 +5,21 @@
 # Fleet and Bridge are built and before launchd is touched; `docs/practices/
 # running-locally.md`, "Kept builds", says what the owner sees of it.
 #
-# **Launchd runs Fleet and Bridge through `builds/current`**, so going back to
-# the build before is two symlinks flipped and the two launchd jobs rebooted,
-# not a rebuild. That only works if a build is a folder nothing else rewrites:
+# **Launchd runs Bridge through `builds/current`, and Fleet from the copy of
+# `current`'s bundle in `fleet/`**, so going back to the build before is two
+# symlinks flipped, one bundle copied and the launchd jobs rebooted, not a rebuild. That only works if a build is a folder nothing else rewrites:
 # a tree's `target/` and `out/` are rebuilt in place by the next restart, and a
 # worktree under `.armada/` is deleted when its branch lands.
 #
 #   keep-build make <src> <armada binary> <main|preview> <protocol id> [<native binary>]
-#       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path.
+#       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path. Fleet is in it as
+#       `Armada Fleet.app`, with `armada` a link to the bundled binary.
 #       Touches no link. A folder is made under a temporary name and renamed into
 #       place, so a half copy is never a build.
 #   keep-build point <snapshot path>
-#       `previous` becomes the old `current` (when there was one and it is not
+#       The snapshot's `Armada Fleet.app` is copied to `fleet/Armada Fleet.app`,
+#       the path launchd runs Fleet from, and its name written to `fleet/build`.
+#       Then `previous` becomes the old `current` (when there was one and it is not
 #       this folder), `current` becomes the snapshot, then everything past the
 #       newest five builds that neither link names is deleted, and so is any
 #       `node_modules/<lock>` no remaining build names.
@@ -159,12 +162,34 @@ make() {
   making="$builds/.making-$name.$$"
   rm -rf "$making"
   mkdir -p "$making/bridge"
-  clone "$armada_bin" "$making/armada"
-  # Fleet opens Pocket's door to the network, so macOS asks it for Local Network. Signed with a fixed identifier,
-  # and the Mac's certificate where it has one, the grant outlasts the build (`scripts/signing-identity`). The clone
-  # is signed, never the binary it came from. Only a Mac has codesign: CI runs this on Linux.
+  # Fleet opens Pocket's door to the network, so macOS asks it for Local Network. A program launchd runs itself
+  # has its grant kept against its resolved path and signing identifier, bundle or not: eight Refreshes left eight
+  # grants, one per build folder (16 Nov). So launchd never runs it from here: `point` copies this bundle to
+  # `fleet/Armada Fleet.app`, one path that never changes. It stays a bundle, signed as `dev.armada.fleet`.
+  # `armada` beside it is a link to the bundled binary, for every caller that names a build's `armada`. The
+  # clone is signed, never the binary it came from. Only a Mac has codesign: CI runs this on Linux.
+  local fleet_app="$making/Armada Fleet.app"
+  mkdir -p "$fleet_app/Contents/MacOS"
+  clone "$armada_bin" "$fleet_app/Contents/MacOS/armada"
+  python3 - "$fleet_app/Contents/Info.plist" <<'PY'
+import plistlib, sys
+
+plistlib.dump(
+    {
+        "CFBundleName": "Armada Fleet",
+        "CFBundleExecutable": "armada",
+        "CFBundleIdentifier": "dev.armada.fleet",
+        "CFBundlePackageType": "APPL",
+        "CFBundleInfoDictionaryVersion": "6.0",
+        # No Dock icon and no menu bar: launchd runs it, and nobody opens it.
+        "LSUIElement": True,
+    },
+    open(sys.argv[1], "wb"),
+)
+PY
+  ln -s "Armada Fleet.app/Contents/MacOS/armada" "$making/armada"
   if command -v codesign >/dev/null; then
-    "$here/signing-identity" sign "$making/armada" dev.armada.fleet >/dev/null 2>&1 || fail "could not sign $making/armada"
+    "$here/signing-identity" sign "$fleet_app" >/dev/null 2>&1 || fail "could not sign $fleet_app"
   fi
   cp "$src/apps/desktop/package.json" "$making/bridge/package.json"
   clone "$src/apps/desktop/out" "$making/bridge/out"
@@ -272,12 +297,49 @@ point() {
   [[ $# -eq 1 ]] || fail "usage: keep-build point <snapshot path>"
   local snapshot="${1%/}"
   [[ -d "$snapshot" && "$(dirname "$snapshot")" == "$builds" ]] || fail "$snapshot is not a folder in $builds"
-  python3 - "$builds" "$support/node_modules" "$(basename "$snapshot")" "$support/electron" <<'PY'
+  python3 - "$builds" "$support/node_modules" "$(basename "$snapshot")" "$support/electron" "$support/fleet" <<'PY'
 import os, re, shutil, subprocess, sys
 
-builds, modules, name, electrons = sys.argv[1:5]
+builds, modules, name, electrons, fleet = sys.argv[1:6]
 KEEP = 5
 FOLDER = re.compile(r"\d{4}-\d{2}-\d{2}T\d{6}Z-[0-9a-f]+")
+APP = "Armada Fleet.app"
+
+
+def placed(build):
+    """The build's Fleet bundle copied to `fleet/Armada Fleet.app`, the one path launchd runs, and its name to `fleet/build`.
+
+    Each file is written beside its place and renamed over it, so a running Fleet keeps the inode it was started
+    from, and the binary is never rewritten in place, which macOS kills a signed binary for. A file the build's
+    bundle no longer has is removed. Kept in step with `crates/fleet/src/kept_builds.rs`, `placed`.
+    """
+    app = os.path.join(builds, build, APP)
+    if not os.path.isfile(os.path.join(app, "Contents", "MacOS", "armada")):
+        sys.exit(f"keep-build: {build} keeps no {APP}, so Fleet cannot be placed from it")
+    fixed = os.path.join(fleet, APP)
+    wanted = set()
+    for folder, _, names in os.walk(app):
+        for one in names:
+            rel = os.path.relpath(os.path.join(folder, one), app)
+            wanted.add(rel)
+            to = os.path.join(fixed, rel)
+            os.makedirs(os.path.dirname(to), exist_ok=True)
+            beside = f"{to}.placing"
+            if os.path.lexists(beside):
+                os.remove(beside)
+            shutil.copy2(os.path.join(folder, one), beside, follow_symlinks=False)
+            os.replace(beside, to)
+    for folder, _, names in os.walk(fixed):
+        for one in names:
+            if os.path.relpath(os.path.join(folder, one), fixed) not in wanted:
+                os.remove(os.path.join(folder, one))
+    with open(os.path.join(fleet, ".build.placing"), "w") as f:
+        f.write(f"{build}\n")
+    os.replace(os.path.join(fleet, ".build.placing"), os.path.join(fleet, "build"))
+
+
+# Before the links move, so a build that cannot be placed leaves `current` where it was.
+placed(name)
 
 
 def target(link):

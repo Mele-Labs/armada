@@ -76,21 +76,29 @@ pub struct RuntimeFile {
     /// this file was written. **This is the field that makes `pid` a claim
     /// about a particular process rather than about a number.**
     pub started_at: StartedAt,
-    /// The kept build folder Fleet's own executable sits in, such as `2026-11-13T004852Z-126b4bb`,
+    /// The kept build Fleet's own executable came from, such as `2026-11-13T004852Z-126b4bb`,
     /// so a Bridge can tell whether it is the Fleet `builds/current` points at. None when Fleet
-    /// runs from a tree, and in a file written before this field.
+    /// runs from a tree, and in a file written before this field. [`kept_build_of`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub build: Option<String>,
 }
 
-/// The name of the kept build folder `exe` sits in, under the `builds` folder of `support`.
+/// The name of the kept build folder `exe` sits in, at any depth, under the `builds` folder of `support`.
 ///
-/// Both paths are resolved first, so `builds/current/armada` names the build `current` points at.
+/// Both paths are resolved first, so `builds/current/armada`, a link to the binary in the build's
+/// `Armada Fleet.app` (`scripts/keep-build`), names the build `current` points at. **launchd's Fleet runs
+/// from the one copy under `fleet/`**, which no build's name is in, so there the build is the one
+/// `fleet/build` names, written as the copy was placed.
 pub fn kept_build_of(exe: &Path, support: &Path) -> Option<String> {
     let exe = fs::canonicalize(exe).ok()?;
+    if let Ok(fleet) = fs::canonicalize(support.join(crate::kept_builds::FLEET)) {
+        if exe.starts_with(&fleet) {
+            let named = fs::read_to_string(fleet.join(crate::kept_builds::PLACED)).ok()?;
+            return Some(named.trim().to_string()).filter(|name| !name.is_empty());
+        }
+    }
     let builds = fs::canonicalize(support.join("builds")).ok()?;
-    let folder = exe.parent()?;
-    (folder.parent()? == builds).then(|| folder.file_name()?.to_str().map(String::from))?
+    exe.ancestors().find(|one| one.parent() == Some(builds.as_path()))?.file_name()?.to_str().map(String::from)
 }
 
 /// What is at the runtime file's path.

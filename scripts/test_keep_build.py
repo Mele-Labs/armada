@@ -143,6 +143,7 @@ class KeepBuild(unittest.TestCase):
     def fake_build(self, name, lock=LOCK):
         """A kept build of an earlier day: only what `point` reads."""
         self.write(os.path.join(self.builds, name, "build.toml"), f'node_modules = "{lock}"\n')
+        self.write(os.path.join(self.builds, name, "Armada Fleet.app", "Contents", "MacOS", "armada"), f"fleet of {name}\n")
         os.makedirs(os.path.join(self.modules, lock), exist_ok=True)
 
     def set_link(self, name, to):
@@ -161,7 +162,9 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         self.assertEqual(os.path.dirname(snapshot), self.builds)
         self.assertRegex(os.path.basename(snapshot), r"^\d{4}-\d{2}-\d{2}T\d{6}Z-" + self.git("rev-parse", "HEAD")[:7] + "$")
-        self.assertEqual(sorted(os.listdir(snapshot)), ["armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+        self.assertEqual(sorted(os.listdir(snapshot)),
+                         ["Armada Fleet.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+        self.assertEqual(os.readlink(os.path.join(snapshot, "armada")), "Armada Fleet.app/Contents/MacOS/armada")
         self.assertEqual(self.read(os.path.join(snapshot, "armada")), "#!/bin/sh\necho armada\n")
         self.assertTrue(os.access(os.path.join(snapshot, "armada"), os.X_OK))
         self.assertTrue(os.access(os.path.join(snapshot, "bridge-launch"), os.X_OK))
@@ -187,7 +190,7 @@ class KeepBuild(unittest.TestCase):
     def test_the_native_bridge_is_kept_as_armada_app(self):
         snapshot = self.make(native=self.native_binary())
         self.assertEqual(sorted(os.listdir(snapshot)),
-                         ["Armada.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+                         ["Armada Fleet.app", "Armada.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
         app = os.path.join(snapshot, "Armada.app", "Contents")
         self.assertEqual(sorted(os.listdir(app)), ["Info.plist", "MacOS", "Resources", "_CodeSignature"])
         self.assertEqual(os.listdir(os.path.join(app, "MacOS")), ["Armada"])
@@ -216,13 +219,24 @@ class KeepBuild(unittest.TestCase):
         # Ad hoc, or with this Mac's certificate where `scripts/signing-identity` made one.
         self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
 
+    def test_fleet_is_kept_in_a_bundle_named_dev_armada_fleet_with_no_dock_icon(self):
+        snapshot = self.make()
+        with open(os.path.join(snapshot, "Armada Fleet.app", "Contents", "Info.plist"), "rb") as f:
+            info = plistlib.load(f)
+        self.assertEqual(info["CFBundleIdentifier"], "dev.armada.fleet")
+        self.assertEqual(info["CFBundleExecutable"], "armada")
+        self.assertIs(info["LSUIElement"], True)
+        self.assertTrue(os.access(os.path.join(snapshot, "Armada Fleet.app", "Contents", "MacOS", "armada"), os.X_OK))
+
     @SIGNS
-    def test_fleets_binary_is_signed_as_dev_armada_fleet_and_its_source_is_left_alone(self):
+    def test_fleets_bundle_is_signed_as_dev_armada_fleet_and_its_source_is_left_alone(self):
         self.armada = self.native_binary("armada-built")
         with open(self.armada, "rb") as f:
             built = f.read()
         snapshot = self.make()
-        kept = os.path.join(snapshot, "armada")
+        kept = os.path.join(snapshot, "Armada Fleet.app")
+        verified = subprocess.run(["codesign", "--verify", "--strict", kept], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
         shown = subprocess.run(["codesign", "-dv", kept], capture_output=True, text=True)
         self.assertIn("Identifier=dev.armada.fleet", shown.stderr)
         self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
@@ -464,6 +478,44 @@ class KeepBuild(unittest.TestCase):
         self.point(second)
         self.assertEqual(self.link("current"), os.path.basename(second))
         self.assertEqual(self.link("previous"), os.path.basename(first))
+
+    def test_point_places_fleet_at_one_path_and_names_its_build(self):
+        names = ["2026-01-01T000000Z-abcdef1", "2026-01-02T000000Z-abcdef2"]
+        for name in names:
+            self.fake_build(name)
+        fleet = os.path.join(self.support, "fleet")
+        program = os.path.join(fleet, "Armada Fleet.app", "Contents", "MacOS", "armada")
+        self.point(os.path.join(self.builds, names[0]))
+        self.assertEqual(self.read(program), f"fleet of {names[0]}\n")
+        stale = os.path.join(fleet, "Armada Fleet.app", "Contents", "stale")
+        self.write(stale, "only the first had it\n")
+        with open(program) as running:
+            self.point(os.path.join(self.builds, names[1]))
+            self.assertEqual(running.read(), f"fleet of {names[0]}\n", "a running Fleet keeps its inode")
+        self.assertEqual(self.read(program), f"fleet of {names[1]}\n")
+        self.assertFalse(os.path.islink(program))
+        self.assertFalse(os.path.exists(stale))
+        self.assertEqual(self.read(os.path.join(fleet, "build")), f"{names[1]}\n")
+        self.assertEqual(sorted(os.listdir(fleet)), ["Armada Fleet.app", "build"])
+
+    @SIGNS
+    def test_the_placed_fleet_keeps_its_signature_as_dev_armada_fleet(self):
+        self.armada = self.native_binary("armada-built")
+        self.point(self.make())
+        placed = os.path.join(self.support, "fleet", "Armada Fleet.app")
+        verified = subprocess.run(["codesign", "--verify", "--strict", placed], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
+        shown = subprocess.run(["codesign", "-dv", placed], capture_output=True, text=True)
+        self.assertIn("Identifier=dev.armada.fleet", shown.stderr)
+
+    def test_point_refuses_a_build_with_no_fleet_bundle_and_moves_no_link(self):
+        name = "2026-01-01T000000Z-abcdef1"
+        self.fake_build(name)
+        shutil.rmtree(os.path.join(self.builds, name, "Armada Fleet.app"))
+        done = self.run_keep("point", os.path.join(self.builds, name))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("keeps no Armada Fleet.app", done.stderr)
+        self.assertIsNone(self.link("current"))
 
     def test_point_refuses_a_folder_outside_the_builds(self):
         os.makedirs(self.builds)
