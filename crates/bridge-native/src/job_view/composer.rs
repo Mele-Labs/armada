@@ -1476,6 +1476,8 @@ impl JobView {
                     }))
                     .children(self.render_handoff_band(id, cx))
                     .children(lands_line(id, look, cx))
+                    // Over the box, never over the thread: he can read and type while a To do is open.
+                    .children(self.render_todo_strip(id, cx))
                     .child(labelled(
                         div()
                             .id("message-box")

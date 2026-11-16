@@ -115,6 +115,11 @@ fn is_ready(thing: &Thing) -> bool {
     matches!(thing, Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry)
 }
 
+/// Whether a row is a To do: something he does, then presses Done on.
+pub(super) fn is_todo(row: &NeedsYouRow) -> bool {
+    matches!(row.act, NeedsYouAct::Done { .. })
+}
+
 /// One thing the panel lists.
 pub(super) enum Thing<'a> {
     Ask(&'a ThreadAsk),
@@ -293,6 +298,8 @@ impl JobView {
                 .rows
                 .iter()
                 .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
+                // A To do stands in its own strip over the box (`todo_strip.rs`).
+                .filter(|row| !is_todo(row))
                 .filter_map(|row| match asked {
                     Some(ask) if carries(row) => (!std::mem::replace(&mut carried, true)).then_some(Thing::Ask(ask)),
                     _ => Some(Thing::Row(row)),
@@ -482,7 +489,7 @@ impl JobView {
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
                 Thing::Row(_) => None,
             })
-            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().filter(|glyph| glyph.kind != NeedsYouGlyphKind::Todo).map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
             .collect();
         if marks.is_empty() && restarts.is_empty() {
             if let Some(page) = self.pages.get(id) {
@@ -953,7 +960,7 @@ impl JobView {
     }
 
     /// One thing of the list as a row.
-    fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = Self::thing_key(thing);
         match thing {
             Thing::Ask(ask) => {
@@ -1315,10 +1322,19 @@ impl JobView {
     }
 
     /// Esc: the box goes, nothing is sent, and the keys are the panel's again.
-    fn close_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn close_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.drop_row_box();
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
         cx.notify();
+    }
+
+    /// Where the keys go once a row's box is done with: the panel while it is up, else the message box, as a
+    /// To do's strip is drawn only with the panel down.
+    fn row_home(&self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.shown.as_ref() {
+            Some(id) if !self.needs_up(id, cx) && !self.closed(id, cx) => self.composer.input.update(cx, |input, cx| input.focus(window, cx)),
+            _ => window.focus(&self.dock_focus, cx),
+        }
     }
 
     /// Enter in the box: the reason removes the row, the note is done.
@@ -1331,7 +1347,7 @@ impl JobView {
             RowBoxFor::Note => self.done_row(&row, Some(words), window, cx),
             RowBoxFor::Words => self.answer_row_words(&row, words, window, cx),
         }
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
     }
 
     /// Put a row away. It leaves the list at once; Fleet's refusal puts it back with its words.
@@ -1376,7 +1392,7 @@ impl JobView {
             window,
             cx,
         );
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
         cx.notify();
     }
 
