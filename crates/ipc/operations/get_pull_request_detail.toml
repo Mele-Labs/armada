@@ -12,5 +12,7 @@ notes = """
 
 **Lists are capped, never silently**: the first 300 files, the first 250 commits and the latest 200 things said; the reader counts what it left out, and Fleet has no log outside a Job to say it in.
 
+**A page answered to a caller no Job holds is him opening the pull request**, since Bridge reads it when he does: a `review_requested` call on it is opened then. A Job's read opens nothing.
+
 Refused with a 500 `fleet.pull_request_unreadable` where the forge would not answer (no tool, nobody signed in, no such number), and a 422 for a repository Fleet does not serve.
 """

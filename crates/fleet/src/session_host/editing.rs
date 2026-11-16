@@ -121,6 +121,9 @@ where
             // The held row in `call_rows` is the one put again when the agent reads it, so it is the one that says.
             *queued = *queued && still_queued;
         }
+        if let SessionRow::Message { from: SessionVoice::You, .. } = &row {
+            let _ = self.store().lock().await.keep_message_words(id, row.id(), words);
+        }
         self.row_put(id, row).await;
     }
 

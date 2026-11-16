@@ -124,6 +124,7 @@ where
             | Event::PreviewOffersChanged(_)
             | Event::BuildNotesChanged(_)
             | Event::SessionAside(_)
+            | Event::SessionStory(_)
             | Event::CallsChanged(_)
             | Event::ModsChanged(_)
             | Event::SettingsChanged(_)

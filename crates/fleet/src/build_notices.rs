@@ -114,6 +114,34 @@ where
         self.builds_told().await;
     }
 
+    /// An item that asks him to refresh or restart Fleet settles itself once Fleet runs a build made after the item
+    /// was raised. **Fleet reads it off the kept build's record**, and tells the Job as a dismissal does, so it does
+    /// not raise the item again. An item raised on or after that build stays. Nothing here fails the turn.
+    pub(crate) async fn build_asks_settled(self: &Arc<Self>) {
+        let support = crate::runtime::support_dir(&self.host().home);
+        let Some(running) = crate::kept_builds::kept_at(&support.join(crate::kept_builds::BUILDS), crate::kept_builds::CURRENT) else {
+            return;
+        };
+        let Some(built) = core_model::Timestamp::from_rfc3339(running.built_at).epoch_millis() else {
+            return;
+        };
+        let asks = self.store().lock().await.waiting_run_items().unwrap_or_default();
+        for (session, item, since, command) in asks {
+            let restart = matches!(command.trim(), "scripts/preview --restart" | "scripts/restart" | "scripts/preview");
+            let before = core_model::Timestamp::from_rfc3339(since).epoch_millis().is_some_and(|raised| raised < built);
+            if !(restart && before) {
+                continue;
+            }
+            let dismiss = ipc::DismissWaiting {
+                session_id: ipc::SessionId::carried(&session),
+                item_id: item,
+                reason: Some("Fleet is running a build made after you asked, so it is done".into()),
+                misread: false,
+            };
+            let _ = Arc::clone(self).dismiss_waited(dismiss).await;
+        }
+    }
+
     /// Tell the sessions that care about the build on file, unless this process settled it
     /// already. **Nothing here fails the turn.**
     pub(crate) async fn builds_told(self: &Arc<Self>) {

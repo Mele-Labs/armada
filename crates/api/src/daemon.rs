@@ -26,6 +26,7 @@
 
 mod accounts;
 mod asides;
+mod story;
 mod admitting;
 mod judge;
 mod app_runs;
@@ -55,6 +56,7 @@ mod watches;
 
 pub use accounts::Accounts;
 pub use asides::Asides;
+pub use story::Story;
 pub use admitting::{offerable, operator_rows, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
@@ -145,6 +147,7 @@ pub trait Daemon:
     + SharedHome
     + JudgeReadings
     + Asides
+    + Story
     + Requests
     + Watches
     + AppRuns
@@ -178,6 +181,7 @@ impl<
             + SharedHome
             + JudgeReadings
             + Asides
+            + Story
             + Requests
             + Watches
             + AppRuns

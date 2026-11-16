@@ -195,6 +195,10 @@ where
             self.held_with(&new, &brief).await?;
         }
         let mut held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
+        // A brief held for the person, or for a wait, is not sent as a message, so the hand is read here.
+        if held_by_word || after.is_some() {
+            self.handing_begun(&me, &new, &brief);
+        }
         // Otherwise it begins now, the brief its first turn from the caller; where that is not sent, it is held.
         if after.is_none() && !held_by_word {
             held.held = !self.agent_start_begun(&me, &new, &brief).await;

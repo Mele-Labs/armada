@@ -271,6 +271,16 @@ where
         self.kit_piece_restored(asked).await
     }
 
+    /// A piece's corrected file, written where it is still what was read: `crate::kit_files`.
+    async fn save_kit_file(&self, asked: ipc::SaveKitFile) -> Result<ipc::KitFile, Refusal> {
+        self.kit_file_saved(asked).await
+    }
+
+    /// A piece in the person's editor or Finder: `crate::kit_files`.
+    async fn open_kit_piece(&self, asked: ipc::OpenKitPiece) -> Result<ipc::KitPieceOpened, Refusal> {
+        self.kit_piece_opened(asked).await
+    }
+
     /// Write the Cockpit's flight controls to Kit: `crate::flight_controls`.
     async fn save_flight_controls(
         &self,

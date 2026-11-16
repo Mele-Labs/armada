@@ -188,6 +188,7 @@ WebSocket event stream, read this first.
 | [A Job's quick replies: `get_session_quick`](protocol/a-jobs-quick-replies.md) |
 | [A background act's failure: `act.failed`](protocol/a-background-acts-failure-act-failed.md) |
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
+| [A Kit piece's file: `get_kit_file`, `save_kit_file`, `open_kit_piece`](protocol/a-kit-pieces-file-read-saved-and-opened.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
@@ -1504,7 +1505,11 @@ Bridge's half is `DebugReport` in `packages/protocol/src/debug-report.ts`, writt
 | `get_debug_report` (`GET /debug_report?root=`, `agent_access = "Yes"`) | Bridge writes, Fleet reads | Optional `root`, a repository root: with it the report has a `This repository` block, without it none. Answers `DebugReport` `{ text }` |
 
 **One string, laid out as the Doctor and error payloads are**: no fences, rows indented two spaces, labels padded to the longest plus three.
-`Install`, `Mod`, `This repository <name>`, a `Job <title>` block for each live Job, `Recent trouble`, and a last line `fleet protocol <id>  taken <time>`.
+`Install`, `Mod`, `This repository <name>`, a `Job <title>` block for each live Job, `GitHub calls`, `Recent trouble`, and a last line `fleet protocol <id>  taken <time>`.
+**`GitHub calls` is what spent the limit every caller on this login shares** (`adapters::forge_tally`), held in memory for two hours and lost when Fleet restarts.
+Fleet's own calls to GitHub's API are counted by the source line that asked, REST or GraphQL, and answered, rate-limited or failed: the last hour, its peak minute, the top callers, and the first and latest rate-limit refusals with no words of GitHub's.
+The Jobs' own `gh` is the turns of the last hour whose first call was a `gh` command, which is what a turn's record keeps, so a turn of several counts once.
+Fleet's log has one line for each minute that made a call, and one for the first rate-limit refusal with GitHub's words.
 **Names, versions and states only.** No message, prompt or file content, no log sentence, and the home folder is `~`. Nothing is uploaded: a person copies the text.
 **The builder is `ipc::debug_report::render`**, one pure function over gathered facts, so Fleet and the CLI lay out the same text.
 A Job's `tools` and `skills` are the names its opening line gave, with another server's tools and another plugin's skills already dropped (*A Job that came up without its tools*).

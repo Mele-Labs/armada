@@ -260,6 +260,14 @@ where
             }
         }
         self.row_put(&id, row).await;
+        // Sorted after it is delivered, off this path: one row is written, and the model is read on the notice loop.
+        match &written {
+            Written::Message(SessionVoice::You) => self.message_arrived(&id, &row_id, &text).await,
+            Written::Message(SessionVoice::Session { id: from, .. }) if *from != FLEET_NAME.to_lowercase() && *from != id => {
+                self.handing_begun(from, &id, &text);
+            }
+            _ => {}
+        }
         // Before the early returns below. A waiting Session's brief is the person's too, though it is
         // written in the voice of the Job it waited on.
         if followed || matches!(written, Written::Message(SessionVoice::You)) {
