@@ -813,7 +813,7 @@ impl JobView {
     /// Whether the side chat stands in a split beside the thread, and not among the thread's own tabs.
     pub(super) fn side_split_open(&self) -> bool {
         let Some(job) = self.shown.as_ref() else { return false };
-        self.view_tab_pane(job, &tab_id(job)).is_some_and(|pane| pane != ViewPane::Thread)
+        self.view_tab_pane(job, &tab_id(job)).is_some_and(|pane| pane == ViewPane::Beside)
     }
 
     /// Whether the side chat is the front tab of the thread's pane, as it is where the pane was too narrow to split.
@@ -1129,5 +1129,28 @@ mod tests {
         cx.run_until_parked();
         assert!(!view.read_with(cx, |view, _| view.side_chat_in_front()), "the thread is in front again");
         assert_eq!(view.read_with(cx, |view, _| view.view_tab_ids("mock-02")), vec!["aside:mock-02".to_string()], "the tab stays");
+    }
+
+    #[gpui::test]
+    fn a_tab_asked_for_the_top_with_the_split_open_lands_in_the_right_column(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        let mut other = view.update(cx, |view, _| view.side_tab("mock-02", &chat));
+        other.id = "terminal:files".into();
+        view.update(cx, |view, cx| view.open_view_tab("mock-02", other, true, cx));
+        cx.run_until_parked();
+        let (column, side) = view.read_with(cx, |view, _| {
+            let arrangement = view.arrangement_of("mock-02").expect("the Job's panes");
+            (super::super::panes_place::pane_for(arrangement, ViewPane::Top), view.view_tab_pane("mock-02", "terminal:files"))
+        });
+        assert_eq!(side, Some(ViewPane::Top), "it stands in the column's top pane");
+        let held = view.read_with(cx, |view, _| {
+            let arrangement = view.arrangement_of("mock-02").expect("the Job's panes");
+            super::super::pane_tree::pane_of_tab(arrangement, &super::super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.terminal.as_deref() == Some("files")).expect("the tab").id).map(|pane| pane.id.clone())
+        });
+        assert_eq!(held, column, "and not beside the side chat");
+        assert!(view.read_with(cx, |view, _| view.side_split_open()), "the side chat's split is as it was");
     }
 }
