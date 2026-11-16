@@ -83,14 +83,14 @@ pub struct RuntimeFile {
     pub build: Option<String>,
 }
 
-/// The name of the kept build folder `exe` sits in, under the `builds` folder of `support`.
+/// The name of the kept build folder `exe` sits in, at any depth, under the `builds` folder of `support`.
 ///
-/// Both paths are resolved first, so `builds/current/armada` names the build `current` points at.
+/// Both paths are resolved first, so `builds/current/armada`, a link to the binary in the build's
+/// `Armada Fleet.app` (`scripts/keep-build`), names the build `current` points at.
 pub fn kept_build_of(exe: &Path, support: &Path) -> Option<String> {
     let exe = fs::canonicalize(exe).ok()?;
     let builds = fs::canonicalize(support.join("builds")).ok()?;
-    let folder = exe.parent()?;
-    (folder.parent()? == builds).then(|| folder.file_name()?.to_str().map(String::from))?
+    exe.ancestors().find(|one| one.parent() == Some(builds.as_path()))?.file_name()?.to_str().map(String::from)
 }
 
 /// What is at the runtime file's path.
