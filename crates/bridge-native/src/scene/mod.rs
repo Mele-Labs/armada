@@ -890,9 +890,10 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
         }
     });
     let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
-    if fit == Fit::Reading {
-        let base = View::base(bounds, laid.bounds, fit);
-        notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(laid.bounds.w * base, laid.bounds.h * base), base });
+    // A column drawing is kept too, with nothing placed: the review panel zooms one in place and reads its fit from here.
+    if fit != Fit::Preview {
+        let base = View::base(bounds, canvas, fit);
+        notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(canvas.w * base, canvas.h * base), base });
     }
     Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }

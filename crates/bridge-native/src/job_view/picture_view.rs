@@ -138,6 +138,15 @@ impl JobView {
         Some((held, scene))
     }
 
+    /// The key of the drawing part the viewer holds, where it holds one.
+    #[cfg(test)]
+    pub(super) fn viewing_drawing(&self) -> Option<&str> {
+        match self.pictures.viewing.as_ref().map(|viewing| &viewing.what) {
+            Some(What::Drawing { key }) => Some(key),
+            _ => None,
+        }
+    }
+
     /// The viewer's keys: Esc closes, ← and → step a take, and the zoom's own. A text box keeps its keys.
     fn picture_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {

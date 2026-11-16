@@ -1735,7 +1735,7 @@ impl JobView {
     fn review_foot(&self, review: &ReviewState, chosen: Option<(&Item, &Row)>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let acts = chosen.and_then(|(item, row)| self.review_item_acts(item, row, look, cx));
         let acts_shown = acts.is_some();
-        let enlarge = chosen.is_some_and(|(item, _)| self.staged(item, cx).is_some());
+        let enlarge = chosen.is_some_and(|(item, _)| self.review_enlarge(item, cx).is_some());
         let asking = review.items().any(|item| item.kind != Kind::Artifact && review.row(&item.key()).verdict.is_none());
         let focus = &self.review_focus;
         let hint = div()
