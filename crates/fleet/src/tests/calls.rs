@@ -618,6 +618,7 @@ fn a_mac_waiting_to_pair_calls_him_with_its_id_and_digits_once_and_stops_when_ha
         tone: CallTone::Blocked,
         opened: false,
         mac: Some("0a0b".into()),
+        review: None,
     };
     assert_eq!(told.calls, [call]);
     let arrival = CallArrival {
