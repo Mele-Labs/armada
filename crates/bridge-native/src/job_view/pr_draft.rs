@@ -1,5 +1,5 @@
 //! A description a Job proposed for the open pull request (`PullRequestPage.draft`), drawn in place of the
-//! description on Conversation: the draft with what it changes in the current one marked, Current to read
+//! description on Overview: the draft with what it changes in the current one marked, Current to read
 //! the one it replaces, and Approve, Edit and Note answering its `draft:<id>` item. Armada Classic draws
 //! none of it; the draft waits in the thread there.
 
@@ -94,7 +94,7 @@ fn kept_key(draft: &PullRequestDraft, writing: Writing) -> String {
 }
 
 impl JobView {
-    /// The draft's card, in the description's place at the head of Conversation.
+    /// The draft's card, in the description's place on Overview.
     pub(in crate::job_view) fn pull_draft_card(&self, panel: &PullPanel, page: &PullRequestPage, draft: &PullRequestDraft, look: &Look, cx: &Context<Self>) -> AnyElement {
         let pane = &panel.draft;
         let current = strip_comments(page.body.as_deref().unwrap_or(""));

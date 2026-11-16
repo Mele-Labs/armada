@@ -1,6 +1,6 @@
 //! A pull request's side panel, opened from its row (`PullRequestPanel`, `shared-panel/pull-request.tsx`):
 //! the head, its title, what it is and where it is going, the act that moves it on, the plates beside it,
-//! the tabs Conversation, Checks, Files and Commits, and the comment box at its foot. The Review tab comes
+//! the tabs Overview, Comments, Checks, Files and Commits, and the comment box at its foot. The Review tab comes
 //! with the Reviews screen.
 
 use std::collections::HashSet;
@@ -24,21 +24,24 @@ use crate::labels::labelled;
 mod pr_draft;
 use crate::look::{token, ActiveLook, Look, Token};
 
-/// The panel's tabs, in Electron's order (`TABS`). Review joins them with the Reviews screen.
+/// The panel's tabs. Electron's Conversation (`TABS`) is split here: Overview holds the description, and
+/// Comments what was said and the threads. Review joins them with the Reviews screen.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum PullTab {
-    Conversation,
+    Overview,
+    Comments,
     Checks,
     Files,
     Commits,
 }
 
 impl PullTab {
-    const ALL: [PullTab; 4] = [PullTab::Conversation, PullTab::Checks, PullTab::Files, PullTab::Commits];
+    const ALL: [PullTab; 5] = [PullTab::Overview, PullTab::Comments, PullTab::Checks, PullTab::Files, PullTab::Commits];
 
     fn word(self) -> &'static str {
         match self {
-            PullTab::Conversation => "Conversation",
+            PullTab::Overview => "Overview",
+            PullTab::Comments => "Comments",
             PullTab::Checks => "Checks",
             PullTab::Files => "Files",
             PullTab::Commits => "Commits",
@@ -324,6 +327,35 @@ pub(super) fn evaluate_message(number: u64, id: &str, author: &str, body: &str, 
     lines.join("\n")
 }
 
+/// One thing said on Comments: an entry of the conversation, or a thread on the diff.
+pub(super) enum Said<'a> {
+    Entry(&'a PullRequestEntry),
+    Thread(&'a PullReviewThread),
+}
+
+/// Comments: what was said and the threads on the diff, oldest first. The description is Overview's.
+pub(super) fn comments_of(page: &PullRequestPage) -> Vec<Said<'_>> {
+    let time = |at: &str| chrono::DateTime::parse_from_rfc3339(at).map(|at| at.timestamp_millis()).unwrap_or(0);
+    let mut said: Vec<(i64, Said)> = page
+        .conversation
+        .iter()
+        .map(|entry| {
+            let at = match entry {
+                PullRequestEntry::Comment { at, .. } | PullRequestEntry::Review { at, .. } => at,
+            };
+            (time(at), Said::Entry(entry))
+        })
+        .chain(page.threads.iter().filter_map(|thread| thread.comments.first().map(|first| (time(&first.at), Said::Thread(thread)))))
+        .collect();
+    said.sort_by_key(|(at, _)| *at);
+    said.into_iter().map(|(_, one)| one).collect()
+}
+
+/// The comments on Comments, its tab's count: each comment and review, and each comment in a thread.
+pub(super) fn comment_count(page: &PullRequestPage) -> usize {
+    page.conversation.len() + page.threads.iter().map(|thread| thread.comments.len()).sum::<usize>()
+}
+
 /// Whether the box may send: a comment and a request for changes need words, an approval need not (`mayWrite`).
 fn may_write(kind: PullRequestWriteKind, text: &str) -> bool {
     kind == PullRequestWriteKind::Approve || !text.trim().is_empty()
@@ -549,7 +581,7 @@ impl JobView {
         });
         let panel = PullPanel {
             pull,
-            tab: PullTab::Conversation,
+            tab: PullTab::Overview,
             page: None,
             say,
             write: PullRequestWriteKind::Comment,
@@ -1310,11 +1342,29 @@ impl JobView {
     fn pull_tabs(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let accent = look.color(token::ACCENT);
         let strong = look.color(token::FG_DEFAULT);
+        let comments = comment_count(page);
         let strip = div().id("pull-tabs").flex().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(PullTab::ALL.into_iter().map(|one| {
             let front = one == panel.tab;
+            // Comments says how many it holds, as the forge's tab does.
+            let count = (one == PullTab::Comments).then(|| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_2))
+                    .rounded_full()
+                    .bg(look.color(token::BG_HOVER))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(comments.to_string()))
+            });
+            let name = if one == PullTab::Comments { format!("Comments {comments}") } else { one.word().to_string() };
             labelled(
                 div()
                     .id(SharedString::from(format!("pull-tab:{}", one.word())))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
                     .px(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_2))
                     .text_size(look.length(token::TEXT_SM))
@@ -1326,13 +1376,15 @@ impl JobView {
                     .hover(move |style| style.text_color(strong))
                     .tooltip(tip(format!("{} \u{b7} [ ]", one.word())))
                     .on_click(cx.listener(move |this, _, window, cx| this.pull_tab(one, window, cx)))
-                    .child(one.word()),
+                    .child(one.word())
+                    .children(count),
                 Role::Tab,
-                one.word(),
+                name,
             )
         }));
         let shown: Option<AnyElement> = match panel.tab {
-            PullTab::Conversation => self.pull_conversation(panel, pull, page, look, cx),
+            PullTab::Overview => self.pull_overview(panel, page, look, cx),
+            PullTab::Comments => self.pull_comments(panel, pull, page, look, cx),
             PullTab::Checks => pull_checks(page, look, cx),
             PullTab::Files => self.pull_files(panel, page, tree_inside, look, cx),
             PullTab::Commits => pull_commits(page, look),
@@ -1346,39 +1398,30 @@ impl JobView {
             .into_any_element()
     }
 
-    /// Conversation: the description, then what was said and the threads on the diff, in the order
-    /// they were said (`Conversation`). Nothing said, nothing drawn.
-    fn pull_conversation(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        enum Said<'a> {
-            Entry(&'a PullRequestEntry),
-            Thread(&'a PullReviewThread),
-        }
+    /// Overview: the description, or the draft of a new one in its place. Neither, nothing drawn.
+    fn pull_overview(&self, panel: &PullPanel, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let description = strip_comments(page.body.as_deref().unwrap_or(""));
-        let time = |at: &str| chrono::DateTime::parse_from_rfc3339(at).map(|at| at.timestamp_millis()).unwrap_or(0);
-        let mut said: Vec<(i64, Said)> = page
-            .conversation
-            .iter()
-            .map(|entry| {
-                let at = match entry {
-                    PullRequestEntry::Comment { at, .. } | PullRequestEntry::Review { at, .. } => at,
-                };
-                (time(at), Said::Entry(entry))
-            })
-            .chain(page.threads.iter().filter_map(|thread| thread.comments.first().map(|first| (time(&first.at), Said::Thread(thread)))))
-            .collect();
-        said.sort_by_key(|(at, _)| *at);
-        if description.trim().is_empty() && said.is_empty() && page.draft.is_none() {
+        let card = if let Some(draft) = &page.draft {
+            self.pull_draft_card(panel, page, draft, look, cx)
+        } else if !description.trim().is_empty() {
+            let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
+            self.pull_card("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), None, &description, "Description".into(), look, Local::now(), cx)
+        } else {
+            return None;
+        };
+        Some(labelled(div().id("pull-overview").flex().flex_col().gap(look.length(token::SPACE_3)).child(card), Role::List, "Overview").into_any_element())
+    }
+
+    /// Comments: what was said and the threads on the diff with their file and line, in the order they
+    /// were said. The threads stay in Files too. Nothing said, nothing drawn.
+    fn pull_comments(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let said = comments_of(page);
+        if said.is_empty() {
             return None;
         }
         let now = Local::now();
         let mut cards: Vec<AnyElement> = Vec::new();
-        if let Some(draft) = &page.draft {
-            cards.push(self.pull_draft_card(panel, page, draft, look, cx));
-        } else if !description.trim().is_empty() {
-            let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
-            cards.push(self.pull_card("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), None, &description, "Description".into(), look, now, cx));
-        }
-        for (_, one) in said {
+        for one in said {
             match one {
                 Said::Entry(entry) => {
                     let (id, author, bot, at, body, verdict) = match entry {
@@ -1395,7 +1438,7 @@ impl JobView {
                 Said::Thread(thread) => cards.push(self.pull_thread(panel, pull, thread, look, now, cx)),
             }
         }
-        Some(labelled(div().id("pull-conversation").flex().flex_col().gap(look.length(token::SPACE_3)).children(cards), Role::List, "Conversation").into_any_element())
+        Some(labelled(div().id("pull-comments").flex().flex_col().gap(look.length(token::SPACE_3)).children(cards), Role::List, "Comments").into_any_element())
     }
 
     /// Evaluate at the head's end, or the mark that it was sent in the same cell (`Evaluate`).
@@ -1705,6 +1748,41 @@ mod tests {
     #[test]
     fn a_template_comment_leaves_the_description() {
         assert_eq!(strip_comments("Fixes it.<!-- fill in --> Done."), "Fixes it. Done.");
+    }
+
+    #[test]
+    fn comments_are_what_was_said_and_the_threads_oldest_first() {
+        let page: PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "unknown", "review": "none", "approvals": 0,
+                "body": "The description.",
+                "conversation": [
+                    { "kind": "review", "id": "R2", "author": "bob", "at": "2026-11-08T12:00:00Z", "verdict": "commented", "body": "Later" },
+                    { "kind": "comment", "id": "C1", "author": "alice", "at": "2026-11-08T10:00:00Z", "body": "First" },
+                ],
+                "threads": [
+                    { "id": "T1", "path": "src/a.rs", "line": 4, "side": "right", "resolved": false, "comments": [
+                        { "id": "TC1", "author": "cleo", "at": "2026-11-08T11:00:00Z", "body": "On a line" },
+                        { "id": "TC2", "author": "alice", "at": "2026-11-08T11:30:00Z", "body": "A reply" },
+                    ] },
+                    { "id": "T2", "path": "src/b.rs", "side": "right", "resolved": true, "comments": [] },
+                ],
+                "checks": [], "files": [], "commits": [],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let ids: Vec<&str> = comments_of(&page)
+            .iter()
+            .map(|said| match said {
+                Said::Entry(PullRequestEntry::Comment { id, .. } | PullRequestEntry::Review { id, .. }) => id.as_str(),
+                Said::Thread(thread) => thread.id.as_str(),
+            })
+            .collect();
+        assert_eq!(ids, ["C1", "T1", "R2"], "a thread with no comment is not one");
+        assert_eq!(comment_count(&page), 4, "a reply in a thread is a comment of its own");
     }
 
     #[test]

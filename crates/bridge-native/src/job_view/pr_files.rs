@@ -310,7 +310,7 @@ impl JobView {
         self.panes.patches.get(&key)?.as_ref().ok()?.files.iter().find(|one| one.path == path)
     }
 
-    /// The lines a thread is about, under its head in Conversation.
+    /// The lines a thread is about, under its head in Comments and Files.
     pub(super) fn thread_excerpt(&self, panel: &PullPanel, thread: &PullReviewThread, look: &Look) -> Option<AnyElement> {
         let line = thread.line?;
         let patch = self.pull_patch(panel, &thread.path)?.patch.as_deref()?;
