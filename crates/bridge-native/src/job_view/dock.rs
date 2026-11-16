@@ -1121,8 +1121,11 @@ impl JobView {
                 .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };
+        let mark = div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said.clone()));
+        // A To do's words only select, so its mark is where a press opens the note box: named as its tooltip reads.
+        let mark = if done.is_some() { labelled(mark, Role::Image, said).into_any_element() } else { mark.into_any_element() };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
-            .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
+            .child(mark)
             .child(words)
             .children(thumbs)
             .children(done)
