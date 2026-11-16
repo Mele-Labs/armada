@@ -14,6 +14,7 @@
 //! [`SERVED`] stays one slice. The gate rule reads every file — `xtask/src/rules_protocol.rs`.
 
 mod judge;
+mod story;
 mod authoring;
 mod autopilot;
 mod events;
@@ -63,6 +64,7 @@ pub const SERVED: &[Route] = &joined::<
             + retro::ROUTES.len()
             + runs::ROUTES.len()
             + judge::ROUTES.len()
+            + story::ROUTES.len()
             + other_macs::ROUTES.len()
     },
 >([
@@ -79,11 +81,12 @@ pub const SERVED: &[Route] = &joined::<
     retro::ROUTES,
     runs::ROUTES,
     judge::ROUTES,
+    story::ROUTES,
     other_macs::ROUTES,
 ]);
 
-/// The fourteen tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 14]) -> [Route; N] {
+/// The fifteen tables as one, in order. A count that disagrees with `N` fails the build.
+const fn joined<const N: usize>(tables: [&[Route]; 15]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);

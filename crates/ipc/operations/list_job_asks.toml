@@ -1,0 +1,16 @@
+[operations.list_job_asks]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The asks said in a Job, built by it or handed through it, oldest first, each with its words and state"
+notes = """
+`GET /sessions/asks?session_id=`. `JobAsks` `{ session_id, asks }`, each an `Ask` `{ ask_id, kind, title, first_words, first_row, said_in, building?, features?, state, state_at, opened_at, said? }`. Since 16 Nov 2026.
+
+`kind` is `bug`, `change_request`, `idea` or `fix`. `state` is `backlog` (decided, not started), `building`, `built` (the Job that took it merged), `handed` (passed to another Job, which builds it) or `dropped`. `said_in` is the Job the owner said it in and `building` the Job building it, which differ once it is handed. `features` are slugs, plain strings, and an ask on two is on both. `said` holds each `revision` and `answer`, oldest first, as `AskWords` `{ session_id, row_id, kind, words, at }`; `first_words` is what he first said.
+
+**An ask opens on a message sorted `new_ask`**, built by the Job it was said in. It moves to `built` when a pull request of the Job building it merges, to `handed` when that Job starts another Job or messages one with it, and to `backlog` or `dropped` when the owner says so with `change_ask`.
+
+404 `fleet.no_such_session` where Fleet hosts no such Job.
+
+`agent_access` is `No`.
+"""
