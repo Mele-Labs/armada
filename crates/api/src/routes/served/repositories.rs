@@ -312,6 +312,22 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/kit/pieces/restore",
     },
+    // A piece's file, read and saved by the kind and name the inventory gives it, and opened in an editor or Finder.
+    Route {
+        operation: "open_kit_piece",
+        method: "POST",
+        path: "/kit/pieces/open",
+    },
+    Route {
+        operation: "get_kit_file",
+        method: "GET",
+        path: "/kit/file",
+    },
+    Route {
+        operation: "save_kit_file",
+        method: "POST",
+        path: "/kit/file/save",
+    },
     // Share: pieces made into a package, read, added to the person's Kit, and the ones kept
     // unbound until a repository is chosen. A read of a package is a POST: the text is the body.
     Route {

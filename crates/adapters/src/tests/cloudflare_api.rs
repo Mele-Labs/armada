@@ -152,6 +152,30 @@ fn a_400_that_is_not_a_sign_in_error_failed() {
     assert_eq!(said, CloudflareError::Failed("status 400: Script validation failed".to_string()));
 }
 
+fn chained(code: u64, message: &str, chain_code: u64, chain_message: &str) -> String {
+    format!(r#"{{"success":false,"errors":[{{"code":{code},"message":"{message}","error_chain":[{{"code":{chain_code},"message":"{chain_message}"}}]}}],"messages":[],"result":null}}"#)
+}
+
+const TOKEN_UNREADABLE: &str = "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token.";
+
+#[test]
+fn a_400_whose_chain_says_the_token_is_unreadable_is_refused_so_the_token_is_asked_for_again() {
+    for chain_code in [6111, 6100, 6102, 6199] {
+        let body = chained(6003, "Invalid request headers", chain_code, "Invalid format for Authorization header");
+        assert_eq!(cloudflare_api::refusal(&reply(400, &body), false), CloudflareError::Refused(TOKEN_UNREADABLE.to_string()), "{chain_code}");
+    }
+    // One level is all some answers send: the code itself is a 6100.
+    assert_eq!(cloudflare_api::refusal(&reply(400, &refused_with(6111, "Invalid format for Authorization header")), false), CloudflareError::Refused(TOKEN_UNREADABLE.to_string()));
+    // A 6100 on another status is not this: only a 400 is the header unread.
+    assert_eq!(cloudflare_api::refusal(&reply(500, &refused_with(6111, "Invalid format")), false), CloudflareError::Failed("status 500: Invalid format".to_string()));
+}
+
+#[test]
+fn a_400_with_an_unrelated_code_failed_and_says_its_chain() {
+    let body = chained(6003, "Invalid request headers", 6200, "Header too long");
+    assert_eq!(cloudflare_api::refusal(&reply(400, &body), false), CloudflareError::Failed("status 400: Invalid request headers; Header too long".to_string()));
+}
+
 #[test]
 fn a_refused_limit_is_limit_refused_only_when_the_limit_was_sent() {
     for words in ["Unknown binding type RateLimit", "rate limit bindings are not enabled", "invalid rate_limit namespace"] {

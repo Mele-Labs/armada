@@ -26,6 +26,10 @@ on purpose and makes the gate name what was waiting.
 - **[fleet-port-range-degradation-visibility]** How does a person learn the port range is losing spans? An undeclared supervisor-held process holds its port past release, the probe refuses that span, and the range loses it — nothing currently surfaces that degradation.
 - **[fleet-self-restart-limit-setting]** What happens to the *Fleet self-restart attempt limit/backoff* setting, given that launchd cannot implement a cap or a backoff curve? The setting describes behavior the supervisor does not offer.
 
+## docs/concepts/job-story.md
+
+- **[story-sorting-model-dial]** Does sorting a message take a dial of its own beside `models.dispute`? It runs on the dispute model today, so changing that setting changes both reads.
+
 ## docs/concepts/judge.md
 
 - **[judge-cost-cap-per-check]** Does a Judge call get a cost readout, and is a per-check dollar cap the right shape for the sub-limit? Reviewed 28 Aug 2026 alongside the model default and deliberately left open: nothing can read what a step judge call cost, because the call is rendered as one-shot text and emits no result envelope, so the figure a cap would compare against never reaches Armada. A number written into the row today would be enforced by nothing while reading as a limit that was set, which is worse than an absent cap because only the absent one is visible as missing. The Judge on the owner's press has no cap either: it runs on the strongest model, and what bounds spend is a person's press. The same answer decides both.

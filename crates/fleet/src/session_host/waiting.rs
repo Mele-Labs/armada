@@ -647,6 +647,8 @@ where
             };
             running
         };
+        let agent_listed = items.iter().any(|one| one.source == WaitingSource::Agent);
+        let reads_replies = self.reads_replies_on();
         // Nothing until the model is loaded and has read the reply, which publishes the Session again.
         let refused = |said: &str| {
             let model = self.language_model().model()?;
@@ -656,7 +658,7 @@ where
         // Each sentence of the close, the same way: nothing until the model has read the reply.
         let extracted = |said: &str| {
             // A turn that put a question card to him asked through it: what it said around the card asks nothing more.
-            if carded {
+            if carded || agent_listed || !reads_replies {
                 return None;
             }
             let model = self.language_model().model()?;
@@ -675,7 +677,8 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| {
-                if carded {
+                // A card, or items the agent listed itself, already say what the turn waits on: its reply restates them.
+                if carded || agent_listed || !reads_replies {
                     return None;
                 }
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);

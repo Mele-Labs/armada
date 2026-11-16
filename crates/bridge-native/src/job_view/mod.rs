@@ -183,7 +183,7 @@ pub(crate) enum Extra {
     Sketch(String),
     Pending(usize),
     Working,
-    /// The card of the subagents running now.
+    /// The card of the subagents and background tasks running now.
     Subagents,
     /// The agent's last word: what it made and the two ways on (`DoneBody`).
     End,
@@ -987,6 +987,10 @@ impl JobView {
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
         if ready_compact::asks(&held.items) {
             cards.push(Extra::Ready);
+        }
+        // A background task Fleet lists is a row of the running card, so the card stands while one runs.
+        if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
+            extras.push(Extra::Subagents);
         }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);

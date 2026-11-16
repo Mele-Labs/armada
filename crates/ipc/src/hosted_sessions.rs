@@ -307,8 +307,8 @@ pub struct PauseSession {
     pub session_id: SessionId,
 }
 
-/// `snooze_session`: keep a Job quiet until `until`, or wake it now with none. It keeps working;
-/// what it raises meanwhile stays on it with no push or card.
+/// `snooze_session`: pause a Job and keep it quiet until `until`, or wake it now with none. What it
+/// raised stays on it with no push or card, and the wake resumes it if the snooze paused it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnoozeSession {
     pub session_id: SessionId,
