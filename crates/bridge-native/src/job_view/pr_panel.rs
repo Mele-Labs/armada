@@ -1740,7 +1740,7 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     fn pull_card_under(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, under: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let head = card_head(look, lead, who, bot, at.and_then(|at| age(at, now)), act);
-        let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.prose(format!("{id}:body"), body, look, cx)));
+        let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.pull_prose(format!("{id}:body"), body, look, cx)));
         labelled(
             div()
                 .id(SharedString::from(id.to_string()))
@@ -1795,7 +1795,7 @@ impl JobView {
                 let act = pull.held().then(|| self.evaluate_act(panel, pull, &one.id, &one.author, &one.body, Some(place.clone()), look, cx));
                 let head = card_head(look, None, Some(one.author.clone()), one.bot, age(&one.at, now), act);
                 let words = (!one.body.trim().is_empty())
-                    .then(|| div().min_w_0().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_1)).pb(look.length(token::SPACE_3)).child(self.prose(format!("pull-thread:{}:{}", thread.id, one.id), &one.body, look, cx)));
+                    .then(|| div().min_w_0().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_1)).pb(look.length(token::SPACE_3)).child(self.pull_prose(format!("pull-thread:{}:{}", thread.id, one.id), &one.body, look, cx)));
                 labelled(
                     div()
                         .id(SharedString::from(format!("pull-thread-comment:{}", one.id)))

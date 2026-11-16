@@ -489,6 +489,36 @@ impl JobView {
         out
     }
 
+    /// The pull requests known in `manifest`, by number and address: a `pr` row any Job holds, then those on
+    /// the merge line of its repository. A `#N` in words is a link only to one of these.
+    pub(super) fn known_pulls(&self, manifest: &str, cx: &gpui::App) -> Vec<(u64, String)> {
+        let mut known: Vec<(u64, String)> = self
+            .list
+            .read(cx)
+            .records()
+            .iter()
+            .flat_map(|record| record.attachments.iter().filter_map(|one| pull_of(record, one, None)))
+            .filter(|pull| pull.manifest.as_deref() == Some(manifest) && !pull.address.is_empty())
+            .map(|pull| (pull.number, pull.address))
+            .collect();
+        let mut line = |served: &[ipc::RepositorySummary], lines: &[ipc::MergeLineView]| {
+            let roots: Vec<&str> = served.iter().filter(|one| one.manifest.as_ref().is_some_and(|held| held.id.as_str() == manifest)).map(|one| one.root.as_str()).collect();
+            for view in lines.iter().filter(|line| roots.contains(&line.root.as_str())).flat_map(|line| &line.pulls) {
+                if !known.iter().any(|(number, _)| *number == view.pull.number) {
+                    known.push((view.pull.number, view.pull.url.clone()));
+                }
+            }
+        };
+        match &self.fleet {
+            Some(fleet) => {
+                let held = fleet.read(cx).held();
+                line(held.repositories.as_deref().unwrap_or_default(), held.merge_lines.as_deref().unwrap_or_default());
+            }
+            None => line(&crate::mock::repositories(), &crate::mock::merge_lines().unwrap_or_default()),
+        }
+        known
+    }
+
     /// A forge pull request's address pressed in words opens in the PR tab: the pull request a Job holds at
     /// that address, else one no Job holds in the Manifest its repository names. False where it is no pull
     /// request's address or no Manifest is read from its repository, and the browser takes it.
