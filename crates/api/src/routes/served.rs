@@ -89,7 +89,7 @@ pub const SERVED: &[Route] = &joined::<
 ]);
 
 /// The fifteen tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 15]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 16]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);
