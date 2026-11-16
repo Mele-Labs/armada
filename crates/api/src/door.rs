@@ -67,6 +67,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_closed_waiting", &["session_id"]),
     ("get_job_lifecycles", &["session_id"]),
     ("get_job_copy", &["session_id"]),
+    ("get_for_you", &["session_id"]),
     ("list_watch_recipes", &["session_id"]),
     ("read_terminal", &["terminal", "lines", "session_id", "until", "regex", "wait_seconds"]),
     ("list_terminals", &["session_id"]),
@@ -173,6 +174,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "withdraw_document",
     "archive_artifact",
     "restore_artifact",
+    "add_part",
     "show_sketch",
     "show_file",
     "record_plan",
@@ -191,11 +193,20 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "finish_up",
     "dispute_fleet",
     "report_bug",
+    // The two things a Job may send the Operator.
+    "raise_conflict",
+    "ask_held",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
     // The Jobs it started are read and commanded the same way.
     "list_started_sessions",
     "command_started_sessions",
+    // Its For you tab is its own, placed as `waiting_for` is.
+    "get_for_you",
+    "withdraw_for_you",
+    "order_for_you",
+    "line_for_you",
+    "add_for_you",
     // A watch is the Job's own, placed as `waiting_for` is.
     "start_watch",
     "try_watch",
@@ -232,6 +243,19 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "scaffold_mod",
     "validate_mod",
     "try_tracker_mod",
+];
+
+/// What the Operator's session is offered beside [`WITHOUT_A_MANIFEST_OFFERS`] and its own rows: the reads
+/// and acts that reach every repository Fleet serves, where a call names its repository itself. The
+/// Operator stands in no Manifest, so nothing here is narrowed to one.
+const OPERATOR_ALSO_OFFERED: &[&str] = &[
+    "list_sessions",
+    "list_worktrees",
+    "get_pull_request",
+    "get_pull_request_detail",
+    "merge_pull_request_by_number",
+    "enable_auto_merge",
+    "tell_session",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every
@@ -404,10 +428,12 @@ async fn without_a_manifest<D: Queries + Admitting>(
     caller: crate::mcp::Caller,
 ) -> Option<Answered> {
     let session = placed.is_a_hosted_session();
+    let operator = placed.is_the_operator();
     let shapes = match session {
         true => shaped(
             crate::daemon::offerable()
-                .filter(|row| WITHOUT_A_MANIFEST_OFFERS.contains(&row.operation)),
+                .filter(|row| WITHOUT_A_MANIFEST_OFFERS.contains(&row.operation) || (operator && OPERATOR_ALSO_OFFERED.contains(&row.operation)))
+                .chain(crate::daemon::operator_rows().filter(|_| operator)),
         ),
         false => Vec::new(),
     };
@@ -502,7 +528,7 @@ impl<D: Queries> Doorway<D> {
         }
         let path = match scope {
             Some(scope) => as_an_agent_reads(call, scoped_path(call, scope)),
-            None => call.path.clone(),
+            None => as_an_agent_reads(call, call.path.clone()),
         };
         let request = Request::builder()
             .method(call.method)

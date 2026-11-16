@@ -12,6 +12,7 @@ use ipc::{
     BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
     OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
+use ipc::{ArrivingJob, JobTerminals, ManifestSummary, MoveJobToMac, SessionRunUnderway, StartSession, TerminalFromMac, TerminalOfJob};
 
 use crate::daemon::Refusal;
 
@@ -50,6 +51,25 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `share_projects` — this Mac's own shared projects with their tasks. Never a copy held from another Mac.
     fn share_projects(&self) -> impl Future<Output = Result<Projects, Refusal>> + Send;
+
+    /// Whether the phone sees Job `job`: one of this Mac's in a shared project, or one held from another Mac.
+    fn job_for_phone(&self, job: &str) -> impl Future<Output = bool> + Send;
+
+    /// Whether the phone sees terminal run `run_id`: one of a Job it sees.
+    fn run_for_phone(&self, run_id: &str) -> impl Future<Output = bool> + Send;
+
+    /// `event`, where the phone is sent it.
+    fn event_for_phone(&self, event: Event) -> impl Future<Output = Option<Event>> + Send;
+
+    /// A Job the phone starts here: into a shared project, and a fork only of a Job it sees. [`Refusal::NotFound`]
+    /// otherwise, worded as for a project or Job that does not exist.
+    fn start_from_phone(&self, start: &StartSession) -> impl Future<Output = Result<(), Refusal>> + Send;
+
+    /// The projects the phone is named: this Mac's shared ones, and the copies held from another Mac.
+    fn projects_for_phone(&self, projects: Projects) -> impl Future<Output = Projects> + Send;
+
+    /// The repositories the phone is named: those in a project it sees.
+    fn manifests_for_phone(&self, manifests: Vec<ManifestSummary>) -> impl Future<Output = Vec<ManifestSummary>> + Send;
 
     /// `project_act_from_mac` — a task act another Mac made on its copy of a shared project of this Mac, run
     /// here. [`Refusal::NotFound`] for a row or project that is not shared, worded as for one that does not
@@ -123,4 +143,44 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `hold_mac_claims` — every other Mac waiting for his Confirm here, replacing all held, each a call on him.
     fn hold_mac_claims(&self, claims: MacClaimsWaiting) -> impl Future<Output = Result<MacClaimsWaiting, Refusal>> + Send;
+
+    /// `share_job_terminal` — another Mac opens, lists, types into, resizes or stops a terminal of a shared Job, as
+    /// the person does at home. [`Refusal::NotFound`] for a Job not shared, worded as for a Job that does not exist,
+    /// and for a run that is not one of the Job's open terminals. Takes the `Arc` as `open_terminal` does.
+    fn share_job_terminal(self: Arc<Self>, asked: TerminalFromMac) -> impl Future<Output = Result<TerminalShared, Refusal>> + Send;
+
+    /// `share_job_terminal_output` — what one of a shared Job's open terminals printed and prints next, refused as
+    /// `share_job_terminal` is.
+    fn share_job_terminal_output(&self, which: TerminalOfJob) -> impl Future<Output = Result<crate::ObservedSessionRun, Refusal>> + Send;
+
+    /// `move_job_to_mac` — the person moves a Job to another of his Macs. A Job this Mac holds waits for its turn
+    /// to end, then is paused, pushed and handed to `asked.mac`; one held from another Mac is asked of that Mac,
+    /// to come here. Answers the row as it stands, with `hosted.moving_to_mac` set while the move runs.
+    fn move_job_to_mac(self: Arc<Self>, asked: MoveJobToMac) -> impl Future<Output = Result<ipc::SessionRecord, Refusal>> + Send;
+
+    /// `act_from_mac`'s `move` — Mac `mac` asks for Job `job` of this Mac, as `move_job_to_mac` to it.
+    fn move_from_mac(self: Arc<Self>, mac: String, job: SessionId) -> impl Future<Output = Result<ipc::SessionRecord, Refusal>> + Send;
+
+    /// `act_from_mac`'s `arrive` — Mac `mac` hands this Mac a Job it moved. Answered once it is checked, with the row
+    /// as sent; then its conversation is read from `mac` in pieces and checked, the Job is kept under its own id and
+    /// resumed on its pushed branch in a fresh slot, and `mac` is sent a `move_settled` saying how it went.
+    fn arrive_from_mac(self: Arc<Self>, mac: String, job: ArrivingJob) -> impl Future<Output = Result<ipc::SessionRecord, Refusal>> + Send;
+
+    /// `act_from_mac`'s `move_settled` — the Mac a Job of this Mac moved to took it, and it is ended here, or refused
+    /// it, and it is resumed here. [`Refusal::NotFound`] for a Job not moving to `mac`.
+    fn move_settled_from_mac(self: Arc<Self>, mac: String, settled: ipc::MoveSettled) -> impl Future<Output = Result<(), Refusal>> + Send;
+
+    /// `share_job_conversation` — up to [`CONVERSATION_PIECE`] bytes of Job `job`'s conversation from byte `from`,
+    /// for Mac `mac`, which the Job is moving to. [`Refusal::NotFound`] for any other Job or Mac.
+    fn share_job_conversation(&self, mac: String, job: SessionId, from: u64) -> impl Future<Output = Result<Vec<u8>, Refusal>> + Send;
+}
+
+/// The most of a conversation one read across the link carries: under the signed link's 1 MiB for a body.
+pub const CONVERSATION_PIECE: u64 = 512 * 1024;
+
+/// What `share_job_terminal` answers, as the same act answers at home.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TerminalShared {
+    Run(SessionRunUnderway),
+    Terminals(JobTerminals),
 }

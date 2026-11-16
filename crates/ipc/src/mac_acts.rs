@@ -30,6 +30,53 @@ pub enum JobAct {
     Dispatch(DispatchJob),
     /// A Job's `SendMessage` to a Job the receiving Mac holds.
     JobMessage(JobMessage),
+    /// Move Job `session_id` to the Mac that sent this, once its turn ends.
+    Move { session_id: SessionId },
+    /// A Job the sending Mac is moving here, its turn ended and its branch pushed. Answered at once; the
+    /// receiving Mac says how it went with a `move_settled` once it has the conversation.
+    Arrive(ArrivingJob),
+    /// The Mac a Job moved to took it, or refused it with why, so the Mac it left ends it or resumes it.
+    MoveSettled(MoveSettled),
+}
+
+/// How a move ended on the Mac the Job went to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveSettled {
+    pub session_id: SessionId,
+    /// Why that Mac would not take it. Absent where it holds the Job now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refused: Option<String>,
+}
+
+/// What a Job moving between Macs takes with it: its row, the branch its work is on, and the length and hash of
+/// its conversation, which the receiving Mac reads in pieces from the sending one before it resumes the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArrivingJob {
+    /// The row as the sending Mac had it. Its `id` is kept, so the Job has the same id on both Macs.
+    pub record: crate::SessionRecord,
+    /// Pushed to `origin` before this was sent. Absent for a Job that never held a slot, which is given a
+    /// fresh branch where it lands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    pub conversation: CarriedConversation,
+}
+
+/// A Job's conversation file, as the Mac sending it has it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CarriedConversation {
+    pub bytes: u64,
+    /// SHA-256 of the whole file, lowercase hex.
+    pub sha256: String,
+}
+
+/// `move_job_to_mac`: move a hosted Job to another of his Macs. Its turn finishes, its branch is pushed, and the
+/// other Mac resumes the same conversation in a fresh slot.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveJobToMac {
+    pub session_id: SessionId,
+    /// The Mac to move it to, for a Job this Mac holds. Absent for a Job held from another Mac, which comes here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
 }
 
 /// A message from Job `from` on the sending Mac to Job `to` on the Mac that holds it, written into `to`'s thread
@@ -58,15 +105,18 @@ impl JobAct {
             JobAct::Stop(one) => Some(&one.session_id),
             JobAct::Merge { session_id, .. } => Some(session_id),
             JobAct::JobMessage(one) => Some(&one.to),
-            JobAct::Start(_) | JobAct::Dispatch(_) => None,
+            JobAct::Move { session_id } => Some(session_id),
+            JobAct::MoveSettled(one) => Some(&one.session_id),
+            JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
     }
 
-    /// The project a start or a dispatch names.
+    /// The project a start, a dispatch or an arriving Job names.
     pub fn starts_in(&self) -> Option<&str> {
         match self {
             JobAct::Start(one) => one.project.as_deref(),
             JobAct::Dispatch(one) => one.start.project.as_deref(),
+            JobAct::Arrive(one) => one.record.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()),
             _ => None,
         }
     }
@@ -87,6 +137,9 @@ impl JobAct {
             JobAct::Start(_) => "start",
             JobAct::Dispatch(_) => "dispatch",
             JobAct::JobMessage(_) => "job_message",
+            JobAct::Move { .. } => "move",
+            JobAct::Arrive(_) => "arrive",
+            JobAct::MoveSettled(_) => "move_settled",
         }
     }
 }

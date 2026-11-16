@@ -6,10 +6,10 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Refusal, Sessions};
-use ipc::{AnswerSketch, Attachment, DismissWaiting, Instant, SessionId, SessionRow, SessionVoice, ShowSketch, SketchHow, WithdrawSketch};
+use ipc::{AnswerSketch, Attachment, DismissWaiting, Instant, SessionFact, SessionId, SessionReport, SessionRow, SessionVoice, ShowSketch, SketchHow, WithdrawSketch};
 
 use super::session_host::{rig_placing, Rig};
-use crate::session_host::sketching::sketch_approved;
+use crate::session_host::sketching::{sketch_approved, sketch_attachment};
 
 const TITLE: &str = "Request flow";
 const TARGET: &str = "sketch:Request flow";
@@ -114,6 +114,84 @@ async fn sending_a_sketch_back_tells_the_job_his_note_and_keeps_it() {
     assert_eq!(sketch_approved(&rows), None, "a send-back is not an approval");
 }
 
+/// A sketch of two takes drawn as screens, the first the job's pick, held as a Fleet before the takes rule kept
+/// one: `show_sketch` refuses it now, and he can still answer one already on his list. Answered with its `drawn`.
+async fn takes_held(rig: &Rig, id: &SessionId) -> (ipc::SessionRecord, String) {
+    let screen = |node: &str, x: u32, title: &str| {
+        format!(r#"{{"id":"{node}","kind":"screen","x":{x},"y":0,"title":"{title}","screen":{{"type":"column","children":[]}}}}"#)
+    };
+    let scene = format!(r#"{{"nodes":[{},{}],"edges":[]}}"#, screen("a", 0, "A (my pick): one rail"), screen("b", 400, "B: two panes"));
+    let shown: ShowSketch =
+        ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap();
+    let mut attachment = sketch_attachment(shown.checked().unwrap());
+    let drawn = format!("{}-legacy-1", id.as_str());
+    attachment.detail.insert("asked".into(), "true".into());
+    attachment.detail.insert("drawn".into(), drawn.clone());
+    let record = rig
+        .fleet
+        .report_session(SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact: SessionFact::Attached { attachment } })
+        .await
+        .expect("held");
+    (record, drawn)
+}
+
+#[tokio::test]
+async fn a_note_that_only_picks_a_take_settles_the_sketch_and_tells_the_job_which_take() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let (_, drawn) = takes_held(&rig, &id).await;
+    let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some("B"))).await.unwrap();
+
+    let rows = rig.rows(&id).await;
+    let told = sent(&rows).pop().unwrap();
+    assert_eq!(told, format!("Approved sketch: {TITLE}\nHe picked take B. Go on from take B as drawn, and drop the other takes."));
+    assert!(!told.contains("Draw it again"), "a pick is not drawn again");
+    let detail = &the_sketch(&record).detail;
+    assert_eq!(detail.get("settled").map(String::as_str), Some("approved"), "{detail:?}");
+    assert_eq!(detail.get("words").map(String::as_str), Some("B"));
+    assert!(record.waiting_for.is_empty(), "the pick leaves his list: {:?}", record.waiting_for);
+    assert!(sketch_approved(&rows).is_some(), "a pick is an approval to the rail");
+}
+
+#[tokio::test]
+async fn a_note_that_picks_a_take_and_asks_for_more_is_still_sent_back() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let (_, drawn) = takes_held(&rig, &id).await;
+    let note = "B, with the rail wider";
+    let record = Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some(note))).await.unwrap();
+
+    assert_eq!(
+        sent(&rig.rows(&id).await).pop().unwrap(),
+        format!("Sent back sketch: {TITLE}\n{note}\nDraw it again with show_sketch under the same title.")
+    );
+    assert_eq!(the_sketch(&record).detail.get("settled").map(String::as_str), Some("sent_back"));
+}
+
+#[test]
+fn a_take_is_named_by_the_lead_of_a_title_or_label_or_by_its_id() {
+    use crate::session_host::sketching::take_picked;
+    let node = |kind: &str, id: &str, title: &str| format!(r#"{{"id":"{id}","kind":"{kind}","x":0,"y":0,"title":"{title}"}}"#);
+    let scene = |nodes: &[String]| format!(r#"{{"nodes":[{}],"edges":[]}}"#, nodes.join(","));
+    let labelled = scene(&[
+        node("label", "l1", "Take 1, Cards: each group a card"),
+        node("mock", "t1", "Cards"),
+        node("label", "l2", "Take 2, Spine: groups on a numbered spine"),
+        node("mock", "t2", "Spine"),
+    ]);
+    for (note, take) in [("2", "2"), ("Take 2.", "2"), ("spine", "Spine"), ("t1", "T1"), ("\"Cards\"", "Cards")] {
+        assert_eq!(take_picked(&labelled, note).as_deref(), Some(take), "{note}");
+    }
+    for note in ["3", "Spine, but bigger", "Looks good", ""] {
+        assert_eq!(take_picked(&labelled, note), None, "{note}");
+    }
+    let lettered = scene(&[node("mock", "a", "A · My pick: held toast"), node("mock", "b", "B. Centred panel")]);
+    assert_eq!(take_picked(&lettered, "b").as_deref(), Some("B"));
+    assert_eq!(take_picked(&lettered, "go with A").as_deref(), Some("A"));
+    let flow = scene(&[node("box", "a", "A"), node("box", "b", "B")]);
+    assert_eq!(take_picked(&flow, "B"), None, "boxes and arrows draw no takes");
+}
+
 #[tokio::test]
 async fn a_send_back_with_no_note_is_refused_and_nothing_is_sent() {
     let rig = rig_placing(None);
@@ -201,7 +279,7 @@ async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
 }
 
 #[tokio::test]
-async fn a_sketch_drawn_under_a_new_title_leaves_the_old_one_waiting_and_each_is_answered_alone() {
+async fn a_sketch_drawn_under_a_new_title_joins_the_open_artifact_and_each_part_is_answered_alone() {
     let rig = rig_placing(None);
     let (id, _) = shown(&rig).await;
     let retitled = "Request flow, settings too";
@@ -212,14 +290,17 @@ async fn a_sketch_drawn_under_a_new_title_leaves_the_old_one_waiting_and_each_is
     .unwrap();
     let record = rig.fleet.show_sketch(None, show).await.unwrap();
     let newer = format!("sketch:{retitled}");
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [newer.as_str(), TARGET], "both wait, newest first");
+    // One artifact is open per Job: the new title is a part of it, and his list holds the one item.
+    let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
+    assert_eq!(items, [(TARGET, "Request flow: Request flow, settings too, Request flow")], "one item naming both, newest first");
     assert_eq!(the_sketch(&record).detail.get("withdrawn"), None, "the old title is not taken back");
 
     let drawn = record.attachments.iter().find(|one| one.target == newer).unwrap().detail["drawn"].clone();
     let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
     approve.sketch = newer;
     let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
-    assert_eq!(record.waiting_for.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [TARGET], "the older one still waits");
+    let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
+    assert_eq!(items, [(TARGET, "Request flow")], "the older drawing still waits, and the item names only it");
 }
 
 #[tokio::test]
@@ -273,28 +354,22 @@ fn titled(id: &SessionId, title: &str, against: Option<&str>) -> ShowSketch {
 }
 
 #[tokio::test]
-async fn three_sketches_drawn_are_three_items_and_answering_one_leaves_the_others() {
+async fn three_drawings_each_against_the_last_are_one_artifact_and_one_item_answered_once() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet.show_sketch(None, titled(&id, "Plan", None)).await.unwrap();
     rig.fleet.show_sketch(None, titled(&id, "Plan (DSCR only)", Some("Plan"))).await.unwrap();
     let record = rig.fleet.show_sketch(None, titled(&id, "Plan (alerts)", Some("Plan (DSCR only)"))).await.unwrap();
     let waiting = |record: &ipc::SessionRecord| record.waiting_for.iter().map(|one| one.id.clone()).collect::<Vec<_>>();
-    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan (DSCR only)", "sketch:Plan"]);
+    // Each is the next revision of the first, retitled, so his list holds one item for it.
+    assert_eq!(waiting(&record), ["sketch:Plan"]);
 
-    let approve = |record: &ipc::SessionRecord, title: &str| {
-        let target = format!("sketch:{title}");
-        let drawn = record.attachments.iter().find(|one| one.target == target).unwrap().detail["drawn"].clone();
-        let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
-        approve.sketch = target;
-        approve
-    };
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (DSCR only)")).await.unwrap();
-    assert_eq!(waiting(&record), ["sketch:Plan (alerts)", "sketch:Plan"], "the middle one answered, two remain");
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan (alerts)")).await.unwrap();
-    assert_eq!(waiting(&record), ["sketch:Plan"], "the newest answered, the next is the first and so the pin");
-    let record = Arc::clone(&rig.fleet).answer_sketch(approve(&record, "Plan")).await.unwrap();
+    let drawn = record.attachments.iter().find(|one| one.target == "sketch:Plan").unwrap().detail["drawn"].clone();
+    let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
+    approve.sketch = "sketch:Plan".into();
+    let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
     assert!(record.waiting_for.is_empty(), "{:?}", record.waiting_for);
+    assert_eq!(sent(&rig.rows(&id).await).pop().unwrap(), "Approved sketch: Plan (alerts)\nGo on from it as drawn.");
 }
 
 #[test]
@@ -310,7 +385,7 @@ fn a_job_holding_two_sketches_left_open_lists_both_newest_first() {
         .unwrap()
     };
     let held = [open("Older", "2026-10-30T10:00:00Z"), open("Newer", "2026-11-02T10:00:00Z")];
-    let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job", &[]).map(|one| one.id).collect();
+    let listed: Vec<String> = crate::session_host::sketching::sketch_items(&held, "job", &[], &Default::default(), &[]).map(|one| one.id).collect();
     assert_eq!(listed, ["sketch:Newer", "sketch:Older"]);
 }
 
@@ -328,7 +403,7 @@ fn asked(title: &str, drawn: &str, changed_at: &str, settled: Option<&str>) -> A
 }
 
 fn listed(held: &[Attachment]) -> Vec<String> {
-    crate::session_host::sketching::sketch_items(held, "job", &[]).map(|one| one.id).collect()
+    crate::session_host::sketching::sketch_items(held, "job", &[], &Default::default(), &[]).map(|one| one.id).collect()
 }
 
 #[test]

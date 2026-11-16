@@ -40,6 +40,18 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What `get_build_notes` answers, whole, when a note was marked, a held note's Job ended, or the build changed.
+    Route {
+        operation: "build_notes.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // One aside of a Job, whole, as its answer grows, ends or is told.
+    Route {
+        operation: "session.aside",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",
@@ -175,6 +187,12 @@ pub(super) const ROUTES: &[Route] = &[
     // A subagent's own thread moved: a client holding it reads `get_session_subagent` again.
     Route {
         operation: "session.subagent",
+        method: "GET",
+        path: "/events",
+    },
+    // A Job's For you moved: a client holding it reads `get_for_you` again.
+    Route {
+        operation: "session.for_you",
         method: "GET",
         path: "/events",
     },

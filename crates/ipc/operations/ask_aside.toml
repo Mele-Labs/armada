@@ -1,0 +1,14 @@
+[operations.ask_aside]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Put a side question to a Job without interrupting it, answered on a read-only copy of its conversation"
+notes = """
+`POST /sessions/aside`, body `AskAside`: `session_id`, `question` and optionally `quote`, the text the owner selected in the thread. Since 15 Nov 2026. Answers 202 with the new `Aside` `{ aside_id, session_id, question, quote?, answer, state, failed?, asked_at, answered_at?, told_at? }`, `state` `asking` and `answer` empty. The answer arrives on `session.aside`.
+
+**Fleet runs one headless turn of the agent on a throwaway copy of the Job's conversation**, cut at the Job's last finished turn so a live Job is copied as it stood. The copy holds `Read`, `Grep` and `Glob` and nothing else: no shell, no editing, no MCP server, no plugin. It starts in the Job's own directory, on the Job's model, with at most eight turns, and writes no conversation of its own, so the Job's transcript is the file it was. **The aside is kept beside the Job's record, never in its thread or its hosted rows**, so the Job's agent does not see it unless the owner sends it (`tell_aside`).
+
+422 `fleet.aside_blank` for a blank question. 404 `fleet.no_such_session` where Fleet hosts no such Job. 422 `fleet.fork_point_unwritten` for a Job that has no finished turn yet, which there is nothing to copy.
+
+`agent_access` is `No`: an aside is the owner's act on a Job, never one Job's on another.
+"""

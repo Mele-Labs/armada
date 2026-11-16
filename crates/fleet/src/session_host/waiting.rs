@@ -147,8 +147,6 @@ pub(crate) struct WaitingReads {
     word_asks: Vec<store::KeptWordAsk>,
     /// The notices a Fleet rule raised as calls on this Session.
     calls: Vec<store::KeptCall>,
-    /// What the Operator would do on this Session, waiting on one press.
-    suggestions: Vec<store::KeptSuggestion>,
     /// The Job waits on its start card.
     start_held: bool,
     /// The Job is paused, and raises nothing until it is resumed.
@@ -165,6 +163,14 @@ pub(crate) struct WaitingReads {
     held_children: Vec<super::agent_starting::HeldChild>,
     /// The acts its rules planned that wait on the owner.
     rule_acts: Vec<store::KeptRuleAct>,
+    /// The asks it made the Operator that stand on its Needs you, or in Your turn.
+    job_asks: Vec<store::KeptJobAsk>,
+    /// The newest revision he opened of each of its artifacts.
+    seen: Vec<store::KeptArtifactSeen>,
+    /// The ids of its archived artifacts.
+    archived: Vec<String>,
+    /// The notes it offered, which its Ready to try cards are.
+    ready: Vec<store::KeptBuildNote>,
 }
 
 impl WaitingReads {
@@ -196,6 +202,9 @@ pub(crate) struct Waited {
     pub plan_held: Vec<ipc::PlanHold>,
     /// A question that lapsed still stands for him: it is no item, but it waits on him all the same.
     pub lapsed: bool,
+    /// The sketches drawn in the turn still running, read off the one look at the turn the items took: not raised
+    /// until it ends, and answered on their cards meanwhile.
+    pub held: Vec<WaitingItem>,
 }
 
 pub(crate) fn waiting_reads(
@@ -224,7 +233,6 @@ pub(crate) fn waiting_reads(
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
-        suggestions: store.operator_suggestions_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
         checks_running: !store.running_session_checks(&session.id)?.is_empty(),
@@ -233,6 +241,10 @@ pub(crate) fn waiting_reads(
         ready_changes: store.ready_workflow_change_ids()?,
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
+        job_asks: store.raised_job_asks_of(&session.id)?,
+        seen: store.artifact_seen(&session.id)?,
+        archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
+        ready: store.build_notes_of_session(&session.id)?,
     })
 }
 
@@ -276,6 +288,7 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -360,6 +373,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         };
     }
     WaitingItem {
@@ -387,6 +401,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -422,6 +437,7 @@ pub(crate) fn merged(
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -453,6 +469,7 @@ pub(crate) fn merged(
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: Some(one.artifact).filter(|named| !named.is_empty()),
         })
         .collect();
     items.extend(
@@ -510,6 +527,7 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: Some(one.artifact).filter(|named| !named.is_empty()),
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -523,12 +541,14 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, suggestions, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
+        let open_drafts = super::artifact_parts::open_drafts(attachments, &rows);
+        let joined_drafts = super::artifact_parts::joined_drafts(attachments);
         let spoke = rows.iter().filter_map(|row| match row {
             SessionRow::Message {
                 from: SessionVoice::You,
@@ -578,6 +598,7 @@ where
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
@@ -611,6 +632,7 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: None,
                 });
             }
         }
@@ -698,19 +720,13 @@ where
                     creating_since: None,
                     create_refused: None,
                     operator_read: None,
+                    artifact: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
             items.extend(held_children.iter().map(super::agent_starting::held_child_item));
             // A page in the Job's browser asks him something: Bridge told Fleet, and the agent is told nothing.
             items.extend(self.browser_ask_items(&session.id));
-            // Every slot is held and it is in the line for one: Wait or Add, until he says.
-            items.extend(
-                self.hosts()
-                    .slot_queue()
-                    .pending(&session.id)
-                    .map(super::queueing::slot_choice_item),
-            );
             // A plan he has not approved is one of the Session's calls; nothing waits on it.
             items.extend(
                 plan.as_ref()
@@ -723,19 +739,36 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
-            // What a role at Suggest would do, until he takes it or skips it.
-            items.extend(crate::operator::suggestion_items(&suggestions));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it. One the
-            // pending plan names waits with the plan instead, and its Approve settles it.
+            // pending plan names waits with the plan instead, and its Approve settles it. One drawn in the turn still
+            // running waits once it ends, so the result sketch `all_done` settles never shows and goes.
             let in_plan = plan.as_ref().map(|(.., sketches)| sketches.as_slice()).unwrap_or_default();
-            items.extend(super::sketching::sketch_items(attachments, &session.id, in_plan).filter(|one| !dismissed.contains(&one.id)));
+            let turn_began = (session.origin == "bridge")
+                .then(|| {
+                    let runtime = self.hosts().of(&session.id);
+                    let state = runtime.state();
+                    matches!(state.turn, ipc::SessionTurn::Working { .. }).then(|| state.turn_began.clone()).flatten()
+                })
+                .flatten();
+            let (in_turn, raised): (Vec<_>, Vec<_>) = super::sketching::sketch_items(attachments, &session.id, in_plan, &open_drafts, &dismissed)
+                .filter(|one| !dismissed.contains(&one.id))
+                .partition(|one| super::sketching::drawn_in_turn(attachments, &one.id, turn_began.as_deref()));
+            items.extend(raised);
+            held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
+            // A page that asks nothing waits to be read, until he opens its newest revision.
+            items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
+            // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
+            // cards open then, so one offered later raises it again.
+            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
             if !ended {
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
+                // What it asked the Operator, once it is on his Needs you or in Your turn.
+                items.extend(super::job_asks::job_ask_items(&job_asks));
             }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
@@ -767,8 +800,11 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
+                // A draft that joined an artifact is asked for by the artifact.
+                SessionRow::Draft { ref id, settled: None, .. } if joined_drafts.contains(id) => None,
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
                     let id = format!("{DRAFT_PREFIX}{id}");
                     let open = change.map_or(true, |one| ready_changes.contains(&one));
@@ -794,6 +830,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
                 // Fleet's handoff card, while the Job is live to hand on.
@@ -817,6 +854,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
+                        artifact: None,
                     })
                 }
                 _ => None,
@@ -825,8 +863,9 @@ where
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
             // repeat of a listed command is folded below.
+            // A page waiting to be read asked nothing.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
-                matches!(
+                !super::document_answers::is_read_item(one) && matches!(
                     one.source,
                     WaitingSource::Agent
                         | WaitingSource::AskCard
@@ -858,7 +897,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open, held }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -882,6 +921,13 @@ where
             }
         }
         self.options_refused(&set.items)?;
+        // An item about an artifact names one the Job holds, by its id or its title, and keeps its id.
+        let mut artifacts = std::collections::HashMap::new();
+        for item in &set.items {
+            if let Some(named) = item.artifact.as_deref().map(str::trim).filter(|named| !named.is_empty()) {
+                artifacts.insert(item.id.trim().to_string(), self.artifact_named(&id, named).await?);
+            }
+        }
         // Boxed: this settling is large already, and an unboxed future here overflowed a test thread's stack.
         Box::pin(self.pictures_kept(&id, &mut set.items)).await?;
         if let Some(lapsed) = self.rows_of(&id).await.ok().and_then(|rows| lapsed_question(&rows)) {
@@ -937,6 +983,7 @@ where
                             false => one.options.into_iter().map(|o| o.label).collect(),
                         },
                         approves: one.approves,
+                        artifact: artifacts.get(one.id.trim()).cloned().unwrap_or_default(),
                         steps: one
                             .steps
                             .into_iter()
@@ -1013,6 +1060,8 @@ where
         // A job in a terminal holds no hosting, so there is nothing to give back and the call says so
         // by failing; what stays is named by `finish_up`.
         let _ = self.finished_up(None, ipc::FinishUp { session_id: Some(ipc::SessionId::carried(&id)) }).await;
+        // A step or a gate that waits on his approval of a sketch keeps it his to answer.
+        let sketch_gated = self.approval_gate_waits(&id, ipc::PlanGate::SketchApproved, crate::rail_ends::End::SketchApproved).await;
         let asked;
         let record = {
             let mut store = self.store().lock().await;
@@ -1024,6 +1073,14 @@ where
                 return Err(self.closed(&id));
             }
             let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
+            // The sketch the result leads with rides on the done card, so it stops asking on its own.
+            let result = match sketch_gated {
+                true => None,
+                false => super::picture_shown::result_sketch(&store, &id).map_err(|why| self.ledger_fault(why))?,
+            };
+            if let Some(result) = result {
+                store.dismiss_waiting(&id, &result).map_err(|why| self.ledger_fault(why))?;
+            }
             store
                 .keep_done(&id, &now, summary)
                 .map_err(|why| self.ledger_fault(why))?;
@@ -1124,6 +1181,10 @@ where
         walk_approved: bool,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
+        // A slot wait is no listed item: Add and Wait are pressed on the record's `slot_wait`.
+        if said.item_id == super::queueing::SLOT_CHOICE_ITEM {
+            return self.slot_chosen(&id, said.choice).await;
+        }
         let terminal = self.terminal_session(&id).await?.is_some();
         if terminal {
             self.terminal_ask_standing(&id).await;
@@ -1290,6 +1351,12 @@ where
                 }
                 self.drop_answered(&id, &item.id, None).await
             }
+            // Fleet put his question back to him: his answer is the agent's to hear, and the item goes once it is sent.
+            WaitingSource::OperatorUndone => {
+                let body = reply(&item.text, both.as_deref(), line);
+                Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                self.drop_answered(&id, &item.id, None).await
+            }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
             // the Session, which is what makes either stop standing, so there is nothing to drop.
             // A call a Fleet rule raised is the same: his words are a message, and dismissing is what settles it.
@@ -1324,6 +1391,10 @@ where
                 SESSION_WAITING_EMPTY,
                 "a document is approved, or sent back, from its own card",
             )),
+            WaitingSource::ReadyToTry => Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a Ready to try card is answered from its own card",
+            )),
             // The tab settles it as it was answered here; Fleet raised it for Bridge, so the agent is told nothing.
             WaitingSource::BrowserAsk => match said.choice {
                 Some(choice) => self.browser_ask_settled(&id, &item.id, Some(choice)).await,
@@ -1332,11 +1403,10 @@ where
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
-            // Words with no choice are talk to the Operator about it, and the row stays.
-            WaitingSource::OperatorSuggestion => match (said.choice, words) {
-                (None, Some(words)) => self.suggestion_talked(&id, &item.id, words).await,
-                _ => self.suggestion_chosen(&id, &item.id, said.choice).await,
-            },
+            // Fleet's, so his press is the whole answer: the Jobs it names are told, and words alone are refused.
+            WaitingSource::JobConflict | WaitingSource::JobHeld => self.job_ask_chosen(&id, &item.id, said.choice).await,
+            // A suggestion the Operator kept before its session is no longer offered a press.
+            WaitingSource::OperatorSuggestion => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "the Operator no longer keeps suggestions to press")),
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // The close tells the agent; words alone are a message to it, as for a done.
             WaitingSource::Gate => match said.choice {
@@ -1468,6 +1538,8 @@ where
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {
+            // A page waiting to be read asked the Job for nothing, so his dismissal tells it nothing.
+            _ if super::document_answers::is_read_item(&item) => None,
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
@@ -1496,7 +1568,8 @@ where
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
-        Ok(self.ledger_row(&store, &session)?.waiting_for)
+        let (record, held) = self.ledger_parts(&session, self.ledger_reads(&store, &session)?);
+        Ok(super::sketching::answerable(record.waiting_for, held))
     }
 
     /// A dismissal, once the Job was told what it is told: the item is closed as his Dismiss closes it. Shared by
@@ -1512,14 +1585,25 @@ where
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
         }
+        // Dismissing the one Ready to try row puts away the cards open now, each by its own id, so a card offered
+        // later raises it again.
+        if item.source == WaitingSource::ReadyToTry {
+            let open: Vec<String> = self.ready_cards_of(&id).await.into_iter().filter(|card| card.state == ipc::ReadyState::Open).map(|card| card.id).collect();
+            let record = {
+                let mut store = self.store().lock().await;
+                let session = store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+                for card in &open {
+                    store.dismiss_waiting(&id, card).map_err(|why| self.ledger_fault(why))?;
+                }
+                self.ledger_row(&store, &session)?
+            };
+            self.publish(ipc::Event::SessionChanged(record.clone()));
+            return Ok(record);
+        }
         let closed = self.closed_as_it_stood(item);
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
-        }
-        // Dismissing what the Operator would do is Skip.
-        if item.source == WaitingSource::OperatorSuggestion {
-            self.suggestion_chosen(&id, &item.id, Some(crate::operator::SKIP)).await?;
         }
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {
@@ -1560,6 +1644,7 @@ where
             act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
             options: item.options.iter().map(|option| option.label.clone()).collect(),
             pictures: pictures_kept(&item.options),
+            artifact: item.artifact.clone().unwrap_or_default(),
             steps: item.steps.clone(),
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
@@ -1647,6 +1732,7 @@ where
                 act: kept.act,
                 options: kept.options,
                 pictures: kept.pictures,
+                artifact: kept.artifact,
                 steps: kept.steps,
             })
         };

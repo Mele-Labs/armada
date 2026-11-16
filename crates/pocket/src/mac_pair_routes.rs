@@ -15,7 +15,7 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use ipc::{ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink};
 
-use crate::mac_client::{encoded, hello_now, post_unsigned, signed_whole};
+use crate::mac_client::{encoded, hello_now, post_unsigned, post_with, signed_whole};
 use crate::mac_keys::{fresh_key, from_kept, kept_form, spki_hex};
 use crate::macs::{asked, claimed, listed, read_link, said, sane, HeldClaim, MacBack, MacClaim, MacDeclined, MacHello};
 use crate::pairing::{from_hex, random_hex};
@@ -138,6 +138,7 @@ pub(crate) async fn keep_waiting(
         wire: home.wire.clone(),
         built_at: home.built_at.clone(),
         source: home.source.clone(),
+        pin: home.pin.clone(),
     };
     blocking({
         let (gateway, row) = (gateway.clone(), row.clone());
@@ -168,7 +169,7 @@ pub async fn claimed_here(State(gateway): State<Gateway>, Json(body): Json<MacCl
     if body.mac.id == me.id {
         return said_why(StatusCode::BAD_REQUEST, "This link is this Mac's own. Paste it on the other Mac.");
     }
-    let claim = HeldClaim { mac: body.mac, public_key, back_code: body.back_code, at: now, digits: None };
+    let claim = HeldClaim { mac: body.mac, public_key, back_code: body.back_code, at: now, digits: None, commit: None, spki_hex: None };
     match gateway.macs.claim(&body.code, claim) {
         true => {
             claims_told(&gateway).await;
@@ -200,6 +201,10 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
     };
     let name = claim.mac.name.clone();
     let address = claim.mac.address.clone().unwrap_or_default();
+    let Some((reached, client)) = crate::nearby::reach_pairing(&gateway, &claim.mac.id, claim.mac.address.as_deref(), claim.mac.pin.as_deref())
+    else {
+        return said_why(StatusCode::BAD_GATEWAY, format!("{name} is not on this network any more. Press Confirm once it is."));
+    };
     let made = blocking({
         let (gateway, mac) = (gateway.clone(), body.mac.clone());
         move || {
@@ -228,6 +233,7 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
         wire: claim.mac.wire.clone(),
         built_at: claim.mac.built_at.clone(),
         source: claim.mac.source.clone(),
+        pin: claim.mac.pin.clone(),
     };
     // Kept before the other Mac is told, so its first call here, made the moment it links, is known.
     let kept = gateway.pairing.store.lock().unwrap().keep_mac(&row);
@@ -237,7 +243,7 @@ pub async fn confirm(State(gateway): State<Gateway>, Json(body): Json<MacNamed>)
     let back = MacBack { back_code: claim.back_code.clone(), mac: me, spki_hex };
     let refused = match encoded(&back) {
         Err(why) => Some(fault(why)),
-        Ok(sent) => match post_unsigned(&gateway, &address, "/pair/mac/back", sent).await {
+        Ok(sent) => match post_with(&client, &reached, "/pair/mac/back", sent).await {
             Ok(came) if came.ok() => None,
             Ok(came) => Some(said_why(StatusCode::BAD_GATEWAY, format!("{name} did not take the pairing. {}", came.sentence()))),
             Err(_) => Some(said_why(StatusCode::BAD_GATEWAY, format!("{name} did not answer. Press Confirm again."))),
@@ -349,9 +355,10 @@ pub(crate) async fn claims_told(gateway: &Gateway) {
 
 /// Best effort: a Mac that is asleep finds its ask gone when its time passes.
 async fn tell_declined(gateway: Gateway, claim: HeldClaim) {
-    let (Some(address), Ok(me)) = (claim.mac.address.clone(), hello_now(&gateway).await) else { return };
+    let way = crate::nearby::reach_pairing(&gateway, &claim.mac.id, claim.mac.address.as_deref(), claim.mac.pin.as_deref());
+    let (Some((address, client)), Ok(me)) = (way, hello_now(&gateway).await) else { return };
     if let Ok(sent) = encoded(&MacDeclined { mac: me.id, back_code: claim.back_code }) {
-        let _ = post_unsigned(&gateway, &address, "/pair/mac/declined", sent).await;
+        let _ = post_with(&client, &address, "/pair/mac/declined", sent).await;
     }
 }
 

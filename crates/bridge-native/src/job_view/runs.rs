@@ -100,7 +100,8 @@ impl Call {
 /// second line says what it works on. Done, it is one grey line, the icon on its last frame.
 /// `stop` ends the first line: the live fold's newest call carries Stop, as Electron's does.
 #[allow(clippy::too_many_arguments)]
-fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, stop: Option<AnyElement>, look: &Look) -> AnyElement {
+#[allow(clippy::too_many_arguments)]
+fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, stop: Option<AnyElement>, marks: Vec<(std::ops::Range<usize>, gpui::HighlightStyle)>, look: &Look) -> AnyElement {
     let Call { kind, phrase, working_on, peer, note, below } = call;
     let (peer, named) = peer.unzip();
     let ink = match kind {
@@ -161,7 +162,7 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
                 .text_size(look.length(token::TEXT_SM))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
-                .child(phrase),
+                .child(gpui::StyledText::new(SharedString::from(phrase)).with_highlights(marks)),
         )
         .children(peer.map(|peer| div().flex_1().min_w_0().flex().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(peer)))
         .child(time)
@@ -375,7 +376,8 @@ impl JobView {
                 },
             };
             let stop = running.then(|| self.stop_button(look, cx));
-            let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, look);
+            let marks = self.line_marks(&format!("call:{id}:{at}"), &one.phrase, look);
+            let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, marks, look);
             // A row opens what it names on a press or Return: a message's words under it, the Check run a call
             // started, the file a call read or wrote.
             let opens = match row {
@@ -533,7 +535,7 @@ impl JobView {
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tooltip(tip(tooltip))
                 .on_click(cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx)))
-                .child(tool_row(self.shown.as_deref().unwrap_or_default(), key, one, &subagent.since, subagent.ended.as_ref(), running, cut, look)),
+                .child(tool_row(self.shown.as_deref().unwrap_or_default(), key, one, &subagent.since, subagent.ended.as_ref(), running, cut, Vec::new(), look)),
             Role::Button,
             said,
         )
@@ -578,12 +580,13 @@ impl JobView {
                     .into_any_element(),
             );
         }
-        let part = |text: String| {
+        let part = |key: String, text: String| {
+            let marks = self.line_marks(&key, &text, look);
             div()
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_MUTED))
-                .child(text)
+                .child(gpui::StyledText::new(SharedString::from(text)).with_highlights(marks))
         };
         let body = div()
             .flex()
@@ -593,9 +596,9 @@ impl JobView {
             .pl(look.length(token::SPACE_4))
             .border_l(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .child(part(text.clone()))
-            .children(rows.iter().map(|row| match row {
-                SessionRow::Tool { text, .. } => part(text.clone()).into_any_element(),
+            .child(part(format!("fleet-notice:{id}"), text.clone()))
+            .children(rows.iter().enumerate().map(|(at, row)| match row {
+                SessionRow::Tool { text, .. } => part(format!("fleet-call:{id}:{at}"), text.clone()).into_any_element(),
                 SessionRow::Message { id, text, .. } => self.prose(format!("fleet:{id}"), text, look, cx),
                 _ => div().into_any_element(),
             }))

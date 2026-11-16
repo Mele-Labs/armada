@@ -23,6 +23,7 @@ pub(crate) mod compacting;
 mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;
+pub(crate) mod job_asks;
 pub(crate) mod document_answers;
 pub(crate) mod document_page;
 pub(crate) mod documents;
@@ -33,11 +34,18 @@ pub(crate) mod asking_in_window;
 pub(crate) mod draft_document;
 pub(crate) mod draft_page;
 mod artifact_for;
+mod artifact_parts;
 mod artifacts;
 mod archiving;
 mod answering_items;
 mod artifact_editing;
+pub(crate) mod page_measure;
 mod page_words;
+mod page_actions;
+mod page_votes;
+mod page_sealed;
+mod artifact_seen;
+mod for_you;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;
@@ -50,6 +58,7 @@ pub(crate) mod job_command;
 mod later;
 mod preview_acts;
 mod fork_point;
+mod asides;
 mod forking;
 mod gate;
 mod job_of_its_own;
@@ -79,6 +88,7 @@ mod auto_landing;
 mod project_moving;
 pub(crate) mod queue_guard;
 mod pausing;
+pub(crate) mod to_other_mac;
 mod editing;
 pub(crate) mod quick;
 mod reach_folders;
@@ -103,6 +113,7 @@ pub(crate) mod slot_asking;
 mod slot_holders;
 pub(crate) mod releasing;
 mod rows;
+pub(crate) use rows::new_id;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 pub(crate) mod signed_out;
@@ -507,6 +518,11 @@ pub(crate) struct State {
     /// The slot the session was leased, waiting for its turn to end and its agents to finish so
     /// the process can be resumed there.
     pub moving: Option<Move>,
+    /// The Mac the person moved the Job to, while its turn finishes and it is handed over. In memory: a
+    /// Fleet that stops mid-wait leaves the Job where it is. `to_other_mac`.
+    pub to_mac: Option<String>,
+    /// The hand-over to `to_mac` has begun, so it is not begun twice.
+    pub carrying_to_mac: bool,
     /// Sessions that wrote to this one and whose message has not yet started a
     /// turn.
     pub woken_by: Vec<ipc::SessionVoiceNamed>,
@@ -563,6 +579,8 @@ pub(crate) struct State {
     pub pages: HashMap<String, String>,
     /// The Job was started on your words: its door is the placed one, which narrows its calls.
     pub on_your_words: bool,
+    /// The Operator's own session, set when its process is placed.
+    pub operator: bool,
     /// What its tool calls show it doing. In memory.
     pub activity: activity::Activity,
     /// Whether the proposer is reading the request it was dispatched with, and the turns that
@@ -615,8 +633,23 @@ impl State {
             && self.unstarted.is_empty()
             && self.asked.is_none()
             && self.moving.is_none()
+            && self.to_mac.is_none()
             && !self.reattached_busy
             && !self.proposal.holds_back()
+    }
+
+    /// The Mac to hand the Job to now, where a move to one waits on nothing but the agents still
+    /// working, marked begun so it is taken once.
+    pub(crate) fn mac_move_taken(&mut self) -> Option<String> {
+        let due = self.to_mac.is_some()
+            && !self.carrying_to_mac
+            && self.moving.is_none()
+            && matches!(self.turn, SessionTurn::Idle)
+            && self.queued == 0
+            && self.unstarted.is_empty()
+            && self.asked.is_none();
+        self.carrying_to_mac |= due;
+        due.then(|| self.to_mac.clone()).flatten()
     }
 
     /// Whether a move waits on nothing but the agents still working.
@@ -634,6 +667,8 @@ impl State {
             turn: SessionTurn::Idle,
             queued: 0,
             moving: None,
+            to_mac: None,
+            carrying_to_mac: false,
             woken_by: Vec::new(),
             fleet_told: 0,
             asked: None,
@@ -656,6 +691,7 @@ impl State {
             carded: false,
             pages: HashMap::new(),
             on_your_words: false,
+            operator: false,
             activity: activity::Activity::default(),
             proposal: proposing::ProposalState::default(),
             spawns: crate::file_touching::Spawns::default(),

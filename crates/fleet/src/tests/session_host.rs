@@ -336,6 +336,11 @@ impl Rig {
             .id
     }
 
+    /// The home this rig's Fleet keeps its profiles and store under.
+    pub(super) fn home(&self) -> &std::path::Path {
+        self._home.path()
+    }
+
     pub(super) async fn start_titled(&self, title: Option<&str>) -> SessionId {
         self.fleet
             .start_session(StartSession {

@@ -93,6 +93,8 @@ pub(crate) enum Marked {
     /// A Mod Job where Armada's own repository is not served: it runs in the mods folder, with no
     /// Manifest, and so never leases a slot or cuts a branch.
     ModsFolder,
+    /// The Operator's own session: no repository, no slot and no Manifest, in a folder of its own.
+    Operator,
 }
 
 pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
@@ -326,20 +328,8 @@ where
         self.operator_turn_later(later).await
     }
 
-    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.operator_board_wire().await
-    }
-
-    async fn move_on_operator_board(self: Arc<Self>, moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.operator_board_moved(moved).await
-    }
-
     async fn report_bridge_error(self: Arc<Self>, error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
         Ok(self.bridge_error_taken(error).await)
-    }
-
-    async fn answer_operator_suggestion(self: Arc<Self>, answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        self.suggestion_answered(answer).await
     }
 
     async fn confirm_operator_order(self: Arc<Self>, confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
@@ -581,6 +571,8 @@ where
     }
 
     async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        // A failure here leaves the mocks as they were; `job_artifacts` says what is wrong with the Job.
+        self.old_mocks_styled(id.as_str()).await.ok();
         self.job_artifacts(id.as_str()).await
     }
 
@@ -599,6 +591,34 @@ where
 
     async fn save_artifact_edit(self: Arc<Self>, edit: ipc::SaveArtifactEdit) -> Result<ipc::JobArtifact, Refusal> {
         self.artifact_edited(edit).await
+    }
+
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        self.page_action_pressed(press).await
+    }
+
+    async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
+        self.page_vote_cast(cast).await
+    }
+
+    async fn add_part(&self, caller: Option<api::Caller>, add: ipc::AddPart) -> Result<SessionRecord, Refusal> {
+        self.part_added(caller, add).await
+    }
+
+    async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
+        self.part_answered(answer).await
+    }
+
+    async fn get_artifact_page_source(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<String, Refusal> {
+        self.artifact_page_source(id.as_str(), &artifact, revision).await
+    }
+
+    async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
+        self.artifact_seen_marked(mark).await
+    }
+
+    async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.artifact_page(id.as_str(), &artifact, revision).await
     }
 
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
@@ -661,6 +681,26 @@ where
 
     async fn change_job_copy(self: Arc<Self>, change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
         self.piece_changed(change).await
+    }
+
+    async fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_asked(session_id).await
+    }
+
+    async fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_withdrawn(withdraw).await
+    }
+
+    async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_ordered(order).await
+    }
+
+    async fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> Result<ipc::ForYou, Refusal> {
+        self.for_you_lined(line).await
+    }
+
+    async fn add_for_you(self: Arc<Self>, add: ipc::AddForYou) -> Result<ipc::ForYouAdded, Refusal> {
+        self.for_you_added(add).await
     }
 
     async fn get_job_copy(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {

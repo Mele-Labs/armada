@@ -79,6 +79,25 @@ pub fn preview_offers() -> ipc::PreviewOffers {
     }
 }
 
+/// The running build holds one note, not looked at, whose Job is live.
+pub fn build_notes() -> ipc::BuildNotes {
+    ipc::BuildNotes {
+        commit: Some("c".repeat(40)),
+        notes: vec![ipc::BuildNote {
+            branch: String::from("armada/kept-builds"),
+            tip: "b".repeat(40),
+            session_id: ipc::SessionId::carried("01JOB"),
+            title: String::from("Kept builds"),
+            about: String::from("Keeps the last two builds"),
+            look: Some(String::from("The builds list shows two rows")),
+            steps: vec![ipc::PreviewStep { say: String::from("Open Settings"), act: Some(String::from("open_settings")) }],
+            job_ended: false,
+            looked_at: true,
+            verdict: Some(ipc::NoteVerdict::NeedsWork),
+        }],
+    }
+}
+
 /// Fleet on `main`, three commits behind `origin/main`, nothing restarting.
 pub fn fleet_build() -> ipc::FleetBuildReport {
     ipc::FleetBuildReport {
@@ -119,6 +138,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         swapping: false,
         switcher: None,
         origin: Vec::new(),
+        holds: Vec::new(),
     }
 }
 

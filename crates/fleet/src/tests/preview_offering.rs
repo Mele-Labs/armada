@@ -10,7 +10,10 @@ use std::time::Duration;
 
 use adapters::preview_check::{Broke, Compile, Compiler, CONFLICTS};
 use api::{HostedSessions, Refusal, Sessions};
-use ipc::{CloseSession, OfferPreview, PreviewOffers, PreviewState, SessionId, SkipPreviewRefresh, WaitingSource, WithdrawPreview};
+use ipc::{
+    BuildNotes, CloseSession, MarkBuildNoteLookedAt, NoteVerdict, OfferPreview, PreviewOffers, PreviewState, PreviewStep, SendBuildNoteFeedback, SessionId,
+    SkipPreviewRefresh, WaitingSource, WithdrawPreview,
+};
 
 use super::build_notices::{a_rig, commit_on, git, Rig};
 
@@ -26,12 +29,12 @@ impl Compiler for Planted {
     }
 }
 
-fn root(rig: &Rig) -> PathBuf {
+pub(super) fn root(rig: &Rig) -> PathBuf {
     PathBuf::from(rig.fleet.repositories().first().expect("served").root())
 }
 
 /// The repository has a build to read and a `scripts/preview` to offer to, and nothing compiles for real.
-fn a_previewable_repository(rig: &Rig) {
+pub(super) fn a_previewable_repository(rig: &Rig) {
     let scripts = root(rig).join("scripts");
     fs::create_dir_all(&scripts).unwrap();
     fs::write(scripts.join("restart-build"), "#!/bin/sh\n").unwrap();
@@ -40,7 +43,7 @@ fn a_previewable_repository(rig: &Rig) {
 }
 
 /// A branch off `from` with one file committed on it, and its tip.
-fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
+pub(super) fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
     let root = root(rig);
     git(&root, &["checkout", "-q", "-B", branch, from]);
     let path = root.join(file);
@@ -51,7 +54,7 @@ fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) 
     git(&root, &["rev-parse", "HEAD"])
 }
 
-fn base(rig: &Rig) -> String {
+pub(super) fn base(rig: &Rig) -> String {
     git(&root(rig), &["rev-parse", "origin/main"])
 }
 
@@ -63,13 +66,19 @@ async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&st
                 session_id: Some(SessionId::carried(session)),
                 branch: branch.map(str::to_string),
                 about: about.map(str::to_string),
+                // A look, so the tests of the check read only what the check tells the Job.
+                look: Some("Look at it".to_string()),
+                steps: None,
+                approved: None,
+                pictures: None,
+                words: None,
             },
         )
         .await
 }
 
 /// Every check asked for has run.
-async fn checked(rig: &Rig) {
+pub(super) async fn checked(rig: &Rig) {
     for _ in 0..3000 {
         if rig.fleet.previewing().idle() {
             return;
@@ -92,7 +101,7 @@ fn states(read: &PreviewOffers) -> Vec<(String, PreviewState)> {
 }
 
 /// A Job holding one branch with one file on it, offered with a line.
-async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
+pub(super) async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
     let session = rig.a_hosted_session().await;
     rig.holds_branch(&session, branch).await;
     let tip = branch_with(rig, branch, &base(rig), file, contents);
@@ -372,4 +381,251 @@ async fn the_moved_since_the_preview_left_it_out_row_is_no_longer_raised() {
     let record = Arc::clone(&rig.fleet).get_session(SessionId::carried(session.as_str())).await.unwrap();
     let raised: Vec<_> = record.session.waiting_for.iter().filter(|one| one.source == WaitingSource::PreviewOffer).collect();
     assert!(raised.is_empty(), "{raised:?}");
+}
+
+pub(super) fn step(say: &str, act: Option<&str>) -> PreviewStep {
+    PreviewStep { say: say.to_string(), act: act.map(str::to_string) }
+}
+
+/// An offer of `session`'s own branch carrying a look and steps, each only where given.
+async fn offer_noting(rig: &Rig, session: &str, about: Option<&str>, look: Option<&str>, steps: Option<Vec<PreviewStep>>) -> Result<ipc::PreviewOffered, Refusal> {
+    Arc::clone(&rig.fleet)
+        .offer_preview(
+            None,
+            OfferPreview {
+                session_id: Some(SessionId::carried(session)),
+                branch: None,
+                about: about.map(str::to_string),
+                look: look.map(str::to_string),
+                steps,
+                approved: None,
+                pictures: None,
+                words: None,
+            },
+        )
+        .await
+}
+
+async fn offer_kept(rig: &Rig, session: &str) -> store::KeptPreviewOffered {
+    rig.fleet.store().lock().await.preview_offered_of(session, "armada/one").unwrap().expect("an offer")
+}
+
+pub(super) fn code<T>(refused: Result<T, Refusal>) -> String {
+    match refused {
+        Ok(_) => panic!("expected a refusal"),
+        Err(refusal) => refusal.error().code.clone(),
+    }
+}
+
+async fn notes(rig: &Rig) -> BuildNotes {
+    rig.fleet.build_notes_read().await
+}
+
+/// The running build is the preview and holds each (branch, tip) given.
+pub(super) fn holding(rig: &Rig, held: &[(&str, &str)]) {
+    rig.on_file(true);
+    let lines: String = held.iter().map(|(branch, tip)| format!("{branch}\t{tip}\n")).collect();
+    fs::write(rig.support().join("preview-held"), format!("{}\n{}\n{lines}", rig.build, base(rig))).unwrap();
+}
+
+#[tokio::test]
+async fn a_look_and_steps_are_checked_and_a_refused_offer_keeps_nothing() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    let about = Some("Keeps one thing");
+    let one = |steps: Vec<PreviewStep>| offer_noting(&rig, &session, about, None, Some(steps));
+
+    assert_eq!(code(offer_noting(&rig, &session, about, Some(&"x".repeat(301)), None).await), "fleet.preview_look_invalid");
+    assert_eq!(code(offer_noting(&rig, &session, about, Some("one\ntwo"), None).await), "fleet.preview_look_invalid");
+    assert_eq!(code(one((0..10).map(|at| step(&format!("Step {at}"), None)).collect()).await), "fleet.preview_steps_invalid", "ten is one over");
+    assert_eq!(code(one(vec![step("  ", None)]).await), "fleet.preview_steps_invalid");
+    assert_eq!(code(one(vec![step(&"x".repeat(121), None)]).await), "fleet.preview_steps_invalid");
+    assert_eq!(code(one(vec![step("one\ntwo", None)]).await), "fleet.preview_steps_invalid");
+    assert_eq!(code(one(vec![step("Press Projects", Some("open_the_moon"))]).await), "fleet.preview_step_act_unknown");
+    assert!(offers(&rig).await.offers.is_empty(), "nothing was kept");
+
+    let nine: Vec<PreviewStep> = (0..9).map(|at| step(&format!("Step {at}"), Some("open_settings"))).collect();
+    assert!(offer_noting(&rig, &session, about, Some(&"x".repeat(300)), Some(nine)).await.is_ok(), "300 characters and nine steps are the most");
+    checked(&rig).await;
+}
+
+#[tokio::test]
+async fn a_re_offer_that_leaves_the_look_and_steps_out_keeps_them_and_an_empty_one_clears() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    let steps = vec![step("Open Settings", Some("open_settings")), step("Look at the toasts", None)];
+    offer_noting(&rig, &session, Some("Keeps one thing"), Some("The toasts stack"), Some(steps.clone())).await.expect("offered");
+    checked(&rig).await;
+    branch_with(&rig, "armada/one", "armada/one", "crates/x/more.rs", "2");
+    offer_noting(&rig, &session, None, None, None).await.expect("offered again");
+    checked(&rig).await;
+    let again = offer_kept(&rig, &session).await;
+    assert_eq!(again.look.as_deref(), Some("The toasts stack"));
+    assert_eq!(again.steps.iter().map(|one| (one.say.as_str(), one.act.as_deref())).collect::<Vec<_>>(), [("Open Settings", Some("open_settings")), ("Look at the toasts", None)]);
+
+    offer_noting(&rig, &session, None, Some("A new look"), Some(Vec::new())).await.expect("offered again");
+    checked(&rig).await;
+    let cleared = offer_kept(&rig, &session).await;
+    assert_eq!((cleared.look.as_deref(), cleared.steps.len()), (Some("A new look"), 0), "an empty list clears the steps");
+    offer_noting(&rig, &session, None, Some(""), None).await.expect("offered again");
+    checked(&rig).await;
+    assert_eq!(offer_kept(&rig, &session).await.look, None, "an empty look clears it");
+}
+
+#[tokio::test]
+async fn the_build_notes_are_the_held_branches_notes_in_offer_order_and_a_note_outlives_its_offer() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (one, tip_one) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    let (two, tip_two) = a_job_offering(&rig, "armada/two", "crates/x/two.rs", "2").await;
+    offer_noting(&rig, &one, Some("Keeps one thing"), Some("Look at one"), Some(vec![step("Open Settings", Some("open_settings"))])).await.expect("offered");
+    checked(&rig).await;
+    offer_noting(&rig, &two, Some("Keeps two things"), None, None).await.expect("offered");
+    checked(&rig).await;
+
+    assert_eq!(notes(&rig).await, BuildNotes { commit: None, notes: Vec::new() }, "the build is main");
+
+    holding(&rig, &[("armada/two", &tip_two), ("armada/one", &tip_one)]);
+    let held = notes(&rig).await;
+    assert_eq!(held.commit.as_deref(), Some(rig.build.as_str()));
+    let [first, second] = held.notes.as_slice() else { panic!("one note a held branch: {held:?}") };
+    assert_eq!((first.branch.as_str(), first.tip.as_str(), first.session_id.as_str()), ("armada/one", tip_one.as_str(), one.as_str()), "offer order, not the file's");
+    assert_eq!((first.about.as_str(), first.look.as_deref(), first.job_ended, first.looked_at), ("Keeps one thing", Some("Look at one"), false, false));
+    assert_eq!((first.steps.len(), first.steps[0].act.as_deref()), (1, Some("open_settings")));
+    assert_eq!((second.branch.as_str(), second.look.as_deref(), second.steps.len()), ("armada/two", None, 0));
+    assert_eq!(first.title, one, "the Job has no title, so its id");
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(one.as_str())), branch: None }).await.expect("withdrawn");
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: SessionId::carried(two.as_str()) }).await.expect("closed");
+    rig.fleet.previews_watched().await;
+    checked(&rig).await;
+
+    assert!(offers(&rig).await.offers.is_empty(), "both offers are gone");
+    let after = notes(&rig).await;
+    assert_eq!(after.notes.iter().map(|note| (note.branch.as_str(), note.job_ended)).collect::<Vec<_>>(), [("armada/one", false), ("armada/two", true)], "the notes stay, and the ended Job says so");
+
+    let newer = branch_with(&rig, "armada/one", "armada/one", "crates/x/more.rs", "3");
+    holding(&rig, &[("armada/one", &newer)]);
+    assert!(notes(&rig).await.notes.is_empty(), "a build holding a tip nobody offered has no note for it");
+}
+
+#[tokio::test]
+async fn a_note_is_marked_looked_at_by_branch_and_tip_with_a_verdict_its_job_is_told_and_a_new_tip_is_not() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, tip) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    offer_noting(&rig, &session, Some("Keeps one thing"), Some("Look"), None).await.expect("offered");
+    checked(&rig).await;
+    holding(&rig, &[("armada/one", &tip)]);
+    let mut watching = rig.fleet.events().subscribe();
+
+    let mark = |verdict| MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: tip.clone(), verdict };
+    let marked = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::Good))).await.expect("marked");
+
+    assert_eq!((marked.notes[0].looked_at, marked.notes[0].verdict), (true, Some(NoteVerdict::Good)));
+    assert!(notes(&rig).await.notes[0].looked_at);
+    let told = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            match watching.next().await {
+                Some(api::Next::Send(delivered)) => {
+                    if let ipc::Event::BuildNotesChanged(told) = delivered.event {
+                        return told;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("build_notes.changed arrives");
+    assert!(told.notes[0].looked_at);
+    let thread = rig.thread_of(&session).await;
+    let named = format!("your preview note \"Keeps one thing\" on armada/one at {}", &tip[..7]);
+    assert_eq!(thread.last().map(String::as_str), Some(format!("The owner says {named} is good.").as_str()), "the note's Job is told");
+
+    api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::Good))).await.expect("the same again");
+    assert_eq!(rig.thread_of(&session).await.len(), thread.len(), "the same verdict again tells it nothing");
+    let changed = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::NeedsWork))).await.expect("changed");
+    assert_eq!(changed.notes[0].verdict, Some(NoteVerdict::NeedsWork));
+    let thread = rig.thread_of(&session).await;
+    assert_eq!(
+        thread.last().map(String::as_str),
+        Some(format!("The owner says {named} needs work. His words on it follow in a message: wait for them before you change it.").as_str()),
+        "a changed verdict is told"
+    );
+
+    let unknown = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: "0".repeat(40), verdict: None }).await;
+    assert_eq!(unknown.expect_err("no such note").status(), 404);
+
+    let newer = branch_with(&rig, "armada/one", "armada/one", "crates/x/more.rs", "2");
+    offer_noting(&rig, &session, None, None, None).await.expect("offered again");
+    checked(&rig).await;
+    holding(&rig, &[("armada/one", &newer)]);
+    let now = notes(&rig).await;
+    assert_eq!((now.notes[0].tip.as_str(), now.notes[0].looked_at, now.notes[0].look.as_deref()), (newer.as_str(), false, Some("Look")), "a new tip is a note not looked at, with the look it kept");
+    holding(&rig, &[("armada/one", &tip)]);
+    assert!(notes(&rig).await.notes[0].looked_at, "the old tip is still looked at");
+}
+
+#[tokio::test]
+async fn feedback_on_a_note_goes_to_its_live_job_and_starts_a_new_job_where_it_has_ended() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, tip) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    offer_noting(&rig, &session, Some("Keeps one thing"), Some("The toasts stack"), Some(vec![step("Open Settings", Some("open_settings"))])).await.expect("offered");
+    checked(&rig).await;
+    holding(&rig, &[("armada/one", &tip)]);
+    let feedback = |words: &str, branch: &str, tip: &str| SendBuildNoteFeedback { branch: branch.into(), tip: tip.into(), words: words.into() };
+
+    assert_eq!(api::Commands::send_build_note_feedback(Arc::clone(&rig.fleet), feedback("  \n", "armada/one", &tip)).await.expect_err("no words").status(), 422);
+    assert_eq!(api::Commands::send_build_note_feedback(Arc::clone(&rig.fleet), feedback("Too small", "armada/one", &"0".repeat(40))).await.expect_err("no note").status(), 404);
+
+    let sent = api::Commands::send_build_note_feedback(Arc::clone(&rig.fleet), feedback("The toasts are cut off", "armada/one", &tip)).await.expect("sent");
+    assert_eq!((sent.session_id.as_str(), sent.started), (session.as_str(), false));
+    assert_eq!(rig.thread_of(&session).await.last().map(String::as_str), Some("On your preview note \"Keeps one thing\": The toasts are cut off"));
+
+    Arc::clone(&rig.fleet).close_session(CloseSession { session_id: SessionId::carried(session.as_str()) }).await.expect("closed");
+    let started = api::Commands::send_build_note_feedback(Arc::clone(&rig.fleet), feedback("Still cut off", "armada/one", &tip)).await.expect("started");
+
+    assert!(started.started);
+    assert_ne!(started.session_id.as_str(), session.as_str(), "a new Job, not the ended one");
+    let record = Arc::clone(&rig.fleet).get_session(started.session_id.clone()).await.expect("the new Job is there");
+    let before = Arc::clone(&rig.fleet).get_session(SessionId::carried(session.as_str())).await.expect("the ended Job is still read");
+    assert_eq!(record.session.manifest_id, before.session.manifest_id, "in the same repository");
+    let brief = rig.thread_of(started.session_id.as_str()).await.join("\n");
+    for held in ["Still cut off", "The toasts stack", "Open Settings (open_settings)", "armada/one", tip.as_str(), "Keeps one thing"] {
+        assert!(brief.contains(held), "the new Job's first message names {held}: {brief}");
+    }
+    assert_eq!(rig.thread_of(&session).await.len(), 2, "nothing more went to the ended Job");
+}
+
+#[tokio::test]
+async fn an_offer_with_no_look_asks_its_job_for_one_and_one_with_a_look_does_not() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+
+    offer_noting(&rig, &session, Some("Keeps one thing"), None, None).await.expect("offered");
+    let thread = rig.thread_of(&session).await;
+    assert_eq!(thread.len(), 1, "one ask: {thread:?}");
+    assert!(thread[0].starts_with("Your offer of armada/one has no look"), "{thread:?}");
+
+    offer_noting(&rig, &session, None, Some("The toasts stack"), None).await.expect("offered again");
+    assert_eq!(rig.thread_of(&session).await.len(), 1, "an offer with a look asks nothing");
+}
+
+#[tokio::test]
+async fn a_step_names_an_act_from_the_registry_the_offered_branch_holds() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    branch_with(&rig, "armada/one", "armada/one", "crates/core-model/domain/actions.toml", "[actions.call_snooze]\nkind = \"Action\"\n");
+    let about = Some("Keeps one thing");
+
+    let added = vec![step("Press Snooze", Some("call_snooze"))];
+    assert!(offer_noting(&rig, &session, about, Some("Look"), Some(added)).await.is_ok(), "an act the branch adds is known");
+    let gone = vec![step("Open Settings", Some("open_settings"))];
+    assert_eq!(code(offer_noting(&rig, &session, about, Some("Look"), Some(gone)).await), "fleet.preview_step_act_unknown", "the branch's registry is the one read");
 }

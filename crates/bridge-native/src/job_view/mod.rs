@@ -12,14 +12,25 @@
 
 mod aa;
 mod acts;
+mod artifacts_tab;
+mod for_you_tab;
+mod fold;
+mod band_card;
 mod bands;
 mod bar;
 mod calls;
 mod call_tabs;
 mod callchip;
+mod choose;
+mod claim_waits;
+mod moving;
+mod slot_wait;
+pub(crate) use fold::{presses, rail, rail_said, shuts, Side};
+pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
 mod deck;
+mod delivery_line;
 mod draft_doc;
 mod dock;
 mod done;
@@ -28,7 +39,9 @@ mod open;
 mod deferred;
 mod watching;
 mod edit;
+mod find;
 mod fork;
+mod handoff;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
@@ -42,19 +55,34 @@ mod lines;
 mod menus;
 pub(crate) mod offer;
 mod perm;
+mod picture_view;
 mod pictures;
 mod pinned;
 mod place;
 mod plan;
 mod plan_edit;
 mod plan_marks;
+mod plan_sketches;
 mod pop;
 mod quick;
+mod ready_card;
 mod teach;
 mod records;
 mod refs;
 mod review;
 mod row_tabs;
+mod web_pages;
+mod page_tab;
+mod parts_card;
+mod parts_fold;
+mod parts_reader;
+mod live_pill;
+mod page_sketches;
+mod reader;
+mod reader_draw;
+mod reader_edit;
+mod reader_page;
+mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
 mod lanes;
@@ -64,12 +92,20 @@ mod mods_made;
 mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
+mod sketch_card;
+mod sketch_notes;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
+mod zoomer;
 mod panes;
+mod panel_tab;
 mod pane_store;
 pub(crate) mod pane_tree;
+mod panes_place;
+mod place_drag;
+mod place_draw;
+mod place_menu;
 pub(crate) mod pulls;
 mod issues;
 mod system;
@@ -86,7 +122,6 @@ mod workflow;
 mod tabs;
 mod view_tabs;
 pub use listening::scene as listen_scene;
-pub use side::JobSide;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -117,6 +152,13 @@ use crate::look::{token, ActiveLook, Look};
 
 actions!(job_view, [PageUp, PageDown, ToStart, ToEnd]);
 
+/// Each Job's panes kept in a file on this Mac from now on, so a restart brings them back. The live app's alone.
+pub fn keep_arrangements(cx: &mut App) {
+    if let Some(store) = pane_store::FileStore::live() {
+        pane_store::install(store, cx);
+    }
+}
+
 /// The thread's own keys, which the registry does not carry: Electron lets the browser scroll a
 /// focused scroller on these (`SessionThread.tsx`, A1.5).
 pub fn bind(cx: &mut App) {
@@ -129,6 +171,7 @@ pub fn bind(cx: &mut App) {
     review::bind(cx);
     head::bind(cx);
     lanes_copy::bind(cx);
+    web_walk::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -151,8 +194,16 @@ pub(crate) enum Extra {
     Waiting,
     /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
     WaitsFor,
+    /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
+    ClaimWaits,
+    /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
+    Moving,
+    /// The Job waits for a worktree slot: its place, and Add and Free (`slot_wait`).
+    SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
+    Parts(String, u32),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -191,6 +242,8 @@ struct Page {
     earlier_version: Option<u64>,
     count: usize,
     extras: Vec<Extra>,
+    /// The cards of artifacts of parts kept before later items of the thread, each drawn under the item it follows.
+    anchors: Vec<parts_fold::Anchor>,
     /// The thread version the list was last measured for.
     version: Option<u64>,
     /// The folds the person opened, by item id.
@@ -230,7 +283,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -336,6 +389,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// The sends the mock keeps for a Mac asleep, as Fleet's `GET /queued` would answer.
     mock_queued: ipc::QueuedList,
+    /// Every answer to a Ready to try card the mock Fleet took, oldest first.
+    mock_ready: Vec<ipc::AnswerReadyToTry>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -353,6 +408,10 @@ pub struct JobView {
     aged: bool,
     /// How Done lists what was made, for the run.
     ledger_view: done::LedgerView,
+    /// What each Job's artifacts list holds, and the first screens of its pages.
+    artifacts: artifacts_tab::Artifacts,
+    /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
+    for_you: for_you_tab::ForYouTab,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -362,14 +421,13 @@ pub struct JobView {
     pane: Option<gpui::Pixels>,
     /// The height of the shown thread's list when it was last drawn: a pinned sketch is cut to it.
     pane_height: Option<gpui::Pixels>,
+    /// How wide each sketch drawn inside a plan was last drawn, by its key: its drawing is sized to it.
+    plan_columns: HashMap<String, gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
-    /// The right column's top pane: Open, Done or Deferred.
-    zone: side::Zone,
-    /// The tabs closed on each Job, and + 's menu while it is open.
-    tabs_closed: tabs::Closed,
-    /// The pane zoomed over the Job, and the panes closed on each Job.
-    zoom: zoom::Zoom,
+    /// Each Job's panes as an arrangement, the pane zoomed over the Job, and the steps back.
+    arranged: panes_place::Arranged,
+    /// The menu + or a tab's right press opened, while it is open.
     tabs_menu: Option<tabs::AddMenu>,
     /// Tabs another part of the app opened on a Job, each drawing its own view.
     view_tabs: view_tabs::ViewTabs,
@@ -377,21 +435,27 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
-    /// The thread's strip, which scrolls sideways once its tabs are wider than the pane.
-    row_strip: gpui::ScrollHandle,
+    /// The scroll of an artifact's tab body: its parts and the note under one are read by scrolling it.
+    body_scroll: gpui::ScrollHandle,
     /// Where he left off, kept between runs.
     place: place::Place,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// The find bar over the thread, while it is open.
+    find: Option<find::Find>,
     /// Hide Open group pressed here, with Fleet's setting then: it stands until Fleet's says otherwise.
     open_group_set: Option<(bool, bool)>,
     /// The Needs you panel, so its keys work once focus is in it.
     dock_focus: FocusHandle,
+    /// The options of a question asked in pictures, open over the thread (`choose.rs`).
+    choose_focus: FocusHandle,
     /// A thread scroll key ran in the frame now drawing: a row it carries out of the list keeps the keys nearby.
     scroll_keys: bool,
     /// The code Fleet refused the last answered act with (`WireError.code`), read by the `done` that answers it.
     refused_code: Option<String>,
+    /// What each web page's last Open that did not draw it came to: a walk's tab, and the live page in Now.
+    pages_open: web_pages::PagesOpen,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
@@ -421,9 +485,12 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
-    /// A subagent's thread open on its sheet, and the last threads read, newest last.
-    subagent_reading: Option<subagent_read::Reading>,
+    /// His notes on a sketch's parts, held until he sends them, by the sketch they are on (`sketch:<job>:<card>`).
+    sketch_notes: HashMap<String, Vec<sketch_notes::Held>>,
+    /// The last subagent threads read, newest last.
     subagents_read: Vec<(String, subagent_read::SubagentRead)>,
+    /// The subagents a press on a thread's row opened as tabs, by `{job}/{subagent}`, for those the Job's ledger does not hold.
+    subagents_opened: HashMap<String, ipc::ToolSubagent>,
     /// The origin's thread as it stood where a fork began (`upto`), by origin and message: Fleet keeps no such read.
     forks_read: HashMap<String, Vec<ThreadItem>>,
     /// The reads kept going for subagents open as tabs beside the thread, by `job/subagent`.
@@ -497,6 +564,7 @@ impl JobView {
                 this.review_sync(window, cx);
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -519,6 +587,19 @@ impl JobView {
             let keys = gpui::Focusable::focus_handle(this.composer.input.read(cx), cx);
             if this.composer.frame.contains(&keys, window) {
                 window.focus(&keys, cx);
+            } else if this.shown.is_some() && this.zoomed().is_some() {
+                // The box is not drawn under a zoomed pane: the keys go to that pane's tab in front, unless
+                // whatever took the press has given them somewhere by then.
+                let view = cx.entity();
+                window.defer(cx, move |window, cx| {
+                    if window.focused(cx).is_none() {
+                        view.update(cx, |this, cx| {
+                            if let Some(pane) = this.zoomed() {
+                                this.focus_in_pane(&pane, window, cx);
+                            }
+                        });
+                    }
+                });
             }
         }));
         subscriptions.push(cx.on_release(|this, cx| {
@@ -551,6 +632,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
+            mock_ready: Vec::new(),
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
@@ -560,28 +642,31 @@ impl JobView {
             starts: start_card::Starts::default(),
             composer,
             aged: false,
+            artifacts: artifacts_tab::Artifacts::default(),
+            for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
             switched: None,
             pane: None,
             pane_height: None,
+            plan_columns: HashMap::new(),
             picked: 0,
-            zone: side::Zone::default(),
-            tabs_closed: tabs::Closed::default(),
-            zoom: zoom::Zoom::default(),
+            arranged: panes_place::Arranged::default(),
             tabs_menu: None,
             view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
-            row_strip: gpui::ScrollHandle::new(),
+            body_scroll: gpui::ScrollHandle::new(),
             place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
             open_group_set: None,
             dock_focus: cx.focus_handle(),
+            choose_focus: cx.focus_handle(),
             scroll_keys: false,
             refused_code: None,
+            pages_open: Default::default(),
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
@@ -599,8 +684,9 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
-            subagent_reading: None,
+            sketch_notes: HashMap::new(),
             subagents_read: Vec::new(),
+            subagents_opened: HashMap::new(),
             forks_read: HashMap::new(),
             subagent_tab_polls: HashMap::new(),
             panes: panes::Panes::default(),
@@ -609,6 +695,7 @@ impl JobView {
             listen,
             heard: crate::listen::Seen::default(),
             mock_records: None,
+            find: None,
             _subscriptions: subscriptions,
         }
     }
@@ -625,9 +712,14 @@ impl JobView {
         self.list.read(cx).record(id)
     }
 
+    /// The paired Mac that holds Job `id`, by id, where it is another Mac.
+    pub fn mac_of(&self, id: &str, cx: &App) -> Option<String> {
+        self.record(id, cx).and_then(|job| job.mac.clone())
+    }
+
     /// The shown Job's thread in front of its pane, and the keys in its message box: a Job ⌘T started.
     pub fn onto_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.view_tab_back(ViewPane::Thread);
+        self.front_thread();
         self.keys_to_box(window, cx);
         cx.notify();
     }
@@ -760,14 +852,9 @@ impl JobView {
         self.shown = to.clone();
         self.switched = Some(started);
         if let Some(id) = &to {
-            self.place_arrive(id);
-        }
-        // Each Job has its own tabs, so the top strip starts at its head with the tab in front in view.
-        self.panes.top_tabs.set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
-        if let Some(at) = self.zone_shown().and_then(|zone| side::Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone)) {
-            self.panes.top_tabs.scroll_to_item(at);
-        }
-        if let Some(id) = &to {
+            // Each Job has its own panes, kept by the store; the tab kept in front of its top pane comes forward the first time.
+            self.ensure_placed(id, cx);
+            self.place_arrive(id, cx);
             self.pages.entry(id.clone()).or_insert_with(Page::new);
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
@@ -875,7 +962,14 @@ impl JobView {
         let rule = usize::from(self.record(id, cx).is_some_and(|job| job.attachments.iter().any(|one| one.kind == "replaces")));
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
-        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some(), self.refreshing(id, cx));
+        let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
+        // Each revision of an artifact that holds parts has a card where it was kept: under the item before later ones, else before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
+        let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
+        let (anchors, tail) = parts_fold::place(&held.items, &kept);
+        let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        extras.splice(stands..stands, cards);
+        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -883,20 +977,34 @@ impl JobView {
         if bands.end {
             extras.push(Extra::End);
         }
+        // The items it waits on that another holds stand with its other waits.
+        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty() || job.claims_unsent) {
+            extras.push(Extra::ClaimWaits);
+        }
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
         if !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
+        }
+        // A wait for a slot asks him nothing, and stands with the Job's other waits.
+        if self.record(id, cx).is_some_and(|job| job.slot_wait.is_some()) {
+            extras.push(Extra::SlotWait);
+        }
+        // A move he pressed is the newest thing of all, and the card has no act: Fleet's move cannot be cancelled.
+        if self.record(id, cx).is_some_and(moving::on_its_way) {
+            extras.push(Extra::Moving);
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
-        if page.version == Some(version) && page.extras == extras && dirty.is_none() && above == above_was {
+        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was {
             return;
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
+        // A card kept under an item that is not new changes that item's element, so the list measures from there.
+        let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
@@ -917,6 +1025,7 @@ impl JobView {
         page.lead = lead;
         page.count = total;
         page.extras = extras;
+        page.anchors = anchors;
         page.version = Some(version);
         if first {
             // Within a screen of the top, the older items are read: the row says so when it draws.
@@ -947,6 +1056,7 @@ impl JobView {
         }
         self.arrive(id, cx);
         self.open_made(id, cx);
+        self.find_thread_changed(id, cx);
     }
 
     /// A message from the person puts the thread at its end again (A1.5).
@@ -1122,6 +1232,12 @@ impl Render for JobView {
         }
         self.tend_kept(window, cx);
         self.sync_walk_tabs(&id, cx);
+        self.sync_web_walks(&id, window, cx);
+        self.sync_page_tabs(&id, window, cx);
+        self.sync_artifacts(&id, window, cx);
+        self.sync_for_you(&id, window, cx);
+        self.tend_parts(&id, window, cx);
+        self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
         let drawn = self.composer.quick.thread();
@@ -1130,14 +1246,17 @@ impl Render for JobView {
             self.pages.values().for_each(|page| page.list.remeasure());
         }
         // The column follows the width the thread was last drawn at; a change draws once more at the new one.
-        let pane = head::drawn(window, cx, Role::Region, "Thread").map(|bounds| bounds.size.width);
+        let region = head::drawn(window, cx, Role::Region, "Thread");
+        let pane = region.map(|bounds| bounds.size.width);
         if pane.is_some() && pane != self.pane {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
         }
         // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
-        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        // The region's own height, not the list's: the call chip's room is padding inside the region, and a room that shrank
+        // with the chip would cut the pin again, measure the list, and so show or hide the chip, every frame.
+        let room = region.map(|bounds| bounds.size.height - look.length(token::SPACE_4)).filter(|room| *room > gpui::px(0.));
         if room.is_some() && room != self.pane_height {
             self.pane_height = room;
             if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {
@@ -1171,6 +1290,7 @@ impl Render for JobView {
                     .on_action(cx.listener(Self::on_to_end))
                     .size_full()
                     .pt(look.length(token::SPACE_4))
+                    .pb(self.chip_room(&id, cx))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
                     .child(fade(&look, true))
@@ -1182,21 +1302,35 @@ impl Render for JobView {
         } else {
             self.render_skeleton(look)
         };
-        // A closed Thread tab leaves its pane empty under the strip, as Electron's does; a tab beside
-        // it in front draws its own body there.
-        let front = self.row_front(&id).cloned();
-        // A row's tab stands first, then a view tab another part of the app opened here, then the thread.
-        let view = front.is_none().then(|| self.view_front(ViewPane::Thread).map(|one| one.view.clone())).flatten();
-        let open = !self.tab_closed("thread") && front.is_none() && view.is_none();
-        let body = match (&front, view) {
-            (Some(tab), _) => self.row_tab_body(&id, tab, look, window, cx),
-            (None, Some(view)) => div().size_full().child(view).into_any_element(),
-            (None, None) if open => body,
-            (None, None) => div().into_any_element(),
-        };
-        let head = self.render_head(&id, cx);
-        let origin = if open { self.render_origin(&id, window, cx) } else { None };
-        let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+        // The thread draws where its tab is in front; a closed Thread tab leaves its pane empty under the strip, as Electron's does.
+        let thread_body = self.thread_open().then(|| {
+            let origin = self.render_origin(&id, window, cx);
+            let find = self.render_find(&id, cx);
+            let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .children(origin)
+                .children(find)
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .children(self.render_bands(&id, cx))
+                .children(dock)
+                .into_any_element()
+        });
+        // What he opened over the Job: menus, sheets and dialogs, laid over the pane that holds the thread.
+        let mut popups: Vec<AnyElement> = self.head_popups();
+        popups.extend(self.tabs_menu.as_ref().map(|open| open.menu.clone().into_any_element()));
+        popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
+        popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_sketch(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));
+        let panes = self.render_panes(&id, thread_body, popups, window, cx);
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
         div()
@@ -1204,27 +1338,7 @@ impl Render for JobView {
             .flex()
             .flex_col()
             .relative()
-            .key_context("thread")
-            .on_action(cx.listener(Self::on_act))
-            // Selected words need the window's selection layer; the Job's view is where words are selected.
-            .child(gpui_base::TextSelectionLayer)
-            .child(head)
-            .children(origin)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)))
-            .children(self.render_bands(&id, cx).filter(|_| open))
-            .children(dock)
-            .children(self.tabs_menu.as_ref().map(|open| open.menu.clone()))
-            .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
-            .children(self.render_confirm(window, cx))
-            .children(self.render_editor(window, cx))
-            .children(self.render_teach(cx))
-            .children(self.render_review(&id, window, cx))
-            .children(self.render_report(window, cx))
-            .children(self.render_sketch(window, cx))
-            .children(self.render_picture(window, cx))
-            .children(self.render_sketch_reading(window, cx))
-            .children(self.render_subagent_reading(window, cx))
-            .children(self.render_pane_panel(window, cx))
+            .child(panes)
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {
@@ -1296,3 +1410,5 @@ mod tests {
 
 /// The thread's age of a time, which the Operator's page flips to as the thread does.
 pub(crate) use rows::age;
+pub(crate) use page_tab::page_in_front;
+pub(crate) use bar::plain_of;

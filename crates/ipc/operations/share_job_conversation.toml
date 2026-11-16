@@ -1,0 +1,8 @@
+[operations.share_job_conversation]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A piece of a moving Job's conversation, for the Mac it is moving to"
+notes = """
+`GET /other_mac/conversation?session_id=&from=`, the sending Mac's id in `x-armada-mac`, answered with up to 512 KiB of the Job's conversation file from byte `from` as `application/octet-stream`, under the signed link's 1 MiB for a body. An empty answer is the end. Answered only while the Job is moving to that Mac and its turn has ended; any other Job, a Job moving elsewhere, and a Job not moving are 404 `fleet.no_such_session`, worded as for a Job that does not exist.
+"""

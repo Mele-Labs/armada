@@ -20,7 +20,7 @@ use crate::look::{token, ActiveLook, Look};
 /// How long Copy reads "Copied" after a press.
 const COPIED_FOR: Duration = Duration::from_millis(1500);
 /// The words of a message as plain text: formatting dropped, a line's words joined by spaces.
-pub(super) fn plain_of(text: &str) -> String {
+pub(crate) fn plain_of(text: &str) -> String {
     let mut out = String::new();
     for line in text.lines() {
         let mut line = line.trim();
@@ -107,7 +107,7 @@ pub(super) struct Editor {
 pub(super) struct Bar {
     copied: Option<String>,
     held: Option<String>,
-    editor: Option<Editor>,
+    pub(super) editor: Option<Editor>,
     next: u32,
 }
 

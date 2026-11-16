@@ -7,7 +7,7 @@ use std::path::Path;
 use ipc::{KeptStyles, MockNode, StyleKind, StyleSources};
 
 use super::keeping;
-use super::walk::{sources_near, usable_kind};
+use super::walk::{searched_usable, sources_near, usable_kind};
 
 /// What choosing did for a scene's mocks.
 #[derive(Default)]
@@ -28,6 +28,7 @@ pub(crate) fn style_mocks(checkout: &str, tiers: &[Vec<String>], attachments: &s
         tiers,
         folder: keeping::folder(attachments),
         walked: None,
+        searched: None,
         dirty: None,
         kept: HashMap::new(),
     };
@@ -51,6 +52,8 @@ struct Run<'a> {
     tiers: &'a [Vec<String>],
     folder: std::path::PathBuf,
     walked: Option<StyleSources>,
+    /// The whole checkout's usable sheets, searched once where the walk found none.
+    searched: Option<Vec<String>>,
     dirty: Option<BTreeSet<String>>,
     /// One set kept for the same files, however many mocks ask for them.
     kept: HashMap<(bool, Vec<String>), Result<String, String>>,
@@ -105,6 +108,9 @@ impl Run<'_> {
         let reset = usable.clone().find(|one| one.kind == StyleKind::TailwindReset).map(|one| one.path.clone());
         let mut paths: Vec<String> = usable.clone().filter(|one| one.kind != StyleKind::TailwindReset).map(|one| one.path.clone()).collect();
         paths.extend(reset.clone());
+        if paths.is_empty() {
+            paths = self.searched.get_or_insert_with(|| searched_usable(root)).clone();
+        }
         if paths.is_empty() {
             return nothing_usable(mock, here, &found_text(&walked));
         }

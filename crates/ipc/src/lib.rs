@@ -44,6 +44,8 @@ mod checks;
 mod disputes;
 /// An agent's report that Armada itself got something wrong, kept on this Mac.
 mod bug_reports;
+/// `raise_conflict` and `ask_held`, the two things a Job may send the Operator.
+mod job_asks;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -137,6 +139,7 @@ mod issues;
 mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
+mod project_store;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
@@ -160,7 +163,7 @@ pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
-/// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
+/// The Operator's events: the page changed, and what became of a dispatch. `crates/ipc/operations/operator.board_changed.toml`.
 pub mod operator_board;
 /// An error Bridge showed the person, sent to the Operator. `crates/ipc/operations/report_bridge_error.toml`.
 pub mod operator_errors;
@@ -168,6 +171,8 @@ pub mod operator_errors;
 pub mod operator_talk;
 /// The Operator's page: Your turn and the digest beside it. `crates/ipc/operations/operator_page.toml`.
 pub mod operator_page;
+/// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
+pub mod operator_cards;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -214,6 +219,8 @@ mod requests_batch;
 mod request_runs;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
+/// A side question put to a Job, answered on a thrown-away copy of its conversation.
+mod asides;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// A pull request's change sets, its overview, and its sets held to the repository's practices.
@@ -277,6 +284,8 @@ mod show_file;
 mod package_manifest;
 /// A Job's sketches, drafts and pages as one record. `get_job_artifacts`.
 mod artifact;
+/// An artifact's parts. `add_part`, `answer_part`.
+mod artifact_parts;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -301,6 +310,8 @@ mod autopilot;
 mod autopilot_decisions;
 /// How much of the plan's windows is used.
 mod plan_usage;
+/// One Job's For you tab: what waits on him, what it builds, what lands.
+mod for_you;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
 /// The agents' account signed out, for the whole Fleet.
@@ -353,6 +364,8 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
@@ -375,11 +388,13 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
+    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
 pub use preview::{
+    BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, NoteVerdict, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
-    PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview,
+    PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview, OfferApproved, PICTURES_AT_MOST, ThreadReadyToTry, ReadyApproved,
+    ReadyState, AnswerReadyToTry, ReadyAnswer,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,
@@ -389,7 +404,7 @@ pub use checks::{
     CheckOutput, CheckRun, DeclaredCheck, DeclaredJudge,
 };
 pub use codec::{
-    decode, decode_body, encode, Undecodable, Unencodable,
+    decode, decode_body, encode, same_json, Undecodable, Unencodable,
 };
 pub use commanding::{
     AllowedCommandRow, RemoveRepositoryAllowedCommand, RepositoryAllowedCommands,
@@ -430,7 +445,7 @@ pub use health::{
     FleetHealth, ActionAuthority, DiskHealth, Probe, ReclaimPass, Unprobed,
 };
 pub use thought::{
-    WordsSent, ReadThought, TellSession, ThoughtKind, ThoughtReading,
+    WordsSent, TellSession, ThoughtKind,
     ThoughtTarget,
 };
 pub use session_system::{
@@ -516,9 +531,10 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
+pub use project_store::{ClaimsHolder, ClaimsWait, DeployProjectStore, HeldClaim, HeldClaimKind, JoinStore, ProjectClaims, ProjectStoreState, SetProjectStore, StoreDeploy, StoreDeployed, StoreJoin};
 pub use projects::{
     EditProject, EditedTaskFields, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
-    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    NewProjectTask, Project, ProjectAct, ProjectActFromMac, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectStore, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{
@@ -642,6 +658,7 @@ pub use session_import::{
     ImportFolder, ImportFolders, ImportGit, ImportRuns, InstallAgentMod, ModInstallStep, ModInstalled, RunFact,
     RunFactKind,
 };
+pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use judge::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
     JudgeState, MarkJudgeRead, SendJudgeNote,
@@ -696,7 +713,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps};
+pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps, SlotWait};
 pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
@@ -711,27 +728,33 @@ pub use phone::{
     CloudflareSignIn, CloudflareState, GatewaySetup, Mac, MacColour, MacLink, PairedPhone, PhoneGateway, Served, SetPhoneGateway,
     TailscaleState,
 };
-pub use mac_acts::{DispatchOn, JobAct, JobMessage, MacAct, Queued, QueuedList, StartOn, TakeBack};
+pub use mac_acts::{ArrivingJob, CarriedConversation, DispatchOn, JobAct, JobMessage, MacAct, MoveJobToMac, MoveSettled, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{
     ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
     OtherMacProjects, OtherMacSessions,
 };
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
-pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemOutcome, ItemRef, ItemSettled, ItemsSettled};
+pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemOutcome, ItemRef, ItemSettled, ItemsSettled, NoteOn};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
 };
 pub use artifact::{
-    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactState, ForLink, JobArtifact, SaveArtifactEdit,
+    ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
+};
+pub use artifact_parts::{
+    AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
+    ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
 };
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,
 };
 pub use sketch_scene::{Scene, SceneColor, SceneEdge, SceneHead, SceneKind, SceneLine, SceneNode, ScenePath, ScenePoint, SceneShape, SceneStroke, WirePart, SCENE_ICONS};
+pub use sketch_scene::SceneNodeState;
+pub use sketch::SCENE_STATES;
 pub use sketch_screen::{
     ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenLayout, ScreenMessage, ScreenPart, ScreenRow, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant,
 };
@@ -758,8 +781,8 @@ pub use session_summary::{
 pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
-    PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
-    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
+    PullRequestClaimed, NameSession, RenameSession, TakeMainRed, CallTestFlaky, TestCalledFlaky, SessionFact, SessionId, SessionList,
+    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
@@ -775,7 +798,8 @@ pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
 pub use terminals::{
-    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalScreen,
+    JobTerminal, JobTerminals, ListTerminals, ListedTerminal, OpenTerminal, ReadTerminal, RenameTerminal, ShowTerminal, StartTerminalRun, TerminalFromMac,
+    TerminalOfJob, TerminalScreen,
     TerminalTyped, TypeInTerminal,
 };
 pub use job_browser::{
@@ -829,9 +853,13 @@ pub use agent_sign_in::AgentSignIn;
 pub use plan_usage::{
     PlanUsage, PlanWindow,
 };
+pub use for_you::{
+    AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding, ForYouOpens, LineForYou,
+    OrderForYou, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
+};
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
-    SetUpSteps, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
+    SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,
 };
 pub use setup::{
     LeftOutWorkflow, ManifestFromKit, ManifestKitName, ManifestSummary, ModelChoices, ModelsRead, OfferedModel,
@@ -874,7 +902,7 @@ pub use underway::{
 pub use protocol_id::ProtocolId;
 // The Macs setup that leads him: its one press, the Macs on his account, and pairing one without a link.
 pub use phone::{MacSetup, MacSetupStep};
-pub use macs::{AskMacPair, FoundMac, FoundMacs};
+pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, VouchedMacs};
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };

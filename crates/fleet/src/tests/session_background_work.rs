@@ -157,6 +157,42 @@ async fn a_standing_row_leaves_the_turn_idle_when_it_ends_and_reads_working() {
     assert_eq!(record.standing, Some(ipc::SessionStanding::Working));
 }
 
+/// An end Fleet never heard left its row standing, and the Job read as working for as long as its
+/// process lived: on 14 Nov a finished Job read as running until he pressed Stop. The harness
+/// re-states every task still running each time that set changes, so a row it no longer names is over.
+#[tokio::test]
+async fn a_task_the_harness_no_longer_names_is_spent_though_its_end_was_never_heard() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    rig.stand_in.says(
+        0,
+        vec![
+            called("Bash", "toolu_1", "cargo test"),
+            started("t1", "toolu_1", "tests", true),
+            called("Bash", "toolu_2", "make"),
+            started("t2", "toolu_2", "build", true),
+        ],
+    );
+    eventually(|| async { background(&rig, &id).await.len() == 2 }).await;
+    let state_of = |rows: &[Attachment], target: &str| rows.iter().find(|one| one.target == target).map(|one| one.state);
+
+    // t1 ended and neither of its lines reached Fleet; the set the harness re-states names t2 alone.
+    rig.stand_in.says(0, vec![DroneEvent::BackgroundWork { outstanding: vec!["t2".into()] }]);
+    rig.stand_in.finishes(0, "waiting on the build");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    eventually(|| async { state_of(&background(&rig, &id).await, "t1") == Some(AttachmentState::Spent) }).await;
+    let rows = background(&rig, &id).await;
+    assert_eq!(state_of(&rows, "t2"), Some(AttachmentState::Standing), "a task the set names still runs");
+    let t1 = rows.iter().find(|one| one.target == "t1").unwrap();
+    assert_eq!(said(t1, "status"), None, "how it ended was never said, so nothing says it");
+
+    // The build's end is lost too, and the set empties: nothing of the Job's runs.
+    rig.stand_in.says(0, vec![DroneEvent::BackgroundWork { outstanding: Vec::new() }]);
+    eventually(|| async { state_of(&background(&rig, &id).await, "t2") == Some(AttachmentState::Spent) }).await;
+    let record = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions.into_iter().find(|one| one.id == id).unwrap();
+    assert_ne!(record.standing, Some(ipc::SessionStanding::Working));
+}
+
 /// The process that ran them is gone with them.
 #[tokio::test]
 async fn a_process_that_is_replaced_gives_its_standing_tasks_back() {

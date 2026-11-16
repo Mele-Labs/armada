@@ -7,7 +7,8 @@
 //! keeps no line, so it opens following. A Job Fleet no longer lists, or a row the thread no longer holds,
 //! is passed over, and the screen opens as it does with nothing kept.
 
-use std::collections::{BTreeMap, HashMap};
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -142,6 +143,8 @@ pub(super) struct Place {
     pub(super) wants_row: HashMap<SharedString, (String, String)>,
     /// A Job's scrolled place, put back once its thread is first laid out.
     pub(super) wants_scroll: HashMap<SharedString, (String, i32)>,
+    /// Jobs whose kept top tab has been put back this run: a Job's panes are his own after that.
+    arrived: HashSet<SharedString>,
     waiting: Option<gpui::Task<()>>,
 }
 
@@ -156,7 +159,7 @@ impl Place {
         };
         let wants_row = kept.jobs.iter().filter_map(|(job, spot)| spot.row.clone().map(|row| (SharedString::from(job.clone()), row))).collect();
         let wants_scroll = kept.jobs.iter().filter_map(|(job, spot)| spot.scroll.clone().map(|scroll| (SharedString::from(job.clone()), scroll))).collect();
-        Place { kept, remember, wants_row, wants_scroll, waiting: None }
+        Place { kept, remember, wants_row, wants_scroll, arrived: HashSet::new(), waiting: None }
     }
 }
 
@@ -170,7 +173,7 @@ impl JobView {
         let mut spot = self.place.kept.jobs.get(id.as_ref()).cloned().unwrap_or_default();
         spot.top = self.zone_shown().map(|zone| zone.id().to_string());
         if !self.place.wants_row.contains_key(id) {
-            spot.row = self.row_front(id).and_then(|tab| super::row_tabs::kind_id(tab.kind).map(|kind| (kind.to_string(), tab.key.clone())));
+            spot.row = self.row_front_kept(id);
         }
         if !self.place.wants_scroll.contains_key(id) {
             if let (Some(page), Some(held)) = (self.pages.get(id), self.thread(id, cx)) {
@@ -214,11 +217,37 @@ impl JobView {
         self.place.kept.clone()
     }
 
-    /// A Job comes on screen: its top pane's tab comes forward as it was left, where one was kept.
-    pub(super) fn place_arrive(&mut self, id: &SharedString) {
+    /// The row's tab in front of a pane, the focused pane's first, as the arrangement has it: its kind and what it holds.
+    fn row_front_kept(&self, id: &SharedString) -> Option<(String, String)> {
+        let arrangement = self.arrangement_of(id)?;
+        let mut panes = super::pane_tree::panes_of(&arrangement.root);
+        panes.sort_by_key(|pane| pane.id != arrangement.focus);
+        panes.into_iter().filter_map(|pane| super::panes_place::front_of(pane)).find_map(|tab| {
+            let kind = super::row_tabs::kind_id(super::panes_place::row_kind_of(&tab.kind)?)?;
+            Some((kind.to_string(), tab.row.clone()?))
+        })
+    }
+
+    /// A Job comes on screen for the first time this run: its top tab comes forward as it was left, where one was kept.
+    /// The arrangement says where tabs are: this puts the kept tab in front in the arrangement the Job has, and an
+    /// arrangement the store answers with afterwards replaces it.
+    pub(super) fn place_arrive(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if !self.place.arrived.insert(id.clone()) {
+            return;
+        }
+        self.ensure_placed(id, cx);
         let Some(zone) = self.place.kept.jobs.get(id.as_ref()).and_then(|spot| spot.top.as_deref()).and_then(zone_of) else { return };
-        self.bring_zone(id, zone);
-        self.zone = zone;
+        if super::tabs::laid_off(zone.id()) {
+            return;
+        }
+        let kind = zone.id();
+        self.restore_in(id, move |was| match super::pane_tree::holder_of(was, kind).and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == kind)) {
+            Some(tab) => super::pane_tree::activate(was, &tab.id),
+            None => match super::panes_place::pane_for(was, super::view_tabs::ViewPane::Top) {
+                Some(pane) => super::pane_tree::add_tab(was, &pane, kind, super::pane_tree::Extras::default()),
+                None => Cow::Owned(super::pane_tree::arrive(was, kind, super::pane_tree::Extras::default())),
+            },
+        });
     }
 
     /// The scrolled place kept for a Job goes back once its thread is laid out; none is kept for one that followed.

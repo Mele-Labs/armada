@@ -10,7 +10,7 @@ use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::{stream, Stream};
 use hyper::body::Bytes;
-use ipc::{ManifestSummary, SessionList};
+use ipc::{ManifestSummary, Projects, SessionList};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::io::AsyncRead;
@@ -86,6 +86,17 @@ pub(crate) async fn repositories(gateway: &Gateway) -> BTreeMap<String, String> 
         .collect()
 }
 
+/// Project names by project id. A Fleet that will not list them costs the
+/// names, not the page.
+pub(crate) async fn projects(gateway: &Gateway) -> BTreeMap<String, String> {
+    read::<Projects>(gateway, "/projects", "a project list")
+        .await
+        .ok()
+        .flatten()
+        .map(|all| all.projects.into_iter().map(|one| (one.id, one.name)).collect())
+        .unwrap_or_default()
+}
+
 #[derive(Serialize)]
 struct Needs {
     /// Sessions waiting on the owner as Bridge counts it: an ask (a hosted one
@@ -100,6 +111,7 @@ pub async fn needs(State(gateway): State<Gateway>) -> Response {
         Err(refused) => return refused,
     };
     let labels = repositories(&gateway).await;
+    let named = projects(&gateway).await;
     let mut sessions: Vec<PhoneSession> = list
         .iter()
         .map(|record| {
@@ -108,7 +120,7 @@ pub async fn needs(State(gateway): State<Gateway>) -> Response {
                 .as_ref()
                 .and_then(|id| labels.get(id.as_str()))
                 .map(String::as_str);
-            PhoneSession::of(record, repository, gateway.pairing.now())
+            PhoneSession::of(record, repository, &named, gateway.pairing.now())
         })
         .filter(|session| session.waiting)
         .collect();

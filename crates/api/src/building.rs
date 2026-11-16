@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{ChangeFleetBuild, PickFleetBuildJob, SkipPreviewRefresh, UpdateMac};
+use ipc::{AnswerReadyToTry, ChangeFleetBuild, MarkBuildNoteLookedAt, PickFleetBuildJob, SendBuildNoteFeedback, SkipPreviewRefresh, UpdateMac};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -39,6 +39,50 @@ pub(crate) async fn skip_preview_refresh<D: Commands>(State(served): State<Serve
     };
     match served.daemon().skip_preview_refresh(asked).await {
         Ok(skipped) => answer(StatusCode::OK, &skipped, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The notes of the branches the running preview build holds.
+pub(crate) async fn get_build_notes<D: Queries>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_build_notes().await {
+        Ok(notes) => answer(StatusCode::OK, &notes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Mark the note of a (branch, tip) looked at, and answer the notes now.
+pub(crate) async fn mark_build_note_looked_at<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: MarkBuildNoteLookedAt = match ipc::decode_body("a note to mark looked at", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mark_build_note_looked_at(asked).await {
+        Ok(notes) => answer(StatusCode::OK, &notes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Send the owner's words on a note to its Job, or to a new one where it has ended.
+pub(crate) async fn send_build_note_feedback<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: SendBuildNoteFeedback = match ipc::decode_body("feedback on a note", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_build_note_feedback(asked).await {
+        Ok(sent) => answer(StatusCode::OK, &sent, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His answer on a Ready to try card in a Job's thread, and the card as it stands after.
+pub(crate) async fn answer_ready_to_try<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: AnswerReadyToTry = match ipc::decode_body("an answer on a ready to try card", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_ready_to_try(asked).await {
+        Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

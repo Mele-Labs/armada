@@ -281,6 +281,12 @@ pub enum SessionFact {
         #[serde(rename = "use")]
         used: crate::loadout::LoadoutUse,
     },
+    /// The mod blocked a turn's stop and sent the agent back with `text`, the words the agent was
+    /// given. Fleet keeps it in a hosted Job's thread as a `reply_claim` notice, which wakes nothing,
+    /// so a dispute can name it. Since mod 0.3.64.
+    SentBack {
+        text: String,
+    },
     Ended {
         reason: String,
     },
@@ -773,7 +779,9 @@ pub enum WaitingSource {
     /// Fleet: the newest revision of a page the Job wrote under `.armada/documents/` is not answered.
     /// Derived on every read off the document, never kept: id `document:<page path>`, text its title, a
     /// `message` act that opens the Job. Settled by `answer_document`, or by dismissing it; answering
-    /// it here is refused. A new revision asks again and lifts a dismissal.
+    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing waits as
+    /// `read:<page path>`** with this source, text `Read: <title>` and `artifact` the page, until he opens its newest
+    /// revision with `mark_artifact_seen`: nothing approves it, and the Job is told nothing.
     Document,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
@@ -875,6 +883,33 @@ pub enum WaitingSource {
     /// as skipped. Neither sends the agent a word of its own, since the close tells it. Words alone go
     /// to the agent as a message. Gone when the gate closes or the hold clears. Dismissing it is refused.
     Gate,
+    /// Fleet: the person took back a ruling the Operator made by following something he said (an old `operator_undo_ruling`),
+    /// so the question is his. Derived on every read from the kept ruling, never kept in the Job's list: id
+    /// `undone:<n>`, `<n>` being the ruling's row, text the question, the options the question had, and an `answer`
+    /// act whose `target` is the id. Answering it is answering an agent's item: the agent is sent `Re: <question>`
+    /// and his choice, and the item goes. Dismissing it drops it. The Operator's own review never answers it.
+    /// Listed only while the Job is live. Since 13 Nov 2026.
+    OperatorUndone,
+    /// Fleet: a Job sent a `raise_conflict` and nothing answered it. Derived on every read from the kept ask, never
+    /// kept in the Job's list: id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, an
+    /// `answer` act whose `target` is the id, and exactly three options, `Tell <sender> to change` (choice 0),
+    /// `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds the item. A Job it names
+    /// is told his answer, and **no forge is written to**. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobConflict,
+    /// Fleet: a Job sent an `ask_held` that Fleet could not answer from what it keeps. Derived on every read from
+    /// the kept ask: id `held:<repository>:<pull or branch>`, text `Should #N land?` or `Should <branch> land?`, an
+    /// `answer` act whose `target` is the id, and exactly two options, `Land it` (choice 0) and `Hold it`
+    /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
+    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    JobHeld,
+    /// Fleet: one or more Ready to try cards in the Job's thread are open. One item for the Job, derived on every
+    /// read off its build notes, never kept: id and `artifact` `try:<session_id>`, text `Ready to try`, since the
+    /// oldest open card, and a `message` act that opens the Job. Gone once no card is open: each is answered
+    /// (`answer_ready_to_try`, or a verdict on its build note), withdrawn, replaced or held by a reminder; back when
+    /// a reminder comes due. Answering it here is refused and Approve all passes it by. Dismissing it puts away only the cards open then, so a card offered later raises it again.
+    /// Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
+    ReadyToTry,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -1015,6 +1050,10 @@ pub struct WaitingItem {
     /// the option it would pick. His press on that option is the one press. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operator_read: Option<OperatorRead>,
+    /// The id of one of the Job's artifacts this item is about, for a client to name and open. Only an agent's
+    /// item carries one, from `WaitingInput::artifact`. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// What the Operator made of a question it would answer.
@@ -1042,6 +1081,10 @@ pub struct WaitingInput {
     /// The procedure the person follows, in order; its press opens them as steps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<String>,
+    /// One of the Job's artifacts this item is about, by its id or its title. Fleet checks it against what the Job
+    /// holds, refuses an unknown one, and keeps the id, so Bridge names the artifact and opens it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<String>,
 }
 
 /// `waiting_for`: the agent sets the whole list of what it needs from the person. An empty list clears it.
@@ -1500,6 +1543,10 @@ pub struct SessionRecord {
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub side_job: bool,
+    /// The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+    /// Bridge keeps out of the Jobs list. Absent on every other session.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub operator: bool,
     /// Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session
     /// holds as it attaches, and off again when this is turned off. Absent is off. Hosted only.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -1555,6 +1602,10 @@ pub struct SessionRecord {
     /// you item. `docs/design/fleet-watches-ci-and-deploys-for-a-job.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_open_by: Vec<HeldOpenBy>,
+    /// Waiting for a worktree slot: in its repository's line, or its `armada worktree lease` asking.
+    /// Absent otherwise. Since 14 Nov 2026, in place of the `slot_choice` item.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_wait: Option<crate::SlotWait>,
     /// Why it stopped, with `standing` `stopped`. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<SessionStopped>,
@@ -1624,6 +1675,57 @@ pub struct SessionRecord {
     /// `docs/practices/protocol/a-draft-names-the-pull-request-it-describes.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pull_request_drafts: Vec<crate::PullRequestDraft>,
+    /// Each tracker item the Job waits on because another holds it, in the item's order. Empty where it
+    /// waits on none. Since 14 Nov 2026. `docs/practices/protocol/a-jobs-wait-on-a-held-item.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_waits: Vec<ClaimWait>,
+    /// Whether the Job holds claims its project's store has not taken yet, because the store did not
+    /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub claims_unsent: bool,
+}
+
+/// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is
+/// its assignee in beads. Or a failing test another Job is fixing, which threw its pull request out
+/// of the merge queue. The Job's wait line. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimWait {
+    /// The item as its tracker names it: `armada-zasx.3`, `12`.
+    pub item: String,
+    /// The person holding it: the holding Job's forge login, or the assignee in beads. Empty where the
+    /// store named none.
+    pub holder: String,
+    /// The holding Job's Mac. Absent for a person in beads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine: Option<String>,
+    /// The holding Job's title. Absent for a person in beads, and for a Job with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Whether the holding Job is one of this Mac's, so its Mac is the one the person is on. Absent where it is
+    /// not, and for a person in beads. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub this_mac: bool,
+    /// The holding Job's id on its Mac, which opens it where `this_mac`. Absent for a person in beads and
+    /// where main's own fix ends the wait. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// When the wait began.
+    pub since: Instant,
+    /// What ends the wait.
+    pub ends: ClaimWaitEnds,
+}
+
+/// What ends a wait on a held item. Either way the Job is woken to carry on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimWaitEnds {
+    /// The other Job's claim ends: it closes the item, drops it, or its Mac stops renewing for 30 minutes.
+    ClaimEnds,
+    /// The person is no longer the item's assignee in beads.
+    Unassigned,
+    /// A failing test's fix merges and main is green, or main's own red is fixed: the pull request the
+    /// merge queue threw out is queued again. `item` is the test, and `holder` is empty while main is red.
+    FixMerges,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.
@@ -1757,6 +1859,30 @@ pub struct MainRedTaken {
     /// *Pull request owners* switch is off or the machine is signed out: nothing was written
     /// and no other machine will be told.
     pub claimed: bool,
+}
+
+/// `call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of
+/// the merge queue says the test is flaky instead, with the log line that shows it. Fleet then claims
+/// the test, starts the one Job that fixes it, and queues the pull request again when that fix
+/// merges. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallTestFlaky {
+    /// Which session calls it. **Read only where the connection places no hosted session**, as
+    /// `TakeMainRed::session_id` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The test, as Fleet named it when it asked.
+    pub test: String,
+    /// The line of the failing run's log that shows the test is flaky and not broken by the change.
+    pub log_line: String,
+}
+
+/// What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it
+/// tells the Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestCalledFlaky {
+    pub pull: u64,
+    pub said: String,
 }
 
 /// What `claim_pull_request` answers: the pull request now held, and by whom.

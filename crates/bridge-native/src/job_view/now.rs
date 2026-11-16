@@ -11,7 +11,7 @@
 //! a plan he has not approved and the failed step or Check. A finished task of the agent's own list
 //! is not listed (his word, 10 Nov).
 //!
-//! Owed: the live page, which Fleet serves no frame for.
+//! The live page the Job serves is a row of its own with Open, which draws it in a tab of its panes.
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
@@ -446,6 +446,8 @@ impl JobView {
             None
         };
         let agent = agent.map(|(name, row)| labelled(named("agent", row), Role::Group, name));
+        // The page the Job is building, its dev server or the page it showed last: running now, so in Now alone too.
+        let live = job.activity.as_ref().and_then(|activity| activity.live.clone()).map(|live| self.live_beat(id, &live, job.mac.as_deref(), look, cx));
 
         // Fleet at work on the Job, one more worker beside the agent.
         let fleet = head.iter().flat_map(|head| head.fleet_acts.iter()).filter(|act| act.state == FleetActState::UnderWay).map(|act| {
@@ -459,6 +461,11 @@ impl JobView {
         });
         // A step held on a state an instance has yet to reach: a fact, so the clock does not pulse.
         let waits = job.workflow_waiting_on.iter().filter(|_| !only_now).map(|said| labelled(named(&format!("wait:{said}"), beat(look, lead(look, &format!("wait:{said}"), "clock", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said.clone()).into_any_element());
+        // Waiting for a worktree slot: a fact he asked to see in Now too, though nothing runs, and it asks nothing.
+        let slot_wait = job.slot_wait.as_ref().map(|wait| {
+            let said = crate::slot_wait::said(wait);
+            labelled(named("slot-wait", beat(look, lead(look, "slot-wait", "hard-drive", token::FG_SUBTLE, "Waiting", false), words(look, said.clone(), token::FG_MUTED, false, false, true), None, None)), Role::Group, said).into_any_element()
+        });
         let route = self.route(&job, cx);
         // A step of the route the workflow already names is that step, not a second row; a plan that
         // ends on gates says where it is in its stretches instead.
@@ -492,7 +499,7 @@ impl JobView {
             None
         };
 
-        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(fleet).chain(waits).chain(under_way).chain(check_rows).collect();
+        let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(slot_wait).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
         // plan that ends on gates draws it under the live stretch's tasks instead.
@@ -576,6 +583,24 @@ impl JobView {
         beat(look, lead(look, &format!("walk:{url}"), "footprints", token::STATUS_AWAITING_REVIEW, "Walk waiting on you", true), name, ticks, None).into_any_element()
     }
 
+    /// The Job's live page (`SessionLive`): its name, and under it its address or what Open came to; at its end the
+    /// chip of the Mac that serves it where that is another, and Open, which draws it in a tab.
+    fn live_beat(&self, id: &SharedString, live: &ipc::SessionLive, mac: Option<&str>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = format!("live:{}", live.url);
+        let opening = self.page_open(id, &live.url) == Some(&super::web_pages::PageOpen::Opening);
+        let line = match self.page_words(id, &live.url) {
+            Some(said) => (SharedString::from(said), token::FG_MUTED),
+            None => (SharedString::from(live.url.clone()), token::FG_SUBTLE),
+        };
+        let held = live.clone();
+        let open = icon_button(look, "now-live-open", "external-link", "Open the page in a tab".into(), false, opening);
+        let open = labelled(if opening { open } else { open.on_click(cx.listener(move |this, _, window, cx| this.press_live(&held, window, cx))) }, Role::Button, format!("Open {}", live.title));
+        let chip = mac.and_then(|mac| crate::pairing::chip(Some(mac), cx)).map(|chip| crate::pairing::pill(look, SharedString::from(format!("live-mac:{}", live.url)), &chip));
+        let end = div().flex().flex_none().items_center().gap(look.length(token::SPACE_2)).children(chip).child(open).into_any_element();
+        let row = beat(look, lead(look, &key, "app-window", token::ACCENT, "Live page", false), words(look, live.title.clone(), token::FG_DEFAULT, true, false, false), Some(end), Some(line));
+        labelled(named(&key, row), Role::Group, live.title.clone()).into_any_element()
+    }
+
     /// One thing waiting on him: a press opens it where it is answered.
     fn owed_row(&self, item: &ipc::NeedsYouRow, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = item.id.clone();
@@ -610,12 +635,18 @@ impl JobView {
         match source {
             // A draft opens its card as a tab, and a page owed alone is read in its own (`openOwedDocument`).
             WaitingSource::Draft => self.open_draft_tab(item.strip_prefix("draft:").unwrap_or(item), window, cx),
-            WaitingSource::Document if self.shown.as_ref().and_then(|id| self.sole_document(id, cx)).is_some_and(|page| item.strip_prefix("document:") == Some(page.as_str())) => {
-                self.open_document_tab(item.strip_prefix("document:").unwrap_or(item), window, cx);
+            WaitingSource::Document if self.shown.as_ref().and_then(|id| self.sole_document(id, cx)).is_some_and(|page| super::review::page_of_item(item) == Some(page.as_str())) => {
+                self.open_document_tab(super::review::page_of_item(item).unwrap_or(item), window, cx);
             }
             WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
                 self.open_review(window, cx);
                 self.review_at(item, window, cx);
+            }
+            // A card waiting to be tried is in the thread: the press goes to it and pulses it once.
+            WaitingSource::ReadyToTry => {
+                if let Some(job) = self.shown.clone() {
+                    self.go_to_ready(&job, item, window, cx);
+                }
             }
             WaitingSource::FirstMessage | WaitingSource::Done => {}
             _ => {

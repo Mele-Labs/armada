@@ -75,7 +75,7 @@ fn every_notice_carries_the_word_it_is_spelt_as_on_the_wire() {
         PrComments, SlotFree, SlotKept, BuildMoved, WriteClash, SlotStranded, MainRed, RailNudge, RailStep, StopNudge, UsageTrip,
         LimitWake, SignInWake, PlanApproved, AutoLandRefused, RetroNote, ReplyClaim, ContextHandoff, WalkFailed,
         WorkflowChanged, DeliveryAsked, DeliveryChosen, WatchSaw, Taught, DocumentSketch, TaskMarked,
-        LifecycleRule, LifecyclesClear, Operator, StartedJobEnded, GateClosed, GateHold,
+        LifecycleRule, LifecyclesClear, Operator, StartedJobEnded, GateClosed, GateHold, Claims, WireChanged,
     ] {
         assert_eq!(encode(&notice).unwrap(), format!("\"{}\"", notice.word()));
     }

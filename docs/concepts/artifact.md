@@ -1,6 +1,6 @@
 # Artifact
 
-**What it is:** A sketch, a draft or a page a Job made for the person, read as one record with its revisions and where its newest stands.
+**What it is:** What a Job made for the person, one artifact that grows with the parts it needs, read as one record with its revisions and where it stands.
 
 ---
 
@@ -22,6 +22,16 @@ The owner approved the design on 13 Nov 2026.
 | His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
 | A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
 | Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
+| A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
+| A page's votes, `cast_page_vote` | Built in Fleet; native draws the votes later |
+| A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
+| Notes that point at words, and the revision he last saw, `mark_artifact_seen` | Built in Fleet; native draws them later |
+| Parts: `add_part`, `answer_part`, `JobArtifact.parts`, one open artifact per Job | Built in Fleet; native draws the parts later |
+| A page revision's own HTML, `get_artifact_page_source`, for native's Edit | Built in Fleet; native's reader calls it later |
+| A node's `state` in a sketch's scene | Built in Fleet; native draws it later, Classic does not |
+| A page that buries its ask is kept for reading and not put to him | Built in Fleet |
+| A calm house style under every sealed page's own CSS | Built in Fleet |
+| A Needs you item that names one of the Job's artifacts, `WaitingItem.artifact` | Built in Fleet; native's press on it is the Jobs screens' work |
 
 ## What an artifact is
 
@@ -30,7 +40,8 @@ A file, an image, a window or a note shown to him is not one.
 
 **Rule.** An artifact's id is the ledger target it is kept under, and it stays the same across revisions: `sketch:<title>`, the page's path, or `draft:<title>`.
 
-**Rule.** Its form is `sketch`, `draft` or `page`.
+**Rule.** Its form is `sketch`, `draft` or `page`, and where it holds parts, the first part's kind read that way: a drawing or takes `sketch`, words `draft`, buttons or a page `page`.
+A client that reads no parts reads `form` and still draws something.
 
 **Rule.** Each artifact keeps every revision, numbered from 1, oldest first, as files in Fleet's attachments folder outside every worktree.
 A sketch keeps `r<n>.json`, a page `r<n>.html` and a draft `r<n>.md`.
@@ -49,7 +60,11 @@ A page that does not ask reads `reading`; one that asks and whose file is gone r
 The mark is what tells the Job's withdrawal from his Dismiss.
 A sketch or page withdrawn before the mark existed reads `dismissed`.
 
-**Rule.** An artifact that asks names the Needs you item that answers it: `sketch:<title>`, `document:<path>` or `draft:<row id>`.
+**Rule.** A Needs you item a Job raises about an artifact names it with `artifact`, the artifact's id or its title.
+Fleet checks it against what the Job holds, refuses one it does not hold, and serves the id on `WaitingItem.artifact`, so a client names the artifact and opens it.
+This is the item the Job raises, apart from the item Fleet keeps for an artifact that asks, below.
+
+**Rule.** An artifact that asks names the Needs you item that answers it: `sketch:<title>`, `document:<path>` or `draft:<row id>`, and an artifact of parts the one item its id names.
 A sketch the pending plan names names the plan's item, `plan:<version>`.
 
 ## A plan's sketches
@@ -76,6 +91,68 @@ A version that stands on an earlier approval, or that his Approve of a walk sett
 
 The single `sketch` a plan draws inline is approved with the plan as before, and never asks on its own.
 
+## Parts
+
+The owner ruled this on 14 Nov 2026: one artifact that grows, with no fixed form.
+A Job adds the parts it needs, a drawing, words, takes he votes on, buttons and a page, and he answers each part that asks on its own.
+`JobArtifact.parts` carries them (`crates/ipc/src/artifact_parts.rs`), and `crates/fleet/src/session_host/artifact_parts.rs` is Fleet's half.
+
+**Rule.** A part has an `id`, a `kind` (`drawing`, `words`, `takes`, `buttons` or `page`), whether it `asks`, its `state` (`open`, `approved`, `sent_back`, `picked` or `withdrawn`), its `revision`, its `drawn` and his `answer`.
+`drawn` names the revision he read, and an answer to another is refused with a 409, `fleet.part_redrawn`.
+
+**Rule.** `show_sketch` adds or replaces the drawing, and `propose_draft` adds a words part.
+`add_part` adds words, takes or buttons.
+A part put again under its id is that part's next revision, and asks again.
+A drawing is never sent to `add_part`.
+
+**Rule.** He answers each part that asks on its own with `answer_part`.
+Words and a drawing get Approve and Ask for changes, and takes get Send pick.
+Words and a drawing that only inform get nothing, and buttons act when pressed.
+
+**Rule.** Takes are a vote, never an Approve.
+A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
+A `rank` or `score` takes part is cast with `cast_page_vote`.
+A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
+`show_sketch` and `record_plan` refuse takes drawn side by side in one sketch with 422 `fleet.sketch_takes`, saying to put them in a takes part ([Drawing a sketch](session/drawing-a-sketch.md)).
+A take's mocks are kept with their style set, as a sketch's are, so they draw in the app's styles.
+
+**Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
+It grows one artifact for each question and never shows a new sketch, draft or page beside it.
+The artifact opens with one sentence saying what he decides, then the takes, with detail folded below.
+Takes go in a takes part, the Job's pick first: a take about a screen is a `mock` of that screen with short, plausible content, and labelled blocks are only for a choice that is not a screen.
+It names which parts ask and which only inform, and how each is answered.
+The owner, 14 Nov 2026: "There is no spacing, no depth, everything is bright and in your face."
+And on 15 Nov, of takes drawn as grey blocks: "not really a sketch of anything meaningful."
+
+**Rule.** The Job is told each answer as his message, naming the artifact and the part.
+A drawing, a draft and a page are told as they were before.
+Words added with `add_part` are told `Approved part "<id>" of "<title>".` or `Sent back part "<id>" of "<title>".` with his note.
+
+**Rule.** The artifact settles once every part that asks is answered, `approved` or `sent_back` where any part was.
+His Approve of the whole answers every asking part at once, and is refused while a takes part is open, since a pick is his to give.
+
+**Rule.** His Needs you list holds one item for an artifact, its id, and its text names the parts still open: `<title>: <part>, <part>`.
+It never counts them.
+An artifact of one drawing reads as its title alone.
+
+**Rule.** **One artifact is open per Job**, and Fleet places it, not the Job.
+While an artifact still asks him, anything new the Job shows joins it as a part: a sketch under any title, a draft, a page that asks, or an `add_part`.
+It never becomes a second artifact or a second item.
+A lone draft or page that is open when something new arrives becomes a part of an artifact made over it.
+Once every ask is answered the next thing the Job shows starts a new artifact.
+
+**Rule.** Two things stay out of it: a draft that describes a pull request, which is the pull request's own, and a draft Fleet raises for a workflow change.
+
+**Rule.** A drawing retitled with `against` naming an earlier sketch is that sketch's next revision under the new title, and leaves one item.
+
+**Rule.** A vote and a press work on a part.
+`cast_page_vote` votes on a takes part and `press_page_action` presses a buttons part, each named by the artifact's id and the part's id, and a revision that is not the part's now is a 409.
+A pick settles an open takes part `picked`.
+
+**Rule.** A plan is one artifact.
+Its sketches are its parts, settled by the plan's one Approve, and none is also an item of its own.
+The Approve leaves a takes part open.
+
 ## Drafts are keyed by title
 
 **Rule.** A draft proposed under an earlier draft's title is the next revision of that draft.
@@ -100,6 +177,10 @@ Its state reads as it stood before, never `dismissed`, and it names no item.
 
 **Rule.** Where he archives one that waited on him, the Job is sent `He archived "<title>". It is off his list with no verdict.`
 Where the agent archives it, nothing is sent.
+
+**Rule.** Where the Job archives an artifact, or a part, that still asks, its open asks are withdrawn as `withdraw_sketch`, `withdraw_draft` and `withdraw_document` withdraw theirs, marked `withdrawn_by` `agent`.
+It reads `withdrawn` and leaves his list, so it never stays beside what replaced it, asking.
+His own Archive leaves the asks as they stand.
 
 **Rule.** A new revision keeps the archive, so only a restore lifts it.
 A sketch drawn again or a page revised asks him again all the same.
@@ -192,3 +273,128 @@ A plan's title is `plan v<version>`.
 
 **Rule.** The message goes first, so a send that fails leaves every item of that Job standing.
 Then each closes as his own Dismiss closes it: a plan is set aside, a draft settles `withdrawn` with no reason, and a sketch reads `dismissed`.
+
+## Page actions
+
+The owner decided this on 13 Nov 2026.
+An action is a button the agent puts on any part of a page, such as each row of a table of things to review, with words like Investigate, Discuss or Approve.
+His press calls back to Fleet, which does it in the Job.
+Fleet's half is `press_page_action` (`crates/ipc/operations/press_page_action.toml`), in `crates/fleet/src/session_host/page_actions.rs`.
+
+**Rule.** The agent declares one with `<armada-action id="..." act="..." label="..." item="...">`, anywhere on the page, inside a `<tr>` too.
+`item` names the row or part it sits on.
+`start` also takes `brief`, and `repository` where the Job is not in the page's Job's repository.
+`answer` takes `ask`, the ask's waiting id, and `option`, one of its labels.
+
+**Rule.** Fleet reads an action off the kept revision he pressed, never off a call or the file as it is now.
+The first action with an id is the one pressed.
+Each carries the text of the `<tr>`, else the `<li>`, it sits in, cut to 300 characters.
+
+**Rule.** Fleet keeps the list of acts a page may run, and refuses anything off it: `message`, `start` and `answer`.
+Anything that lands, merges, deletes or stops goes to the Job as a `message`, whose label says what the Job will do.
+
+**Rule.** The page is never refused.
+When it is kept, each action with no id, an id an earlier action holds, or an act off the list is named to the Job in the notice that names a sketch that will not draw:
+`In the page <path>, action "<label>" will not run: <why>.`
+
+**Rule.** A `message` press sends the Job, as his message, `He pressed "<label>" on <item> in "<title>".`, the row's text on the next line, and his words after.
+
+**Rule.** A `start` press starts a Job at once, as his own start from the dispatch sheet does.
+It is held on no start card, and the Operator does not rule on it, since the button is his press.
+Its brief is the action's `brief`, then `From "<title>", <item>: <row text>`, then his words.
+In the page's Job's repository it takes that Job's project.
+The page's Job is then sent `He started Job <short id> from "<label>" on <item>.`
+
+**Rule.** An `answer` press answers the Job's ask with the option, his words as the answer's words, exactly as his own pick would.
+An ask the Job no longer waits on, or an option not one of its options, is refused, `fleet.page_ask_not_open`.
+
+**Rule.** Every press is kept in Fleet's store, apart from the page's attachment, and served on the page as `presses`, so native turns a pressed row green with the act under its title.
+A press that is refused keeps nothing, and an archived page takes no press.
+
+## Page votes
+
+The owner decided this on 13 Nov 2026: every form of vote is available, the agent picks the one that suits each vote, and it hears the result with every note.
+A vote puts two or more takes of one thing side by side, such as two sketches of a screen, and asks him to choose between them.
+Fleet's half is `cast_page_vote` (`crates/ipc/operations/cast_page_vote.toml`), in `crates/fleet/src/session_host/page_votes.rs`.
+
+| Form | He sees | He gives | Fits |
+| --- | --- | --- | --- |
+| `pick` | The takes side by side, a radio on each | One take, and a note on any of the rest | One winner |
+| `rank` | The takes as a list he reorders | An order of every take, a number and a note on each | An order |
+| `score` | One row per take, a check or a cross on each named part | A keep or a drop per part, and a part left bare is no vote | Parts of different takes that may be combined |
+
+**Rule.** The agent declares one with `<armada-vote id="..." form="pick|rank|score" question="...">` holding two or more `<armada-take id="..." title="...">`.
+A take holds ordinary page content, such as a sketch or a mock.
+A `score` vote also names its parts, `parts="header,list,footer"`, and is the only form that takes them.
+
+**Rule.** Fleet reads a vote off the kept revision he voted on, never off a call or the file as it is now.
+The first vote with an id is the one cast, and the first take with an id in it is that take.
+
+**Rule.** The page is never refused.
+When it is kept, each vote with no id, an id an earlier vote holds, a form off the three, fewer than two takes, a take with no id or an id an earlier take of it holds, or a `score` with no parts is named to the Job in the notice that names a sketch that will not draw:
+`In the page <path>, vote "<question or id>" will not count: <why>.`
+
+**Rule.** A cast whose form is not the vote's is refused, `fleet.page_vote_form`.
+A take the vote does not hold, a part it does not name, or a rank that skips or repeats a take is refused, `fleet.page_vote_takes`.
+
+**Rule.** The Job is sent, as his message, `He voted on "<question or id>" in "<title>".`, then the result, every note with it:
+for a pick, `Picked: <take>.` then a line per note, `<take>: <words>`;
+for a rank, a line per place, `<n>. <take>`, with `: <words>` where there is a note;
+for a score, a line per take, `<take>: keeps <parts>; drops <parts>`, leaving out a half with no parts, then a line per note.
+The message goes first, so a send that fails keeps nothing.
+
+**Rule.** Every cast is kept in Fleet's store, apart from the page's attachment, and the newest per vote is served on the page as `votes`, so native shows the result he gave.
+A recast replaces the earlier result and is sent to the Job again, and an archived page takes no vote.
+
+## A page served sealed
+
+A client with a web view opens a page as Fleet serves it, not as the Job wrote it.
+The owner approved the looks of its actions and votes on 14 Nov 2026.
+Fleet's half is `get_artifact_page` (`crates/ipc/operations/get_artifact_page.toml`), in `crates/fleet/src/session_host/page_sealed.rs`, and the seam is `docs/practices/protocol/a-pages-sealed-serving.md`.
+
+**Rule.** Any kept revision serves, the newest where none is named, archived or not.
+
+**Rule.** Every sealed page has a calm default under its own CSS, in `page_kit.css`, all of it `:where()` so a page's rules and `armada-kit.css` win.
+Body text is the muted foreground and headings the default, blocks keep a roomy vertical rhythm, depth is a surface step (base, raised, sunken) edged by a hairline and never a bright fill, a table's header row is quiet, and colour is for state and for the ask's block, which is an accent hairline and a faint wash.
+
+**Rule.** The page fetches nothing and runs none of its own scripts.
+Its policy allows inline style, `data:` images and one script source, a nonce fresh for each answer, and only the kit's script carries it.
+`armada-kit.css` is inlined where it was linked, and every relative address is taken off its tag.
+
+**Rule.** The kit's script draws each action as a labelled button in a column on the right of its row, and each vote as its takes side by side.
+A pressed row is washed green with a success edge and reads `Sent to the Job: <label>` with what the press did, and keeps its buttons.
+A `message` act opens a words field under its row, sent with ⌘↵.
+A take opens full width with F or Space, ← and → move between takes, and Esc goes back with the pick and the notes kept.
+A pick has a note box on each take not picked, a rank moves a take with ⌥↑ and ⌥↓, and a score marks each part of each take Keep or Drop.
+Send sits at the foot of a vote, with ⌘↵, and every control is reached by keyboard.
+
+**Rule.** The page never calls Fleet.
+It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.
+The presses and votes made on the revision or an earlier one ride with it, while their action, or their vote in the same form with the same takes, is still on it, so a revision that rewrote other sections still shows what he did.
+
+**Rule.** `get_artifact_page_source` serves a page revision as the Job wrote it: 200, `Content-Type: text/html; charset=utf-8`, the kept file's bytes with no policy, kit or record added.
+Its query is `get_artifact_page`'s: `session_id`, `artifact` and an optional `revision`, the newest where left out.
+A client that edits the words reads it, so `save_artifact_edit` can check the words it sends against the markup.
+An artifact that is not a page, or a revision never kept, is refused as `get_artifact_page` refuses it.
+
+## Seen and anchored notes
+
+A note of a verdict may point at the words it is about, and Fleet keeps the newest revision of each artifact he opened, so native can tell him what changed since.
+Fleet's half is `ItemNote` on `answer_items` (`crates/ipc/operations/answer_items.toml`) and `mark_artifact_seen` (`crates/ipc/operations/mark_artifact_seen.toml`), the seam is `docs/practices/protocol/a-notes-and-seen.md`.
+
+**Rule.** A note carries `text` and, where he marked words, `on` with the `quote` he marked and the `block` it sits in, a page block's id or a sketch part's id.
+A card's note box sends a note with no `on`.
+The Job reads an anchored note as `On "<quote>": <text>`, numbered with the rest, and a plain note as its text.
+A quote blank after trimming counts as no `on`, and a note with blank text is dropped.
+The Job is not told the `block`.
+
+**Rule.** `seen` on an artifact is the newest revision he opened.
+It only moves forward: opening an older revision leaves it, and is answered with the current one, not refused.
+A revision never kept is refused, `fleet.artifact_revision_unknown`, and so is an artifact the Job does not hold.
+
+**Rule.** Nothing is sent to the Job when he opens a revision.
+Fleet publishes `session.changed` where `seen` moved, so a Bridge reads the artifact again, and not where it held.
+An archived artifact is marked all the same, since opening it changes nothing else.
+
+**Rule.** Opening the newest revision of a page that asks nothing takes its `Read: <title>` item off his Needs you ([Document](document.md), *Asking for his approval*).
+The item carries the page as its `artifact`, and opening an older revision leaves it.

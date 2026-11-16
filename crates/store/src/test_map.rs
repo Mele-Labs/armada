@@ -358,4 +358,17 @@ impl Store {
             .map(|held| held != 0)
             .map_err(|why| ReadError::Database(fault("asking whether test map edges are held")(why)))
     }
+
+    /// Whether the map holds any edge of `test`, in any Check: a map that never saw a test cannot
+    /// say a change does not reach it.
+    pub fn test_map_knows(&self, repository: &ManifestId, test: &str) -> Result<bool, ReadError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM test_map_edges WHERE repository = ?1 AND test = ?2)",
+                params![repository.as_str(), test],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|held| held != 0)
+            .map_err(|why| ReadError::Database(fault("asking whether the test map knows a test")(why)))
+    }
 }

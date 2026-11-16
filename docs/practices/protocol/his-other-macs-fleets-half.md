@@ -42,6 +42,10 @@ Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for fie
 | `share_job_thread` | the Gateway calls | `GET /other_mac/thread?session_id=&before=&limit=&upto=`, answered as `get_job_thread`. Any Job not shared is 404 `fleet.no_such_session`, worded as for a Job that does not exist |
 | `share_job_page` | the Gateway calls | `GET /other_mac/page?session_id=&port=`, answered 204, before each page request another Mac sends: the Job shared, and `port` one a window it showed or a server it started that is serving stands on, on loopback. Any Job not shared is 404 `fleet.no_such_session`; a port it does not show is 404 `fleet.other_mac_page_not_shown` |
 | `open_other_mac_page` | Bridge calls | `POST /sessions/other_mac_page`, body `OpenOtherMacPage { session_id, url }`, answered `OtherMacPageOpened { url }`: for a Job held from another Mac, an address on this Mac's loopback the Gateway signs through to it, path and query kept. That Mac asleep is 409 `fleet.other_mac_asleep` with `fields.since` and `fields.mac`. See *Pages across Macs* |
+| `share_job_terminal` | the other Mac's Gateway calls | `POST /other_mac/terminal`, body `TerminalFromMac` tagged by `kind`: `open`, `list`, `write`, `resize` or `stop`, answered as `open_terminal`, `list_terminals`, `write_session_run`, `resize_session_run` and `stop_session_run` answer at home. Any Job not shared, and any run that is not one of that Job's open terminals, is 404 `fleet.no_such_session`, worded as for a Job that does not exist |
+| `share_job_terminal_output` | the other Mac's Gateway calls | `GET /other_mac/terminal/observe?session_id=&run_id=`, a WebSocket answered as `observe_session_run`, refused as `share_job_terminal` |
+| `move_job_to_mac` | Bridge calls | `POST /sessions/move_to_mac`, body `MoveJobToMac { session_id, mac? }`, answered with the Job's row, `hosted.moving_to_mac` set. See *Moving a Job between Macs* |
+| `share_job_conversation` | the other Mac's Gateway calls | `GET /other_mac/conversation?session_id=&from=`, a piece of a moving Job's conversation as bytes, at most 512 KiB, answered only to the Mac it moves to. See *Moving a Job between Macs* |
 | `hold_other_mac_sessions` | the Gateway calls | `PUT /other_macs/sessions`, body `OtherMacSessions { mac, sessions }`: every row that Mac shares, replacing all held from it, each stamped with `mac`. `session.changed` for each row new or changed, `session.removed` for each row left out. Answers `MacNamed` |
 | `hold_other_mac_projects` | the Gateway calls | `PUT /other_macs/projects`, body `OtherMacProjects { mac, projects }`, replacing every copy held from it, then `projects.changed` where a copy changed. Edits queued for that Mac are then sent. Answers `MacNamed` |
 | `project_act_from_mac` | the other Mac's Gateway calls | `POST /other_mac/project_act`, body `ProjectActFromMac { act, at? }`, `act` one of a copy's task acts tagged by `kind`. Run only in a shared project; any other is refused as a row or project that does not exist. Answers `Projects` as `share_projects` |
@@ -84,6 +88,38 @@ A Mac with acts waiting is never sent a newer act ahead of them.
 They are sent oldest first when the Mac next speaks, by the same task as the edits, each under its own `id`.
 An answer drops it, and a 4xx keeps it with the Mac's words in `refused`, no longer sent, and the acts after it go on.
 `take_back_queued` drops one under the Mac's send guard, and is 409 while that Mac's queue is being sent.
+
+**A terminal of a Job held from another Mac is that Mac's.**
+`open_terminal` of such a Job, and `list_terminals` Bridge makes of one, go to it as `share_job_terminal`, and this Fleet keeps in memory which Mac and Job each run it was answered belongs to.
+`write_session_run`, `resize_session_run`, `stop_session_run` and `observe_session_run` on one of those runs go there too: typing one keystroke at a time, in the order it came, and never into the queue.
+A keystroke the link cannot carry is 500 `fleet.other_mac_unreachable`.
+The output stream ending without `exited`, as when that Mac sleeps or the link drops, is answered `exited` with `code: null` and `stopped: false`, and the run is forgotten here, so a keystroke after it is refused as on a run that has ended.
+`share_job_terminal` is in `api::callers::THE_PERSONS_OWN`, so a Job typing around the door cannot type as another Mac.
+
+## Moving a Job between Macs
+
+`move_job_to_mac` moves a hosted Job in a shared project to the other Mac.
+Pressed on the Mac that holds it, `mac` names where it goes; pressed on the other Mac, the call is sent to the holder as the act `move`, and the Job comes to the Mac that sent it.
+A Job in a project that is not shared is 404 `fleet.no_such_session`, as for no Job, and an ended, paused, on-your-words or already moving Job is 409 `fleet.session_not_movable`.
+While it waits, `hosted.moving_to_mac` names the Mac it is going to.
+
+**The Mac it leaves waits for the turn** and the agents it started, as a move into a slot does, then pauses it, so its work is committed to its branch and its slot is freed, and pushes the branch.
+It sends the act `arrive`, body `ArrivingJob { record, branch, conversation }`, where `conversation` is the conversation file's length and SHA-256.
+A push that fails, or an `arrive` refused or unsent, resumes the Job there and tells it why.
+
+**A Job lands in the project it was in**, which the Mac it goes to holds as its own shared project, where the Job is coming home, or as a copy of the sending Mac's; any other is 404 `fleet.no_such_project`, as for a start.
+**A Job in a project held as a copy passes the share filter**, since only a shared project is copied, so the Job stays the sending Mac's to see.
+
+**The Mac it goes to answers `arrive` at once, 202 with the row**, then reads the conversation through `share_job_conversation`, `GET /other_mac/conversation?session_id=&from=` behind the Gateway's signed `/api/mac/conversation`, in pieces of 512 KiB, under the link's 1 MiB for a body.
+That read is answered only to the Mac the Job is moving to, once its turn is over.
+The bytes are checked against the length and hash and kept where the CLI looks from the repository's root, and every older copy of the same conversation on that Mac is removed.
+The Job is kept under the same id, keeping `started_at`, with the pull requests it held, paused on the pushed branch; its Resume leases a fresh slot onto that branch, fetching it from `origin`, and starts the CLI with `--resume`.
+Then it sends the act `move_settled`, body `MoveSettled { session_id, refused }`, through the queue above, so a dropped link delays it and loses nothing.
+
+**Only `move_settled` ends the Job on the Mac it left**, with `end_reason` `moved_to_mac` and everything it held given back, and a `session.removed` to Bridge.
+Until it arrives the Job stays paused there, so a read that outlives the link's 15 seconds of patience never leaves it running on both Macs.
+A row ended `moved_to_mac` never crosses again, and in `list_sessions` and `mac_holding` the other Mac's row of the same id stands in its place, so the Job keeps its place in both lists with the other Mac's `mac`.
+A `refused` resumes it where it was.
 
 ## Messages and alerts
 

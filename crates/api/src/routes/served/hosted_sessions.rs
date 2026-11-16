@@ -166,6 +166,41 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts/edit",
     },
     Route {
+        operation: "press_page_action",
+        method: "POST",
+        path: "/sessions/artifacts/press",
+    },
+    Route {
+        operation: "cast_page_vote",
+        method: "POST",
+        path: "/sessions/artifacts/vote",
+    },
+    Route {
+        operation: "add_part",
+        method: "POST",
+        path: "/sessions/artifacts/part",
+    },
+    Route {
+        operation: "answer_part",
+        method: "POST",
+        path: "/sessions/artifacts/part/answer",
+    },
+    Route {
+        operation: "get_artifact_page_source",
+        method: "GET",
+        path: "/sessions/artifacts/page/source",
+    },
+    Route {
+        operation: "mark_artifact_seen",
+        method: "POST",
+        path: "/sessions/artifacts/seen",
+    },
+    Route {
+        operation: "get_artifact_page",
+        method: "GET",
+        path: "/sessions/artifacts/page",
+    },
+    Route {
         operation: "act_on_session_mcp",
         method: "POST",
         path: "/sessions/mcp/act",
@@ -225,6 +260,31 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "get_job_copy",
         method: "GET",
         path: "/sessions/copy",
+    },
+    Route {
+        operation: "get_for_you",
+        method: "GET",
+        path: "/sessions/for_you",
+    },
+    Route {
+        operation: "withdraw_for_you",
+        method: "POST",
+        path: "/sessions/for_you/withdraw",
+    },
+    Route {
+        operation: "order_for_you",
+        method: "POST",
+        path: "/sessions/for_you/order",
+    },
+    Route {
+        operation: "line_for_you",
+        method: "POST",
+        path: "/sessions/for_you/line",
+    },
+    Route {
+        operation: "add_for_you",
+        method: "POST",
+        path: "/sessions/for_you/add",
     },
     Route {
         operation: "keep_job_workflow",

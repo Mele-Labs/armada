@@ -1064,7 +1064,7 @@ impl Render for Layer {
                         ))
                         .child(labelled(delete, Role::Button, if armed { "Press again to delete" } else { "Delete" })),
                 );
-            Some(capture::placed(ring, note.window, window, gap, look.length(token::SPACE_8) * 14., labelled(content, Role::Dialog, "Note")))
+            Some(capture::placed(ring, note.window, capture::under_title(window, cx), gap, look.length(token::SPACE_8) * 14., labelled(content, Role::Dialog, "Note")))
         });
         let panel = self.listing.then(|| self.panel(window, cx));
         div()

@@ -1,54 +1,33 @@
-//! The Operator as a running Fleet holds it: the one seated at start, the call it makes, what is
-//! waiting to be handed to it and the standing orders. In memory.
+//! The Operator as a running Fleet holds it: what is waiting to be told to its session and the standing
+//! orders. In memory.
 
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Mutex;
 
-use super::{held, KeptStarted, Operator};
+use super::held;
 
 #[derive(Default)]
 pub(crate) struct Seat {
-    operator: OnceLock<Arc<Operator>>,
-    /// The call the seated Operator makes, where it is the kept one: started and stopped with the switch.
-    kept: OnceLock<Arc<KeptStarted>>,
-    /// Reports, issues and notes waiting to be handed, and those a call is out on.
+    /// Reports, issues and notes waiting to be told.
     pub(super) sources: super::Sources,
     /// The standing orders, as the store keeps them: read where no lock on the store may be taken.
     orders: Mutex<super::Orders>,
-    /// What waits on the person and is being reviewed to be raised to him.
+    /// What reads Your turn against the Jobs' lists, one at a time.
     pub(super) raising: super::raising::Raising,
     /// One writer of the journal at a time.
     pub(super) journal: tokio::sync::Mutex<()>,
-    /// The page's top line is being rewritten.
-    pub(super) rewriting: AtomicBool,
+    /// One start or end of the Operator's own session at a time.
+    pub(super) session: tokio::sync::Mutex<()>,
     /// When the soonest Later runs out: `None` until the store is first read, then `Some(None)` where
     /// no item is Later.
     pub(super) next_later: Mutex<Option<Option<String>>>,
 }
 
 impl Seat {
-    /// Seat `operator`, once: `false` where one already sits.
-    pub(crate) fn seat(&self, operator: Arc<Operator>) -> bool {
-        self.operator.set(operator).is_ok()
-    }
-
-    pub(super) fn operator(&self) -> Option<Arc<Operator>> {
-        self.operator.get().cloned()
-    }
-
     pub(crate) fn orders(&self) -> super::Orders {
         held(&self.orders).clone()
     }
 
     pub(crate) fn orders_are(&self, orders: super::Orders) {
         *held(&self.orders) = orders;
-    }
-
-    pub(crate) fn keep(&self, call: Arc<KeptStarted>) {
-        let _ = self.kept.set(call);
-    }
-
-    pub(crate) fn kept(&self) -> Option<Arc<KeptStarted>> {
-        self.kept.get().cloned()
     }
 }

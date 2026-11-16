@@ -73,3 +73,10 @@
     size = "12 and 16px"
     status = "Proposed"
     notes = "Proposed 29 Oct 2026 for the walk `job-tools-missing`. A connection that is not there, as the Loadout's failed MCP server draws it. On the Job's row in the Jobs list, in a column of its own kept for every row while one has the mark, and in its header beside the state. Tooltip `Claude Code 2.1.312. No armada mod. No task tools.`: the harness version, then one sentence for each thing missing. Nothing is drawn where nothing is missing. Pressed, it opens a menu of the pieces, each with its act (`job-tools-missing-fix`, 29 Oct 2026). The row carries no reservation."
+
+  [[icons.unplug.usage]]
+    means = "A Job's claims that its project's store has not taken, because the store did not answer, on the claims card at the Job's thread end"
+    group = "Job thread"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 14 Nov 2026 for the native walk `native-claim-waits`. A store that did not answer is a connection that is not there, as the merge line's forge not answering draws it. Awaiting-review hue, tooltip `Not sent`, beside `Claims not sent yet`. The row carries no reservation."

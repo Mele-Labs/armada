@@ -406,25 +406,32 @@ fn a_kind_this_vocabulary_has_no_name_for_is_reported_by_kind() {
     );
 }
 
-/// **The set, counted — and the line is the harness's own.** Both bodies here
+/// **The set, by id — and the line is the harness's own.** Both bodies here
 /// are copied from `docs/spikes/004-*.ndjson`, which is where this subtype was
 /// first seen: one task outstanding, then the same key carrying an empty list
 /// once it finished. A decoder that read the non-empty one and ignored the
-/// empty one would hold every Drone that ever delegated open for a turn it does
-/// not need.
+/// empty one would leave every row it once named standing.
 #[test]
-fn the_outstanding_background_set_is_read_as_a_count_in_both_directions() {
+fn the_outstanding_background_set_is_read_by_id_in_both_directions() {
     let started = read(
         r#"{"type":"system","subtype":"background_tasks_changed","tasks":[
              {"task_id":"b2qi6vicy","task_type":"local_bash","description":"Sleep for 40 seconds"}
            ],"session_id":"a"}"#,
     );
-    assert_eq!(started, vec![DroneEvent::BackgroundWork { outstanding: 1 }]);
+    assert_eq!(started, vec![DroneEvent::BackgroundWork { outstanding: vec!["b2qi6vicy".into()] }]);
 
     let emptied = read(
         r#"{"type":"system","subtype":"background_tasks_changed","tasks":[],"session_id":"a"}"#,
     );
-    assert_eq!(emptied, vec![DroneEvent::BackgroundWork { outstanding: 0 }]);
+    assert_eq!(emptied, vec![DroneEvent::BackgroundWork { outstanding: Vec::new() }]);
+}
+
+/// A subagent and the command it backgrounded are both in the set, recorded on claude 2.1.322 on
+/// 14 Nov 2026: the subagent's own command is named beside it, so its row is held by it too.
+#[test]
+fn a_subagents_backgrounded_command_is_named_in_the_set_beside_it() {
+    let line = r#"{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"a46c82f5dbac70cf0","run_id":"0mwfra9os-0c2354ee","task_type":"local_agent","subagent_type":"general-purpose","description":"Background and foreground sleep test"},{"task_id":"br3853n1v","run_id":"0mwfrai8b-ec7a7d49","task_type":"local_bash","description":"Sleep 4 seconds then echo bg, in background","parent_task_id":"a46c82f5dbac70cf0"}],"uuid":"a131b194-804b-494f-9bfd-75e3b9f84a12","session_id":"c1f588e3-9155-48ba-a76e-93f3dd4fdcb0"}"#;
+    assert_eq!(read(line), vec![DroneEvent::BackgroundWork { outstanding: vec!["a46c82f5dbac70cf0".into(), "br3853n1v".into()] }]);
 }
 
 /// **The other three spellings are not the count.** They are read for the task they name

@@ -351,23 +351,21 @@ pub enum DroneEvent {
         /// this number.
         refusals: usize,
     },
-    /// How much work the Drone has running behind its own turn, as the harness
-    /// last counted it.
+    /// The tasks the Drone has running behind its own turn, by id, as the
+    /// harness last listed them.
     ///
     /// **A level and never an edge**, which is why one variant carries the
     /// whole answer: the harness re-states the outstanding set every time it
-    /// changes, so `outstanding: 0` is the set having emptied and nothing has
+    /// changes, so an empty one is the set having emptied and nothing has
     /// to pair a start with a finish to know that. A decoder that folded starts
     /// against finishes would need every terminal spelling the harness has, and
     /// would be wrong the first time it grew another.
     ///
-    /// **What it is for is a Drone that ends its turn waiting.** A subagent's
-    /// report reaches a session through the same notification a person's
-    /// terminal is woken by, and a headless Drone that ends its turn is not
-    /// there to be woken — so it dies waiting for something that was never
-    /// coming. `fleet::awaiting_background` is the reading and
-    /// `fleet::silence` is what it does about it.
-    BackgroundWork { outstanding: usize },
+    /// **What it is for is a task whose end was never heard.** A hosted
+    /// session's `background` rows are settled by `TaskEnded`, and a row whose
+    /// end line is missed would stand for the life of the process, reading the
+    /// Job as working. Fleet spends every row this set no longer names.
+    BackgroundWork { outstanding: Vec<String> },
     /// A task the harness started for a call: a shell command, a watch, a subagent.
     ///
     /// **The only line that names which call a task belongs to**, so it is what pairs a

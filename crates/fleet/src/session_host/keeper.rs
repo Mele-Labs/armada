@@ -4,16 +4,21 @@
 //! The agent's stdin and stdout are the keeper's pipes, not Fleet's: it appends
 //! every line the agent writes to a spool file and serves a unix socket Fleet
 //! attaches to, so the agent and its background subagents outlive a Fleet
-//! restart. `docs/concepts/session.md`, *What a restart does to a session*, has
-//! the wire and the rules for when a keeper ends itself.
+//! restart. `docs/concepts/session/a-job-fleet-hosts.md`, *What a restart does
+//! to a job*, has the wire and the rules for when a keeper ends itself.
 //!
 //! One client at a time, the newest. The keeper holds the acknowledged offset,
 //! so a Fleet that died with lines untaken is replayed exactly those.
+//!
+//! **One keeper per Job**, by an `flock` on `<id>.lock` the keeper holds for its
+//! life: a second keeper of the same Job ends before it starts an agent. Two
+//! copies of one Job ran side by side for a day when a keeper whose socket
+//! Fleet had removed was not found (14 Nov 2026).
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::num::NonZeroU32;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -45,6 +50,92 @@ pub struct Keeper {
     /// Whether an agent line ends a turn, so a Fleet that attaches mid-turn is
     /// told so. Supplied, because this file parses no agent line.
     pub ends_turn: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    /// Whether `SIGTERM` ends the agent and then the keeper: the process's own
+    /// keeper only, since a test's keeper shares the test's process.
+    pub on_terminate: bool,
+}
+
+/// The file a Job's keeper holds locked for its life, beside its socket.
+pub fn lock_of(socket: &Path) -> PathBuf {
+    socket.with_extension("lock")
+}
+
+/// The pid of the keeper holding `lock`, or `None` where no keeper holds it.
+/// **The lock is the proof the keeper lives**: the kernel lets it go however
+/// the keeper ends, so a pid read from a lock found held is still the keeper's.
+pub fn holder_of(lock: &Path) -> Option<u32> {
+    let mut file = std::fs::OpenOptions::new().read(true).open(lock).ok()?;
+    match file.try_lock() {
+        // Free: closing the file lets it go again.
+        Ok(()) => None,
+        Err(std::fs::TryLockError::WouldBlock) => {
+            let mut said = String::new();
+            let _ = file.read_to_string(&mut said);
+            // Held by a keeper that has not written its pid yet: alive, and unnamed.
+            Some(said.trim().parse().unwrap_or(0))
+        }
+        Err(std::fs::TryLockError::Error(_)) => None,
+    }
+}
+
+/// What Fleet does before it starts a Job's keeper: **find any keeper the Job
+/// already has, and adopt it or stop it.** One whose socket answers is handed
+/// back to be attached to. One that holds the lock and does not answer has
+/// lost its socket (Fleet takes it away when it ends a process) and is asked to
+/// stop with `SIGTERM`, then waited for. One that will not stop within `within`
+/// is an error, and nothing is started beside it.
+pub fn make_way(socket: &Path, within: Duration) -> Result<Option<std::os::unix::net::UnixStream>, String> {
+    let lock = lock_of(socket);
+    let Some(pid) = holder_of(&lock) else {
+        return Ok(None);
+    };
+    if let Some(stream) = super::kept::connect(socket) {
+        return Ok(Some(stream));
+    }
+    // The keeper leads its own group (`crate::detach`), and its agent leads
+    // another, which the keeper ends itself on the signal.
+    if let Some(keeper) = NonZeroU32::new(pid) {
+        crate::group::ask_the_group_to_end(keeper);
+    }
+    let asked = Instant::now();
+    while holder_of(&lock).is_some() {
+        if asked.elapsed() > within {
+            return Err(format!(
+                "the job's last agent (keeper pid {pid}) has not stopped, so a second one was not started"
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    Ok(None)
+}
+
+/// Take `lock` for this keeper's life and write its pid in it, or refuse
+/// where another keeper of the Job holds it. Opened close-on-exec, as the
+/// standard library opens every file, so the agent does not inherit it and
+/// hold it after the keeper is gone.
+fn taken(lock: &Path) -> io::Result<std::fs::File> {
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock)?;
+    match file.try_lock() {
+        Ok(()) => {}
+        Err(std::fs::TryLockError::WouldBlock) => {
+            let mut said = String::new();
+            let _ = file.read_to_string(&mut said);
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("a keeper of this job already runs (pid {}), so no second agent was started", said.trim()),
+            ));
+        }
+        Err(std::fs::TryLockError::Error(why)) => return Err(why),
+    }
+    file.set_len(0)?;
+    write!(file, "{}", std::process::id())?;
+    file.flush()?;
+    Ok(file)
 }
 
 #[derive(Clone, Copy)]
@@ -74,6 +165,9 @@ struct Shared {
 
 /// Run until the agent is gone and its last word has been taken.
 pub async fn keep(keeper: Keeper) -> io::Result<()> {
+    // First, before the socket is touched: a second keeper must not take the
+    // path of a first that is still running its agent.
+    let _held = taken(&lock_of(&keeper.socket))?;
     let _ = std::fs::remove_file(&keeper.socket);
     // Bound beside the path and moved onto it once listening: a Fleet that
     // connects between the bind and the listen is refused, takes the socket
@@ -152,6 +246,17 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
     tokio::spawn(async move {
         let mut reading = BufReader::new(stdout).lines();
         let mut written = 0u64;
+        // **An agent nobody can hear is ended**, not left running: a keeper that
+        // stopped reading on a full disk went on to ignore `END` and its own
+        // timer, and its agent ran unseen beside the next one (14 Nov 2026).
+        let unheard = |why: String| {
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open(&log) {
+                let _ = writeln!(file, "the keeper could not pass on what the agent said ({why}), so it ended the agent");
+            }
+            if let Some(group) = NonZeroU32::new(pid) {
+                crate::group::end_the_group(group);
+            }
+        };
         loop {
             tokio::select! {
                 line = reading.next_line() => match line {
@@ -161,9 +266,12 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                         // write itself finishes on another thread. The flush
                         // waits for it, so a pump told of this line finds it
                         // in the spool and not a short read it then waits on.
-                        if spool.write_all(whole.as_bytes()).await.is_err()
-                            || spool.flush().await.is_err()
-                        {
+                        let spooled = match spool.write_all(whole.as_bytes()).await {
+                            Ok(()) => spool.flush().await,
+                            failed => failed,
+                        };
+                        if let Err(why) = spooled {
+                            unheard(format!("the spool: {why}"));
                             break;
                         }
                         written += whole.len() as u64;
@@ -175,7 +283,11 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                         }
                         speaking.progress.send_modify(|p| p.written = written);
                     }
-                    _ => break,
+                    Ok(None) => break,
+                    Err(why) => {
+                        unheard(format!("its output: {why}"));
+                        break;
+                    }
                 },
                 () = speaking.end.notified() => {
                     // The child is uncollected until the wait below, so the
@@ -187,7 +299,18 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                 }
             }
         }
-        if let Ok(status) = child.wait().await {
+        // An agent that closed its output may still be running: the end is
+        // still heard while it is waited on.
+        let status = tokio::select! {
+            status = child.wait() => status,
+            () = speaking.end.notified() => {
+                if let Some(group) = NonZeroU32::new(pid) {
+                    crate::group::end_the_group(group);
+                }
+                child.wait().await
+            }
+        };
+        if let Ok(status) = status {
             // Its last words are in the log before anyone is told it is over.
             let _ = complaints.await;
             if let Ok(mut file) = std::fs::OpenOptions::new()
@@ -201,6 +324,12 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
         speaking.progress.send_modify(|p| p.over = true);
     });
 
+    // A Fleet that finds this keeper locked but unreachable asks it to stop this way.
+    let mut terminated = match keeper.on_terminate {
+        true => Some(tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?),
+        false => None,
+    };
+    let mut stopped = false;
     let mut tick = tokio::time::interval(Duration::from_millis(100));
     loop {
         tokio::select! {
@@ -208,6 +337,10 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                 if let Ok((stream, _)) = accepted {
                     tokio::spawn(client(Arc::clone(&shared), stream));
                 }
+            }
+            Some(()) = async { terminated.as_mut()?.recv().await } => {
+                stopped = true;
+                shared.end.notify_one();
             }
             _ = tick.tick() => {
                 let over = shared.progress.borrow().over;
@@ -217,7 +350,7 @@ pub async fn keep(keeper: Keeper) -> io::Result<()> {
                         .lock()
                         .map_or(false, |at| at.elapsed() >= keeper.alone_for);
                 let ended = shared.ended.load(Ordering::SeqCst);
-                if over && (shared.told_gone.load(Ordering::SeqCst) || alone || ended) {
+                if over && (shared.told_gone.load(Ordering::SeqCst) || alone || ended || stopped) {
                     break;
                 }
                 if alone && !over {
@@ -365,6 +498,7 @@ pub async fn run(args: Vec<String>) -> Result<(), String> {
         args: rest.to_vec(),
         directory: None,
         alone_for,
+        on_terminate: true,
         ends_turn: Arc::new(move |line| {
             reading
                 .read(line)

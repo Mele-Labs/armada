@@ -6,7 +6,7 @@ use std::sync::Arc;
 use api::HostedSessions;
 use ipc::{LinePlace, MoveInLine, SessionId};
 
-use super::operator_acting::operator_on;
+use super::operator_sources::on as operator_on;
 use super::session_host::Rig;
 use super::session_queue::{queued_and_idle, with_slot_one_held};
 

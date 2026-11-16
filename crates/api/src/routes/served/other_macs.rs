@@ -39,6 +39,16 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/other_mac_page",
     },
+    Route {
+        operation: "share_job_terminal",
+        method: "POST",
+        path: "/other_mac/terminal",
+    },
+    Route {
+        operation: "share_job_terminal_output",
+        method: "GET",
+        path: "/other_mac/terminal/observe",
+    },
     // A whole list in place of the one held, so `PUT`.
     Route {
         operation: "hold_other_mac_sessions",
@@ -69,6 +79,16 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "act_from_mac",
         method: "POST",
         path: "/other_mac/act",
+    },
+    Route {
+        operation: "share_job_conversation",
+        method: "GET",
+        path: "/other_mac/conversation",
+    },
+    Route {
+        operation: "move_job_to_mac",
+        method: "POST",
+        path: "/sessions/move_to_mac",
     },
     Route {
         operation: "list_queued",

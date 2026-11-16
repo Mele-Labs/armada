@@ -31,6 +31,13 @@ Four stages of build, each one Fleet PR, and a Cloudflare Worker plus one SQLite
 At 10 live Jobs renewing every 5 minutes that is 2,880 renewal calls a day, plus one call per claim taken and per check.
 The 2,880 is arithmetic, not a measurement of a day of Jobs.
 
+**Measured in stage 1, 13 Nov, against Cloudflare's pricing and limits pages.**
+The Workers Free plan allows, per account and day: 100,000 Worker requests, 100,000 Durable Object requests, 100,000 SQLite rows written, 5 million rows read, and 5 GB of storage in all.
+The paid plan starts at $5 a month.
+Rows written is the allowance that binds: a renewal that rewrote every claim of ten Jobs holding twenty files each would spend about 115,000 a day.
+So a renewal writes one row per Job, and the 2,880 renewals spend about 14,400 rows written.
+`docs/contracts/central-store.md`, *Cost*, has the table.
+
 | Stage | Build |
 |---|---|
 | 1 | Store key `(repo, kind, key)`, the holder's name, Mac and title, batch renewal, the 30-minute lapse alarm. Store tests. Cloudflare's free-plan limits measured against the pricing page before it lands |
@@ -52,8 +59,21 @@ Each stage depends on the one before it.
 
 ## Not measured
 
-- Cloudflare's current free-plan request limits for Workers and Durable Objects.
 - Whether the token from the tunnel's Cloudflare sign-in can upload a Worker.
 - Whether Armada's GitHub sign-in token carries `read:org` for the team membership check.
 - The real claim and renewal rate under a day of Jobs.
 - How often the test map's answer is wrong for a failing test.
+
+## Stage 2's four answers, 14 Nov
+
+The checks before stage 2 found that the tunnel's Cloudflare token cannot touch Workers at all, that no GitHub OAuth app is registered on his Mac while `gh`'s token carries `read:org`, and that Cloudflare's pages do not say whether the Rate Limiting binding is on the Free plan.
+He answered four questions on 14 Nov, each the pick offered first.
+
+| Asked | He chose | The cost he took |
+|---|---|---|
+| What the second Cloudflare sign-in is | Bridge opens Cloudflare's token page filled in with Workers edit rights; he pastes the token, and it is kept in the Keychain for redeploys | One copy and paste, and a Cloudflare token kept on the Mac |
+| What becomes of `store.url` | Removed. Every project starts with no store and sends nothing until it picks one | None live: nothing was deployed there |
+| Which GitHub token joins a store | `gh`'s, read once at the join and never kept | `gh` must be signed in as the repository's login |
+| A Free plan without the Rate Limiting binding | Deploy with it; where Cloudflare refuses it, deploy without it and say joins are not rate limited | A stranger could make the Worker call GitHub repeatedly |
+
+The tunnel's sign-in is still tried first, as ruled on 13 Nov; today it is always refused.

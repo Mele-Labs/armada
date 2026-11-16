@@ -2,14 +2,18 @@
 // acceptance test. Times are counted back from `now`, so the ages read the same whenever it is opened.
 
 import type {
+  JobArtifact,
   KeptStyles,
   ModelChoices,
   PlanUsage,
   SessionRecord,
   SessionRow,
   SessionThread,
+  ThreadReadyToTry,
   WaitingSource,
 } from "@armada/protocol";
+
+import { PARTS_JOB, partsArtifacts, STEP_BAR, SLOT_COLOURS, TRY_CARD, tryCard } from "./artifacts";
 
 import type { PhoneSession, QueuedAct } from "../gateway";
 
@@ -39,6 +43,10 @@ export type FixtureMac = {
       detail: Record<string, string>;
     }
   >;
+  /** What `/api/sessions/artifacts` serves, by session. */
+  artifacts?: Record<string, JobArtifact[]>;
+  /** The Ready to try cards `/api/sessions/thread` serves, by session. */
+  tries?: Record<string, ThreadReadyToTry[]>;
   repositories: string[];
   /** The Macs this one cannot reach: a dispatch naming one is kept (202), as Fleet keeps it. */
   asleep?: string[];
@@ -230,6 +238,13 @@ const phone = (
   },
 ): PhoneSession => ({
   held: false,
+  // What the Gateway sends for native's row: the last turn's instant, and Armada's Jobs under its project.
+  last_turn_at: session.waiting_since ?? session.started_at,
+  ...(session.repository === "armada"
+    ? {
+        project: "Armada",
+      }
+    : {}),
   ...session,
 });
 
@@ -677,6 +692,9 @@ export function fixtureMacs(
   const showed = phone({
     id: "a2",
     title: "Redraw the Needs you band",
+    pull: 3412,
+    step: "review",
+    now: "Reading the band's tooltips",
     repository: "armada",
     kind: "hosted",
     waiting: false,
@@ -707,6 +725,10 @@ export function fixtureMacs(
   const reading = phone({
     id: "b2",
     title: "Read the push payload",
+    issue: {
+      number: "armada-lm02",
+      title: "Push payload names the Job",
+    },
     repository: "store",
     kind: "hosted",
     waiting: false,
@@ -729,6 +751,13 @@ export function fixtureMacs(
   const parent = phone({
     id: "p1",
     title: "Plan the phone screens",
+    mark: {
+      state: "running",
+      lamp: "running",
+      group: "working",
+    },
+    step: "build",
+    now: "Running pnpm exec vitest run",
     repository: "armada",
     kind: "hosted",
     waiting: false,
@@ -740,6 +769,11 @@ export function fixtureMacs(
   const child = phone({
     id: "c1",
     title: "Build the Draft screen",
+    mark: {
+      state: "subagent",
+      lamp: "running",
+      group: "working",
+    },
     repository: "armada",
     kind: "hosted",
     waiting: false,
@@ -2076,5 +2110,109 @@ ${Array.from(
       usage: usageAt(now, 30, 40, 60),
       models: MODELS,
     },
+  };
+}
+
+/**
+ * A Job whose artifact holds one part of every kind and still asks, one it answered, and a build ready to try. Added to
+ * the studio Mac by the fixture server, and by the tests that read it, so the list the other tests count is unchanged.
+ */
+export function partsJob(now: number): {
+  listed: PhoneSession;
+  thread: SessionThread;
+  artifacts: JobArtifact[];
+  tries: ThreadReadyToTry[];
+} {
+  const asking = (id: string, text: string, source: WaitingSource) => ({
+    id,
+    text,
+    since: ago(now, 9),
+    source,
+    act: {
+      kind: "message" as const,
+      target: PARTS_JOB,
+    },
+  });
+  // The Job, waiting on the artifact and the card.
+  const parts = phone({
+    id: PARTS_JOB,
+    title: "Pick the step bar",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 50),
+    waiting_since: ago(now, 3),
+    context_tokens: 64_000,
+    context_window: WINDOW,
+  });
+  const f2: SessionThread = {
+    session: record(now, PARTS_JOB, parts.title!, 50, {
+      attachments: [
+        {
+          kind: "artifact",
+          target: STEP_BAR,
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Step bar",
+            asked: "true",
+          },
+          since: ago(now, 14),
+          changed_at: ago(now, 6),
+        },
+        {
+          kind: "artifact",
+          target: SLOT_COLOURS,
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Slot colours",
+            settled: "approved",
+          },
+          since: ago(now, 40),
+          changed_at: ago(now, 35),
+        },
+      ],
+      waiting_for: [
+        {
+          ...asking(STEP_BAR, "Step bar", "sketch"),
+          since: ago(now, 6),
+        },
+        {
+          ...asking(TRY_CARD, "Try: Steps drawn as a bar under each Job's title", "ready_to_try"),
+          since: ago(now, 3),
+        },
+      ],
+    }),
+    rows: [
+      message(
+        `${PARTS_JOB}-1`,
+        ago(now, 50),
+        "you",
+        "Show each Job's steps, so I can see where it is at a glance.",
+      ),
+      message(`${PARTS_JOB}-2`, ago(now, 41), "agent", "First, which colour says a slot is free."),
+      message(
+        `${PARTS_JOB}-3`,
+        ago(now, 30),
+        "agent",
+        "Built the free colour. Now three ways to draw the steps.",
+      ),
+      message(
+        `${PARTS_JOB}-4`,
+        ago(now, 4),
+        "agent",
+        "The bar is on the branch. Try it in your preview.",
+      ),
+    ],
+  };
+  return {
+    listed: parts,
+    thread: f2,
+    artifacts: partsArtifacts(now),
+    tries: [
+      tryCard(now),
+    ],
   };
 }

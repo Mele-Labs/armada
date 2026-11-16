@@ -1,0 +1,12 @@
+[operations.get_project_claims]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read the claims in a project's store, grouped by who holds them: each Job's items, files, tests, pull requests and red main, and what each waits on"
+notes = """
+`GET /projects/project/:project/claims` answers `ProjectClaims`: `store`, whether the project names one (without one its Jobs claim nothing), `unread` why the claims could not be read (the store did not answer, or this Mac has not joined it), and `holders`, one group a Job in the store's order, by the person, then the Mac, then the Job. A group is `name`, the person's forge login, `machine`, `title`, `job`, `this_mac`, `renewed`, when it last renewed (a claim lapses 30 minutes after), its `claims` and its `waits`. A claim is `kind` (`item`, `file`, `test`, `pull_request` or `red_main`), `named` and `repository` where this Mac has the repository and matched the hash, `since`, and for a pull request `waits_on`, the failing test or main's red its Job waits for. A wait is the claim's `kind` and `named` and its holder's `name`, `machine` and `title`. `docs/contracts/central-store.md`, *Wire*, has the store's own `GET /claims`.
+
+**The store holds hashes, and this answer never sends a plain name it did not match here**: a teammate's claim in a repository this Mac does not have carries its Job's title alone. The screen shows a duration from `since` and `renewed` as it chooses.
+
+A 404 `fleet.no_such_project` for a `project` he has none of. Read by the project's page in native Bridge.
+"""

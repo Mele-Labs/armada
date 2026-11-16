@@ -5,11 +5,11 @@
 //! time it opens, and Esc clears a search first, then closes, the keys going back where they were.
 //! Everything else is Classic's System page (`apps/desktop/src/renderer/src/system-surface.tsx`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use gpui::{prelude::*, App, Bounds, Focusable, Context, DismissEvent, Entity, FocusHandle, Keystroke, Pixels, SharedString, Subscription, Task, Window};
+use gpui::{prelude::*, px, App, Bounds, Focusable, Context, DismissEvent, Entity, FocusHandle, Keystroke, Pixels, SharedString, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState, TextareaState};
 use ipc::{Projects, ResolvedValues, SettingKind, SettingValue, SettingsList};
 
@@ -47,6 +47,19 @@ impl Typed {
     }
 }
 
+/// A press on a meter: where it landed, and whether it has moved far enough to be a drag.
+pub struct MeterPress {
+    pub key: String,
+    pub from: Pixels,
+    pub dragged: bool,
+}
+
+/// How far a press moves before it is a drag and not a click.
+const DRAG_FROM: f32 = 3.;
+
+/// How far Shift with ← or → steps a meter.
+const NUDGE_FAR: i64 = 10;
+
 /// The keys of one setting's controls, so Tab and the arrows reach each of them.
 pub struct Stops {
     pub control: FocusHandle,
@@ -80,12 +93,18 @@ pub struct Scope {
     /// The confirm's keys: Delete, then Cancel.
     pub delete_stop: FocusHandle,
     pub cancel_stop: FocusHandle,
+    /// The Learned chip's key: Enter and Space take the keys to the value it is about (`SettingsOverlay::go_to`).
+    pub learned: FocusHandle,
+    /// The page's scroll, so a row asked for is brought into view.
+    pub page_scroll: gpui::ScrollHandle,
+    /// The value whose row is to be scrolled into view as the page next draws it: taken by the row that draws it.
+    pub reveal: Rc<Cell<Option<Key>>>,
 }
 
 impl Scope {
     fn new(cx: &mut App) -> Scope {
         let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
-        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle() }
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle(), learned: cx.focus_handle().tab_stop(true), page_scroll: gpui::ScrollHandle::new(), reveal: Rc::new(Cell::new(None)) }
     }
 }
 
@@ -137,6 +156,9 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
+    /// Settings › Claims store.
+    pub store: super::store::StorePage,
+    pub sign_in_app: super::sign_in_app::SignInApp,
     /// Settings › Layout and Settings › Time: the preferences they write.
     pub prefs: super::prefs::Prefs,
     /// Settings › Ways of working: what the helper and Whisper said, and the sample.
@@ -146,6 +168,8 @@ pub struct SettingsOverlay {
     pub workflows: super::workflows::WorkflowsPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
+    /// The press on a meter that has not been let go, so a click and a drag are told apart.
+    pub meter: Option<MeterPress>,
     keys: Option<Subscription>,
     _typing: Vec<Subscription>,
     _read: Option<Task<()>>,
@@ -193,7 +217,7 @@ impl SettingsOverlay {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
         let theme = super::theme::ThemeField::new(cx);
         let lanes = super::lanes::WorkflowLanes::new(cx);
-        let typing = vec![
+        let mut typing = vec![
             cx.subscribe_in(&query, window, |this, _, event: &InputEvent, _, cx| {
                 if matches!(event, InputEvent::Change) {
                     this.query_changed(cx);
@@ -203,6 +227,19 @@ impl SettingsOverlay {
             cx.on_focus(&theme.focus, window, |this, _, cx| this.theme_focused(cx)),
             cx.on_blur(&theme.focus, window, |this, _, cx| this.theme_shut(cx)),
         ];
+        // Settings Fleet publishes while this is open (the sign-in app's client id, written from the browser) are read again.
+        if let Wire::Live(fleet) = &wire {
+            let mut seen = fleet.read(cx).held().settings_stamp;
+            typing.push(cx.observe_in(fleet, window, move |this, fleet, window, cx| {
+                let now = fleet.read(cx).held().settings_stamp;
+                if now != seen {
+                    seen = now;
+                    if this.open {
+                        this.read(window, cx);
+                    }
+                }
+            }));
+        }
         SettingsOverlay {
             wire,
             open: false,
@@ -230,11 +267,14 @@ impl SettingsOverlay {
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(window, cx),
+            store: super::store::StorePage::new(window, cx),
+            sign_in_app: super::sign_in_app::SignInApp::new(cx),
             prefs: super::prefs::Prefs::new(),
             ways: super::ways::WaysPage::new(cx),
             lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
             tracks: Rc::default(),
+            meter: None,
             keys: None,
             _typing: typing,
             _read: None,
@@ -265,6 +305,7 @@ impl SettingsOverlay {
         self.mods.refused.clear();
         self.models.reopen();
         self.macs.reopen();
+        self.store.reopen();
         self.prefs.reopen();
         self.ways.reopen();
         self.lanes.reopen(cx);
@@ -338,7 +379,7 @@ impl SettingsOverlay {
                 _ => None,
             };
             let Some(lines) = lines else { continue };
-            let held = held_text(&one.value);
+            let held = held_text(super::limits::current(one));
             if !self.typed.contains_key(&one.key) {
                 let typed = if lines {
                     let rows = if matches!(one.kind, SettingKind::Prompt) { (8, 24) } else { (4, 4) };
@@ -358,7 +399,7 @@ impl SettingsOverlay {
                 continue;
             }
             // A republished value is the answer to a save: what was typed has gone, and the field reads it.
-            let before = was.as_ref().and_then(|was| was.settings.iter().find(|row| row.key == one.key)).map(|row| held_text(&row.value));
+            let before = was.as_ref().and_then(|was| was.settings.iter().find(|row| row.key == one.key)).map(|row| held_text(super::limits::current(row)));
             if before.as_deref() != Some(held.as_str()) {
                 if let Some(typed) = self.typed.get(&one.key) {
                     typed.set(&held, window, cx);
@@ -407,7 +448,7 @@ impl SettingsOverlay {
             return;
         }
         let Some(text) = self.typed.get(key).map(|typed| typed.text(cx)) else { return };
-        let held = self.setting(key).map(|one| held_text(&one.value));
+        let held = self.setting(key).map(|one| held_text(super::limits::current(one)));
         if held.as_deref() == Some(text.as_str()) {
             crate::drafts::clear(&keep_key(key), cx);
         } else {
@@ -498,7 +539,11 @@ impl SettingsOverlay {
                 if gone {
                     // A stepped count has a field made for it that is never drawn: its keys go to the press, not to that.
                     let typed = this.setting(&key).filter(|one| !super::limits::is_stepped(one)).and_then(|_| this.typed.get(&key));
-                    let to = typed.map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone()));
+                    let meter = this.setting(&key).is_some_and(super::view::slides);
+                    let to = match (meter, typed) {
+                        (true, _) => this.stops.get(&key).map(|stops| stops.slider.clone()),
+                        (false, typed) => typed.map(|typed| typed.focus(cx)).or_else(|| this.stops.get(&key).map(|stops| stops.control.clone())),
+                    };
                     if let Some(to) = to {
                         window.focus(&to, cx);
                     }
@@ -530,7 +575,7 @@ impl SettingsOverlay {
     pub fn save_typed(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.setting(key) else { return };
         let Some(text) = self.typed.get(key).map(|typed| typed.text(cx)) else { return };
-        if text == held_text(&one.value) {
+        if text == held_text(super::limits::current(one)) {
             return;
         }
         let Some(value) = typed_value(&one.kind, &text) else { return };
@@ -542,6 +587,61 @@ impl SettingsOverlay {
         let Some(typed) = self.typed.get(key) else { return };
         typed.set(&to.to_string(), window, cx);
         cx.notify();
+    }
+
+    /// A press on a meter: nothing moves until the pointer does, so a click can mean typing.
+    pub fn meter_down(&mut self, key: &str, x: Pixels, window: &mut Window, cx: &mut Context<Self>) {
+        self.meter = Some(MeterPress { key: key.to_string(), from: x, dragged: false });
+        if let Some(stops) = self.stops.get(key) {
+            window.focus(&stops.slider, cx);
+        }
+        cx.notify();
+    }
+
+    /// The pointer moves with the press held: past a few points it is a drag, and sets the value by its share.
+    pub fn meter_moved(&mut self, key: &str, x: Pixels, to: Option<i64>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(press) = self.meter.as_mut().filter(|press| press.key == key) else { return };
+        if !press.dragged && (x - press.from).abs() < px(DRAG_FROM) {
+            return;
+        }
+        press.dragged = true;
+        if let Some(to) = to {
+            self.slide(key, to, window, cx);
+        }
+    }
+
+    /// The press let go: a drag has set its value already, and a click without one is typing.
+    pub fn meter_up(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(press) = self.meter.take() else { return };
+        if press.key == key && !press.dragged {
+            self.start_typing(key, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// The meter's figure becomes the typed field, the keys in it.
+    pub fn start_typing(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(typed) = self.typed.get(key) else { return };
+        window.focus(&typed.focus(cx), cx);
+        cx.notify();
+    }
+
+    /// Typing ends and the keys stay on the meter, which steps with the arrows again.
+    pub fn leave_typing(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(stops) = self.stops.get(key) {
+            window.focus(&stops.slider, cx);
+        }
+        cx.notify();
+    }
+
+    /// The meter whose figure holds the keys.
+    fn typing_key(&self, window: &Window, cx: &App) -> Option<String> {
+        self.stops.keys().find(|key| self.setting(key).is_some_and(super::view::slides) && self.typed.get(*key).is_some_and(|typed| typed.focus(cx).is_focused(window))).cloned()
+    }
+
+    /// The setting whose meter this stop is, where it is one.
+    fn meter_of(&self, stop: &FocusHandle) -> Option<String> {
+        self.stops.iter().find(|(key, stops)| stops.slider == *stop && self.setting(key).is_some_and(super::view::slides)).map(|(key, _)| key.clone())
     }
 
     pub fn open_file(&mut self, cx: &mut Context<Self>) {
@@ -591,7 +691,7 @@ impl SettingsOverlay {
             Picking::Setting(key) => {
                 let Some(SettingKind::Choice { options }) = self.setting(key).map(|one| one.kind.clone()) else { return };
                 let Some(word) = options.get(n) else { return };
-                if self.setting(key).is_some_and(|one| one.value == SettingValue::Text(word.clone())) {
+                if self.setting(key).is_some_and(|one| *super::limits::current(one) == SettingValue::Text(word.clone())) {
                     return;
                 }
                 self.save(key.clone(), Some(SettingValue::Text(word.clone())), window, cx);
@@ -804,6 +904,9 @@ impl SettingsOverlay {
         if let Body::Workflows = shown.body {
             return self.workflow_stops(window, cx);
         }
+        if let Body::Store = shown.body {
+            return self.store_stops(cx);
+        }
         if let Body::Macs = shown.body {
             let mut stops = self.grid_stops(cx);
             stops.extend(self.macs_stops());
@@ -830,6 +933,9 @@ impl SettingsOverlay {
             return super::limits::stops(self, list, cx);
         }
         stops.push(self.file_stop.clone());
+        if let Body::Schema(["account"]) = shown.body {
+            stops.extend(self.sign_in_app_stops());
+        }
         let Some(list) = &self.list else { return stops };
         let sections: Vec<&str> = match shown.body {
             Body::Schema(ids) => ids.to_vec(),
@@ -840,16 +946,14 @@ impl SettingsOverlay {
             for one in entries::settings_in(list, id) {
                 let Some(held) = self.stops.get(&one.key) else { continue };
                 match self.typed.get(&one.key) {
+                    _ if super::view::slides(one) => stops.push(held.slider.clone()),
                     Some(typed) => stops.push(typed.focus(cx)),
                     None => stops.push(held.control.clone()),
-                }
-                if super::view::slides(one) {
-                    stops.push(held.slider.clone());
                 }
                 if self.dirty(&one.key, cx) || self.saving.as_deref() == Some(one.key.as_str()) {
                     stops.push(held.save.clone());
                 }
-                if one.saved.is_some() {
+                if super::limits::changed(one) {
                     stops.push(held.reset.clone());
                 }
             }
@@ -864,7 +968,7 @@ impl SettingsOverlay {
     /// Whether what is typed into a setting differs from the value in force.
     pub fn dirty(&self, key: &str, cx: &App) -> bool {
         let (Some(one), Some(typed)) = (self.setting(key), self.typed.get(key)) else { return false };
-        typed.text(cx) != held_text(&one.value)
+        typed.text(cx) != held_text(super::limits::current(one))
     }
 
     fn all_stops(&self, window: &Window, cx: &App) -> Vec<FocusHandle> {
@@ -900,19 +1004,27 @@ impl SettingsOverlay {
         if stops.is_empty() {
             return;
         }
-        let at = stops.iter().position(|one| one.is_focused(window));
+        // A meter is one stop, whether its figure is typed into or the keys are on the bar.
+        let at = stops.iter().position(|one| one.is_focused(window) || self.meter_of(one).is_some_and(|key| self.typed.get(&key).is_some_and(|typed| typed.focus(cx).is_focused(window))));
         let next = match (at, back) {
             (None, false) => 0,
             (None, true) => stops.len() - 1,
             (Some(at), false) => (at + 1) % stops.len(),
             (Some(at), true) => (at + stops.len() - 1) % stops.len(),
         };
-        window.focus(&stops[next], cx);
+        match self.meter_of(&stops[next]) {
+            Some(key) => self.start_typing(&key, window, cx),
+            None => window.focus(&stops[next], cx),
+        }
         cx.notify();
     }
 
     /// The overlay's own keys, ahead of the app's while it is open. `true` where one was taken.
     fn on_keystroke(&mut self, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        // The command palette over Settings takes every key, Esc included, until it closes.
+        if crate::palette::is_up(cx) {
+            return false;
+        }
         // A project's Delete, asked, takes every key until it is answered.
         if self.delete_key(key, window, cx) {
             return true;
@@ -952,6 +1064,27 @@ impl SettingsOverlay {
         if Self::is_typing(key) && self.in_text(window) {
             return false;
         }
+        // A meter's figure takes Enter as its end, and the keys stay on the meter.
+        if key.key == "enter" && !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt {
+            if let Some(meter) = self.typing_key(window, cx) {
+                self.leave_typing(&meter, window, cx);
+                return true;
+            }
+            if let Some(meter) = self.stops.iter().find(|(_, stops)| stops.slider.is_focused(window)).map(|(key, _)| key.clone()) {
+                self.start_typing(&meter, window, cx);
+                return true;
+            }
+        }
+        // A figure on a focused meter starts the typing, with that figure first.
+        if key.key.len() == 1 && key.key.chars().all(|digit| digit.is_ascii_digit()) && !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt && !key.modifiers.shift {
+            if let Some(meter) = self.stops.iter().find(|(_, stops)| stops.slider.is_focused(window)).map(|(key, _)| key.clone()) {
+                if let Some(typed) = self.typed.get(&meter) {
+                    typed.set(&key.key, window, cx);
+                }
+                self.start_typing(&meter, window, cx);
+                return true;
+            }
+        }
         // Models' own keys: its filter, its rows, its switches, selects and efforts.
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Models) && self.models_key(key, window, cx) {
             return true;
@@ -960,6 +1093,9 @@ impl SettingsOverlay {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Store) && self.store_key(key, window, cx) {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Ways) && self.ways_key(key, window, cx) {
@@ -978,7 +1114,14 @@ impl SettingsOverlay {
             self.open_picker(true, window, cx);
             return true;
         }
+        if bare && matches!(key.key.as_str(), "enter" | "space") && self.scope.learned.is_focused(window) {
+            self.go_to_learned(window, cx);
+            return true;
+        }
         if bare && self.grid_key(&key.key, window, cx) {
+            return true;
+        }
+        if bare && matches!(key.key.as_str(), "left" | "right") && self.segment_key(&key.key, window, cx) {
             return true;
         }
         match key.key.as_str() {
@@ -1029,7 +1172,8 @@ impl SettingsOverlay {
                 true
             }
             "left" | "right" if bare && self.on_slider(window) => {
-                self.nudge(if key.key == "left" { -1 } else { 1 }, window, cx);
+                let by = if key.modifiers.shift { NUDGE_FAR } else { 1 };
+                self.nudge(if key.key == "left" { -by } else { by }, window, cx);
                 true
             }
             _ => false,
@@ -1056,19 +1200,154 @@ impl SettingsOverlay {
         true
     }
 
+    /// ← and → on a choice drawn as segments move the pick to the next word and save it. ← from the first word is
+    /// the sidebar's, as it is from a grid's first column.
+    fn segment_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((name, options)) = self.stops.iter().find(|(_, stops)| stops.control.is_focused(window)).and_then(|(name, _)| match self.setting(name).map(|one| (&one.kind, held_text(super::limits::current(one)))) {
+            Some((SettingKind::Choice { options }, now)) if options.len() <= super::rows::SEGMENTS_MAX => Some((name.clone(), (options.clone(), now))),
+            _ => None,
+        }) else {
+            return false;
+        };
+        let (options, now) = options;
+        let at = options.iter().position(|word| *word == now).unwrap_or(0);
+        let to = if key == "left" { at.checked_sub(1) } else { Some(at + 1).filter(|to| *to < options.len()) };
+        match to {
+            Some(to) => {
+                self.chose(&Picking::Setting(name), to, window, cx);
+                true
+            }
+            None => key == "right",
+        }
+    }
+
     fn on_slider(&self, window: &Window) -> bool {
         self.stops.values().any(|stops| stops.slider.is_focused(window))
     }
 
-    /// ← and → on a slider move what is typed a step.
+    /// ← and → on a meter move what is typed a step, and Shift with them ten.
     fn nudge(&mut self, by: i64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(key) = self.stops.iter().find(|(_, stops)| stops.slider.is_focused(window)).map(|(key, _)| key.clone()) else { return };
         let Some(one) = self.setting(&key) else { return };
         let (SettingKind::Integer { min, max, .. } | SettingKind::Seconds { min, max }) = one.kind else { return };
-        let now = self.typed.get(&key).and_then(|typed| typed.text(cx).trim().parse::<i64>().ok()).unwrap_or(match one.value {
+        let now = self.typed.get(&key).and_then(|typed| typed.text(cx).trim().parse::<i64>().ok()).unwrap_or(match *super::limits::current(one) {
             SettingValue::Integer(n) => n,
             _ => min,
         });
         self.slide(&key, (now + by).clamp(min, max), window, cx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{point, Modifiers, MouseButton, Role, TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::wire::Wire;
+    use super::*;
+
+    const KEY: &str = "plan.downshiftAt";
+    const METER: &str = "Offer a lower default at slider";
+
+    /// Settings open on Plan, drawn, with the mock Fleet's 80 percent in its meter.
+    fn opened(cx: &mut TestAppContext) -> (Entity<SettingsOverlay>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.show(None, false, window, cx);
+                this.pick("fleet:plan", cx);
+            })
+        });
+        cx.run_until_parked();
+        draw(cx);
+        (overlay, cx)
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    fn meter(cx: &mut VisualTestContext) -> gpui::Bounds<Pixels> {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Slider, METER).map(|drawn| drawn.bounds)).expect("the meter is drawn"))
+    }
+
+    fn typed(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> String {
+        overlay.read_with(cx, |this, cx| this.typed.get(KEY).map(|typed| typed.text(cx)).expect("the figure is typed"))
+    }
+
+    fn typing(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| overlay.read(cx).typed.get(KEY).is_some_and(|typed| typed.focus(cx).is_focused(window)))
+    }
+
+    #[gpui::test]
+    fn a_drag_across_the_meter_sets_the_value_by_its_share(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        assert_eq!(typed(&overlay, cx), "80");
+        let bounds = meter(cx);
+        let y = bounds.center().y;
+        cx.simulate_mouse_down(point(bounds.left() + bounds.size.width * 0.9, y), MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_move(point(bounds.left() + bounds.size.width * 0.5, y), MouseButton::Left, Modifiers::none());
+        draw(cx);
+        let half: i64 = typed(&overlay, cx).parse().expect("a figure");
+        assert!((48..=53).contains(&half), "half across is about half of 1 to 100, got {half}");
+        cx.simulate_mouse_move(point(bounds.left() + bounds.size.width * 0.25, y), MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_up(point(bounds.left() + bounds.size.width * 0.25, y), MouseButton::Left, Modifiers::none());
+        draw(cx);
+        let quarter: i64 = typed(&overlay, cx).parse().expect("a figure");
+        assert!((24..=28).contains(&quarter), "a quarter across is about a quarter, got {quarter}");
+        assert!(!typing(&overlay, cx), "a drag is not typing");
+        assert!(overlay.read_with(cx, |this, _| this.meter.is_none()), "the press is over");
+    }
+
+    #[gpui::test]
+    fn a_click_without_a_drag_types_and_enter_keeps_what_was_typed(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        let at = meter(cx).center();
+        cx.simulate_mouse_down(at, MouseButton::Left, Modifiers::none());
+        cx.simulate_mouse_up(at, MouseButton::Left, Modifiers::none());
+        draw(cx);
+        assert_eq!(typed(&overlay, cx), "80", "a click moves nothing");
+        assert!(typing(&overlay, cx), "the figure is the field now");
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.typed.get(KEY).expect("typed").set("65", window, cx)));
+        draw(cx);
+        cx.simulate_keystrokes("enter");
+        draw(cx);
+        assert!(!typing(&overlay, cx), "Enter ends the typing");
+        assert!(cx.update(|window, cx| overlay.read(cx).stops[KEY].slider.is_focused(window)), "the keys stay on the meter");
+        assert_eq!(typed(&overlay, cx), "65");
+        assert!(overlay.read_with(cx, |this, cx| this.dirty(KEY, cx)), "what was typed waits for Save");
+    }
+
+    #[gpui::test]
+    fn arrows_step_by_one_and_shift_by_ten_within_the_range(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|window, cx| {
+            let slider = overlay.read(cx).stops[KEY].slider.clone();
+            window.focus(&slider, cx);
+        });
+        draw(cx);
+        cx.simulate_keystrokes("right");
+        assert_eq!(typed(&overlay, cx), "81");
+        cx.simulate_keystrokes("left left");
+        assert_eq!(typed(&overlay, cx), "79");
+        cx.simulate_keystrokes("shift-left");
+        assert_eq!(typed(&overlay, cx), "69");
+        cx.simulate_keystrokes("shift-right shift-right shift-right");
+        assert_eq!(typed(&overlay, cx), "99");
+        cx.simulate_keystrokes("shift-right");
+        assert_eq!(typed(&overlay, cx), "100", "the most stops it");
+        cx.simulate_keystrokes("shift-left");
+        assert_eq!(typed(&overlay, cx), "90");
+        cx.simulate_keystrokes("4");
+        draw(cx);
+        assert!(typing(&overlay, cx), "a figure starts the typing");
+        assert_eq!(typed(&overlay, cx), "4", "with that figure first");
     }
 }

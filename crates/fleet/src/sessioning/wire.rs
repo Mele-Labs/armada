@@ -170,6 +170,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        operator: false,
         side_job: false,
         auto_land: false,
         activity: None,
@@ -184,6 +185,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
+        slot_wait: None,
         stopped: None,
         repairing: None,
         stop_told_by: None,
@@ -204,5 +206,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
             .filter(|one| one.kind == PR_DRAFT && one.state == AttachmentState::Standing)
             .filter_map(pull_request_draft)
             .collect(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }

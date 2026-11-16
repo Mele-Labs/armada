@@ -12,7 +12,7 @@ use store::KeptArchive;
 use crate::daemon::Fleet;
 
 const ARTIFACT_UNNAMED: &str = "fleet.artifact_unnamed";
-const ARTIFACT_NOT_HELD: &str = "fleet.artifact_not_held";
+pub(super) const ARTIFACT_NOT_HELD: &str = "fleet.artifact_not_held";
 const ARTIFACT_ARCHIVED_ALREADY: &str = "fleet.artifact_archived_already";
 const ARTIFACT_NOT_ARCHIVED: &str = "fleet.artifact_not_archived";
 /// The most ids a refusal names.
@@ -58,6 +58,11 @@ where
             };
             Arc::clone(&self).send_known(terminal, told).await?;
         }
+        // The Job archiving what still asks him takes its asks back, so it leaves his list as withdrawn. His own Archive
+        // leaves them as they stand.
+        if by == ArtifactBy::Agent && artifact.state == ipc::ArtifactState::Asking {
+            self.asks_withdrawn(&id, &artifact).await?;
+        }
         let kept = KeptArchive {
             artifact: artifact.id.clone(),
             by: String::from(match by {
@@ -95,12 +100,27 @@ where
             .ok_or_else(|| self.hosted_refusal(ARTIFACT_UNNAMED, "a job whose artifact it is"))
     }
 
+    /// The id of the artifact the Job holds as `named`, its id or its title, refused naming the ids it does hold.
+    pub(super) async fn artifact_named(&self, id: &str, named: &str) -> Result<String, Refusal> {
+        match self.artifact_held(id, named).await {
+            Ok(artifact) => Ok(artifact.id),
+            Err(refused) => {
+                let held = self.job_artifacts(id).await?;
+                held.into_iter().find(|one| one.title == named.trim()).map(|one| one.id).ok_or(refused)
+            }
+        }
+    }
+
     /// The artifact the Job holds as `named`, refused naming the ids it does hold.
     pub(super) async fn artifact_held(&self, id: &str, named: &str) -> Result<JobArtifact, Refusal> {
         let named = named.trim();
         let held = self.job_artifacts(id).await?;
         if let Some(artifact) = held.iter().find(|one| one.id == named) {
             return Ok(artifact.clone());
+        }
+        // A sketch, draft or page that joined an artifact is named by its own id still.
+        if let Some(part) = self.artifacts_unfolded(id).await?.into_iter().find(|one| one.id == named) {
+            return Ok(part);
         }
         let ids: Vec<&str> = held.iter().take(MOST_NAMED).map(|one| one.id.as_str()).collect();
         let holds = match ids.is_empty() {

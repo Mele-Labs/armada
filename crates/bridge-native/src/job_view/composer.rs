@@ -93,13 +93,19 @@ pub(super) struct Drafts {
     remember: bool,
 }
 
+/// The drafts a file holds, none where it is missing or not understood.
+fn read_drafts(path: &std::path::Path) -> HashMap<String, Kept> {
+    std::fs::read(path).ok().and_then(|bytes| ipc::decode::<HashMap<String, Kept>>("drafts", &bytes).ok()).unwrap_or_default()
+}
+
+/// What the live app's file holds now.
+pub(crate) fn read_drafts_file() -> HashMap<String, Kept> {
+    drafts_file().map(|path| read_drafts(&path)).unwrap_or_default()
+}
+
 impl Drafts {
     pub fn read(remember: bool) -> Self {
-        let by_job = remember
-            .then(|| drafts_file().and_then(|path| std::fs::read(path).ok()))
-            .flatten()
-            .and_then(|bytes| ipc::decode::<HashMap<String, Kept>>("drafts", &bytes).ok())
-            .unwrap_or_default();
+        let by_job = if remember { read_drafts_file() } else { HashMap::new() };
         Drafts { by_job, remember }
     }
 
@@ -283,6 +289,12 @@ pub(crate) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
     files.into_iter().map(|one| SessionUpload { name: one.name, media_type: one.media_type, data: engine.encode(one.bytes.as_slice()) }).collect()
 }
 
+/// A picture tile's width at height `tall`: the picture's own shape, kept between `least` and `most`.
+/// A picture whose size cannot be read takes the widest.
+fn thumb_width(natural: Option<(u32, u32)>, tall: f32, least: f32, most: f32) -> f32 {
+    natural.filter(|(w, h)| *w > 0 && *h > 0).map_or(most, |(w, h)| (tall * w as f32 / h as f32).clamp(least, most))
+}
+
 /// What is attached, as tiles in a row above the words: a picture shows itself, any other file its name and kind.
 /// `remove` makes each tile's Remove press; `more` are tiles the caller draws itself.
 pub(crate) fn tray(files: &[Attached], more: Vec<AnyElement>, look: &Look, remove: impl Fn(u64) -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App)>) -> AnyElement {
@@ -302,12 +314,14 @@ pub(crate) fn tray(files: &[Attached], more: Vec<AnyElement>, look: &Look, remov
             format!("Remove {}", one.name),
         );
         let body = match &one.preview {
-            Some(image) => div()
-                .h_full()
-                .min_w(look.length(token::SPACE_12))
-                .max_w(look.length(token::SPACE_12) * 2.7)
-                .child(img(image.clone()).h_full().object_fit(gpui::ObjectFit::Cover))
-                .into_any_element(),
+            Some(image) => {
+                // A picture's tile takes its width from the picture's own shape: an img given only a
+                // height lays out with no width, and the tile drew as an empty grey box.
+                let tall = f32::from(look.length(token::SPACE_12) + look.length(token::SPACE_4));
+                let least = f32::from(look.length(token::SPACE_12));
+                let wide = thumb_width(super::pictures::natural_size(&one.bytes), tall, least, least * 2.7);
+                div().h_full().w(gpui::px(wide)).child(img(image.clone()).size_full().object_fit(gpui::ObjectFit::Cover)).into_any_element()
+            }
             None => div()
                 .size_full()
                 .flex()
@@ -620,13 +634,15 @@ impl JobView {
     /// Write the drafts 400 ms after the last change, off the main thread.
     fn keep_soon(&mut self, cx: &mut Context<Self>) {
         let Some((path, text)) = self.composer.drafts.encoded() else { return };
+        // Held for a panic's hook and the quit to write, until the file holds it.
+        crate::crash::hold(&path, text.clone());
         self.composer.keeping = Some(cx.spawn(async move |_, cx| {
             cx.background_executor().timer(Duration::from_millis(400)).await;
             cx.background_executor()
                 .spawn(async move {
-                    let kept = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&path, text));
-                    if let Err(why) = kept {
-                        Note::warn("the drafts were not kept").field("why", why.to_string()).emit();
+                    match crate::crash::write_atomic(&path, &text) {
+                        Ok(()) => crate::crash::settle(&path, &text),
+                        Err(why) => Note::warn("the drafts were not kept").field("why", why.to_string()).emit(),
                     }
                 })
                 .await;
@@ -706,7 +722,27 @@ impl JobView {
             return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
+        // The box answers a question from the sheet's Answer in words: the words go as the panel's box sends them.
+        if let Some(item) = self.answering_row(&id, cx).map(|row| row.id.clone()) {
+            if kept.text.trim().is_empty() {
+                return;
+            }
+            self.set_box(&Kept::default(), window, cx);
+            if self.composer.drafts.set(&id, Kept::default()) {
+                self.keep_soon(cx);
+            }
+            if let Some(dock) = self.dock_mut() {
+                dock.answering = None;
+            }
+            self.answer_row_words(&item, kept.text, window, cx);
+            self.to_composer(window, cx);
+            return;
+        }
         if kept.text.trim().is_empty() && !self.composer.holds(&id) {
+            // Return in an empty box opens a question asked in pictures, as the band's Look and choose does.
+            if self.pictured_front(&id, cx).is_some() {
+                self.open_choose(window, cx);
+            }
             return;
         }
         if self.paused(&id, cx) {
@@ -901,6 +937,14 @@ impl JobView {
             self.toggle_needs(window, cx);
             return;
         }
+        if act.is("thread_find") {
+            self.open_find(window, cx);
+            return;
+        }
+        if (act.is("thread_find_next") || act.is("thread_find_previous")) && self.finding() {
+            self.find_step(if act.is("thread_find_next") { 1 } else { -1 }, cx);
+            return;
+        }
         let in_box = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
@@ -942,6 +986,9 @@ impl JobView {
         } else if key == "up" && self.reporting.is_none() && self.edit_last(window, cx) {
             // ↑ in an empty box edits the last message he sent.
             cx.stop_propagation();
+        } else if key == "escape" && self.drop_answering(cx) {
+            // Esc while the box answers a question makes it a plain message again.
+            cx.stop_propagation();
         } else if key == "escape" && self.reporting.is_some() {
             // Esc puts the report away, as the dialog's Cancel does.
             self.close_report(window, cx);
@@ -962,6 +1009,9 @@ impl JobView {
         if self.fleet.is_none() {
             let bytes = b"fn main() {}\n".to_vec();
             self.add_file(&id, "sample.rs".into(), "text/plain".into(), bytes, cx);
+            if let Some(picture) = super::pictures::mock_picture("Pasted file.png") {
+                self.add_file(&id, "Pasted file.png".into(), "image/png".into(), picture, cx);
+            }
             return;
         }
         let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
@@ -1386,6 +1436,7 @@ impl JobView {
             .child(tune_button)
             .child(attach)
             .child(self.sketch_button(look, cx))
+            .children(self.render_live_pill(id, look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }), window, cx))
             .child(div().id("context-figure").flex_none().ml_auto())
             .child(self.render_talk(look, cx))
             .child(send);
@@ -1448,10 +1499,12 @@ impl JobView {
                             .bg(look.color(token::BG_SUNKEN))
                             .children(card.as_ref().map(|card| self.start_strip(card, look, cx)))
                             .children(needs)
+                            .children(self.render_look_row(id, look, cx))
+                            .children(self.render_answering(id, look, cx))
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
                             .children(self.render_tray(id, look, cx))
-                            .child(labelled(words, Role::TextInput, "Message"))
+                            .child(labelled(words, Role::TextInput, if self.answering_row(id, cx).is_some() { "Answer in words" } else { "Message" }))
                             .child(bar),
                         Role::Group,
                         "Message box",
@@ -1491,8 +1544,51 @@ fn lands_line(id: &str, look: &Look, cx: &App) -> Option<AnyElement> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_pasted_pictures_tile_takes_the_pictures_shape_within_its_bounds() {
+        assert_eq!(thumb_width(Some((1600, 1000)), 64.0, 48.0, 130.0), 102.4);
+        assert_eq!(thumb_width(Some((400, 1000)), 64.0, 48.0, 130.0), 48.0);
+        assert_eq!(thumb_width(Some((4000, 1000)), 64.0, 48.0, 130.0), 130.0);
+        assert_eq!(thumb_width(None, 64.0, 48.0, 130.0), 130.0);
+        assert_eq!(thumb_width(Some((0, 0)), 64.0, 48.0, 130.0), 130.0);
+    }
+
     fn kept(text: &str) -> Kept {
         Kept { text: text.into(), tags: Vec::new() }
+    }
+
+    #[test]
+    fn the_composer_teach_and_fork_drafts_are_found_again_from_the_file_they_were_written_to() {
+        let path = std::env::temp_dir().join(format!("armada-job-drafts-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut drafts = Drafts { by_job: HashMap::new(), remember: true };
+        drafts.set("job-1", kept("a reply\nover two lines"));
+        drafts.set("teach:job-1", kept("remember this"));
+        drafts.set("card:job-1:plan:note", kept("a note on a card"));
+        // The write the store makes: whole or not at all, with no temp file left beside it.
+        crate::crash::write_atomic(&path, &ipc::encode(&drafts.by_job).unwrap()).unwrap();
+        assert_eq!(std::fs::read_dir(path.parent().unwrap()).unwrap().filter_map(Result::ok).filter(|one| one.file_name().to_string_lossy().starts_with(path.file_name().unwrap().to_str().unwrap()) && one.path() != path).count(), 0);
+
+        let fresh = Drafts { by_job: read_drafts(&path), remember: true };
+        assert_eq!(fresh.get("job-1").text, "a reply\nover two lines");
+        assert_eq!(fresh.get("teach:job-1").text, "remember this");
+        assert_eq!(fresh.get("card:job-1:plan:note").text, "a note on a card");
+        assert_eq!(read_drafts(&path.with_extension("missing")), HashMap::new(), "no file is no drafts");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn the_composer_drafts_a_panic_would_lose_are_written_from_what_is_held() {
+        let path = std::env::temp_dir().join(format!("armada-job-drafts-held-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut drafts = Drafts { by_job: HashMap::new(), remember: true };
+        drafts.set("job-1", kept("typed a moment ago"));
+        let text = ipc::encode(&drafts.by_job).unwrap();
+        crate::crash::hold(&path, text.clone());
+        crate::crash::flush(false);
+        assert_eq!(read_drafts(&path).get("job-1").map(|one| one.text.as_str()), Some("typed a moment ago"));
+        crate::crash::settle(&path, &text);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

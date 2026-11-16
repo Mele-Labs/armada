@@ -76,7 +76,7 @@ in Armada Decisions.
 | Native Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
-| Operator | One model call with no tools, decided in Fleet. A message in its box is put to a call that holds Read, Grep and Glob | One per machine, one fresh call per arrival or message | Fleet, when it hands an arrival over or the person writes |
+| Operator | One agent session with Fleet's tools, hosted by Fleet | One per machine, for as long as its context lasts | Fleet, while `features.operator` is on |
 | SQLite | File, WAL mode | Persistent | Fleet, via the `store` crate |
 | `armada doctor --json` | Rust, same binary as Fleet | ~253 ms warm. One scan, then it exits | Bridge, on demand |
 
@@ -351,7 +351,7 @@ are closed by the same decision and a route added later inherits it.
 below: every *process* here is trusted. This closes the browser a person is
 already running, not a program written to reach Fleet.
 
-**A Job is the one process that is not.** The routes that are the person's alone (settings, limits, the slot pool, the Operator's orders and board, the Autopilot, the Fleet build, signing in) refuse a call from inside a Job with `api.the_persons_own` and a 403, whatever the call says it is.
+**A Job is the one process that is not.** The routes that are the person's alone (settings, limits, the slot pool, the Operator's orders and page, the Autopilot, the Fleet build, signing in) refuse a call from inside a Job with `api.the_persons_own` and a 403, whatever the call says it is.
 It is the second layer over `api::router`, and the list is `api::callers::THE_PERSONS_OWN`.
 The caller is placed by the process holding the connection, walked down from each hosted Job's agent as the door places one, because a header is something any process sends and a credential Bridge reads from disk is one a Job of the same user reads too.
 The door's own copy of the routes is outside the layer: what the door offers a Job is the inventory's `agent_access`.
@@ -441,7 +441,7 @@ returns a count plus one line per event kind rather than the events
 themselves. Fleet waking the session was rejected: it would make the Job a
 second notification channel alongside Alerts. See the decision in Armada
 Decisions.
-**The Operator is the one thing Fleet does hand an arrival to**, since it holds no session to wake. See [Operator](../concepts/operator.md).
+**The Operator is the one session Fleet does tell an arrival to**, as a message in its thread, while it runs. See [Operator](../concepts/operator.md).
 
 On a command, a plain agent's access is `agent_access = "Yes"`; a Job on your words
 also reaches `Drafts only` and `On your words` rows, which is every command the door
@@ -664,13 +664,12 @@ Surfaces need UX. Shapes and policies need a home on a parent, not a page.
 ## Agent is a closed set
 
 **The test is a toolset.** Not every model invocation Armada makes is an
-Agent. Drone and Scout carry a toolset; every other invocation below does not, the Operator's rulings included. A message to the Operator holds the three read tools, which the row below says.
+Agent. Drone and Scout carry a toolset; every other invocation below does not. The Operator is an Agent: one session with Fleet's tools.
 
 | Invocation | Toolset | Worktree | Lifetime | Verdict |
 | --- | --- | --- | --- | --- |
 | Drone | Kit + Manifest resolved, plus Evidence MCP | Yes | One Job | **Agent** |
-| Operator | None | No | One call per arrival | Model call, in `fleet`. See [Operator](../concepts/operator.md) |
-| Operator, in conversation | Read, Grep and Glob only, over a folder Fleet writes for the message and the hosted checkouts. No server, no Fleet tool | No | One message | Model call, in `fleet`, run as a scout's process. It has no Studio and no Finding. See [Operator](../concepts/operator.md) |
+| Operator | Fleet's tools, and Read, Grep and Glob over every repository | No | One session, handed on when its context fills | Agent session hosted by `fleet`. See [Operator](../concepts/operator.md) |
 | Scout | Read-only: the checkout on disk and the sources Kit allows. See [Scout](../concepts/scout.md) | No | One ask | **Agent** |
 | Judge | None | No | One call | Model call, in `verification` |
 | Job proposer | None | No | One call | Model call, in `fleet`. Reads a request and proposes a Job — its workflow, its title and the split. Renamed from Job-shape classifier: shape became derived and scope became the workflow's first step, so neither half of that name survived. See [Job proposer](../concepts/job-proposer.md) |
@@ -707,7 +706,7 @@ placement.
 | Machine | Entity | How this installation behaves. One tier, no Manifest counterpart, no merge |
 | Workflow | Entity | As WorkflowDef. Authored, versioned, interpreted uniformly by Fleet |
 | Drone | **Agent + Entity** | Splits. The agent, and the Drone Run record carried on a Job |
-| Operator | **Policy + Surface** | Splits. The Policy in Fleet, one per machine, and the panel inside Bridge, `armada-ehhu.10` |
+| Operator | **Agent + Surface** | Splits. The session Fleet hosts, one per machine, and the page inside Bridge |
 | Fleet | Process | The only one. No engineer-facing surface beyond its Doctor module |
 | Bridge | Surface | Surface group, six surfaces inside it |
 | Doctor | Surface | Owns no probe logic and no state |

@@ -34,7 +34,7 @@ pub struct NoteOn {
 }
 
 /// The line Approve sends, as Electron's `approvedText`: `Approved A, Pennant: <address>`.
-fn approved(url: &str, take: Option<&Taken>) -> String {
+pub(crate) fn approved(url: &str, take: Option<&Taken>) -> String {
     match take {
         Some((letter, name)) => format!("Approved {letter}, {name}: {url}"),
         None => format!("Approved: {url}"),

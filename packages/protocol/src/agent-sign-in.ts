@@ -14,4 +14,6 @@ export type AgentSignIn = {
   signed_out_since?: string;
   /** Fleet is running the sign-in now, waiting on the browser. */
   signing_in?: boolean;
+  /** The account's name as a person knows it, from the harness's adapter. Absent from a Fleet that does not say. */
+  account?: string;
 };

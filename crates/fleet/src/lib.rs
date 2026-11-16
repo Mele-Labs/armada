@@ -83,12 +83,15 @@ mod building;
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.
 mod previewing;
+/// The notes of the build the owner runs: read, marked looked at, and answered.
+mod build_noting;
 /// The hours, builds and Jobs the Usage page reads time from.
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
 mod base_moves;
 mod gate_checks;
 mod gate_holding;
+mod gate_merges;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
@@ -169,6 +172,7 @@ pub mod models_read;
 pub mod phone;
 /// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
 mod other_macs;
+mod mac_terminals;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;
 /// What a Judge is shown, and how its answer is read and pinned. Pure.
@@ -265,6 +269,8 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+mod project_store;
+pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
@@ -381,6 +387,10 @@ mod slot_holders;
 mod slot_reclaiming;
 /// A red main claimed in the central store, and the claim read back for the hub.
 pub mod red_claim;
+/// What each live Job holds, claimed in its project's store, and the waits and words that follow.
+mod job_claims;
+mod flaky_tests;
+mod claims_list;
 /// A red main whose pull request a Session merged is claimed for that Session, or for a fork of it.
 mod session_red;
 mod taking_red;
@@ -430,6 +440,10 @@ mod worktrees_kept;
 /// The redactions the `Queries` and `Commands` impls call by hand. Split out to
 /// keep those files, rather than their helpers, the thing that grows.
 mod wire;
+/// A pull request that changes a wire type, told to the Jobs whose branches read it.
+mod wire_notices;
+/// Which public wire types a pull request's patches change.
+mod wire_types;
 mod workflow_lifecycles;
 mod workflow_page;
 /// A change to a workflow an agent drafts for the owner to approve.
@@ -455,6 +469,7 @@ pub use adrift::Adrift;
 pub use budget::CheckBudget;
 pub use clock::{Clock, SystemClock};
 pub use daemon::{Fittings, Fleet, Host, Reconciled, StartingIn};
+pub use project_store::JoinedStore;
 pub use detach::Detached;
 pub use drone::{environment, HostPaths};
 pub use headroom::{Bytes, Headroom, InUse, Machine, Polling, Reading, Short, Spare, TheMachine};

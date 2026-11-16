@@ -3,7 +3,7 @@
 
 use axum::body::Bytes;
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::Extension;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
@@ -372,29 +372,6 @@ pub(crate) async fn operator_in_front<D: HostedSessions>(State(served): State<Se
     }
 }
 
-/// What the Operator is ruling on, what waits for it and what it settled.
-pub(crate) async fn get_operator_board<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
-    match served.shared().get_operator_board().await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// One press moves an item among those waiting. 200 with the board; 404 where it is not waiting.
-pub(crate) async fn move_on_operator_board<D: HostedSessions>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let moved: ipc::operator_board::MoveOnOperatorBoard = match ipc::decode_body("a move on the Operator's board", &body) {
-        Ok(moved) => moved,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().move_on_operator_board(moved).await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
 /// An error Bridge showed the person, handed to the Operator. 200 whatever became of it: `repeated` says
 /// whether it was already with the Operator that day.
 pub(crate) async fn report_bridge_error<D: HostedSessions>(
@@ -407,22 +384,6 @@ pub(crate) async fn report_bridge_error<D: HostedSessions>(
     };
     match served.shared().report_bridge_error(error).await {
         Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// One press settles a suggestion no Job holds. 200 with the board; 404 where none has the id, 409 where it
-/// is settled already.
-pub(crate) async fn answer_operator_suggestion<D: HostedSessions>(
-    State(served): State<Served<D>>,
-    body: Bytes,
-) -> Response {
-    let press: ipc::operator_board::AnswerOperatorSuggestion = match ipc::decode_body("an answer to an Operator suggestion", &body) {
-        Ok(press) => press,
-        Err(why) => return undecodable(&why.to_string(), served.run_id()),
-    };
-    match served.shared().answer_operator_suggestion(press).await {
-        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -926,6 +887,127 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
     }
 }
 
+/// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
+/// list, an ask no longer open, or a page archived or not held.
+pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().press_page_action(press).await {
+        Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His vote on a page's vote. 200 with the cast; 422 for a vote the revision does not hold, a result of another
+/// form, a take or part the vote does not hold, or a page archived or not held.
+pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let cast: ipc::CastPageVote = match ipc::decode_body("a vote on a page", &body) {
+        Ok(cast) => cast,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().cast_page_vote(cast).await {
+        Ok(cast) => answer(StatusCode::OK, &cast, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Job puts a part on the artifact that asks him. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a
+/// part that breaks a rule, naming each, or a call that places no session. **The session is placed by the connection.**
+pub(crate) async fn add_part<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let add: ipc::AddPart = match ipc::decode_body("a part to add", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().add_part(crate::acting::asking(), add.clone()).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::part(&record, &add), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He answers one asking part of an artifact. 200 with the artifact; 409 for a part put again since he read it; 422 for a part
+/// not open to an answer, a way it does not take, or a send back with no note.
+pub(crate) async fn answer_part<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let said: ipc::AnswerPart = match ipc::decode_body("an answer to a part", &body) {
+        Ok(said) => said,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().answer_part(said).await {
+        Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One kept revision of a page as the Job wrote it. 200 with the HTML as `text/html`; 422 for an artifact the Job does not
+/// hold as a page or a revision never kept.
+pub(crate) async fn get_artifact_page_source<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichPage>,
+) -> Response {
+    let asked = served.daemon().get_artifact_page_source(ipc::SessionId::carried(which.session_id), which.artifact, which.revision).await;
+    match asked {
+        Ok(html) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+            headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+            (StatusCode::OK, headers, html).into_response()
+        }
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He opened a revision of an artifact. 200 with the newest he has opened, an older revision included; 422 for a
+/// revision never kept or an artifact not held.
+pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let mark: ipc::MarkArtifactSeen = match ipc::decode_body("an artifact he opened", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().mark_artifact_seen(mark).await {
+        Ok(seen) => answer(StatusCode::OK, &seen, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
+#[derive(Deserialize)]
+pub(crate) struct WhichPage {
+    session_id: String,
+    artifact: String,
+    revision: Option<u32>,
+}
+
+/// One kept revision of a page, sealed. 200 with the page as `text/html`, its policy sent again as the header, as
+/// `get_session_file` answers its bytes; 422 for an artifact the Job does not hold as a page or a revision never kept.
+pub(crate) async fn get_artifact_page<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    Query(which): Query<WhichPage>,
+) -> Response {
+    let asked = served
+        .daemon()
+        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision)
+        .await;
+    match asked {
+        Ok(page) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+            headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+            // Base64 and plain words, which always make a header. The page carries the policy either way.
+            if let Ok(policy) = HeaderValue::from_str(&page.policy) {
+                headers.insert(header::CONTENT_SECURITY_POLICY, policy);
+            }
+            (StatusCode::OK, headers, page.html).into_response()
+        }
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn act_on_session_mcp<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,
@@ -1120,6 +1202,63 @@ pub(crate) async fn get_job_copy<D: HostedSessions>(State(served): State<Served<
     let named = asked.session_id.filter(|id| !id.trim().is_empty()).map(|id| ipc::SessionId::carried(id.trim()));
     match served.shared().get_job_copy(named).await {
         Ok(copy) => answer(StatusCode::OK, &copy, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A Job's own For you. **The Job is placed by the connection**, else `?session_id=`.
+pub(crate) async fn get_for_you<D: HostedSessions>(State(served): State<Served<D>>, Query(asked): Query<ForJobCopy>) -> Response {
+    let named = asked.session_id.filter(|id| !id.trim().is_empty()).map(|id| ipc::SessionId::carried(id.trim()));
+    match served.shared().get_for_you(named).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A row off a Job's For you, for good. 200 with the view after it.
+pub(crate) async fn withdraw_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let withdraw: ipc::WithdrawForYou = match ipc::decode_body("a For you row to withdraw", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().withdraw_for_you(withdraw).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The order of a Job's For you rows. 200 with the view after it; 422 naming ids that are not rows.
+pub(crate) async fn order_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let order: ipc::OrderForYou = match ipc::decode_body("an order of For you rows", &body) {
+        Ok(order) => order,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().order_for_you(order).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The line under one For you row. 200 with the view after it; 422 for an id that is not a row.
+pub(crate) async fn line_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let line: ipc::LineForYou = match ipc::decode_body("a line for a For you row", &body) {
+        Ok(line) => line,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().line_for_you(line).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A row added to a Job's For you. 200 with its id.
+pub(crate) async fn add_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let add: ipc::AddForYou = match ipc::decode_body("a For you row to add", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().add_for_you(add).await {
+        Ok(added) => answer(StatusCode::OK, &added, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

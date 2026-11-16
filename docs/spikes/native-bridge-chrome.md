@@ -4,6 +4,7 @@
 Chrome (CEF 156) ran windowless, painted into a buffer, and gpui drew that buffer as one element between its own header and a chip laid over it, in the pinned `gpui-pre =0.3.11`.
 It worked in a headless gpui window and in a real window under gpui's own `Application` run loop, with nothing on screen.
 Because it worked, the child NSView and the glued window were not built, and what they would cost is argued from source only.
+On 13 Nov 2026 the owner chose Apple's web view over this route, for what it costs below ([Native Bridge](../concepts/native-bridge.md), decision 5).
 
 The price of this route is a conversion and a rebuild of input.
 gpui's `surface` takes only a bi-planar 4:2:0 full-range CVPixelBuffer, and Chrome paints BGRA, so every frame is converted and the colour of small coloured text is smeared (*Colour*).

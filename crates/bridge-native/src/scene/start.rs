@@ -1,0 +1,185 @@
+//! Which node a sketch starts at, and where its "Start" pill sits. One rule, shared by the drawing in the
+//! app, the page and the picture a sketch exports as, so the mark is the same wherever it is drawn.
+
+use std::collections::HashSet;
+
+use ipc::{Scene, SceneKind, SceneNode, SceneShape};
+
+use super::geometry::Rect;
+use super::tile;
+
+/// The word the mark is named by, for a reader and a walk; on the pill it is set in capitals.
+pub(super) const TAB_WORD: &str = "Start";
+
+/// A group, a lane and a label are the page the nodes stand on, never a step in the flow.
+fn takes_mark(node: &SceneNode) -> bool {
+    !matches!(node.kind, SceneKind::Group | SceneKind::Lane | SceneKind::Label)
+}
+
+/// The ids of the nodes a reader's eyes start at; empty where the scene does not say.
+///
+/// 1. A scene with steps starts at the lowest step: the nodes at it, and the node an arrow at it leaves.
+/// 2. Else the one node with arrows leaving it and none arriving.
+/// 3. Else the one pill with an arrow leaving it.
+/// 4. Else nothing: a start is never guessed.
+pub(super) fn nodes(scene: &Scene) -> HashSet<&str> {
+    let by_id = |id: &str| scene.nodes.iter().find(|node| node.id == id);
+    let eligible = |id: &str| by_id(id).is_some_and(takes_mark);
+
+    let lowest = scene
+        .nodes
+        .iter()
+        .filter_map(|node| node.step)
+        .chain(scene.edges.iter().filter_map(|edge| edge.step))
+        .filter(|step| step.is_finite())
+        .min_by(f64::total_cmp);
+    if let Some(lowest) = lowest {
+        return scene
+            .nodes
+            .iter()
+            .filter(|node| node.step == Some(lowest))
+            .map(|node| node.id.as_str())
+            .chain(scene.edges.iter().filter(|edge| edge.step == Some(lowest)).map(|edge| edge.from.as_str()))
+            .filter(|id| eligible(id))
+            .collect();
+    }
+
+    let leaves = |node: &SceneNode| scene.edges.iter().any(|edge| edge.from == node.id);
+    let arrives = |node: &SceneNode| scene.edges.iter().any(|edge| edge.to == node.id);
+
+    let sources = scene.nodes.iter().filter(|node| takes_mark(node) && leaves(node) && !arrives(node)).collect();
+    let pills = scene.nodes.iter().filter(|node| takes_mark(node) && node.kind == SceneKind::Box && node.shape == Some(SceneShape::Pill) && leaves(node)).collect();
+    only(sources).or_else(|| only(pills)).into_iter().collect()
+}
+
+/// The id of the one node in `found`, and none where there are none or several.
+fn only(found: Vec<&SceneNode>) -> Option<&str> {
+    match found[..] {
+        [one] => Some(one.id.as_str()),
+        _ => None,
+    }
+}
+
+/// Where the pill stands for a node at `rect`, its word `word_w` wide. A tile carries it in its head band, at the right and
+/// clear of the step's badge when it has one; any other node has no band, so it stands over the node's top left.
+pub(super) fn pill(node: &SceneNode, rect: Rect, word_w: f32) -> Rect {
+    let w = word_w + 2. * tile::PILL_PAD;
+    if tile::is_tile(node) {
+        let clear = if node.step.is_some() { tile::PILL_CLEAR } else { 0. };
+        Rect { x: rect.x + rect.w - tile::BAND_PAD - clear - w, y: rect.y + (tile::BAND_H - tile::PILL_H) / 2., w, h: tile::PILL_H }
+    } else {
+        Rect { x: rect.x, y: rect.y - tile::PILL_H - tile::PILL_RISE, w, h: tile::PILL_H }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scene(json: &str) -> Scene {
+        ipc::decode::<Scene>("Scene", json.as_bytes()).unwrap()
+    }
+
+    fn start(json: &str) -> Vec<String> {
+        let mut found: Vec<String> = nodes(&scene(json)).into_iter().map(str::to_string).collect();
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn the_lowest_step_is_the_start_and_an_arrow_at_it_starts_at_the_node_it_leaves() {
+        let nodes = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"step":2},{"id":"b","kind":"box","x":0,"y":0,"step":3},{"id":"c","kind":"box","x":0,"y":0}],"#;
+        assert_eq!(start(&format!(r#"{nodes}"edges":[]}}"#)), ["a"]);
+        // Both nodes at the lowest step start it.
+        let both = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"step":1},{"id":"b","kind":"box","x":0,"y":0,"step":1},{"id":"c","kind":"box","x":0,"y":0,"step":2}],"edges":[]}"#;
+        assert_eq!(start(both), ["a", "b"]);
+        // An arrow at the lowest step names the node it leaves, whatever the steps of the nodes.
+        let arrow = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"step":2},{"id":"b","kind":"box","x":0,"y":0},{"id":"c","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e","from":"c","to":"b","step":1},{"id":"f","from":"b","to":"a","step":2}]}"#;
+        assert_eq!(start(arrow), ["c"]);
+    }
+
+    #[test]
+    fn steps_win_over_a_lone_source() {
+        let json = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0,"step":1}],"edges":[{"id":"e","from":"a","to":"b"}]}"#;
+        assert_eq!(start(json), ["b"]);
+    }
+
+    #[test]
+    fn the_one_node_arrows_leave_and_none_reach_is_the_start() {
+        let json = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0},{"id":"c","kind":"box","x":0,"y":0},{"id":"d","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"b"},{"id":"e2","from":"b","to":"c"}]}"#;
+        // d joins nothing and is not a start; a is the only source.
+        assert_eq!(start(json), ["a"]);
+    }
+
+    #[test]
+    fn two_sources_are_no_start() {
+        let json = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0},{"id":"c","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"c"},{"id":"e2","from":"b","to":"c"}]}"#;
+        assert!(start(json).is_empty());
+    }
+
+    #[test]
+    fn a_cycle_has_no_source_and_a_lone_pill_with_an_arrow_out_is_the_start() {
+        let ring = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"go","kind":"box","shape":"pill","x":0,"y":0},{"id":"c","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"go"},{"id":"e2","from":"go","to":"c"},{"id":"e3","from":"c","to":"a"}]}"#;
+        assert_eq!(start(ring), ["go"]);
+        // Two sources and one pill: the pill breaks the tie.
+        let tie = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0},{"id":"end","kind":"box","shape":"pill","x":0,"y":0},{"id":"c","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"end"},{"id":"e2","from":"b","to":"end"},{"id":"e3","from":"end","to":"c"}]}"#;
+        assert_eq!(start(tie), ["end"]);
+    }
+
+    #[test]
+    fn two_pills_or_a_pill_with_no_arrow_out_are_no_start() {
+        let two = r#"{"nodes":[{"id":"a","kind":"box","shape":"pill","x":0,"y":0},{"id":"b","kind":"box","shape":"pill","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"b"},{"id":"e2","from":"b","to":"a"}]}"#;
+        assert!(start(two).is_empty());
+        let none_out = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0},{"id":"end","kind":"box","shape":"pill","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"a","to":"end"},{"id":"e2","from":"b","to":"end"}]}"#;
+        assert!(start(none_out).is_empty());
+    }
+
+    #[test]
+    fn a_group_a_lane_and_a_label_never_take_the_mark() {
+        let grounds = r#"{"nodes":[
+              {"id":"g","kind":"group","x":0,"y":0,"w":10,"h":10,"step":1},
+              {"id":"l","kind":"lane","x":0,"y":0,"w":10,"h":10},
+              {"id":"t","kind":"label","x":0,"y":0},
+              {"id":"a","kind":"box","x":0,"y":0,"step":2}],
+            "edges":[]}"#;
+        // The lowest step is a group's, so nothing is marked: the next step is not guessed at.
+        assert!(start(grounds).is_empty());
+        let sources = r#"{"nodes":[{"id":"g","kind":"group","x":0,"y":0,"w":10,"h":10},{"id":"t","kind":"label","x":0,"y":0},{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"g","to":"a"},{"id":"e2","from":"t","to":"b"},{"id":"e3","from":"a","to":"b"}]}"#;
+        // g and t have arrows leaving them and none arriving, but are not eligible; a is reached, b is reached.
+        assert!(start(sources).is_empty());
+        let one = r#"{"nodes":[{"id":"g","kind":"group","x":0,"y":0,"w":10,"h":10},{"id":"a","kind":"box","x":0,"y":0},{"id":"b","kind":"box","x":0,"y":0}],
+            "edges":[{"id":"e1","from":"g","to":"b"},{"id":"e2","from":"a","to":"b"}]}"#;
+        assert_eq!(start(one), ["a"]);
+    }
+
+    #[test]
+    fn a_scene_with_nothing_joined_has_no_start() {
+        assert!(start(r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[]}"#).is_empty());
+        assert!(start(r#"{"nodes":[],"edges":[]}"#).is_empty());
+    }
+
+    #[test]
+    fn the_pill_stands_in_the_head_band_at_the_right_or_over_a_node_with_none() {
+        let node = |kind: &str, step: &str| scene(&format!(r#"{{"nodes":[{{"id":"a","kind":"{kind}","x":0,"y":0{step}}}],"edges":[]}}"#)).nodes.remove(0);
+        let rect = Rect { x: 100., y: 50., w: 200., h: 80. };
+        let plain = pill(&node("box", ""), rect, 30.);
+        assert_eq!((plain.w, plain.h), (30. + 2. * tile::PILL_PAD, tile::PILL_H));
+        // At the right of the band, a band's padding in, and in the band's height.
+        assert_eq!(plain.x + plain.w, 300. - tile::BAND_PAD);
+        assert!(plain.y >= 50. && plain.y + plain.h <= 50. + tile::BAND_H);
+        // A step's badge stands in from the corner, so the pill keeps clear of it.
+        let stepped = pill(&node("code", r#","step":1"#), rect, 30.);
+        assert_eq!(stepped.x + stepped.w, plain.x + plain.w - tile::PILL_CLEAR);
+        // A node with no band has it over its top left.
+        let over = pill(&node("mock", ""), rect, 30.);
+        assert_eq!((over.x, over.y + over.h < 50.), (100., true));
+    }
+}

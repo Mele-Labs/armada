@@ -103,7 +103,13 @@ pub fn open_new(job: String, pane: ViewPane, window: &mut Window, cx: &mut App) 
         .spawn(cx, async move |cx| {
             let Ok(underway) = opening.await else { return };
             let Some(terminal) = underway.terminal else { return };
-            let _ = cx.update(|window, cx| open(&job, &terminal, Some(pane), true, window, cx));
+            // The run is open's answer: a shell on another Mac has no news of its own here to learn it from.
+            let _ = cx.update(|window, cx| {
+                if let Some(pane) = shown_with(&job, &terminal, Some(pane), true, Some(underway.run_id), cx) {
+                    let focus = pane.focus_handle(cx);
+                    window.focus(&focus, cx);
+                }
+            });
         })
         .detach();
 }
@@ -124,8 +130,13 @@ fn open_in(job: String, terminal: String, front: bool, cx: &mut App) {
 }
 
 fn shown(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, cx: &mut App) -> Option<Entity<TerminalPane>> {
+    shown_with(job, terminal, place, front, None, cx)
+}
+
+/// `shown`, with the run Fleet answered an open with, where there is one.
+fn shown_with(job: &str, terminal: &str, place: Option<ViewPane>, front: bool, run: Option<String>, cx: &mut App) -> Option<Entity<TerminalPane>> {
     let view = JobView::live(cx)?;
-    let pane = pane_of(job, terminal, cx)?;
+    let pane = pane_of(job, terminal, run, cx)?;
     let tab = tab_of(job, terminal, &pane, cx);
     let place = placed(place, view.read(cx).view_tab_pane(job, &tab_id(terminal)));
     view.update(cx, |view, cx| view.open_view_tab_in(job, place, tab, front, cx));
@@ -138,15 +149,21 @@ fn placed(asked: Option<ViewPane>, standing: Option<ViewPane>) -> ViewPane {
     asked.or(standing).unwrap_or(ViewPane::Top)
 }
 
-fn pane_of(job: &str, terminal: &str, cx: &mut App) -> Option<Entity<TerminalPane>> {
+fn pane_of(job: &str, terminal: &str, run: Option<String>, cx: &mut App) -> Option<Entity<TerminalPane>> {
     let key = (job.to_string(), terminal.to_string());
     if let Some(held) = cx.try_global::<Panes>().and_then(|panes| panes.0.get(&key)) {
         return Some(held.clone());
     }
     let shells = shells::of(cx)?;
-    let pane = cx.new(|cx| TerminalPane::attached(job.to_string(), terminal.to_string(), shells, cx));
+    let mac = mac_of(job, cx);
+    let pane = cx.new(|cx| TerminalPane::attached(job.to_string(), terminal.to_string(), shells, cx).on_mac(mac).given(run));
     cx.default_global::<Panes>().0.insert(key, pane.clone());
     Some(pane)
+}
+
+/// The paired Mac that holds Job `job`, where it is another Mac.
+fn mac_of(job: &str, cx: &App) -> Option<String> {
+    JobView::live(cx).and_then(|view| view.read(cx).mac_of(job, cx))
 }
 
 /// The tab's title until Fleet names it: `Terminal 2` for `t2`, as Fleet names it until a rename.
@@ -271,15 +288,22 @@ fn tab_of(job: &str, terminal: &str, pane: &Entity<TerminalPane>, cx: &App) -> V
     };
     let gone = Rc::new(move |_: &mut Window, cx: &mut App| closed(&j, &t, cx));
     let title = name_of(job, terminal, cx);
+    // Fleet refuses a rename on another Mac's Job, so it is not offered there.
+    let here = mac_of(job, cx).is_none();
+    let mut menu = vec![act("Send to agent", false, send), act("Copy terminal ID", false, copy)];
+    if here {
+        menu.push(act("Rename", false, rename));
+    }
+    menu.push(act("Close", true, close_act));
     ViewTab {
         id: tab_id(terminal),
         title,
         glyph: GLYPH,
         view: pane.clone().into(),
-        menu: vec![act("Send to agent", false, send), act("Copy terminal ID", false, copy), act("Rename", false, rename), act("Close", true, close_act)],
+        menu,
         closing: Some(veto),
         closed: Some(gone),
-        renamed: Some(renamed),
+        renamed: here.then_some(renamed),
     }
 }
 

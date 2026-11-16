@@ -13,10 +13,9 @@ use ipc::{
 use store::{MacState, PairedMac};
 
 use super::document_answers::plan_recorded;
-use super::operator_sources::{rulings, switched, Answers};
+use super::operator_sources::{rulings, switched};
 use super::session_host::{eventually, rig_placing, Rig};
 use super::share::{job_in, project, shared};
-use crate::operator::keep_the_raises;
 
 const WORK: &str = "mac-work";
 const THEIR_JOB: &str = "01WORKJOB";
@@ -27,10 +26,7 @@ const BRIEF: &str = "Add a column to crates/store/src/macs.rs for the colour.";
 const ALSO: &str = "Keep the old rows.";
 
 async fn seated(rig: &Rig) {
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: nothing else covers it"]);
-    assert!(rig.fleet.operator_seated_with(call));
     switched(rig, "features.operator", true).await;
-    keep_the_raises(Arc::clone(&rig.fleet)).await;
 }
 
 /// Mac `WORK`, named Work, paired and asleep since `asleep_since` where given.
@@ -51,6 +47,7 @@ async fn paired(rig: &Rig, asleep_since: Option<i64>) {
         wire: None,
         built_at: None,
         source: None,
+        pin: None,
     };
     rig.fleet.store().lock().await.keep_mac(&mac).expect("paired");
 }
@@ -124,7 +121,7 @@ fn the_dispatch(rig: &Rig) -> DispatchJob {
     DispatchJob { start, kind: None, then }
 }
 
-/// The Job a dispatch started, once the Operator has ruled it a new Job.
+/// The Job a dispatch started, as asked.
 async fn started(rig: &Rig, known: &[&SessionId]) -> String {
     Arc::clone(&rig.fleet).dispatch_job(the_dispatch(rig)).await.expect("dispatched");
     for _ in 0..500 {

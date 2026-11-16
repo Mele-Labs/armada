@@ -21,7 +21,14 @@ Each group carries its gate on the wire and in `session_plan_groups.gate`; recor
 **A gate closes once, on a fact Fleet saw, and stays closed** (`crates/fleet/src/gate_keeping.rs`).
 Fleet keeps a `session_gates` row when it sees the fact, and never works it out again: the rail placed a Job afresh on every draw, so a fact that dropped out moved it backwards.
 His approval of a plan closes every `plan_approved` gate for the version that asked for it, and a version recorded again stands on that approval: it draws no card, raises no item and reopens no gate, unless the agent passes `ask_again: true` on `record_plan`, which puts that version to him as the first was (owner, 8 Nov 2026).
-Any other fact closes the first open gate of its kind in plan order, and no other: the merge of a pull request the Job holds, his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
+Any other fact closes the first open gate of its kind in plan order, and no other: his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
+**A merge closes only the `merged` gate of the group Fleet ties it to** (`crates/fleet/src/gate_merges.rs`, armada-ffus).
+A group handed to a Job of its own is tied to that Job's pull requests, by the `group` on its `started_to` row, followed through a handoff.
+The Job's own pull requests are tied to its one `merged` group that is not handed on.
+With several such groups Fleet keeps no file list for a pull request to tell them apart, so a merge is tied by when it came: to a group whose tasks are all done, merged after the first of them was completed.
+A group none of whose tasks was ever completed is tied to no merge, and its gate waits on his `Approve` or `Skip this group`.
+A group closes on its newest tied merge once nothing tied to it is still open and none of its tasks reads pending or in progress, so a group that lands in several pull requests closes on the last.
+A merge from before the group was recorded closes nothing of it; Fleet knows that time for a group the newest version added, and reads the plan's first recording for the rest.
 **A walk shown for a group is that group's part** (owner, 8 Nov 2026).
 `show_window` takes an optional `group`, a plan group's id, and the `window` row keeps it.
 A group gated on `walk_approved` closes when every walk shown for it since the plan was first recorded stands approved, so a feature Job has one stop for each part he would see.
@@ -34,7 +41,7 @@ An open gate holds `all_done` and raises its Needs you item again, as it did the
 A reopened gate's close tells the rules `gate_closes` again and does not end or start steps a second time.
 A skip is his word, and a walk shown after it reopens nothing.
 Only facts from after the plan was first recorded count.
-Each gate is watched on its own, so a merge closes its gate while an earlier one is open.
+Each gate is watched on its own, so a merge closes its group's gate while an earlier one is open.
 A group keeps its close through a recording that keeps its id and its gate.
 The group's `gate_closed` carries the close: when, the fact in one line, and the commit where there is one.
 Bridge works out the live stretch from it: the first group whose gate is open, with the groups before it that name none.

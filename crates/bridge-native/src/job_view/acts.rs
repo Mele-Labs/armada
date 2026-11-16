@@ -37,6 +37,21 @@ pub(super) enum Answer {
     Going,
     /// A Judge asked for and not yet reading; it holds the id of the reading that stood when it was pressed.
     Judging(Option<String>),
+    /// A pick on a handoff card.
+    Handoff(ipc::HandoffPick),
+    /// A Ready to try card put off: the time it comes back at, as it was sent.
+    Later(String),
+}
+
+impl CardState {
+    /// What the person pressed on a sketch card, while it is the drawing he pressed it on.
+    pub fn pressed(&self, key: &str, card: &ipc::ThreadSketch) -> Option<&Answer> {
+        let answer = self.answers.get(key)?;
+        match self.answered_on.get(key) {
+            Some(on) if *on != super::cards::newest_of(card) => None,
+            _ => Some(answer),
+        }
+    }
 }
 
 /// Which of a card's boxes is open.
@@ -51,6 +66,9 @@ pub(super) enum Mode {
 #[derive(Default)]
 pub(super) struct CardState {
     pub answers: HashMap<String, Answer>,
+    /// What a sketch was drawn as, by `newest_of`, when its answer was pressed. A Job that draws it again, as a pinned
+    /// card's id stays the same under, asks again: the answer was to the drawing before.
+    pub answered_on: HashMap<String, String>,
     /// Fleet's reason for the last act on a card it refused.
     pub said: HashMap<String, SharedString>,
     pub modes: HashMap<String, Mode>,
@@ -61,8 +79,9 @@ pub(super) struct CardState {
     /// A draw writes here and the next frame acts on it.
     pub kept_seen: std::cell::RefCell<Vec<(String, usize, bool)>>,
     pub folded: HashMap<String, bool>,
-    /// The revision of a sketch the person chose, counting from the oldest; absent is the newest.
-    pub revision: HashMap<String, usize>,
+    /// The revision of a sketch the person chose, counting from the oldest, and how many there were when he chose it;
+    /// absent is the newest. A newer one arriving ends the choice (`picked_revision`).
+    pub revision: HashMap<String, (usize, usize)>,
     /// Folds a card opened: its earlier text, its technical groups, its unchanged groups.
     pub opened: HashSet<String>,
     /// The card the thread keys act on: the one last pressed, else the newest.
@@ -76,6 +95,16 @@ pub(super) struct CardState {
     pub playing: Option<(String, std::time::Instant)>,
     /// Note boxes just opened, to be scrolled clear of the composer once they are measured.
     pub reveal: HashMap<String, std::rc::Rc<std::cell::Cell<bool>>>,
+    /// A handoff card's sizes as last drawn, by card and part: the brief's whole height (over four lines it folds
+    /// behind Show all) and the head's width (a narrow head puts the question under the figure).
+    pub measured: std::cell::RefCell<HashMap<String, std::rc::Rc<std::cell::Cell<gpui::Pixels>>>>,
+    /// What the cards of artifacts that hold parts remember (`parts_card`).
+    pub parts: super::parts_card::PartsState,
+    /// The Ready to try card a press on its Needs you item asked to go to, until its draw has focused it.
+    pub go: std::cell::RefCell<Option<String>>,
+    /// The Ready to try card pulsing once, and how many times one has pulsed, so each pulse is a new animation.
+    pub pulse: Option<(String, u64)>,
+    pub pulses: u64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -384,7 +413,12 @@ impl JobView {
     ) {
         let Some(job) = self.shown.clone() else { return };
         self.aim(&key);
+        let on = self.drawing_of_key(&job, &key, cx);
         if let Some(cards) = self.cards_mut() {
+            match on {
+                Some(on) => cards.answered_on.insert(key.clone(), on),
+                None => cards.answered_on.remove(&key),
+            };
             cards.answers.insert(key.clone(), answer);
             cards.said.remove(&key);
             cards.modes.remove(&key);
@@ -392,8 +426,20 @@ impl JobView {
             cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
         }
         self.forget_box_words(&key, cx);
+        // An answer pressed in the sketch read over the window shuts the box the keys were in: they go back to the read. Its
+        // foot and the card behind it draw the same acts under one key, so the key says which it was.
+        if let Some(focus) = self.sketch_reading.as_ref().filter(|reading| reading.answer == key).map(|reading| reading.focus.clone()) {
+            window.focus(&focus, cx);
+        }
         self.card_changed(ix, cx);
         self.post_card(job, ix, key, route, body, window, cx);
+    }
+
+    /// What the sketch under a card's key is drawn as now: the pinned card is `pin:<id>`, a card in the thread its own id.
+    fn drawing_of_key(&self, job: &SharedString, key: &str, cx: &Context<Self>) -> Option<String> {
+        let held = self.thread(job, cx)?;
+        let id = key.strip_prefix("pin:").unwrap_or(key);
+        super::sketch_read::card_of(&held.head, &held.items, id).map(super::cards::newest_of)
     }
 
     /// An act with no answer to show: it goes, and a refusal is said on the card.
@@ -434,6 +480,17 @@ impl JobView {
             match crate::mock::act_refused(route) {
                 Some(why) => failed(self, why.into(), cx),
                 None if route == "/sessions/sketch/answer" => self.mock_sketch_answered(&job, body, cx),
+                None if route == super::parts_card::ANSWER_PART => {
+                    if let Err(why) = self.mock_part_answered(&job, body, cx) {
+                        failed(self, why.into(), cx);
+                    }
+                }
+                None if route == super::parts_card::PRESS => self.mock_part_pressed(&job, body, cx),
+                None if route == super::ready_card::ANSWER_READY => {
+                    if let Err(why) = self.mock_ready_answered(&job, body, cx) {
+                        failed(self, why.into(), cx);
+                    }
+                }
                 None => {}
             }
             return;

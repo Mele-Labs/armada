@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use adapter_traits::{Holder, Store};
+use adapter_traits::{ClaimKind, Claimant, Store};
 use ipc::{Accounts, BoundHow};
 use store::{MainCi, MainState};
 use testkit::{FakeSignIn, FakeStore, FakeWorkProduct};
@@ -198,7 +198,7 @@ fn a_repository_chosen_for_a_profile_that_signed_out_has_no_store_and_is_not_han
     signing.set_repository_profile(&armada.root, Some(HUBOT), &[armada.clone()]).expect("chosen");
     assert!(signing.profile_for(&armada).is_some());
 
-    let out = signing.sign_out(HUBOT, "https://store.test", &[armada.clone()]).expect("signed out");
+    let out = signing.sign_out(HUBOT, &[armada.clone()]).expect("signed out");
     assert_eq!(standing(&out.accounts, &armada), Err(vec![OCTOCAT]), "its login's owner still matches, and is only offered");
     assert_eq!(signing.profile_for(&armada), None);
 }
@@ -230,7 +230,9 @@ impl Reaching for PerProfile {
     }
 
     fn open(&self, _url: &str, directory: &Path) -> Result<Option<Box<dyn Store + Send>>, String> {
-        let account = directory.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        // `<profile>/stores/<the store's>`: the profile's folder is two up.
+        let profile = directory.parent().and_then(Path::parent).and_then(Path::file_name);
+        let account = profile.and_then(|name| name.to_str()).unwrap_or_default();
         Ok(self.stores.get(account).map(|view| Box::new(Viewed(Arc::clone(view))) as Box<dyn Store + Send>))
     }
 
@@ -265,7 +267,7 @@ async fn two_repositories() -> TwoRepositories {
         stores: BTreeMap::from([(OCTOCAT.to_string(), Arc::clone(&octocat)), (HUBOT.to_string(), Arc::clone(&hubot))]),
     });
     let fleet = crate::daemon::Fleet::assembled(fittings);
-    let changes = [("store.url", "https://store.test"), ("machine.name", "mac-a")]
+    let changes = [("machine.name", "mac-a")]
         .into_iter()
         .map(|(key, value)| (key.to_string(), Some(ipc::SettingValue::Text(value.to_string()))))
         .collect();
@@ -279,6 +281,7 @@ async fn two_repositories() -> TwoRepositories {
             set_up: Some(SetUp::of(parsed, BTreeMap::new())),
         })
         .expect("served");
+    super::red_claim::in_a_project_storing_at(&fleet, "https://store.test").await;
     let first = super::main_fix::root(&fleet).await;
     TwoRepositories { fleet, first, second, octocat, hubot, _home: home }
 }
@@ -300,9 +303,9 @@ fn red_at(root: &str, fleet: &super::main_ci::Fixture) -> MainCi {
     }
 }
 
-fn claim_of(store: &FakeStore, slug: &str) -> Option<Holder> {
+fn claim_of(store: &FakeStore, slug: &str) -> Option<Claimant> {
     let (repository, red) = keys_of(slug, RED).expect("keys");
-    store.read_claim(&repository, &red).expect("reads")
+    store.read_claim(&repository, ClaimKind::Red, &red).expect("reads")
 }
 
 fn owner_of(store: &FakeStore, slug: &str, number: u64) -> bool {
@@ -318,8 +321,9 @@ async fn a_red_is_claimed_in_the_view_of_the_profile_its_repository_is_bound_to_
     assert!(two.fleet.claim_red(&red_at(&two.first, &two.fleet), &taker, false).await.expect("claimed"));
     assert!(two.fleet.claim_red(&red_at(&two.second, &two.fleet), &taker, false).await.expect("claimed"));
 
-    assert!(claim_of(&two.octocat, "mele-labs/armada").is_some(), "octocat's repository is in octocat's store");
-    assert!(claim_of(&two.hubot, "acme/site").is_some(), "hubot's repository is in hubot's store");
+    let name = |claim: Option<Claimant>| claim.map(|held| held.name);
+    assert_eq!(name(claim_of(&two.octocat, "mele-labs/armada")).as_deref(), Some("octocat"), "octocat's repository is in octocat's store, named as octocat");
+    assert_eq!(name(claim_of(&two.hubot, "acme/site")).as_deref(), Some("hubot"), "hubot's repository is in hubot's store, named as hubot");
     assert!(claim_of(&two.octocat, "acme/site").is_none() && claim_of(&two.hubot, "mele-labs/armada").is_none());
 }
 

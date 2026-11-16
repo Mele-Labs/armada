@@ -8,17 +8,12 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use ipc::{AskingToRun, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtReading, ThoughtTarget};
+use ipc::{AskingToRun, ManifestId, RunOrNot, TellSession, ThoughtTarget};
 
 use crate::daemon::Refusal;
 
 /// Everything a client does with a held call and with words for a Job.
 pub trait Conversations: Send + Sync + 'static {
-    /// `read_thought` — words a person typed, read for which running Job they are for.
-    /// **Total**: a reading that cannot be made is [`ThoughtReading::Question`], so the words
-    /// are never taken for a thought about a Job that is not there.
-    fn read_thought(&self, read: ReadThought) -> impl Future<Output = ThoughtReading> + Send;
-
     /// `tell_session` — a Job on your words passes words to a live Session. **Sent as
     /// `send_session_message` sends**, so a refusal is that send's, and on success
     /// `operator.words_sent` is published. Answers where the words went. A refused send publishes

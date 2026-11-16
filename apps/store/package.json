@@ -5,6 +5,8 @@
   "description": "The central store: claims and pull request owners, one Durable Object per account.",
   "type": "module",
   "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "bundle:check": "node scripts/bundle.mjs --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

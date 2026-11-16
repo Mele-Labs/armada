@@ -33,7 +33,8 @@ const RELAXED: &[(&str, &str)] = &[
     (
         "bridge-native",
         "-[NSApplication sendAction:to:from:] with startDictation: and stopDictation: — Talk's \
-         macOS Dictation voice, which no safe objc2-app-kit method can send",
+         macOS Dictation voice, which no safe objc2-app-kit method can send — and WKWebView, the \
+         web page a walk's tab draws, which objc2-web-kit declares unsafe throughout",
     ),
     (
         "checks-runner",
@@ -61,6 +62,13 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
         "the one call that sends startDictation: or stopDictation: to the first responder, as the \
          Electron Bridge's Menu.sendActionToFirstResponder does — objc2-app-kit declares \
          sendAction:to:from: unsafe, and no safe method sends an action by selector",
+    ),
+    (
+        "crates/bridge-native/src/web/wk.rs",
+        "Apple's web view, WKWebView, for the pages a Job's walk shows: its load, snapshot and script \
+         calls, the NSView it is placed in over the gpui window, and the event monitor that gives it \
+         the keys and hands Bridge's own back — objc2-web-kit and AppKit's first responder declare \
+         these unsafe, and there is no safe form of them",
     ),
     (
         "crates/checks-runner/src/run.rs",

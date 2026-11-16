@@ -468,6 +468,27 @@ impl Wire {
         }
     }
 
+    pub fn gateway_found(&mut self, cx: &App) -> Task<Result<ipc::VouchedMacs, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.read_found()),
+            Wire::Live(_) => super::gateway::found(cx),
+        }
+    }
+
+    pub fn pair_ask(&mut self, tunnel: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_ask(&tunnel)),
+            Wire::Live(_) => super::gateway::pair_ask(tunnel, cx),
+        }
+    }
+
+    pub fn pair_vouched(&mut self, store: String, device: String, cx: &App) -> Task<Result<ipc::Mac, String>> {
+        match self {
+            Wire::Mock(mock) => Task::ready(mock.gateway.pair_vouched(&ipc::PairVouchedMac { store, device })),
+            Wire::Live(_) => super::gateway::pair_vouched(store, device, cx),
+        }
+    }
+
     pub fn pair_start(&mut self, cx: &App) -> Task<Result<ipc::MacPairLink, String>> {
         match self {
             Wire::Mock(mock) => Task::ready(mock.gateway.pair_start()),
@@ -669,6 +690,55 @@ impl Wire {
         }
         let path = format!("/projects/project/{}/delete", crate::link::percent_encoded(project));
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, String::new()), "Projects", cx))
+    }
+
+    /// `GET /projects/project/:project/store`: the store the project names, the Macs signed in to it, and whether a
+    /// deploy or a join can run now.
+    pub fn project_store(&mut self, project: &str, cx: &App) -> Task<Result<ipc::ProjectStoreState, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.project_store(project));
+        }
+        let path = format!("/projects/project/{}/store", crate::link::percent_encoded(project));
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get(path), "ProjectStoreState", cx))
+    }
+
+    /// `POST /projects/project/:project/store`: join the store at an address, or none where `store` is absent.
+    pub fn set_project_store(&mut self, project: &str, store: Option<ipc::JoinStore>, cx: &App) -> Task<Result<ipc::ProjectStoreState, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.set_project_store(project, store));
+        }
+        let path = format!("/projects/project/{}/store", crate::link::percent_encoded(project));
+        let said = body(&ipc::SetProjectStore { store });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "ProjectStoreState", cx))
+    }
+
+    /// `POST /projects/project/:project/store/deploy`: the Worker put up on his Cloudflare account, with the token he
+    /// pasted where he did. The token is in the body and nowhere else: it is not logged here.
+    pub fn deploy_project_store(&mut self, project: &str, deploy: ipc::DeployProjectStore, cx: &App) -> Task<Result<ipc::StoreDeployed, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.deploy_project_store(project, deploy));
+        }
+        let path = format!("/projects/project/{}/store/deploy", crate::link::percent_encoded(project));
+        let said = body(&deploy);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "StoreDeployed", cx))
+    }
+
+    /// `POST /accounts/sign_in_app`, no body: the page that carries the app's manifest to GitHub, which Bridge opens.
+    pub fn register_sign_in_app(&mut self, cx: &App) -> Task<Result<ipc::SignInAppRegistration, Refused>> {
+        if let Wire::Mock(mock) = self {
+            let (answer, wait) = mock.sign_in_app.register();
+            return match wait {
+                None => Task::ready(answer),
+                Some(wait) => {
+                    let timer = cx.background_executor().timer(wait);
+                    cx.background_spawn(async move {
+                        timer.await;
+                        answer
+                    })
+                }
+            };
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/sign_in_app".into(), String::new()), "SignInAppRegistration", cx))
     }
 
     /// The person's key bindings as Fleet last said them, or the mock's.

@@ -3,9 +3,12 @@
 //! own attachments folder and not in the worktree, so a released slot keeps them. The page is one
 //! artifact on the Job's ledger, upserted on its path, whose `revisions` detail names the kept files
 //! oldest first. The sketches it embeds are checked as `show_sketch` checks one, and a Job whose page
-//! holds one that will not draw is told. The write is never refused. **A revision is put to the person
+//! holds one that will not draw is told, as is one whose page declares an action that will not run or a vote that
+//! will not count. The
+//! write is never refused, but a page that asks and buries its ask is kept as one for reading (`page_measure`). **A revision is put to the person
 //! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
-//! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
+//! Job waits on a `document_approved` gate or step. Every other page is for reading, and the Job's own revision of
+//! one waits on him as `read:<path>` until he opens it (`reads`). Read off the page
 //! kept here and never off the tool call: `document_answers` answers it.
 //! **A page is asked only of the Job that changed it.** The file stays in a slot that changes hands, so a
 //! Job that took another's place is given the page's history, and any other Job passes over a page
@@ -21,8 +24,11 @@ use api::Sessions;
 use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 use store::{Holder, KeptAttachment};
 
-use super::document_answers::is_document;
+use super::document_answers::{is_document, DOCUMENT_READS, READ_ITEM_PREFIX};
 use super::artifact_for::with_for;
+use super::page_actions::actions_that_will_not_run;
+use super::page_measure::buried_ask;
+use super::page_votes::votes_that_will_not_count;
 use super::document_page::{asks_approval, for_of, sketches_in, title_of};
 use crate::daemon::Fleet;
 use crate::rail_ends;
@@ -57,7 +63,7 @@ where
         .await;
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
-        let Some(told) = self.page_kept(id, &path, &html, &revisions).await else { return };
+        let Some(told) = self.page_kept(id, &path, &html, &revisions, true).await else { return };
         let (fleet, id) = (Arc::clone(self), id.to_string());
         // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
         tokio::spawn(async move {
@@ -66,12 +72,21 @@ where
     }
 
     /// The page at `path` was kept as its newest revision, `html`: its row says so, asking again where it asks.
-    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too.
-    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf]) -> Option<String> {
+    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too, and
+    /// `measured` is false for it: only the Job's own revision is held back for an ask it buried.
+    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf], measured: bool) -> Option<String> {
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let encoded = ipc::encode(&names).ok()?;
         let styles = self.page_styles(id, html).await;
-        let asks = asks_approval(html) || self.document_gate_waits(id).await;
+        let asks = asks_approval(html) || self.approval_gate_waits(id, PlanGate::DocumentApproved, rail_ends::End::DocumentApproved).await;
+        // A page that buries its ask is kept and does not reach him: it reads, and the Job is told what to move.
+        // A vote or buttons ask him too, on a page with no Approve mark.
+        let presses = { let lower = html.to_ascii_lowercase(); lower.contains("<armada-vote") || lower.contains("<armada-action") };
+        let buried = if (asks || presses) && measured { buried_ask(html, path) } else { None };
+        // The Job's own revision of a page that asks nothing waits on him to read it. One that buried its ask goes
+        // back to the Job, and his Edit he has read.
+        let reads = measured && !asks && !presses;
+        let asks = asks && buried.is_none();
         let (text, links) = for_of(html);
         let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
         // The store replaces a row's detail whole, so leaving `settled`, `settled_at` and `words` out of
@@ -85,12 +100,32 @@ where
             (DOCUMENT_KEPT_AT.to_string(), self.instant().as_str().to_string()),
         ]
         .into();
+        if reads {
+            detail.insert(DOCUMENT_READS.to_string(), String::from("true"));
+        }
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
+        // **One open artifact per Job**: a page that asks, written while one still asks him, is a part of it. A page
+        // that joined one keeps it across its revisions.
+        let kept_in = {
+            let store = self.store().lock().await;
+            store
+                .attachments_of(&store::Holder::session(id))
+                .ok()
+                .and_then(|held| held.into_iter().find(|one| one.kind == "artifact" && one.target == path))
+                .and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned())
+        };
+        let joins = match (kept_in, asks) {
+            (Some(root), _) => Some(root),
+            (None, true) => self.artifact_joined(id, adapters::HOSTED_HARNESS, path, &title_of(html, path), false).await.ok().flatten(),
+            (None, false) => None,
+        };
+        detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
+        let _ = self.store().lock().await.restore_waiting(id, &format!("{READ_ITEM_PREFIX}{path}"));
         let _ = self
             .report_session(SessionReport {
                 harness: String::from(adapters::HOSTED_HARNESS),
@@ -100,7 +135,10 @@ where
                 },
             })
             .await;
-        let told = sketches_that_will_not_draw(html, path);
+        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path), votes_that_will_not_count(html, path), buried]
+            .into_iter()
+            .flatten()
+            .reduce(|told, more| format!("{told} {more}"));
         match (styles.told(told, path), links_dropped(&dropped)) {
             (Some(told), Some(links)) => Some(format!("{told} {links}")),
             (None, Some(links)) => Some(format!("In the page {path}, {}", links.replacen("The", "the", 1))),
@@ -108,14 +146,15 @@ where
         }
     }
 
-    /// Whether the Job waits on his approval of a page, so a page that does not mark itself asks too:
-    /// its plan holds an open `document_approved` gate, or the workflow step it is on ends on one.
-    /// The step is the one the rail kept when it last drew the Job, so the row is not built again here.
-    async fn document_gate_waits(&self, id: &str) -> bool {
+    /// Whether the Job waits on his approval of a page or a sketch, `gate` and `end` naming which: its plan
+    /// holds that gate open, or the workflow step it is on ends on it. So a page that does not mark itself asks
+    /// too, and `all_done` leaves the sketch it waits on. The step is the one the rail kept when it last drew
+    /// the Job, so the row is not built again here.
+    pub(super) async fn approval_gate_waits(&self, id: &str, gate: PlanGate, end: rail_ends::End) -> bool {
         let hosting = {
             let store = self.store().lock().await;
             let gated = store.session_plan(id).ok().flatten().is_some_and(|plan| {
-                plan.groups.iter().any(|group| group.gate.as_deref() == Some(PlanGate::DocumentApproved.word()) && group.closed.is_none())
+                plan.groups.iter().any(|group| group.gate.as_deref() == Some(gate.word()) && group.closed.is_none())
             });
             if gated {
                 return true;
@@ -130,7 +169,7 @@ where
         let Some(at) = self.store().lock().await.session_rail(id, &crate::rail::step_ids(&steps)).ok().and_then(|rail| rail.step) else {
             return false;
         };
-        rail_ends::ends_of(&steps, at as usize).contains(&rail_ends::End::DocumentApproved)
+        rail_ends::ends_of(&steps, at as usize).contains(&end)
     }
 
     /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a
@@ -169,9 +208,13 @@ where
     /// own folder, the newest revision's number, the revisions he wrote and his answer or dismissal, so only
     /// a real edit asks again. `old` keeps its own, so a hand undone has lost nothing.
     pub(super) async fn pages_carried(&self, old: &str, new: &str) {
-        let (held, dismissed) = {
+        let (held, dismissed, opened) = {
             let store = self.store().lock().await;
-            (store.attachments_of(&Holder::session(old)).unwrap_or_default(), store.dismissed_waiting(old).unwrap_or_default())
+            (
+                store.attachments_of(&Holder::session(old)).unwrap_or_default(),
+                store.dismissed_waiting(old).unwrap_or_default(),
+                store.artifact_seen(old).unwrap_or_default(),
+            )
         };
         for page in held.into_iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)) {
             let folder = self.documents_of(new).join(folder_of(&page.target));
@@ -188,6 +231,14 @@ where
             let _ = store.attach(&carried, false);
             if dismissed.contains(&item) {
                 let _ = store.dismiss_waiting(new, &item);
+            }
+            // What he read of it is read still, so a page waits to be read again only where it did.
+            let read = format!("{READ_ITEM_PREFIX}{}", carried.target);
+            if dismissed.contains(&read) {
+                let _ = store.dismiss_waiting(new, &read);
+            }
+            if let Some(kept) = opened.iter().find(|one| one.artifact == carried.target) {
+                let _ = store.keep_artifact_seen(new, &kept.artifact, kept.revision);
             }
         }
     }

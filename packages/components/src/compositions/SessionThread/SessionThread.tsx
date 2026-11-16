@@ -46,6 +46,7 @@ import {
   Smartphone,
   SquareTerminal,
   Trash2,
+  Undo2,
   Wrench,
   X,
 } from "lucide-react";
@@ -195,7 +196,8 @@ export type SessionNotice =
   | "operator"
   | "started_job_ended"
   | "gate_closed"
-  | "gate_hold";
+  | "gate_hold"
+  | "claims";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, a Check, or a draft's words. `at` is when the row was written. */
@@ -545,6 +547,19 @@ type SessionThreadKinds =
       kind: "judged";
       title: string;
       clean: boolean;
+      onOpen: () => void;
+    }
+  /**
+   * An artifact he answered, folded to one line at the time its newest revision was kept: how it settled and his words.
+   * A press opens it. Pocket's, from Fleet's artifact list; `how` picks the glyph.
+   */
+  | {
+      id: string;
+      at: string;
+      kind: "artifact";
+      title: string;
+      said: string;
+      how: "approved" | "sent_back" | "withdrawn";
       onOpen: () => void;
     }
   /** A Session this one follows needs the person, finished or merged: the agent was told with it. A press opens that Session. */
@@ -2204,6 +2219,24 @@ function Row({
         >
           <Scale size={12} strokeWidth={2} aria-hidden />
           Judged <span className="mono">{row.title}</span>
+          <Stamp still at={row.at} className="armada-session-act__at" />
+        </button>
+      </li>
+    );
+  }
+  if (row.kind === "artifact") {
+    const Glyph = row.how === "sent_back" ? Reply : row.how === "withdrawn" ? Undo2 : BadgeCheck;
+    return (
+      <li className="armada-session-fold armada-session-artifact" data-how={row.how}>
+        <button
+          type="button"
+          className="armada-session-fold__head armada-session-fold__head--press"
+          aria-label={`Open ${row.title}: ${row.said}`}
+          onClick={row.onOpen}
+        >
+          <Glyph size={12} strokeWidth={2} aria-hidden />
+          <span className="armada-session-artifact__title">{row.title}</span>
+          <span className="armada-session-artifact__said">{row.said}</span>
           <Stamp still at={row.at} className="armada-session-act__at" />
         </button>
       </li>

@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use api::{Refusal, Sessions};
+use api::{HostedSessions, Refusal, Sessions};
 use ipc::{KeptStyles, MockNode, SessionId, ShowSketch, StyleKind, StyleSources};
 
 use super::session_host::{eventually, rig_placing};
@@ -491,6 +491,24 @@ fn a_mock_with_nothing_usable_and_no_css_is_sent_to_a_screen_and_one_with_css_is
 }
 
 #[test]
+fn work_with_no_stylesheet_near_it_draws_its_mocks_with_the_checkouts_own_token_sheets() {
+    let repo = repo(&[
+        ("package.json", r#"{"name":"root","private":true}"#),
+        ("apps/a/package.json", r#"{"name":"a"}"#),
+        ("packages/tokens/package.json", r#"{"name":"tokens"}"#),
+        ("packages/tokens/tokens.css", ":root { --bg-raised: #222; --fg: #eee; --gap: 4px }"),
+        ("crates/core/src/lib.rs", "pub fn f() {}"),
+    ]);
+    // The Job works in Rust: the walk from its work finds no stylesheet, and the mock's `css` uses the tokens.
+    let tiers = [vec![String::from("crates/core")]];
+    let (home, styled) = choose(&repo, &tiers, &[mock("own", &[], true), mock("bare", &[], false)]);
+    assert!(styled.refused.is_empty(), "{:?}", styled.refused);
+    let set = keeping::read(&keeping::folder(home.path().to_str().unwrap()), &styled.kept["own"]).unwrap();
+    assert_eq!(set.sheets.iter().map(|one| one.path.as_str()).collect::<Vec<_>>(), ["packages/tokens/tokens.css"]);
+    assert_eq!(styled.kept["bare"], styled.kept["own"]);
+}
+
+#[test]
 fn several_packages_and_no_starting_point_refuse_the_mock_and_list_the_packages() {
     let repo = repo(&[
         ("package.json", r#"{"name":"root"}"#),
@@ -580,9 +598,33 @@ async fn a_shown_mock_carries_the_hash_of_its_styles_and_keeps_that_look_across_
     assert!(std::fs::read_to_string(&revisions[0]).unwrap().contains(&first), "the first revision keeps its hash");
 
     let record = rig.fleet.show_sketch(None, drawn(&id, "Card two", &mock_scene(styles, ""), Some("Card"))).await.unwrap();
-    let against = record.attachments.iter().find(|one| one.target == "sketch:Card two").unwrap().detail["against"].clone();
+    // Drawn against `Card`, it is that sketch's next revision, retitled, so it is kept under the first title.
+    let against = record.attachments.iter().find(|one| one.target == "sketch:Card").unwrap().detail["against"].clone();
     assert!(against.contains(&second), "the sketch it is read against keeps its look: {against}");
-    assert!(scene_of(&record, "Card two").kept.is_some());
+    assert!(scene_of(&record, "Card").kept.is_some());
+}
+
+#[tokio::test]
+async fn a_drawing_kept_before_its_mock_carried_kept_is_styled_the_first_time_its_artifacts_are_read() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    fill(Path::new(&rig.root), &[("src/a.css", ":root { --bg-raised: #222 } .a { background: var(--bg-raised) }")]);
+    let record = rig.fleet.show_sketch(None, drawn(&id, "Card", &mock_scene(r#","styles":["src/a.css"]"#, ""), None)).await.unwrap();
+    // The row as a Fleet before the fix kept it: the mock with no `kept`.
+    let row = record.attachments.iter().find(|one| one.target == "sketch:Card").unwrap();
+    let hash = scene_of(&record, "Card").kept.expect("kept by show_sketch");
+    let mut detail = row.detail.clone();
+    let bare = detail["scene"].replace(&format!(r#","kept":"{hash}""#), "").replace(&format!(r#""kept":"{hash}","#), "");
+    assert!(!bare.contains(&hash), "{bare}");
+    detail.insert("scene".into(), bare);
+    let attachment = ipc::AttachmentReport { kind: row.kind.clone(), target: row.target.clone(), detail };
+    let fact = ipc::SessionFact::Attached { attachment };
+    rig.fleet.report_session(ipc::SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact }).await.unwrap();
+
+    rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
+    let now = rig.fleet.published_hosted(id.as_str()).await.unwrap();
+    let kept = scene_of(&now, "Card").kept.expect("styled when read");
+    assert!(rig.fleet.get_kept_styles(kept).await.unwrap().sheets[0].css.contains("--bg-raised"));
 }
 
 #[tokio::test]

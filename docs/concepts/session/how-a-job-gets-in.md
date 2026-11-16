@@ -36,12 +36,13 @@ The harness sends Fleet facts in Armada's own shape and nothing past the adapter
 | `committed` | `branch?`, `commit?`, `subject?` (since mod 0.3.46) | A `git commit` printed a commit made. Entered on the timeline as `session.committed`; a subject that says a plan task completes it (*The plan*) |
 | `calls` | `calls`: how many more calls the job's own agent made, ten at a time (since mod 0.3.46) | Not read: Fleet keeps no count of calls |
 | `pushed` | `branch?` | A `git push` printed a ref updated. Entered on the timeline as `session.pushed` |
+| `sent_back` | `text`: the words the mod's stop hook sent the agent back with (since mod 0.3.64) | A hosted Job's thread gains a `reply_claim` notice in Fleet's voice holding them, which starts no turn, so `dispute_fleet` can name it. A terminal Job's thread is not Fleet's, so nothing is written |
 | `ended` | `reason` | Ends it and gives back everything it still holds. A terminal's slot is parked unless the reason is `clear` or `resume` (*Ending a terminal job*) |
 
 **No instant is reported**: Fleet stamps each fact on arrival. **A repeated fact publishes nothing**, so a harness may report on every turn.
 
 The mod for Claude Code is `plugins/armada/`, and `crates/adapters` is the only Rust that names the harness.
-It sends no message text and no prompt apart from the first line of real text in the first, as a title, the close of what a turn ended on, to tell a reply that asks from one that only tells (*What a Job is doing*), and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title.
+It sends no message text and no prompt apart from the first line of real text in the first, as a title, the close of what a turn ended on, to tell a reply that asks from one that only tells (*What a Job is doing*), the words its stop hook sent a turn back with, and the first line of each shell command, for the timeline (`docs/practices/protocol.md`, *The Fleet's timeline*): the harness's wrapper tags (`<agent-message …>`, `<command-…>`, `<system-reminder>`) are taken off first, and a prompt with nothing left has no title.
 A `/rename` in the terminal is reported as the name typed, or, for a bare `/rename`, the name Claude Code wrote to the transcript.
 **A Job's name can also be changed from Bridge**, by pressing its title in the Job view: `rename_session`, hosted or terminal, which stands until the next terminal `/rename`.
 A hosted Job's harness is not told, so its own name for itself stays what it was.

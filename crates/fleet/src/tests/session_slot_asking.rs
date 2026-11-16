@@ -19,9 +19,11 @@ async fn asking(rig: &Rig, id: &SessionId, act: AskForSlotAct) -> SlotAskStandin
         .standing
 }
 
-async fn calls(rig: &Rig, id: &SessionId) -> Vec<ipc::WaitingItem> {
+/// The Job's wait for a slot, as its record shows it: none, or the one.
+async fn calls(rig: &Rig, id: &SessionId) -> Vec<ipc::SlotWait> {
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
-    record.waiting_for.into_iter().filter(|one| one.source == WaitingSource::SlotChoice).collect()
+    assert!(record.waiting_for.iter().all(|one| one.source != WaitingSource::SlotChoice), "nothing on his list");
+    record.slot_wait.into_iter().collect()
 }
 
 async fn choose(rig: &Rig, id: &SessionId, choice: u32) {
@@ -60,7 +62,7 @@ async fn a_lease_that_finds_every_slot_held_raises_one_call_and_done_takes_it_of
 
     assert_eq!(asking(&rig, &id, AskForSlotAct::Ask).await, SlotAskStanding::Asking);
     let first = calls(&rig, &id).await;
-    assert_eq!((first.len(), first[0].text.as_str()), (1, "Every slot is in use"));
+    assert_eq!(first.len(), 1);
     asking(&rig, &id, AskForSlotAct::Ask).await;
     let again = calls(&rig, &id).await;
     assert_eq!((again.len(), again[0].since.clone()), (1, first[0].since.clone()), "heard again, not asked twice");
@@ -81,7 +83,7 @@ async fn a_session_fleet_does_not_host_or_that_has_ended_is_not_asked_about() {
 }
 
 #[tokio::test]
-async fn wait_leaves_the_command_looking_and_takes_the_call_off() {
+async fn a_wait_pressed_leaves_the_command_looking_and_its_wait_shown() {
     let rig = rig_placing(None);
     for n in 1..=8 {
         rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
@@ -91,10 +93,27 @@ async fn wait_leaves_the_command_looking_and_takes_the_call_off() {
 
     choose(&rig, &id, 0).await;
 
-    assert!(calls(&rig, &id).await.is_empty());
+    assert_eq!(calls(&rig, &id).await.len(), 1);
     assert_eq!(asking(&rig, &id, AskForSlotAct::Ask).await, SlotAskStanding::Waiting);
-    assert!(calls(&rig, &id).await.is_empty(), "one answer, not asked again");
+    assert_eq!(calls(&rig, &id).await.len(), 1, "one wait, while the command asks");
     assert_eq!(rig.fleet.vcs().slot_holders(&rig.root).len(), 8, "no slot was made");
+}
+
+/// A Job whose lease still asks waits for a slot, so its quiet turn is no stop.
+#[tokio::test]
+async fn a_job_whose_lease_still_asks_is_not_owed_a_stop() {
+    let rig = rig_placing(None);
+    for n in 1..=8 {
+        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+    }
+    let id = idle_without_a_slot(&rig).await;
+    asking(&rig, &id, AskForSlotAct::Ask).await;
+    choose(&rig, &id, 0).await;
+    super::session_stops::aged(&rig, &id).await;
+
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    assert!(record.waiting_for.is_empty(), "the call is off his list");
+    assert!(record.stop_told_by.is_none(), "its lease is still asking");
 }
 
 #[tokio::test]
@@ -126,14 +145,15 @@ async fn a_session_already_in_the_line_has_the_one_call_and_its_slot_comes_throu
     let (lined, _) = queued_and_idle(&rig, "write first").await;
 
     asking(&rig, &lined, AskForSlotAct::Ask).await;
-    assert_eq!(calls(&rig, &lined).await.len(), 1, "the line's call, and no second");
+    assert_eq!(calls(&rig, &lined).await.len(), 1, "the line's wait, and no second");
 
     choose(&rig, &lined, 1).await;
 
     eventually(|| async { resumes(&rig, &lined).len() == 1 }).await;
     assert_eq!(resumes(&rig, &lined)[0].directory, adapter_traits::slot_path(&rig.root, 9));
     assert_eq!(asking(&rig, &lined, AskForSlotAct::Ask).await, SlotAskStanding::Waiting, "the command keeps looking");
-    assert!(calls(&rig, &lined).await.is_empty());
+    asking(&rig, &lined, AskForSlotAct::Done).await;
+    assert!(calls(&rig, &lined).await.is_empty(), "gone once its command is done");
 }
 
 #[tokio::test]

@@ -1,54 +1,72 @@
 # Talk to the Operator
 
-**What it is:** "I want to hand over some words, and have them reach the right Job": what Fleet does with what you type to the Operator.
+**What it is:** "One decision at a time, and a place to talk about it": how you settle what the Operator puts in front of you, and how you talk to it.
 
 ---
 
-**Trigger:** You have a thought for work already running, or a goal to break into Jobs, and you would rather say it than open each Job.
+**Trigger:** The Operator has put up a card, or you have a thought for work already running and would rather say it than open each Job.
 
 **Concepts touched:** [Operator](../concepts/operator.md).
 
-**What is built.**
-Fleet's side is real.
-The goal is one chat, on its own page or in a pane from anywhere, in the native Bridge, and it is not built.
-The Electron Bridge no longer shows the Operator.
-This journey says what Fleet does with the words, and leaves the look to [Operator](../concepts/operator.md).
-
 ## Flow
 
-Type words into the Operator's chat → Fleet reads them against every live Job in every repository → a clear match is sent to that Job as a message → otherwise the words become a Job started on your words.
+A card is in front → you press an option, or press Discuss and talk → the card settles or the Operator puts up a new one → the next card in Waiting comes forward.
 
-| You type | What Fleet does |
+| You do | What you see |
 |---|---|
-| A thought for a Job already running, such as "also cover the jobs table" | The shortlist finds the Job by its title, and Delegate sends the words with `tell_session`. The Job's thread shows a row of where they came from |
-| A goal, such as "split this feature into Jobs" | The Operator starts a Job on your words, which breaks it into Jobs |
-| A workflow to author | A Job on your words works it out with you and ends with the definition saved, in this repository or in Kit |
-| A Studio to drive | A Job on your words drives it |
+| Read the card in front | One decision: a title, its read, two to four options with the Operator's pick first and a cost on each |
+| Press an option, or keys 1 to 4 | The Operator is told and settles the card. The next card comes forward |
+| Press Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
+| Send in the composer | The card folds to one line and the talk runs below it |
+| Keep talking | The Operator answers in the talk, may revise the card, and ends by settling it or putting up a new card |
+| Press Discuss later (`L`) | The card goes back until its time and is hidden until then |
+| Press Waiting in the head | The list of the cards queued behind opens. Pressing one brings it to the front |
+| Read the feed on the right | What happened since you last looked: what the Operator dispatched, merges, Jobs ended, and what Jobs asked or told it |
 
-The Operator runs no Job of its own, so none of this holds a slot until a Job on your words first writes.
+**A thought for work already running goes in the composer too.**
+Say it where you talk to the Operator, and it sends the words to the Job they belong to.
+Work you ask for is started as a Job, or the Operator does it.
+
+**With no session running, nothing hears you.**
+The composer and a press on a card are refused with `fleet.operator_session_not_running`, and the card stands. A dispatch starts as you asked.
 
 **A question is answered by reading.**
-Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads before it answers: the Job's thread and plan, the open issues, and the code of the repositories Fleet hosts.
-It reads and changes nothing, since the only tools it holds are Read, Grep and Glob.
-Where you want something changed, it offers a Job to make the change.
-Why: on 9 Nov you found it could not answer what you asked without reading.
+Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads the Job, the issue or the code across every project before it answers.
+
+## What the Operator does without asking
+
+**It depends on the project.**
+Each project has one of three values.
+
+| Value | What it does unasked |
+|---|---|
+| `act_then_tell` | Acts, then says so in the feed |
+| `ask_before_starting` | Puts up a card before it starts any Job |
+| `only_when_told` | Nothing |
+
+**A project with no value asks once.**
+A card offers the three, and your answer is kept as that project's value.
+Armada starts at `act_then_tell`.
+
+**A change you would see, or a decision that is yours, is always a card.**
+No value lowers this.
 
 ## What stays yours
 
-**A question a Job asks stays in Needs you.**
-The Operator is never handed it, so only you answer it, or Autopilot while you are away.
-**Nothing it rules is hidden.**
-Every ruling is kept, whether or not Fleet acted on it.
+**A question a Job asks stays in that Job's own Needs you.**
+The Operator is not handed it, so only you answer it, or Autopilot while you are away.
 
-**What you typed yourself is never filed as an issue.**
-It is started, delegated or held.
+**A snoozed Job raises nothing until it wakes.**
 
-## What is already decided and landed
+**What the Operator writes to a forge is landing a pull request.**
+It never comments on, labels or edits an issue or a pull request for you.
+
+## What is already decided
 
 - **Words reach the right repository whichever one is open.**
-  The work a thought belongs to is often in another repository, so the read covers every repository's live Jobs.
-  One Operator serves the machine, so there is no repository to point it at.
+  The work a thought belongs to is often in another repository, and one Operator serves the Mac.
 
 ## Related
 
-[Operator](../concepts/operator.md) is the concept page: the goal, what is built, what reaches it, Fail open and what a Job on your words is.
+[Operator](../concepts/operator.md) is the concept page: what it is, what it may do, what reaches it and what went.
+[The Operator's page, kept by Fleet](../practices/protocol/the-operators-page-fleet-keeps.md) is the wire.

@@ -1,0 +1,395 @@
+{
+ "threads": [
+  {
+   "session_id": "plan-sk-1",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T15:00:00Z"
+    },
+    "plan": {
+     "id": "plan:v1",
+     "version": 1,
+     "state": "waiting"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "plan-sk-1-m1",
+      "at": "2026-11-13T15:00:10Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Put the projects in the title bar's switcher."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "plan-sk-1-m2",
+      "at": "2026-11-13T15:02:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I'll read the title bar and what Fleet serves for projects, then sketch it before the plan."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "plan-sk-1-sk-flow",
+     "at": "2026-11-13T15:12:00Z",
+     "sketch": "sketch:Project switcher",
+     "title": "Project switcher",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "bar",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Title bar",
+        "body": "Project button",
+        "icon": "box",
+        "color": "blue"
+       },
+       {
+        "id": "switcher",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Switcher",
+        "body": "one row a project",
+        "icon": "layers",
+        "color": "teal"
+       },
+       {
+        "id": "fleet",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Fleet",
+        "body": "serves the projects",
+        "icon": "server",
+        "shape": "cylinder",
+        "color": "amber"
+       },
+       {
+        "id": "window",
+        "kind": "box",
+        "x": 260,
+        "y": 180,
+        "title": "Window",
+        "body": "moves to the project",
+        "icon": "eye",
+        "color": "green"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "bar",
+        "to": "switcher",
+        "label": "opens"
+       },
+       {
+        "id": "e2",
+        "from": "fleet",
+        "to": "switcher",
+        "label": "lists"
+       },
+       {
+        "id": "e3",
+        "from": "switcher",
+        "to": "window",
+        "label": "Enter"
+       }
+      ]
+     },
+     "asked": true
+    },
+    {
+     "kind": "sketch",
+     "id": "plan-sk-1-sk-rows",
+     "at": "2026-11-13T15:15:00Z",
+     "sketch": "sketch:Switcher rows",
+     "title": "Switcher rows",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "armada",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Armada",
+        "body": "armada, pocket",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "blue",
+        "step": 1
+       },
+       {
+        "id": "site",
+        "kind": "box",
+        "x": 0,
+        "y": 110,
+        "title": "Site",
+        "body": "site",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "grey",
+        "step": 3
+       },
+       {
+        "id": "tools",
+        "kind": "box",
+        "x": 0,
+        "y": 220,
+        "title": "Tools",
+        "body": "tools, scripts",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "grey",
+        "step": 3
+       },
+       {
+        "id": "here",
+        "kind": "label",
+        "x": 260,
+        "y": 10,
+        "title": "The window is on this one",
+        "step": 2
+       }
+      ],
+      "edges": [
+       {
+        "id": "r1",
+        "from": "here",
+        "to": "armada",
+        "step": 2
+       }
+      ]
+     },
+     "asked": true
+    },
+    {
+     "kind": "calls",
+     "id": "plan-sk-1-plan-call",
+     "names": [
+      "mcp__armada-fleet__record_plan"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "plan-sk-1-plan-call",
+       "at": "2026-11-13T15:20:00.000Z",
+       "text": "mcp__armada-fleet__record_plan"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "session_id": "plan-sk-2",
+   "head": {
+    "trail": {
+     "started": "2026-11-13T15:00:00Z"
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "plan-sk-2-m1",
+      "at": "2026-11-13T15:00:10Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Put the projects in the title bar's switcher."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "plan-sk-2-m2",
+      "at": "2026-11-13T15:02:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I'll read the title bar and what Fleet serves for projects, then sketch it before the plan."
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "plan-sk-2-sk-flow",
+     "at": "2026-11-13T15:12:00Z",
+     "sketch": "sketch:Project switcher",
+     "title": "Project switcher",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "bar",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Title bar",
+        "body": "Project button",
+        "icon": "box",
+        "color": "blue"
+       },
+       {
+        "id": "switcher",
+        "kind": "box",
+        "x": 260,
+        "y": 0,
+        "title": "Switcher",
+        "body": "one row a project",
+        "icon": "layers",
+        "color": "teal"
+       },
+       {
+        "id": "fleet",
+        "kind": "box",
+        "x": 520,
+        "y": 0,
+        "title": "Fleet",
+        "body": "serves the projects",
+        "icon": "server",
+        "shape": "cylinder",
+        "color": "amber"
+       },
+       {
+        "id": "window",
+        "kind": "box",
+        "x": 260,
+        "y": 180,
+        "title": "Window",
+        "body": "moves to the project",
+        "icon": "eye",
+        "color": "green"
+       }
+      ],
+      "edges": [
+       {
+        "id": "e1",
+        "from": "bar",
+        "to": "switcher",
+        "label": "opens"
+       },
+       {
+        "id": "e2",
+        "from": "fleet",
+        "to": "switcher",
+        "label": "lists"
+       },
+       {
+        "id": "e3",
+        "from": "switcher",
+        "to": "window",
+        "label": "Enter"
+       }
+      ]
+     },
+     "asked": true,
+     "settled": {
+      "how": "approved",
+      "at": "2026-11-13T15:30:00Z"
+     }
+    },
+    {
+     "kind": "sketch",
+     "id": "plan-sk-2-sk-rows",
+     "at": "2026-11-13T15:15:00Z",
+     "sketch": "sketch:Switcher rows",
+     "title": "Switcher rows",
+     "drawing": {
+      "nodes": [
+       {
+        "id": "armada",
+        "kind": "box",
+        "x": 0,
+        "y": 0,
+        "title": "Armada",
+        "body": "armada, pocket",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "blue",
+        "step": 1
+       },
+       {
+        "id": "site",
+        "kind": "box",
+        "x": 0,
+        "y": 110,
+        "title": "Site",
+        "body": "site",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "grey",
+        "step": 3
+       },
+       {
+        "id": "tools",
+        "kind": "box",
+        "x": 0,
+        "y": 220,
+        "title": "Tools",
+        "body": "tools, scripts",
+        "icon": "git-branch",
+        "shape": "pill",
+        "color": "grey",
+        "step": 3
+       },
+       {
+        "id": "here",
+        "kind": "label",
+        "x": 260,
+        "y": 10,
+        "title": "The window is on this one",
+        "step": 2
+       }
+      ],
+      "edges": [
+       {
+        "id": "r1",
+        "from": "here",
+        "to": "armada",
+        "step": 2
+       }
+      ]
+     },
+     "asked": true,
+     "settled": {
+      "how": "approved",
+      "at": "2026-11-13T15:30:00Z"
+     }
+    },
+    {
+     "kind": "calls",
+     "id": "plan-sk-2-plan-call",
+     "names": [
+      "mcp__armada-fleet__record_plan"
+     ],
+     "rows": [
+      {
+       "kind": "tool",
+       "id": "plan-sk-2-plan-call",
+       "at": "2026-11-13T15:20:00.000Z",
+       "text": "mcp__armada-fleet__record_plan"
+      }
+     ]
+    },
+    {
+     "kind": "plan",
+     "id": "plan:v1",
+     "version": 1,
+     "state": "approved"
+    }
+   ]
+  }
+ ]
+}

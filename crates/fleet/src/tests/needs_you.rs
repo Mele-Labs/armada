@@ -34,6 +34,7 @@ fn item(id: &str, source: Source, act: Option<(WaitingActKind, &str)>, choices: 
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -64,6 +65,7 @@ fn cases() -> Vec<Case> {
         case(item("handoff:r2", Source::Handoff, Some((Act::Answer, "handoff:r2")), &["Carry on in a new Job", "Stay here"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("sketch:Flow", Source::Sketch, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("document:/w/a.html", Source::Document, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
+        case(item("try:job-1", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("first", Source::FirstMessage, Some(own), &[], &[]), Section::Questions, Dismiss::None, false),
         case(item("replied:1", Source::Replied, None, &[], &[]), Section::Questions, Dismiss::NotAQuestion, true),
         case(item("done:1", Source::Done, None, &[], &[]), Section::Done, Dismiss::Plain, false),
@@ -80,6 +82,9 @@ fn cases() -> Vec<Case> {
         case(item("suggestion:1", Source::OperatorSuggestion, Some((Act::Answer, "suggestion:1")), &["Do it", "Skip"], &[]), Section::Questions, Dismiss::Skip, false),
         case(item("browser_ask:t", Source::BrowserAsk, Some((Act::Answer, "browser_ask:t")), &["Allow", "Block"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("gate:g", Source::Gate, Some((Act::Answer, JOB)), &["Approve", "Skip this group"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
+        case(item("conflict:s-a:s-b", Source::JobConflict, Some((Act::Answer, "conflict:s-a:s-b")), &["Tell A to change", "Tell B", "Hold both"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("held:armada:12", Source::JobHeld, Some((Act::Answer, "held:armada:12")), &["Land it", "Hold it"], &[]), Section::Questions, Dismiss::None, false),
     ]
 }
 
@@ -111,6 +116,10 @@ fn counted(source: Source) -> usize {
         Source::BrowserAsk => 22,
         Source::Gate => 23,
         Source::Handoff => 24,
+        Source::OperatorUndone => 25,
+        Source::JobConflict => 26,
+        Source::JobHeld => 27,
+        Source::ReadyToTry => 28,
     }
 }
 
@@ -157,7 +166,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..25).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..29).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);
@@ -205,7 +214,7 @@ fn needs_you_offers_no_dismissal_where_fleet_refuses_it() {
             assert_eq!(row.dismiss, Dismiss::None, "{:?} is answered, not dismissed", item.source);
         }
     }
-    assert_eq!(refused, 5, "delivery, slot_choice, task_done, held_child and gate");
+    assert_eq!(refused, 7, "delivery, slot_choice, task_done, held_child, gate, job_conflict and job_held");
 }
 
 #[test]
@@ -242,6 +251,18 @@ fn needs_you_review_is_in_the_band_for_one_document_alone_but_not_one_plan() {
     assert_eq!(plan.sections.len(), 1, "it is still listed under To review");
     let and_more = view_of(&[page("document:/w/a.html", Source::Document), item("a", Source::Agent, None, &[], &[])]);
     assert!(!and_more.review_in_band, "a Document is the only thing owed in the band only when it is the only thing");
+}
+
+#[test]
+fn needs_you_puts_a_ready_to_try_card_in_the_band_alone_or_not() {
+    let card = item("try:job-1", Source::ReadyToTry, Some((WaitingActKind::Message, JOB)), &[], &[]);
+    let alone = view_of(std::slice::from_ref(&card));
+    assert!(alone.fold && alone.review_in_band, "a lone card is in the band");
+    assert_eq!(alone.glyphs.iter().map(|one| one.said.as_str()).collect::<Vec<_>>(), ["Ready to try"]);
+    let asks = item("a", Source::Agent, None, &[], &[]);
+    let with = view_of(&[card, asks]);
+    assert!(with.fold && with.review_in_band);
+    assert_eq!(with.glyphs.len(), 2, "the question's mark and the card's");
 }
 
 #[test]
@@ -479,7 +500,7 @@ const MAC: &str = "Restart the Mac, then check the armada rows in Files and Fold
 async fn stated(rig: &Rig, id: &SessionId) {
     let set = ipc::SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![ipc::WaitingInput { id: "mac".into(), text: MAC.into(), act: None, options: Vec::new(), steps: Vec::new(), approves: false }],
+        items: vec![ipc::WaitingInput { id: "mac".into(), text: MAC.into(), act: None, options: Vec::new(), steps: Vec::new(), approves: false, artifact: None }],
     };
     rig.fleet.waiting_for(None, set).await.expect("stated");
 }

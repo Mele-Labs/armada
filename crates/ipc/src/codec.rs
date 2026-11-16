@@ -91,6 +91,14 @@ pub fn decode_body<T: DeserializeOwned>(expected: &'static str, bytes: &[u8]) ->
     })
 }
 
+/// Whether two texts are the same JSON, whatever the order of their keys. `false` where either is not JSON.
+pub fn same_json(one: &str, other: &str) -> bool {
+    match (serde_json::from_str::<serde_json::Value>(one), serde_json::from_str::<serde_json::Value>(other)) {
+        (Ok(one), Ok(other)) => one == other,
+        _ => false,
+    }
+}
+
 /// Write a DTO to the wire.
 pub fn encode<T: Serialize>(value: &T) -> Result<String, Unencodable> {
     serde_json::to_string(value).map_err(|why| Unencodable {

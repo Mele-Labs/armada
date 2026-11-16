@@ -25,6 +25,7 @@
 //! this crate that did not follow it. Each module below states its own half.
 
 mod accounts;
+mod asides;
 mod admitting;
 mod judge;
 mod app_runs;
@@ -53,19 +54,20 @@ mod studios;
 mod watches;
 
 pub use accounts::Accounts;
-pub use admitting::{offerable, Admitting, WordsReach, Redirector, Steerer};
+pub use asides::Asides;
+pub use admitting::{offerable, operator_rows, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
 pub use commands::Commands;
 pub use conversing::Conversations;
-pub use hosted_sessions::{HostedSessions, StoredFile};
+pub use hosted_sessions::{HostedSessions, SealedPage, StoredFile};
 pub use sessions::ShownFile;
 pub use issues::{Autopilots, Issues};
 pub use lifecycles::Lifecycles;
 pub use logbook::Logbook;
 pub use teaching::Teaching;
 pub use mods::Mods;
-pub use other_macs::{ActAnswered, ActBegun, ActTurn, OtherMacs};
+pub use other_macs::{ActAnswered, ActBegun, ActTurn, OtherMacs, TerminalShared, CONVERSATION_PIECE};
 pub use projects::Projects;
 pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
@@ -142,6 +144,7 @@ pub trait Daemon:
     + Accounts
     + SharedHome
     + JudgeReadings
+    + Asides
     + Requests
     + Watches
     + AppRuns
@@ -174,6 +177,7 @@ impl<
             + Accounts
             + SharedHome
             + JudgeReadings
+            + Asides
             + Requests
             + Watches
             + AppRuns

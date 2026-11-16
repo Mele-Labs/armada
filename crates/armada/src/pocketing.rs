@@ -33,7 +33,11 @@ struct Running {
     following: JoinHandle<()>,
     /// The link to each paired Mac. Aborting it stops every Mac's task.
     linking: JoinHandle<()>,
+    /// This Mac's presence on each store it joined.
+    presence: JoinHandle<()>,
     tunnel: pocket::Tunnel,
+    /// The Wi-Fi door and Bonjour, for his other Macs on the same network. `None` where it could not open.
+    door: Option<pocket::Door>,
     gateway: Gateway,
 }
 
@@ -54,10 +58,56 @@ impl pocket::MacKeys for KeychainKeys {
     }
 }
 
+/// How long one call to his store may take, for pairing through it.
+const STORE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// What Fleet says of the stores this Mac joined, and the sign-in app's client id.
+pub struct StoresFromFleet {
+    pub joined: Arc<dyn Fn() -> Vec<fleet::JoinedStore> + Send + Sync>,
+    pub client_id: Arc<dyn Fn() -> String + Send + Sync>,
+}
+
+impl StoresFromFleet {
+    /// The folder this Mac's key and device id for `store` are kept in.
+    fn directory(&self, store: &str) -> Result<PathBuf, String> {
+        (self.joined)().into_iter().find(|joined| joined.address == store).map(|joined| joined.directory).ok_or_else(|| "This Mac has not joined that store.".to_string())
+    }
+
+    /// The store at `store` as this Mac signed in to it. Blocking.
+    fn open(&self, store: &str) -> Result<adapters::HttpStore, String> {
+        adapters::HttpStore::open(store, &self.directory(store)?, STORE_TIMEOUT)?.ok_or_else(|| "This Mac has not joined that store.".to_string())
+    }
+}
+
+impl pocket::HisStores for StoresFromFleet {
+    fn joined(&self) -> Vec<pocket::JoinedStore> {
+        (self.joined)().into_iter().map(|joined| pocket::JoinedStore { address: joined.address, team: joined.team }).collect()
+    }
+
+    fn peers(&self, store: &str) -> Result<Vec<adapter_traits::StorePeer>, String> {
+        adapter_traits::Store::peers(&self.open(store)?).map_err(|why| why.said())
+    }
+
+    fn put_presence(&self, store: &str, address: &str) -> Result<(), String> {
+        adapter_traits::Store::put_presence(&self.open(store)?, adapter_traits::DeviceKind::Mac, address).map_err(|why| why.said())
+    }
+
+    fn sign(&self, store: &str, method: &str, target: &str, body: &[u8]) -> Result<Vec<(&'static str, String)>, String> {
+        Ok(adapters::signed_for_peer(&self.directory(store)?, method, target, body)?.to_vec())
+    }
+
+    fn client_id(&self) -> Option<String> {
+        let id = (self.client_id)();
+        (!id.trim().is_empty()).then(|| id.trim().to_string())
+    }
+}
+
 pub struct Phone {
     machine: PathBuf,
     fleet_port: u16,
     port: u16,
+    /// His stores, once the composition root hands them in. Without them the Gateway pairs only by code.
+    stores: std::sync::OnceLock<Arc<dyn pocket::HisStores>>,
     running: Mutex<Option<Running>>,
     /// Why the last start failed, while it stands.
     why: Mutex<Option<String>>,
@@ -89,9 +139,15 @@ impl Phone {
             machine: machine.to_path_buf(),
             fleet_port,
             port,
+            stores: std::sync::OnceLock::new(),
             running: Mutex::new(None),
             why: Mutex::new(None),
         }
+    }
+
+    /// Hand in his stores, before the first start. Only the first is kept.
+    pub fn reaching_stores_with(&self, stores: Arc<dyn pocket::HisStores>) {
+        let _ = self.stores.set(stores);
     }
 
     fn marked(&self) -> bool {
@@ -142,9 +198,13 @@ impl Phone {
             assets: Some(assets(&self.machine)),
             push,
             way_in,
-            macs: pocket::Macs::new(Arc::new(KeychainKeys(adapters::KeychainMacKeys)))?,
+            macs: match self.stores.get() {
+                Some(stores) => pocket::Macs::new(Arc::new(KeychainKeys(adapters::KeychainMacKeys)))?.reaching_stores(Arc::clone(stores)),
+                None => pocket::Macs::new(Arc::new(KeychainKeys(adapters::KeychainMacKeys)))?,
+            },
         };
         let following = tokio::spawn(pocket::follow(gateway.clone()));
+        let presence = tokio::spawn(pocket::put_presence(gateway.clone()));
         let linking = tokio::spawn(pocket::link(gateway.clone()));
         let kept = gateway.clone();
         let (stop, stopped) = oneshot::channel::<()>();
@@ -159,7 +219,12 @@ impl Phone {
             }
         });
         tunnel.start(port);
-        Ok(Running { stop, serving, following, linking, tunnel, gateway: kept })
+        // One line where it cannot open: the tunnel and the phone still work without it.
+        let door = pocket::Door::open(&self.machine, kept.clone()).map_err(|why| eprintln!("Wi-Fi door not opened: {why}")).ok();
+        if let Some(why) = door.as_ref().and_then(|door| door.bonjour_off.as_deref()) {
+            eprintln!("Bonjour not started: {why}");
+        }
+        Ok(Running { stop, serving, following, linking, presence, tunnel, door, gateway: kept })
     }
 
     /// Stop listening and stop pushing. A phone's open `/api/live` is cut with the listener.
@@ -171,7 +236,11 @@ impl Phone {
             running.serving.abort();
             running.following.abort();
             running.linking.abort();
+            running.presence.abort();
             running.tunnel.stop();
+            if let Some(door) = running.door {
+                door.stop();
+            }
         }
     }
 
@@ -219,6 +288,22 @@ impl PhoneSwitch for Phone {
         }
     }
 
+    fn follow_other_mac(&self, mac: &str, path: &str) -> fleet::phone::OtherMacFollowing {
+        let running = self.running.lock().unwrap();
+        match running.as_ref() {
+            Some(running) => {
+                let following = pocket::follow_other_mac(&running.gateway, mac, path);
+                Box::pin(async move {
+                    following.await.map(|followed| match followed {
+                        pocket::Followed::Open(lines) => fleet::phone::OtherMacFollowed::Open(lines),
+                        pocket::Followed::Refused { status, body } => fleet::phone::OtherMacFollowed::Refused { status, body },
+                    })
+                })
+            }
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
     fn send_other_mac(&self, mac: &str, path: &str, body: Vec<u8>) -> fleet::phone::OtherMacRead {
         let running = self.running.lock().unwrap();
         match running.as_ref() {
@@ -235,6 +320,12 @@ impl PhoneSwitch for Phone {
                 Box::pin(async move { opening.await.map(page_said) })
             }
             None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
+
+    fn stores_joined(&self) {
+        if let Some(gateway) = self.gateway() {
+            gateway.macs.stores_joined();
         }
     }
 

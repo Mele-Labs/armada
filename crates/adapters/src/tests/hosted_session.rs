@@ -295,7 +295,7 @@ fn the_rules_never_put_an_open_pull_requests_wait_in_waiting_for() {
 #[test]
 fn the_rules_say_a_wrong_fleet_notice_is_disputed_through_the_call() {
     let fleet = rules().split("\n\n").find(|block| block.starts_with(HOSTED_ONLY)).expect("a Fleet paragraph");
-    for named in ["`dispute_fleet`", "`why`", "`report_bug`", "any job in that state"] {
+    for named in ["`dispute_fleet`", "`why`", "`notice_words`", "`report_bug`", "any job in that state"] {
         assert!(fleet.contains(named), "{named}");
     }
 }
@@ -307,6 +307,15 @@ fn the_rules_say_when_to_call_report_bug_and_with_what() {
     let bugs = rules().split("\n\n").find(|block| block.starts_with("Bugs in Armada.")).expect("a paragraph on bugs in Armada");
     for named in ["`report_bug`", "`title`", "`what`", "`steps`", "`errors`", "`logs`", "`dispute_fleet`", "posted nowhere"] {
         assert!(bugs.contains(named), "{named}");
+    }
+}
+
+/// A job is told when to call `raise_conflict` and `ask_held`, with what, and that the Operator may answer in the thread.
+#[test]
+fn the_rules_say_when_to_call_raise_conflict_and_ask_held() {
+    let asking = rules().split("\n\n").find(|block| block.starts_with("Asking the Operator.")).expect("a paragraph on asking the Operator");
+    for named in ["`raise_conflict`", "`with`", "`files`", "`wire`", "`mine`", "`theirs`", "`breaks`", "`ask_held`", "`pull`", "`branch`", "reach the Operator, an agent that watches every project", "It may answer in your thread"] {
+        assert!(asking.contains(named), "{named}");
     }
 }
 
@@ -322,7 +331,7 @@ const HOSTED_ONLY: &str = "Fleet's notices.";
 fn the_output_style_carries_the_rules_verbatim() {
     let style = include_str!("../../../../plugins/armada/output-styles/armada.md");
     let blocks: Vec<&str> = rules().split("\n\n").skip(1).filter(|block| !block.starts_with(HOSTED_ONLY)).collect();
-    assert_eq!(blocks.len(), 10, "tools, needs, drafts, progress, planning, subagents, showing, watching, finishing, bugs");
+    assert_eq!(blocks.len(), 11, "tools, needs, drafts, progress, planning, subagents, showing, watching, finishing, bugs, the Operator");
     for block in blocks {
         assert!(style.contains(block), "the style has drifted from: {block}");
     }

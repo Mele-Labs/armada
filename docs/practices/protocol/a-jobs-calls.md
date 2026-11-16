@@ -18,7 +18,7 @@ The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and 
 | `calls.changed` | Fleet writes, Bridge reads | `CallsChanged { calls, arrived }`: the calls whole, and the news since the last publish |
 | `open_call` (`POST /calls/open`, `agent_access = "No"`) | Bridge writes | `OpenStandingCall { key }`, answered with `StandingCalls` |
 | `StandingCall` | | `{ key, owner, kind, session_id?, title, text, since, tone, opened }` |
-| `CallArrival` | | `{ session_id, title, text, tone, kind }`, `kind` being `needs`, `stopped` or `mac_pairing` |
+| `CallArrival` | | `{ session_id, title, text, tone, kind, key? }`, `kind` being `needs`, `stopped` or `mac_pairing`; `key` the call's key, set on `mac_pairing` |
 
 ## What moved, and from where
 
@@ -86,7 +86,7 @@ Bridge's half is `mac_pairing` in `packages/protocol/src/standing-calls.ts` and 
 | --- | --- | --- |
 | `StandingCallKind` | Fleet writes, Bridge reads | Gains `mac_pairing`: key and owner `mac:<id>`, `mac` the asking Mac's id, no `session_id`, title `Confirm <Mac> pairing`, text what `GET /admin/macs` says (`Work wants to pair. Confirm if it shows 4821.`, or `Press Confirm to pair Work with this Mac`), tone `blocked`, `since` when the claim arrived |
 | `StandingCall.mac` | Fleet writes, Bridge reads | No new field. On `mac_pairing` it names the Mac waiting to pair, not the Mac that holds a Job |
-| `CallArrivalKind` | Fleet writes, Bridge reads | Gains `mac_pairing`, told once when a Mac Fleet did not hold begins to wait. Its `session_id` is the call's key, `mac:<id>`, and names no Job |
+| `CallArrivalKind` | Fleet writes, Bridge reads | Gains `mac_pairing`, told once when a Mac Fleet did not hold begins to wait. Its `key` is the call's key, `mac:<id>`, and its `session_id` carries the same key and names no Job, for readers that do not read `key` yet |
 | `hold_mac_claims` (`PUT /other_macs/claims`, `agent_access = "No"`) | the Gateway calls | `MacClaimsWaiting { claims }`, each `{ mac, name, why, at }`, `at` in Unix seconds: every claim waiting, replacing all held. Answers the same |
 
 **The acts are the Phone Gateway's, not Fleet's.**

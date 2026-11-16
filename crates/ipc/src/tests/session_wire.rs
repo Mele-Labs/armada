@@ -45,6 +45,7 @@ pub(super) fn a_record() -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        operator: false,
         side_job: false,
         auto_land: false,
         activity: None,
@@ -59,6 +60,7 @@ pub(super) fn a_record() -> SessionRecord {
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
+        slot_wait: None,
         stopped: None,
         repairing: None,
         stop_told_by: None,
@@ -75,6 +77,8 @@ pub(super) fn a_record() -> SessionRecord {
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 

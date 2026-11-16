@@ -33,3 +33,8 @@ checks:
       name: vitest
     one_test:
       run: pnpm exec vitest run --maxWorkers=1 -t {}
+
+  # `dist/worker.js` is what Fleet uploads, so it has to be what `src/` bundles to.
+  # A stale one prints the command that rewrites it.
+  bundle_current:
+    run: pnpm bundle:check

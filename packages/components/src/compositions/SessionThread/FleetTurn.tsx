@@ -98,6 +98,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   started_job_ended: "ended by its starter",
   gate_closed: "a gate closed",
   gate_hold: "a gate holds",
+  claims: "claims",
 };
 
 /**

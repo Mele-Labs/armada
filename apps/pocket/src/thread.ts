@@ -12,6 +12,7 @@ import type {
   SketchSettled,
 } from "@armada/components";
 import type {
+  JobArtifact,
   SessionThread as WireThread,
   WaitingItem,
   WaitingOption,
@@ -32,6 +33,8 @@ import {
   sketchCallOf,
 } from "@armada/screens/src/sessions-wire";
 import { withDocuments } from "@armada/screens/src/thread-cards";
+
+import { asks, foldedSaid, keptAt, ofParts } from "./artifacts";
 
 const NOTHING_BESIDE = {
   picture: () => undefined,
@@ -712,4 +715,68 @@ export function documentOf(
           keptStyles: held.keptStyles,
         }),
   };
+}
+
+/**
+ * The thread with the Job's artifacts of parts in it: each one he answered folded to one line at the time its newest
+ * revision was kept, and the older cards of the drawings and pages that joined one left out, since the artifact draws
+ * them. One that still asks is a card at the thread's foot (`ArtifactCard`), so it is not a row here.
+ */
+export function withArtifacts(
+  rows: readonly SessionThreadRow[],
+  artifacts: readonly JobArtifact[] | undefined,
+  onOpen: (artifact: string) => void,
+): SessionThreadRow[] {
+  const grown = (artifacts ?? []).filter(ofParts);
+  if (grown.length === 0)
+    return [
+      ...rows,
+    ];
+  const drawn = new Set(
+    grown.flatMap((one) => [
+      one.id,
+      ...(one.parts ?? []).map((part) => part.id),
+      ...(one.parts ?? []).flatMap((part) =>
+        part.kind === "page"
+          ? [
+              part.path,
+            ]
+          : [],
+      ),
+    ]),
+  );
+  const kept = rows.filter(
+    (row) =>
+      !(row.kind === "sketch" && drawn.has(row.sketch)) &&
+      !(row.kind === "document" && drawn.has(row.page)),
+  );
+  const folds = grown
+    .filter((one) => !asks(one) && one.archived === undefined)
+    .map(
+      (one): SessionThreadRow => ({
+        id: `artifact:${one.id}:${String(one.revisions.length)}`,
+        at: keptAt(one),
+        kind: "artifact",
+        title: one.title,
+        said: foldedSaid(one),
+        how:
+          one.state === "sent_back"
+            ? "sent_back"
+            : one.state === "withdrawn" || one.state === "dismissed"
+              ? "withdrawn"
+              : "approved",
+        onOpen: () => onOpen(one.id),
+      }),
+    );
+  // Each fold stands after the last row kept by then.
+  const out = [
+    ...kept,
+  ];
+  for (const fold of folds.sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    const when = Date.parse(fold.at);
+    let at = out.length;
+    while (at > 0 && Date.parse(out[at - 1]!.at) > when) at -= 1;
+    out.splice(at, 0, fold);
+  }
+  return out;
 }

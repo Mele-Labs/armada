@@ -27,7 +27,7 @@ use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
 use crate::session_host::document_answers::{in_front_of_him, is_document};
 use crate::session_host::walking;
-use crate::session_host::sketching::{sketch_attachment, still_asks, TARGET_PREFIX};
+use crate::session_host::sketching::{sketch_attachment, still_asks, takes_refused, SKETCH_TAKES, TARGET_PREFIX};
 
 const PLAN_REFUSED: &str = "fleet.plan_refused";
 const PLAN_UNNAMED: &str = "fleet.plan_unnamed";
@@ -59,6 +59,7 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -272,6 +273,9 @@ where
         let sketch = match checked.sketch {
             None => None,
             Some(sketch) => {
+                if let Some(why) = takes_refused(&sketch.scene) {
+                    return Err(self.hosted_refusal(SKETCH_TAKES, &format!("the plan was not recorded: {why}")));
+                }
                 let sketch = self.sketch_styled(&id, sketch, "record_plan").await?;
                 let named = (format!("{TARGET_PREFIX}{}", sketch.title), sketch.title.clone());
                 self.report_session(SessionReport {
@@ -520,8 +524,18 @@ where
             let Some(mut sketch) = held.filter(|sketch| sketch.detail.get(SKETCH_DRAWN) == one.drawn.as_ref() && still_asks(sketch)) else {
                 continue;
             };
-            sketch.detail.insert(SKETCH_SETTLED.into(), ipc::SketchHow::Approved.word().into());
-            sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
+            let now = self.instant();
+            if sketch.detail.get(ipc::SKETCH_ASKED).map(String::as_str) == Some("true") {
+                sketch.detail.insert(SKETCH_SETTLED.into(), ipc::SketchHow::Approved.word().into());
+                sketch.detail.insert(SKETCH_SETTLED_AT.into(), now.as_str().to_string());
+            }
+            // The words it holds are approved with it too. A pick is not one: a takes part waits for his.
+            let mut parts = crate::session_host::artifact_parts::stored(&sketch.detail);
+            for part in parts.iter_mut().filter(|part| part.is_open_ask() && part.content.kind() != ipc::PartKind::Takes) {
+                part.state = ipc::PartState::Approved;
+                part.answer = Some(ipc::PartAnswer { at: Some(now.clone()), ..ipc::PartAnswer::default() });
+            }
+            crate::session_host::artifact_parts::keep_stored(&mut sketch.detail, &parts);
             sketch.detail.insert(SKETCH_IN_PLAN.into(), version.to_string());
             self.report_session(SessionReport {
                 harness,

@@ -246,7 +246,6 @@ pub fn entries() -> impl Iterator<Item = &'static Entry> {
                 timeouts::RETENTION,
                 machine::MACHINE,
                 machine::ACCOUNT,
-                machine::STORE,
                 tokens::TOKENS,
                 machine::FEATURES,
                 machine::EDITOR,

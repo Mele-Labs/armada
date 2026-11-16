@@ -128,6 +128,13 @@ fn threads(id: &str) -> Option<String> {
     })
 }
 
+/// One project of this Mac, shared, holding both repositories: where a Job the phone starts goes.
+fn shared_projects() -> String {
+    let members = ipc::decode::<Vec<ipc::ProjectMember>>("members", br#"[{"manifest_id":"m1"},{"manifest_id":"m2"}]"#).unwrap();
+    let shop = ipc::Project { id: "shop".into(), name: "Shop".into(), members, shared_with_macs: true, ..Default::default() };
+    ipc::encode(&ipc::Projects { projects: vec![shop], loose: Vec::new(), left_out: Vec::new() }).unwrap()
+}
+
 async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, rows: String) -> u16 {
     let manifests = r#"[{"id":"m1","repository":"armada","path":"/a/armada.yml","records_root":"/r","version":1,"checks":[]},{"id":"m2","repository":"notes","path":"/n/armada.yml","records_root":"/r","version":1,"checks":[]}]"#;
     let answered = seen.clone();
@@ -137,6 +144,7 @@ async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, row
     let app = Router::new()
         .route("/sessions", get(move || async move { rows }))
         .route("/manifests", get(move || async move { manifests }))
+        .route("/projects", get(|| async { shared_projects() }))
         .route("/events", get(events))
         .route(
             "/sessions/one",
@@ -425,7 +433,7 @@ async fn dispatch_starts_a_session_on_the_manifest_the_label_maps_to() {
     // The words name the Job, then reach the agent as its first message, to the Job just started.
     let seen = seen.lock().unwrap();
     assert_eq!(seen.len(), 2, "{seen:?}");
-    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing"}"#.to_string()));
+    assert_eq!(seen[0], ("/sessions/start".to_string(), r#"{"manifest_id":"m2","request":"Fix the thing","project":"shop"}"#.to_string()));
     assert_eq!(seen[1], ("/sessions/message".to_string(), r#"{"session_id":"s9","text":"Fix the thing"}"#.to_string()));
 }
 
@@ -475,6 +483,7 @@ async fn an_operator_dispatch_reaches_fleet_as_a_dispatch_with_its_kind_and_no_m
     assert_eq!(path, "/sessions/dispatch");
     assert!(sent.contains(r#""manifest_id":"m2""#) && sent.contains(r#""request":"Fix the thing""#) && sent.contains(r#""kind":"bug""#), "{sent}");
     assert!(!sent.contains(r#""mac""#) && !sent.contains("on_your_words"), "{sent}");
+    assert!(sent.contains(r#""project":"shop""#), "a Job the phone starts here goes into the shared project: {sent}");
 }
 
 #[tokio::test]
@@ -559,7 +568,7 @@ async fn a_live_job_is_forked_at_its_agents_last_message_and_not_at_the_last_row
     let seen = seen.lock().unwrap();
     assert_eq!(
         *seen,
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"}}"#.to_string())],
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"live1","at":"a-2"},"project":"shop"}"#.to_string())],
         "one start, with no message after it"
     );
 }
@@ -571,7 +580,7 @@ async fn an_ended_job_is_forked_whole() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(
         *seen.lock().unwrap(),
-        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"}}"#.to_string())]
+        [("/sessions/start".to_string(), r#"{"manifest_id":"m1","fork":{"session_id":"done1"},"project":"shop"}"#.to_string())]
     );
 }
 
@@ -604,7 +613,7 @@ async fn a_fork_that_cannot_be_made_is_refused_before_fleet_starts_anything() {
 fn phone_row(tail: &str, usage: &str) -> String {
     let record = record("j1", "bridge", "live", tail).replace(r#""usage":{}"#, &format!(r#""usage":{usage}"#));
     let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
 }
 
 #[test]
@@ -711,7 +720,7 @@ fn a_row_names_its_first_open_pull_request_on_failed_checks() {
     let row = |attached: &[String]| {
         let record = record("j1", "bridge", "live", "").replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
         let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
-        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap()
+        ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap()
     };
     let failed = r#""checks":"failed""#;
     // Merged, spent and given back no longer count; passing Checks never did.
@@ -737,7 +746,7 @@ fn a_row_says_a_job_is_blank_only_with_no_title_no_turn_and_nothing_attached() {
     record.title = None;
     record.last_turn_at = None;
     record.attachments.clear();
-    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), FIVE_PAST)).unwrap();
+    let blank = ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &Default::default(), FIVE_PAST)).unwrap();
     assert!(blank.contains(r#""blank":true"#), "{blank}");
 }
 
@@ -776,4 +785,115 @@ fn what_holds_a_job_is_carried_as_facts_and_left_out_when_absent() {
         "{held}"
     );
     assert!(!held.contains("BRIEF-SECRET"), "{held}");
+}
+
+/// The row `PhoneSession::of` makes of a hosted Job with `tail` after its fields and `attached` standing on it.
+fn row_with(tail: &str, attached: &[&str]) -> String {
+    let record = record("j1", "bridge", "live", tail).replace(r#""attachments":[]"#, &format!(r#""attachments":[{}]"#, attached.join(",")));
+    let record = ipc::decode::<ipc::SessionRecord>("a job", record.as_bytes()).unwrap();
+    let projects = std::collections::BTreeMap::from([("p1".to_string(), "Pocket".to_string())]);
+    ipc::encode(&crate::phone_sessions::PhoneSession::of(&record, Some("armada"), &projects, FIVE_PAST)).unwrap()
+}
+
+#[test]
+fn a_row_carries_what_native_draws_its_row_from() {
+    let attachment = |kind: &str, target: &str, detail: &str| {
+        format!(
+            r#"{{"kind":"{kind}","target":"{target}","state":"standing","detail":{{{detail}}},"since":"2026-10-08T02:00:00.000Z","changed_at":"2026-10-08T02:00:00.000Z"}}"#
+        )
+    };
+    let tail = r#","last_turn_at":"2026-10-08T02:30:00.000Z","mark":{"state":"working","lamp":"running","group":"working"},"workflow":"Ship","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p1"},"activity":{"now":"Editing gate.rs","said":"Reading"},"so_far":"Earlier""#;
+    let row = row_with(&tail, &[&attachment("pr", "77", ""), &attachment("issue", "412", r#""title":"Phone rows""#)]);
+    assert!(row.contains(r#""mark":{"state":"working","lamp":"running","group":"working"}"#), "{row}");
+    assert!(row.contains(r#""last_turn_at":"2026-10-08T02:30:00.000Z""#), "{row}");
+    assert!(row.contains(r#""project":"Pocket""#), "{row}");
+    assert!(row.contains(r#""pull":77"#), "{row}");
+    assert!(row.contains(r##""issue":{"number":"#412","title":"Phone rows"}"##), "{row}");
+    assert!(row.contains(r#""step":"Ship""#), "{row}");
+    assert!(row.contains(r#""now":"Editing gate.rs""#), "{row}");
+
+    // A project Fleet did not list is no name, and never its id.
+    let unlisted = row_with(r#","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"project":"p9"}"#, &[]);
+    assert!(!unlisted.contains("project") && !unlisted.contains("p9"), "{unlisted}");
+
+    // An issue named by a word keeps it, and has no title where its attachment carries none.
+    let word = row_with("", &[&attachment("issue", "armada-a3f2", "")]);
+    assert!(word.contains(r#""issue":{"number":"armada-a3f2","title":""}"#), "{word}");
+
+    // What the Job said stands in for what it is doing, and what it has done so far for both.
+    let said = row_with(r#","activity":{"said":"Reading"},"so_far":"Earlier""#, &[]);
+    assert!(said.contains(r#""now":"Reading""#), "{said}");
+    let earlier = row_with(r#","so_far":"Earlier""#, &[]);
+    assert!(earlier.contains(r#""now":"Earlier""#), "{earlier}");
+}
+
+#[test]
+fn a_row_with_none_of_them_leaves_their_keys_out() {
+    let plain = row_with("", &[]);
+    for field in ["mark", "project", "last_turn_at", "pull", "issue", "step", "now"] {
+        assert!(!plain.contains(&format!("\"{field}\"")), "{field} in {plain}");
+    }
+}
+
+/// One signed call through the Gateway, with the `Content-Type` it came back as: `send` drops it.
+async fn typed(app: &App, method: Method, path: &str, body: &str) -> (StatusCode, String, String) {
+    use tower::ServiceExt;
+    let time = app.rig.now.fetch_add(1, Ordering::Relaxed) + 1;
+    let mut request = axum::http::Request::builder().method(method.clone()).uri(path);
+    for (name, value) in signed(&app.device, method.as_str(), path, time, body) {
+        request = request.header(name, value);
+    }
+    let answer = app.rig.app.clone().oneshot(request.body(axum::body::Body::from(body.to_string())).unwrap()).await.unwrap();
+    let kind = answer.headers().get("content-type").and_then(|value| value.to_str().ok()).unwrap_or_default().to_string();
+    let status = answer.status();
+    let body = axum::body::to_bytes(answer.into_body(), 1 << 20).await.unwrap();
+    (status, kind, String::from_utf8(body.to_vec()).unwrap())
+}
+
+#[tokio::test]
+async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as_listed() {
+    let calls = Seen::default();
+    let recorded = calls.clone();
+    // Fleet, answering by path: the page as sealed HTML, the file as a refusal, the rest as JSON.
+    let fleet = Router::new().fallback(move |method: Method, uri: axum::http::Uri, body: String| async move {
+        let target = uri.path_and_query().map(ToString::to_string).unwrap_or_default();
+        recorded.lock().unwrap().push((format!("{method} {target}"), body));
+        match uri.path() {
+            "/sessions/artifacts/page" => (StatusCode::OK, [("content-type", "text/html; charset=utf-8")], "<p>page</p>".to_string()),
+            "/sessions/repository_file" => (StatusCode::NOT_FOUND, [("content-type", "application/json")], r#"{"code":"fleet.no_file"}"#.to_string()),
+            _ => (StatusCode::OK, [("content-type", "application/json")], r#"{"ok":true}"#.to_string()),
+        }
+    });
+    let listener = crate::bind(0).await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, fleet).await });
+    let app = on(port).await;
+
+    let json = "application/json";
+    let ok = r#"{"ok":true}"#;
+    let table: [(Method, &str, &str, StatusCode, &str, &str); 9] = [
+        (Method::GET, "/api/sessions/artifacts?session_id=s1", "", StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/artifacts/page?session_id=s1&artifact=a1&revision=3", "", StatusCode::OK, "text/html; charset=utf-8", "<p>page</p>"),
+        (Method::POST, "/api/sessions/artifacts/part/answer", r#"{"session_id":"s1","part":"p1"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/press", r#"{"session_id":"s1","action":"go"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/vote", r#"{"session_id":"s1","vote":"up"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/artifacts/seen", r#"{"session_id":"s1","artifact":"a1"}"#, StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/thread?session_id=s1&limit=20&before=r9", "", StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/repository_file?session_id=s1&path=src%2Flib.rs", "", StatusCode::NOT_FOUND, json, r#"{"code":"fleet.no_file"}"#),
+        (Method::POST, "/api/sessions/ready_to_try/answer", r#"{"session_id":"s1","card":"c1"}"#, StatusCode::OK, json, ok),
+    ];
+    for (method, path, body, status, kind, answer) in table {
+        let before = calls.lock().unwrap().len();
+        let got = typed(&app, method.clone(), path, body).await;
+        assert_eq!(got, (status, kind.to_string(), answer.to_string()), "{method} {path}");
+        let seen = calls.lock().unwrap()[before..].to_vec();
+        let at_fleet = path.strip_prefix("/api").unwrap();
+        assert_eq!(seen, [(format!("{method} {at_fleet}"), body.to_string())], "{method} {path}");
+
+        // The other method is not on the list: unlisted, and Fleet is not asked.
+        let other = if method == Method::GET { Method::POST } else { Method::GET };
+        let refused = typed(&app, other.clone(), path, "").await;
+        assert_eq!(refused.0, StatusCode::NOT_FOUND, "{other} {path}");
+        assert_eq!(calls.lock().unwrap().len(), before + 1, "{other} {path} reached Fleet");
+    }
 }

@@ -1,0 +1,15 @@
+{
+  "sheets": [
+    {
+      "path": "packages/tokens/mock.css",
+      "css": ":root{--bg:#fff;--fg:#1c1c1e;--fg-muted:#6c6c70;--bg-sunken:#f2f2f4;--border:#d1d1d6;--accent:#0a60ff;--space-1:4px;--space-2:8px;--space-3:12px;--radius-sm:6px;--text-xs:13px}[data-theme=\"dark\"]{--bg:#1c1c1e;--fg:#f2f2f7;--fg-muted:#98989d;--bg-sunken:#2c2c2e;--border:#48484a;--accent:#4c8dff}body{margin:0;font:var(--text-xs)/18px system-ui,sans-serif;color:var(--fg)}",
+      "edited": false
+    },
+    {
+      "path": "packages/components/mock.css",
+      "css": ".armada-chip{display:inline-flex;align-items:center;gap:var(--space-1);padding:var(--space-1) var(--space-2);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-sunken);color:var(--fg)}",
+      "edited": false
+    }
+  ],
+  "fonts": []
+}

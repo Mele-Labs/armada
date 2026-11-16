@@ -281,8 +281,8 @@ impl Build {
         let idle_on_main = self.report.on == BuildSource::Main && !working && self.aligned;
         let busy = working || self.report.reverting || self.report.swapping;
         let (label, tip) = match (target, working) {
-            (BuildSource::Preview, false) => ("Refresh preview", "Merge in-flight branches and restart on the preview"),
-            (BuildSource::Preview, true) => ("Refreshing preview", "Merge in-flight branches and restart on the preview"),
+            (BuildSource::Preview, false) => ("Refresh", "Merge the offered branches onto latest main and restart Fleet"),
+            (BuildSource::Preview, true) => ("Refreshing", "Merge the offered branches onto latest main and restart Fleet"),
             (BuildSource::Main, false) => ("Update to main", "Restart on latest main"),
             (BuildSource::Main, true) => ("Updating to main", "Restart on latest main"),
         };
@@ -632,6 +632,8 @@ pub struct FleetFace {
     pub power: Power,
     pub restarting: Restarting,
     pub doctor: Option<Doctor>,
+    /// The disk Fleet last reported; none draws no row.
+    pub disk: Option<ipc::DiskHealth>,
 }
 
 impl FleetFace {
@@ -794,6 +796,8 @@ pub struct Face {
     pub build: Option<Build>,
     /// The branches Jobs offered for the preview, and the Refresh row Fleet reads from them.
     pub offers: Option<ipc::PreviewOffers>,
+    /// The notes of the branches the running build holds: the switcher's In this build row shows while there are some.
+    pub build_notes: Option<ipc::BuildNotes>,
     pub fleet: FleetFace,
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
@@ -821,7 +825,8 @@ impl Face {
             usage: Usage::Hidden,
             build: None,
             offers: None,
-            fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
+            build_notes: None,
+            fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None, disk: None },
             repositories: Vec::new(),
             chosen: None,
             projects: Vec::new(),
@@ -857,6 +862,11 @@ impl Face {
             None if self.repositories.is_empty() => ("No repository read yet".into(), None),
             None => ("All".into(), None),
         }
+    }
+
+    /// Fleet's id of the project the window is scoped to, which the Jobs list filters by. None on All and on one repository.
+    pub fn scoped_project(&self) -> Option<&str> {
+        self.scoped.and_then(|at| self.projects.get(at)).map(|one| one.id.as_ref())
     }
 
     /// The repositories a project draws on, each once, in the order its members name them.

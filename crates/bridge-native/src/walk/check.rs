@@ -50,6 +50,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
         cx.run_until_parked();
+        settle_pages(&mut cx, handle.into())?;
         // A person reads the step for this long, and his Next does nothing while it still plays.
         if let Some(ms) = pace {
             for _ in 0..ms.div_ceil(100) {
@@ -67,6 +68,10 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
                 break;
             }
             cx.advance_clock(std::time::Duration::from_millis(100));
+            // A step that waits on a page waits on WebKit, which answers on the run loop.
+            if crate::web::in_use() {
+                crate::web::pump(0.01);
+            }
             cx.run_until_parked();
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
@@ -76,6 +81,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.run_until_parked();
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
+        settle_pages(&mut cx, handle.into())?;
         let read = cx
             .update_window(handle.into(), |_, window, cx| {
                 window.draw(cx).clear(cx);
@@ -105,3 +111,26 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
     Ok(())
 }
 
+
+/// A web page answers on the main run loop, which nothing turns in this window: it is turned here for as long as
+/// WebKit owes an answer, a few quiet turns in a row so what an answer sets off is seen to its end.
+fn settle_pages(cx: &mut HeadlessAppContext, handle: gpui::AnyWindowHandle) -> Result<(), String> {
+    if !crate::web::in_use() {
+        return Ok(());
+    }
+    let mut quiet = 0;
+    for _ in 0..1000 {
+        crate::web::pump(0.01);
+        cx.run_until_parked();
+        cx.update_window(handle, |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        if crate::web::pending() {
+            quiet = 0;
+        } else {
+            quiet += 1;
+            if quiet >= 5 {
+                break;
+            }
+        }
+    }
+    Ok(())
+}

@@ -29,6 +29,8 @@ mod acting;
 mod accounting;
 /// A Judge on demand: asked of an artifact, and its notes sent, dismissed or opened.
 mod judge;
+/// Side questions put to a Job, kept out of its thread.
+mod asides;
 /// The shared home: Kit's rows against it, the acts that settle one, and what syncs.
 mod homing;
 mod amending;
@@ -76,6 +78,9 @@ mod mcp;
 mod mods;
 /// His other Macs, as this Mac's Phone Gateway reaches Fleet for them.
 mod other_macs;
+/// The phone's routes, each cut to the Jobs in a shared project.
+mod phone_share;
+mod mac_terminals;
 /// Acts on a Job another Mac holds, sent there, and what another Mac sends here.
 mod mac_acts;
 mod clashing;
@@ -147,10 +152,10 @@ mod tests;
 
 pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, MAC, MAC_HEADER, PHONE};
 pub use daemon::{
-    offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
+    offerable, Accounts, Admitting, AppRuns, Asides, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
     Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
-    ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn,
+    SealedPage, ShownFile, StoredFile, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
 pub use following::{Follow, Followed, LandOutput, SessionCheckLive, FOLLOW};

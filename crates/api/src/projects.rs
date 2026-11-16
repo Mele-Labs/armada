@@ -110,6 +110,42 @@ pub(crate) async fn set_project_workflow<D: Projects>(
     answered(&served, result)
 }
 
+pub(crate) async fn get_project_store<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().get_project_store(project).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_project_claims<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().get_project_claims(project).await {
+        Ok(claims) => answer(StatusCode::OK, &claims, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn set_project_store<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let set: ipc::SetProjectStore = match decoded(&served, "a project's store", &body) {
+        Ok(set) => set,
+        Err(response) => return response,
+    };
+    match served.daemon().set_project_store(project, set).await {
+        Ok(state) => answer(StatusCode::OK, &state, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn deploy_project_store<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let deploy: ipc::DeployProjectStore = match decoded(&served, "a store's deploy", &body) {
+        Ok(deploy) => deploy,
+        Err(response) => return response,
+    };
+    match served.daemon().deploy_project_store(project, deploy).await {
+        Ok(deployed) => answer(StatusCode::OK, &deployed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn save_kit_values<D: Projects>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let save = match decoded(&served, "Kit's values", &body) {
         Ok(save) => save,

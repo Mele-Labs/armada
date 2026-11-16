@@ -38,6 +38,7 @@
 //! would resolve a bare issue link, and `fleet` is what has a network to run
 //! it with.
 
+mod store_worker;
 mod acted;
 pub mod agent_mod;
 pub mod debug_facts;
@@ -135,6 +136,8 @@ pub mod session_runs;
 /// The shared home on GitHub, and a folder on this machine read and written.
 mod shared_home;
 mod sign_in;
+/// Registering the app the device flow signs in with.
+mod sign_in_app;
 /// The tracked files of a checkout that hold some words, for a pinned note.
 pub mod source_search;
 /// A worktree before a person's run, and putting back what the run changed.
@@ -147,9 +150,13 @@ mod bucket_signing;
 mod requests;
 mod mac_keys;
 mod request_secrets;
+/// Deploying a project's claims store to the person's own Cloudflare account, and the token he pasted for it.
+mod cloudflare_api;
+mod cloudflare_tokens;
 /// The central store over HTTP, signed with this machine's key.
 mod store;
 mod store_device;
+mod store_peers;
 mod store_signing;
 /// The directories of a repository's base and the paths an agent has changed in a slot.
 pub mod gate_worktree;
@@ -180,7 +187,7 @@ mod tests;
 
 pub use annotations::annotation_places;
 pub use build_standing::{
-    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, origin_branches, position_against_main, BranchInBuild, BuildMade,
+    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade,
 };
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
@@ -190,8 +197,9 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, links_in, pull_linked_in, remote_of, ForgeAddress};
+pub use store_worker::{CLOUDFLARE_TOKEN_PAGE, STORE_WORKER};
 pub use github_api::{
-    Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
+    forge_token_as, Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
 };
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
@@ -224,11 +232,14 @@ pub use harness_home::AgentHome;
 pub use shared_home::{Folder, ForgeHomes};
 pub use sign_in::ForgeSignIn;
 pub use bucket::{BucketAddress, ObjectBucket};
+pub use cloudflare_api::{HttpCloudflare, CLOUDFLARE_API};
+pub use cloudflare_tokens::{KeychainCloudflareTokens, CLOUDFLARE_TOKEN_SERVICE};
 pub use mac_keys::{KeychainMacKeys, MAC_KEY_SERVICE};
 pub use request_secrets::{KeychainSecrets, SECRET_SERVICE};
 pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
+pub use store_peers::signed_for_peer;
 pub use starting::{inferred_base, inside_a_repository, start_repository};
 pub use test_map::NextestCoverage;
 pub use api_forge::{ApiForge, ApiTrackers};

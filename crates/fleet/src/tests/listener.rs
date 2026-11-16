@@ -20,24 +20,17 @@ use crate::runtime::listener_address;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-/// Ports in one test's band: four spans of eight, so a test that needs a second
-/// port has somewhere to put it.
-const BAND: u16 = 32;
-
-/// The first port of the band a test claims from.
+/// A range of a test's own, locked to its process and below the ephemeral
+/// floor.
 ///
-/// **One band per test, never shared.** Each test is a process of its own and
+/// **One range per test, never shared.** Each test is a process of its own and
 /// they run at once. They all claimed from one range, so all of them probed
 /// the same first port, and a test that had probed it free then lost the bind
-/// to another's probe or live listener: `AddrInUse` on CI. A slot is any number
-/// that no other test in this file uses.
-fn band(slot: u16) -> u16 {
-    41_100 + slot * BAND
-}
-
-/// The range of a test's own band, well below every platform's ephemeral floor.
-fn range(slot: u16) -> PortRange {
-    PortRange::of(band(slot), band(slot) + BAND - 1, 8)
+/// to another's probe or live listener: `AddrInUse` on CI. Fixed bands at
+/// 41_100 came next, but that is inside Linux's ephemeral band, where other
+/// tests' connections hold ports — armada-143c.
+fn a_range() -> PortRange {
+    super::servers::a_range_of_its_own()
 }
 
 fn now() -> Timestamp {
@@ -55,12 +48,13 @@ fn a_store(dir: &TempDir, name: &str) -> Store {
 fn fleets_own_port_is_claimed_from_the_range_and_recorded() {
     let dir = TempDir::new();
     let mut store = a_store(&dir, "one.db");
+    let range = a_range();
 
-    let port = claimed_listener_port(&mut store, range(0), &BindConnectProbe, now())
+    let port = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("a free range hands out a port");
 
     assert!(
-        (band(0)..band(0) + BAND).contains(&port),
+        (range.base()..=range.ceiling()).contains(&port),
         "claimed out of the range, not from a constant: {port}"
     );
     let claim = store
@@ -81,12 +75,13 @@ fn a_second_fleet_beside_a_live_one_gets_a_port_of_its_own() {
     let dir = TempDir::new();
     let mut first_store = a_store(&dir, "first.db");
     let mut second_store = a_store(&dir, "second.db");
+    let range = a_range();
 
-    let first = claimed_listener_port(&mut first_store, range(1), &BindConnectProbe, now())
+    let first = claimed_listener_port(&mut first_store, range, &BindConnectProbe, now())
         .expect("the first Fleet claims a port");
     let _live = TcpListener::bind(listener_address(first)).expect("the claimed port binds");
 
-    let second = claimed_listener_port(&mut second_store, range(1), &BindConnectProbe, now())
+    let second = claimed_listener_port(&mut second_store, range, &BindConnectProbe, now())
         .expect("the second Fleet claims a port beside the first");
 
     assert_ne!(first, second, "two Fleets do not bind one port");
@@ -103,12 +98,13 @@ fn a_second_fleet_beside_a_live_one_gets_a_port_of_its_own() {
 fn a_claim_a_crashed_fleet_left_behind_is_taken_up_again() {
     let dir = TempDir::new();
     let mut store = a_store(&dir, "crashed.db");
+    let range = a_range();
 
     // A crash is the release never happening, so the row is left exactly as
     // the first start wrote it.
-    let before = claimed_listener_port(&mut store, range(2), &BindConnectProbe, now())
+    let before = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("the first start claims a port");
-    let after = claimed_listener_port(&mut store, range(2), &BindConnectProbe, now())
+    let after = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("the next start is not blocked by the row the crash left behind");
 
     assert_eq!(
@@ -130,14 +126,15 @@ fn a_claim_a_crashed_fleet_left_behind_is_taken_up_again() {
 fn a_stale_claim_whose_port_is_held_is_given_back_rather_than_reused() {
     let dir = TempDir::new();
     let mut store = a_store(&dir, "stale.db");
+    let range = a_range();
 
-    let stale = claimed_listener_port(&mut store, range(3), &BindConnectProbe, now())
+    let stale = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("the first start claims a port");
     // Something else takes it while this Fleet is down — another Fleet under
     // another home, or a program with nothing to do with Armada.
     let _live = TcpListener::bind(listener_address(stale)).expect("the port binds");
 
-    let fresh = claimed_listener_port(&mut store, range(3), &BindConnectProbe, now())
+    let fresh = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("a fresh port is claimed instead");
 
     assert_ne!(
@@ -163,20 +160,21 @@ fn a_stale_claim_whose_port_is_held_is_given_back_rather_than_reused() {
 fn the_listener_port_never_overlaps_a_span_already_claimed() {
     let dir = TempDir::new();
     let mut store = a_store(&dir, "three.db");
+    let range = a_range();
     store
         .claim_port_span(&PortClaim {
             claimant: PortClaimant::Checkout(String::from("/repos/one")),
-            base: band(4),
+            base: range.base(),
             width: 8,
             claimed_at: now(),
         })
         .expect("the main checkout claims first");
 
-    let port = claimed_listener_port(&mut store, range(4), &BindConnectProbe, now())
+    let port = claimed_listener_port(&mut store, range, &BindConnectProbe, now())
         .expect("a port beside it");
 
     assert!(
-        !(band(4)..band(4) + 8).contains(&port),
+        !(range.base()..range.base() + 8).contains(&port),
         "outside the span already claimed: {port}"
     );
     assert_eq!(

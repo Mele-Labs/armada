@@ -1,0 +1,10 @@
+[operations.get_project_store]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read a project's claims store: which it names, the Macs signed in to it, and whether a deploy or a join can run now"
+notes = """
+`GET /projects/project/:project/store` answers `ProjectStoreState`: `store` as the project's file names it (absent is none, and its Jobs send nothing), `macs` the names of the Macs the store says are signed in, oldest first, `macs_unread` why they could not be read (the store did not answer, or this Mac has not joined it), `joined_here`, `deploy` (`ready` where a pasted Cloudflare token is kept, `try_tunnel` where the tunnel's sign-in will be tried first, `needs_token` where this Mac has neither), `join` (`ready`, or `no_profile` where no repository of the project is bound to a profile on this Mac) and `token_page`, Cloudflare's page that makes a token with the rights a deploy needs. `docs/contracts/central-store.md`, *A store per project*.
+
+A 404 `fleet.no_such_project` for a `project` he has none of.
+"""

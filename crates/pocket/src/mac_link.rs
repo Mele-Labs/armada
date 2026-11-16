@@ -64,18 +64,22 @@ async fn follow(gateway: Gateway, mac: String) {
 }
 
 /// A stream from the other Mac, one line at a time.
-struct Lines {
+pub(crate) struct Lines {
     response: reqwest::Response,
     buffer: Vec<u8>,
 }
 
-enum Line {
+pub(crate) enum Line {
     Text(String),
     Ended(String),
 }
 
 impl Lines {
-    async fn next(&mut self, silence: Duration) -> Line {
+    pub(crate) fn new(response: reqwest::Response) -> Lines {
+        Lines { response, buffer: Vec::new() }
+    }
+
+    pub(crate) async fn next(&mut self, silence: Duration) -> Line {
         loop {
             if let Some(end) = self.buffer.iter().position(|b| *b == b'\n') {
                 let line: Vec<u8> = self.buffer.drain(..=end).collect();
@@ -236,8 +240,8 @@ impl Link<'_> {
 }
 
 /// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`,
-/// `/api/mac/act` or `/api/mac/update`, for the paths `/other_mac/project_act`, `/other_mac/act` and `/other_mac/update`
-/// and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
+/// `/api/mac/act`, `/api/mac/update` or `/api/mac/terminal`, for the paths `/other_mac/project_act`, `/other_mac/act`,
+/// `/other_mac/update` and `/other_mac/terminal` and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
 /// answered and the bytes, so a refusal there is said here as it was said.
 pub fn send_other_mac(
     gateway: &Gateway,
@@ -251,6 +255,7 @@ pub fn send_other_mac(
             "/other_mac/project_act" => "/api/mac/project_act",
             "/other_mac/act" => "/api/mac/act",
             "/other_mac/update" => "/api/mac/update",
+            "/other_mac/terminal" => "/api/mac/terminal",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
@@ -271,13 +276,17 @@ pub fn send_other_mac(
     }
 }
 
-/// [`crate::Gateway`]'s answer to Fleet's `read_other_mac`: a `/other_mac/thread?…` path, read from
-/// Mac `mac` as `/api/mac/thread?…`. Fleet asks nothing else of another Mac this way.
+/// [`crate::Gateway`]'s answer to Fleet's `read_other_mac`: a `/other_mac/thread?…` or `/other_mac/conversation?…`
+/// path, read from Mac `mac` as `/api/mac/thread?…` or `/api/mac/conversation?…`. Fleet asks nothing else of
+/// another Mac this way.
 pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'static {
     let (gateway, mac, path) = (gateway.clone(), mac.to_string(), path.to_string());
     async move {
-        let rest = path.strip_prefix("/other_mac/thread").filter(|rest| rest.is_empty() || rest.starts_with('?'));
-        let Some(rest) = rest else {
+        let read = ["thread", "conversation"].into_iter().find_map(|what| {
+            let rest = path.strip_prefix(&format!("/other_mac/{what}"))?;
+            (rest.is_empty() || rest.starts_with('?')).then(|| format!("/api/mac/{what}{rest}"))
+        });
+        let Some(target) = read else {
             return Err(format!("{path} is not read from another Mac."));
         };
         let found = gateway.pairing.store.lock().unwrap().paired_mac(&mac);
@@ -288,7 +297,7 @@ pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<O
         if let Some(link) = frozen(&gateway.way_in, &row) {
             return Err(crate::macs::frozen_why(&link, &row.name));
         }
-        let came = signed_whole(&gateway, &row.id, &row.address, "GET", &format!("/api/mac/thread{rest}"), None)
+        let came = signed_whole(&gateway, &row.id, &row.address, "GET", &target, None)
             .await
             .map_err(|why| format!("{} could not be reached: {why}", row.name))?;
         Ok((came.status, came.body))

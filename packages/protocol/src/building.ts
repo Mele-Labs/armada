@@ -85,12 +85,28 @@ export type FleetBuildReport = {
    * in the last fourteen days, newest first. Omitted when none. Since 13 Nov 2026.
    */
   origin?: OriginBranch[];
+  /**
+   * The branches the running build holds, as the kept build records them, whether or not Keep was pressed or a pick
+   * made. Omitted when none. Since 14 Nov 2026.
+   */
+  holds?: HeldBranch[];
 };
 
 /** A branch on origin a snapshot can take, and when its tip was committed. */
 export type OriginBranch = {
   branch: string;
   committed_at: string;
+  /** The title of the Job on this Fleet that held the branch last, ended Jobs included. Absent where none did. Since 14 Nov 2026. */
+  title?: string;
+};
+
+/** A branch the running build holds. */
+export type HeldBranch = {
+  branch: string;
+  /** The title of the Job that held it: a live one first, else the one that held it last, ended Jobs included. Absent where none did. */
+  title?: string;
+  /** The tip the build took of it is on `origin/main` as last fetched. Omitted when false. */
+  landed?: boolean;
 };
 
 /**

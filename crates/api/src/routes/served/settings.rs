@@ -1,7 +1,7 @@
 //! The Machine's settings: the rows of [`SERVED`](super::SERVED) under
 //! `/settings`, and the older `/limits` and `/preferences` that read and write
 //! the same file. `/accounts` rides here too: the account is the Machine's, and
-//! its two settings, `account.clientId` and `store.url`, are keys of that file. Fleet's own, not a Job's, so none takes a path parameter; each
+//! its setting `account.clientId` is a key of that file. Fleet's own, not a Job's, so none takes a path parameter; each
 //! save spells its act in the last segment, as `/manifest/save_file` does.
 
 use super::Route;
@@ -74,6 +74,22 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "start_sign_in",
         method: "POST",
         path: "/accounts/start_sign_in",
+    },
+    // Registering the app sign-in uses: Bridge's press, then two routes the person's browser opens.
+    Route {
+        operation: "register_sign_in_app",
+        method: "POST",
+        path: "/accounts/sign_in_app",
+    },
+    Route {
+        operation: "get_sign_in_app_form",
+        method: "GET",
+        path: "/accounts/sign_in_app/form",
+    },
+    Route {
+        operation: "sign_in_app_registered",
+        method: "GET",
+        path: "/accounts/sign_in_app/registered",
     },
     Route {
         operation: "sign_out",

@@ -2,7 +2,8 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-**A record of what was.** Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
+**A record of what was.** `read_thought` and `ThoughtReading` are removed, and the Operator rules nothing; `tell_session` stands.
+Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
 
 **Since 13 Oct 2026 the `sent` row is a `SessionRow::Sent` in the Helm Job's thread, and `record_thought_sent` answers a `SessionRecord`.** The `observe_helm` message `sent` and `HelmSent` rows below are retired; see *Helm is a Job*.
 

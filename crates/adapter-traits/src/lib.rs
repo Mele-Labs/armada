@@ -53,10 +53,12 @@ mod pull_request;
 mod pull_request_detail;
 mod pull_review;
 mod request;
+mod cloudflare;
 mod secret;
 mod setup;
 mod shared_home;
 mod sign_in;
+mod sign_in_app;
 mod slots;
 mod store;
 mod test_map;
@@ -91,7 +93,7 @@ pub use harness::{
     DroneHandle, DroneSpawnConfig, Effort, Environment, Launch, McpConfig,
     Model, Prompt, SpawnConfigRefused,
 };
-pub use judge::{Ask, CallProgress, Heard, JudgeCall, ModelClient, Reading};
+pub use judge::{Ask, CallProgress, Fork, Heard, JudgeCall, ModelClient, Reading};
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
@@ -115,13 +117,15 @@ pub use pull_review::{
 pub use request::{
     Incoming, Outgoing, RequestFailure, RequestSecrets, RequestSender, SecretError, SecretVariable,
 };
+pub use cloudflare::{Cloudflare, CloudflareError, CloudflareTokens, WorkerUpload};
 pub use secret::Secret;
 pub use shared_home::{
     HarnessHome, HarnessPiece, HarnessPlace, HomeFailure, HomePlace, HomeRepositories, HomeRepository, KeptFolder, PluginRecord,
     HOME_REPOSITORY,
 };
 pub use sign_in::{DeviceCode, Polled, SignIn, SignInError, SignedInAs};
-pub use store::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Store, StoreError};
+pub use sign_in_app::{AppForm, RegisteredApp, SignInApp};
+pub use store::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, DeviceKind, Holder, HolderClaims, HolderKind, ListedClaim, ListedWait, OwnerKey, Renewed, RepositoryKey, RunRow, Store, StoreDevice, StoreError, StorePeer};
 pub use tracker::{
     IssueComment, IssueField, LinkedPullRequest, LinkedPullRequestState, NotTracked, OpenIssue, QueryGuide, ReadIssue, TicketState, Tool, ToolInstalled,
     Tracker, TrackerChoice, Trackers,

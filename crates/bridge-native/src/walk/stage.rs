@@ -27,6 +27,8 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
+        // A walk draws a mock page as the fixture picture: no web view is opened.
+        crate::scene::mock_view::hold_walk(cx);
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
         crate::pairing::begin_mock(walk.scenario, cx);
@@ -104,7 +106,11 @@ impl Stage {
             }
             Screen::App => {
                 super::strip_marks::leave(cx);
-                crate::titlebar::scenes::begin(cx);
+                if walk.scenario == "project-filter" {
+                    crate::titlebar::scenes::begin_on_all(cx);
+                } else {
+                    crate::titlebar::scenes::begin(cx);
+                }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 let keys = list.read(cx).focus_handle().clone();
@@ -148,11 +154,20 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_CLAIM {
                     over.update(cx, |over, cx| over.claim_later(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_NEARBY {
+                    over.update(cx, |over, cx| over.nearby_macs(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_BUILD {
                     over.update(cx, |over, cx| over.builds_differ(cx));
                 }
+                if walk.name == crate::settings::walk::MACS_LONG {
+                    over.update(cx, |over, cx| over.long_names(cx));
+                }
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
+                }
+                if walk.name == crate::settings::walk::SIGN_IN_APP {
+                    over.update(cx, |over, cx| over.registration_takes_a_while(cx));
                 }
                 if walk.name == crate::settings::walk::WAYS {
                     over.update(cx, |over, cx| over.refusing("pictures_whole", cx));
@@ -238,7 +253,8 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 /// Do what reaching `step` does. A press needs its target drawn first; a key goes to the screen.
 pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
-        Verb::Look | Verb::Later(_) => Ok(()),
+        // The walk window has pressed in the page already, and waited for it (`WalkWindow::play_to`).
+        Verb::Look | Verb::Later(_) | Verb::InPage(_) | Verb::InPageSelect(_) => Ok(()),
         Verb::Lands => {
             let screen = crate::reviews::walked(cx).ok_or_else(|| Missed("no reviews screen is drawn to land".into()))?;
             screen.update(cx, |screen, cx| screen.land(window, cx));
@@ -405,7 +421,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             // Its own, drawn after it: a scrolled element's bounds can reach under a bar drawn later.
             let button = drawn[at..]
                 .iter()
-                .find(|one| one.role == gpui::Role::Button && one.name == on && outer.bounds.contains(&one.bounds.center()))
+                .find(|one| matches!(one.role, gpui::Role::Button | gpui::Role::RadioButton) && one.name == on && outer.bounds.contains(&one.bounds.center()))
                 .cloned()
                 .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{within}\"")))?;
             press(MouseButton::Left, aim(&reveal(button, window, cx)), window, cx);
@@ -505,6 +521,25 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
+        Verb::DragBy(role, on, across, down) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to drag")))?;
+            let from = drawn.bounds.center();
+            let to = point(from.x + px(across as f32), from.y + px(down as f32));
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
+                cx,
+            );
+            for part in 1..=8 {
+                let at = point(from.x + (to.x - from.x) * (part as f32 / 8.), from.y + (to.y - from.y) * (part as f32 / 8.));
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: Some(MouseButton::Left), modifiers: Modifiers::default() }), cx);
+            }
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
+            Ok(())
+        }
         Verb::RightPressOn(role, name) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let at = cx
@@ -575,6 +610,16 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     crate::pairing::scene(name, cx).map_err(Missed)?;
                     JobsList::mock_gone(&crate::mock::AIR_JOBS.map(String::from), cx).map_err(Missed)
                 }
+                // How a move ends: the Mac the Job left ends it, then the other Mac's row of the same id stands in its place.
+                "move-ended" => JobsList::mock_move_settled(false, cx).map_err(Missed),
+                "move-landed" => JobsList::mock_move_settled(true, cx).map_err(Missed),
+                // Another window asked first: Fleet refuses the next move.
+                "move-refused" => {
+                    crate::move_to_mac::refuse_next(true);
+                    Ok(())
+                }
+                // The link to Air for its Jobs' shells: carrying, refusing keys and opens, or its streams dropping.
+                "link-up" | "link-down" | "link-drops" => crate::terminal::shells::walk_link(&name["link-".len()..], cx).map_err(Missed),
                 other => crate::pairing::scene(other, cx).map_err(Missed),
             }
         }
@@ -687,6 +732,38 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             });
             Ok(())
         }
+        Verb::CarryAt(role, from, across, down, more_across, more_down) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let start = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, from))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{from}\" to carry")))?;
+            let over = find(step, window, cx)?.bounds;
+            let to = point(
+                over.origin.x + over.size.width * (across as f32 / 1000.) + gpui::px(more_across as f32),
+                over.origin.y + over.size.height * (down as f32 / 1000.) + gpui::px(more_down as f32),
+            );
+            let none = Modifiers::default();
+            let held = Some(MouseButton::Left);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: start, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: start, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            // The first move past the threshold starts the drag; the panes are drawn again so the next move is read against them.
+            let past = point(start.x + gpui::px(8.), start.y);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: past, pressed_button: held, modifiers: none }), cx);
+            window.defer(cx, move |window, cx| {
+                window.draw(cx).clear(cx);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                window.defer(cx, move |window, cx| {
+                    window.draw(cx).clear(cx);
+                    window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: held, modifiers: none }), cx);
+                });
+            });
+            Ok(())
+        }
         Verb::Fits(role, name) => {
             let inner = find(step, window, cx)?.bounds;
             let outer_role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
@@ -700,6 +777,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     "the {} \"{}\" runs past the {role} \"{name}\": {:?} against {:?}",
                     step.target.role, step.target.name, (inner.left(), inner.right()), (outer.left(), outer.right())
                 )));
+            }
+            Ok(())
+        }
+        Verb::NoWiderThan(points) => {
+            let wide = f32::from(find(step, window, cx)?.bounds.size.width);
+            if wide > points as f32 {
+                return Err(Missed(format!("the {} \"{}\" is {wide} points wide, past the {points} it may be", step.target.role, step.target.name)));
             }
             Ok(())
         }
@@ -818,7 +902,9 @@ fn uncover(target: Drawn, window: &mut Window, cx: &mut App) -> Drawn {
     let cover = cx.try_global::<LabelBook>().and_then(|book| {
         let drawn = book.drawn(id);
         let mine = drawn.iter().position(|one| one.role == target.role && one.name == target.name && one.bounds == target.bounds)?;
-        drawn[mine + 1..].iter().find(|one| shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
+        // Painted after it, which is not where the book lists it: a scene's parts are written down as the scene paints.
+        let after = drawn[mine].painted;
+        drawn.iter().find(|one| one.painted > after && shows(one) && one.shown.contains(&at) && !holds(one.bounds, target.bounds) && !holds(target.bounds, one.bounds)).cloned()
     });
     let Some(cover) = cover else { return target };
     let by = point(px(0.), cover.shown.top() - px(24.) - target.bounds.bottom());

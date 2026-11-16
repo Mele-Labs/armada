@@ -115,6 +115,8 @@ pub(super) struct FakeSlots {
     /// What a slot holds after its branch merged, where a case says; a slot nothing was said of
     /// is idle.
     after_merge: Mutex<BTreeMap<u32, adapter_traits::SlotAfterMerge>>,
+    /// The branches a case says hold commits the base lacks; any other branch is merged.
+    unmerged: Mutex<std::collections::BTreeSet<String>>,
 }
 
 impl FakeSlots {
@@ -378,6 +380,10 @@ impl FakeSlots {
             .get(&slot)
             .cloned()
             .unwrap_or(adapter_traits::SlotAfterMerge::Idle)
+    }
+
+    pub(super) fn is_merged(&self, branch: &str) -> bool {
+        !self.unmerged.lock().expect("not poisoned").contains(branch)
     }
 
     pub(super) fn refuse_next_park(&self, why: SlotParkRefused) {
@@ -703,6 +709,15 @@ impl FakeVcs {
             .lock()
             .expect("not poisoned")
             .insert(slot, held);
+    }
+
+    /// `branch` holds commits the base lacks: a name reused after an earlier merge from it.
+    pub fn branch_has_unmerged_commits(&self, branch: &str) {
+        self.slots
+            .unmerged
+            .lock()
+            .expect("not poisoned")
+            .insert(branch.to_string());
     }
 
     /// Every slot parked, and by which Job, in order.

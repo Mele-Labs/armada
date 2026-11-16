@@ -12,14 +12,19 @@
 //!
 //! `ARMADA_BRIDGE_QUIT_MARK` names a file the app writes when it quits after its window opened. `scripts/restart`
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
+//!
+//! Only one live app runs: it holds a lock on `bridge-native.lock` in the support folder (`instance.rs`), and a
+//! second start brings the first forward. A walk, a mock and a check take no lock.
 
 mod annotate;
 mod assets;
 mod banner;
+mod build_notes;
 mod capture;
 mod chrome;
 mod clash_mark;
 mod context_ring;
+mod crash;
 mod deep_link;
 mod dictation;
 mod diff;
@@ -34,9 +39,11 @@ mod fleet;
 mod frames;
 mod job_view;
 mod inspect;
+mod instance;
 mod jobs;
 mod keymap;
 mod labels;
+mod launch_services;
 mod lanes_canvas;
 mod lanes_editor;
 mod link;
@@ -49,6 +56,9 @@ mod menu;
 mod merge_strip;
 mod option_pictures;
 mod mock;
+mod mock_parts;
+mod move_to_mac;
+mod move_to_project;
 mod new_project;
 mod notify;
 mod operator;
@@ -64,6 +74,7 @@ mod runtime_file;
 mod scene;
 mod settings;
 mod sketch;
+mod slot_wait;
 mod snooze;
 mod sketch_png;
 mod terminal;
@@ -72,6 +83,7 @@ mod toasts;
 mod transport;
 mod voice;
 mod waiting_sends;
+mod web;
 mod walk;
 mod ways;
 mod whisper;
@@ -108,6 +120,7 @@ const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
        bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
+       bridge-native --list-walks
 
 With no flags it opens on the Fleet this Mac runs.
   --mock <scenario>   open on a mock scenario's data instead
@@ -120,16 +133,19 @@ With no flags it opens on the Fleet this Mac runs.
   --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
+  --list-walks        print the name of every walk this build plays, one a line, and exit
   -h, --help          print this and exit
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
 const VALUED: [&str; 11] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
-const BARE: [&str; 1] = ["--check"];
+const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
 enum Mode {
     Help,
+    /// Fleet asks which walks the build behind his preview plays, before a Job may show one.
+    Walks,
     Live,
     Mock(String),
     Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
@@ -147,6 +163,9 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
             // `-psn_0_…` is what LaunchServices may hand an app it opens; it is not his to type.
             return Err(format!("{arg} is not a flag this app reads"));
         }
+    }
+    if args.iter().any(|arg| arg == "--list-walks") {
+        return Ok(Mode::Walks);
     }
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
     if let Some(name) = value("--walk").transpose()? {
@@ -220,6 +239,10 @@ fn main() -> ExitCode {
         print!("{USAGE}");
         return ExitCode::SUCCESS;
     }
+    if let Mode::Walks = mode {
+        walk::WALKS.iter().for_each(|walk| println!("{}", walk.name));
+        return ExitCode::SUCCESS;
+    }
     if let Mode::Walk { name, check: true, shots, hold, pace, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
@@ -237,6 +260,16 @@ fn main() -> ExitCode {
         };
     }
 
+    // One live app at a time, whichever way it was opened. Held to the end of `main`; the OS frees it with the process.
+    let _instance = if matches!(mode, Mode::Live) {
+        match instance::claim(std::env::var_os("ARMADA_BRIDGE_QUIT_MARK").map(PathBuf::from)) {
+            instance::Claim::Leave => return ExitCode::SUCCESS,
+            instance::Claim::Instance(file) => file,
+        }
+    } else {
+        None
+    };
+
     let app = application().with_assets(assets::Assets);
     // macOS hands links over before the app is ready and on its own thread of control, so they cross a
     // channel to a task that reads them where the app can be reached. Nothing registers the scheme with
@@ -251,8 +284,12 @@ fn main() -> ExitCode {
         init_app(cx);
         // Only the live app keeps what he typed across a restart: a walk, a mock and a test never read or write his file.
         if matches!(mode, Mode::Live) {
+            crash::install(cx);
             drafts::persist(drafts::file(), cx);
+            build_notes::persist(build_notes::opened_file(), cx);
+            launch_services::point_at_current_build();
             pairing::follow(cx);
+            job_view::keep_arrangements(cx);
         }
         cx.spawn(async move |cx| {
             while let Ok(address) = arrived.recv().await {
@@ -277,11 +314,13 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help => Ok(()),
+            Mode::Help | Mode::Walks => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
                     terminal::shells::hold_live(&fleet, cx);
+                    titlebar::offer_crash(&fleet, cx);
+                    scene::mock_view::hold_live(&fleet, cx);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
                     let menu = cx.new(|cx| MenuController::new(&fleet, cx));
@@ -390,5 +429,6 @@ mod tests {
         assert_eq!(mode_of(&args(&["--walks", "jobs-list"])).err().as_deref(), Some("--walks is not a flag this app reads"));
         assert!(mode_of(&args(&["--walk", "jobs-list", "--check", "--width", "800"])).is_ok(), "a value is not read as a flag");
         assert!(matches!(mode_of(&args(&["-psn_0_123456"])), Ok(Mode::Live)), "LaunchServices' own argument passes");
+        assert!(matches!(mode_of(&args(&["--list-walks"])), Ok(Mode::Walks)));
     }
 }

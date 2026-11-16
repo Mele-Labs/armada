@@ -94,8 +94,6 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("change_slot_pool", "changes the slot pool"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
-    ("move_on_operator_board", "moves the Operator's board"),
-    ("answer_operator_suggestion", "answers the Operator"),
     ("operator_answer", "answers the Operator"),
     ("operator_turn_order", "orders the Operator's Your turn"),
     ("operator_later", "puts an item of the Operator's Your turn last"),
@@ -114,7 +112,11 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("revert_fleet_build", "chooses the build Fleet runs"),
     ("pick_fleet_build_job", "chooses the build Fleet runs"),
     ("skip_preview_refresh", "chooses the build Fleet runs"),
+    ("mark_build_note_looked_at", "marks the notes of his preview build looked at"),
+    ("send_build_note_feedback", "answers the notes of his preview build"),
+    ("answer_ready_to_try", "answers the notes of his preview build"),
     ("start_sign_in", "signs this Mac in and out"),
+    ("register_sign_in_app", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),
     // What his other Macs hold, as this Mac's Phone Gateway hands it in: a Job planting rows would be drawn
     // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.
@@ -123,6 +125,8 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_other_mac_projects", "pairs his other Macs"),
     ("project_act_from_mac", "pairs his other Macs"),
     ("act_from_mac", "pairs his other Macs"),
+    // A Job typing into a shared Job's terminal around the door would type as his other Mac.
+    ("share_job_terminal", "pairs his other Macs"),
     ("take_back_queued", "takes back what waits for his other Macs"),
     ("hold_other_mac_event", "pairs his other Macs"),
     ("forget_other_mac", "pairs his other Macs"),

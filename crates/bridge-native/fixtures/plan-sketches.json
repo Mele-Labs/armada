@@ -1,0 +1,656 @@
+{
+ "sessions": [
+  {
+   "id": "plan-sk-1",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Project switcher in the title bar",
+   "state": "live",
+   "started_at": "2026-11-13T15:00:00.000Z",
+   "last_seen_at": "2026-11-13T15:20:00.000Z",
+   "last_turn_at": "2026-11-13T15:20:00.000Z",
+   "usage": {
+    "context_tokens": 128415,
+    "context_window": 1000000,
+    "cost_micros": 102737,
+    "context_percent": 13,
+    "context_band": "normal"
+   },
+   "mod_version": "0.3.60",
+   "waiting_for": [
+    {
+     "id": "plan:1",
+     "text": "Plan to approve",
+     "since": "2026-11-13T15:20:00.000Z",
+     "source": "plan",
+     "act": {
+      "kind": "message",
+      "target": "plan-sk-1"
+     }
+    },
+    {
+     "id": "agent-keep",
+     "text": "Keep Workspaces in the menu until every project has moved?",
+     "since": "2026-11-13T15:21:00.000Z",
+     "source": "agent",
+     "options": [
+      {
+       "label": "Keep it"
+      },
+      {
+       "label": "Drop it now"
+      }
+     ]
+    }
+   ],
+   "standing": "replied",
+   "auto_land": true,
+   "workflow": "feature",
+   "plan": {
+    "version": 1,
+    "summary": "The title bar's project button opens a switcher that lists each project with its repositories under it. Fleet serves the list, and the switcher only draws it.",
+    "recorded_at": "2026-11-13T15:20:00.000Z",
+    "approved": false,
+    "scope": [
+     "crates/bridge-native",
+     "crates/fleet",
+     "crates/ipc"
+    ],
+    "groups": [
+     {
+      "id": "g1",
+      "agent": "Plan",
+      "title": "Propose",
+      "gives": "A plan you approve before anything is built",
+      "paths": [
+       "docs"
+      ],
+      "tasks": [
+       {
+        "id": "t1",
+        "text": "Read the title bar and the projects Fleet serves",
+        "state": "handed_in",
+        "changed_at": "2026-11-13T15:10:00.000Z"
+       },
+       {
+        "id": "t2",
+        "text": "Record the plan with the two sketches",
+        "state": "handed_in",
+        "changed_at": "2026-11-13T15:20:00.000Z"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      },
+      "gate": "plan_approved"
+     },
+     {
+      "id": "g2",
+      "agent": "gpui-engineer",
+      "title": "Switcher rows",
+      "gives": "Each project a row, its repositories under it, the one you are in marked",
+      "paths": [
+       "crates/bridge-native"
+      ],
+      "tasks": [
+       {
+        "id": "t3",
+        "text": "Draw a row for each project with its repositories under it",
+        "state": "open"
+       },
+       {
+        "id": "t4",
+        "text": "Mark the project the window is on, and move with the arrows",
+        "state": "open"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      },
+      "sketches": [
+       {
+        "id": "sketch:Switcher rows",
+        "title": "Switcher rows"
+       }
+      ]
+     },
+     {
+      "id": "g3",
+      "agent": "rust-engineer",
+      "title": "Fleet serves projects",
+      "gives": "One list of projects that every screen reads",
+      "paths": [
+       "crates/fleet",
+       "crates/ipc"
+      ],
+      "tasks": [
+       {
+        "id": "t5",
+        "text": "Serve each project with its repositories in one view",
+        "state": "open"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      }
+     }
+    ],
+    "sketches": [
+     {
+      "id": "sketch:Project switcher",
+      "title": "Project switcher"
+     }
+    ]
+   },
+   "workflow_step": 0,
+   "started": {
+    "workflow": "feature",
+    "delivery": "auto_land",
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "by": {
+     "id": "mock-00",
+     "title": "Native Rebuild Orchestrator"
+    }
+   },
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "viewed_at": "2026-11-10T19:53:56.873Z",
+   "attachments": [],
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "resolved_model": "claude-opus-5-5",
+    "effort": "high",
+    "mode": "auto",
+    "running": true,
+    "commands": []
+   },
+   "build": {
+    "phase": "plan",
+    "pieces": [
+     {
+      "id": "1",
+      "text": "Read the Projects Document, the code it touches and every doc it cites",
+      "piece": "hollow"
+     },
+     {
+      "id": "2",
+      "text": "Record the plan with what exists, what is new and what is open",
+      "piece": "hollow"
+     },
+     {
+      "id": "3",
+      "text": "Mock Electron's repository picker and System > Workspaces reading projects from a mock Fleet",
+      "piece": "ghost"
+     },
+     {
+      "id": "4",
+      "text": "Show the walk and wait for your approval",
+      "piece": "ghost"
+     },
+     {
+      "id": "5",
+      "text": "Rename the multi-repository Workspace to Project in core-model and config; a member is a repository with an optional folder",
+      "piece": "ghost"
+     },
+     {
+      "id": "6",
+      "text": "Allow a project with no members yet, so a new one can be made before it holds anything",
+      "piece": "ghost"
+     },
+     {
+      "id": "7",
+      "text": "Read project files from Kit's projects folder and a repository's .armada/projects, as Workspace files are read",
+      "piece": "ghost"
+     },
+     {
+      "id": "8",
+      "text": "Keep each project at one of the four places, This Mac by default, reusing run memory's places",
+      "piece": "ghost"
+     },
+     {
+      "id": "9",
+      "text": "At Fleet start, move Workspace files to projects and make each task list a project whose members are its tasks' repositories",
+      "piece": "ghost"
+     },
+     {
+      "id": "10",
+      "text": "Keep lifecycles, rules and autonomy pieces scoped to a project working, by its id",
+      "piece": "ghost"
+     },
+     {
+      "id": "11",
+      "text": "Grow list_projects: each project with members, place, file and values; drop /workspaces/all",
+      "piece": "ghost"
+     },
+     {
+      "id": "12",
+      "text": "Add create_project and edit_project; delete_project also removes the project's file",
+      "piece": "ghost"
+     },
+     {
+      "id": "13",
+      "text": "Add project to StartSession, keep it on the Job's record and serve it on the Job",
+      "piece": "ghost"
+     },
+     {
+      "id": "14",
+      "text": "Mirror the wire in packages/protocol and point Electron's Workspace reader at list_projects, the smallest change",
+      "piece": "ghost"
+     },
+     {
+      "id": "15",
+      "text": "Rewrite docs/concepts/project.md and the projects protocol page, and fix scope.md's 'None of the first row'",
+      "piece": "ghost"
+     },
+     {
+      "id": "16",
+      "text": "One resolver for behaviour keys: default, Machine, Kit, repository, Project, Job, each value with the layer it came from",
+      "piece": "ghost"
+     },
+     {
+      "id": "17",
+      "text": "Project values for pull request mode, auto merge, autonomy defaults, review model, Job layout, theme and density",
+      "piece": "ghost"
+     },
+     {
+      "id": "18",
+      "text": "A Job freezes its project's resolved values at start and runs on them",
+      "piece": "ghost"
+     },
+     {
+      "id": "19",
+      "text": "A project's tracker replaces its members' trackers for Jobs in it and for the project's issues",
+      "piece": "ghost"
+     },
+     {
+      "id": "20",
+      "text": "Serve each value with its layer for Settings, document the chain and close kit-machine-manifest-resolution-chain",
+      "piece": "ghost"
+     },
+     {
+      "id": "21",
+      "text": "get_review_lists takes a project and returns only its members' pull requests",
+      "piece": "ghost"
+     },
+     {
+      "id": "22",
+      "text": "An Operator rule's scope becomes a repository or a project; repository beats project beats everywhere",
+      "piece": "ghost"
+     },
+     {
+      "id": "23",
+      "text": "OperatorLearned carries the scope on the wire and in the TypeScript mirror, and Electron reads it",
+      "piece": "ghost"
+     },
+     {
+      "id": "24",
+      "text": "Move existing Always here rules across as repository-scoped",
+      "piece": "ghost"
+     },
+     {
+      "id": "25",
+      "text": "Show each new test failing without its change, then passing, through armada check test",
+      "piece": "ghost"
+     },
+     {
+      "id": "26",
+      "text": "Run vitest on touched files and --project 'desktop*', then pnpm format:check",
+      "piece": "ghost"
+     },
+     {
+      "id": "27",
+      "text": "Open each pull request, fix what is red, and merge on green with --merge --auto",
+      "piece": "ghost"
+     }
+    ],
+    "stops": [
+     {
+      "id": "pushed"
+     },
+     {
+      "id": "pr"
+     },
+     {
+      "id": "checks"
+     },
+     {
+      "id": "auto_merge"
+     }
+    ],
+    "forecast": [
+     "pushed",
+     "pr",
+     "checks",
+     "auto_merge"
+    ],
+    "quiet_since": "2026-11-10T19:59:00.543Z",
+    "stalled": false,
+    "workers": []
+   }
+  },
+  {
+   "id": "plan-sk-2",
+   "harness": "claude_code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Project switcher, approved",
+   "state": "live",
+   "started_at": "2026-11-13T15:00:00.000Z",
+   "last_seen_at": "2026-11-13T15:20:00.000Z",
+   "last_turn_at": "2026-11-13T15:20:00.000Z",
+   "usage": {
+    "context_tokens": 128415,
+    "context_window": 1000000,
+    "cost_micros": 102737,
+    "context_percent": 13,
+    "context_band": "normal"
+   },
+   "mod_version": "0.3.60",
+   "waiting_for": [],
+   "standing": "replied",
+   "auto_land": true,
+   "workflow": "feature",
+   "plan": {
+    "version": 1,
+    "summary": "The title bar's project button opens a switcher that lists each project with its repositories under it. Fleet serves the list, and the switcher only draws it.",
+    "recorded_at": "2026-11-13T15:20:00.000Z",
+    "approved": true,
+    "scope": [
+     "crates/bridge-native",
+     "crates/fleet",
+     "crates/ipc"
+    ],
+    "groups": [
+     {
+      "id": "g1",
+      "agent": "Plan",
+      "title": "Propose",
+      "gives": "A plan you approve before anything is built",
+      "paths": [
+       "docs"
+      ],
+      "tasks": [
+       {
+        "id": "t1",
+        "text": "Read the title bar and the projects Fleet serves",
+        "state": "handed_in",
+        "changed_at": "2026-11-13T15:10:00.000Z"
+       },
+       {
+        "id": "t2",
+        "text": "Record the plan with the two sketches",
+        "state": "handed_in",
+        "changed_at": "2026-11-13T15:20:00.000Z"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      },
+      "gate": "plan_approved"
+     },
+     {
+      "id": "g2",
+      "agent": "gpui-engineer",
+      "title": "Switcher rows",
+      "gives": "Each project a row, its repositories under it, the one you are in marked",
+      "paths": [
+       "crates/bridge-native"
+      ],
+      "tasks": [
+       {
+        "id": "t3",
+        "text": "Draw a row for each project with its repositories under it",
+        "state": "open"
+       },
+       {
+        "id": "t4",
+        "text": "Mark the project the window is on, and move with the arrows",
+        "state": "open"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      },
+      "sketches": [
+       {
+        "id": "sketch:Switcher rows",
+        "title": "Switcher rows"
+       }
+      ]
+     },
+     {
+      "id": "g3",
+      "agent": "rust-engineer",
+      "title": "Fleet serves projects",
+      "gives": "One list of projects that every screen reads",
+      "paths": [
+       "crates/fleet",
+       "crates/ipc"
+      ],
+      "tasks": [
+       {
+        "id": "t5",
+        "text": "Serve each project with its repositories in one view",
+        "state": "open"
+       }
+      ],
+      "lands_in": {
+       "label": "PR 1"
+      }
+     }
+    ],
+    "sketches": [
+     {
+      "id": "sketch:Project switcher",
+      "title": "Project switcher"
+     }
+    ],
+    "approved_at": "2026-11-13T15:30:00.000Z"
+   },
+   "workflow_step": 0,
+   "started": {
+    "workflow": "feature",
+    "delivery": "auto_land",
+    "model": "opus",
+    "effort": "high",
+    "mode": "auto",
+    "by": {
+     "id": "mock-00",
+     "title": "Native Rebuild Orchestrator"
+    }
+   },
+   "mark": {
+    "state": "waiting",
+    "lamp": "needs",
+    "group": "needs"
+   },
+   "viewed_at": "2026-11-10T19:53:56.873Z",
+   "attachments": [],
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "model": "opus",
+    "resolved_model": "claude-opus-5-5",
+    "effort": "high",
+    "mode": "auto",
+    "running": true,
+    "commands": []
+   },
+   "build": {
+    "phase": "plan",
+    "pieces": [
+     {
+      "id": "1",
+      "text": "Read the Projects Document, the code it touches and every doc it cites",
+      "piece": "hollow"
+     },
+     {
+      "id": "2",
+      "text": "Record the plan with what exists, what is new and what is open",
+      "piece": "hollow"
+     },
+     {
+      "id": "3",
+      "text": "Mock Electron's repository picker and System > Workspaces reading projects from a mock Fleet",
+      "piece": "ghost"
+     },
+     {
+      "id": "4",
+      "text": "Show the walk and wait for your approval",
+      "piece": "ghost"
+     },
+     {
+      "id": "5",
+      "text": "Rename the multi-repository Workspace to Project in core-model and config; a member is a repository with an optional folder",
+      "piece": "ghost"
+     },
+     {
+      "id": "6",
+      "text": "Allow a project with no members yet, so a new one can be made before it holds anything",
+      "piece": "ghost"
+     },
+     {
+      "id": "7",
+      "text": "Read project files from Kit's projects folder and a repository's .armada/projects, as Workspace files are read",
+      "piece": "ghost"
+     },
+     {
+      "id": "8",
+      "text": "Keep each project at one of the four places, This Mac by default, reusing run memory's places",
+      "piece": "ghost"
+     },
+     {
+      "id": "9",
+      "text": "At Fleet start, move Workspace files to projects and make each task list a project whose members are its tasks' repositories",
+      "piece": "ghost"
+     },
+     {
+      "id": "10",
+      "text": "Keep lifecycles, rules and autonomy pieces scoped to a project working, by its id",
+      "piece": "ghost"
+     },
+     {
+      "id": "11",
+      "text": "Grow list_projects: each project with members, place, file and values; drop /workspaces/all",
+      "piece": "ghost"
+     },
+     {
+      "id": "12",
+      "text": "Add create_project and edit_project; delete_project also removes the project's file",
+      "piece": "ghost"
+     },
+     {
+      "id": "13",
+      "text": "Add project to StartSession, keep it on the Job's record and serve it on the Job",
+      "piece": "ghost"
+     },
+     {
+      "id": "14",
+      "text": "Mirror the wire in packages/protocol and point Electron's Workspace reader at list_projects, the smallest change",
+      "piece": "ghost"
+     },
+     {
+      "id": "15",
+      "text": "Rewrite docs/concepts/project.md and the projects protocol page, and fix scope.md's 'None of the first row'",
+      "piece": "ghost"
+     },
+     {
+      "id": "16",
+      "text": "One resolver for behaviour keys: default, Machine, Kit, repository, Project, Job, each value with the layer it came from",
+      "piece": "ghost"
+     },
+     {
+      "id": "17",
+      "text": "Project values for pull request mode, auto merge, autonomy defaults, review model, Job layout, theme and density",
+      "piece": "ghost"
+     },
+     {
+      "id": "18",
+      "text": "A Job freezes its project's resolved values at start and runs on them",
+      "piece": "ghost"
+     },
+     {
+      "id": "19",
+      "text": "A project's tracker replaces its members' trackers for Jobs in it and for the project's issues",
+      "piece": "ghost"
+     },
+     {
+      "id": "20",
+      "text": "Serve each value with its layer for Settings, document the chain and close kit-machine-manifest-resolution-chain",
+      "piece": "ghost"
+     },
+     {
+      "id": "21",
+      "text": "get_review_lists takes a project and returns only its members' pull requests",
+      "piece": "ghost"
+     },
+     {
+      "id": "22",
+      "text": "An Operator rule's scope becomes a repository or a project; repository beats project beats everywhere",
+      "piece": "ghost"
+     },
+     {
+      "id": "23",
+      "text": "OperatorLearned carries the scope on the wire and in the TypeScript mirror, and Electron reads it",
+      "piece": "ghost"
+     },
+     {
+      "id": "24",
+      "text": "Move existing Always here rules across as repository-scoped",
+      "piece": "ghost"
+     },
+     {
+      "id": "25",
+      "text": "Show each new test failing without its change, then passing, through armada check test",
+      "piece": "ghost"
+     },
+     {
+      "id": "26",
+      "text": "Run vitest on touched files and --project 'desktop*', then pnpm format:check",
+      "piece": "ghost"
+     },
+     {
+      "id": "27",
+      "text": "Open each pull request, fix what is red, and merge on green with --merge --auto",
+      "piece": "ghost"
+     }
+    ],
+    "stops": [
+     {
+      "id": "pushed"
+     },
+     {
+      "id": "pr"
+     },
+     {
+      "id": "checks"
+     },
+     {
+      "id": "auto_merge"
+     }
+    ],
+    "forecast": [
+     "pushed",
+     "pr",
+     "checks",
+     "auto_merge"
+    ],
+    "quiet_since": "2026-11-10T19:59:00.543Z",
+    "stalled": false,
+    "workers": []
+   }
+  }
+ ]
+}

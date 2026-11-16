@@ -459,6 +459,10 @@ pub struct HostedFacts {
     /// its branch. `docs/concepts/session.md`, *Pausing a Session*. Since 23.92.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paused: Option<SessionPaused>,
+    /// The id of the Mac the Job is moving to, while its turn finishes and its branch is pushed.
+    /// `move_job_to_mac`. Absent once it has moved or the move failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moving_to_mac: Option<String>,
     /// Present while the Job waits for `begin_session`. Absent once it has begun, and for a Job
     /// that was never held.
     #[serde(default, skip_serializing_if = "Option::is_none")]

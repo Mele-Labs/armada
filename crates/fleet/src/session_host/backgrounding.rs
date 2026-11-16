@@ -3,7 +3,8 @@
 //!
 //! **Detected off the session's own stream, never reported.** The call that asked is remembered
 //! when it is heard (`Calls`), and the harness's `task_started` for it names the task and says it
-//! runs beside the turn; its status change and notice end it. A subagent's backgrounded command is
+//! runs beside the turn; its status change and notice end it, and so does the harness's list of what
+//! still runs once it stops naming the task. A subagent's backgrounded command is
 //! heard the same way, so it is the session's row too. A task whose call was not a shell command
 //! or a watch (a subagent, say) names no remembered call and so has no row, and an end for an id
 //! that never started here settles nothing.
@@ -86,7 +87,29 @@ where
                 self.hosts().of(id).state().check_calls.task_ended(task);
                 self.background_ended(id, task, *status, output.as_deref(), *exit).await;
             }
+            DroneEvent::BackgroundWork { outstanding } => self.background_listed(id, outstanding).await,
             _ => {}
+        }
+    }
+
+    /// The harness listed every task still running. **A standing row it does not name has ended**,
+    /// though neither of its end lines was heard: such a row would otherwise stand for the life of the
+    /// process and read the Job as working. Spent with no status, as nothing said how it ended. A row
+    /// whose end was heard is spent already, since the harness lists the set after the end lines.
+    async fn background_listed(&self, id: &str, outstanding: &[String]) {
+        let holder = Holder::session(id);
+        let now = self.now().as_str().to_string();
+        let changed = {
+            let mut store = self.store().lock().await;
+            let held = store.attachments_of(&holder).unwrap_or_default();
+            let mut changed = false;
+            for row in held.iter().filter(|one| one.kind == KIND && one.state == AttachmentState::Standing && !outstanding.contains(&one.target)) {
+                changed |= matches!(store.follow(row, AttachmentState::Spent, &row.detail, &now), Ok(true));
+            }
+            changed
+        };
+        if changed {
+            let _ = self.published_hosted(id).await;
         }
     }
 

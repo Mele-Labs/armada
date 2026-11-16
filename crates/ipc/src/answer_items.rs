@@ -20,7 +20,26 @@ pub struct ItemAnswer {
     pub item: String,
     pub how: ItemHow,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub notes: Vec<String>,
+    pub notes: Vec<ItemNote>,
+}
+
+/// One note of a verdict. A note from a card's note box has no `on`; one made on words of a page, or on a part of a
+/// sketch, names them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItemNote {
+    pub text: String,
+    /// Where the note sits. A quote blank after trimming counts as no `on`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<NoteOn>,
+}
+
+/// The words a note points at, and the block they are in.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NoteOn {
+    /// The words he marked, as the page shows them.
+    pub quote: String,
+    /// The page block's id, or the sketch part's id, the note sits on.
+    pub block: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,6 +1,7 @@
 //! The Phone Gateway's own routes on its loopback port, for Settings › Macs: `GET /admin/setup`,
 //! `POST /admin/setup/cloudflare`, `GET /admin/macs`, `POST /admin/macs/pair/{start,claim,confirm}`,
-//! `POST /admin/macs/forget`, `POST /admin/pair/{start,confirm,decline}`, `GET /admin/pair/pending`, `GET /admin/devices`
+//! `POST /admin/macs/forget`, `GET /admin/macs/found`, `POST /admin/macs/pair/ask`,
+//! `POST /admin/pair/{start,confirm,decline}`, `GET /admin/pair/pending`, `GET /admin/devices`
 //! and `DELETE /admin/devices/{id}` (`crates/pocket/src/routes.rs`).
 //!
 //! **Not Fleet's port, and not Fleet's errors.** The Gateway answers a refusal as a plain sentence, and refuses
@@ -16,7 +17,7 @@ use hyper::body::Bytes;
 use hyper::header::{CONTENT_TYPE, HOST};
 use hyper::Request;
 use hyper_util::rt::TokioIo;
-use ipc::{BuildSource, ClaimMacLink, CloudflareState, FleetBuildChanging, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairedPhone, Served, TailscaleState, UpdateMac};
+use ipc::{AskMacPair, BuildSource, ClaimMacLink, CloudflareState, FleetBuildChanging, FoundMac, GatewaySetup, Mac, MacColour, MacLink, MacNamed, MacPairLink, PairVouchedMac, PairedPhone, Served, TailscaleState, UpdateMac, VouchedMac, VouchedMacs};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tokio::net::TcpStream;
@@ -96,6 +97,12 @@ pub fn macs(cx: &App) -> Task<Result<Vec<Mac>, String>> {
     read("/admin/macs", "Macs", cx)
 }
 
+/// `GET /admin/macs/found`: his other Macs on the Cloudflare account, those Bonjour sees on this network and those his
+/// store lists, each with whether the store vouches for it.
+pub fn found(cx: &App) -> Task<Result<VouchedMacs, String>> {
+    read("/admin/macs/found", "VouchedMacs", cx)
+}
+
 pub fn devices(cx: &App) -> Task<Result<Vec<PairedPhone>, String>> {
     read("/admin/devices", "PairedPhones", cx)
 }
@@ -145,6 +152,18 @@ pub fn pair_claim(link: String, cx: &App) -> Task<Result<Mac, String>> {
 /// `POST /admin/macs/pair/confirm`: the Mac whose claim waits here, linked.
 pub fn pair_confirm(mac: String, cx: &App) -> Task<Result<Mac, String>> {
     posted("/admin/macs/pair/confirm", named(mac), "Mac", cx)
+}
+
+/// `POST /admin/macs/pair/ask`: ask the Mac with this tunnel to pair, with no link. Answers that Mac, waiting on its
+/// Confirm, with the four digits both show in its `why`.
+pub fn pair_ask(tunnel: String, cx: &App) -> Task<Result<Mac, String>> {
+    posted("/admin/macs/pair/ask", serde_json::to_string(&AskMacPair { tunnel }).ok(), "Mac", cx)
+}
+
+/// `POST /admin/macs/pair/vouched`: pair at once with the Mac `device` that his store `store` lists. Answers that Mac,
+/// linked, so there is no Confirm.
+pub fn pair_vouched(store: String, device: String, cx: &App) -> Task<Result<Mac, String>> {
+    posted("/admin/macs/pair/vouched", serde_json::to_string(&PairVouchedMac { store, device }).ok(), "Mac", cx)
 }
 
 /// `POST /admin/macs/forget`: the pairing forgotten here and on the other Mac.
@@ -252,16 +271,39 @@ pub struct MockGateway {
     pub refuse_update: Option<String>,
     /// Updates under way: the Mac, whether this Mac is the one that moves, and the reads left before the row is linked.
     updating: Vec<(String, bool, u8)>,
+    /// What `GET /admin/macs/found` lists, and the sentence it gives when the account could not be read.
+    pub found: Vec<VouchedMac>,
+    pub found_why: Option<String>,
+    /// Every tunnel `POST /admin/macs/pair/ask` took, in order.
+    pub asks: Vec<String>,
+    /// Every body `POST /admin/macs/pair/vouched` took, in order.
+    pub vouched_pairs: Vec<PairVouchedMac>,
 }
 
 /// This Mac's address under the domain the sign-in picks (`label_of` the Mac's name).
 const MOCK_ADDRESS: &str = "studio.example.com";
 /// The address Tailscale Funnel serves this Mac at.
 const MOCK_FUNNEL: &str = "https://studio.example.ts.net";
+/// This Mac's name in [`MockGateway::long_names`]: 50 characters.
+pub const LONG_THIS_MAC: &str = "Studio in the corner of the second floor west wing";
+/// A listed Mac's name there: 60 characters.
+pub const LONG_MAC: &str = "Work MacBook Pro that travels between the office and the lab";
+/// A Mac found nearby and not paired, there: 60 characters.
+pub const LONG_FOUND: &str = "Office iMac in the corner of the third floor east wing today";
+/// A Mac there on an older build, whose why runs under its name.
+pub const LONG_OLDER_MAC: &str = "Nick-Meles-MacBook-Pro---Kiavi";
+/// That Mac's build, the whole hash as Fleet sends it.
+pub const LONG_OLDER_BUILD: &str = "1d199a1f0c3e8b2a7d5e64f90b1c2d3e4f5a6b7c";
+/// The tunnel's address there: 90 characters.
+pub const LONG_ADDRESS: &str = "https://studio-in-the-second-floor-corner-of-the-north-office.tunnels.example.com/pairing/";
 /// A link Start made on another Mac, which the mock's Claim takes.
 pub const MOCK_OTHER_LINK: &str = "https://office.example.ts.net/pair/mac?code=7c41e0b2";
 /// The code in the link the mock's Start makes.
 const MOCK_CODE: &str = "5e0c1f7a";
+/// The store his vouched Macs are listed in.
+const MOCK_STORE: &str = "https://claims.example.com";
+/// The four digits both Macs show while a pairing the mock asked waits for Confirm.
+const MOCK_DIGITS: &str = "4821";
 /// The code the mock's phone pairing makes.
 const MOCK_PHONE_CODE: &str = "a41f09c2";
 /// The phone that enters it, from the second poll.
@@ -300,7 +342,42 @@ impl MockGateway {
             updates: Vec::new(),
             refuse_update: None,
             updating: Vec::new(),
+            found: Vec::new(),
+            found_why: None,
+            asks: Vec::new(),
+            vouched_pairs: Vec::new(),
         }
+    }
+
+    /// Macs found beside the paired ones: Work MacBook is paired and on this network; Office iMac is on this network;
+    /// MacBook Pro is on the account only and does not answer; Old iMac is asleep. Pair on Office iMac waits on its Confirm.
+    /// Studio mini is on this network on an older build, so its Pair is off until it updates. Home laptop is on the account
+    /// and his store lists it, so Pair pairs it at once; Den iMac is only in his store, with no tunnel to name.
+    pub fn nearby() -> MockGateway {
+        let found = |tunnel: &str, name: &str, colour: Option<MacColour>, online: bool, paired: bool, nearby: bool| FoundMac {
+            tunnel: tunnel.into(),
+            name: name.into(),
+            colour,
+            address: (!nearby).then(|| format!("{}.example.com", tunnel.trim_start_matches("armada-"))),
+            online,
+            paired,
+            build: Some("2930ac0".into()),
+            nearby,
+            older_build: false,
+        };
+        let plain = |mac: FoundMac| VouchedMac { mac, ..Default::default() };
+        let vouched = |mac: FoundMac, device: &str| VouchedMac { mac, vouched: true, store: Some(MOCK_STORE.into()), device: Some(device.into()) };
+        let mut gateway = MockGateway::new();
+        gateway.found = vec![
+            plain(found("armada-mac-work", "Work MacBook", Some(MacColour::Orange), true, true, true)),
+            plain(found("armada-mac-office", "Office iMac", Some(MacColour::Blue), true, false, true)),
+            plain(found("armada-mac-book-pro", "MacBook Pro", Some(MacColour::Teal), true, false, false)),
+            plain(found("armada-mac-old", "Old iMac", None, false, false, false)),
+            plain(FoundMac { build: Some("1d199a1".into()), older_build: true, ..found("armada-mac-studio-mini", "Studio mini", Some(MacColour::Green), true, false, true) }),
+            vouched(found("armada-mac-home", "Home laptop", Some(MacColour::Orange), true, false, false), "device-home"),
+            vouched(FoundMac { tunnel: String::new(), address: Some("den.example.com".into()), ..found("", "Den iMac", Some(MacColour::Blue), true, false, false) }, "device-den"),
+        ];
+        gateway
     }
 
     /// Two Macs on other builds: Mac mini on an older one, Mac Pro on a newer one, each with the Gateway's own why.
@@ -329,6 +406,35 @@ impl MockGateway {
             why: Some("Mac Pro runs a newer build. Nothing crosses until this Mac updates.".into()),
             ..Default::default()
         });
+        gateway
+    }
+
+    /// Names and an address far wider than any card: This Mac's is 50 characters, a Mac's on the list 60, and the
+    /// tunnel's address 90.
+    pub fn long_names() -> MockGateway {
+        let mut gateway = MockGateway::new();
+        // Fleet sends each build as its whole hash, and a Mac on another build carries its why.
+        gateway.macs[0].name = LONG_THIS_MAC.into();
+        gateway.macs[0].build = Some("50c0fd5f24078efc1e9f7b131fabdf2dd8282e71".into());
+        gateway.macs[1].name = LONG_MAC.into();
+        gateway.macs.push(Mac {
+            id: "mac-older-long".into(),
+            name: LONG_OLDER_MAC.into(),
+            colour: MacColour::Teal,
+            address: Some("older.example.com".into()),
+            build: Some(LONG_OLDER_BUILD.into()),
+            link: Some(MacLink::OlderBuild),
+            why: Some(format!("{LONG_OLDER_MAC} runs an older build. Nothing crosses until it updates.")),
+            ..Default::default()
+        });
+        let found = |tunnel: &str, name: &str, colour: MacColour, paired: bool| VouchedMac { mac: FoundMac { tunnel: tunnel.into(), name: name.into(), colour: Some(colour), online: true, paired, build: Some("2930ac0".into()), nearby: true, ..Default::default() }, ..Default::default() };
+        gateway.found = vec![found("armada-mac-work", LONG_MAC, MacColour::Orange, true), found("armada-mac-office", LONG_FOUND, MacColour::Blue, false)];
+        gateway.setup.served = Served::None;
+        gateway.setup.named = true;
+        gateway.setup.address = Some(LONG_ADDRESS.into());
+        gateway.setup.cloudflared = Some("2025.11.0".into());
+        gateway.setup.cloudflare = CloudflareState::Running { address: LONG_ADDRESS.into() };
+        gateway.drops = false;
         gateway
     }
 
@@ -487,6 +593,66 @@ impl MockGateway {
         }
         self.finish_updates();
         Ok(self.macs.clone())
+    }
+
+    pub fn read_found(&mut self) -> Result<VouchedMacs, String> {
+        self.up()?;
+        Ok(VouchedMacs { macs: self.found.clone(), why: self.found_why.clone() })
+    }
+
+    /// `POST /admin/macs/pair/ask`: a Mac on this network waits on its Confirm, with the four digits both show. One only
+    /// on the account does not answer, and one asleep has no address to ask. The Gateway's own sentences.
+    pub fn pair_ask(&mut self, tunnel: &str) -> Result<Mac, String> {
+        self.up()?;
+        self.asks.push(tunnel.to_string());
+        let Some(at) = self.found.iter().position(|one| one.mac.tunnel == tunnel) else {
+            return Err("That Mac is not on your Cloudflare account or on this network any more.".into());
+        };
+        let one = self.found[at].mac.clone();
+        if one.paired {
+            return Err(format!("{} is paired with this Mac already.", one.name));
+        }
+        if !one.online && !one.nearby {
+            return Err(format!("{} is not on this network and has no address on your domain. Pair with a link instead.", one.name));
+        }
+        if !one.nearby {
+            return Err(format!("{} did not answer. Check Armada is open there, then press Pair again.", one.name));
+        }
+        self.found[at].mac.paired = true;
+        let mac = Mac {
+            id: tunnel.trim_start_matches("armada-").to_string(),
+            name: one.name.clone(),
+            colour: one.colour.unwrap_or_default(),
+            build: one.build,
+            link: Some(MacLink::ConfirmWaiting),
+            why: Some(format!("Confirm on {} if it shows {MOCK_DIGITS}.", one.name)),
+            code: Some(MOCK_DIGITS.into()),
+            ..Default::default()
+        };
+        self.put_paired(mac.clone());
+        Ok(mac)
+    }
+
+    /// `POST /admin/macs/pair/vouched`: the Mac his store lists is linked at once, with no Confirm. The Gateway's own
+    /// sentences where the store no longer lists it, or the Mac does not answer.
+    pub fn pair_vouched(&mut self, asked: &PairVouchedMac) -> Result<Mac, String> {
+        self.up()?;
+        self.vouched_pairs.push(asked.clone());
+        let Some(at) = self.found.iter().position(|one| one.vouched && one.store.as_deref() == Some(asked.store.as_str()) && one.device.as_deref() == Some(asked.device.as_str())) else {
+            return Err("Your store does not list that Mac any more.".into());
+        };
+        let one = self.found[at].mac.clone();
+        if one.paired {
+            return Err(format!("{} is paired with this Mac already.", one.name));
+        }
+        if !one.online && !one.nearby {
+            return Err(format!("{} did not answer. Check Armada is open there, then press Pair again.", one.name));
+        }
+        self.found[at].mac.paired = true;
+        let id = if one.tunnel.is_empty() { asked.device.clone() } else { one.tunnel.trim_start_matches("armada-").to_string() };
+        let mac = Mac { id, name: one.name, colour: one.colour.unwrap_or_default(), address: one.address, build: one.build, link: Some(MacLink::Linked), ..Default::default() };
+        self.put_paired(mac.clone());
+        Ok(mac)
     }
 
     /// `POST /macs/update` on Fleet: 202, the restart has begun. The Mac is on the same build once the list has been
@@ -683,6 +849,36 @@ mod tests {
         assert_eq!(gateway.forget("mac-gone"), Err("No Mac is paired with that id.".into()));
         let mut bare = MockGateway::without_funnel();
         assert_eq!(bare.pair_start(), Err("Tailscale is not signed in on this Mac. Sign in to it, then start pairing again.".into()));
+    }
+
+    #[test]
+    fn pair_ask_waits_on_confirm_for_a_mac_nearby_and_is_refused_in_the_gateways_words_otherwise() {
+        let mut gateway = MockGateway::nearby();
+        let found = gateway.read_found().expect("read");
+        assert_eq!(found.macs.iter().filter(|one| !one.mac.paired).count(), 6);
+        assert_eq!(gateway.pair_ask("armada-mac-book-pro"), Err("MacBook Pro did not answer. Check Armada is open there, then press Pair again.".into()));
+        assert!(gateway.pair_ask("armada-mac-old").is_err_and(|said| said.contains("Pair with a link instead")));
+        assert_eq!(gateway.pair_ask("armada-mac-gone"), Err("That Mac is not on your Cloudflare account or on this network any more.".into()));
+        assert_eq!(gateway.pair_ask("armada-mac-work"), Err("Work MacBook is paired with this Mac already.".into()));
+        let asked = gateway.pair_ask("armada-mac-office").expect("ask");
+        assert_eq!((asked.link, asked.code.as_deref(), asked.why.as_deref()), (Some(MacLink::ConfirmWaiting), Some("4821"), Some("Confirm on Office iMac if it shows 4821.")));
+        assert!(gateway.read_found().expect("read").macs.iter().any(|one| one.mac.tunnel == "armada-mac-office" && one.mac.paired), "it is paired from then on");
+        assert!(ids(&mut gateway).contains(&"mac-office".to_string()));
+    }
+
+    #[test]
+    fn pair_vouched_links_the_mac_his_store_lists_at_once_and_is_refused_in_the_gateways_words_otherwise() {
+        let mut gateway = MockGateway::nearby();
+        let ask = |device: &str| PairVouchedMac { store: MOCK_STORE.into(), device: device.into() };
+        assert_eq!(gateway.pair_vouched(&ask("device-gone")), Err("Your store does not list that Mac any more.".into()));
+        assert_eq!(gateway.pair_vouched(&PairVouchedMac { store: "https://other.example.com".into(), device: "device-home".into() }), Err("Your store does not list that Mac any more.".into()));
+        let home = gateway.pair_vouched(&ask("device-home")).expect("pairs");
+        assert_eq!((home.id.as_str(), home.link.clone(), home.code), ("mac-home", Some(MacLink::Linked), None), "linked, so there is no Confirm");
+        assert_eq!(gateway.pair_vouched(&ask("device-home")), Err("Home laptop is paired with this Mac already.".into()));
+        let den = gateway.pair_vouched(&ask("device-den")).expect("a Mac with no tunnel pairs by its device");
+        assert_eq!(den.id, "device-den");
+        assert!(ids(&mut gateway).iter().any(|id| id == "mac-home") && ids(&mut gateway).iter().any(|id| id == "device-den"), "both are on the list");
+        assert_eq!(gateway.vouched_pairs.len(), 5, "every body is kept");
     }
 
     #[test]

@@ -272,3 +272,35 @@ async fn kit_values_are_saved_whole_and_a_word_the_key_does_not_take_is_a_422() 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_values_refused"), "{text}");
 }
+
+#[tokio::test]
+async fn a_projects_store_is_read_joined_and_deployed_on_its_own_routes() {
+    let (status, answer) = call("GET", "/projects/project/p7/store", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let state: ipc::ProjectStoreState = ipc::decode("project store", &answer).expect("a store state");
+    assert_eq!((state.project.as_str(), state.store, state.deploy), ("p7", None, ipc::StoreDeploy::TryTunnel));
+
+    let (status, answer) = call("POST", "/projects/project/p7/store", r#"{"store":{"address":"https://store.test","team":"mele-labs"}}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let state: ipc::ProjectStoreState = ipc::decode("project store", &answer).expect("a store state");
+    let store = state.store.expect("joined");
+    assert_eq!((store.address.as_str(), store.team.as_deref()), ("https://store.test", Some("mele-labs")));
+    let (status, answer) = call("POST", "/projects/project/p7/store", "{}").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(ipc::decode::<ipc::ProjectStoreState>("project store", &answer).expect("a store state").store, None, "an empty body is none");
+
+    let (status, answer) = call("POST", "/projects/project/p7/store/deploy", "{}").await;
+    assert_eq!(status, StatusCode::OK);
+    let text = String::from_utf8_lossy(&answer);
+    assert!(text.contains(r#""outcome":"needs_token""#) && text.contains("dash.example/tokens"), "{text}");
+    let (_, answer) = call("POST", "/projects/project/p7/store/deploy", r#"{"cloudflare_token":"t0k3n"}"#).await;
+    let deployed: ipc::StoreDeployed = ipc::decode("store deployed", &answer).expect("deployed");
+    assert!(matches!(&deployed, ipc::StoreDeployed::Deployed { state, .. } if state.store.as_ref().and_then(|store| store.worker.as_deref()) == Some("armada-store")));
+    assert!(!String::from_utf8_lossy(&answer).contains("t0k3n"), "the token is never answered back");
+
+    for (method, path) in [("GET", "/projects/project/nope/store"), ("POST", "/projects/project/nope/store"), ("POST", "/projects/project/nope/store/deploy")] {
+        let (status, text) = refused(method, path, "{}").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}");
+        assert!(text.contains("fleet.no_such_project"), "{text}");
+    }
+}

@@ -203,6 +203,30 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::SkipPreviewRefresh,
     ) -> impl Future<Output = Result<ipc::PreviewRefreshSkipped, Refusal>> + Send;
 
+    /// `mark_build_note_looked_at` — keep the note of this (branch, tip) looked at, and answer the notes now.
+    /// **Not `&self`**: telling the note's Job takes the `Arc` it is hosted by. [`Refusal::NotFound`] where no
+    /// note is kept for it.
+    fn mark_build_note_looked_at(
+        self: Arc<Self>,
+        asked: ipc::MarkBuildNoteLookedAt,
+    ) -> impl Future<Output = Result<ipc::BuildNotes, Refusal>> + Send;
+
+    /// `send_build_note_feedback` — the owner's words on a note, to its Job, or to a new Job started at once where
+    /// that one has ended. **Not `&self`**: sending to a Job and starting one take the `Arc` it is hosted by.
+    /// [`Refusal::NotFound`] where no note is kept; [`Refusal::Unacceptable`] for empty words.
+    fn send_build_note_feedback(
+        self: Arc<Self>,
+        asked: ipc::SendBuildNoteFeedback,
+    ) -> impl Future<Output = Result<ipc::BuildNoteFeedbackSent, Refusal>> + Send;
+
+    /// `answer_ready_to_try` — his answer on a Ready to try card: the note's verdict and what follows it, or a
+    /// time it comes back. **Not `&self`**: telling the Job and starting one take the `Arc` it is hosted by.
+    /// [`Refusal::NotFound`] where the thread holds no such card; [`Refusal::IllegalMove`] where it is settled.
+    fn answer_ready_to_try(
+        self: Arc<Self>,
+        asked: ipc::AnswerReadyToTry,
+    ) -> impl Future<Output = Result<ipc::ThreadReadyToTry, Refusal>> + Send;
+
     /// `swap_fleet_build` — start `builds/current/armada build swap` detached, so that it outlives
     /// the Fleet it stops and can swap back from one that does not answer, and answer that it has
     /// begun.

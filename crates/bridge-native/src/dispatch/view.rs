@@ -107,13 +107,13 @@ fn ringed(look: &Look, control: gpui::Stateful<gpui::Div>, on: bool, radius: Pix
 }
 
 impl DispatchSheet {
-    /// New Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
+    /// New Side Job in <project>: a card of its own under the sheet that starts what ⌘T starts. Tab from the
     /// sheet reaches it, and Enter or Space starts it. It names the repository the picker names, else the title bar's. None where the title bar names nowhere.
     fn here_card(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let name = self.here_in()?;
         let look = cx.look();
         let focused = self.here_key.is_focused(window);
-        let said = format!("New Job in {name}");
+        let said = format!("New Side Job in {name}");
         let hover = look.color(token::BG_HOVER);
         let card = div()
             .id("dispatch-here")
@@ -133,7 +133,7 @@ impl DispatchSheet {
                 }
                 cx.stop_propagation();
             }))
-            .tooltip(tip("Starts a Job with no workflow and opens its thread"))
+            .tooltip(tip("Starts a Side Job with no workflow and opens its thread"))
             .h(look.length(token::H_CONTROL_LG))
             .px(look.length(token::SPACE_4))
             .flex()
@@ -379,7 +379,9 @@ impl DispatchSheet {
         let asking = self.asking;
         let hue = look.color(token::STATUS_AWAITING_REVIEW);
         let off = !self.face.connected;
-        let chosen_name = self.face.chosen().map(|chip| chip.name.to_string());
+        let chosen_name = self.face.chosen().map(|chip| chip.label().to_string());
+        // A project's row names its repository after it, quiet, as its line in the list does.
+        let chosen_repository = self.face.chosen().filter(|chip| chip.project.is_some()).map(|chip| chip.name.clone());
         let reading = self.face.reading;
         let mark = {
             let ink = if asking {
@@ -393,7 +395,12 @@ impl DispatchSheet {
             let icon: gpui::AnyElement = if reading == Reading::Detecting {
                 spinner("dispatch-reading-spin", size, ink, cx).into_any_element()
             } else {
-                glyph("folder-git-2", size, ink).into_any_element()
+                // The switcher's glyphs: layers for a project, a branch for a repository in none.
+                let icon = match (&chosen_name, &chosen_repository) {
+                    (Some(_), None) => "git-branch",
+                    _ => "layers",
+                };
+                glyph(icon, size, ink).into_any_element()
             };
             labelled(
                 div().id("dispatch-reading").h(look.length(token::H_CONTROL)).px(look.length(token::SPACE_1)).flex().items_center().tooltip(tip(reading.tip())).child(icon),
@@ -401,8 +408,8 @@ impl DispatchSheet {
                 reading.name(chosen_name.as_deref()),
             )
         };
-        // The repository is one picker at the start of the band, as Model and Effort are: its list holds
-        // every repository with its key, and ⌥1 to ⌥9 still pick without opening it.
+        // The project is one picker at the start of the band, as Model and Effort are: its list holds his
+        // projects and every repository with its key, and ⌥1 to ⌥9 still pick without opening it.
         let chosen = chosen_name.is_some();
         let edge = if asking {
             hue
@@ -440,13 +447,18 @@ impl DispatchSheet {
                 .when(off, |pick| pick.opacity(0.5))
                 .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                 .child(mark)
-                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(chosen_name.clone().unwrap_or_else(|| "Repository".into()))))
+                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(chosen_name.clone().unwrap_or_else(|| "Project".into()))))
+                .children(chosen_repository.clone().map(|name| div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(name)))
                 .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))),
                 self.row.is_focused(window),
                 look.length(token::RADIUS_MD),
             ),
             Role::ComboBox,
-            chosen_name.as_ref().map_or("Repository".to_string(), |name| format!("Repository {name}")),
+            match (&chosen_name, &chosen_repository) {
+                (Some(name), Some(repository)) => format!("Project {name}, {repository}"),
+                (Some(name), None) => format!("Repository {name}"),
+                _ => "Project".to_string(),
+            },
         );
         // A start Fleet refused, in Fleet's words, on a line of its own over the band.
         let refusal = self.face.refused.clone().map(|why| {

@@ -1,24 +1,19 @@
-//! Work from outside a Job's own run, as Fleet hands it to the Operator and does what it rules: a
-//! report linked in the store to the open issue the call names, nothing handed while the Operator
-//! is off, an issue new only after the first read of its tracker, and a Later item handed over that
-//! no open issue covers is refused whatever the Operator is, so the Job settles it itself. A red main
-//! reaches it through the read that finds it, and a red a Job already holds never does.
+//! Work from outside a Job's own run, with the Operator's session not running: a report is told to nobody and
+//! stays where it is, an issue is new only after the first read of its tracker, and a Later item handed over
+//! that no open issue covers is refused whatever the Operator is, so the Job settles it itself. A red main
+//! reaches the Autopilot that finds it, and a red a Job already holds never does.
 
-use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use adapter_traits::{FromOutside, OpenIssue};
-use api::{HostedSessions, Sessions};
+use api::Sessions;
 use ipc::{AutopilotDecision, LaterHow, ReportBug, SessionId, SettleLater};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker, FakeTrackers};
 
 use super::autopilot_decisions::{rig_calling, started, SURE_OF_THE_FIRST};
 use super::autopilot_decisions_repository::{jobs_titled, red_main};
 use super::backlog::{machine, manifest};
-use super::session_host::{eventually, rig_fitted, Rig};
-use crate::operator::{Answering, Calling};
-use crate::CallFailed;
+use super::session_host::{rig_fitted, Rig};
 
 const SCROLLBACK: &str = "Terminal scrollback is lost when the pane redraws";
 
@@ -31,40 +26,19 @@ pub(super) async fn on(rig: &Rig) {
     switched(rig, "features.operator", true).await;
 }
 
-/// A call that answers each question with the next of its answers, and keeps what it was asked.
-#[derive(Default)]
-pub(super) struct Answers {
-    answers: Mutex<VecDeque<String>>,
-    asked: Mutex<Vec<String>>,
+/// A rig over beads, with the Operator on.
+pub(super) async fn filing() -> Rig {
+    let copy = Arc::new(FakeBeads::on(&FakeBeadsRemote::new()));
+    let rig = machine("north", &copy).await;
+    on(&rig).await;
+    rig
 }
 
-impl Answers {
-    pub(super) fn with(answers: &[&str]) -> Arc<Answers> {
-        Arc::new(Answers { answers: Mutex::new(answers.iter().map(|one| one.to_string()).collect()), asked: Mutex::new(Vec::new()) })
-    }
-
-    pub(super) fn asked(&self) -> Vec<String> {
-        self.asked.lock().expect("not poisoned").clone()
-    }
-}
-
-impl Calling for Answers {
-    fn ask(&self, question: String) -> Answering<'_> {
-        self.asked.lock().expect("not poisoned").push(question);
-        let answer = self.answers.lock().expect("not poisoned").pop_front();
-        Box::pin(async move { answer.ok_or(CallFailed::SaidNothing) })
-    }
-}
-
-/// A call that counts what it is asked and answers nothing.
-#[derive(Default)]
-struct Counting(AtomicUsize);
-
-impl Calling for Counting {
-    fn ask(&self, _question: String) -> Answering<'_> {
-        self.0.fetch_add(1, Ordering::SeqCst);
-        Box::pin(async move { Err(CallFailed::SaidNothing) })
-    }
+/// A Job asked `words`, its first message.
+pub(super) async fn asked(rig: &Rig, words: &str) -> SessionId {
+    let id = rig.start().await;
+    rig.send(&id, words).await;
+    id
 }
 
 /// A rig whose tracker lists issue #5, about the terminal's scrollback.
@@ -90,53 +64,19 @@ pub(super) async fn rulings(rig: &Rig) -> Vec<store::KeptRuling> {
 }
 
 #[tokio::test]
-async fn a_report_is_handed_on_the_tick_and_linked_in_the_store_to_the_open_issue_the_call_names() {
+async fn a_report_is_told_to_nobody_while_the_operators_session_is_not_running_and_stays_where_it_is() {
     let rig = rig_listing();
     on(&rig).await;
-    let call = Answers::with(&["item: 1\nway: 1\nissue: #5\nbecause: the same fault"]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start_titled(Some("Build the pane")).await;
     let report = reported(&rig, &id, "Terminal scrollback lost on redraw").await;
 
     rig.fleet.sources_handed().await;
-
-    eventually(|| async { rig.fleet.store().lock().await.bug_report_issue(&report).expect("read").is_some() }).await;
-    assert_eq!(rig.fleet.store().lock().await.bug_report_issue(&report).expect("read").as_deref(), Some("#5"));
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1);
-    for part in [
-        "An agent reported a bug, from its own agent: \"Terminal scrollback lost on redraw\"",
-        &format!("Open issues it may be: #5 \"{SCROLLBACK}\""),
-        // No live Job shares its words, so existing job is not offered.
-        "The ways it is offered: 1. link to an open issue; 2. new job; 3. raise\n",
-    ] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
-    let log = rulings(&rig).await;
-    assert_eq!(log.len(), 1, "{log:#?}");
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].issue.as_deref()), ("report", "link", Some("#5")));
-
-    // Handed again on the next tick, it is not ruled twice.
-    rig.fleet.sources_handed().await;
-    assert_eq!(call.asked().len(), 1);
-}
-
-#[tokio::test]
-async fn a_report_kept_while_the_operator_is_off_is_never_handed_even_once_it_is_on() {
-    let rig = rig_listing();
-    let counted = Arc::new(Counting::default());
-    assert!(rig.fleet.operator_seated_with(counted.clone()));
-    let id = rig.start_titled(Some("Build the pane")).await;
-    let report = reported(&rig, &id, "Terminal scrollback lost on redraw").await;
-
-    rig.fleet.sources_handed().await;
-    on(&rig).await;
     rig.fleet.sources_handed().await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-    assert_eq!(counted.0.load(Ordering::SeqCst), 0);
     assert!(rulings(&rig).await.is_empty());
     assert_eq!(rig.fleet.store().lock().await.bug_report_issue(&report).expect("read"), None);
+    assert_eq!(jobs_titled(&rig, "Terminal scrollback lost on redraw").await, 0, "no Job starts from a report");
 }
 
 fn listed(issues: &[(u64, &str)]) -> Vec<OpenIssue> {
@@ -144,32 +84,23 @@ fn listed(issues: &[(u64, &str)]) -> Vec<OpenIssue> {
 }
 
 #[tokio::test]
-async fn an_issue_is_new_only_after_the_first_read_and_is_raised_with_a_read() {
+async fn an_issue_is_new_only_after_the_first_read_and_one_assigned_is_not_new() {
     let rig = rig_listing();
     on(&rig).await;
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: a new fault in the usage meter, and no Job works on it"]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
     let seat = rig.fleet.operator_seat();
     let manifest = rig.manifest.as_str();
 
     seat.issues_read(manifest, &listed(&[(5, SCROLLBACK)]));
-    rig.fleet.sources_handed().await;
     let mut assigned = FakeTracker::issue(8, "Somebody's own work");
     assigned.assignees = vec![FromOutside::verbatim("someone")];
     let mut read = listed(&[(5, SCROLLBACK), (7, "Usage meter shows yesterday's tokens")]);
     read.push(assigned);
     seat.issues_read(manifest, &read);
     rig.fleet.sources_handed().await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1, "{asked:#?}");
-    for part in ["A new issue was filed, from the tracker: \"Usage meter shows yesterday's tokens\"", "The ways it is offered: 1. raise\n"] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
-    assert!(!asked[0].contains(SCROLLBACK) && !asked[0].contains("Somebody's own work"), "{}", asked[0]);
-    let log = rulings(&rig).await;
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].by.as_str()), ("issue", "raise", "operator"));
+    assert!(rulings(&rig).await.is_empty(), "nothing is ruled, and nothing starts");
+    assert_eq!(jobs_titled(&rig, "Usage meter shows yesterday's tokens").await, 0);
 }
 
 fn handing(id: &SessionId, which: &str) -> SettleLater {
@@ -177,21 +108,19 @@ fn handing(id: &SessionId, which: &str) -> SettleLater {
 }
 
 /// A rig over beads with Job "Build the pane", which keeps one Later item, and its id.
-async fn keeping_one(sentence: &str) -> (Rig, SessionId, Arc<Counting>) {
+async fn keeping_one(sentence: &str) -> (Rig, SessionId) {
     let remote = FakeBeadsRemote::new();
     let copy = Arc::new(FakeBeads::on(&remote));
     let rig = machine("north", &copy).await;
-    let counted = Arc::new(Counting::default());
-    assert!(rig.fleet.operator_seated_with(counted.clone()));
     let id = rig.start_titled(Some("Build the pane")).await;
     assert!(rig.fleet.later_kept(id.as_str(), &[sentence.to_string()], "2026-10-21T10:00:00.000Z").await);
-    (rig, id, counted)
+    (rig, id)
 }
 
 #[tokio::test]
 async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_job_settles_it_itself() {
     let sentence = "I will move the fixture loader into its own crate.";
-    let (rig, id, counted) = keeping_one(sentence).await;
+    let (rig, id) = keeping_one(sentence).await;
 
     let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused off");
     assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
@@ -201,7 +130,6 @@ async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_
     assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
     rig.fleet.sources_handed().await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
     assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
     let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
     assert!(!open.iter().any(|one| one.title.as_written() == sentence), "nothing is filed: {open:#?}");
@@ -210,44 +138,29 @@ async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_
     rig.fleet.settle_later(None, dropped).await.expect("the Job settles it itself");
 }
 
+/// The owner's ruling of 13 Nov 2026: a red main's fix Job starts at once, with no go-ahead to press.
 #[tokio::test]
-async fn a_red_main_autopilot_finds_is_asked_once_and_a_fix_starts_only_on_yes() {
+async fn a_red_main_starts_its_fix_at_once_with_the_operator_on_and_asks_nothing() {
     let (rig, judge) = rig_calling(SURE_OF_THE_FIRST);
     switched(&rig, "features.operator", true).await;
-    let call = Answers::with(&[]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
-    started(&rig, &[AutopilotDecision::Red]).await;
     let commit = "b".repeat(40);
     red_main(&rig, &commit).await;
     let item = format!("red:{}:{commit}", rig.manifest.as_str());
-    let in_turn = || async { rig.fleet.operator_page_wire().await.expect("page").turn.into_iter().filter(|one| one.item.id == item).collect::<Vec<_>>() };
 
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "the Operator has it, not Autopilot's own start");
-    eventually(|| async { in_turn().await.len() == 1 }).await;
-    assert!(judge.asked().is_empty(), "Autopilot makes no call of its own for a red");
-    assert_eq!(jobs_titled(&rig, "Fix main").await, 0, "nothing starts until he says yes");
-    let log = rulings(&rig).await;
-    assert!(log.iter().all(|row| row.outcome != "new_job" && row.outcome != "proposed_new_job"), "the ruling does not ask a second time: {log:#?}");
-
-    rig.fleet.decision_pass().await.expect("passed");
-    rig.fleet.decision_pass().await.expect("passed");
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    let waiting = in_turn().await;
-    assert_eq!(waiting.len(), 1, "one ask for each red commit");
-    assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
-
-    let press = ipc::operator_page::OperatorAnswerPress { id: waiting[0].id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None, option: None, project: None };
-    let answered = rig.fleet.operator_answered(press).await.expect("answered");
-    assert!(answered.started.is_some());
+    assert_eq!(rig.fleet.reds_fixed().await, 1);
     assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
+    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
+    rig.fleet.red_item_offered(&main).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let page = rig.fleet.operator_page_wire().await.expect("page");
+    assert!(!page.turn.iter().any(|one| one.item.id == item), "no go-ahead for a red a Job has");
+    assert!(judge.asked().is_empty(), "no call is made for a red");
 }
 
 #[tokio::test]
-async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
+async fn a_red_main_a_job_already_holds_starts_no_second_fix() {
     let (rig, _) = rig_calling(SURE_OF_THE_FIRST);
     switched(&rig, "features.operator", true).await;
-    let counted = Arc::new(Counting::default());
-    assert!(rig.fleet.operator_seated_with(counted.clone()));
     let holder = rig.start().await;
     started(&rig, &[AutopilotDecision::Red]).await;
     red_main(&rig, &"b".repeat(40)).await;
@@ -258,65 +171,6 @@ async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
     rig.fleet.decision_pass().await.expect("passed");
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
     assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
-}
-
-/// **A filed bug report is the Operator's own card**: kept for the Operator page and never on the
-/// reporting Job's list, it says which Job reported it and what goes wrong in the ruling's plain
-/// sentence, and its buttons name the outcome, with the reasoning as the first one's tooltip.
-#[tokio::test]
-async fn a_report_ruled_a_new_job_starts_the_job_at_once_and_asks_the_call_for_the_plain_sentence() {
-    let rig = rig_fitted(|_| {});
-    on(&rig).await;
-    rig.agents_start("at_once");
-    let title = "A document_approved gate closes on an approval of an older, unrelated page";
-    let call = Answers::with(&["item: 1\nway: 1\nplain: Approving one page can close a step that waits on another.\nbecause: no open issue is this fault and no live Job's plan covers it"]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
-    let id = rig.start_titled(Some("Native Rebuild Orchestrator")).await;
-    reported(&rig, &id, title).await;
-
-    rig.fleet.sources_handed().await;
-
-    eventually(|| async {
-        let store = rig.fleet.store().lock().await;
-        let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: None, text: None }).expect("read");
-        found.iter().any(|one| one.title.as_deref() == Some(title))
-    })
-    .await;
-    assert!(call.asked()[0].contains("plain:"), "the ruling is asked for the plain sentence");
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty(), "a new Job is started, not asked");
-}
-
-#[tokio::test]
-async fn a_go_ahead_to_fix_a_report_kept_before_new_jobs_started_by_themselves_still_names_what_becomes_of_it() {
-    let rig = rig_fitted(|_| {});
-    let plain = "Approving one page can close a step that waits on another.";
-    let kept = store::KeptSuggestion {
-        n: 1,
-        arrival: "report:r-1".into(),
-        arrived: "report".into(),
-        way: "new_job".into(),
-        session_id: String::new(),
-        manifest_id: rig.manifest.as_str().into(),
-        subject: "A gate closes on the wrong approval".into(),
-        words: String::new(),
-        group: None,
-        other_session: None,
-        shared: Vec::new(),
-        first_session: None,
-        step: None,
-        item: None,
-        pick: None,
-        because: "no open issue is this fault".into(),
-        what: None,
-        text: format!("Native Rebuild Orchestrator reported a Fleet bug: {plain}"),
-        raised_at: "2026-11-12T08:00:00.000Z".into(),
-    };
-    let items: Vec<ipc::WaitingItem> = crate::operator::suggestion_items(&[kept]).collect();
-    let [card] = &items[..] else { panic!("one card: {items:#?}") };
-    let labels: Vec<&str> = card.options.iter().map(|option| option.label.as_str()).collect();
-    assert_eq!(labels, ["Start a Job to fix it", "Leave it reported"]);
-    assert_eq!(card.options[0].description.as_deref(), Some("no open issue is this fault"));
 }

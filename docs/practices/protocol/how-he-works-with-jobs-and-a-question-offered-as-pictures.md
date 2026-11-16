@@ -74,6 +74,8 @@ A sketch, a window, or an image through `show_file`, the kinds `GET /sessions/sh
 Answering a sketch or taking it back does not make it newer, and showing a sketch or window again does.
 **A sketch or a window withdrawn is skipped**, so the card names the one before it, where the check counts it as shown.
 A sketch is withdrawn by `withdraw_sketch` or the person's Withdraw, a window by `withdraw_window` or the person's Dismiss.
+**The lead picture asks nothing of its own once the Job is done.**
+Where it is a sketch still put to him, `all_done` takes its `sketch:<title>` item off Needs you with no verdict, so the done card's End is his one press ([Waiting on the person](../../concepts/session/waiting-on-the-person.md)).
 
 ## What Fleet does with them
 

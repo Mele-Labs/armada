@@ -27,6 +27,30 @@ impl OtherMacs for FakeDaemon {
         Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
     }
 
+    async fn job_for_phone(&self, _job: &str) -> bool {
+        true
+    }
+
+    async fn run_for_phone(&self, _run_id: &str) -> bool {
+        true
+    }
+
+    async fn event_for_phone(&self, event: Event) -> Option<Event> {
+        Some(event)
+    }
+
+    async fn start_from_phone(&self, _start: &ipc::StartSession) -> Result<(), Refusal> {
+        Ok(())
+    }
+
+    async fn projects_for_phone(&self, projects: Projects) -> Projects {
+        projects
+    }
+
+    async fn manifests_for_phone(&self, manifests: Vec<ipc::ManifestSummary>) -> Vec<ipc::ManifestSummary> {
+        manifests
+    }
+
     async fn project_act_from_mac(&self, _sent: ProjectActFromMac) -> Result<Projects, Refusal> {
         Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
     }
@@ -119,4 +143,37 @@ impl OtherMacs for FakeDaemon {
     async fn hold_mac_claims(&self, claims: ipc::MacClaimsWaiting) -> Result<ipc::MacClaimsWaiting, Refusal> {
         Ok(claims)
     }
+
+    async fn share_job_terminal(self: Arc<Self>, asked: ipc::TerminalFromMac) -> Result<crate::TerminalShared, Refusal> {
+        Err(no_job(asked.session_id()))
+    }
+
+    async fn share_job_terminal_output(&self, which: ipc::TerminalOfJob) -> Result<crate::ObservedSessionRun, Refusal> {
+        Err(no_job(&which.session_id))
+    }
+
+    async fn move_job_to_mac(self: Arc<Self>, asked: ipc::MoveJobToMac) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&asked.session_id))
+    }
+
+    async fn move_from_mac(self: Arc<Self>, _mac: String, job: SessionId) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&job))
+    }
+
+    async fn arrive_from_mac(self: Arc<Self>, _mac: String, job: ipc::ArrivingJob) -> Result<ipc::SessionRecord, Refusal> {
+        Err(no_job(&job.record.id))
+    }
+
+    async fn move_settled_from_mac(self: Arc<Self>, _mac: String, settled: ipc::MoveSettled) -> Result<(), Refusal> {
+        Err(no_job(&settled.session_id))
+    }
+
+    async fn share_job_conversation(&self, _mac: String, job: SessionId, _from: u64) -> Result<Vec<u8>, Refusal> {
+        Err(no_job(&job))
+    }
+}
+
+/// Nothing is shared here, so every Job is answered as one that does not exist.
+fn no_job(job: &SessionId) -> Refusal {
+    Refusal::NotFound(ipc::WireError::raised("fleet.no_such_session", format!("No Job has the id {}.", job.as_str()), super::shapes::run_id()))
 }

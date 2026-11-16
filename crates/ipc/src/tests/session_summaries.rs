@@ -65,6 +65,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        operator: false,
         side_job: false,
         auto_land: false,
         activity: None,
@@ -79,6 +80,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
+        slot_wait: None,
         stopped: None,
         repairing: None,
         stop_told_by: None,
@@ -95,6 +97,8 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 
@@ -141,6 +145,7 @@ fn a_hosted_sessions_turn_is_working_or_idle() {
         running: true,
         commands: Vec::new(),
         paused: None,
+        moving_to_mac: None,
         start: None,
         start_failed: None,
     };

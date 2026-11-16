@@ -146,6 +146,10 @@ where
     pub(crate) fn signing_in(&self) -> &crate::signing_in::SigningIn {
         &self.signing_in
     }
+    /// What a project's store deploy reaches. See [`crate::store_deploy`].
+    pub(crate) fn deploying(&self) -> &crate::store_deploy::Deploying {
+        &self.deploying
+    }
     /// How a claim on a red main reaches the store. See [`crate::red_claim`].
     pub(crate) fn reaching(&self) -> &Arc<dyn crate::red_claim::Reaching> {
         &self.reaching
@@ -349,7 +353,19 @@ where
         &self.run
     }
     pub(crate) fn publish(&self, event: ipc::Event) {
+        // A Job's For you is read off its row, so a row that moved what it reads tells `session.for_you` after it.
+        let for_you = match &event {
+            ipc::Event::SessionChanged(record) => self.for_you_after(record),
+            _ => Vec::new(),
+        };
         self.events.publish(event);
+        for told in for_you {
+            self.events.publish(told);
+        }
+    }
+    /// The last print of each Job's For you, so `session.for_you` goes only where it moved.
+    pub(crate) fn for_you_prints(&self) -> &std::sync::Mutex<std::collections::HashMap<String, u64>> {
+        &self.for_you_prints
     }
 
     pub(crate) fn peers(&self) -> &Arc<dyn crate::peer::PeerOf> {
@@ -462,6 +478,9 @@ where
     }
     pub(crate) fn writes(&self) -> &Arc<crate::clashing::Writes> {
         &self.writes
+    }
+    pub(crate) fn job_claims(&self) -> &crate::job_claims::JobClaims {
+        &self.job_claims
     }
     pub(crate) fn feed(&self) -> &Arc<crate::test_map_feed::Feed> {
         &self.feed

@@ -1,0 +1,14 @@
+[operations.call_test_flaky]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Say a failing test Fleet asked about is flaky, with the log line that shows it, so Fleet claims it and starts its fix"
+notes = """
+`POST /sessions/call_test_flaky`, body `CallTestFlaky`: `test`, `log_line`, and optionally `session_id`. Answered with `TestCalledFlaky`: the `pull` request that now waits, and `said`, what Fleet did in the words it tells the Job. `docs/concepts/fleet.md`, *A test that fails the merge queue*, has the model.
+
+**Only after Fleet asked.** When the merge queue throws a pull request out on a failing test the pull request's change reaches, Fleet tells the Job "your change reaches this test" and claims nothing, so the Job's own fix is never blocked. The Job either fixes its code and pushes, or calls this with the line of the failing run's log that shows the test is flaky. Fleet then claims the test in the project's store, starts the one Job that fixes it whatever the Autopilot switch says, and the calling Job waits on that claim. Its pull request is queued again when the fix merges and main is green. A test another Job already holds is waited on with no second fix.
+
+**The caller is placed as `take_main_red` places it**: a hosted job by the connection, a terminal job by `session_id`. A call that places none, or names no log line, is refused with 422 `fleet.test_not_callable`. A test Fleet did not ask this job about is refused with 409 `fleet.test_not_asked`.
+
+`agent_access` is `Yes`: whether a failure is the change's or a flake is the job's to say, from the log.
+"""

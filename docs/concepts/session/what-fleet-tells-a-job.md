@@ -68,6 +68,10 @@ A terminal Job reports the files it wrote through the mod's `touched` fact, as p
 It names the slot and its branch, what the slot holds, and asks the Job to commit, push and release it.
 `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
+**A Job that reads a wire type a pull request changes is told which, and where.** When a pull request that changes `crates/ipc/src` enters the merge queue, Fleet sends each other live hosted Job whose branch reads a changed type one message: the pull request, then a line for each type with what changed and up to three `path:line` where the branch reads it.
+A Job told at the queue is told in one line at the merge.
+`docs/concepts/fleet.md`, *Telling the Jobs that read a wire type*.
+
 **A Job whose slot is far behind its base is told how far.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main.` A branch whose pull request has merged, is in the merge queue or has auto-merge on is not told.
 The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
 Only a checkout with commits the base does not have is told, the pool's own `ahead`: a branch level with an old base has nothing stale to push, as for a Job that only starts other Jobs.
@@ -82,7 +86,10 @@ Fleet never ends, forks or moves the Job for this, and a model change is only ev
 `where-the-tokens-went.md` has the rules and the words.
 
 **A Job can dispute a notice it thinks is wrong.** A hosted Job that finds Fleet's notice does not fit what it was doing calls `dispute_fleet` with `why`, the reason in a sentence.
-Fleet ties the dispute to the Job's latest message in Fleet's voice, keeps it, and the Job carries on.
+It may pass `notice_words`, the opening words of the notice as it read them, since it sees no row ids.
+Fleet ties the dispute to the newest message in Fleet's voice whose text holds those words, read without case and with runs of spaces as one, and to the latest such message where the Job named none or no message holds them; it keeps the dispute, and the Job carries on.
+**The mod's send-back is a notice too.** When the mod stops a turn from ending because its reply names what the owner owes and `waiting_for` lacks it, the mod tells Fleet the words it gave the agent (`sent_back`), and Fleet writes them to a hosted Job's thread as a `reply_claim` notice.
+The row starts no turn and sends the agent nothing, since the stop hook already gave it the words, so a dispute can name it and a count can join it to its disputes.
 A Job Fleet has told nothing, an ended Job and an empty `why` are refused.
 A terminal Job cannot dispute, because Fleet keeps no thread for it to tie the dispute to.
 `crates/ipc/operations/dispute_fleet.toml` has the operation.

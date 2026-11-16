@@ -24,7 +24,6 @@ use crate::CheckBudget;
 use crate::headroom::{Bytes, Headroom, Polling, Spare};
 use crate::judging::JudgeBudget;
 use crate::noticing::Noticing;
-use crate::ports::PortRange;
 use crate::slots::Concurrency;
 use crate::tests::tmp::TempDir;
 
@@ -124,10 +123,10 @@ pub fn fitted_over<V>(
         },
         // Reads no folder: the cases about adding a repository plant their own.
         locating: Arc::new(crate::tests::repositories::Planted::nothing()),
-        // Wide, and far from any port a test fixture or this machine's own
-        // services are likely to hold — no fixture here declares `ports:`, so
-        // nothing claims from it, and the one suite that does plants its own.
-        port_range: PortRange::of(41_000, 41_999, 8),
+        // A range of the case's own, below the ephemeral floor: a fixed one
+        // at 41_000 sat inside Linux's ephemeral band, where other tests'
+        // connections hold ports — armada-143c.
+        port_range: crate::tests::servers::a_range_of_its_own(),
         // The production default. No fixture here asserts on the sweep
         // window, so this is the number that ships rather than one invented
         // for the test.
@@ -218,6 +217,14 @@ pub fn fitted_over<V>(
         // Reaches nothing: a switch that is off never asks. `crate::tests::red_claim`
         // plants a store where the subject is a claim.
         reaching: Arc::new(crate::tests::red_claim::Planted::signed_out()),
+        // Cloudflare refuses every token and the Mac has no tunnel: `crate::tests::store_deploy` plants its own.
+        deploying: crate::store_deploy::Deploying {
+            cloudflare: Arc::new(testkit::FakeCloudflare::new()),
+            tokens: Arc::new(testkit::FakeCloudflareTokens::default()),
+            tunnel: Arc::new(|| None),
+            script: Arc::from("export default {};"),
+            token_page: "https://dash.example/tokens".to_string(),
+        },
         session_quiet: crate::session_host::SHIPPED_QUIET_TIMEOUT,
         // A real sender, reached only by a case that sends to a socket of its own, and secrets held
         // in memory: no fixture touches a keychain.

@@ -3,7 +3,9 @@
 // a bare code, or a code in this page's own address, is for the Mac that served the app.
 
 import { Refused, call, getJson, notAnswering } from "./client";
+import { addMac } from "./fleet";
 import type { Machine } from "./machines";
+import { subscribe } from "./push";
 import { hex } from "./signing";
 
 /** The name a phone offers for itself, from the user agent. */
@@ -81,7 +83,7 @@ export const deviceIdOf = (answer: unknown): string | undefined =>
       ).device_id
     : undefined;
 
-const generateKey = (): Promise<CryptoKeyPair> =>
+export const generateKey = (): Promise<CryptoKeyPair> =>
   crypto.subtle.generateKey(
     {
       name: "ECDSA",
@@ -167,4 +169,19 @@ export async function named(machine: Machine): Promise<Machine> {
       name: new URL(machine.origin).hostname.split(".")[0] ?? "",
     };
   }
+}
+
+/** What follows a pairing, a Confirm or a vouch: the Mac named, kept, and the phone's push subscription given to it with the rest. */
+export async function keepPaired(machine: Machine, held: readonly Machine[]): Promise<void> {
+  const kept = await named(machine);
+  await addMac(kept);
+  const all = held.map((one) => (one.origin === kept.origin ? kept : one));
+  void subscribe(
+    all.some((one) => one.origin === kept.origin)
+      ? all
+      : [
+          ...all,
+          kept,
+        ],
+  ).catch(() => undefined);
 }

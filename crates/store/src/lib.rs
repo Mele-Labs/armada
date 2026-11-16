@@ -54,6 +54,10 @@ mod waiting_compactions;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
 mod fleet_disputes;
 mod bug_reports;
+/// What a Job asked the Operator with `raise_conflict` and `ask_held`.
+mod job_asks;
+/// What the owner asked a Job on the side, kept beside its record and never in its thread.
+mod job_asides;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -84,6 +88,14 @@ mod job_renames;
 mod artifact_archives;
 /// The revisions of a Job's artifacts the person wrote, kept apart from their attachments.
 mod artifact_owner_revisions;
+/// The presses of the actions a Job's pages declare, kept apart from their attachments.
+mod page_presses;
+/// The casts of the votes a Job's pages declare, kept apart from their attachments.
+mod page_votes;
+/// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
+mod artifact_seen;
+/// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
+mod for_you;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -100,6 +112,8 @@ mod fleet_calls;
 mod preview_offers;
 /// The branches Jobs offer for the owner's preview, and the Refresh row he skipped.
 mod preview_offered;
+/// What each offered branch told the owner to look at, kept for the build he runs.
+mod build_notes;
 mod notice_mutes;
 /// The issue queries a person saved, per repository.
 mod issue_queries;
@@ -124,7 +138,10 @@ mod mac_acts;
 mod operator_rulings;
 mod operator_orders;
 mod operator_switches;
+mod operator_feed;
 mod operator_turn;
+/// The person's own answers to a Job's questions, which the Operator may follow.
+mod operator_answer;
 mod operator_suggestions;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
@@ -237,6 +254,8 @@ pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
+pub use job_asides::{aside_state, KeptAside};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
@@ -255,6 +274,10 @@ pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
 pub use artifact_archives::KeptArchive;
 pub use artifact_owner_revisions::KeptOwnerRevision;
+pub use page_presses::KeptPress;
+pub use page_votes::KeptVote;
+pub use artifact_seen::KeptArtifactSeen;
+pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -268,7 +291,8 @@ pub use plan_beads::KeptBead;
 pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
-pub use preview_offered::KeptPreviewOffered;
+pub use preview_offered::{KeptPreviewOffered, KeptStep};
+pub use build_notes::{KeptApproved, KeptBuildNote, KeptCard};
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     Edited, KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
@@ -288,7 +312,9 @@ pub use other_macs::{FromMac, KeptFromMac, KeptProjectAct};
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
 pub use operator_switches::KeptSwitch;
+pub use operator_feed::KeptFeed;
 pub use operator_turn::{KeptPage, KeptTurn};
+pub use operator_answer::KeptAnswer;
 pub use operator_suggestions::KeptSuggestion;
 pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;

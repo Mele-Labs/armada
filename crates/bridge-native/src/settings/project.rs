@@ -8,12 +8,16 @@
 //! `GET /projects/values` says came from Kit. **A kind of review falls through on its own** (#3504): a project sets
 //! only the kinds it names.
 
-use gpui::{div, prelude::*, svg, AnyElement, App, Context, FocusHandle, FontWeight, Pixels, Role, SharedString, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{canvas, div, point, prelude::*, px, svg, AnyElement, App, Context, FocusHandle, FontWeight, Pixels, Role, ScrollHandle, SharedString, Toggled, Window};
 use ipc::{LookSet, PrMode, Projects, ResolvedValues, ReviewsSet, ValueLayer, ValuesSet};
 
-use super::entries::Body;
+use super::entries::{self, Body};
 use super::overlay::{Picking, SettingsOverlay};
-use super::view::{bone, bounds_of, card, ringed, small, switch_track, tip};
+use super::rows::{says, segment, segment_track, split_row, rows_card, Pick, Row, SEGMENTS_MAX, SELECT_W};
+use super::view::{bone, bounds_of, ringed, small, switch_track, tip};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -113,19 +117,19 @@ impl Key {
 
     fn description(self) -> &'static str {
         match self {
-            Key::Delivery => "Your first answer in a project is kept",
-            Key::PrMode => "Draft or ready for review",
-            Key::AutoMerge => "When Fleet merges a pull request",
-            Key::Plans => "How the Operator reviews a plan",
-            Key::PullRequests => "How the Operator reviews a pull request",
-            Key::Walks => "How the Operator reviews a walk",
-            Key::ReviewModel => "The model an Operator review runs on",
-            Key::AgentStarts => "Whether they start at once or wait on your start card",
-            Key::Tracker => "This project only",
-            Key::Theme => "The colours Bridge is drawn in",
-            Key::Layout => "The layout mod Bridge arranges its panels by",
-            Key::Density => "How much room Bridge leaves around things",
-            Key::Shared => "Its Jobs can be seen and acted on from your other Macs",
+            Key::Delivery => "What a Job does with its branch when the work is done. Your first answer in a project is kept.",
+            Key::PrMode => "Whether a new pull request starts as a draft or ready for review.",
+            Key::AutoMerge => "When Fleet merges a pull request a Job opened.",
+            Key::Plans => "How the Operator reviews a plan before you do.",
+            Key::PullRequests => "How the Operator reviews a pull request before you do.",
+            Key::Walks => "How the Operator reviews a walk before you do.",
+            Key::ReviewModel => "The model an Operator review runs on.",
+            Key::AgentStarts => "Whether Jobs that a Job or the Operator starts begin at once or wait on your start card.",
+            Key::Tracker => "The issue tracker this project's Jobs read from. It is set for this project only.",
+            Key::Theme => "The colours Bridge is drawn in.",
+            Key::Layout => "The layout mod Bridge arranges its panels by.",
+            Key::Density => "How much room Bridge leaves around things.",
+            Key::Shared => "Its Jobs can be seen and acted on from your other Macs.",
         }
     }
 
@@ -139,7 +143,7 @@ impl Key {
     fn fixed(self) -> Vec<(String, String)> {
         let pairs: &[(&str, &str)] = match self {
             Key::Delivery => &[(ASK, "Ask each Job")],
-            Key::PrMode => &[("ready", "Ready for review"), ("draft", "Draft")],
+            Key::PrMode => &[("draft", "Draft"), ("ready", "Ready for review")],
             Key::AutoMerge => &[("never", "Never"), ("checks-pass", "When checks pass"), ("always", "Always")],
             Key::Plans | Key::PullRequests => &[("off", "Off"), ("review", "Review"), ("review_and_approve", "Review and approve")],
             Key::Walks => &[("off", "Off"), ("review", "Review")],
@@ -385,7 +389,52 @@ impl SettingsOverlay {
         if self.scope.every.is_none() || (self.scope.project.is_some() && self.scope.values.is_none()) {
             return Vec::new();
         }
-        self.grid_of(cx).into_iter().flatten().filter_map(|cell| self.scope.cells.get(&cell).cloned()).collect()
+        let mut chip = self.learned_here() && self.grid_of(cx).iter().flatten().any(|cell| cell.0 == Key::Delivery);
+        let mut stops = Vec::new();
+        for cell in self.grid_of(cx).into_iter().flatten() {
+            // The Learned chip is read before the value it is about.
+            if chip && cell.0 == Key::Delivery {
+                stops.push(self.scope.learned.clone());
+                chip = false;
+            }
+            stops.extend(self.scope.cells.get(&cell).cloned());
+        }
+        stops
+    }
+
+    /// Whether the page draws the Learned chip: the project's How work lands is the word Fleet learned from his first answer.
+    pub fn learned_here(&self) -> bool {
+        self.scope.project.is_some() && self.scope.values.as_ref().and_then(|own| own.delivery.as_ref()).is_some_and(|value| value.learned)
+    }
+
+    /// Take the keys to `at`'s value: Settings opens if it is shut, the project is picked, the page that holds the value
+    /// is shown and the value's cell has the keys, scrolled into view.
+    pub fn go_to(&mut self, at: SettingsAt, window: &mut Window, cx: &mut Context<Self>) {
+        let SettingsAt { project, key } = at;
+        let Some(entry) = entries::holding(key) else { return };
+        if !self.open {
+            self.show(project.clone(), false, window, cx);
+        } else {
+            if !self.query_text(cx).is_empty() {
+                self.query.update(cx, |query, cx| query.set_value("", window, cx));
+            }
+            if self.scope.project != project {
+                self.edit(project.clone(), window, cx);
+            }
+        }
+        self.picked = entry.id;
+        let column = if project.is_some() { Column::Own } else { Column::Every };
+        if let Some(handle) = self.scope.cells.get(&(key, column)) {
+            window.focus(handle, cx);
+        }
+        self.scope.reveal.set(Some(key));
+        cx.notify();
+    }
+
+    /// A press on the Learned chip: its value, in the project picked.
+    pub fn go_to_learned(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let at = SettingsAt { project: self.scope.project.clone(), key: Key::Delivery };
+        self.go_to(at, window, cx);
     }
 
     /// The cell holding the keys, if one does.
@@ -418,7 +467,7 @@ impl SettingsOverlay {
         let ticked = now.filter(|_| own);
         let options = self.options(cell.0, ticked.as_deref(), cx).into_iter().map(|(word, said)| (SharedString::from(said), ticked.as_deref() == Some(word.as_str()))).collect();
         let name = self.cell_name(cell);
-        let at = bounds_of(window, cx, Role::ComboBox, &name).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+        let at = bounds_of(window, cx, Role::ComboBox, &name).or_else(|| bounds_of(window, cx, Role::RadioGroup, &name)).map(|bounds| bounds.bottom_left()).unwrap_or_default();
         self.open_choice(Picking::Cell(cell.0, cell.1), name.into(), options, at, from_keys, window, cx);
     }
 
@@ -524,98 +573,72 @@ pub fn delete_sentence(name: &str, tasks: usize) -> String {
     }
 }
 
-/// Whether a page this wide lays its grid out in columns; narrower, each setting's words sit over its cells.
-fn wide(page: Pixels, columns: usize, look: &Look) -> bool {
-    let cell = look.length(token::W_MENU) + look.length(token::SPACE_4);
-    page >= look.length(token::W_GUIDE_LIST_MIN) + cell * columns as f32
-}
-
-/// The width a page's card holds inside, as the overlay is laid out now.
-fn page_inside(look: &Look, window: &Window, cx: &App) -> Pixels {
-    let room = crate::room::of(window, cx);
-    room.size.width * 0.9 - look.length(token::GAP_PANEL) * 3. - look.length(token::W_SETTINGS_INDEX) - look.length(token::PAD_CARD) * 2.
-}
-
-fn header(look: &Look, glyph: Option<&str>, said: String, accent: bool) -> gpui::Div {
-    let ink = if accent { look.color(token::ACCENT) } else { look.color(token::FG_MUTED) };
+/// A cell under its caption, where a project is picked and every project's value stands beside its own.
+fn captioned(look: &Look, caption: Option<(String, bool)>, cell: AnyElement) -> gpui::Div {
     div()
         .flex()
-        .items_center()
-        .gap(look.length(token::SPACE_2))
-        .min_w_0()
-        .pb(look.length(token::SPACE_2))
-        .border_b(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::BORDER_DEFAULT))
-        .text_size(look.length(token::TEXT_2XS))
-        .line_height(look.length(token::LEADING_2XS))
-        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-        .text_color(ink)
-        .children(glyph.map(|glyph| svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_3)).text_color(ink)))
-        .child(div().truncate().child(SharedString::from(said)))
+        .flex_col()
+        .gap(look.length(token::SPACE_1))
+        .children(caption.map(|(said, accent)| {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(if accent { look.color(token::ACCENT) } else { look.color(token::FG_SUBTLE) })
+                .child(svg().flex_none().path(icon_path(if accent { "layers" } else { "globe" })).size(look.length(token::SPACE_3)).text_color(if accent { look.color(token::ACCENT) } else { look.color(token::FG_SUBTLE) }))
+                .child(SharedString::from(said))
+        }))
+        .child(cell)
 }
 
-/// A page's grid of values, in a card under the page's name: every project beside the project picked, or every
-/// project's alone. Bones stand in its cells until both are read.
-pub fn grid(this: &SettingsOverlay, title: &str, description: Option<&str>, keys: &[Key], look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
+/// A page's values as rows in one card: each key's words at the left, and at the right its control, with the project
+/// picked beside every project where one is. Bones stand in the controls until both are read.
+pub fn grid(this: &SettingsOverlay, title: &str, keys: &[Key], look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
     let project = this.scope.project.clone();
-    let columns = if project.is_some() { 2 } else { 1 };
-    let wide = wide(page_inside(look, window, cx), columns, look);
-    let cell_w = look.length(token::W_MENU);
-    let gap = look.length(token::SPACE_4);
-    let place = |cell: gpui::Div| if wide { cell.flex_none().w(cell_w) } else { cell.flex_1().min_w_0() };
-    let mut heads = div().flex().gap(gap);
-    if wide {
-        heads = heads.child(header(look, None, "Setting".into(), false).flex_1());
-    }
-    heads = heads.child(place(header(look, Some("globe"), "Every project".into(), false)));
-    if let Some((_, name)) = &project {
-        heads = heads.child(place(header(look, Some("layers"), name.clone(), true)));
-    }
-    let rows = rows(keys, project.is_some()).into_iter().map(|key| {
-        let words = div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .min_w_0()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(key.title()))
-                    .children(learned(this, key, look)),
-            )
-            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(key.description()));
-        // Wide, the words are the row's first column; narrow, they sit over its cells.
-        let (mut cells, above) = if wide { (div().flex().items_center().gap(gap).child(words.flex_1()), None) } else { (div().flex().items_center().gap(gap), Some(words)) };
-        cells = cells.child(place(div().child(cell(this, (key, Column::Every), look, window, cx))));
-        if project.is_some() {
-            cells = cells.child(place(div().child(cell(this, (key, Column::Own), look, window, cx))));
+    let spread = this.spread(look, window, cx);
+    let rows = rows(keys, project.is_some()).into_iter().enumerate().map(|(n, key)| {
+        let mut cells = div().flex().flex_wrap().items_start().gap_x(look.length(token::SPACE_6)).gap_y(look.length(token::SPACE_3));
+        if key.every() {
+            let caption = project.as_ref().map(|_| ("Every project".to_string(), false));
+            cells = cells.child(captioned(look, caption, cell(this, (key, Column::Every), look, window, cx)));
         }
-        let row = div().id(SharedString::from(format!("values-row-{key:?}"))).flex().flex_col().gap(look.length(token::SPACE_2)).py(look.length(token::SPACE_3)).border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
-        let row = row.children(above).child(cells);
-        labelled(row, Role::Row, key.title()).into_any_element()
+        if let Some((_, name)) = &project {
+            cells = cells.child(captioned(look, Some((name.clone(), true)), cell(this, (key, Column::Own), look, window, cx)));
+        }
+        let row = Row {
+            id: SharedString::from(format!("values-row-{key:?}")),
+            title: key.title().into(),
+            tip: None,
+            chips: learned(this, key, look, window, cx).into_iter().collect(),
+            says: vec![says(look, key.description()).into_any_element()],
+            changed: false,
+            glyph: None,
+            control: cells.into_any_element(),
+        };
+        let line = split_row(look, spread, row, n == 0).when(this.scope.reveal.get() == Some(key), |line| line.child(reveal(this.scope.page_scroll.clone(), Rc::clone(&this.scope.reveal), key)));
+        labelled(line, Role::Row, key.title()).into_any_element()
     });
     let refused = this.scope.refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("values-refused"), Role::Alert, said).into_any_element());
     let shared_refused = this.scope.share_refused.clone().map(|said| labelled(super::view::refusal(look, said.clone()).id("project-shared-refused"), Role::Alert, said).into_any_element());
-    let table = labelled(div().id(SharedString::from(format!("values-grid-{title}"))).flex().flex_col().child(heads).children(rows), Role::Table, title.to_string());
-    let mut body: Vec<AnyElement> = Vec::new();
-    if let Some(description) = description {
-        body.push(small(look, description, look.color(token::FG_MUTED)).into_any_element());
+    let table = labelled(rows_card(look, SharedString::from(format!("values-grid-{title}")), rows.collect()), Role::Table, title.to_string());
+    if refused.is_none() && shared_refused.is_none() {
+        return table.into_any_element();
     }
-    body.push(table.into_any_element());
-    body.extend(refused);
-    body.extend(shared_refused);
-    labelled(card(look, SharedString::from(format!("values-card-{title}")), title, None, body), Role::Region, title.to_string()).into_any_element()
+    div().flex().flex_col().gap(look.length(token::SPACE_2)).child(table).children(refused).children(shared_refused).into_any_element()
 }
 
-/// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer.
-fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> {
-    let own = this.scope.values.as_ref().filter(|_| key == Key::Delivery && this.scope.project.is_some())?;
-    own.delivery.as_ref().filter(|value| value.learned)?;
+/// "Learned" beside how work lands, while the project's word is the one Fleet learned from his first answer. A press
+/// on it, or Enter, takes the keys to the value it is about, so he can change it where he disagrees.
+fn learned(this: &SettingsOverlay, key: Key, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Option<AnyElement> {
+    if key != Key::Delivery || !this.learned_here() {
+        return None;
+    }
     let ink = look.color(token::STATUS_AWAITING_REVIEW);
     let chip = div()
         .id("value-learned-Delivery")
+        .track_focus(&this.scope.learned)
         .flex_none()
         .px(look.length(token::SPACE_2))
         .rounded_full()
@@ -625,22 +648,74 @@ fn learned(this: &SettingsOverlay, key: Key, look: &Look) -> Option<AnyElement> 
         .text_size(look.length(token::TEXT_2XS))
         .line_height(look.length(token::LEADING_2XS))
         .text_color(ink)
+        .cursor_pointer()
+        .hover(|chip| chip.bg(ink).text_color(look.color(token::BG_RAISED)))
         .tooltip(tip(LEARNED_WHY))
+        .on_click(cx.listener(|this, _, window, cx| this.go_to_learned(window, cx)))
         .child("Learned");
-    Some(labelled(chip, Role::Image, format!("Learned: {LEARNED_WHY}")).into_any_element())
+    Some(labelled(ringed(look, chip, &this.scope.learned, window), Role::Button, LEARNED_NAME).into_any_element())
 }
 
-const LEARNED_WHY: &str = "Fleet learned this from your first answer";
+const LEARNED_WHY: &str = "Fleet learned this from your first answer. Press to change it";
+const LEARNED_NAME: &str = "Learned: How work lands";
 
-/// A page of values: its grid under its name.
-pub fn render(this: &SettingsOverlay, page: Page, label: &str, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> Vec<AnyElement> {
-    vec![grid(this, label, Some(page.description()), page.keys(), look, window, cx)]
+/// Scrolls the page the least that shows the row this fills, once, then lets go of the request. It waits while the page
+/// has not been laid out.
+fn reveal(page: ScrollHandle, pending: Rc<Cell<Option<Key>>>, key: Key) -> impl IntoElement {
+    canvas(
+        move |bounds, window, _| {
+            let view = page.bounds();
+            if pending.get() != Some(key) || view.size.height == Pixels::ZERO {
+                return;
+            }
+            pending.set(None);
+            let mut by = Pixels::ZERO;
+            if bounds.bottom() > view.bottom() {
+                by = bounds.bottom() - view.bottom();
+            }
+            if bounds.top() - by < view.top() {
+                by = bounds.top() - view.top();
+            }
+            if by == Pixels::ZERO {
+                return;
+            }
+            let offset = page.offset();
+            page.set_offset(point(offset.x, (offset.y - by).max(-page.max_offset().y).min(Pixels::ZERO)));
+            window.refresh();
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+}
+
+/// A value to take the keys to: the page that holds it, with `project` picked in the Editing picker, or every project.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SettingsAt {
+    pub project: Editing,
+    pub key: Key,
+}
+
+impl SettingsAt {
+    /// How work lands, in `project`'s column, or every project's.
+    pub fn delivery(project: Editing) -> SettingsAt {
+        SettingsAt { project, key: Key::Delivery }
+    }
+}
+
+/// A page of values: its band, then its rows.
+pub fn page(this: &SettingsOverlay, entry: &'static super::entries::Entry, page: Page, look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
+    let who = this.scope.project.as_ref().map_or("every project".to_string(), |(_, name)| name.clone());
+    let card = grid(this, entry.label, page.keys(), look, window, cx);
+    this.rows_page(entry, format!("{}, for {who}.", page.description()).into(), false, Vec::new(), vec![card], look, window, cx)
 }
 
 /// One cell: a control that opens its choices, an empty place where every project has none, the share switch, or
 /// a bone while its values are read.
 fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, window: &Window, cx: &Context<SettingsOverlay>) -> AnyElement {
-    let tall = look.length(token::H_CONTROL_LG);
+    let tall = look.length(token::H_CONTROL);
     if column == Column::Every && !key.every() {
         return div().h(tall).into_any_element();
     }
@@ -654,7 +729,7 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
         Column::Every => this.scope.every.as_ref(),
         Column::Own => this.scope.values.as_ref(),
     };
-    let Some(values) = values else { return bone(look, look.length(token::W_GUIDE_LIST_MIN), tall).into_any_element() };
+    let Some(values) = values else { return bone(look, px(SELECT_W), tall).into_any_element() };
     let Some(focus) = this.scope.cells.get(&(key, column)) else { return div().into_any_element() };
     // Nothing below the project sets it: the default's word, muted. A repository's or this Mac's word is shown and
     // cannot be changed here.
@@ -673,9 +748,72 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     let off = !this.live || this.scope.saving.is_some() || lock.is_some();
     let name = this.cell_name((key, column));
     let ink = if same || off || defaulted { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) };
+    let tooltip = (column == Column::Every && picked).then(|| lock.unwrap_or(if defaulted { "Armada's default" } else { "Changes every project" }));
+    let clear = set.then(|| {
+        let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
+        let clear = div()
+            .id(SharedString::from(format!("value-clear-{key:?}")))
+            .flex_none()
+            .size(look.length(token::SPACE_4))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(look.length(token::RADIUS_SM))
+            .when(!off, |clear| clear.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
+            .tooltip(tip(format!("Clears {project}'s value, so it follows every project again")))
+            .child(svg().path(icon_path("x")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
+            .when(!off, |clear| {
+                clear.on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.clear_cell(key, window, cx);
+                }))
+            });
+        labelled(clear, Role::Button, format!("Clear {} for {project}", key.title()))
+    });
+    let options = this.options(key, word.as_deref(), cx);
+    // What this Mac has, such as models, themes and layouts, grows, so it is a dropdown however few there are.
+    let open_ended = matches!(key, Key::ReviewModel | Key::Theme | Key::Layout);
+    if !open_ended && !options.is_empty() && options.len() <= SEGMENTS_MAX {
+        // Up to three words are segments: the word in force raised, in the accent where it is set at this layer.
+        let strong = !same && !defaulted && lock.is_none();
+        let mut track = segment_track(look, SharedString::from(format!("value-{key:?}-{column:?}"))).track_focus(focus);
+        for (n, (option, option_said)) in options.iter().enumerate() {
+            let on = word.as_deref() == Some(option.as_str());
+            let pick = match (on, strong) {
+                (true, true) => Pick::Set,
+                (true, false) => Pick::Muted,
+                (false, _) => Pick::No,
+            };
+            let press = option.clone();
+            let segment = segment(look, SharedString::from(format!("value-{key:?}-{column:?}-{n}")), option_said.clone().into(), pick, off)
+                .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                .when(!off && !(on && strong), |segment| {
+                    segment.on_click(cx.listener(move |this, _, window, cx| {
+                        if let Some(handle) = this.scope.cells.get(&(key, column)) {
+                            window.focus(handle, cx);
+                        }
+                        this.write_cell((key, column), Some(press.clone()), window, cx);
+                    }))
+                });
+            track = track.child(labelled(segment, Role::RadioButton, option_said.clone()));
+        }
+        let track = ringed(look, track, focus, window).when_some(tooltip, |track, said| track.tooltip(tip(said)));
+        let beside = if same { Some(said.clone()) } else if defaulted { Some("Armada's default".to_string()) } else { lock.map(String::from) };
+        return div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .h(tall)
+            .child(labelled(track, Role::RadioGroup, name))
+            .children(beside.filter(|beside| !beside.is_empty()).map(|beside| small(look, beside, look.color(token::FG_SUBTLE))))
+            .children(clear)
+            .into_any_element();
+    }
     let control = div()
         .id(SharedString::from(format!("value-{key:?}-{column:?}")))
         .track_focus(focus)
+        .flex_none()
+        .w(px(SELECT_W))
         .flex()
         .items_center()
         .gap(look.length(token::SPACE_2))
@@ -696,32 +834,12 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
             }
         })
         .when(!off, |control| control.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.open_cell((key, column), false, window, cx))))
-        .when(column == Column::Every && picked, |control| control.tooltip(tip(lock.unwrap_or(if defaulted { "Armada's default" } else { "Changes every project" }))))
+        .when_some(tooltip, |control, said| control.tooltip(tip(said)))
         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)));
-    let control = if set {
-        let project = this.scope.project.as_ref().map(|(_, name)| name.clone()).unwrap_or_default();
-        let clear = div()
-            .id(SharedString::from(format!("value-clear-{key:?}")))
-            .flex_none()
-            .size(look.length(token::SPACE_4))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(look.length(token::RADIUS_SM))
-            .when(!off, |clear| clear.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-            .tooltip(tip(format!("Clears {project}'s value, so it follows every project again")))
-            .child(svg().path(icon_path("x")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
-            .when(!off, |clear| {
-                clear.on_click(cx.listener(move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.clear_cell(key, window, cx);
-                }))
-            });
-        control.child(labelled(clear, Role::Button, format!("Clear {} for {project}", key.title())))
-    } else if lock.is_some() {
-        control
-    } else {
-        control.child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE)))
+    let control = match clear {
+        Some(clear) => control.child(clear),
+        None if lock.is_some() => control,
+        None => control.child(svg().flex_none().path(icon_path("chevron-down")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
     };
     labelled(ringed(look, control, focus, window), Role::ComboBox, name).into_any_element()
 }
@@ -917,5 +1035,123 @@ mod tests {
         assert_eq!(shared_of(&projects, "api"), Some(false));
         assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");
         assert_eq!(shared_of(&projects, "none"), None);
+    }
+
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::super::mock::MockFleet;
+    use super::super::wire::Wire;
+
+    /// Settings over the mock Fleet, shut, on a page that is not the one a learned value is on.
+    fn shut(cx: &mut TestAppContext) -> (gpui::Entity<SettingsOverlay>, &mut VisualTestContext, (String, String)) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let armada = crate::mock::projects().projects.first().map(|one| (one.id.clone(), one.name.clone())).expect("the mock Fleet's first project");
+        let (overlay, cx) = cx.add_window_view(|window, cx| SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        (overlay, cx, armada)
+    }
+
+    fn learned_at(armada: &(String, String)) -> SettingsAt {
+        SettingsAt { project: Some(armada.clone()), key: Key::Delivery }
+    }
+
+    #[gpui::test]
+    fn a_learned_chip_opens_settings_on_its_page_with_its_project_picked_and_its_row_focused(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert!(this.open, "Settings opened from shut");
+            assert_eq!(this.scope.project.as_ref(), Some(&armada), "the project it is about is in the Editing picker");
+            assert_eq!(this.picked, "values:pull-requests", "the page that holds How work lands");
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)), "its row has the keys, in the project's column");
+            assert!(this.learned_here(), "and the chip is drawn on it");
+        });
+    }
+
+    #[gpui::test]
+    fn a_link_from_another_page_and_project_changes_both_and_leaves_no_search_in_the_way(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.show(None, false, window, cx)));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            overlay.update(cx, |this, cx| {
+                this.pick("kit:models", cx);
+                this.query.update(cx, |query, cx| query.set_value("models", window, cx));
+                this.go_to(learned_at(&armada), window, cx);
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert_eq!((this.scope.project.as_ref(), this.picked), (Some(&armada), "values:pull-requests"));
+            assert_eq!(this.query_text(cx), "", "a search that hid the page is cleared");
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)));
+        });
+    }
+
+    #[gpui::test]
+    fn the_learned_chip_is_a_stop_just_before_how_work_lands_and_enter_on_it_takes_the_keys_there(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        let stops = cx.update(|_, cx| overlay.read(cx).grid_stops(cx));
+        let (chip, every, own) = cx.update(|_, cx| {
+            let this = overlay.read(cx);
+            (this.scope.learned.clone(), this.scope.cells[&(Key::Delivery, Column::Every)].clone(), this.scope.cells[&(Key::Delivery, Column::Own)].clone())
+        });
+        assert_eq!(stops.iter().take(3).collect::<Vec<_>>(), [&chip, &every, &own], "Tab reaches the chip, then the value in every project, then the project's");
+        cx.update(|window, cx| window.focus(&chip, cx));
+        cx.simulate_keystrokes("enter");
+        cx.update(|window, cx| assert_eq!(overlay.read(cx).cell_focused(window), Some((Key::Delivery, Column::Own)), "Enter followed the link"));
+    }
+
+    #[gpui::test]
+    fn the_chip_is_drawn_only_for_a_project_whose_word_was_learned(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(learned_at(&armada), window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert!(overlay.read(cx).learned_here()));
+        cx.update(|_, cx| {
+            overlay.update(cx, |this, _| {
+                if let Some(value) = this.scope.values.as_mut().and_then(|own| own.delivery.as_mut()) {
+                    value.learned = false;
+                }
+            })
+        });
+        cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "a word he set, or changed, is not learned"));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(None, window, cx)));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "every project has none"));
+    }
+
+    #[gpui::test]
+    fn a_line_in_the_thread_that_asks_the_app_for_settings_at_delivery_opens_it_on_its_project_with_its_row_focused(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let armada = crate::mock::projects().projects.first().map(|one| (one.id.clone(), one.name.clone())).expect("the mock Fleet's first project");
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let under = cx.new(|_| gpui::Empty);
+            crate::settings::SettingsScreen::mock(under.into(), window, cx)
+        });
+        cx.update(|_, cx| {
+            let sink = cx.try_global::<crate::titlebar::AskedSink>().cloned().expect("Settings listens for what a line asks");
+            (sink.0)(&crate::titlebar::Asked::SettingsAt(SettingsAt::delivery(Some(armada.clone()))), cx);
+        });
+        cx.run_until_parked();
+        let overlay = screen.read_with(cx, |screen, _| screen.overlay.clone());
+        cx.update(|window, cx| {
+            let this = overlay.read(cx);
+            assert!(this.open, "Settings opened");
+            assert_eq!((this.scope.project.as_ref(), this.picked), (Some(&armada), "values:pull-requests"));
+            assert_eq!(this.cell_focused(window), Some((Key::Delivery, Column::Own)));
+        });
     }
 }

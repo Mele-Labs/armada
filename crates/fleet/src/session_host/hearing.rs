@@ -508,6 +508,14 @@ where
             self.moved_into(id, late).await;
             return;
         }
+        // A move to another Mac waits for the same: the turn over and the agents it started ended.
+        if !working {
+            let taken = runtime.state().mac_move_taken();
+            if let Some(mac) = taken {
+                self.carried_to_mac_apart(id, mac);
+                return;
+            }
+        }
         let _ = self.published_hosted(id).await;
         if runtime.state().queued > 0 {
             self.next_turn_awaited(id, runtime);

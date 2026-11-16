@@ -11,6 +11,7 @@ tools/nli-spike/target/
 # Node
 node_modules/
 dist/
+!apps/store/dist/
 out/
 .vite/
 # What `tsc` leaves beside the screens package's tsconfig: rebuilt on every

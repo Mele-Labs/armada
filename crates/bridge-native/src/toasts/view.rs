@@ -15,15 +15,15 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
+    div, prelude::*, AnyElement, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
     Stateful, Subscription, WeakEntity, Window,
 };
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
 use ipc::JobState;
-use ipc::CallTone;
+use ipc::{AgentSignIn, CallTone};
 
-use super::{Ended, FleetNotice, Shelf, Toast, Urgency};
+use super::{Ended, FleetNotice, NoticeAct, Shelf, Toast, Urgency};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -36,6 +36,8 @@ use crate::titlebar::parts::{glyph, icon_button, sans, tip};
 
 /// A toast's width: its three presses on one line, keys and all.
 const WIDTH: f32 = 400.;
+/// How many cards peek out under the newest one in the pile.
+const PEEK_DEPTH: usize = 2;
 
 /// The most toasts the history file keeps.
 const KEPT: usize = 200;
@@ -50,11 +52,127 @@ struct Live(WeakEntity<Toasts>, AnyWindowHandle);
 
 impl Global for Live {}
 
+/// Whether he is reading an artifact with everything else faded away: what the Operator raised waits for him to finish.
+#[derive(Default)]
+struct Reading(bool);
+
+impl Global for Reading {}
+
+/// He began or finished reading in the focus view. The Operator's toasts and its rulings stay held, and draw when he is done;
+/// Fleet's states and the presses Fleet did not take show all the same.
+pub fn reading(on: bool, cx: &mut App) {
+    if cx.try_global::<Reading>().map_or(on, |now| now.0 != on) {
+        cx.set_global(Reading(on));
+        if let Some(toasts) = cx.try_global::<Live>().map(|live| live.0.clone()) {
+            cx.defer(move |cx| {
+                if let Some(toasts) = toasts.upgrade() {
+                    toasts.update(cx, |_, cx| cx.notify());
+                }
+            });
+        }
+    }
+}
+
 /// Fleet's states as the title bar last read them, drawn as urgent toasts above the Operator's.
 #[derive(Default)]
 struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
+
+/// The words of the agents' signed-out toast, and of its banner when no window is in front.
+const SIGNED_OUT_NEXT: &str = "Jobs stop at their next reply until it signs in again.";
+
+/// The account as the toast names it: Fleet's word for it, or the agent where Fleet does not say.
+fn account_said(account: &str) -> &str {
+    if account.is_empty() {
+        "The agent"
+    } else {
+        account
+    }
+}
+
+/// The toast's and the banner's headline: the account, with its name as Fleet sends it, is signed out.
+fn signed_out_said(account: &str) -> String {
+    format!("{} is signed out", account_said(account))
+}
+const SIGNING_IN_NEXT: &str = "Finish signing in in your browser.";
+
+/// Whether `now` begins a signed-out spell `was` did not hold. **The state found on connecting is not
+/// news** (`was` is `None`), as Classic's `AgentSignInNotice` seeds it: the toast stands, the banner does not post.
+fn signed_out_news(was: Option<&AgentSignIn>, now: &AgentSignIn) -> bool {
+    match (was, &now.signed_out_since) {
+        (Some(was), Some(since)) => was.signed_out_since.as_ref() != Some(since),
+        _ => false,
+    }
+}
+
+/// The agents' sign-in as Fleet last said, drawn as a held state beside Fleet's own. `None` until Fleet has
+/// answered.
+#[derive(Default)]
+struct SignedOut(Option<AgentSignIn>);
+
+impl Global for SignedOut {}
+
+/// The toast while the agents' account is signed out: no close, red edge, and Sign in or its ring. It goes when the agent
+/// answers again (`session_host::signed_out`).
+fn signed_out_notice(cx: &App) -> Option<FleetNotice> {
+    let state = cx.try_global::<SignedOut>().and_then(|kept| kept.0.clone()).filter(|state| state.signed_out_since.is_some())?;
+    Some(FleetNotice {
+        id: "agent-sign-in",
+        headline: signed_out_said(&state.account).into(),
+        next: if state.signing_in { SIGNING_IN_NEXT } else { SIGNED_OUT_NEXT }.into(),
+        code: "",
+        fault: true,
+        act: Some(NoticeAct::SignIn { running: state.signing_in, account: state.account.into() }),
+    })
+}
+
+/// A held state's press: Sign in, or the ring while the browser is open.
+fn notice_act(act: NoticeAct, look: &Look) -> gpui::AnyElement {
+    use gpui::AnimationExt as _;
+    match act {
+        NoticeAct::SignIn { running: true, .. } => labelled(
+            div()
+                .id("toast-signing-in-row")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .child(glyph("loader-circle", look.length(token::SPACE_3), look.color(token::FG_MUTED)).with_animation(
+                    "toast-signing-in",
+                    gpui::Animation::new(look.duration(token::DURATION_PULSE)).repeat(),
+                    |mark, at| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(at))),
+                ))
+                .child("Signing in"),
+            Role::Status,
+            "Signing in",
+        )
+        .into_any_element(),
+        NoticeAct::SignIn { running: false, account } => labelled(
+            press("toast-sign-in", "Sign in".into(), Some("user"), None, Weight::JobPick, look)
+                .tooltip(tip(format!("Opens {}'s sign-in in your browser", if account.is_empty() { "the agent" } else { account.as_ref() })))
+                .on_click(|_, _, cx| sign_in_pressed(cx)),
+            Role::Button,
+            "Sign in",
+        )
+        .into_any_element(),
+    }
+}
+
+/// Sign in: Fleet runs the agent's own sign-in, which opens his browser, as Classic's press does. Fleet's
+/// `agent_sign_in.changed` draws the ring. With no Fleet (a mock) the ring is drawn here.
+fn sign_in_pressed(cx: &mut App) {
+    let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) else { return };
+    match toasts.read(cx).page.read(cx).fleet().cloned() {
+        Some(fleet) => crate::jobs::send_bare(fleet.read(cx).held().port(), "/agent/sign_in", cx),
+        None => {
+            let running = cx.try_global::<SignedOut>().and_then(|kept| kept.0.clone()).map(|state| AgentSignIn { signing_in: true, ..state });
+            cx.set_global(SignedOut(running));
+            toasts.update(cx, |_, cx| cx.notify());
+        }
+    }
+}
 
 /// What a told toast's Retry does again.
 pub type Retry = Rc<dyn Fn(&mut App)>;
@@ -123,12 +241,30 @@ pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
     let key = rulings.last().map_or(1, |one| one.key + 1);
     rulings.push(Raised { key, way: news.way, job, sentence: sentence.into() });
     cx.set_global(Rulings(rulings));
-    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
-        toasts.update(cx, |toasts, cx| {
-            toasts.unseen = true;
-            cx.notify();
-        });
-    }
+    ring(cx);
+}
+
+/// A button on a Job's page started a Job: a toast says it, as the Operator's start does, and a press on it opens the Job.
+pub fn job_started(job: &str, sentence: impl Into<SharedString>, cx: &mut App) {
+    let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let key = rulings.last().map_or(1, |one| one.key + 1);
+    rulings.push(Raised { key, way: DispatchWay::Started, job: Some(job.to_string()), sentence: sentence.into() });
+    cx.set_global(Rulings(rulings));
+    ring(cx);
+}
+
+/// The bell says a ruling is new. Deferred, because a caller may be inside the toasts' own update, as their
+/// `Dispatched` subscriber is, and updating them again there is gpui's double lease panic (14 Nov crash).
+fn ring(cx: &mut App) {
+    let Some(toasts) = cx.try_global::<Live>().map(|live| live.0.clone()) else { return };
+    cx.defer(move |cx| {
+        if let Some(toasts) = toasts.upgrade() {
+            toasts.update(cx, |toasts, cx| {
+                toasts.unseen = true;
+                cx.notify();
+            });
+        }
+    });
 }
 
 /// What the Operator did, in bare words: the Job by its title, and for a question the title or what he sent.
@@ -235,6 +371,8 @@ pub struct Toasts {
     file: Option<PathBuf>,
     /// How far the pile stands above its corner so it clears a message box drawn under it.
     lift: gpui::Pixels,
+    /// The pointer is over the pile, so it fans out into a column.
+    fanned: bool,
     _subs: Vec<Subscription>,
 }
 
@@ -255,15 +393,28 @@ impl Toasts {
             cx.subscribe_in(&page, window, |this, _, arrived: &Arrived, window, cx| this.arrived(&arrived.0, window, cx)),
             cx.observe(&page, |this, page, cx| this.page_moved(&page, cx)),
         ];
+        // A mock scenario with no Fleet stands signed out, so the toast can be looked at.
+        // Its state is a fixture, as Fleet would send it, so the account's name is not spelled here.
+        let mock = crate::mock::scenario_is("agent-signed-out")
+            .then(|| ipc::decode::<AgentSignIn>("AgentSignIn", include_bytes!("../../fixtures/agent-signed-out.json")).ok())
+            .flatten();
+        cx.set_global(SignedOut(mock));
         // What the Operator did with a dispatch is said as a toast, from the same Fleet the page reads.
         if let Some(fleet) = page.read(cx).fleet().cloned() {
-            subs.push(cx.subscribe(&fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
-                for one in &done.0 {
-                    dispatched(one.clone(), cx);
-                }
-            }));
+            // The agents' sign-in, from the same Fleet: one account signs every Job in or out.
+            cx.set_global(SignedOut(fleet.read(cx).held().agent_sign_in.clone()));
+            subs.push(cx.observe_in(&fleet, window, |this, fleet, window, cx| this.sign_in_moved(&fleet, window, cx)));
+            subs.push(Self::hear_dispatches(&fleet, cx));
         }
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), _subs: subs }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, _subs: subs }
+    }
+
+    fn hear_dispatches(fleet: &Entity<crate::fleet::FleetConnection>, cx: &mut Context<Self>) -> Subscription {
+        cx.subscribe(fleet, |_, _, done: &crate::fleet::Dispatched, cx| {
+            for one in &done.0 {
+                dispatched(one.clone(), cx);
+            }
+        })
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -534,22 +685,29 @@ impl Toasts {
     /// when the state does. Copy debug info is on the Fleet popover.
     fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
         let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
+        // The agents' sign-in is the agent's state, not Fleet's, and carries no code.
+        let (mark, source): (&str, SharedString) = match &notice.act {
+            Some(NoticeAct::SignIn { account, .. }) => ("bot", if account.is_empty() { "Agent".into() } else { account.clone() }),
+            None => ("server-off", "Fleet".into()),
+        };
         let head = div()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(glyph("server-off", look.length(token::SPACE_4), edge))
-            .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Fleet"))
-            .child(
-                div()
-                    .px(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .bg(edge)
-                    .text_color(look.color(token::FG_INVERSE))
-                    .font_family(crate::titlebar::parts::mono(look))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .child(notice.code),
-            );
+            .child(glyph(mark, look.length(token::SPACE_4), edge))
+            .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(source))
+            .when(!notice.code.is_empty(), |head| {
+                head.child(
+                    div()
+                        .px(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .bg(edge)
+                        .text_color(look.color(token::FG_INVERSE))
+                        .font_family(crate::titlebar::parts::mono(look))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .child(notice.code),
+                )
+            });
         let body = div()
             .flex_1()
             .min_w_0()
@@ -560,7 +718,8 @@ impl Toasts {
             .py(look.length(token::SPACE_3))
             .child(head)
             .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(notice.headline.clone()))
-            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()));
+            .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(notice.next.clone()))
+            .children(notice.act.clone().map(|act| div().flex().justify_end().pt(look.length(token::SPACE_1)).child(notice_act(act, look))));
         labelled(
             div()
                 .id(SharedString::from(format!("toast:{}", notice.id)))
@@ -580,6 +739,25 @@ impl Toasts {
             Role::Alert,
             format!("Toast: {}", notice.headline),
         )
+    }
+
+    /// Fleet moved: where the agents' sign-in changed it is drawn, and a spell just begun marks the bell and,
+    /// with no window in front, posts a banner, as an urgent toast does.
+    fn sign_in_moved(&mut self, fleet: &Entity<crate::fleet::FleetConnection>, window: &mut Window, cx: &mut Context<Self>) {
+        let held = fleet.read(cx).held();
+        let Some(now) = held.agent_sign_in.clone() else { return };
+        let was = cx.try_global::<SignedOut>().and_then(|kept| kept.0.clone());
+        if was.as_ref() == Some(&now) {
+            return;
+        }
+        if signed_out_news(was.as_ref(), &now) {
+            self.unseen = true;
+            if held.notifications && !window.is_window_active() {
+                crate::banner::post("agent-sign-in", &signed_out_said(&now.account), SIGNED_OUT_NEXT, crate::notify::sound_of(CallTone::Blocked));
+            }
+        }
+        cx.set_global(SignedOut(Some(now)));
+        cx.notify();
     }
 
     /// A sentence the app was told: the failed edge, the sentence, Retry where it has one, and its close.
@@ -833,16 +1011,31 @@ impl Render for Toasts {
             self.lift = lift;
             window.request_animation_frame();
         }
-        let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
+        // On the Operator's page no toast of the Operator's is drawn: the page holds each item. Fleet's
+        // states and the presses Fleet did not take still show.
+        let on_page = self.screen.upgrade().is_some_and(|screen| screen.read(cx).front == Front::Operator);
+        if on_page {
+            self.shelf.hush();
+        }
+        let reading = cx.try_global::<Reading>().is_some_and(|now| now.0);
+        let shown: Vec<Toast> = if reading { Vec::new() } else { self.shelf.shown().into_iter().cloned().collect() };
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
-        let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
+        let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default().into_iter().chain(signed_out_notice(cx)).collect();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the Operator did with his dispatches, each until he presses it or closes it.
-        let ruled: Vec<Raised> = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+        let ruled: Vec<Raised> = if on_page || reading { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
-        let stack = div()
+        let mut cards: Vec<AnyElement> = Vec::new();
+        cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));
+        cards.extend(told.iter().map(|one| self.told_toast(one, look, cx).into_any_element()));
+        cards.extend(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx).into_any_element()));
+        cards.extend(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx).into_any_element()));
+        // A pile: only the newest card stands in full, the ones under it peek out above it, and a pointer over the pile fans them out.
+        let fanned = self.fanned || cards.len() < 2;
+        let mut stack = div()
+            .id("toast-pile")
             .absolute()
             .top(look.length(token::H_TITLE_BAR) + look.length(token::SPACE_2))
             .right(look.length(token::SPACE_6))
@@ -852,10 +1045,24 @@ impl Render for Toasts {
             .justify_end()
             .overflow_hidden()
             .gap(look.length(token::SPACE_3))
-            .children(fleet.iter().map(|notice| self.fleet_toast(notice, look)))
-            .children(told.iter().map(|one| self.told_toast(one, look, cx)))
-            .children(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx)))
-            .children(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx)));
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if this.fanned != *hovered {
+                    this.fanned = *hovered;
+                    cx.notify();
+                }
+            }));
+        if fanned {
+            stack = stack.children(cards);
+        } else {
+            let front = cards.pop();
+            // The nearest card under the front peeks least, and the farthest is painted first so the nearest sits on top.
+            let behind: Vec<AnyElement> = cards.into_iter().rev().take(PEEK_DEPTH).collect();
+            for (depth, card) in behind.into_iter().enumerate().rev() {
+                let offset = look.length(token::SPACE_2) * (depth + 1) as f32;
+                stack = stack.child(div().absolute().bottom(offset).right(offset / 2.).w(gpui::px(WIDTH)).child(card));
+            }
+            stack = stack.children(front);
+        }
         div()
             .absolute()
             .top_0()
@@ -990,4 +1197,100 @@ mod ruling_tests {
         assert_eq!(said, "Operator asks about Retry the webhook sender on a 503 and keep the d...");
         assert_eq!(about("one line\nsecond"), "one line");
     }
+
+    /// 14 Nov: a dispatch from the sheet came back as `Dispatched`, and the toasts' own subscriber updated the
+    /// toasts again from inside their update, which gpui aborts on.
+    #[gpui::test]
+    fn a_dispatch_heard_while_the_toasts_are_up_rings_the_bell_without_a_panic(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
+        let toasts = cx.update(|window, cx| Toasts::mount(&page, WeakEntity::new_invalid(), window, cx));
+        let fleet = cx.update(|_, cx| cx.new(crate::fleet::FleetConnection::idle));
+        let heard = cx.update(|_, cx| toasts.update(cx, |_, cx| Toasts::hear_dispatches(&fleet, cx)));
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::Dispatched(vec![news(DispatchWay::Started, Some("Fix the build"))])));
+        cx.run_until_parked();
+        toasts.read_with(cx, |toasts, _| assert!(toasts.unseen, "the bell says a ruling is new"));
+        let said = cx.update(|_, cx| cx.global::<Rulings>().0.iter().map(|one| one.sentence.to_string()).collect::<Vec<_>>());
+        assert_eq!(said, ["Operator started Fix the build"]);
+        drop(heard);
+    }
 }
+
+#[cfg(test)]
+mod sign_in_tests {
+    use super::*;
+
+    fn out(since: &str) -> AgentSignIn {
+        AgentSignIn { signed_out_since: Some(ipc::Instant::carried(since)), ..AgentSignIn::default() }
+    }
+
+    #[test]
+    fn a_signed_out_spell_is_news_once_and_never_on_connecting() {
+        let signed_in = AgentSignIn::default();
+        // Found signed out on connecting: the toast stands, no banner.
+        assert!(!signed_out_news(None, &out("09:00")));
+        // Signed out after being signed in: news.
+        assert!(signed_out_news(Some(&signed_in), &out("09:00")));
+        // The same spell again, as signing in starts: not news.
+        let signing = AgentSignIn { signing_in: true, ..out("09:00") };
+        assert!(!signed_out_news(Some(&out("09:00")), &signing));
+        // Signed back in: not news; a new spell later is.
+        assert!(!signed_out_news(Some(&out("09:00")), &signed_in));
+        assert!(signed_out_news(Some(&out("09:00")), &out("11:30")));
+    }
+}
+
+#[cfg(test)]
+mod reading_tests {
+    use super::*;
+
+    struct Root(Entity<Toasts>);
+
+    impl Render for Root {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            crate::labels::label_root(div().size_full().child(self.0.clone()))
+        }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some()))
+    }
+
+    #[gpui::test]
+    fn while_he_reads_the_operators_toasts_wait_and_fleets_states_still_show(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            at_rest(cx);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx))
+        });
+        cx.update(|_, cx| {
+            dispatched(OperatorDispatched { dispatch_id: "d".into(), manifest_id: "armada".into(), way: DispatchWay::Started, session_id: None, title: Some("Fix the build".into()) }, cx);
+            fleet(vec![FleetNotice { id: "slow", headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None }], cx);
+        });
+        let redraw = |cx: &mut gpui::VisualTestContext| {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        };
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "a ruling shows while he is not reading");
+        cx.update(|_, cx| reading(true, cx));
+        redraw(cx);
+        redraw(cx);
+        assert!(!drawn(cx, Role::Button, "Operator started Fix the build"), "it waits while he reads");
+        assert!(drawn(cx, Role::Alert, "Toast: Fleet is slow"), "a state of Fleet still shows");
+        cx.update(|_, cx| reading(false, cx));
+        redraw(cx);
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "and it shows when he is done");
+    }
+}
+

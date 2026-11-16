@@ -35,3 +35,47 @@ fn needs_you_with_only_a_plan_opens_the_plan() {
 fn switching_jobs_keeps_each_place() {
     plays("jobs-switching");
 }
+
+/// A value Fleet learned shows a Learned chip that takes the keys to its setting, and Fleet's line in a Job's thread
+/// about how its work lands has a link that opens Settings on that project's How work lands.
+#[test]
+fn a_learned_value_and_the_thread_line_about_it_link_to_the_setting() {
+    plays("native-learned-links");
+}
+
+/// The Fleet panel on Fleet's build report: Running, Waiting, Refresh and its sentence, Update to main, Keep.
+#[test]
+fn the_fleet_panel_says_what_runs_and_what_refresh_builds() {
+    plays("build-switcher-live");
+}
+
+/// Offers for the preview stand under Waiting by their Job's title, and Refresh and Skip act on them.
+#[test]
+fn the_fleet_panel_names_each_offer_by_its_job() {
+    plays("native-preview-offers");
+}
+
+/// Add a branch opens the branches on origin; a plus puts one above the search, and Swap follows.
+#[test]
+fn add_a_branch_opens_the_branches_on_origin() {
+    plays("native-build-origin");
+}
+
+/// The Disk row at the panel's foot opens the section with its meter and floors.
+#[test]
+fn the_disk_row_opens_its_section() {
+    plays("native-fleet-disk");
+}
+
+/// Two Jobs selected with ⇧↓ move into Storefront from the row's menu, and the Job's own menu takes one out to no project.
+#[test]
+fn two_selected_jobs_move_into_a_project_and_one_moves_out() {
+    plays("native-move-job-to-project");
+}
+
+/// For you lists what waits on the Job's owner, what it is building and what is landing; the keys move over the rows,
+/// Option Down moves a waiting row, Enter opens one and Backspace withdraws it.
+#[test]
+fn for_you_lists_three_sections_and_its_keys_move_open_and_withdraw_a_row() {
+    plays("native-for-you");
+}

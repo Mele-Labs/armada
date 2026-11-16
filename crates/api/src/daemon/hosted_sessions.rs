@@ -23,6 +23,17 @@ pub struct StoredFile {
     pub bytes: Vec<u8>,
 }
 
+/// One kept revision of a page, sealed, as `get_artifact_page` serves it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SealedPage {
+    /// The revision served: the one asked, else the newest.
+    pub revision: u32,
+    /// The whole page, its policy the first child of its `<head>`.
+    pub html: String,
+    /// The same policy, for the `Content-Security-Policy` header.
+    pub policy: String,
+}
+
 pub trait HostedSessions: Send + Sync + 'static {
     /// `start_session`. The row exists and holds no slot and no branch; no
     /// process starts until the first message.
@@ -202,29 +213,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         later: ipc::operator_page::OperatorLater,
     ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
 
-    /// `get_operator_board`: what the Operator is ruling on, what waits and what it settled.
-    fn get_operator_board(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
-    /// `move_on_operator_board`: one press reorders what waits. [`Refusal::NotFound`] where the item,
-    /// or the one it goes before, is not waiting. Answers the board.
-    fn move_on_operator_board(
-        self: Arc<Self>,
-        moved: ipc::operator_board::MoveOnOperatorBoard,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
-
     /// `report_bridge_error`: an error Bridge showed the person, handed to the Operator. Never refused for
     /// the Operator being off: it is let go and `repeated` is `false`.
     fn report_bridge_error(
         self: Arc<Self>,
         error: ipc::operator_errors::ReportBridgeError,
     ) -> impl Future<Output = Result<ipc::operator_errors::BridgeErrorTaken, Refusal>> + Send;
-
-    /// `answer_operator_suggestion`: one press on a suggestion no Job holds. [`Refusal::NotFound`] where
-    /// none has that id, [`Refusal::IllegalMove`] where it is settled already. Answers the board.
-    fn answer_operator_suggestion(
-        self: Arc<Self>,
-        answer: ipc::operator_board::AnswerOperatorSuggestion,
-    ) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 
     /// `confirm_operator_order`: the person presses to have an order stand. [`Refusal::Unacceptable`]
     /// while the Operator is off, or where the form names what Fleet does not know.
@@ -450,6 +444,66 @@ pub trait HostedSessions: Send + Sync + 'static {
         edit: ipc::SaveArtifactEdit,
     ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
 
+    /// `press_page_action`: his press of an action a page's kept revision declares, run as a message, a start or an
+    /// answer, and kept. Answers with the press. [`Refusal::Unacceptable`] for an action the revision does not hold,
+    /// an act off the list, an ask no longer open, or a page archived or not held.
+    fn press_page_action(
+        self: Arc<Self>,
+        press: ipc::PressPageAction,
+    ) -> impl Future<Output = Result<ipc::PagePress, Refusal>> + Send;
+
+    /// `cast_page_vote`: his vote on a vote a page's kept revision declares, sent to the Job with every note and
+    /// kept. Answers with the cast. [`Refusal::Unacceptable`] for a vote the revision does not hold, a result of
+    /// another form, a take or part the vote does not hold, or a page archived or not held.
+    fn cast_page_vote(
+        self: Arc<Self>,
+        cast: ipc::CastPageVote,
+    ) -> impl Future<Output = Result<ipc::VoteCast, Refusal>> + Send;
+
+    /// `add_part`: the Job puts one more part on the artifact that still asks him, or makes one. `caller` places a
+    /// hosted session as `show_sketch`'s does. Answers with the row. [`Refusal::Unacceptable`] for a part that breaks a
+    /// rule, naming each, or a call that places no session.
+    fn add_part(
+        &self,
+        caller: Option<crate::Caller>,
+        add: ipc::AddPart,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
+    /// `answer_part`: he answers one asking part of an artifact on its own, and the Job is told as his message.
+    /// Answers with the artifact. [`Refusal::IllegalMove`] for a part put again since he read it,
+    /// [`Refusal::Unacceptable`] for one not open to an answer, a way the part does not take, or a send back with no note.
+    fn answer_part(
+        self: Arc<Self>,
+        answer: ipc::AnswerPart,
+    ) -> impl Future<Output = Result<ipc::JobArtifact, Refusal>> + Send;
+
+    /// `get_artifact_page_source`: one kept revision of a page as the Job wrote it, the newest where `revision` is
+    /// `None`. [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page_source(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<String, Refusal>> + Send;
+
+    /// `mark_artifact_seen`: the newest revision of an artifact he opened, kept where it is newer than what is kept.
+    /// Answers with the newest kept; an older revision is answered, not refused. Nothing is sent to the Job.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold, or a revision never kept.
+    fn mark_artifact_seen(
+        &self,
+        mark: ipc::MarkArtifactSeen,
+    ) -> impl Future<Output = Result<ipc::ArtifactSeen, Refusal>> + Send;
+
+    /// `get_artifact_page`: one kept revision of a page, the newest where `revision` is `None`, sealed: no network,
+    /// its own scripts inert, and the kit's script drawing its actions and votes. An archived page still serves.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    fn get_artifact_page(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
+
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
     /// the servers again.
     fn act_on_session_mcp(
@@ -528,6 +582,19 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         session_id: Option<SessionId>,
     ) -> impl Future<Output = Result<ipc::JobCopy, Refusal>> + Send;
+    /// `get_for_you`: the Job's own For you, read now. The Job is the one the connection places, else `session_id`.
+    fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `withdraw_for_you`: a row taken off for good. An id that names no row is kept, not refused.
+    fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `order_for_you`: the rows placed first, replacing the order before. [`Refusal::Unacceptable`] naming each
+    /// id that is not a row now.
+    fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `line_for_you`: the line under a row, cleared by a blank one. [`Refusal::Unacceptable`] for an id that is
+    /// not a row now.
+    fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `add_for_you`: a row for what Fleet cannot see, or the row already listed that opens the same thing.
+    /// [`Refusal::Unacceptable`] for a blank title; [`Refusal::IllegalMove`] for an ended Job.
+    fn add_for_you(self: Arc<Self>, add: ipc::AddForYou) -> impl Future<Output = Result<ipc::ForYouAdded, Refusal>> + Send;
     /// `keep_job_workflow`: the Job's copy of its workflow proposed for every Job, as a change kept ready
     /// for the owner to approve.
     fn keep_job_workflow(

@@ -1,0 +1,62 @@
+{
+ "threads": [
+  {
+   "session_id": "draft-job",
+   "head": {
+    "trail": {
+     "started": "2026-11-10T21:58:00Z",
+     "bays": [
+      {
+       "slot": 3,
+       "from": "2026-11-10T22:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-10T22:00:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Draft the release note for 0.42."
+     }
+    },
+    {
+     "kind": "document",
+     "id": "document:design:r2",
+     "at": "2026-11-09T13:45:15Z",
+     "page": "design",
+     "title": "Stale branch design",
+     "revision": 2,
+     "asked": true
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-1",
+      "at": "2026-11-10T22:02:00Z",
+      "title": "Release note for 0.42",
+      "text": "# Release note for 0.42\n\nArmada 0.42 draws each tool call on a row of its own. A row shows what the call is, how long it ran, and where it stopped.\n\n## What changed\n\nA Job that stops keeps its slot until you press Release. The retry press now waits for the slot to free before it starts the Job again.\n\n- Rows keep their time after the Job is done.\n- A failed call says where it failed.\n\n| Call | Row shows | Time |\n|---|---|---|\n| Read | The path | Kept |\n| Bash | The first line of the command | Kept |\n\n## Known gaps\n\nCalls inside a subagent draw in its own tab, not in the thread.",
+      "before": "# Release note for 0.42\n\nArmada 0.42 draws each tool call on a row of its own. A row shows what the call is and how long it ran.\n\n## What changed\n\nA Job that stops keeps its slot until you press Release.\n\n- Rows keep their time after the Job is done.\n\n## Known gaps\n\nCalls inside a subagent draw in its own tab, not in the thread.",
+      "for_line": {
+       "text": "the release note under #3602.",
+       "links": [
+        {
+         "kind": "pull_request",
+         "label": "#3602",
+         "target": "#3602"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

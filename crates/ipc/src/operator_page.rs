@@ -83,6 +83,36 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// What an answer follows: one of his own answers, or a setting of his. Since 13 Nov 2026.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorFollowsKind {
+    /// His answer to the same question in the same project.
+    Answer,
+    /// A preference or a repository's value he saved.
+    Setting,
+}
+
+/// What the Operator's pick follows, as Fleet checked it. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorFollows {
+    pub kind: OperatorFollowsKind,
+    /// The Job where he gave the answer. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// That Job's title. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// What he was asked. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
+    /// What he said: his choice and his words, or `key = value` for a setting.
+    pub said: String,
+    /// When he said it. `answer` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Instant>,
+}
+
 /// One item of Your turn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorTurnItem {
@@ -129,6 +159,20 @@ pub struct OperatorTurnItem {
     /// the first of them, in the order the Job raised them, and Bridge draws them as one entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// What the Operator's pick follows, on a go-ahead question that no rule of his covers yet: his own earlier answer in
+    /// the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follows: Option<OperatorFollows>,
+    /// On a `job_conflict` item: the two Jobs, what each does and what breaks, which the card draws.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conflict: Option<crate::OperatorConflict>,
+    /// On a `job_held` item: the pull request or branch asked about, and the Job that asked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<crate::OperatorHeld>,
+    /// On a card the Operator's own session raised: its kind and what it carries on from. Absent on every
+    /// other item. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card: Option<crate::OperatorCard>,
 }
 
 /// What the Operator is reading now.
@@ -236,6 +280,29 @@ pub struct OperatorHold {
     pub at: Instant,
 }
 
+/// A question the Operator answered by following something he had already said. Since 13 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRuled {
+    /// `turn:<n>`, the row of Your turn that kept it.
+    pub id: String,
+    pub session_id: SessionId,
+    /// The Job's title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// The question it answered.
+    pub question: String,
+    /// The option it picked.
+    pub pick: String,
+    pub follows: OperatorFollows,
+    pub at: Instant,
+    /// When he took it back. Absent while it stands. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub undone_at: Option<Instant>,
+    /// Whether `operator_undo_ruling` takes it back now: it is not taken back and its Job is live. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub undo: bool,
+}
+
 /// Since he last looked, and what stands.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorDigest {
@@ -253,6 +320,9 @@ pub struct OperatorDigest {
     /// The holds that stand, beside Learned.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub holds: Vec<OperatorHold>,
+    /// Questions it answered by following what he had said, over the last seven days, newest first. Since 13 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ruled: Vec<OperatorRuled>,
 }
 
 /// One repository's main, as the head draws it: a pill, red when main is red. Since 10 Nov 2026.
@@ -282,6 +352,40 @@ pub struct OperatorSlots {
     pub total: u32,
 }
 
+/// What one entry of the feed says happened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorFeedKind {
+    /// The Operator started a Job.
+    Dispatched,
+    /// A pull request merged.
+    Merged,
+    /// A Job ended.
+    Ended,
+    /// A Job asked the Operator something: a conflict or a landing question.
+    Asked,
+    /// A Job messaged the Operator.
+    Told,
+    /// The Operator settled a card.
+    Settled,
+}
+
+/// One line of what happened since he last looked, which needs no decision from him. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorFeedEntry {
+    pub at: Instant,
+    pub kind: OperatorFeedKind,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The pull request's number, on a `merged` entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// What was said: how a card was settled, what a Job asked or sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+}
+
 /// `operator_page`: the whole page.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorPage {
@@ -307,6 +411,16 @@ pub struct OperatorPage {
     /// Absent where no pool is read. Since 10 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slots: Option<OperatorSlots>,
+    /// What happened since `looked_at` that needs no decision, newest first. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub feed: Vec<OperatorFeedEntry>,
+    /// The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// What the Operator may do unasked in each served project, `acts` absent where he has not said.
+    /// Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operator_acts: Vec<crate::ProjectOperatorActs>,
 }
 
 /// `operator_answer`: one press on an item.
@@ -346,6 +460,14 @@ pub struct OperatorAnswered {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handed_to: Option<SessionId>,
     pub page: OperatorPage,
+}
+
+/// Taking back a ruling the Operator made. **No route answers it any more**: the Operator rules nothing, and
+/// `POST /operator/page/undo` is gone. Kept for a client that still builds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorUndoRuling {
+    /// The ruling's `id`, `turn:<n>`, as `OperatorRuled` names it.
+    pub id: String,
 }
 
 /// `operator_turn_order`: the items as he dragged them.

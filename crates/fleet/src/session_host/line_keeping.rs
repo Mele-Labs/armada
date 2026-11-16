@@ -13,24 +13,13 @@ use store::KeptInLine;
 
 use super::queueing::{Lines, SlotQueue};
 use crate::daemon::Fleet;
-use crate::operator::{InLine, Place};
+use crate::operator::Place;
 
 impl SlotQueue {
     /// The repository whose line `session` is in.
     pub(crate) fn line_holding(&self, session: &str) -> Option<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.entries.get(session).map(|entry| entry.manifest.clone())
-    }
-
-    /// Every Job in a line, each repository's in its order, by session id and repository.
-    pub(crate) fn everyone(&self) -> Vec<(String, String)> {
-        let waiting = self.waiting.lock().expect("the line is not held across a panic");
-        let mut manifests: Vec<&String> = waiting.by_manifest.keys().collect();
-        manifests.sort();
-        manifests
-            .into_iter()
-            .flat_map(|manifest| waiting.by_manifest[manifest].iter().map(move |one| (one.clone(), manifest.clone())))
-            .collect()
     }
 
     /// Move `session` to `place` in `manifest`'s line, and answer everyone's new place there with
@@ -96,19 +85,6 @@ where
         // The head may have changed while a slot was free.
         self.hosts().slot_queue().freed();
         true
-    }
-
-    /// Every Job waiting to start, with its title, each repository's in its order.
-    pub(crate) async fn waiting_to_start(&self) -> Vec<InLine> {
-        let everyone = self.hosts().slot_queue().everyone();
-        let store = self.store().lock().await;
-        everyone
-            .into_iter()
-            .map(|(session_id, manifest_id)| {
-                let title = store.session(&session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| session_id.clone());
-                InLine { session_id, title, manifest_id }
-            })
-            .collect()
     }
 
     /// Every Job the store has in a line, back in it at its place, its wait begun again and its call

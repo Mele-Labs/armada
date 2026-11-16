@@ -1,0 +1,4 @@
+{
+  "note": "The body Fleet's client sends to claim a red main, byte for byte. Fleet's test builds it and compares; the Worker's test sends it.",
+  "body": "{\"repo\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"red\",\"key\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"holder\":{\"kind\":\"session\",\"id\":\"s-2041\",\"machine\":\"Home Mac\",\"since\":1763000000,\"name\":\"nick\",\"title\":\"Fix the flaky queue test\"}}"
+}

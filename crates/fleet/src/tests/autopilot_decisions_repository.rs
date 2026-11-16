@@ -211,38 +211,35 @@ pub(super) async fn jobs_titled(rig: &Rig, title: &str) -> usize {
     found.iter().filter(|one| one.title.as_deref() == Some(title)).count()
 }
 
+/// The owner's ruling of 13 Nov 2026: a red main's fix Job starts whatever the Autopilot switch says.
 #[tokio::test]
-async fn a_red_main_is_fixed_by_one_job_once_for_each_red_commit() {
+async fn a_red_main_is_fixed_by_one_job_once_for_each_red_commit_with_autopilot_off() {
     let (rig, judge) = rig_calling(SURE_OF_THE_FIRST);
-    started(&rig, &[AutopilotDecision::Red]).await;
     red_main(&rig, &"b".repeat(40)).await;
 
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "a Job holds it, and it was started for");
+    assert_eq!(rig.fleet.reds_fixed().await, 1);
+    assert_eq!(rig.fleet.reds_fixed().await, 0, "a Job holds it, and it was started for");
 
     assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
     assert!(judge.asked().is_empty(), "no call is made for a red");
-    let rows = rig.fleet.store().lock().await.autopilot_decisions_to_review().unwrap();
-    assert_eq!(rows[0].kind, "red");
     let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
     assert!(rig.fleet.taking(&main).await.is_some(), "the red is claimed for the Job it started");
 }
 
 #[tokio::test]
-async fn a_red_waits_when_red_is_not_checked_or_a_live_job_holds_it() {
+async fn a_red_is_not_autopilots_and_a_live_job_holding_it_gets_no_second_fix() {
     let (rig, _) = rig_calling(SURE_OF_THE_FIRST);
-    started(&rig, &[AutopilotDecision::Land]).await;
+    started(&rig, &[AutopilotDecision::Red]).await;
     red_main(&rig, &"b".repeat(40)).await;
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
+    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "Autopilot starts nothing for a red");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
 
     let (rig, _) = rig_calling(SURE_OF_THE_FIRST);
     let holder = rig.start().await;
-    started(&rig, &[AutopilotDecision::Red]).await;
     red_main(&rig, &"b".repeat(40)).await;
     let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
     rig.fleet.recorded_session_take(&main, holder.as_str(), store::TakenHow::Took, None).await;
-    assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "a live Job holds it");
+    assert_eq!(rig.fleet.reds_fixed().await, 0, "a live Job holds it");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
 }
 

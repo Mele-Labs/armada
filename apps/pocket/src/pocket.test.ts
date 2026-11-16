@@ -33,7 +33,7 @@ import { codeFromInput, linkOf, linkTrouble, waitForConfirm } from "./pairing";
 import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
-import { bodyHash, hex, signHeaders, signedMessage } from "./signing";
+import { bodyHash, hex, signHeaders, signedMessage, storeHeaders } from "./signing";
 
 // A fixed P-256 key (test only).
 const PRIVATE = {
@@ -102,6 +102,66 @@ describe("the signer", () => {
       ),
     ).toBe(true);
     expect(hex(raw)).toBe(headers["X-Pocket-Signature"]);
+  });
+
+  it("signs the store's text, with the nonce after the time, as the store's test vector does", async () => {
+    // The store's own vector (apps/store/test-vectors/signing.json): ECDSA signs differently each run, so the
+    // signature the phone makes is checked by verifying it with the vector's public key, not by comparing it.
+    const vector = JSON.parse(
+      readFileSync(new URL("../../store/test-vectors/signing.json", import.meta.url), "utf8"),
+    ) as Record<string, string>;
+    const bytes = (base64: string) => Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const curve = {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    };
+    const key = await crypto.subtle.importKey(
+      "pkcs8",
+      bytes(vector["private_key_pkcs8_base64"]!),
+      curve,
+      false,
+      [
+        "sign",
+      ],
+    );
+    const open = await crypto.subtle.importKey(
+      "spki",
+      bytes(vector["public_key_spki_base64"]!),
+      curve,
+      false,
+      [
+        "verify",
+      ],
+    );
+    const headers = await storeHeaders(
+      key,
+      "7001.phone",
+      vector["method"]!,
+      vector["path_and_query"]!,
+      vector["body"]!,
+      vector["time"]!,
+      vector["nonce"]!,
+    );
+    expect(await bodyHash(vector["body"]!)).toBe(vector["body_sha256_hex"]);
+    expect(headers).toMatchObject({
+      "X-Armada-Device": "7001.phone",
+      "X-Armada-Time": vector["time"],
+      "X-Armada-Nonce": vector["nonce"],
+    });
+    expect(headers["X-Armada-Signature"]).toMatch(/^[0-9a-f]{128}$/);
+    const verifies = (signature: string) =>
+      crypto.subtle.verify(
+        {
+          name: "ECDSA",
+          hash: "SHA-256",
+        },
+        open,
+        Uint8Array.from(signature.match(/../g)!.map((byte) => parseInt(byte, 16))),
+        new TextEncoder().encode(vector["signed_text"]),
+      );
+    // The vector's own signature reads true against its text, so a pass below means the phone signed exactly that text.
+    expect(await verifies(vector["signature_hex"]!)).toBe(true);
+    expect(await verifies(headers["X-Armada-Signature"])).toBe(true);
   });
 });
 
@@ -277,7 +337,7 @@ describe("homeOf", () => {
       ),
     }));
 
-  it("lists every live Job once, in Fleet's order, each with the state its fields read as", () => {
+  it("lists every live Job once, in its project's standing order, each with the state its fields read as", () => {
     const { live } = everyState(Date.parse("2026-10-08T12:00:00Z"));
     const home = homeOf({
       macs: [
@@ -286,11 +346,29 @@ describe("homeOf", () => {
         }),
       ],
     });
+    // The Gateway names Armada's Jobs under their project, which groups them in place of their repository.
     expect(home.repositories.map((one) => one.name)).toEqual([
-      "armada",
+      "Armada",
     ]);
     const lines = home.repositories[0]!.lines;
-    expect(lines.map((one) => one.item.session.id)).toEqual(live.map((one) => one.id));
+    // Failed first, then those that need him, then working, then held and paused, then the draft.
+    expect(lines.map((one) => one.item.session.id)).toEqual([
+      "x-failing",
+      "x-unstarted",
+      "x-stuck",
+      "x-gave-up",
+      "x-reading",
+      "x-queue",
+      "x-checks",
+      "x-watch",
+      "x-job",
+      "x-limited",
+      "x-restarting",
+      "x-quit",
+      "x-paused",
+      "x-blank",
+    ]);
+    expect(lines).toHaveLength(live.length);
     expect(lines.every((one) => one.depth === 0)).toBe(true);
     const state = (id: string) => lines.find((one) => one.item.session.id === id)!.item.state;
     expect(state("x-blank")).toBe("blank");
@@ -615,7 +693,7 @@ describe("homeOf", () => {
     expect(home.several).toBe(false);
   });
 
-  it("lists a draft once, a Job waiting while it works as waiting, and an open Job with no turn running as idle", () => {
+  it("lists a draft once, a Job waiting while it works as waiting, and an open Job with no turn running as idle, in standing order", () => {
     const home = homeOf({
       macs: [
         mac("https://a", {
@@ -652,20 +730,20 @@ describe("homeOf", () => {
       ]),
     ).toEqual([
       [
-        "d1",
-        "draft",
-      ],
-      [
-        "d2",
-        "draft",
-      ],
-      [
         "a1",
         "waiting",
       ],
       [
         "a2",
         "working",
+      ],
+      [
+        "d1",
+        "draft",
+      ],
+      [
+        "d2",
+        "draft",
       ],
       [
         "a3",

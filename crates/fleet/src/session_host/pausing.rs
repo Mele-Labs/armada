@@ -177,6 +177,11 @@ where
     /// was paused go as its next turns, in the order they came, and with none kept Fleet tells it
     /// that it was resumed.
     pub(crate) async fn pause_lifted(self: &Arc<Self>, id: &str) {
+        self.pause_lifted_telling(id, RESUMED).await
+    }
+
+    /// [`Self::pause_lifted`], told `note` where no kept turn goes.
+    async fn pause_lifted_telling(self: &Arc<Self>, id: &str, note: &str) {
         let kept = self.store().lock().await.take_held_later_turns(id);
         let kept = match kept {
             Ok(kept) => kept,
@@ -197,13 +202,19 @@ where
             sent |= self.deliver_turn(id, held).await.is_ok();
         }
         if !sent {
-            let _ = self.told_of_a_resume(id, RESUMED).await;
+            let _ = self.told_of_a_resume(id, note).await;
         }
     }
 
     /// `resume_session`. **A slot is taken if one is free and waited for if not**; the line is
     /// first come first served and nobody is moved out of a slot for it.
     pub(crate) async fn session_resumed(self: &Arc<Self>, asked: ResumeSession) -> Result<SessionRecord, Refusal> {
+        self.session_resumed_telling(asked, RESUMED).await
+    }
+
+    /// [`Self::session_resumed`], the Job told `note` where it takes a slot now. **One that waits in the line is
+    /// told the plain word** when it is granted one.
+    pub(crate) async fn session_resumed_telling(self: &Arc<Self>, asked: ResumeSession, note: &str) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -230,7 +241,7 @@ where
         match taken {
             Taken::Resumed => {
                 self.line_left(&id).await;
-                self.pause_lifted(&id).await;
+                self.pause_lifted_telling(&id, note).await;
                 self.published_hosted(&id).await
             }
             Taken::Held { .. } | Taken::Moving(_) => {

@@ -42,6 +42,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         from_job: None,
         from_tab: None,
         mod_of_bay: false,
+        operator: false,
         side_job: false,
         auto_land: false,
         standing: None,
@@ -57,6 +58,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
+        slot_wait: None,
         stopped: None,
         repairing: None,
         stop_told_by: None,
@@ -73,6 +75,8 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         compact: None,
         lanes: None,
         pull_request_drafts: Vec::new(),
+        claim_waits: Vec::new(),
+        claims_unsent: false,
     }
 }
 

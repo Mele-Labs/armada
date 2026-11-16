@@ -36,9 +36,12 @@ pub(crate) fn encoded<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
 
 /// An unsigned `POST` of `body` to `<address><path>`.
 pub(crate) async fn post_unsigned(gateway: &Gateway, address: &str, path: &str, body: Vec<u8>) -> Result<Came, String> {
-    let sent = gateway
-        .macs
-        .http
+    post_with(&gateway.macs.http, address, path, body).await
+}
+
+/// [`post_unsigned`] with `client`, which may be one to a door.
+pub(crate) async fn post_with(client: &reqwest::Client, address: &str, path: &str, body: Vec<u8>) -> Result<Came, String> {
+    let sent = client
         .post(format!("{address}{path}"))
         .header("content-type", "application/json")
         .body(body)
@@ -67,6 +70,7 @@ pub(crate) fn hello(gateway: &Gateway) -> Result<MacHello, String> {
         wire: Some(gateway.way_in.wire.clone()),
         built_at: gateway.way_in.built_at.clone(),
         source: gateway.way_in.source.clone(),
+        pin: gateway.macs.nearby.own_pin(),
     })
 }
 
@@ -93,7 +97,9 @@ pub(crate) async fn signer(gateway: &Gateway, mac: &str) -> Result<(String, Sign
     .map_err(|why| why.to_string())?
 }
 
-/// A signed request to paired Mac `mac` at `address`. `patience` `None` waits as long as it streams.
+/// A signed request to paired Mac `mac`: at its door while Bonjour sees it on this network, else at
+/// `address`, its tunnel. A door that cannot be connected to falls back to the tunnel, since the request
+/// never arrived to be counted as seen. `patience` `None` waits as long as it streams.
 pub(crate) async fn signed(
     gateway: &Gateway,
     mac: &str,
@@ -107,17 +113,25 @@ pub(crate) async fn signed(
     let body = body.unwrap_or_default();
     let headers = sign(&key, &me, method, target, gateway.pairing.now(), &body)?;
     let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|why| why.to_string())?;
-    let mut request = gateway.macs.http.request(method, format!("{address}{target}"));
-    for (name, value) in headers {
-        request = request.header(name, value);
+    let ways = crate::nearby::reach(gateway, mac, address)?;
+    let last = ways.len() - 1;
+    for (n, (address, client)) in ways.into_iter().enumerate() {
+        let mut request = client.request(method.clone(), format!("{address}{target}"));
+        for (name, value) in &headers {
+            request = request.header(*name, value.clone());
+        }
+        if !body.is_empty() {
+            request = request.header("content-type", "application/json");
+        }
+        if let Some(patience) = patience {
+            request = request.timeout(patience);
+        }
+        match request.body(body.clone()).send().await {
+            Err(why) if why.is_connect() && n < last => continue,
+            sent => return sent.map_err(|why| why.to_string()),
+        }
     }
-    if !body.is_empty() {
-        request = request.header("content-type", "application/json");
-    }
-    if let Some(patience) = patience {
-        request = request.timeout(patience);
-    }
-    request.body(body).send().await.map_err(|why| why.to_string())
+    Err("It could not be reached.".to_string())
 }
 
 /// [`signed`], read whole.

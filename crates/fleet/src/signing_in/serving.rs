@@ -1,13 +1,13 @@
-//! Fleet's side of the account's four operations: reads the two settings and the
-//! machine's name, runs the blocking work off the async workers, and spells a
-//! refusal on the wire.
+//! Fleet's side of the account's operations: reads the two settings and the
+//! machine's name, runs the blocking work off the async workers, keeps a
+//! registered sign-in app's client id, and spells a refusal on the wire.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Accounts, Refusal};
 use config::settings as keys;
-use ipc::{Accounts as AccountsList, SetRepositoryProfile, SignOut, SignedOut, WireError};
+use ipc::{Accounts as AccountsList, SaveSettings, SetRepositoryProfile, SettingValue, SignInAppRegistration, SignOut, SignedOut, WireError};
 
 use super::{Begin, Refused, SigningIn};
 use crate::daemon::Fleet;
@@ -20,6 +20,15 @@ const SIGN_IN_UNAVAILABLE: &str = "fleet.sign_in_unavailable";
 /// The forge would not begin a sign-in: its app has the device flow off, or it
 /// did not answer. A 422 carrying the forge's own words.
 const SIGN_IN_NOT_BEGUN: &str = "fleet.sign_in_not_begun";
+/// A state for registering the sign-in app that Fleet did not issue, was used or
+/// lapsed. A 422, said to the person in the browser that carried it.
+const APP_STATE_UNKNOWN: &str = "fleet.sign_in_app_state_unknown";
+/// The forge would not convert the code into an app, or could not be reached. A
+/// 422 in its words, and the sign-in app is left as it was.
+const APP_NOT_REGISTERED: &str = "fleet.sign_in_app_not_registered";
+/// Where the browser opens the form and comes back, on Fleet's own port.
+const APP_FORM_PATH: &str = "/accounts/sign_in_app/form";
+const APP_BACK_PATH: &str = "/accounts/sign_in_app/registered";
 /// An act on an account this machine has not joined. A 422.
 const NO_SUCH_ACCOUNT: &str = "fleet.no_such_account";
 /// The profiles could not be read or kept. A 500, and nothing was changed that
@@ -123,7 +132,18 @@ where
                 run,
             )),
             Refused::Fault(said) => Refusal::Fault(WireError::raised(ACCOUNTS_NOT_KEPT, said, run)),
+            Refused::AppStateUnknown => Refusal::Unacceptable(WireError::raised(
+                APP_STATE_UNKNOWN,
+                "This page has expired or was already used. Press Register in Armada's Settings again.",
+                run,
+            )),
+            Refused::AppNotRegistered(said) => Refusal::Unacceptable(WireError::raised(APP_NOT_REGISTERED, said, run)),
         }
+    }
+
+    /// An address on Fleet's own listener, which the person's browser reaches.
+    fn on_this_listener(&self, path: &str) -> String {
+        format!("http://127.0.0.1:{}{path}", self.host().port)
     }
 }
 
@@ -145,25 +165,37 @@ where
     /// **The settings are read here and handed down**, so a change to either is
     /// the next sign-in's and a sign-in under way does not meet it half way.
     async fn start_sign_in(&self) -> Result<AccountsList, Refusal> {
-        let now = self.machine_settings().now();
-        let begin = Begin {
-            client_id: now.get(keys::ACCOUNT_CLIENT_ID),
-            store_url: now.get(keys::STORE_URL),
-            machine: now.get(keys::MACHINE_NAME),
-        };
-        let accounts = self
-            .signing(move |signing, repositories| {
-                let machine = machine_name(&begin.machine, host_name);
-                signing.start(Begin { machine, ..begin }, &repositories)
-            })
-            .await?;
+        let begin = Begin { client_id: self.machine_settings().now().get(keys::ACCOUNT_CLIENT_ID) };
+        let accounts = self.signing(move |signing, repositories| signing.start(begin, &repositories)).await?;
         self.homed(accounts).await
     }
 
+    async fn register_sign_in_app(&self) -> Result<SignInAppRegistration, Refusal> {
+        let state = self.signing_in().issue_app_state();
+        Ok(SignInAppRegistration { url: format!("{}?state={state}", self.on_this_listener(APP_FORM_PATH)) })
+    }
+
+    async fn get_sign_in_app_form(&self, state: String) -> Result<String, Refusal> {
+        self.signing_in().app_form(&state, &self.on_this_listener(APP_BACK_PATH)).map_err(|refused| self.refused_account(refused))
+    }
+
+    /// **The client id is written as a save of settings would**, so the list is
+    /// published and a client reading `get_settings` sees it. Nothing else the
+    /// forge answered is kept.
+    async fn sign_in_app_registered(&self, code: String, state: String) -> Result<String, Refusal> {
+        let signing = self.signing_in().clone();
+        let app = tokio::task::spawn_blocking(move || signing.register_app(&code, &state))
+            .await
+            .map_err(|why| Refusal::Fault(WireError::raised(ACCOUNTS_NOT_KEPT, format!("The app could not be registered: {why}"), self.run_id())))?
+            .map_err(|refused| self.refused_account(refused))?;
+        let client_id = SettingValue::Text(app.client_id);
+        let save = SaveSettings { changes: [(keys::Key::name(keys::ACCOUNT_CLIENT_ID).to_string(), Some(client_id))].into() };
+        self.save_settings_now(save).await?;
+        Ok(app.settings_page)
+    }
+
     async fn sign_out(&self, sign_out: SignOut) -> Result<SignedOut, Refusal> {
-        let store_url: String = self.machine_settings().now().get(keys::STORE_URL);
-        let mut signed_out =
-            self.signing(move |signing, repositories| signing.sign_out(sign_out.account_id, &store_url, &repositories)).await?;
+        let mut signed_out = self.signing(move |signing, repositories| signing.sign_out(sign_out.account_id, &repositories)).await?;
         signed_out.accounts = self.homed(signed_out.accounts).await?;
         Ok(signed_out)
     }

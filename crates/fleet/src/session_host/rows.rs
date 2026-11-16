@@ -55,6 +55,11 @@ where
     /// Fleet's own note in a session's thread, in Fleet's voice. **Never a `Tool` row**: Bridge
     /// names a tool row by its first word, and a note drawn that way read as a call named "the".
     pub(crate) async fn fleet_note(&self, session: &str, text: String) {
+        self.fleet_note_as(session, text, None).await;
+    }
+
+    /// [`Self::fleet_note`] carrying the notice it is, as one Fleet sends does, though it starts no turn.
+    pub(crate) async fn fleet_note_as(&self, session: &str, text: String, notice: Option<ipc::Notice>) {
         self.row_put(
             session,
             SessionRow::Message {
@@ -68,7 +73,7 @@ where
                 text,
                 files: Vec::new(),
                 tags: Vec::new(),
-                notice: None,
+                notice: notice.map(|notice| notice.word().to_string()),
                 queued: false,
                 edited_at: None,
                 sketches: Vec::new(),

@@ -45,11 +45,36 @@ pub struct Project {
     /// absent while false. A Job started for no project is never shared.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shared_with_macs: bool,
+    /// The claims store its Jobs' claims go to. **Absent is none, and a project with none sends nothing.**
+    /// `get_project_store` says which Macs are signed in to it and whether a deploy or a join can run now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store: Option<ProjectStore>,
     /// The id of the other Mac that holds this project, where this is a read copy of it. **Absent for this
     /// Mac's own projects.** A task act on a copy is sent to that Mac, which keeps the project; what a copy
     /// refuses is `fleet.other_mac_project_held`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mac: Option<String>,
+}
+
+/// A project's claims store as its file names it. `docs/contracts/central-store.md`, *A store per project*.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectStore {
+    /// `https://` and the host the store answers at.
+    pub address: String,
+    /// The forge org, or `org/team`, a team store admits. **Absent for a store of his own.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<String>,
+    /// The Worker's name on the Cloudflare account it was deployed to. Absent for a store joined by its
+    /// address alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker: Option<String>,
+    /// When it was last deployed, RFC 3339. Absent where no Mac of his deployed it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deployed: Option<String>,
+    /// True where it was deployed without the rate limit on joins, because Cloudflare refused it on the
+    /// account's plan. Absent while false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub joins_unlimited: bool,
 }
 
 /// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.

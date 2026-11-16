@@ -51,6 +51,12 @@ pub const AIR_JOBS: [&str; 3] = ["mock-01", "mock-04", "mock-06"];
 /// The Job the pairing walk's `session.removed` names.
 pub const AIR_REMOVED: &str = "mock-06";
 
+/// The For you the walk's scenario holds, taken when the Job view is made: on `job-for-you` the first Job holds two things
+/// waiting on him, two Jobs it started and two pull requests of its own. Every other Job and scenario holds none.
+pub fn for_you() -> Option<ipc::ForYou> {
+    scenario_is("job-for-you").then(|| ipc::decode::<ipc::ForYou>("ForYou", include_bytes!("../fixtures/for-you.json")).unwrap_or_else(|why| panic!("the For you fixture does not decode: {why}")))
+}
+
 /// Whether the scenario last named is this one.
 pub fn scenario_is(name: &str) -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == name)
@@ -67,9 +73,15 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     crate::ways::set_look(if scenario == "ways-look" { ipc::TakeIn::Look } else { ipc::TakeIn::Read }, ipc::LookQuestions::PicturesMix, ipc::LookResults::PictureEvery);
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
-        "jobs-many" | "jobs-snoozed" | "job-view" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
-        // The same Jobs, with a terminal Job just started: Fleet's title for it, nothing in its thread.
-        "terminal-job" => include_bytes!("../fixtures/terminal-jobs.json"),
+        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
+        "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, for the thread find walk.
+        "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.
+        "delivery-line" => include_bytes!("../fixtures/jobs-delivery-line.json"),
+        // The same Jobs, with a Side Job just started: Fleet's title for it, nothing in its thread.
+        "side-job" => include_bytes!("../fixtures/side-jobs.json"),
         // The same Jobs, with a question whose options carry stills waiting on the first.
         "option-pictures" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with one handing off and one that took an earlier Job's place, that one ended behind it.
@@ -86,9 +98,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "jobs-projects" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
+        // Three Jobs asking: a plan and a sketch, a sketch and a document, and a draft.
+        "review-grouped" => include_bytes!("../fixtures/review-grouped.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
-        "job-tabs" => include_bytes!("../fixtures/jobs-tabs.json"),
+        // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
+        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/jobs-tabs.json"),
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
@@ -117,17 +132,27 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same, with a workflow editor's marks on its lanes: Plan set otherwise in Mobile, #88's Open a
         // tie between Workspaces, Smoke tests' lifecycle waiting on a removal, and a proposed rule from #88's Merged.
         "job-lanes-marks" => include_bytes!("../fixtures/jobs-workflow.json"),
-        "job-view-composer" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
+        "job-view-composer" | "owner-fixes" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
+        // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
+        "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The same Jobs, Audit the docs index waiting for a worktree slot, second in line (`slot_wait`).
+        "slot-wait" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
-        "jobs-screens" | "jobs-pairing" => include_bytes!("../fixtures/jobs-screens.json"),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => include_bytes!("../fixtures/jobs-screens.json"),
         // Jobs started by Jobs: one starter with two, a chain two deep beside a third, and a lone Job; the
         // starter and the deepest Job need him.
         "jobs-tree" => include_bytes!("../fixtures/jobs-tree.json"),
-        // The terminal Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
-        "new-project" => include_bytes!("../fixtures/terminal-jobs.json"),
+        // The Side Job's Jobs: the New project sheet's walk ends on the Job it starts in the project it made.
+        "new-project" => include_bytes!("../fixtures/side-jobs.json"),
+        // The same Jobs under his projects as `jobs-projects` has them, with the Side Job not started yet: ⌘T starts it, in the
+        // project the title bar names (`started_side_job`).
+        "project-filter" => include_bytes!("../fixtures/side-jobs.json"),
         // One Job with only its plan waiting on him, as Fleet served it.
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
+        // A plan with a sketch for the whole plan and one for a group, waiting on him beside a question; and the same plan once approved.
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches.json"),
         // One Job asking two questions, answered in buttons: the first has three options, one the Job's pick.
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons.json"),
         // One Job with four things waiting on him, taken in as pictures: a question asked in three pictures, a sketch, a walk of
@@ -136,11 +161,16 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
+        // One Job at work holding a subagent it sent more work after it finished, and one that finished.
+        "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
-        "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
+        "drafts" | "reader" | "reader-sketches" => include_bytes!("../fixtures/jobs-drafts.json"),
+        // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
+        // one that was answered with a figure to be asked again at.
+        "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
         // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
         "job-panes" => include_bytes!("../fixtures/jobs-panes.json"),
         // The same Jobs, the first holding something of every kind the Ledger groups.
@@ -158,9 +188,27 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     };
     let mut sessions = ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())?;
     // The tour's Jobs with three on another Mac: the one that needs him, a quiet one and one a walk has removed.
-    if scenario == "jobs-pairing" {
+    if matches!(scenario, "jobs-pairing" | "jobs-other-mac") {
         for one in sessions.iter_mut().filter(|one| AIR_JOBS.contains(&one.id.as_str())) {
             one.mac = Some("air".into());
+        }
+    }
+    // The Job on Air that needs him showed a walk of a web page and serves its dev server.
+    if scenario == "jobs-other-mac" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            other_mac_pages(one)?;
+        }
+    }
+    // The box's Jobs with Native Bridge foundation at work, so its working line says what it is doing.
+    if scenario == "owner-fixes" {
+        for one in sessions.iter_mut().filter(|one| one.id.as_str() == "mock-02") {
+            if let Some(mark) = one.mark.as_mut() {
+                mark.state = ipc::JobState::Working;
+                mark.lamp = ipc::JobLamp::Running;
+            }
+            if let Some(hosted) = one.hosted.as_mut() {
+                hosted.turn = ipc::SessionTurn::Working { woken_by: None };
+            }
         }
     }
     // Now's figures count from now, so the scenario's clock is moved to the run's.
@@ -181,7 +229,10 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.workflow_copy = None;
         }
     }
-    if scenario == "jobs-projects" {
+    if scenario == "project-filter" {
+        sessions.retain(|one| one.id.as_str() != SIDE_JOB);
+    }
+    if matches!(scenario, "jobs-projects" | "project-filter") {
         let facts = |project: &str| {
             let raw = format!(r#"{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"project":"{project}"}}"#);
             ipc::decode::<ipc::HostedFacts>("HostedFacts", raw.as_bytes()).map_err(|why| why.to_string())
@@ -197,7 +248,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
                 None => one.hosted = Some(facts(project)?),
             }
         }
-        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06") {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06").filter(|_| scenario == "jobs-projects") {
             one.title = None;
         }
     }
@@ -244,6 +295,30 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.waiting_for.push(item);
         }
     }
+    // The Jobs holding an open card wait on him to try it, as Fleet raises it: `Try: <about>` with the card's id for its artifact.
+    if scenario == "ready-to-try" {
+        for (job, id, about) in [("tool-edit", "sketch-cards", "Sketch boxes drawn as cards"), ("tool-search", "queue-search", "Search finds a Job by its branch")] {
+            if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == job) {
+                let card = format!("try:native/{id}@{}", ready_tip(id));
+                let item = format!(r#"{{"id":"{card}","text":"Try: {about}","since":"2026-11-15T14:02:00Z","source":"ready_to_try","artifact":"{card}","act":{{"kind":"message","target":"{job}"}}}}"#);
+                one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("ready item", item.as_bytes()).map_err(|why| why.to_string())?);
+                one.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
+            }
+        }
+    }
+    // The first Job owes him one walk, of a page on this machine, with the steps its Job passed to `show_window`.
+    if scenario == "job-web-walk" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
+            let url = format!("file://{}/fixtures/web-walk-page.html", env!("CARGO_MANIFEST_DIR"));
+            let steps = orders_steps();
+            one.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);
+            one.attachments.retain(|attachment| !attachment.target.starts_with("armada://walk/"));
+            let wire = format!(r#"{{"kind":"artifact","target":"{url}","state":"standing","detail":{{"form":"window","title":"Orders page","brief":"The orders list has a search box and Add order. Export moved under the list.","steps":{}}},"since":"2026-11-09T14:05:00Z","changed_at":"2026-11-09T14:05:00Z"}}"#, ipc::encode(&steps).map_err(|why| format!("{why:?}"))?);
+            one.attachments.push(ipc::decode::<ipc::Attachment>("web walk", wire.as_bytes()).map_err(|why| why.to_string())?);
+            let item = format!(r#"{{"id":"walk:{url}","text":"Walk the orders page","since":"2026-11-09T14:05:00Z","source":"walk","act":{{"kind":"walk","target":"{url}"}}}}"#);
+            one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("web walk item", item.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
     // Each open sketch waits on him as its own item, newest drawn first, as Fleet lists them.
     if scenario == "sketches-several" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {
@@ -253,11 +328,33 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    // The Job's one artifact of parts is what the question asks about, named by its id; the second item names one it no longer holds.
+    if scenario == "artifact-parts" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            let wire = format!(
+                r#"[{{"id":"agent-parts","text":"Which step bar do you want?","since":"2026-11-14T10:05:00Z","source":"agent","options":[{{"label":"Bar under the title"}},{{"label":"Rail beside it"}}],"artifact":"{}"}},{{"id":"agent-retired","text":"Check the old step bar sketch","since":"2026-11-14T10:02:00Z","source":"agent","artifact":"sketch:Retired step bar"}}]"#,
+                crate::mock_parts::ID
+            );
+            one.waiting_for.extend(ipc::decode::<Vec<WaitingItem>>("artifact items", wire.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
+    // The Job that holds the folds' artifacts is running a call, and says what it is doing in the words its row uses.
+    if scenario == "artifact-folds" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == crate::mock_parts::JOB) {
+            one.activity = Some(ipc::SessionActivity { now: Some("Reading page_votes.rs".into()), ..Default::default() });
+        }
+    }
     // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
     if scenario == "jobs-snoozed" {
         if let (Some(one), Some(now)) = (sessions.iter_mut().find(|one| one.id.as_str() == "mock-01"), fixed_now()) {
             one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
         }
+    }
+    if scenario == "claim-waits" {
+        claim_waits(&mut sessions)?;
+    }
+    if scenario == "slot-wait" {
+        slot_wait(&mut sessions);
     }
     // Needs you asks about the watch that ended not ours, as Fleet derives the item.
     if scenario == "job-watching" {
@@ -268,6 +365,47 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
+/// Audit the docs index waits for a slot, second in line for twelve minutes. Native Bridge foundation holds slot 9 and
+/// has been quiet forty minutes, so Free offers it; Pocket sign-in holds slot 4 and is working, so Free leaves it.
+fn slot_wait(sessions: &mut [SessionRecord]) {
+    let ago = |minutes: i64| crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(minutes));
+    let holder = |slot: u32, id: &str, title: &str, quiet: i64, keeps: Option<ipc::SlotKeeps>| ipc::SlotHolder {
+        slot,
+        job: ipc::SlotHolderJob { id: id.to_string(), title: title.to_string() },
+        quiet_since: ago(quiet),
+        keeps,
+    };
+    if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
+        one.slot_wait = Some(ipc::SlotWait {
+            since: ago(12),
+            ahead: 1,
+            holders: vec![holder(9, "mock-02", "Native Bridge foundation", 40, None), holder(4, "mock-05", "Pocket sign-in on the phone", 2, Some(ipc::SlotKeeps::Running))],
+            creating_since: None,
+            create_refused: None,
+        });
+    }
+}
+
+fn claim_waits(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    #[derive(Deserialize)]
+    struct Held {
+        session_id: String,
+        #[serde(default)]
+        claim_waits: Vec<ipc::ClaimWait>,
+        #[serde(default)]
+        claims_unsent: bool,
+    }
+    let read: Vec<Held> = serde_json::from_slice(include_bytes!("../fixtures/claim-waits.json")).map_err(|why| why.to_string())?;
+    for held in read {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == held.session_id) {
+            one.claim_waits = held.claim_waits.into_iter().map(|wait| ipc::ClaimWait { since: shifted(NOW_ANCHOR, &wait.since), ..wait }).collect();
+            one.claims_unsent = held.claims_unsent;
+        }
+    }
+    Ok(())
 }
 
 /// The moment `jobs-snoozed` counts from, so the times a snooze names read the same on every run and in every
@@ -286,6 +424,26 @@ const NOW_ANCHOR: &str = "2026-11-09T14:45:00Z";
 
 /// The repositories Fleet would serve (`GET /repositories`) in the walks: the four the title bar's
 /// switcher is drawn from, the last with no Manifest.
+/// The Side Job the walks' mock shells start.
+pub const SIDE_JOB: &str = "s-7c41e2a9";
+
+/// The Side Job as Fleet lists it once started in repository `repository`, for `project` where it was started for one.
+pub fn started_side_job(repository: &str, project: Option<&str>) -> Result<SessionRecord, String> {
+    let mut one = ipc::decode::<SessionList>("SessionList", include_bytes!("../fixtures/side-jobs.json"))
+        .map_err(|why| why.to_string())?
+        .sessions
+        .into_iter()
+        .find(|one| one.id.as_str() == SIDE_JOB)
+        .ok_or("the side job fixture holds no Side Job")?;
+    one.manifest_id = Some(ipc::ManifestId::carried(repository.to_string()));
+    one.cwd = format!("/repos/{repository}");
+    if let Some(project) = project {
+        let raw = format!(r#"{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"project":"{project}"}}"#);
+        one.hosted = Some(ipc::decode::<ipc::HostedFacts>("HostedFacts", raw.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(one)
+}
+
 pub fn repositories() -> Vec<ipc::RepositorySummary> {
     ipc::decode::<ipc::RepositoryList>("RepositoryList", include_bytes!("../fixtures/repositories.json"))
         .unwrap_or_else(|why| panic!("the repositories fixture does not decode: {why}"))
@@ -359,6 +517,11 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         }
         all.insert(id.to_string(), empty_thread(id, job.started_at.as_str())?);
     }
+    // The Side Job a walk starts is not in its list yet, and has its empty thread ready.
+    if scenario == "project-filter" {
+        let started = started_side_job("armada", None)?;
+        all.insert(SIDE_JOB.to_string(), empty_thread(SIDE_JOB, started.started_at.as_str())?);
+    }
     Ok(all)
 }
 
@@ -368,6 +531,49 @@ pub fn empty_thread(id: &str, started: &str) -> Result<JobThread, String> {
     ipc::decode::<JobThread>("empty thread", empty.as_bytes()).map_err(|why| why.to_string())
 }
 
+/// The steps of the walk of the orders page, as a Job passes them to `show_window`.
+fn orders_steps() -> String {
+    let target = |role: &str, name: &str| format!(r#"{{"role":"{role}","name":"{name}"}}"#);
+    format!(
+        "[{},{},{},{},{},{}]",
+        format!(r#"{{"say":"The page's heading names what changed","look":{}}}"#, target("heading", "Orders")),
+        format!(r#"{{"say":"The search box carries its label","look":{}}}"#, target("searchbox", "Search orders")),
+        format!(r#"{{"say":"Add order opens the form","press":{}}}"#, target("button", "Add order")),
+        format!(r#"{{"say":"The form stands over the list","look":{}}}"#, target("dialog", "New order")),
+        format!(r#"{{"say":"Cancel shuts the form","press":{}}}"#, target("button", "Cancel")),
+        format!(r#"{{"say":"Export sits under the list","look":{}}}"#, target("button", "Export orders")),
+    )
+}
+
+/// The walk Air's Job showed, as it names it: a page on Air's own loopback.
+pub const AIR_WALK: &str = "http://localhost:5173/orders?walk=orders";
+
+/// The page Air's Job serves from its dev server.
+pub const AIR_LIVE: &str = "http://localhost:5173/";
+
+/// What Fleet answers on a walk for a page of Air's Job: an address on this Mac, here the orders page on disk.
+pub const AIR_PAGE: &str = concat!("file://", env!("CARGO_MANIFEST_DIR"), "/fixtures/web-walk-page.html");
+
+/// Air's Job showed a walk of a page, which it owes him, and serves its dev server as the page it is building.
+fn other_mac_pages(job: &mut SessionRecord) -> Result<(), String> {
+    let why = |why: ipc::Undecodable| why.to_string();
+    let since = job.started_at.clone();
+    let steps = ipc::encode(&orders_steps()).map_err(|why| format!("{why:?}"))?;
+    let window = format!(
+        r#"{{"kind":"artifact","target":"{AIR_WALK}","state":"standing","detail":{{"form":"window","title":"Orders page","brief":"The orders list has a search box and Add order. Export moved under the list.","steps":{steps}}},"since":"{since}","changed_at":"{since}"}}"#,
+        since = since.as_str()
+    );
+    job.attachments.retain(|attachment| !attachment.target.starts_with("armada://walk/"));
+    job.waiting_for.retain(|item| item.source != ipc::WaitingSource::Walk);
+    job.attachments.push(ipc::decode("window attachment", window.as_bytes()).map_err(why)?);
+    let item = format!(r#"{{"id":"walk:{AIR_WALK}","text":"Walk the orders page","since":"{since}","source":"walk","act":{{"kind":"walk","target":"{AIR_WALK}"}}}}"#, since = since.as_str());
+    job.waiting_for.push(ipc::decode("walk item", item.as_bytes()).map_err(why)?);
+    let activity = job.activity.get_or_insert_with(Default::default);
+    let live = format!(r#"{{"url":"{AIR_LIVE}","title":"Orders dev server"}}"#);
+    activity.live = Some(ipc::decode("live page", live.as_bytes()).map_err(why)?);
+    Ok(())
+}
+
 /// The threads a scenario's fixtures hold.
 fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     #[derive(Deserialize)]
@@ -375,14 +581,15 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
-        "jobs-screens" | "jobs-pairing" => return screens_threads(),
-        "job-view" | "review-palette" | "terminal-job" | "new-project" => include_bytes!("../fixtures/job-threads.json"),
+        "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
+        "job-view" | "job-for-you" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
+        "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         "needs-long" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
-        "job-tabs" => include_bytes!("../fixtures/tabs-threads.json"),
+        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, and the mod Job's two Checks, the newest running.
@@ -396,7 +603,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "job-panes" | "job-pulls" | "job-issues" | "job-system" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" | "slot-wait" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -405,15 +612,18 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sent-messages" => include_bytes!("../fixtures/sent-messages-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
+        "plan-sketches" => include_bytes!("../fixtures/plan-sketches-threads.json"),
         "ways-buttons" => include_bytes!("../fixtures/ways-buttons-threads.json"),
         "ways-look" => include_bytes!("../fixtures/ways-look-threads.json"),
         "ways-listen" => include_bytes!("../fixtures/listen-threads.json"),
-        "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-folds" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
-        "sketch-card" | "sketch-approve" | "sketches-several" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "ready-to-try" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        // The same two sketches, Freshness chip's mock drawn as a small form: a note may name the box, or an element inside the mock.
+        "sketch-reader" => include_bytes!("../fixtures/sketch-reader-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
         "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
@@ -421,10 +631,20 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
         // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
         "subagent" => include_bytes!("../fixtures/subagent-threads.json"),
+        // Its thread as Fleet folds it once the message ran the subagent again: its first Agent row running, far above a long run of calls.
+        "thread-subagents" => include_bytes!("../fixtures/thread-subagents-threads.json"),
         // Finished calls, with a dispute that started a review job, and Ask for a review, with one that started none and one Fleet read.
         "disputed-row" => include_bytes!("../fixtures/disputed-row-threads.json"),
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
+        // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
+        "reader" => include_bytes!("../fixtures/reader-threads.json"),
+        // One Job holding a page whose own drawing and whose vote's takes each hold a sketch.
+        "reader-sketches" => include_bytes!("../fixtures/reader-sketches-threads.json"),
+        "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
         "job-reasoning" => include_bytes!("../fixtures/reasoning-threads.json"),
+        // Native Bridge foundation's thread, long, with one word in his message, a folded tool run, an agent message, folded reasoning and the last message.
+        "thread-find" => include_bytes!("../fixtures/find-threads.json"),
+        "delivery-line" => include_bytes!("../fixtures/delivery-line-threads.json"),
         "jobs-switching" => return switching_threads(),
         // The Audit Job's thread ending on a proposed workflow's draft.
         "workflow-card" => include_bytes!("../fixtures/workflow-card-threads.json"),
@@ -432,6 +652,11 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
+    if scenario == "artifact-folds" {
+        if let Some(thread) = all.get_mut(crate::mock_parts::JOB) {
+            crate::mock_parts::extend_thread(thread);
+        }
+    }
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for thread in all.values_mut() {
             if let Some(call) = thread.head.open_call.as_mut() {
@@ -460,12 +685,139 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
             }
         }
     }
+    // One card of each state, in the thread and none pinned: asking with a For line, approved, sent back with its words, only read, withdrawn.
+    if scenario == "sketch-band" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            band_sketches(thread);
+        }
+    }
+    // Four Jobs, each holding the Ready to try cards of one kind: with what he approved beside what was built, with the shot alone, with
+    // no picture, and the four that are settled one line each beside one put off.
+    if scenario == "ready-to-try" {
+        ready_cards(&mut all)?;
+    }
+    if scenario == "thread-jump" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            thread_jump(thread)?;
+        }
+    }
     // The Job whose system Fleet cannot read has a thread with nothing in it yet, as Fleet answers for one.
     if scenario == "job-system" {
         let empty = ipc::decode::<JobThread>("empty thread", br#"{"session_id":"mock-03","head":{"trail":{"started":"2026-11-11T11:40:00Z"}},"items":[]}"#).map_err(|why| why.to_string())?;
         all.insert("mock-03".to_string(), empty);
     }
     Ok(all)
+}
+
+/// The tip a card of the `ready-to-try` scenario is offered at: forty hexadecimal digits, one per branch.
+fn ready_tip(id: &str) -> String {
+    format!("{:0<40}", format!("{}c1e9a2", id.len()))
+}
+
+/// The cards of the `ready-to-try` scenario, put at the foot of four Jobs' threads.
+fn ready_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
+    let card = |id: &str, at: &str, about: &str, rest: &str| -> Result<ipc::ThreadItem, String> {
+        let wire = format!(
+            r#"{{"kind":"ready_to_try","id":"try:native/{id}@{tip}","at":"{at}","offered_at":"{at}","branch":"native/{id}","tip":"{tip}","about":"{about}","in_build":true,{rest}}}"#,
+            tip = ready_tip(id)
+        );
+        ipc::decode::<ipc::ThreadItem>("ready card", wire.as_bytes()).map_err(|why| why.to_string())
+    };
+    let steps = r#""steps":[{"say":"Open the command palette","act":"command_palette"},{"say":"Open any sketch in a Job"},{"say":"Look at the strip on each box"}]"#;
+    // Its sketches are read, so no pin stands under the card at the thread's foot.
+    if let Some(thread) = all.get_mut("tool-edit") {
+        thread.head.sketch = None;
+    }
+    let mut put = |job: &str, items: Vec<ipc::ThreadItem>| {
+        if let Some(thread) = all.get_mut(job) {
+            thread.items.extend(items);
+        }
+    };
+    put(
+        "tool-edit",
+        vec![card(
+            "sketch-cards",
+            "2026-11-15T14:02:00Z",
+            "Sketch boxes drawn as cards",
+            &format!(
+                r#""state":"open","approved":{{"artifact":"sketch:Merge line flow","title":"Merge line flow","form":"sketch","revision":1,"approved_at":"2026-11-13T10:00:00Z"}},"pictures":["/work/shots/sketch-cards.png"],"words":"Make the native sketches richer, more hi-fi.","look":"Each box is a raised card with a coloured strip on top that says START, STEP or END.",{steps}"#
+            ),
+        )?],
+    );
+    put(
+        "tool-search",
+        vec![card(
+            "queue-search",
+            "2026-11-15T14:10:00Z",
+            "Search finds a Job by its branch",
+            r#""state":"open","pictures":["/work/shots/queue-search.png"],"look":"Type a branch name in the search box of the Jobs list.","steps":[{"say":"Press the search box"}]"#,
+        )?],
+    );
+    put("tool-agent", vec![card("reviewer-brief", "2026-11-15T14:20:00Z", "The reviewer's brief names its files", r#""state":"open""#)?]);
+    put(
+        "tool-done",
+        vec![
+            card("chip-colour", "2026-11-15T09:00:00Z", "Chip takes the stale colour", r#""state":"answered","verdict":"good""#)?,
+            card("clock-under", "2026-11-15T09:30:00Z", "Clock sits under the chip", r#""state":"answered","verdict":"needs_work""#)?,
+            card("old-arrows", "2026-11-15T10:00:00Z", "Arrows with words", r#""state":"withdrawn""#)?,
+            card("wide-rail", "2026-11-15T10:30:00Z", "Rail layout for the Jobs list", r#""state":"replaced""#)?,
+            card("later-toast", "2026-11-15T11:00:00Z", "Toast pile drawn as a stack", r#""state":"later","later_until":"2026-11-16T09:00:00Z""#)?,
+        ],
+    );
+    Ok(())
+}
+
+/// The `sketch-band` thread: the Freshness chip and Merge line flow drawings dealt into five cards, one per state the band words.
+fn band_sketches(thread: &mut JobThread) {
+    let Some(chip) = thread.head.sketch.take() else { return };
+    let flow = thread.items.iter().find_map(|item| match item {
+        ipc::ThreadItem::Sketch(card) if card.sketch == "sketch:Merge line flow" => Some(card.clone()),
+        _ => None,
+    });
+    let Some(flow) = flow else { return };
+    thread.items.retain(|item| !matches!(item, ipc::ThreadItem::Sketch(_)));
+    let card = |from: &ipc::ThreadSketch, id: &str, title: &str, at: &str| {
+        let mut card = from.clone();
+        card.id = id.to_string();
+        card.sketch = format!("sketch:{title}");
+        card.title = title.to_string();
+        card.at = ipc::Instant::carried(at.to_string());
+        card.asked = false;
+        card.withdrawn = false;
+        card.settled = None;
+        card.revisions = Vec::new();
+        card.for_line = None;
+        card.against = None;
+        card.against_drawing = None;
+        card
+    };
+    let mut asking = card(&chip, "sk-band-asking", "Freshness chip", "2026-11-10T22:00:41Z");
+    asking.asked = true;
+    asking.revisions = vec![flow.drawing.clone(), chip.drawing.clone(), chip.drawing.clone()];
+    asking.for_line = Some(ipc::ArtifactFor {
+        text: Some("Which colour the chip takes once main is stale".to_string()),
+        links: vec![
+            ipc::ArtifactLink { kind: ipc::ArtifactLinkKind::PullRequest, label: "#3611".to_string(), target: "#3611".to_string() },
+            ipc::ArtifactLink { kind: ipc::ArtifactLinkKind::PlanStep, label: "Band sketch card".to_string(), target: "g1".to_string() },
+        ],
+    });
+    let mut approved = card(&flow, "sk-band-approved", "Merge line flow", "2026-11-10T22:01:10Z");
+    approved.asked = true;
+    approved.settled = Some(ipc::CardSettled { how: ipc::SketchHow::Approved, at: ipc::Instant::carried("2026-11-10T22:02:00Z".to_string()), words: None });
+    let mut sent = card(&flow, "sk-band-sent", "Store clock reads", "2026-11-10T22:01:20Z");
+    sent.asked = true;
+    sent.settled = Some(ipc::CardSettled {
+        how: ipc::SketchHow::SentBack,
+        at: ipc::Instant::carried("2026-11-10T22:02:10Z".to_string()),
+        words: Some("Show the clock under the chip, not beside it.".to_string()),
+    });
+    let reading = card(&flow, "sk-band-reading", "Pinned clock", "2026-11-10T22:01:30Z");
+    let mut withdrawn = card(&flow, "sk-band-withdrawn", "Crossing arrows", "2026-11-10T22:01:40Z");
+    withdrawn.asked = true;
+    withdrawn.withdrawn = true;
+    for one in [asking, approved, sent, reading, withdrawn] {
+        thread.items.push(ipc::ThreadItem::Sketch(one));
+    }
 }
 
 /// The workflow changes Fleet would list for the scenario last named by [`jobs`], by change id, as
@@ -538,6 +890,70 @@ pub fn walk_refused(url: &str) -> Option<String> {
     (named.as_str() == "job-tabs" && url == "armada://walk/chipColours").then(|| "Build the walk first: cargo build in crates/bridge-native in slot-4".to_string())
 }
 
+/// The page the mock Fleet serves sealed: `Stale branch design`, revision 2, sealed by Fleet's own code from
+/// `fixtures/page-actions-source.html` (`page_sealed`'s `the_native_mock_page_is_sealed_as_fleet_seals_it` writes it).
+const SEALED_PAGE: &str = include_str!("../fixtures/page-actions.html");
+/// The record Fleet sealed it with, which the mock swaps for what was pressed and voted on it.
+const SEALED_RECORD: &str = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
+/// A second page: `Stale marks`, whose own drawing and whose two takes each hold an `<armada-sketch>`, sealed round the body
+/// `fixtures/page-sketches-source.html` holds, with the kit Fleet seals the first page with.
+const SKETCHED_PAGE: &str = include_str!("../fixtures/page-sketches.html");
+const SKETCHED_RECORD: &str = r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#;
+/// When the mock Fleet says a press or a vote was kept.
+const PAGE_AT: &str = "2026-11-14T09:00:00Z";
+
+/// `get_artifact_page` on the mock: the design page as Fleet serves it, its record holding the presses and the newest cast
+/// of each vote made on it, or Fleet's refusal of a revision it never kept.
+pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
+    if page == "marks" && revision == 1 {
+        let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
+        let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+        return Ok(SKETCHED_PAGE.replacen(SKETCHED_RECORD, &record, 1));
+    }
+    if page != "design" || !(1..=2).contains(&revision) {
+        return Err(format!("revision {revision} of `{page}` is not kept"));
+    }
+    let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
+    let record = format!(r#"{{"artifact":"design","revision":{revision},"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
+    let sealed = SEALED_PAGE.replacen(SEALED_RECORD, &record, 1);
+    // The first revision counted three branches where the second counts four.
+    Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
+}
+
+/// The mock Fleet's answer to a press or a vote on the design page, as `press_page_action` and `cast_page_vote` answer:
+/// Discuss is sent, Rebase it starts Retry webhooks on a 503, Keep it answers its ask, and Drop it is refused, its ask
+/// no longer open. Its votes are kept as cast.
+pub fn page_answer(posted: &ipc::PageToHost) -> Result<Vec<u8>, (String, Option<String>)> {
+    let refused = |code: &str, why: String| Err((why, Some(code.to_string())));
+    match posted {
+        ipc::PageToHost::Press { revision, action, .. } => {
+            let (item, act, did) = match action.as_str() {
+                "discuss-dark-mode" => ("web/dark-mode", "message", r#"{"kind":"sent"}"#.to_string()),
+                "rebase-rate-limits" => ("api/rate-limits", "start", r#"{"kind":"started","job":"mock-12"}"#.to_string()),
+                "keep-docs-index" => ("docs/index", "answer", r#"{"kind":"answered","item":"ask-docs-index"}"#.to_string()),
+                "drop-checkout" => return refused("fleet.page_ask_not_open", "the Job no longer waits on `ask-checkout`".into()),
+                other => {
+                    let holds = "discuss-dark-mode, rebase-rate-limits, keep-docs-index, drop-checkout";
+                    return refused("fleet.page_action_unknown", format!("revision {revision} of `Stale branch design` holds no action `{other}`. Actions it holds: {holds}"));
+                }
+            };
+            Ok(format!(r#"{{"revision":{revision},"action":"{action}","item":"{item}","act":"{act}","at":"{PAGE_AT}","did":{did}}}"#).into_bytes())
+        }
+        ipc::PageToHost::Vote { revision, vote, result, .. } => {
+            let form = match vote.as_str() {
+                "mark" => ipc::VoteForm::Pick,
+                "row-parts" => ipc::VoteForm::Score,
+                other => return refused("fleet.page_vote_unknown", format!("revision {revision} of `Stale branch design` holds no vote `{other}`. Votes it holds: mark, row-parts")),
+            };
+            if result.form() != form {
+                return refused("fleet.page_vote_form", format!("vote `{vote}` is a {}, and this result is a {}", form.word(), result.form().word()));
+            }
+            let cast = ipc::VoteCast { revision: *revision, vote: vote.clone(), form, result: result.clone(), at: ipc::Instant::carried(PAGE_AT) };
+            ipc::encode(&cast).map(String::into_bytes).map_err(|why| (format!("{why:?}"), None))
+        }
+    }
+}
+
 /// Whether a Job's thread is read again for a moment when it comes on screen, as Fleet's read takes
 /// time: in `thread-moved`, so a walk can show the row that says new messages are loading.
 pub fn reads_slowly() -> bool {
@@ -550,6 +966,42 @@ pub fn act_refused(route: &str) -> Option<String> {
     let named = SCENARIO.lock().ok()?;
     (named.as_str() == "sketch-approve" && route == "/sessions/sketch/answer")
         .then(|| "the sketch `Freshness chip` is not the drawing that was read: the job has drawn it again since".into())
+}
+
+/// The sketch Fleet refuses an approval of in `review-grouped`: drawn again since he read it.
+pub const REVIEW_REDRAWN: (&str, &str) = ("mock-04", "sketch:Docs index layout");
+
+/// What `answer_items` and `dismiss_items` answer on mock data: every item settles, but in `review-grouped` the
+/// Docs index sketch's approval is refused as Fleet refuses a drawing read before it was drawn again.
+pub fn items_settled(route: &str, body: &str) -> Result<ipc::ItemsSettled, String> {
+    let asked: Vec<(ipc::SessionId, String, bool)> = match route {
+        "/sessions/items/answer" => ipc::decode::<ipc::AnswerItems>("AnswerItems", body.as_bytes())
+            .map_err(|why| why.to_string())?
+            .items
+            .into_iter()
+            .map(|one| (one.session_id, one.item, one.how == ipc::ItemHow::Approve))
+            .collect(),
+        "/sessions/items/dismiss" => {
+            ipc::decode::<ipc::DismissItems>("DismissItems", body.as_bytes()).map_err(|why| why.to_string())?.items.into_iter().map(|one| (one.session_id, one.item, false)).collect()
+        }
+        other => return Err(format!("{other} is not an items route")),
+    };
+    let grouped = scenario_is("review-grouped");
+    let outcomes = asked
+        .into_iter()
+        .map(|(session_id, item, approves)| {
+            let outcome = if grouped && approves && (session_id.as_str(), item.as_str()) == REVIEW_REDRAWN {
+                ipc::ItemSettled::Refused {
+                    code: "fleet.sketch_redrawn".into(),
+                    message: "the sketch `Docs index layout` is not the drawing that was read: the job has drawn it again since".into(),
+                }
+            } else {
+                ipc::ItemSettled::Settled
+            };
+            ipc::ItemOutcome { session_id, item, outcome }
+        })
+        .collect();
+    Ok(ipc::ItemsSettled { outcomes })
 }
 
 /// What `GET /sessions/lead_picture` answers for a Job in the scenario last named: the last thing the Job showed before
@@ -833,7 +1285,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "jobs-pairing" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
+    if !matches!(named.as_str(), "job-view-composer" | "owner-fixes" | "jobs-screens" | "jobs-pairing" | "jobs-other-mac" | "thread-presses" | "sent-messages" | "history" | "job-panes" | "job-panes-more") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
@@ -870,7 +1322,9 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
     let owed = rows.iter().filter(|(section, _)| *section != Section::Done).count();
     let reviewing = rows.iter().filter(|(section, _)| *section == Section::ToReview).count();
     let alone_is_a_document = owed == 1 && rows.iter().any(|(_, row)| row.source == WaitingSource::Document);
-    let review_in_band = reviewing > 1 || alone_is_a_document;
+    // A branch to try has no other place he would find it, so its card is always in the band.
+    let to_try = rows.iter().any(|(_, row)| row.source == WaitingSource::ReadyToTry);
+    let review_in_band = reviewing > 1 || alone_is_a_document || to_try;
     let mut glyphs: Vec<NeedsYouGlyph> = rows.iter().filter(|(section, _)| listed(*section)).map(|(_, row)| NeedsYouGlyph { kind: row.glyph.kind, said: row.text.clone() }).collect();
     if review_in_band {
         let mut pages: Vec<&NeedsYouRow> = rows.iter().filter(|(section, _)| *section == Section::ToReview).map(|(_, row)| row).collect();
@@ -897,7 +1351,7 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
             (!mine.is_empty()).then(|| NeedsYouSection { kind: *kind, label: (*label).into(), rows: mine })
         })
         .collect();
-    NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
+    NeedsYou { session_id: ipc::SessionId::carried(job), sections, fold: to_try || rows.iter().any(|(section, _)| listed(*section)), review_in_band, glyphs }
 }
 
 /// When an item of the thread was written, where it says.
@@ -953,9 +1407,10 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
     let pressed = match item.source {
         WaitingSource::Plan => NeedsYouAct::OpenPlan,
         WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
-        WaitingSource::Document => NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
+        WaitingSource::Document => NeedsYouAct::OpenDocument { path: item.id.strip_prefix("read:").map_or_else(|| named(DOCUMENT_ITEM_PREFIX), str::to_string) },
         WaitingSource::Draft => NeedsYouAct::OpenDraft { row: named("draft:") },
-        _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: true },
+        // Fleet's handoff card takes no words.
+        _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: item.source != WaitingSource::Handoff },
         // A restart is the band's key even where the agent gave steps, as Classic's `restartOf` reads it.
         _ if !item.steps.is_empty() && command.as_deref().and_then(mock_restart).is_none() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
         _ => {
@@ -1023,10 +1478,12 @@ fn mock_place(item: &WaitingItem, act: &NeedsYouAct) -> (NeedsYouSectionKind, Ne
         WaitingSource::PreviewOffer => (by_act(), Dismiss::Skip),
         WaitingSource::Walk => (Section::Walks, Dismiss::Plain),
         WaitingSource::Draft => (Section::ToReview, Dismiss::Reason),
-        WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan => (Section::ToReview, Dismiss::Plain),
+        WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan | WaitingSource::ReadyToTry => (Section::ToReview, Dismiss::Plain),
         WaitingSource::Done => (Section::Done, Dismiss::Plain),
         WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::WatchNotOurs | WaitingSource::BrowserAsk => (Section::Questions, Dismiss::Plain),
         WaitingSource::RuleAct | WaitingSource::OperatorSuggestion => (Section::Questions, Dismiss::Skip),
+        WaitingSource::OperatorUndone => (by_act(), Dismiss::Plain),
+        WaitingSource::Handoff => (Section::Questions, Dismiss::Plain),
         _ => (Section::Questions, Dismiss::None),
     }
 }
@@ -1039,6 +1496,7 @@ fn mock_glyph(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         WaitingSource::Sketch => return glyph(Kind::Sketch, "Sketch"),
         WaitingSource::Draft => return glyph(Kind::Draft, "Draft"),
         WaitingSource::Document => return glyph(Kind::Document, "Document"),
+        WaitingSource::ReadyToTry => return glyph(Kind::Message, "Ready to try"),
         WaitingSource::Done => return glyph(Kind::Done, "Done"),
         WaitingSource::OperatorSuggestion => return glyph(Kind::Operator, "What the Operator would do"),
         _ => {}
@@ -1083,6 +1541,22 @@ mod tests {
     }
 
     #[test]
+    fn a_card_to_try_is_to_review_with_a_plain_dismiss_and_no_answer_of_its_own() {
+        use ipc::{NeedsYouDismiss, NeedsYouSectionKind as Section};
+        let jobs = super::jobs("ready-to-try").expect("decodes");
+        let job = jobs.iter().find(|job| job.id.as_str() == "tool-edit").expect("the Edit Job");
+        let view = super::needs_you("tool-edit", &job.waiting_for, &|_| false);
+        let ready: Vec<_> = view.sections.iter().flat_map(|section| section.rows.iter().map(move |row| (section.kind, row))).filter(|(_, row)| row.id.starts_with("try:")).collect();
+        assert_eq!(ready.len(), 1, "the open card is one item");
+        let (section, row) = ready[0];
+        assert_eq!((section, row.dismiss), (Section::ToReview, NeedsYouDismiss::Plain));
+        assert!(row.text.starts_with("Try: "), "{}", row.text);
+        assert!(view.fold && view.review_in_band, "an open card is in the band though nothing else is owed");
+        assert!(view.glyphs.iter().any(|glyph| glyph.kind == ipc::NeedsYouGlyphKind::Message && glyph.said == "Ready to try"), "its mark is named Ready to try");
+        assert!(view.sections.iter().filter(|section| section.kind != Section::ToReview).all(|section| section.rows.iter().all(|row| !row.id.starts_with("try:"))));
+    }
+
+    #[test]
     fn the_several_sketches_scenario_lists_each_open_sketch_newest_first_and_pins_the_newest() {
         let jobs = super::jobs("sketches-several").expect("decodes");
         let job = jobs.iter().find(|job| job.id.as_str() == "tool-edit").expect("the Edit Job");
@@ -1098,6 +1572,28 @@ mod tests {
         let jobs = super::jobs("needs-plan").expect("decodes");
         let view = super::needs_you("mock-01", &jobs[0].waiting_for, &|_| false);
         assert!(!view.fold && !view.review_in_band && view.glyphs.is_empty());
+    }
+
+    #[test]
+    fn the_plan_sketches_scenario_asks_its_sketches_through_the_plan_alone() {
+        use ipc::NeedsYouAct;
+        let jobs = super::jobs("plan-sketches").expect("decodes");
+        let pending = jobs.iter().find(|job| job.id.as_str() == "plan-sk-1").expect("the pending Job");
+        let plan = pending.plan.as_ref().expect("its plan");
+        assert!(!plan.approved && !plan.sketches.is_empty() && plan.groups.iter().any(|group| !group.sketches.is_empty()));
+        let view = super::needs_you("plan-sk-1", &pending.waiting_for, &|_| false);
+        let rows: Vec<&NeedsYouAct> = view.sections.iter().flat_map(|section| &section.rows).map(|row| &row.act).collect();
+        assert!(rows.iter().any(|act| matches!(act, NeedsYouAct::OpenPlan)), "the plan waits");
+        assert!(!rows.iter().any(|act| matches!(act, NeedsYouAct::OpenSketch { .. })), "no sketch waits on its own");
+        let threads = super::threads("plan-sketches").expect("decodes");
+        let asked: Vec<&str> = threads["plan-sk-1"].items.iter().filter_map(|item| match item {
+            ipc::ThreadItem::Sketch(card) if card.asked => Some(card.sketch.as_str()),
+            _ => None,
+        }).collect();
+        assert_eq!(asked, ["sketch:Project switcher", "sketch:Switcher rows"], "each card was put to him, so only the plan keeps it from asking");
+        let approved = jobs.iter().find(|job| job.id.as_str() == "plan-sk-2").expect("the approved Job");
+        assert!(approved.plan.as_ref().is_some_and(|plan| plan.approved) && approved.waiting_for.is_empty());
+        assert!(threads["plan-sk-2"].items.iter().all(|item| !matches!(item, ipc::ThreadItem::Sketch(card) if card.settled.as_ref().is_none_or(|settled| settled.how != ipc::SketchHow::Approved))));
     }
 
     #[test]
@@ -1118,6 +1614,8 @@ mod tests {
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 7);
         assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
+        assert_eq!(super::jobs("handoff-card").expect("decodes").len(), 2);
+        assert_eq!(super::threads("handoff-card").expect("decodes").len(), 2);
         assert!(super::jobs("job-tabs").expect("decodes").len() > 10);
         let tabs = super::threads("job-tabs").expect("decodes");
         for id in ["mock-01", "mock-02", "mock-04", "mock-06"] {
@@ -1415,3 +1913,19 @@ const NEEDS_LONG_ASK: &str = r#"{"id":"agent-retry","text":"How should a refused
 {"label":"Wait for main to move","description":"Nothing retries until main has a new commit. The branch is merged with it first, the Checks run again on the merge, and only a green run pushes. A refusal that names the branch protection stops at once."},
 {"label":"Ask each time","description":"Every refusal comes here as its own question with the forge's words, the branch and how far behind main it is. Nothing is pushed until you answer, and an answer applies to that one push only."},
 {"label":"Hand it to the merge queue","description":"The pull request is queued as it stands and the queue's own retries take over. The Job ends its part once the queue has it, and a queue failure opens a new Job for the fix with the failing Check named."}]}"#;
+
+/// A kept style set as `GET /sessions/kept_styles` answers it. A mock scene's mock nodes name no hash, so the one set
+/// answers every hash asked.
+pub fn kept_styles(_hash: &str) -> ipc::KeptStyles {
+    ipc::decode("kept styles", include_bytes!("../fixtures/kept-styles.json")).unwrap_or_else(|why| panic!("the kept styles fixture does not decode: {why}"))
+}
+
+fn thread_jump(thread: &mut JobThread) -> Result<(), String> {
+    let plan = ipc::decode::<ipc::ThreadHead>("head", br#"{"trail":{"started":"2026-11-10T21:58:00Z"},"plan":{"id":"plan:v2","version":2,"state":"set_aside"}}"#).map_err(|why| why.to_string())?;
+    thread.head.plan = plan.plan;
+    for n in 0..14 {
+        let wire = format!(r#"{{"kind":"row","row":{{"kind":"message","id":"jm{n}","at":"2026-11-10T21:59:{n:02}Z","from":{{"kind":"agent"}},"text":"Message {n}: the chip takes its colour from the branch's age, and the rule reads the last merge."}}}}"#);
+        thread.items.insert(2, ipc::decode::<ipc::ThreadItem>("row", wire.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(())
+}

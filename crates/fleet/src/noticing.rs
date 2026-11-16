@@ -75,6 +75,9 @@ pub(crate) struct Sweep {
     /// One pull request reading at a time in each repository, by root: the watch's or a
     /// refresh's. `crate::pull_notices`.
     pub(crate) pull_readings: BTreeMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
+    /// The wire types a pull request changes, by repository, number and commit, so a reading costs
+    /// the forge one ask. `crate::wire_notices`.
+    pub(crate) wire_types: BTreeMap<String, Vec<crate::wire_types::TypeChange>>,
 }
 
 /// When the forge last answered a repository's whole visit, and when it first stopped answering.

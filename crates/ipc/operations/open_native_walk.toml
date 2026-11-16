@@ -2,11 +2,13 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Start the native Bridge build a job's native walk is drawn by, when the person presses Open"
+description = "Start the native Bridge of the build the person runs on a job's native walk, when he presses it"
 notes = """
 `POST /sessions/window/open`, body `OpenNativeWalk`: `session_id` and `url`, the `armada://walk/<name>` address `show_window` named. Answered with `NativeWalkOpened`: `started`, false where the app was already running for that walk. Bridge sends it on the person's press of Open on the job's tab, and nothing else does: Fleet never starts the app on its own.
 
-**Refused with 422 and nothing started** unless the job has an open `window` row on that address (not ended, not withdrawn) and the address is a native walk's; unless the job holds a slot; and unless the slot holds a build: `<slot>/crates/bridge-native/target/debug/bridge-native`, never any installed app. A binary that is missing, or older than the commit at the slot's `HEAD`, is refused with `Build the walk first: cargo build in crates/bridge-native in <slot>`.
+**The app is the native Bridge of the build he runs**: `Armada/builds/current/Armada.app`, which his preview restart kept (`scripts/restart` builds it), so a merged preview plays every offered branch's walks. Never a job's slot build: a job builds nothing to be walked. `show_window` has already refused a walk that build does not play, so the press opens it.
 
-**Fleet starts** `<bin> --walk <name> --job <session_id> --url <url> --fleet-port <port>` with the slot as its working directory, and **owns the process**: it is stopped when the walk ends (the window closed, withdrawn, approved or replaced), when the job ends, when the slot is given back and when Fleet stops. Opening again while it runs starts no second process.
+**Refused with 422 and nothing started** unless the job has an open `window` row on that address (not ended, not withdrawn) and the address is a native walk's; and unless the build he runs holds the app, which it can lack only where it was taken away after the walk was shown: `the build he runs has no native Bridge at <path>`.
+
+**Fleet starts** `<app> --walk <name> --job <session_id> --url <url> --fleet-port <port>` with the build's folder as its working directory, the app hard-linked into a bundle of the walk's own under the support folder, so its menu bar and Dock stay apart from his running native Bridge's. **Fleet owns the process**: it is stopped when the walk ends (the window closed, withdrawn, approved or replaced), when the job ends and when Fleet stops. Opening again while it runs starts no second process; a press after his preview has restarted onto a newer build stops it and starts that one.
 """

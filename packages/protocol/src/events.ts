@@ -14,6 +14,7 @@ import type { MergeLines } from "./merge-lines";
 import type { MergeLineViews } from "./merge-line-view";
 import type { AllWriteClashes } from "./clashes";
 import type { CallsChanged } from "./standing-calls";
+import type { ForYouChanged } from "./for-you";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
@@ -35,6 +36,7 @@ import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
 import type { JobThreadChanged, JobThreadTail } from "./job-thread";
 import type { KeepDraftsChanged } from "./job-copy";
+import type { Aside } from "./asides";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
 import type { Studio, StudioDeleted, StudioJobActed } from "./studio";
@@ -151,10 +153,18 @@ export type Event =
   | ({
       kind: "session.row";
     } & SessionRowChanged)
+  /** One aside of a Job, whole, as its answer grows, ends or is told: replace the one held by `aside_id`. Since 15 Nov 2026. */
+  | ({
+      kind: "session.aside";
+    } & Aside)
   /** A subagent's own thread moved: read `get_session_subagent` again with its `subagent_id`. */
   | ({
       kind: "session.subagent";
     } & SessionSubagentChanged)
+  /** A Job's For you moved: read `get_for_you` for it again. */
+  | ({
+      kind: "session.for_you";
+    } & ForYouChanged)
   /** A Job row held from another Mac went: that Mac left it out, or was forgotten. Drop the row. Never this Mac's own Jobs. */
   | ({
       kind: "session.removed";
@@ -231,7 +241,7 @@ export type Event =
   | ({
       kind: "timeline.appended";
     } & TimelineAppended)
-  /** The Operator's board is not what it was: read `get_operator_board` again. Carries nothing else. */
+  /** The Operator's board is not what it was: read `operator_page` again. Carries nothing else. */
   | {
       kind: "operator.board_changed";
     }

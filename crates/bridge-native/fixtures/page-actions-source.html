@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stale branch design</title>
+<link rel="stylesheet" href="armada-kit.css">
+</head>
+<body>
+<h1>Stale branch design</h1>
+<p>A branch is stale once main has moved past it by more than a day. Four branches are stale now. Two ways to mark them, and two ways to draw their rows, are below.</p>
+
+<section aria-label="Stale branches">
+<h2>Stale branches</h2>
+<table>
+<thead><tr><th>Branch</th><th>Behind main</th><th></th></tr></thead>
+<tbody>
+<tr><td>web/dark-mode</td><td>3 days</td><td><armada-action id="discuss-dark-mode" act="message" label="Discuss" item="web/dark-mode"></armada-action></td></tr>
+<tr><td>api/rate-limits</td><td>2 days</td><td><armada-action id="rebase-rate-limits" act="start" label="Rebase it" item="api/rate-limits" brief="Rebase api/rate-limits on main and push it."></armada-action></td></tr>
+<tr><td>docs/index</td><td>1 day</td><td><armada-action id="keep-docs-index" act="answer" label="Keep it" item="docs/index" ask="ask-docs-index" option="Keep it"></armada-action></td></tr>
+<tr><td>web/checkout</td><td>4 days</td><td><armada-action id="drop-checkout" act="answer" label="Drop it" item="web/checkout" ask="ask-checkout" option="Drop it"></armada-action></td></tr>
+</tbody>
+</table>
+</section>
+
+<section aria-label="Pick a mark">
+<h2>How a stale branch is marked</h2>
+<armada-vote id="mark" form="pick" question="Which mark?">
+<armada-take id="chip" title="Amber chip"><p>An amber chip after the branch name, with the days behind in its tooltip.</p></armada-take>
+<armada-take id="fade" title="Faded row"><p>The whole row drawn at half strength, the days behind in its own column.</p></armada-take>
+</armada-vote>
+</section>
+
+<section aria-label="Score the rows">
+<h2>What a row carries</h2>
+<armada-vote id="row-parts" form="score" question="Which parts stay?" parts="age,author">
+<armada-take id="compact" title="Compact row"><p>The name and the age on one line.</p></armada-take>
+<armada-take id="full" title="Full row"><p>The name, the age and the author on two lines.</p></armada-take>
+</armada-vote>
+</section>
+</body>
+</html>

@@ -139,6 +139,8 @@ export type SessionRecord = {
   mod_of_bay?: true;
   /** A Side Job, started by `start_side_job`: it opens onto its terminal `t1`, and its agent runs nothing until the person writes. Absent on every other session. */
   side_job?: true;
+  /** The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest. Bridge keeps it out of the Jobs list. Absent on every other session. */
+  operator?: true;
   /** What a session Fleet hosts carries beyond a terminal's. Since 23.49. */
   hosted?: HostedFacts;
   /** What a session run in a terminal runs on, once its mod has said. Since 23.53. */
@@ -249,6 +251,8 @@ export type SessionRecord = {
    * `waiting_for`. Absent or empty is none.
    */
   held_open_by?: HeldOpenBy[];
+  /** Waiting for a worktree slot, in its repository's line or its lease asking. Absent otherwise. Since 14 Nov 2026. */
+  slot_wait?: SlotWait;
   /** Why it stopped, with `standing` `stopped`. Absent otherwise. */
   stopped?: SessionStopped;
   /** The repair Fleet is running on it now, in any state. Absent while none runs. */
@@ -297,7 +301,36 @@ export type SessionRecord = {
   lanes?: JobLanesView;
   /** The pull request descriptions this Job proposed that wait on the person, each with its pull request. Absent where none waits. Since 12 Nov 2026. */
   pull_request_drafts?: PullRequestDraft[];
+  /** Each tracker item the Job waits on because another holds it, in the item's order. Absent where it waits on none. Since 14 Nov 2026. */
+  claim_waits?: ClaimWait[];
+  /** Whether the Job holds claims its project's store has not taken yet, because the store did not answer. Absent where all are sent. Since 14 Nov 2026. */
+  claims_unsent?: boolean;
 };
+
+/**
+ * A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is its assignee in beads.
+ * Or a failing test another Job is fixing, which threw the Job's pull request out of the merge queue: `item` is the test.
+ * `holder` is the holding Job's forge login or the assignee, `machine` and `title` the holding Job's, absent for a person in beads.
+ * `holder` is empty where main is red on the test.
+ */
+export type ClaimWait = {
+  item: string;
+  holder: string;
+  machine?: string;
+  title?: string;
+  /** Whether the holding Job is one of this Mac's. Absent where it is not, and for a person in beads. Since 14 Nov 2026. */
+  this_mac?: boolean;
+  /** The holding Job's id on its Mac. Absent for a person in beads and where main's own fix ends the wait. Since 14 Nov 2026. */
+  job?: string;
+  since: string;
+  ends: ClaimWaitEnds;
+};
+
+/**
+ * What ends a wait on a held item: the other Job's claim ending, or the person no longer the assignee in beads.
+ * `fix_merges`: a failing test's fix merges and main is green, or main's red is fixed, and the pull request is queued again.
+ */
+export type ClaimWaitEnds = "claim_ends" | "unassigned" | "fix_merges";
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
 export type SessionStarted = {
@@ -452,12 +485,23 @@ export type WaitingAct = {
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
- * `detail.settled`. Its press opens the document. `answer_document` answers it.
+ * `detail.settled`. Its press opens the document. `answer_document` answers it. A page that asks nothing waits as id `read:<path>` with
+ * the same source, text `Read: <title>` and `artifact` the page, while `detail.reads` stands and he has not opened its newest revision:
+ * opening it (`mark_artifact_seen`) is the answer, nothing approves it, and the Job is told nothing.
  * `gate` (id `gate:<group id>`, text `"<group title>" waits on <what>`, act `answer` whose `target` is the Job's own id) is the Job's
  * `all_done` held at a gate that nothing in the Job can close and he can: `Approve` (choice 0) and `Skip this group` (choice 1).
  * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of
  * its own, since the close tells it. Fleet derives it while a hold stands and nothing in the Job runs, and drops it when the gate
  * closes. It cannot be dismissed.
+ * `operator_undone` (id `undone:<n>`, `<n>` the row of a ruling he took back with `operator_undo_ruling`, text the question, the options the question had, act `answer` whose `target` is the id)
+ * is a question the Operator answered by following something he said and he took back. Answering it sends the agent `Re: <question>` and his choice, as for an
+ * `agent` item, and the item goes. Dismissing it drops it. The Operator's own review never answers it. Since 13 Nov 2026.
+ * `job_conflict` (id `conflict:<a>:<b>`, the two addresses sorted, text what breaks if both land, act `answer`) is a `raise_conflict` nothing answered:
+ * `Tell <sender> to change` (choice 0), `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds it; each Job named is told his answer.
+ * `job_held` (id `held:<repository>:<pull or branch>`, act `answer`) is an `ask_held` Fleet could not answer: `Land it` (choice 0) and `Hold it` (choice 1);
+ * the Job that asked is told. Neither can be dismissed. Since 14 Nov 2026.
+ * `ready_to_try` (id and `artifact` `try:<session_id>`, text `Ready to try`, act `message`) is the Job's one row while any Ready to try
+ * card in its thread is open; each card is answered with `answer_ready_to_try`, and dismissing the row puts away only the cards open then. Since 15 Nov 2026, one per Job since 16 Nov 2026.
  */
 export type WaitingSource =
   | "agent"
@@ -484,7 +528,11 @@ export type WaitingSource =
   | "operator_suggestion"
   | "sketch"
   | "document"
-  | "gate";
+  | "gate"
+  | "operator_undone"
+  | "job_conflict"
+  | "job_held"
+  | "ready_to_try";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
@@ -672,6 +720,8 @@ export type WaitingItem = {
   create_refused?: string;
   /** On a question or a card, where the Answer role stands at Suggest: what the Operator read and the option it would pick. His press on that option is the one press. */
   operator_read?: OperatorRead;
+  /** The id of one of the Job's artifacts this item is about, on an agent's item, so a client names it and opens it. Absent otherwise. */
+  artifact?: string;
 };
 
 /** One slot a Job Fleet hosts holds, offered on a `slot_choice` call. `keeps` is why Free is off: its turn is running, or its checkout holds files no commit has. Fleet decides it. */
@@ -684,6 +734,18 @@ export type SlotHolder = {
   /** When the holder last finished a turn, and its lease time where it has not. */
   quiet_since: string;
   keeps?: "running" | "uncommitted";
+};
+
+/** A Job waiting for a worktree slot. Nobody is asked: Add is `answer_waiting` on `slot-choice` with choice 1, and Free is `free_slot`. */
+export type SlotWait = {
+  since: string;
+  /** How many Jobs are ahead of it in its repository's line. */
+  ahead: number;
+  holders?: SlotHolder[];
+  /** When the slot the person asked for was begun, while it is being made. */
+  creating_since?: string;
+  /** Why the last slot he asked for was not made, until the next Add. */
+  create_refused?: string;
 };
 
 /** Where a Job goes in Waiting to start, against another Job waiting there. */
@@ -953,6 +1015,25 @@ export type IssueClaimed = {
 export type TakeMainRed = {
   session_id?: string;
   take_over?: boolean;
+};
+
+/**
+ * `POST /sessions/call_test_flaky`: a Job Fleet told its change reaches a test that threw its pull request out of the
+ * merge queue says the test is flaky, with `log_line`, the line of the failing run's log that shows it. Fleet claims the
+ * test, starts the one Job that fixes it, and queues the pull request again when that fix merges. `session_id` names the
+ * Session where the connection places none. Fleet refuses 409 `fleet.test_not_asked` where it did not ask this Job about
+ * the test, and 422 `fleet.test_not_callable` for a call that places no Session or names no log line. Since 14 Nov 2026.
+ */
+export type CallTestFlaky = {
+  session_id?: string;
+  test: string;
+  log_line: string;
+};
+
+/** What `call_test_flaky` answers: the pull request that waits, and what Fleet did, in the words it tells the Job. */
+export type TestCalledFlaky = {
+  pull: number;
+  said: string;
 };
 
 /** What `take_main_red` answers. `claimed` is false where the switch is off or the machine is signed out: nothing was written. */

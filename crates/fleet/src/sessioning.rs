@@ -157,6 +157,8 @@ where
         let mut subagent_row: Option<SubagentRow> = None;
         // A turn ended: a subagent row still running whose transcript ended is settled once the store is let go.
         let mut turn_over = false;
+        // The words the mod sent a turn back with, kept as a notice once the store is let go.
+        let mut sent_back: Option<String> = None;
         // A pull request the session opened, by its Manifest and address, read once the store is let go.
         let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
@@ -480,6 +482,11 @@ where
             }
             // Fleet keeps no count of calls: nothing reads one.
             SessionFact::Calls { .. } => {}
+            // The mod's stop hook gave the agent these words already, so the row is written and nothing
+            // is sent. A terminal Job's thread is not Fleet's to write.
+            SessionFact::SentBack { text } => {
+                sent_back = Some(text.trim().to_string()).filter(|text| !terminal && !text.is_empty());
+            }
             // Fleet ends a session it hosts, by `close_session`: the harness in
             // it going away is a process ending, and the next message resumes.
             SessionFact::Ended { .. } if session.origin == "bridge" => {}
@@ -544,6 +551,9 @@ where
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
             self.row_put(&session.id, row).await;
+        }
+        if let Some(text) = sent_back {
+            self.fleet_note_as(&session.id, text, Some(ipc::Notice::ReplyClaim)).await;
         }
         if let Some((manifest, address)) = opened_pull {
             self.opened_pull_read(&manifest, &address).await;
@@ -611,6 +621,14 @@ where
         self.main_red_taken(caller, take).await
     }
 
+    async fn call_test_flaky(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        call: ipc::CallTestFlaky,
+    ) -> Result<ipc::TestCalledFlaky, Refusal> {
+        self.test_called_flaky(caller, call).await
+    }
+
     async fn report_session_check(
         &self,
         call: ipc::SessionCheckCall,
@@ -647,6 +665,10 @@ where
         if native {
             if let Some(why) = crate::native_walks::takes_no(&show) {
                 return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
+            }
+            // His one press must open it: a walk the build he runs cannot play goes back to the Job.
+            if let Some(why) = crate::native_walks::unplayable(&self.host().home, &show).await {
+                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, &why));
             }
         } else if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
@@ -1056,6 +1078,42 @@ where
         self.fleet_disputed(caller, dispute).await
     }
 
+    async fn raise_conflict(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        conflict: ipc::RaiseConflict,
+    ) -> Result<ipc::ConflictRaised, Refusal> {
+        self.conflict_raised(caller, conflict).await
+    }
+
+    async fn raise_card(self: Arc<Self>, caller: Option<api::Caller>, card: ipc::RaiseCard) -> Result<ipc::CardRaised, Refusal> {
+        self.card_raised(caller, card).await
+    }
+
+    async fn revise_card(self: Arc<Self>, caller: Option<api::Caller>, revise: ipc::ReviseCard) -> Result<ipc::CardRevised, Refusal> {
+        self.card_revised(caller, revise).await
+    }
+
+    async fn settle_card(self: Arc<Self>, caller: Option<api::Caller>, settle: ipc::SettleCard) -> Result<ipc::OperatorCardSettled, Refusal> {
+        self.card_settled(caller, settle).await
+    }
+
+    async fn list_operator_acts(&self) -> Result<ipc::OperatorActsList, Refusal> {
+        self.operator_acts_listed().await
+    }
+
+    async fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> Result<ipc::OperatorActsList, Refusal> {
+        self.operator_acts_set(set).await
+    }
+
+    async fn ask_held(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        asked: ipc::AskHeld,
+    ) -> Result<ipc::HeldAsked, Refusal> {
+        self.held_asked(caller, asked).await
+    }
+
     async fn report_bug(
         &self,
         caller: Option<api::Caller>,
@@ -1118,6 +1176,10 @@ where
         &self,
         stop: ipc::StopSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let run_id = stop.run_id.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Stop { session_id, run_id: stop.run_id.clone() }).await {
+            return sent;
+        }
         self.end_session_run(stop)
     }
 
@@ -1125,6 +1187,10 @@ where
         &self,
         write: ipc::WriteSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let (run_id, data) = (write.run_id.clone(), write.data.clone());
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Write { session_id, run_id: run_id.clone(), data }).await {
+            return sent;
+        }
         self.type_into_session_run(write).await
     }
 
@@ -1132,10 +1198,17 @@ where
         &self,
         resize: ipc::ResizeSessionRun,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        let ipc::ResizeSessionRun { run_id, cols, rows } = resize.clone();
+        if let Some(sent) = self.terminal_act_on_other_mac(&run_id, |session_id| ipc::TerminalFromMac::Resize { session_id, run_id: run_id.clone(), cols, rows }).await {
+            return sent;
+        }
         self.resize_session_run_terminal(resize)
     }
 
     async fn observe_session_run(&self, run_id: String) -> Result<api::ObservedSessionRun, Refusal> {
+        if let Some(followed) = self.terminal_followed_on_other_mac(&run_id).await {
+            return followed;
+        }
         self.watch_session_run(&run_id)
     }
 
@@ -1143,6 +1216,10 @@ where
         self: Arc<Self>,
         open: ipc::OpenTerminal,
     ) -> Result<ipc::SessionRunUnderway, Refusal> {
+        // A Job held from another Mac: its shell runs there, in its slot.
+        if let Some(mac) = self.mac_holding(open.session_id.as_str()).await {
+            return self.terminal_opened_on_other_mac(&mac, open).await;
+        }
         let (terminal, run_id) = self
             .open_job_terminal(open.session_id.as_str(), open.terminal.as_deref(), open.new, open.cols, open.rows)
             .await?;
@@ -1184,6 +1261,12 @@ where
         caller: Option<api::Caller>,
         asked: ipc::ListTerminals,
     ) -> Result<ipc::JobTerminals, Refusal> {
+        // Bridge's list of a Job held from another Mac: a Job's own agent never lists another Mac's.
+        if let (None, Some(job)) = (&caller, &asked.session_id) {
+            if let Some(mac) = self.mac_holding(job.as_str()).await {
+                return self.terminals_listed_on_other_mac(&mac, job.clone()).await;
+            }
+        }
         self.job_terminals_listed(caller, asked).await
     }
 

@@ -55,6 +55,8 @@ A Job with more than one page opens the one pressed, and a sent note's heading o
 
 **Rule.** Fleet reads each `<armada-sketch>` scene with the validator `show_sketch` uses, and tells the Job in a Fleet notice of one that will not draw. The write is not refused.
 The notice is `document_sketch`, once per revision: `In the page <path>, sketch <n> of <total> ("<title>") will not draw: <problems>.`
+The same notice names each `<armada-action>` that will not run, as [Artifact](artifact.md), *Page actions*, says.
+It names each `<armada-vote>` that will not count too, as *Page votes* there says.
 
 ## Asking for his approval
 
@@ -65,9 +67,25 @@ It is read off the page Fleet kept, never off the Job's tool call.
 A page kept before asking began has no `asked` and asks nothing.
 Why: on 12 Nov 2026 the owner could not tell whether his approval was needed on a status page the orchestrator revised all day, and it was not.
 
+**Rule.** A page that asks does not bury its ask.
+A page asks by its Approve mark, by a gate waiting on it, or by holding an `<armada-vote>` or `<armada-action>`.
+Fleet measures it as it keeps the revision (`crates/fleet/src/session_host/page_measure.rs`): the words of body text before the first block that holds the ask, an `<armada-vote>`, an `<armada-action>` or the first `<h2>`, or before the end of the page where it has none, headings, the head, scripts, styles and comments left out.
+More than 120 words, or none at all, and the revision is kept as one for reading: `asked` reads `"false"`, nothing waits on him, and the Job is told in the `document_sketch` notice what to move: `In the page <path>, <n> words come before the first <h2>, and he reads 120 at most before what he decides.` and to open with one sentence on what he decides, then the ask, with detail folded below.
+It is not his answer and it leaves nothing for him to Send back.
+The next revision that opens short asks.
+His own Edit is never measured.
+The owner, 14 Nov 2026, of Jobs' pages: "holy shit talk about text overload. MY EYES... I have no idea what to look at here."
+
 **Rule.** A reading page's revision reaches the thread as its card with Open and notes, and no Approve.
-It is not in his Needs you, holds no plan, and an answer to it is refused: the page is for reading.
+It holds no plan, and an answer to it is refused: the page is for reading.
 His notes on it still reach the Job as numbered notes.
+
+**Rule.** A reading page waits in his Needs you as `Read: <title>` until he opens its newest revision ([Waiting on the person](session/waiting-on-the-person.md)).
+Opening it is the answer, and the Job is told nothing.
+A new revision waits again, and the Job archiving the page withdraws it.
+Only the Job's own revision of a page that asks nothing waits so: one that buried its ask goes back to the Job, and his own Edit he has read.
+It asks no verdict, joins no artifact and holds nothing back.
+The owner's ruling, 15 Nov 2026: "Waits as Read".
 
 **Rule.** Whether a page asks is decided when the revision is kept.
 A page written before its plan names a `document_approved` gate asks from its next revision.

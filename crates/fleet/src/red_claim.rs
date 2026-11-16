@@ -5,17 +5,18 @@
 //! **Every call is a blocking round trip**, so it is built, made and dropped on
 //! one blocking thread ([`Fleet::at_the_store`]). Where the repository's switch
 //! is off, the repository is bound to no profile or to one the machine is signed
-//! out of, or no store address is set, the call is
+//! out of, or no project holding it names a store, the call is
 //! never made: [`Fleet::at_the_store`] answers `Ok(None)` and the take goes on
 //! locally as it did before the store.
 //!
 //! **The store sees two hashes.** The repository's `owner/name` and the commit
 //! main went red at, each as a sha256 in hex, so a name never leaves the
-//! machine. A pull request's owner row is under one: `owner/name#number`
-//! ([`owner_key_of`]).
+//! machine; the claim is of kind `red`. A pull request's owner row is under one:
+//! `owner/name#number` ([`owner_key_of`]). **Who holds it is readable**: the
+//! repository's login, this machine's name and the Session's title.
 //!
 //! **The holder is shared with the owner registry**, `crate::pull_registry`:
-//! one gate (the switch, a store address, and a profile the repository is bound
+//! one gate (the switch, its project's store, and a profile the repository is bound
 //! to), one blocking thread, one place a name becomes a hash. **The profile is the
 //! repository's own** (`SigningIn::profile_for`), never one the machine acts as.
 
@@ -24,8 +25,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Bucket, BucketError, Claimed, Delivery, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, Store, StoreError, Vcs,
-    WorkProduct,
+    AgentHarness, Bucket, BucketError, ClaimKey, ClaimKind, Claimant, Claimed, Delivery, Holder, HolderKind, OwnerKey, RepositoryKey, Store,
+    StoreError, Vcs, WorkProduct,
 };
 use config::settings as keys;
 use sha2::{Digest, Sha256};
@@ -87,8 +88,8 @@ fn sha256_hex(text: &str) -> String {
 }
 
 /// The two keys a claim is under: both hashes, 64 hex characters.
-pub(crate) fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, RedKey)> {
-    Some((RepositoryKey::from_hash(&sha256_hex(slug))?, RedKey::from_hash(&sha256_hex(red_commit))?))
+pub(crate) fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, ClaimKey)> {
+    Some((RepositoryKey::from_hash(&sha256_hex(slug))?, ClaimKey::from_hash(&sha256_hex(red_commit))?))
 }
 
 /// The key a repository's runs are under in the store: the same hash its claims are, in a table of
@@ -118,21 +119,24 @@ impl Taker {
     }
 }
 
-/// What a call made at the store has to hand: the store, this red's keys and
-/// this machine's name.
+/// What a call made at the store has to hand: the store, this red's keys,
+/// this machine's name and the login the repository is bound to.
 pub(crate) struct Reach {
     pub store: Box<dyn Store + Send>,
     pub repository: RepositoryKey,
-    pub red: RedKey,
+    pub red: ClaimKey,
     pub machine: String,
+    pub login: String,
 }
 
 /// What a call that is not about a red has to hand: the store, the repository's
-/// name as the forge spells it, and this machine's name.
+/// name as the forge spells it, this machine's name, and the login of the
+/// profile the repository is bound to.
 pub(crate) struct Opened {
     pub store: Box<dyn Store + Send>,
     pub slug: String,
     pub machine: String,
+    pub login: String,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -147,7 +151,9 @@ where
 {
     /// Run `work` against the store for `root`'s red at `red_commit`. `Ok(None)`
     /// is **no store applies** and nothing was asked; an `Err` is a store that
-    /// would not answer.
+    /// would not answer. **Naming a store in the project is the switch**, as for a
+    /// Job's own claims: a red's fix always starts, so two Macs that skipped the
+    /// claim would both fix it.
     async fn at_the_store<T: Send + 'static>(
         &self,
         root: &str,
@@ -155,18 +161,19 @@ where
         work: impl FnOnce(&Reach) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
         let red_commit = red_commit.to_string();
-        self.at_the_store_of(root, move |opened| {
-            let Opened { store, slug, machine } = opened;
+        self.at_the_store_switched(root, true, move |opened| {
+            let Opened { store, slug, machine, login } = opened;
             let Some((repository, red)) = keys_of(&slug, &red_commit) else { return Ok(None) };
-            work(&Reach { store, repository, red, machine }).map(Some)
+            work(&Reach { store, repository, red, machine, login }).map(Some)
         })
         .await
         .map(Option::flatten)
     }
 
     /// Run `work` against the store for `root`. **The gate every call passes**:
-    /// the repository's switch is on, a store address is set and the repository
-    /// is bound to a profile this machine is signed in to; otherwise `Ok(None)`
+    /// the repository's switch is on, a project holding it names a store
+    /// ([`Fleet::store_of_root`]) and the repository is bound to a profile this
+    /// machine is signed in to and enrolled with that store; otherwise `Ok(None)`
     /// and nothing was asked. **The store is opened as that profile**, so each
     /// repository claims in its own account's view.
     pub(crate) async fn at_the_store_of<T: Send + 'static>(
@@ -186,22 +193,24 @@ where
         switched_on: bool,
         work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
     ) -> Result<Option<T>, StoreError> {
-        let settings = self.machine_settings().now();
-        let url: String = settings.get(keys::STORE_URL);
-        if !switched_on || url.trim().is_empty() {
+        if !switched_on {
             return Ok(None);
         }
-        let configured: String = settings.get(keys::MACHINE_NAME);
+        let Some(address) = self.store_of_root(root) else { return Ok(None) };
+        let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
         let root = root.to_string();
         tokio::task::spawn_blocking(move || {
             let Some(slug) = reaching.slug(&root) else { return Ok(None) };
-            let Some(bound) = signing.profile_for(&Repo::new(&root, Some(slug.clone()))) else { return Ok(None) };
-            let Some(store) = reaching.open(url.trim(), &bound.directory).map_err(StoreError::Refused)? else {
+            let repo = Repo::new(&root, Some(slug.clone()));
+            let Some(bound) = signing.profile_for(&repo) else { return Ok(None) };
+            let directory = crate::project_store::store_directory(&bound.directory, &address);
+            let Some(store) = reaching.open(address.as_str(), &directory).map_err(StoreError::Refused)? else {
                 return Ok(None);
             };
-            work(Opened { store, slug, machine: this_machine(&configured) }).map(Some)
+            let login = signing.login_for(&repo).unwrap_or_default();
+            work(Opened { store, slug, machine: this_machine(&configured), login }).map(Some)
         })
         .await
         .unwrap_or_else(|why| Err(StoreError::Refused(format!("the call to the store was abandoned: {why}"))))
@@ -246,7 +255,7 @@ where
         }
         let read = self
             .at_the_store(&main.repository, main.red_commit(), |reach| {
-                Ok((reach.store.read_claim(&reach.repository, &reach.red)?, reach.machine.clone()))
+                Ok((reach.store.read_claim(&reach.repository, ClaimKind::Red, &reach.red)?.map(|held| held.holder), reach.machine.clone()))
             })
             .await;
         match read {
@@ -264,14 +273,16 @@ where
         let since = self.unix_seconds();
         let (kind, id) = by.parts();
         let id = id.to_string();
+        let title = self.store().lock().await.session(&id).ok().flatten().and_then(|session| session.title).unwrap_or_default();
         let claimed = |replacing: bool| {
-            let id = id.clone();
+            let (id, title) = (id.clone(), title.clone());
             self.at_the_store(&main.repository, main.red_commit(), move |reach| {
                 let holder = Holder::new(kind, &id, &reach.machine, since)
                     .ok_or_else(|| StoreError::Refused("the holder's id could not be written to the store".to_string()))?;
+                let claimant = Claimant::new(holder, &reach.login, &title);
                 let won = match replacing {
-                    true => reach.store.replace_claim(&reach.repository, &reach.red, &holder)?,
-                    false => reach.store.claim(&reach.repository, &reach.red, &holder)?,
+                    true => reach.store.replace_claim(&reach.repository, ClaimKind::Red, &reach.red, &claimant)?,
+                    false => reach.store.claim(&reach.repository, ClaimKind::Red, &reach.red, &claimant)?,
                 };
                 Ok((won, reach.machine.clone()))
             })
@@ -280,7 +291,7 @@ where
             Err(why) => Err(MainNotFixable::ClaimNotMade(why.said())),
             Ok(None) => Ok(false),
             Ok(Some((Claimed::Won, _))) => Ok(true),
-            Ok(Some((Claimed::Held(holder), machine))) => {
+            Ok(Some((Claimed::Held(Claimant { holder, .. }), machine))) => {
                 // Asking again for what it already holds is the same take, not a refusal.
                 if holder.kind == kind && holder.id == id && holder.machine == machine {
                     return Ok(true);
@@ -291,7 +302,7 @@ where
                 }
                 match claimed(true).await {
                     Ok(Some((Claimed::Won, _))) => Ok(true),
-                    Ok(Some((Claimed::Held(holder), _))) => Err(self.red_held_by(holder)),
+                    Ok(Some((Claimed::Held(held), _))) => Err(self.red_held_by(held.holder)),
                     Ok(None) => Ok(false),
                     Err(why) => Err(MainNotFixable::ClaimNotMade(why.said())),
                 }
@@ -302,7 +313,7 @@ where
     /// Give back this machine's claim on the red, for a take that could not go on.
     pub(crate) async fn release_red(&self, main: &MainCi) {
         let _ = self
-            .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, &reach.red))
+            .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, ClaimKind::Red, &reach.red))
             .await;
     }
 
@@ -318,7 +329,7 @@ where
         };
         let read = self
             .at_the_store(root, main.red_commit(), |reach| {
-                Ok((reach.store.read_claim(&reach.repository, &reach.red)?, reach.machine.clone()))
+                Ok((reach.store.read_claim(&reach.repository, ClaimKind::Red, &reach.red)?.map(|held| held.holder), reach.machine.clone()))
             })
             .await;
         let elsewhere = match read {
@@ -326,7 +337,7 @@ where
             Ok(Some((Some(holder), machine))) => {
                 if self.is_ours_and_over(&holder, &machine).await {
                     let _ = self
-                        .at_the_store(root, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, &reach.red))
+                        .at_the_store(root, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, ClaimKind::Red, &reach.red))
                         .await;
                 }
                 None
@@ -340,11 +351,11 @@ where
         };
     }
 
-    /// Main is green: delete every claim under the repository, its own or not,
-    /// so one left by a machine that is asleep ends too.
+    /// Main is green: delete every red claim under the repository, its own or not,
+    /// so one left by a machine that is asleep ends too. Its other claims stand.
     pub(crate) async fn cleared_elsewhere(&self, main: &MainCi) {
         let _ = self
-            .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.clear_repository(&reach.repository))
+            .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.clear_kind(&reach.repository, ClaimKind::Red))
             .await;
         self.sweeping().lock().await.elsewhere.remove(&main.repository);
     }

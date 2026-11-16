@@ -920,13 +920,13 @@ impl JobView {
         }
         if !self.tab_closed(area.tab()) {
             if let Some(zone) = Zone::ALL.into_iter().find(|zone| zone.id() == area.tab()) {
-                self.zone = zone;
+                self.show_zone(zone, cx);
             }
             cx.notify();
             return;
         }
         if !self.tab_closed("spine") {
-            self.zone = Zone::Spine;
+            self.show_zone(Zone::Spine, cx);
             if !self.spine.open(&id, area.id()) {
                 self.spine_fold(area.id(), cx);
             }

@@ -153,6 +153,26 @@ fn build_live(name: &str) -> Option<Build> {
     })
 }
 
+/// The first folder a pass would drop, as a walk names it to hover.
+pub const FIRST_TO_DROP: &str = "/Users/me/dev/app/.armada/slots/slot-4/target";
+
+/// The disk Fleet reports, as GiB free against the two floors (`GET /health`'s `disk`): the first of the
+/// folders and the pass only where the disk is short.
+fn disk(free: u64, reclaim: u64, hold: u64, short: bool) -> ipc::DiskHealth {
+    const GIB: u64 = 1024 * 1024 * 1024;
+    let pass = (chrono::Utc::now() - chrono::Duration::minutes(7)).to_rfc3339();
+    let rest = if short {
+        format!(
+            r#","last_pass":{{"at":"{pass}","freed_bytes":{}}},"next_to_drop":["{FIRST_TO_DROP}","/Users/me/dev/app/.armada/slots/slot-2/target","/Users/me/dev/storefront/.armada/slots/slot-1/target","/Users/me/dev/storefront/.armada/slots/slot-3/target"]"#,
+            12 * GIB
+        )
+    } else {
+        String::new()
+    };
+    let json = format!(r#"{{"free_bytes":{},"reclaim_floor_bytes":{},"hold_floor_bytes":{}{rest}}}"#, free * GIB, reclaim * GIB, hold * GIB);
+    ipc::decode::<ipc::DiskHealth>("DiskHealth", json.as_bytes()).unwrap_or_else(|why| panic!("the scenario's disk does not decode: {why}"))
+}
+
 fn limits(five: (u32, Band, &str), week: (u32, Band, &str)) -> Usage {
     Usage::Limits(vec![Limit::five_hour(five.0, five.1, five.2), Limit::weekly(week.0, week.1, week.2)])
 }
@@ -165,7 +185,7 @@ fn fleet(connection: Connection, power: Power) -> FleetFace {
         Connection::Starting { .. } | Connection::Connecting { .. } | Connection::Reading => (Outcome::Reading, "reading"),
         _ => (Outcome::Fail, "0 of 14 modules read"),
     };
-    FleetFace { connection, power, restarting: Restarting::Idle, doctor: Some(Doctor { outcome, modules: SharedString::from(modules) }) }
+    FleetFace { connection, power, restarting: Restarting::Idle, doctor: Some(Doctor { outcome, modules: SharedString::from(modules) }), disk: None }
 }
 
 fn connected() -> Connection {
@@ -205,6 +225,7 @@ pub fn rest() -> Face {
         usage: limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
         build: Some(main_aligned()),
         offers: None,
+        build_notes: None,
         fleet: fleet(connected(), Power::Live),
         repositories,
         chosen: None,
@@ -221,11 +242,20 @@ pub fn rest() -> Face {
 /// Start a walk's bar at rest: the face a fresh bar opens with, and the one already open. The Fleet
 /// panel reads no disk and runs no command while a walk plays.
 pub fn begin(cx: &mut App) {
+    begin_with(rest(), cx);
+}
+
+/// [`begin`] with the window on All, as a live bar opens: the walk of the project filter picks a project itself.
+pub fn begin_on_all(cx: &mut App) {
+    begin_with(Face { scoped: None, ..rest() }, cx);
+}
+
+fn begin_with(face: Face, cx: &mut App) {
     cx.set_global(StandIn::default());
-    cx.set_global(Opening(rest()));
+    cx.set_global(Opening(face.clone()));
     if let Some(bar) = live(cx) {
         bar.update(cx, |bar: &mut TitleBar, cx| {
-            bar.reset(rest());
+            bar.reset(face);
             cx.notify();
         });
     }
@@ -251,6 +281,38 @@ fn said(lines: &[&str]) -> String {
 }
 
 /// The Fleet panel's scenes: the link, and the disk the panel reads.
+/// The preview offers fixture's first offer, ready, under ten titles: what the panel lists when many Jobs offer.
+fn many_offers() -> ipc::PreviewOffers {
+    const TITLES: [&str; 10] = [
+        "Quiet the write-clash notices",
+        "Fix the merge line freshness chip",
+        "Audit the docs index",
+        "Macs and Models layout",
+        "Pocket sign-in on the phone",
+        "Retry webhooks on a 503",
+        "Paginate the audit log",
+        "Dark mode for the settings page",
+        "Rate limits per token",
+        "Upgrade the router",
+    ];
+    let mut offers = crate::mock::preview_offers(false);
+    let first = offers.offers[0].clone();
+    offers.offers = TITLES
+        .iter()
+        .enumerate()
+        .map(|(at, title)| {
+            let mut one = first.clone();
+            one.branch = format!("armada/session-{at:02}c0ffee");
+            one.title = (*title).to_string();
+            one
+        })
+        .collect();
+    if let Some(refresh) = offers.refresh.as_mut() {
+        refresh.branches = offers.offers.iter().map(|one| one.branch.clone()).collect();
+    }
+    offers
+}
+
 fn fleet_panel(name: &str) -> Option<LiveFleet> {
     use crate::link::LinkState;
     let down = |dropped: u64| face::LiveLink {
@@ -344,8 +406,46 @@ fn fleet_live(name: &str) -> Option<LiveFleet> {
     })
 }
 
+/// The crash panel's scenes: a crash with what was kept, and a Start Fleet answers or refuses.
+pub fn crash_scene(name: &str, job: &str) -> Option<(super::CrashOffer, super::CrashStandIn)> {
+    use crate::crash::{Crash, KeptDraft};
+    let answer = match name {
+        "crash-panel" => Ok(job.to_string()),
+        "crash-panel-refused" => Err("Fleet serves no repository named armada".to_string()),
+        _ => return None,
+    };
+    let at = chrono::NaiveDate::from_ymd_opt(2026, 11, 14).and_then(|day| day.and_hms_opt(11, 1, 2)).map(|time| chrono::TimeZone::from_utc_datetime(&chrono::Utc, &time))?;
+    let crash = Crash {
+        file: "/Users/user/Library/Application Support/Armada/crashes/crash-2026-11-14T110102Z.txt".into(),
+        at,
+        panic: "already mutably borrowed: BorrowError".into(),
+        location: "crates/bridge-native/src/toasts/view.rs:412:18".into(),
+    };
+    let kept = |key: &str, kind: &'static str, label: &str, first_line: &str| KeptDraft { key: key.into(), kind, label: label.into(), first_line: first_line.into() };
+    let offer = super::CrashOffer {
+        crash,
+        macos: Some("/Users/user/Library/Logs/DiagnosticReports/Armada-2026-11-14-111520.ips".into()),
+        kept: vec![
+            kept("dispatch:request", "Dispatch sheet", "Dispatch sheet", "Fix the toast that sits over the title row"),
+            kept("mock-01", "Composer", "Composer", "Ask the Operator about the queue before the merge"),
+            kept("annotate:note", "Note", "Note", "The gap under the header is too tight"),
+        ],
+    };
+    let files = vec![
+        ("crash-2026-11-14T110102Z.txt".to_string(), b"panic: already mutably borrowed: BorrowError".to_vec()),
+        ("Armada-2026-11-14-111520.ips".to_string(), b"{}".to_vec()),
+    ];
+    Some((offer, super::CrashStandIn { files, answer, done: Default::default() }))
+}
+
 /// Move the bar to a named scene. A scene changes the part of the face it is about and leaves the rest.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
+    if let Some((offer, stand_in)) = crash_scene(name, "mock-02") {
+        let bar = live(cx).ok_or("no title bar is drawn yet")?;
+        cx.set_global(stand_in);
+        bar.update(cx, |bar: &mut TitleBar, cx| bar.crash_offered(Some(offer), None, cx));
+        return Ok(());
+    }
     if let Some(scene) = fleet_live(name).or_else(|| fleet_panel(name)) {
         // A clash Fleet cannot vouch for is not drawn: the marks go with the connection, as the live list clears them.
         let down = matches!(&scene, LiveFleet::Link(link) | LiveFleet::Panel(link, _) if link.state != crate::link::LinkState::Connected);
@@ -428,6 +528,11 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-swapped-back" => |face| face.build = Some(swapped_back()),
         "events-dropped" => |face| face.dropped = Dropped { missed: 3, noted: 0 },
         "events-noted" => |face| face.dropped = Dropped { missed: 3, noted: 3 },
+        // Fleet's disk, as `GET /health` carries it: well over the floor, under the reclaim floor, under the hold floor, reclaim off.
+        "disk-over" => |face| face.fleet.disk = Some(disk(142, 100, 30, false)),
+        "disk-reclaim" => |face| face.fleet.disk = Some(disk(64, 100, 30, true)),
+        "disk-hold" => |face| face.fleet.disk = Some(disk(22, 100, 30, true)),
+        "disk-off" => |face| face.fleet.disk = Some(disk(64, 0, 30, false)),
         "signed-out" => |face| face.signed_in = false,
         "signed-in" => |face| face.signed_in = true,
         "fleet-running" => |face| face.fleet = fleet(connected(), Power::Live),
@@ -461,6 +566,11 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             face.offers = Some(crate::mock::preview_offers(false));
         },
         "preview-offers-skipped" => |face| face.offers = Some(crate::mock::preview_offers(true)),
+        // Ten ready offers: more than the panel has room for under the bar, so its lists scroll and its foot stays.
+        "preview-offers-many" => |face| {
+            face.build = build_live("build-live-main");
+            face.offers = Some(many_offers());
+        },
         other => return Err(format!("no scene named {other}")),
     };
     let bar = live(cx).ok_or("no title bar is drawn yet")?;

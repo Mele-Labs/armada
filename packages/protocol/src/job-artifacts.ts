@@ -2,7 +2,7 @@
 // `docs/practices/protocol/a-jobs-artifacts-as-one-record.md`, `docs/concepts/artifact.md`.
 //
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
-// which an archive, a restore and his Edit publish.
+// which an archive, a restore, his Edit, a press, a vote and a mark that moved `seen` publish.
 
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
@@ -91,7 +91,285 @@ export type JobArtifact = {
   archived?: ArtifactArchived;
   /** What the newest revision is for, and what it links to. */
   for_line?: ArtifactFor;
+  /** Every press of an action a page declares, oldest first. Absent where none, and for every form but a page. */
+  presses?: PagePress[];
+  /** The newest cast of each vote a page declares, in the order first cast. Absent where none, and for every form but a page. */
+  votes?: VoteCast[];
+  /** The newest revision he opened, as `mark_artifact_seen` kept it. Absent while he opened none. Only moves forward. */
+  seen?: number;
+  /**
+   * What it holds, in the order the Job added it. Each part asks and settles on its own, and the artifact settles once
+   * every part that asks is answered. Absent for a page that holds none of the Job's parts and a workflow change's draft.
+   * `crates/ipc/src/artifact_parts.rs`.
+   */
+  parts?: ArtifactPart[];
 };
+
+/** Where a part stands. A part that does not ask stays `open`. `picked` is a takes part answered with a pick. */
+export type PartState = "open" | "approved" | "sent_back" | "picked" | "withdrawn";
+
+/** One take of a takes part. `scene` is the picture as a scene's JSON text, a mock being a scene of one `mock` node. */
+export type PartTake = {
+  id: string;
+  title: string;
+  scene?: string;
+};
+
+/** One button of a buttons part. Fleet keeps the acts, as for a page. */
+export type PartAction = {
+  id: string;
+  act: PageAct;
+  label: string;
+  item?: string;
+  /** `start`: what the new Job is asked. */
+  brief?: string;
+  repository?: string;
+  /** `answer`: the Job's ask, by its waiting id. */
+  ask?: string;
+  option?: string;
+};
+
+/** What a part holds, tagged by `kind`. */
+export type PartContent =
+  | {
+      kind: "drawing";
+      /** The scene as JSON text. */
+      scene: string;
+    }
+  | {
+      kind: "words";
+      /** Markdown. */
+      text: string;
+    }
+  | {
+      kind: "takes";
+      question?: string;
+      form: VoteForm;
+      takes: PartTake[];
+      /** A `score` vote's named parts. */
+      parts?: string[];
+    }
+  | {
+      kind: "buttons";
+      actions: PartAction[];
+    }
+  | {
+      kind: "page";
+      /** The page's path. The part's `revision` is the page's newest. */
+      path: string;
+    };
+
+/** How he answered a part. */
+export type PartAnswer = {
+  words?: string;
+  take?: string;
+  notes?: Record<string, string>;
+  at?: string;
+};
+
+/** One part of an artifact. */
+export type ArtifactPart = PartContent & {
+  /** Unique in its Job: a ledger id for a drawing, draft or page that joined, else the id the Job gave. */
+  id: string;
+  /** Put to him. A part that only informs has nothing to answer. */
+  asks: boolean;
+  state: PartState;
+  /** How many times the Job put this part under its id. A redraw asks again. */
+  revision: number;
+  /** New on every revision, named back by `answer_part`. */
+  drawn: string;
+  added: string;
+  answer?: PartAnswer;
+};
+
+/** How he answered a part: `approved` or `sent_back` for words, a drawing or a page, `picked` for a pick vote. */
+export type PartHow = "approved" | "sent_back" | "picked";
+
+/**
+ * `POST /sessions/artifacts/part/answer`: one asking part answered on its own, answered with the `JobArtifact`. A
+ * `sent_back` needs `words`, `picked` needs `take`. 409 `fleet.part_redrawn` where the part was put again since `drawn`.
+ */
+export type AnswerPart = {
+  session_id: string;
+  artifact: string;
+  part: string;
+  drawn: string;
+  how: PartHow;
+  take?: string;
+  words?: string;
+  notes?: Record<string, string>;
+};
+
+/**
+ * `POST /sessions/artifacts/seen`: he opened revision `revision` of an artifact. Answered with `ArtifactSeen`. An
+ * older revision is answered with the current `seen`, not refused. Nothing is sent to the Job. 422
+ * `fleet.artifact_revision_unknown` for a revision never kept, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type MarkArtifactSeen = {
+  session_id: string;
+  /** The artifact's `id`. */
+  artifact: string;
+  revision: number;
+};
+
+/** The newest revision he has opened, after the mark. */
+export type ArtifactSeen = {
+  seen: number;
+};
+
+/** The forms a vote takes. */
+export type VoteForm = "pick" | "rank" | "score";
+
+/**
+ * `POST /sessions/artifacts/vote`: his vote on an `<armada-vote>` on a page, read off the kept revision he voted
+ * on. Answered with the `VoteCast`. 422 `fleet.page_vote_unknown`, `fleet.page_vote_form`, `fleet.page_vote_takes`,
+ * `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type CastPageVote = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  /** The kept revision he voted on. */
+  revision: number;
+  /** The vote's `id` attribute. */
+  vote: string;
+  result: VoteResult;
+};
+
+/** What he voted, tagged by `form`. `notes` are his words on a take, by the take's id. */
+export type VoteResult =
+  | {
+      form: "pick";
+      take: string;
+      notes?: Record<string, string>;
+    }
+  | {
+      form: "rank";
+      /** Every take once, first place first. */
+      order: string[];
+      notes?: Record<string, string>;
+    }
+  | {
+      form: "score";
+      /** A part left out is no vote. */
+      marks: VoteMark[];
+      notes?: Record<string, string>;
+    };
+
+/** One keep or drop on one named part of one take. */
+export type VoteMark = {
+  take: string;
+  part: string;
+  keep: boolean;
+};
+
+/** One cast of a page's vote, as Fleet kept it. */
+export type VoteCast = {
+  revision: number;
+  vote: string;
+  form: VoteForm;
+  result: VoteResult;
+  at: string;
+};
+
+/** The acts a page may run. Fleet keeps the list and refuses anything off it. */
+export type PageAct = "message" | "start" | "answer";
+
+/**
+ * `POST /sessions/artifacts/press`: his press of an `<armada-action>` on a page, read off the kept revision he
+ * pressed. Answered with the `PagePress`. 422 `fleet.page_action_unknown`, `fleet.page_act_refused`,
+ * `fleet.page_ask_not_open`, `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ */
+export type PressPageAction = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  /** The kept revision he pressed it on. */
+  revision: number;
+  /** The action's `id` attribute. */
+  action: string;
+  words?: string;
+};
+
+/** What a press did: the Job sent it, a Job started, or the Job's ask was answered. */
+export type PressDid =
+  | {
+      kind: "sent";
+    }
+  | {
+      kind: "started";
+      job: string;
+    }
+  | {
+      kind: "answered";
+      item: string;
+    };
+
+/** One press of a page's action, as Fleet kept it. */
+export type PagePress = {
+  revision: number;
+  action: string;
+  /** The row or part it sits on. Absent where the page gave none. */
+  item?: string;
+  act: PageAct;
+  at: string;
+  did: PressDid;
+};
+
+/**
+ * `GET /sessions/artifacts/page?session_id=&artifact=&revision=`: one kept revision of a page, the newest where
+ * `revision` is left out, answered as the page itself, `text/html`, sealed: no network, its own scripts inert, and the
+ * kit's script drawing its actions and votes. An archived page serves. 422 `fleet.artifact_not_held` for an artifact
+ * not held or not a page, `fleet.artifact_revision_unknown` for a revision never kept, and `fleet.session_unnamed`.
+ * `docs/practices/protocol/a-pages-sealed-serving.md`.
+ */
+export type GetArtifactPage = {
+  session_id: string;
+  /** The page's artifact `id`: its path. */
+  artifact: string;
+  revision?: number;
+};
+
+/** What the kit's script on a sealed page posts to its host: to `window.webkit.messageHandlers.armada` where the host has one (Native's WKWebView), otherwise to `window.parent` (Classic's iframe). The host makes the Fleet call with the Job's `session_id`. Rust's `PageMessage<PageToHost>`. */
+export type PageToHost =
+  | {
+      armada: 1;
+      kind: "press";
+      artifact: string;
+      revision: number;
+      action: string;
+      words?: string;
+    }
+  | {
+      armada: 1;
+      kind: "vote";
+      artifact: string;
+      revision: number;
+      vote: string;
+      result: VoteResult;
+    };
+
+/** What the host sends back to the sealed page for it to draw: Fleet's answer, or its refusal. Posted as a `message` event to Classic's iframe, or passed to `window.armadaHost` by Native. Rust's `PageMessage<HostToPage>`. */
+export type HostToPage =
+  | {
+      armada: 1;
+      kind: "pressed";
+      press: PagePress;
+    }
+  | {
+      armada: 1;
+      kind: "voted";
+      cast: VoteCast;
+    }
+  | {
+      armada: 1;
+      kind: "refused";
+      /** The action pressed, or the vote cast, that was refused. */
+      action?: string;
+      vote?: string;
+      code: string;
+      message: string;
+    };
 
 /** What a link on a For line points at. `link` is the agent's address; the rest are Fleet's. */
 export type ArtifactLinkKind = "plan_step" | "task" | "pull_request" | "link";
@@ -136,7 +414,23 @@ export type ItemAnswer = {
   /** The `WaitingItem` id. */
   item: string;
   how: ItemHow;
-  notes?: string[];
+  notes?: ItemNote[];
+};
+
+/**
+ * One note of a verdict. A card's note box sends no `on`; a note on words of a page, or a part of a sketch, names
+ * them, and the Job reads it as `On "<quote>": <text>`. A `quote` blank after trimming counts as no `on`.
+ */
+export type ItemNote = {
+  text: string;
+  on?: NoteOn;
+};
+
+/** The words a note points at, and the block they are in. */
+export type NoteOn = {
+  quote: string;
+  /** The page block's id, or the sketch part's id. */
+  block: string;
 };
 
 /**

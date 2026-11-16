@@ -62,6 +62,180 @@ export type OperatorTurnItem = {
   also_raised_by?: string[];
   /** The Job's id, where it has two or more asks waiting: `turn` lists them together, at the place of the first of them, in the order the Job raised them. Drawn as one entry. Absent for a single ask. */
   group?: string;
+  /** What the Operator's pick follows: his own earlier answer in the project, or a setting. Absent where it follows nothing. Since 13 Nov 2026. */
+  follows?: OperatorFollows;
+  /** On a `job_conflict` item: the two Jobs, what each does and what breaks, which the card draws. Since 14 Nov 2026. */
+  conflict?: OperatorConflict;
+  /** On a `job_held` item: the pull request or branch asked about, and the Job that asked. Since 14 Nov 2026. */
+  held?: OperatorHeld;
+  /** On a card the Operator's own session raised: its kind and what it carries on from. Since 14 Nov 2026. */
+  card?: OperatorCard;
+};
+
+/** A card's kind: a `deal` is something the Operator did or will do, a `raise` is something it needs from him. */
+export type OperatorCardKind = "deal" | "raise";
+
+/** What marks a turn item as a card the Operator's own session raised. */
+export type OperatorCard = {
+  kind: OperatorCardKind;
+  /** The card this one carries the talk on from, `turn:<n>`. */
+  talk_of?: string;
+  /** The Jobs it is about. */
+  sessions?: string[];
+};
+
+/** One option of a card, with what it spends or risks. */
+export type CardOption = {
+  label: string;
+  cost: string;
+};
+
+/** What happened since he looked that needs no decision from him. */
+export type OperatorFeedKind = "dispatched" | "merged" | "ended" | "asked" | "told" | "settled";
+
+/** One line of the feed. Since 14 Nov 2026. */
+export type OperatorFeedEntry = {
+  /** RFC 3339. */
+  at: string;
+  kind: OperatorFeedKind;
+  title: string;
+  session_id?: string;
+  /** The pull request's number, on a `merged` entry. */
+  number?: string;
+  /** What was said: how a card was settled, what a Job asked or sent. */
+  said?: string;
+};
+
+/** What the Operator may do unasked in a project. Unset is a state of its own: the field is absent. */
+export type OperatorActs = "act_then_tell" | "ask_before_starting" | "only_when_told";
+
+/** One served project and its `operator_acts`. */
+export type ProjectOperatorActs = {
+  project: string;
+  name: string;
+  acts?: OperatorActs;
+};
+
+/** `list_operator_acts` and `set_operator_acts`' answer. */
+export type OperatorActsList = {
+  projects: ProjectOperatorActs[];
+};
+
+/** `set_operator_acts`: absent `acts` clears the value. */
+export type SetOperatorActs = {
+  project: string;
+  acts?: OperatorActs;
+};
+
+/** `raise_card`, for the Operator's own session. */
+export type RaiseCard = {
+  kind: OperatorCardKind;
+  title: string;
+  read: string;
+  /** Two to four; the first is the pick. */
+  options: CardOption[];
+  sessions?: string[];
+  repository?: string;
+  talk_of?: string;
+};
+
+/** What `raise_card` did. */
+export type CardRaised = {
+  card: string;
+};
+
+/** `revise_card`. */
+export type ReviseCard = {
+  card: string;
+  read?: string;
+  options?: CardOption[];
+};
+
+/** What `revise_card` did. */
+export type CardRevised = {
+  card: string;
+};
+
+/** `settle_card`. */
+export type SettleCard = {
+  card: string;
+  said: string;
+};
+
+/** What `settle_card` did. */
+export type OperatorCardSettled = {
+  card: string;
+};
+
+/** A Job on a card of Your turn, as a chip: its title and its address. */
+export type OperatorAskJob = {
+  session_id: string;
+  /** `s-` and eight characters. */
+  address: string;
+  /** Empty where the Job had none. */
+  title: string;
+};
+
+/** A conflict as the card draws it: it leads with `breaks`, shows the two Jobs as chips and folds `files` and `wire` behind a press. */
+export type OperatorConflict = {
+  /** The Job that raised it, whose side `mine` is. */
+  raised_by: OperatorAskJob;
+  /** The other Job, whose side `theirs` is. */
+  with: OperatorAskJob;
+  files: string[];
+  wire: string[];
+  mine: string;
+  theirs: string;
+  breaks: string;
+};
+
+/** A landing question as the card draws it. Exactly one of `pull` and `branch` is set. */
+export type OperatorHeld = {
+  pull?: number;
+  branch?: string;
+  /** The pull request's title, where one was read. */
+  title?: string;
+  /** Its checks, where the forge said. */
+  checks?: "passed" | "pending" | "failed";
+  asked_by: OperatorAskJob;
+};
+
+/** What an answer follows: `answer`, his answer to the same question in the same project, or `setting`, one he saved. Since 13 Nov 2026. */
+export type OperatorFollowsKind = "answer" | "setting";
+
+/** What the Operator's pick follows, as Fleet checked it. Since 13 Nov 2026. */
+export type OperatorFollows = {
+  kind: OperatorFollowsKind;
+  /** The Job where he gave the answer. `answer` only. */
+  session_id?: string;
+  /** That Job's title. `answer` only. */
+  job?: string;
+  /** What he was asked. `answer` only. */
+  question?: string;
+  /** What he said: his choice and his words, or `key = value` for a setting. */
+  said: string;
+  /** RFC 3339. When he said it. `answer` only. */
+  at?: string;
+};
+
+/** A question the Operator answered by following what he had already said. Since 13 Nov 2026. */
+export type OperatorRuled = {
+  /** `turn:<n>`. */
+  id: string;
+  session_id: string;
+  /** The Job's title. */
+  job?: string;
+  /** The question it answered. */
+  question: string;
+  /** The option it picked. */
+  pick: string;
+  follows: OperatorFollows;
+  /** RFC 3339. */
+  at: string;
+  /** When he took it back with `operator_undo_ruling`, RFC 3339. Absent while it stands. Since 13 Nov 2026. */
+  undone_at?: string;
+  /** Whether `operator_undo_ruling` takes it back now: it is not taken back and its Job is live. Absent when false. Since 13 Nov 2026. */
+  undo?: boolean;
 };
 
 /** What the Operator is reading now. */
@@ -183,6 +357,8 @@ export type OperatorDigest = {
   learned?: OperatorLearned[];
   /** The holds that stand, beside Learned. */
   holds?: OperatorHold[];
+  /** Questions it answered by following what he had said, over the last seven days, newest first. Since 13 Nov 2026. */
+  ruled?: OperatorRuled[];
 };
 
 /** How a repository's main stands on CI, as `main_ci_state` of the merge line has it. A red a newer commit's run is still on is `red`. */
@@ -219,13 +395,19 @@ export type OperatorPage = {
   looked_at?: string;
   /** Present while the Operator is reading something to review. */
   on_it?: OperatorOnIt;
-  /** Your turn, in the order he left it, with what he put Later last. */
+  /** Your turn, in the order he left it. A card put Later, and a resting Job's items, are left out until they are due. */
   turn: OperatorTurnItem[];
   digest: OperatorDigest;
   /** Each repository Fleet serves, first first. Absent when none. */
   mains?: OperatorMain[];
   /** Absent where no pool is read. */
   slots?: OperatorSlots;
+  /** What happened since `looked_at` that needs no decision, newest first. Absent when nothing did. Since 14 Nov 2026. */
+  feed?: OperatorFeedEntry[];
+  /** The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026. */
+  session_id?: string;
+  /** What the Operator may do unasked in each served project. Since 14 Nov 2026. */
+  operator_acts?: ProjectOperatorActs[];
 };
 
 /** `operator_answer` (`POST /operator/page/answer`): one press on an item. */
@@ -253,6 +435,12 @@ export type OperatorAnswered = {
   handed_to?: string;
   /** The page as `operator_page` serves it after the press. */
   page: OperatorPage;
+};
+
+/** Taking back a ruling the Operator made. **No route answers it any more**: the Operator rules nothing, and `POST /operator/page/undo` is gone. Kept for a client that still builds it. */
+export type OperatorUndoRuling = {
+  /** The ruling's `OperatorRuled.id`, `turn:<n>`. */
+  id: string;
 };
 
 /** `operator_turn_order` (`POST /operator/page/order`): the items as he dragged them. */

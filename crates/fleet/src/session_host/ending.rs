@@ -118,6 +118,7 @@ where
         self.scratch_removed(session);
         self.watch_logs_removed(session);
         self.project_tasks_freed(session).await;
+        self.claims_given_back(session).await;
         self.notes_settled(session).await;
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;

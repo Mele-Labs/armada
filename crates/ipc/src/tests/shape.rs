@@ -17,7 +17,7 @@ fn a_nested_list_an_optional_object_and_an_enum_read_whole() {
         shape::of::<SetWaitingFor>(),
         "{items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}, \
          options?: [{label: string, description?: string, picture?: {image: string, width: number, height: number, \
-         parts?: [object]}}], approves?: boolean, steps?: [string]}], session_id?: string}"
+         parts?: [object]}}], approves?: boolean, steps?: [string], artifact?: string}], session_id?: string}"
     );
 }
 
@@ -35,8 +35,11 @@ fn a_refused_body_names_its_shape_after_serdes_own_words() {
 fn every_agent_body_reads_as_an_object_of_named_fields() {
     let shapes = [
         ("all_done", shape::of::<crate::AllDone>()),
+        ("add_for_you", shape::of::<crate::AddForYou>()),
+        ("add_part", shape::of::<crate::AddPart>()),
         ("archive_artifact", shape::of::<crate::ArtifactRef>()),
         ("ask_in_window", shape::of::<crate::AskInWindow>()),
+        ("call_test_flaky", shape::of::<crate::CallTestFlaky>()),
         ("change_waiting", shape::of::<crate::ChangeWaiting>()),
         ("claim_issue", shape::of::<crate::ClaimIssue>()),
         ("claim_pull_request", shape::of::<crate::ClaimPullRequest>()),
@@ -45,10 +48,14 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("finish_up", shape::of::<crate::FinishUp>()),
         ("fork_this_session", shape::of::<crate::ForkThisSession>()),
         ("handoff_brief", shape::of::<crate::HandoffBrief>()),
+        ("line_for_you", shape::of::<crate::LineForYou>()),
         ("mark_annotation_done", shape::of::<crate::MarkAnnotationDone>()),
         ("move_session", shape::of::<crate::MoveSession>()),
+        ("order_for_you", shape::of::<crate::OrderForYou>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
         ("report_bug", shape::of::<crate::ReportBug>()),
+        ("raise_conflict", shape::of::<crate::RaiseConflict>()),
+        ("ask_held", shape::of::<crate::AskHeld>()),
         ("restore_artifact", shape::of::<crate::ArtifactRef>()),
         ("save_kit_manifest", shape::of::<crate::SaveKitManifest>()),
         ("save_request_to_collection", shape::of::<crate::SaveRequestToCollection>()),
@@ -68,6 +75,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("weigh_watch", shape::of::<crate::WeighWatch>()),
         ("withdraw_document", shape::of::<crate::WithdrawDocument>()),
         ("withdraw_draft", shape::of::<crate::WithdrawDraft>()),
+        ("withdraw_for_you", shape::of::<crate::WithdrawForYou>()),
         ("withdraw_sketch", shape::of::<crate::WithdrawSketch>()),
         ("withdraw_window", shape::of::<crate::WithdrawWindow>()),
     ];

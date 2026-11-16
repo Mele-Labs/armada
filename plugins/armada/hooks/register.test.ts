@@ -1621,6 +1621,29 @@ test('a reply that names what the owner owes outside waiting_for is sent back on
   expect(waitingPosts(posts)).toHaveLength(1)
 })
 
+test('a turn sent back is told to Fleet once, with the words the session was given', async ($, on) => {
+  const { posts, clock } = world(on)
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+
+  const first = await $.classic.Stop(stop(OWED))
+  await $.classic.Stop(stop(OWED, { stop_hook_active: true }))
+  await clock.settle()
+
+  expect(first.block).toBeDefined()
+  expect(facts(posts).filter(fact => fact.kind === 'sent_back')).toEqual([{ kind: 'sent_back', text: first.block }])
+})
+
+test('a turn is sent back while Fleet is down, and nothing waits on the report', async ($, on) => {
+  const { posts, clock } = world(on, { running: () => false })
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'build the detector', origin: { kind: 'user' } } as never)
+
+  expect((await $.classic.Stop(stop(OWED))).block).toContain('Approve PR #2415')
+  await clock.settle()
+  expect(posts).toEqual([])
+})
+
 test('a session that puts the lines in waiting_for after it is sent back stops, and nothing is posted for it', async ($, on) => {
   const { posts, clock } = world(on)
   await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })

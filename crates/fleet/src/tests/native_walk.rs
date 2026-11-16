@@ -1,5 +1,5 @@
 //! **A native walk is a screen of the native Bridge a Job shows on `armada://walk/<name>`**, opened by
-//! the person's press from the Job's own slot, and owned by Fleet for as long as the walk is.
+//! the person's press from the build he runs, and owned by Fleet for as long as the walk is.
 //! `crates/fleet/src/native_walks.rs`.
 
 use std::os::unix::fs::PermissionsExt;
@@ -14,10 +14,13 @@ use crate::tests::peer::Placing;
 
 const URL: &str = "armada://walk/sidebar";
 const OTHER: &str = "armada://walk/footer";
-const BUILD: &str = "crates/bridge-native/target/debug/bridge-native";
+const APP: &str = "Armada.app/Contents/MacOS/Armada";
 
-fn slot(rig: &Rig) -> String {
-    adapter_traits::slot_path(&rig.root, 1)
+/// The kept build he runs, under the rig's own home: never this Mac's.
+fn build(rig: &Rig) -> std::path::PathBuf {
+    let home = rig.fleet.host().home.clone();
+    assert_ne!(Some(home.as_str()), std::env::var("HOME").ok().as_deref(), "a test's home, never his");
+    crate::native_walks::running_build(&home)
 }
 
 fn shown(id: &SessionId, url: &str) -> ShowWindow {
@@ -33,49 +36,33 @@ fn said<T: std::fmt::Debug>(answer: Result<T, api::Refusal>) -> String {
     format!("{:?}", answer.expect_err("refused"))
 }
 
-/// A build in the slot that records where and how it was started, then stays up.
-fn built(rig: &Rig) {
-    let binary = format!("{}/{BUILD}", slot(rig));
-    std::fs::create_dir_all(std::path::Path::new(&binary).parent().unwrap()).expect("a target folder");
-    std::fs::write(&binary, "#!/bin/sh\necho \"$$ $(pwd -P) $@\" >> starts.txt\nexec sleep 60\n").expect("a build");
-    std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).expect("executable");
-    // Cargo's list of what the build read, beside it: one source, with a space in its path, read before the build.
-    let source = format!("{}/crates/bridge-native/src/main view.rs", slot(rig));
-    std::fs::create_dir_all(std::path::Path::new(&source).parent().unwrap()).expect("a source folder");
-    std::fs::write(&source, "fn main() {}\n").expect("a source");
-    std::fs::File::options()
-        .write(true)
-        .open(&source)
-        .expect("the source")
-        .set_modified(std::time::SystemTime::now() - Duration::from_secs(3600))
-        .expect("written before the build");
-    std::fs::write(format!("{binary}.d"), format!("{binary}: {}\n\n{}:\n", source.replace(' ', "\\ "), source.replace(' ', "\\ "))).expect("cargo's list");
+/// His build's native Bridge, written as `script` says.
+fn kept(rig: &Rig, script: &str) {
+    let binary = build(rig).join(APP);
+    std::fs::create_dir_all(binary.parent().unwrap()).expect("the app's folder");
+    // Written to a new file and moved in: a running walk keeps the old one, as a restart's new build would.
+    let fresh = binary.with_extension("new");
+    std::fs::write(&fresh, script).expect("a build");
+    std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).expect("executable");
+    std::fs::rename(&fresh, &binary).expect("in place");
 }
 
-/// The build's one source written again, after the build.
-fn source_changed(rig: &Rig) {
-    let source = format!("{}/crates/bridge-native/src/main view.rs", slot(rig));
-    std::fs::write(&source, "fn main() { changed() }\n").expect("changed");
-    // Set rather than left to the clock, which a coarse filesystem may not move between the two writes.
-    std::fs::File::options()
-        .write(true)
-        .open(&source)
-        .expect("the source")
-        .set_modified(std::time::SystemTime::now() + Duration::from_secs(60))
-        .expect("written after the build");
+/// His build plays both walks, records where and how each was started, then stays up.
+fn built(rig: &Rig) {
+    kept(rig, "#!/bin/sh\nif [ \"$1\" = --list-walks ]; then echo sidebar; echo footer; exit 0; fi\necho \"$$ $(pwd -P) $@\" >> starts.txt\nexec sleep 60\n");
 }
 
 fn starts(rig: &Rig) -> Vec<String> {
-    std::fs::read_to_string(format!("{}/starts.txt", slot(rig)))
+    std::fs::read_to_string(build(rig).join("starts.txt"))
         .map(|text| text.lines().map(str::to_string).collect())
         .unwrap_or_default()
 }
 
-/// A job in its slot with a native walk shown and a build to open it with.
+/// A job with a native walk shown that the build he runs plays.
 async fn walking() -> (Rig, SessionId) {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
-    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
     built(&rig);
+    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
     (rig, id)
 }
 
@@ -92,6 +79,7 @@ fn running(rig: &Rig, id: &SessionId, url: &str) -> bool {
 #[tokio::test]
 async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_page_takes_on_it() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    built(&rig);
     let record = rig.fleet.show_window(None, shown(&id, URL)).await.expect("a native walk is shown");
     assert!(record.attachments.iter().any(|one| one.target == URL), "kept on the ledger as any window is");
     assert_eq!(rig.fleet.walk_open(id.as_str()).await.as_deref(), Some(URL));
@@ -111,45 +99,38 @@ async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_pag
 }
 
 #[tokio::test]
-async fn opening_a_native_walk_with_no_build_in_the_slot_is_refused_with_what_to_build() {
+async fn showing_a_native_walk_the_build_he_runs_does_not_play_is_refused_to_the_job() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
-    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
+    let none = said(rig.fleet.show_window(None, shown(&id, URL)).await);
+    assert!(none.contains("the build he runs has no native Bridge at"), "{none}");
+    assert!(none.contains("offer_preview the branch that adds it"), "{none}");
 
-    let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
+    // A build from before `--list-walks` exits 2 on it, as on any flag it does not read.
+    kept(&rig, "#!/bin/sh\nexit 2\n");
+    let old = said(rig.fleet.show_window(None, shown(&id, URL)).await);
+    assert!(old.contains("cannot name its walks"), "{old}");
 
-    assert!(refused.contains(&format!("Build the walk first: cargo build in crates/bridge-native in {}", slot(&rig))), "{refused}");
-    assert!(!running(&rig, &id, URL));
-}
+    built(&rig);
+    let unknown = said(rig.fleet.show_window(None, shown(&id, "armada://walk/header")).await);
+    assert!(unknown.contains("the build he runs has no walk named header: offer_preview"), "{unknown}");
+    let take = vec![ipc::WindowTake { name: "A".into(), url: URL.into() }, ipc::WindowTake { name: "B".into(), url: "armada://walk/header".into() }];
+    let takes = said(rig.fleet.show_window(None, ShowWindow { variations: take, ..shown(&id, URL) }).await);
+    assert!(takes.contains("no walk named header"), "a take is held to it too: {takes}");
+    assert_eq!(rig.fleet.walk_open(id.as_str()).await, None, "nothing refused was written");
 
-#[tokio::test]
-async fn opening_a_native_walk_with_a_source_changed_since_its_build_is_refused() {
-    let (rig, id) = walking().await;
-    source_changed(&rig);
-
-    let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
-
-    assert!(refused.contains("Build the walk first: cargo build in crates/bridge-native in"), "{refused}");
-    assert!(starts(&rig).is_empty(), "nothing was started");
-}
-
-#[tokio::test]
-async fn a_build_whose_sources_are_unchanged_opens_after_a_commit_made_since() {
-    let (rig, id) = walking().await;
-    // A commit moves no source, so `cargo build` leaves this build as it is: it has to open.
-    std::process::Command::new("git").args(["init", "-q"]).current_dir(slot(&rig)).status().expect("a repository");
-    let commit = ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "after the build"];
-    assert!(std::process::Command::new("git").args(commit).current_dir(slot(&rig)).status().expect("git").success(), "committed");
-
+    rig.fleet.show_window(None, shown(&id, URL)).await.expect("a walk it plays is shown");
     opened(&rig, &id, URL, 1).await;
 }
 
 #[tokio::test]
-async fn a_source_cargo_read_that_is_gone_since_the_build_is_refused() {
+async fn a_build_gone_since_the_walk_was_shown_is_refused_on_the_press() {
     let (rig, id) = walking().await;
-    std::fs::remove_file(format!("{}/crates/bridge-native/src/main view.rs", slot(&rig))).expect("gone");
+    std::fs::remove_file(build(&rig).join(APP)).expect("gone");
 
-    assert!(rig.fleet.open_native_walk(press(&id, URL)).await.is_err());
-    assert!(starts(&rig).is_empty(), "nothing was started");
+    let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
+
+    assert!(refused.contains("the build he runs has no native Bridge at"), "{refused}");
+    assert!(!running(&rig, &id, URL));
 }
 
 #[tokio::test]
@@ -169,16 +150,17 @@ async fn opening_a_native_walk_that_is_closed_withdrawn_or_never_shown_is_refuse
 }
 
 #[tokio::test]
-async fn the_walk_runs_as_armada_from_a_bundle_around_the_slots_build() {
+async fn the_walk_runs_as_armada_from_a_bundle_of_its_own_around_his_builds_app() {
     use std::os::unix::fs::MetadataExt;
     let (rig, id) = walking().await;
     opened(&rig, &id, URL, 1).await;
-    let bundle = format!("{}/crates/bridge-native/target/debug/walk/Armada.app/Contents", slot(&rig));
-    let info = std::fs::read_to_string(format!("{bundle}/Info.plist")).expect("an Info.plist");
+    let bundle = crate::runtime::support_dir(&rig.fleet.host().home).join("walk/Armada.app/Contents");
+    let info = std::fs::read_to_string(bundle.join("Info.plist")).expect("an Info.plist");
     assert!(info.contains("<key>CFBundleName</key><string>Armada</string>"), "{info}");
-    let linked = std::fs::metadata(format!("{bundle}/MacOS/Armada")).expect("the executable");
-    let build = std::fs::metadata(format!("{}/{BUILD}", slot(&rig))).expect("the build");
-    assert_eq!(linked.ino(), build.ino(), "a hard link to the build, not a copy");
+    assert!(info.contains("dev.armada.bridge.native.walk"), "apart from his running native Bridge: {info}");
+    let linked = std::fs::metadata(bundle.join("MacOS/Armada")).expect("the executable");
+    let app = std::fs::metadata(build(&rig).join(APP)).expect("his build's app");
+    assert_eq!(linked.ino(), app.ino(), "a hard link to his build's app, not a copy");
 }
 
 #[tokio::test]
@@ -190,7 +172,7 @@ async fn a_native_walk_opens_beside_a_page_shown_after_it() {
 }
 
 #[tokio::test]
-async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_address_and_fleets_port() {
+async fn two_presses_start_one_app_from_his_build_with_the_walk_the_job_the_address_and_fleets_port() {
     let (rig, id) = walking().await;
 
     let first = rig.fleet.open_native_walk(press(&id, URL)).await.expect("opened");
@@ -202,10 +184,10 @@ async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_addre
     let line = starts(&rig);
     assert_eq!(line.len(), 1, "one process: {line:?}");
     let port = rig.fleet.host().port;
-    let real = std::fs::canonicalize(slot(&rig)).expect("the slot");
+    let real = std::fs::canonicalize(build(&rig)).expect("his build");
     assert!(
         line[0].contains(&format!(" {} --walk sidebar --job {} --url {URL} --fleet-port {port}", real.display(), id.as_str())),
-        "started in the slot, with the arguments the app reads: {line:?}"
+        "started in his build, with the arguments the app reads: {line:?}"
     );
     assert!(running(&rig, &id, URL));
 }
@@ -213,9 +195,9 @@ async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_addre
 #[tokio::test]
 async fn a_native_walks_variations_are_other_native_walks_and_the_app_starts_with_each_as_a_take() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    built(&rig);
     let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
     rig.fleet.show_window(None, ShowWindow { variations: takes, ..shown(&id, URL) }).await.expect("takes of one walk");
-    built(&rig);
 
     opened(&rig, &id, URL, 1).await;
 
@@ -224,17 +206,17 @@ async fn a_native_walks_variations_are_other_native_walks_and_the_app_starts_wit
 }
 
 #[tokio::test]
-async fn a_press_after_a_new_build_stops_the_running_app_and_starts_the_new_one() {
+async fn a_press_after_his_preview_restarts_stops_the_running_app_and_starts_the_new_one() {
     let (rig, id) = walking().await;
     opened(&rig, &id, URL, 1).await;
     let first = starts(&rig)[0].split(' ').next().map(str::to_string).expect("its pid");
 
-    // Opened for reading only: Linux refuses to start a program open for writing ("Text file busy"), and a
-    // child another test forks meanwhile keeps a writable handle open until it execs.
-    std::fs::File::open(format!("{}/{BUILD}", slot(&rig)))
-        .expect("the build")
+    // A restart keeps a new app; its time is set, as a coarse filesystem may not move between the two writes.
+    built(&rig);
+    std::fs::File::open(build(&rig).join(APP))
+        .expect("the new app")
         .set_modified(std::time::SystemTime::now() + Duration::from_secs(60))
-        .expect("built again");
+        .expect("kept after the first");
     let again = rig.fleet.open_native_walk(press(&id, URL)).await.expect("opened again");
 
     assert!(again.started, "the new build was started");
@@ -273,7 +255,7 @@ async fn the_app_goes_when_the_walk_is_closed_or_approved_and_stays_beside_anoth
 }
 
 #[tokio::test]
-async fn the_app_goes_when_the_job_ends_the_slot_is_given_back_and_fleet_stops() {
+async fn the_app_goes_when_the_job_ends_and_fleet_stops() {
     let (rig, id) = walking().await;
 
     opened(&rig, &id, URL, 1).await;
@@ -282,10 +264,6 @@ async fn the_app_goes_when_the_job_ends_the_slot_is_given_back_and_fleet_stops()
 
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
     opened(&rig, &id, URL, 2).await;
-    rig.fleet.stopped_servers_in(&slot(&rig)).await;
-    assert!(!running(&rig, &id, URL), "the slot was given back");
-
-    opened(&rig, &id, URL, 3).await;
     assert!(running(&rig, &id, URL));
     rig.fleet.native_walks_stopped();
     assert!(!running(&rig, &id, URL), "fleet stopped");

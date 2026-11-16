@@ -159,7 +159,7 @@ WebSocket event stream, read this first.
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
 | [A Job waits on another](protocol/a-job-waits-on-another.md) |
 | [A Job reads and commands the Jobs it started](protocol/a-job-reads-and-commands-the-jobs-it-started.md) |
-| [A full pool asks the person: `slot_choice`](protocol/a-full-pool-asks-the-person-slot-choice.md) |
+| [A full pool shows a wait: `slot_wait`](protocol/a-full-pool-shows-a-wait-slot-wait.md) |
 | [A Job's delivery question](protocol/a-jobs-delivery-question.md) |
 | [A Job starts on its start card](protocol/a-job-starts-on-its-start-card.md) |
 | [A sketch wireframes a screen: the `screen` node](protocol/a-sketch-wireframes-a-screen-the-screen-node.md) |
@@ -191,6 +191,7 @@ WebSocket event stream, read this first.
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
+| [An aside to a Job: `ask_aside`, `list_asides`, `tell_aside`, `session.aside`](protocol/an-aside-to-a-job.md) |
 | [The agents' account signed out: `agent_sign_in.changed`, `get_agent_sign_in`, `start_agent_sign_in`](protocol/the-agents-account-signed-out.md) |
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
@@ -216,15 +217,22 @@ WebSocket event stream, read this first.
 | [A Job's lanes, worked out by Fleet: `SessionRecord.lanes`, and a workflow's for its editor: `get_workflow_lanes`](protocol/a-jobs-lanes-fleet-works-out.md) |
 | [The repair under way, on a Job's card: `SessionRecord.repairing`](protocol/a-jobs-repairing-line.md) |
 | [A draft names the pull request it describes: `SessionRecord.pull_request_drafts`, `PullRequestPage.draft`](protocol/a-draft-names-the-pull-request-it-describes.md) |
+| [A Job's wait on a held item: `SessionRecord.claim_waits`, `claims_unsent`](protocol/a-jobs-wait-on-a-held-item.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
-| [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
+| [The Operator's page, kept by Fleet: `operator_page`, the card acts and `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
 | [A Job's artifacts as one record: `get_job_artifacts`](protocol/a-jobs-artifacts-as-one-record.md) |
 | [Archiving a Job's artifact: `archive_artifact` and `restore_artifact`](protocol/archiving-a-jobs-artifact.md) |
 | [What an artifact is for: `for_line` and `ArtifactFor`](protocol/what-an-artifact-is-for.md) |
 | [His Edit of an artifact: `save_artifact_edit`](protocol/his-edit-of-an-artifact.md) |
 | [A plan carries its sketches: `sketches` on `record_plan` and `SessionPlan`, and `in_plan` on `JobArtifact`](protocol/a-plan-carries-its-sketches.md) |
 | [Approve all and Dismiss all: `answer_items` and `dismiss_items`](protocol/approve-all-and-dismiss-all.md) |
+| [A page's actions: `press_page_action`, and `presses` on `JobArtifact`](protocol/a-pages-actions.md) |
+| [A page's votes: `cast_page_vote`, and `votes` on `JobArtifact`](protocol/a-pages-votes.md) |
+| [A page served sealed: `get_artifact_page`](protocol/a-pages-sealed-serving.md) |
+| [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
+| [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
+| [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -732,7 +740,7 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, session_id? }`; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
+| `dispute_fleet` (`POST /sessions/dispute_fleet`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `DisputeFleet` `{ why, notice_words?, session_id? }`, `notice_words` since 13 Nov 2026: the opening words of the disputed notice, which ties the dispute to the newest Fleet message holding them, else the latest; answers `FleetDisputed` `{ dispute_id, review_session_id?, joined }`. Refused with `fleet.dispute_refused` for an empty `why` or a job Fleet has told nothing; a job Fleet does not host, or an ended one, is refused as `all_done` refuses it |
 | `SessionRow::Disputed` (`kind: "disputed"`) | Bridge reads | `{ id, at, notice, why, spotted, review? }`: `notice` is the Fleet message row's id, `spotted` is `called` or `read`, `review` the review job's session id, absent where none was started |
 
 **The review job's title is `Disputed: <a few words>`**, named by one `models.dispute` call, or `Disputed notice` where that call names nothing usable.
@@ -769,6 +777,22 @@ Whether he has read one is Bridge's own and is not on the wire.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `bug_reports.changed` is a new kind; a Bridge that missed one reads `list_bug_reports` on the resync that follows a `Missed`.
+
+## A Job's two asks of the Operator: `raise_conflict` and `ask_held`
+
+Since 14 Nov 2026. `crates/ipc/src/job_asks.rs`.
+**Additive only**: two operations, two routes, the `job_asks` table, two `WaitingSource` values (`job_conflict`, `job_held`) and two optional fields, `conflict` and `held`, on `OperatorTurnItem`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `raise_conflict` (`POST /sessions/raise_conflict`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `RaiseConflict` `{ with, files, wire, mine, theirs, breaks, session_id? }`; answers `ConflictRaised` `{ id, folded }`. Refused with `fleet.conflict_refused` and a sentence naming the part |
+| `ask_held` (`POST /sessions/ask_held`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `AskHeld` `{ pull? or branch?, session_id? }`; answers `HeldAsked` `{ id, answer? }`. Refused with `fleet.held_refused` and a sentence naming the part |
+| `job_conflict`, `job_held` (`WaitingSource`) | Bridge reads | The sending Job's Needs you item while the Operator is off. Choices: `Tell <sender> to change`, `Tell <other>`, `Hold both`; `Land it`, `Hold it`. Answered by `answer_waiting` with a `choice`; never dismissed |
+| `OperatorTurnItem::conflict`, `::held` | Bridge reads | `OperatorConflict` `{ raised_by, with, files, wire, mine, theirs, breaks }` and `OperatorHeld` `{ pull?, branch?, title?, checks?, asked_by }`, each Job an `OperatorAskJob` `{ session_id, address, title }`. `also_raised_by` carries the folded asks |
+
+**Fleet answers a landing question with no call where the forge shows the pull request merged or closed**, and the same words are sent to the Job as a Fleet message.
+**Nothing is written to a forge.**
+**The store.** `job_asks` is additive, `crates/store/migrations/20261114T0500Z-job_asks.table.sql`, keyed by the ask's id and its round, with no foreign key: an ask outlives its Jobs.
 
 ## A reported bug is fixed by the Job started on it: `report` on `TagKind`, and `fixed` on `BugReport`
 
@@ -1180,10 +1204,16 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
+| `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at, verdict?}`, `verdict` `good` or `needs_work`, and a step is `{say, act?}` |
+| `mark_build_note_looked_at`, `send_build_note_feedback` | Bridge writes | `POST /fleet/build/notes/looked_at` with `MarkBuildNoteLookedAt { branch, tip, verdict? }`, answered `BuildNotes`, and `POST /fleet/build/notes/feedback` with `SendBuildNoteFeedback { branch, tip, words }`, answered `BuildNoteFeedbackSent { session_id, started }`. `agent_access = "No"`, and a 403 `api.the_persons_own` from inside a Job |
+| `build_notes.changed` | Fleet writes, Bridge reads | `BuildNotes`, whole, published when the answer differs from the last one sent |
 | Notices to the Job | Fleet writes | `Notice::BuildMoved`: no new value, so no client that matches `Notice` gains one |
 
 **A Bridge that matches `Event` exhaustively** meets a kind it did not know. Native matches with a fallback.
-**Skew.** As above. **The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+`OfferPreview` gained `look` and `steps`, each absent to keep what the last offer said.
+**Skew.** As above.
+**The store.** One additive migration, `preview_offered.table`: `preview_offered` and `preview_refresh_skipped`.
+A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` and the `build_notes` table.
 
 ## Fleet asks about an act a rule planned: `rule_act`, and the `lifecycle_rule` notice
 
@@ -1583,6 +1613,10 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
+**A record of what was.** Fleet keeps no suggestion now: the Operator rules nothing, and no row is raised with `WaitingSource::OperatorSuggestion` except Fleet's own red main and disk hold on the Operator's page.
+Pressing an old one is refused with `fleet.session_waiting_empty`.
+`WaitingItem.operator_read` is never set.
+
 An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
@@ -1596,6 +1630,10 @@ A suggestion on a report with no Job behind it, or on a note the person left on 
 A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
 ## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
+
+**What stands now.** `talk_to_operator` delivers his words to the Operator's own session and answers an empty `OperatorSaid`; it is refused with `fleet.operator_session_not_running` while none runs.
+`operator_talk` reads the old conversation back and nothing writes to it.
+The call that read his words, `cites`, `job`, `started`, `forgot`, `lifted` and the other fields of the answer are gone from what Fleet fills; the holds and `confirm_operator_order` stand as below.
 
 The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
@@ -1614,6 +1652,9 @@ The box at the foot of the Operator panel, and the holds it turns words into. No
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
 ## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion`, `report_bridge_error` and `operator.board_changed`
+
+**A record of what was**, save `report_bridge_error` and `operator.board_changed`.
+`get_operator_board`, `move_on_operator_board` and `answer_operator_suggestion` are removed with their types, and the router answers 404. `report_bridge_error` now tells the Operator's session, and `operator.board_changed` is published when the switch moves.
 
 The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 
@@ -2009,3 +2050,42 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event; Bridge reads `get_fleet_build` on every connection and on a minute's interval.
+
+## What the running build holds: `FleetBuildReport.holds`
+
+Since 14 Nov 2026.
+**Additive only**: one field on an existing type, one optional field on `OriginBranch`, and the type `holds` carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `HeldBranch` and `OriginBranch.title` in `packages/protocol/src/building.ts`, written by hand, field for field.
+Electron reads none of it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `FleetBuildReport` (`get_fleet_build`) | Fleet writes, Bridge reads | Gains `holds`, absent when empty: the `[[job]]` rows of `builds/current`, whatever Keep or a pick said |
+| `HeldBranch` | Fleet writes | `{ branch, title?, landed? }`. `landed` is left out when false |
+| `OriginBranch` | Fleet writes | Gains `title?`, the Job here that held the branch last, ended Jobs included |
+
+**`trying` empties after Keep and `picked` follows the person's picks**, so neither says what the running build holds; `holds` does.
+`title` is the live Job holding the branch, else the Job whose ledger `branch` row was settled last, which outlives the Job.
+A branch no Job here ever held, such as one worked in a worktree cut by hand, has none.
+`landed` is the tip the build recorded for the row being on `origin/main` as last fetched, so a branch deleted once it merged still reads landed.
+`origin` no longer lists plumbing: the merge queue's `gh-readonly-queue/*`, beads' `__dolt_remote_info__`, and each Mac's `preview/*`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event.
+## The signed-out account's name: `AgentSignIn.account`
+
+Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
+Electron reads none of it. The native Bridge names the account with it on the signed-out toast, and says "the agent" where it is absent.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `AgentSignIn` (`get_agent_sign_in`, `start_agent_sign_in`, `agent_sign_in.changed`) | Fleet writes, Bridge reads | Gains `account`, absent when empty: the account's name as a person knows it, from the harness's adapter |
+
+**So Bridge names the account without spelling it.** A vendor's name lives in `adapters` alone, and Fleet fills the field from there on every state it sends.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.

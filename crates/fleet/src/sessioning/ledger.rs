@@ -274,15 +274,25 @@ where
         session: &KeptSession,
         reads: LedgerReads,
     ) -> Vec<ipc::WaitingItem> {
-        self.ledger_built(session, reads).waiting_for
+        let (record, held) = self.ledger_parts(session, reads);
+        crate::session_host::sketching::answerable(record.waiting_for, held)
     }
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
     /// under the store lock.
     pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
+        self.ledger_parts(session, reads).0
+    }
+
+    /// The row, and the sketches drawn in the turn still running that it does not raise yet, off the one look at
+    /// the turn its items took, so an answer finds what the row held back.
+    pub(crate) fn ledger_parts(&self, session: &KeptSession, reads: LedgerReads) -> (SessionRecord, Vec<ipc::WaitingItem>) {
         let mut record = session_wire(session, &reads.held);
         if session.state == store::SessionState::Live {
             self.slots_held_drawn(session, &mut record.attachments);
+            let claims = self.job_claims().shown(&session.id);
+            record.claim_waits = claims.wire();
+            record.claims_unsent = claims.unsent;
         }
         // A subagent the mod never settles is done once its own transcript shows its turn ended.
         let home = &self.host().home;
@@ -315,6 +325,7 @@ where
         record.from_tab = reads.hosting.as_ref().and_then(|hosting| hosting.from_tab.clone());
         record.mod_of_bay = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_of_bay);
         record.side_job = reads.hosting.as_ref().is_some_and(|hosting| hosting.side_job);
+        record.operator = reads.hosting.as_ref().is_some_and(|hosting| hosting.operator);
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
             record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
@@ -347,10 +358,13 @@ where
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let reply_owed_since = reads.waiting.reply_owed_since();
         let (checks_running, spoken) = reads.waiting.thread_facts();
-        let waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        let mut waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        let held = std::mem::take(&mut waited.held);
         // Whether the Job that owns a failure has been told of it is read by the calls, which hear the row next.
         self.hosts().calls.told_noted(&session.id, waited.told.as_deref());
         record.waiting_for = waited.items;
+        // Waiting for a slot is no question to him: the record says so, and the Job is moved in when one frees.
+        record.slot_wait = self.hosts().slot_queue().slot_wait(&session.id);
         // A call held at a gate only the person can close is his to settle.
         if session.state == store::SessionState::Live {
             let nothing_runs = record.running.is_empty();
@@ -423,6 +437,8 @@ where
             || record.attachments.iter().any(|one| open_pull_request(one) && !red_of(one, &reads.red_pulls))
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
             || self.hosts().of(&session.id).state().moving.is_some()
+            // In the slot line, or its lease still asking, it was told to stop, and Fleet moves it when a slot frees.
+            || self.hosts().slot_queue().waits(&session.id)
             // A subagent or a task still working is something running: the turn ended on it, not on nothing.
             || !record.running.is_empty()
             // A Side Job with no plan was asked something and answered it: its turn ending is the answer.
@@ -468,11 +484,24 @@ where
                 record.last_heard_at = self.now().epoch_millis().map(|now| wire_instant(&crate::clock::rfc3339_utc(now - quiet)));
             }
         }
+        // A sketch drawn in the turn still running waits once it ends, unless a plan gate or the step the Job is on
+        // waits on his approval of a sketch: then it waits at once, as it always did.
+        if session.state == store::SessionState::Live {
+            let gated = reads.plan.as_ref().is_some_and(|plan| {
+                plan.groups.iter().any(|group| group.gate.as_deref() == Some(ipc::PlanGate::SketchApproved.word()) && group.closed.is_none())
+            });
+            let stepped = record
+                .workflow_step
+                .is_some_and(|at| crate::rail_ends::ends_of(&reads.rail.steps, at as usize).contains(&crate::rail_ends::End::SketchApproved));
+            if gated || stepped {
+                record.waiting_for = crate::session_host::sketching::answerable(std::mem::take(&mut record.waiting_for), held.clone());
+            }
+        }
         let thread = super::marking::Thread { lapsed, checks_running, spoken };
         let on_screen = self.hosts().on_screen.now(&session.id);
         record.mark = Some(super::marking::mark_of(&record, &thread, on_screen, self.now().epoch_millis()));
         record.compact = Some(super::compact::compact_of(&record));
-        record
+        (record, held)
     }
 
     /// The numbers of the session's open pull requests that Fleet told it failed or conflicts, at the

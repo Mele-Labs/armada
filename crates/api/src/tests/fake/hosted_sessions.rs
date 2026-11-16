@@ -133,19 +133,7 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
-    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        Err(nothing_hosted())
-    }
-
-    async fn move_on_operator_board(self: Arc<Self>, _moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
-        Err(nothing_hosted())
-    }
-
     async fn report_bridge_error(self: Arc<Self>, _error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
-        Err(nothing_hosted())
-    }
-
-    async fn answer_operator_suggestion(self: Arc<Self>, _answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         Err(nothing_hosted())
     }
 
@@ -312,6 +300,34 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", edit.artifact), run_id())))
     }
 
+    async fn press_page_action(self: Arc<Self>, press: ipc::PressPageAction) -> Result<ipc::PagePress, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", press.artifact), run_id())))
+    }
+
+    async fn cast_page_vote(self: Arc<Self>, cast: ipc::CastPageVote) -> Result<ipc::VoteCast, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", cast.artifact), run_id())))
+    }
+
+    async fn add_part(&self, _caller: Option<crate::Caller>, add: ipc::AddPart) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.part_unnamed", format!("no job for `{}`", add.title), run_id())))
+    }
+
+    async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", answer.artifact), run_id())))
+    }
+
+    async fn get_artifact_page_source(&self, _id: SessionId, artifact: String, _revision: Option<u32>) -> Result<String, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
+    }
+
+    async fn mark_artifact_seen(&self, mark: ipc::MarkArtifactSeen) -> Result<ipc::ArtifactSeen, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", mark.artifact), run_id())))
+    }
+
+    async fn get_artifact_page(&self, _id: SessionId, artifact: String, _revision: Option<u32>) -> Result<crate::SealedPage, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),
@@ -433,6 +449,27 @@ impl HostedSessions for FakeDaemon {
 
     async fn change_job_copy(self: Arc<Self>, _change: ipc::ChangeJobCopy) -> Result<ipc::JobCopy, Refusal> {
         Err(nothing_hosted())
+    }
+
+    async fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> Result<ipc::ForYou, Refusal> {
+        let job = session_id.unwrap_or_else(|| SessionId::carried("s-1"));
+        Ok(ipc::ForYou { job, waiting: Vec::new(), building: Vec::new(), landing: Vec::new() })
+    }
+
+    async fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> Result<ipc::ForYou, Refusal> {
+        self.get_for_you(withdraw.session_id).await
+    }
+
+    async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
+        self.get_for_you(order.session_id).await
+    }
+
+    async fn line_for_you(self: Arc<Self>, line: ipc::LineForYou) -> Result<ipc::ForYou, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised(ipc::FOR_YOU_UNKNOWN, format!("no row `{}`", line.id), run_id())))
+    }
+
+    async fn add_for_you(self: Arc<Self>, _add: ipc::AddForYou) -> Result<ipc::ForYouAdded, Refusal> {
+        Ok(ipc::ForYouAdded { id: String::from("added:1") })
     }
 
     async fn get_job_copy(self: Arc<Self>, _session_id: Option<SessionId>) -> Result<ipc::JobCopy, Refusal> {

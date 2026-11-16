@@ -117,14 +117,14 @@ takes neither. Confirmed 30 Sep 2026: jobs running suites bare beside a
 Fleet took the load to 19 on 18 cores, and a different test timed out each run.
 `docs/concepts/manifest.md`, *How many Checks run at once*.
 
-**A heavy command the table runs bare, prefix with `taskpolicy -c utility`**,
-for example `taskpolicy -c utility cargo build --workspace --all-targets`.
-`armada check` already lowers its Checks beneath the merge line and Bridge, and
-`nice -n 10` was measured to change nothing on this machine.
-`docs/concepts/manifest.md`, *At what priority a Check runs*.
+**Fleet handles load; never wait on it by hand.** A Check waits for a slot,
+and while the fifteen-minute load is 24 or more it waits for every other Check
+to end, saying so on stderr. Your agent and everything it starts already run at
+utility priority, so no `taskpolicy` prefix, no load loop, and no such lines in
+a brief. `docs/concepts/manifest.md`, *How many Checks run at once* and *At
+what priority a Check runs*.
 
-**One heavy run at a time, across every job on the machine**, your own
-background runs included.
+**One heavy run of your own at a time**, background runs included.
 
 **A wait loop that greps for the run matches itself.** Confirmed 17 Sep 2026: a
 job queued its gate behind `while pgrep -f 'vitest|cargo xtask' ...; do
@@ -183,9 +183,9 @@ adopt, land.** He uses Armada as its end user, so he runs the change before it
 lands. Once the work is committed and step 4's self-check passes, do these in
 order and ask nothing between them:
 
-1. `offer_preview` with an `about` line, one line on what the branch holds, puts it
-   on the preview list once Fleet has checked it with the other offers. Load
-   `preview-app` first.
+1. `offer_preview` with `about` (what the branch holds), `look` (what he should look
+   at) and `steps` aimed at registry acts puts it on the preview list once Fleet has
+   checked it with the other offers. Load `preview-app` first: it has the example.
 2. If the change reaches Fleet or Bridge, he presses Refresh preview from his
    row, which names the branch and its `about`. Hand him no restart command. A
    change that is only docs or scripts needs no offer. Fleet tells you in your

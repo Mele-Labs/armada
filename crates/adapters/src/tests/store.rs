@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use adapter_traits::{Claimed, Holder, HolderKind, OwnerKey, RedKey, RepositoryKey, RunRow, Secret, Store};
+use adapter_traits::{ClaimKey, ClaimKind, Claimant, Claimed, Contest, Holder, HolderKind, ListedClaim, ListedWait, OwnerKey, RepositoryKey, RunRow, Secret, Store};
 use p256::ecdsa::signature::Verifier;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
@@ -56,8 +56,12 @@ fn repository() -> RepositoryKey {
     RepositoryKey::from_hash("aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111").unwrap()
 }
 
-fn red() -> RedKey {
-    RedKey::from_hash("bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222").unwrap()
+fn claimant(machine: &str) -> Claimant {
+    Claimant::new(holder(machine), "nick", "Fix the flaky queue test")
+}
+
+fn red() -> ClaimKey {
+    ClaimKey::from_hash("bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222").unwrap()
 }
 
 fn reply(status: u16, body: &str) -> Reply {
@@ -135,10 +139,14 @@ fn a_device_id_that_could_not_sit_in_a_header_is_not_kept() {
 #[test]
 fn a_claim_is_won_on_200_and_held_on_409_naming_the_holder() {
     assert_eq!(store::claimed(&reply(200, "{}")).unwrap(), Claimed::Won);
-    let held = reply(409, r#"{"holder":{"kind":"session","id":"s9","machine":"mac-a","since":55}}"#);
+    let held = reply(
+        409,
+        r#"{"holder":{"kind":"session","id":"s9","machine":"mac-a","since":55,"name":"sam","title":"Speed up the queue"},"renewed":60}"#,
+    );
+    let holder = Holder { kind: HolderKind::Session, id: "s9".into(), machine: "mac-a".into(), since: 55 };
     assert_eq!(
         store::claimed(&held).unwrap(),
-        Claimed::Held(Holder { kind: HolderKind::Session, id: "s9".into(), machine: "mac-a".into(), since: 55 })
+        Claimed::Held(Claimant { holder, name: "sam".into(), title: "Speed up the queue".into() })
     );
 }
 
@@ -152,7 +160,7 @@ fn a_5xx_is_unreachable_and_any_other_refusal_is_refused() {
 
 #[test]
 fn a_holder_kind_this_build_does_not_know_is_refused_not_guessed() {
-    let held = reply(409, r#"{"holder":{"kind":"robot","id":"x","machine":"m","since":1}}"#);
+    let held = reply(409, r#"{"holder":{"kind":"robot","id":"x","machine":"m","since":1,"name":"","title":""},"renewed":1}"#);
     assert!(!store::claimed(&held).unwrap_err().is_unreachable());
     assert!(store::claimed(&reply(409, "not json")).is_err());
 }
@@ -183,13 +191,107 @@ fn owners_come_back_only_for_the_keys_that_were_asked() {
 }
 
 #[test]
-fn the_claim_call_carries_hashes_and_the_holder_and_no_name() {
-    let call = store::claim_call(&repository(), &red(), &holder("mac-a")).unwrap();
+fn the_claim_call_carries_hashes_its_kind_and_the_holder_named() {
+    let call = store::claim_call(&repository(), ClaimKind::File, &red(), &claimant("mac-a")).unwrap();
     assert_eq!((call.method, call.target.as_str()), ("POST", "/v1/claims"));
     assert_eq!(
         String::from_utf8(call.body).unwrap(),
-        r#"{"repo":"aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111","red":"bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222","holder":{"kind":"session","id":"j1","machine":"mac-a","since":100}}"#
+        r#"{"repo":"aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111","kind":"file","key":"bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222","holder":{"kind":"session","id":"j1","machine":"mac-a","since":100,"name":"nick","title":"Fix the flaky queue test"}}"#
     );
+}
+
+/// The Worker's tests send the same bytes, `apps/store/test-vectors/red-claim.json`.
+#[test]
+fn the_red_main_claim_is_the_body_the_worker_takes() {
+    let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/store/test-vectors/red-claim.json");
+    #[derive(serde::Deserialize)]
+    struct Vector {
+        body: String,
+    }
+    let vector: Vector = ipc::decode("red claim vector", &std::fs::read(file).expect("the vector")).expect("reads");
+    let repository = RepositoryKey::from_hash(&"a".repeat(64)).unwrap();
+    let key = ClaimKey::from_hash(&"b".repeat(64)).unwrap();
+    let holder = Holder { kind: HolderKind::Session, id: "s-2041".into(), machine: "Home Mac".into(), since: 1_763_000_000 };
+    let claimant = Claimant::new(holder, "nick", "Fix the flaky queue test");
+    let call = store::claim_call(&repository, ClaimKind::Red, &key, &claimant).unwrap();
+    assert_eq!(String::from_utf8(call.body).unwrap(), vector.body);
+}
+
+#[test]
+fn a_renewal_names_the_holder_without_since_and_reads_how_many_claims_it_has() {
+    let call = store::renewal_call(&holder("mac-a")).unwrap();
+    assert_eq!((call.method, call.target.as_str()), ("POST", "/v1/renewals"));
+    assert_eq!(String::from_utf8(call.body).unwrap(), r#"{"holder":{"kind":"session","id":"j1","machine":"mac-a"}}"#);
+    let renewed = store::renewed(&reply(200, r#"{"claims":5}"#)).unwrap();
+    assert_eq!((renewed.claims, renewed.contested), (5, Vec::new()));
+    assert!(store::renewed(&reply(503, "")).unwrap_err().is_unreachable());
+}
+
+#[test]
+fn a_renewal_reads_who_else_asked_for_a_claim_and_skips_a_contest_it_cannot_name() {
+    let (repo, key) = ("a".repeat(64), "b".repeat(64));
+    let by = |kind: &str| format!(r#"{{"kind":"{kind}","id":"s2","machine":"mac-b","since":70,"name":"ada","title":"Rename the queue"}}"#);
+    let contest = |repo: &str, kind: &str, key: &str, holder: &str| format!(r#"{{"repo":"{repo}","kind":"{kind}","key":"{key}","holder":{holder}}}"#);
+    let body = format!(
+        r#"{{"claims":2,"contested":[{},{},{},{},{}]}}"#,
+        contest(&repo, "file", &key, &by("session")),
+        contest(&repo, "robot", &key, &by("session")),
+        contest(&repo, "file", &key, &by("job")),
+        contest("short", "file", &key, &by("session")),
+        contest(&repo, "red", "no spaces in a hash", &by("session")),
+    );
+
+    let renewed = store::renewed(&reply(200, &body)).unwrap();
+
+    let who = Holder { kind: HolderKind::Session, id: "s2".into(), machine: "mac-b".into(), since: 70 };
+    assert_eq!(renewed.claims, 2);
+    assert_eq!(
+        renewed.contested,
+        vec![Contest {
+            repository: RepositoryKey::from_hash(&repo).unwrap(),
+            kind: ClaimKind::File,
+            key: ClaimKey::from_hash(&key).unwrap(),
+            by: Claimant { holder: who, name: "ada".into(), title: "Rename the queue".into() },
+        }]
+    );
+}
+
+#[test]
+fn the_claims_list_reads_each_holders_claims_and_waits_and_skips_what_it_cannot_name() {
+    let (repo, test, pull) = ("a".repeat(64), "b".repeat(64), "c".repeat(64));
+    let body = format!(
+        r#"{{"holders":[
+            {{"holder":{{"kind":"session","id":"s1","machine":"home","name":"nick","title":"Fix the flaky queue test"}},"renewed":900,
+              "claims":[{{"repo":"{repo}","kind":"test","key":"{test}","since":800}},{{"repo":"{repo}","kind":"robot","key":"{test}","since":1}}],"waits":[]}},
+            {{"holder":{{"kind":"session","id":"s2","machine":"work","name":"nick","title":"Land the queue race fix"}},"renewed":950,
+              "claims":[{{"repo":"{repo}","kind":"pull_request","key":"{pull}","since":700}}],
+              "waits":[{{"repo":"{repo}","kind":"test","key":"{test}","holder":{{"kind":"session","id":"s1","machine":"home","since":800,"name":"nick","title":"Fix the flaky queue test"}}}}]}},
+            {{"holder":{{"kind":"job","id":"j9","machine":"old","name":"","title":""}},"renewed":1,"claims":[]}}
+        ]}}"#
+    );
+
+    let groups = store::listed(&reply(200, &body)).unwrap();
+
+    assert_eq!(groups.len(), 2, "a holder kind this build does not know is skipped");
+    let fixer = Holder { kind: HolderKind::Session, id: "s1".into(), machine: "home".into(), since: 800 };
+    assert_eq!(groups[0].holder.holder.id, "s1");
+    assert_eq!(groups[0].holder.holder.since, 0, "a group has no since of its own");
+    assert_eq!((groups[0].renewed, groups[0].holder.title.as_str()), (900, "Fix the flaky queue test"));
+    assert_eq!(
+        groups[0].claims,
+        vec![ListedClaim { repository: RepositoryKey::from_hash(&repo).unwrap(), kind: ClaimKind::Test, key: ClaimKey::from_hash(&test).unwrap(), since: 800 }]
+    );
+    assert_eq!(groups[1].claims[0].kind, ClaimKind::PullRequest);
+    assert_eq!(
+        groups[1].waits,
+        vec![ListedWait {
+            repository: RepositoryKey::from_hash(&repo).unwrap(),
+            kind: ClaimKind::Test,
+            key: ClaimKey::from_hash(&test).unwrap(),
+            held_by: Claimant { holder: fixer, name: "nick".into(), title: "Fix the flaky queue test".into() },
+        }]
+    );
+    assert!(store::listed(&reply(503, "")).unwrap_err().is_unreachable());
 }
 
 // A socket on this machine that answers a script, one connection per entry.
@@ -269,7 +371,7 @@ fn store_at(url: &str) -> HttpStore {
 #[test]
 fn a_claim_goes_out_signed_and_the_signature_verifies_over_what_the_server_received() {
     let (url, server) = serve(vec![(200, "{}")]);
-    let claimed = store_at(&url).claim(&repository(), &red(), &holder("mac-a")).unwrap();
+    let claimed = store_at(&url).claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-a")).unwrap();
     assert_eq!(claimed, Claimed::Won);
     let seen = &server.join().unwrap()[0];
     assert_eq!((seen.method.as_str(), seen.target.as_str()), ("POST", "/v1/claims"));
@@ -298,12 +400,12 @@ fn a_read_of_owners_signs_the_query_it_sent() {
 #[test]
 fn taking_over_deletes_the_row_then_claims_it() {
     let (url, server) = serve(vec![(204, ""), (200, "{}")]);
-    let taken = store_at(&url).replace_claim(&repository(), &red(), &holder("mac-b")).unwrap();
+    let taken = store_at(&url).replace_claim(&repository(), ClaimKind::Red, &red(), &claimant("mac-b")).unwrap();
     assert_eq!(taken, Claimed::Won);
     let seen = server.join().unwrap();
     assert_eq!(
         seen.iter().map(|s| (s.method.as_str(), s.target.as_str())).collect::<Vec<_>>(),
-        [("DELETE", "/v1/claims/aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111/bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222"), ("POST", "/v1/claims")]
+        [("DELETE", "/v1/claims/aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111aaaaaaaa11111111/red/bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222bbbbbbbb22222222"), ("POST", "/v1/claims")]
     );
 }
 
@@ -312,14 +414,14 @@ fn a_store_nothing_listens_for_is_unreachable() {
     let closed = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", closed.local_addr().unwrap());
     drop(closed);
-    let said = store_at(&url).read_claim(&repository(), &red()).unwrap_err();
+    let said = store_at(&url).read_claim(&repository(), ClaimKind::Red, &red()).unwrap_err();
     assert!(said.is_unreachable(), "{said:?}");
 }
 
 #[test]
 fn a_store_that_answers_401_refuses_and_is_not_unreachable() {
     let (url, server) = serve(vec![(401, "unknown device")]);
-    let said = store_at(&url).release_claim(&repository(), &red()).unwrap_err();
+    let said = store_at(&url).release_claim(&repository(), ClaimKind::Red, &red()).unwrap_err();
     server.join().unwrap();
     assert!(!said.is_unreachable());
 }
@@ -437,4 +539,56 @@ fn a_store_that_refuses_runs_is_refused_and_one_that_fails_is_unreachable() {
     assert!(!store.put_runs(&repository(), &[]).unwrap_err().is_unreachable());
     assert!(store.read_runs(&repository()).unwrap_err().is_unreachable());
     server.join().unwrap();
+}
+
+#[test]
+fn the_signed_in_devices_are_read_in_the_stores_order_and_a_refusal_is_not_an_empty_list() {
+    let answered = store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa","machine":"home"},{"device":"2.bb","machine":"work"}]}"#))
+        .expect("read");
+    let named: Vec<(&str, &str)> = answered.iter().map(|one| (one.id.as_str(), one.machine.as_str())).collect();
+    assert_eq!(named, [("1.aa", "home"), ("2.bb", "work")]);
+    assert!(store::devices_held(&reply(401, r#"{"error":"unknown_device"}"#)).is_err());
+    assert!(store::devices_held(&reply(200, r#"{"devices":[{"device":"1.aa"}]}"#)).is_err(), "a device with no Mac is not read as one");
+}
+
+#[test]
+fn peers_are_read_in_the_stores_order_and_a_kind_this_build_does_not_know_is_left_out() {
+    let (url, server) = serve(vec![(
+        200,
+        r#"{"devices":[{"device":"7.aa","machine":"Work","kind":"mac","address":"https://work.example.com","public_key":"QQ=="},{"device":"7.bb","machine":"iPhone","kind":"phone","address":"","public_key":"Qg=="},{"device":"7.cc","machine":"Car","kind":"car","address":"","public_key":"Qw=="}]}"#,
+    )]);
+    let peers = store_at(&url).peers().unwrap();
+    let seen = &server.join().unwrap()[0];
+    assert_eq!((seen.method.as_str(), seen.target.as_str()), ("GET", "/v1/peers"));
+    let named: Vec<(&str, adapter_traits::DeviceKind, &str)> = peers.iter().map(|one| (one.device.as_str(), one.kind, one.address.as_str())).collect();
+    assert_eq!(
+        named,
+        [("7.aa", adapter_traits::DeviceKind::Mac, "https://work.example.com"), ("7.bb", adapter_traits::DeviceKind::Phone, "")]
+    );
+}
+
+#[test]
+fn presence_is_put_signed_with_the_kind_and_address_only() {
+    let (url, server) = serve(vec![(204, ""), (400, r#"{"error":"invalid_body"}"#)]);
+    let store = store_at(&url);
+    store.put_presence(adapter_traits::DeviceKind::Mac, "https://home.example.com").unwrap();
+    assert!(!store.put_presence(adapter_traits::DeviceKind::Mac, "nowhere").unwrap_err().is_unreachable());
+    let seen = &server.join().unwrap()[0];
+    assert_eq!((seen.method.as_str(), seen.target.as_str()), ("PUT", "/v1/presence"));
+    assert_eq!(String::from_utf8(seen.body.clone()).unwrap(), r#"{"kind":"mac","address":"https://home.example.com"}"#);
+    let text = store_signing::signed_text(&seen.method, &seen.target, at(), NONCE, &seen.body);
+    assert!(verifies(&key().public_key(), &text, seen.header("x-armada-signature").unwrap()));
+}
+
+#[test]
+fn a_request_to_another_device_is_signed_with_the_stores_key_and_device_and_needs_a_join() {
+    let dir = scratch("peer-signed");
+    assert!(crate::signed_for_peer(&dir, "POST", "/pair/mac/vouched", b"{}").is_err(), "not joined, nothing to sign as");
+    store_device::remember_device(&dir, "7.aa").unwrap();
+    let headers = crate::signed_for_peer(&dir, "POST", "/pair/mac/vouched", b"{}").unwrap();
+    let [(_, device), (_, time), (_, nonce), (_, signature)] = &headers;
+    assert_eq!((headers[0].0, device.as_str()), ("X-Armada-Device", "7.aa"));
+    let text = store_signing::signed_text("POST", "/pair/mac/vouched", time.parse().unwrap(), nonce, b"{}");
+    assert!(verifies(&DeviceKey::open(&dir).unwrap().public_key(), &text, signature));
+    std::fs::remove_dir_all(&dir).ok();
 }

@@ -7,9 +7,9 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    AnswerDocument, AnswerItems, AnswerSketch, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemOutcome,
-    ItemSettled, ItemsSettled, SendSessionMessage, SessionId, SketchHow, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
-    DOCUMENT_REVISION, SKETCH_DRAWN,
+    AnswerDocument, AnswerItems, AnswerWaiting, ApprovePlan, DismissItems, DocumentHow, ItemAnswer, ItemHow, ItemNote,
+    ItemOutcome, ItemSettled, ItemsSettled, SendSessionMessage, SessionId, WaitingItem, WaitingSource, DOCUMENT_ITEM_PREFIX,
+    DOCUMENT_REVISION,
 };
 
 use super::waiting::{APPROVE, ASK_FOR_CHANGES, SESSION_WAITING_UNNAMED};
@@ -27,15 +27,30 @@ pub(crate) fn passed(title: &str) -> String {
 /// An item with an Approve: what Approve all and Dismiss all reach. Questions keep their own answers.
 fn approvable(item: &WaitingItem) -> bool {
     match item.source {
+        // A page waiting to be read is opened, not approved.
+        _ if super::document_answers::is_read_item(item) => false,
         WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Walk => true,
         WaitingSource::Agent => item.approves,
         _ => false,
     }
 }
 
-/// His notes, blanks left out, each on its own numbered line.
-fn numbered(notes: &[String]) -> Vec<String> {
-    notes.iter().map(|note| note.trim()).filter(|note| !note.is_empty()).map(str::to_string).collect()
+/// His notes as a Job reads them, blanks left out. A note on words reads `On "<quote>": <text>`, and one with no
+/// `on`, or a quote blank after trimming, reads as its text alone.
+fn numbered(notes: &[ItemNote]) -> Vec<String> {
+    notes
+        .iter()
+        .filter_map(|note| {
+            let text = note.text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            match note.on.as_ref().map(|on| on.quote.trim()).filter(|quote| !quote.is_empty()) {
+                Some(quote) => Some(format!("On \"{quote}\": {text}")),
+                None => Some(text.to_string()),
+            }
+        })
+        .collect()
 }
 
 fn as_words(notes: &[String]) -> Option<String> {
@@ -100,14 +115,11 @@ where
         let words = as_words(&notes);
         let session_id = SessionId::carried(&id);
         let settled = match item.source {
-            WaitingSource::Sketch => {
-                let drawn = match self.sketch_held(&id, &item.id).await {
-                    Ok((_, held)) => held.and_then(|one| one.detail.get(SKETCH_DRAWN).cloned()).unwrap_or_default(),
-                    Err(refusal) => return refused(&refusal),
-                };
-                let how = if approve { SketchHow::Approved } else { SketchHow::SentBack };
-                self.sketch_answered(AnswerSketch { session_id, sketch: item.id.clone(), drawn, how, words }).await
-            }
+            // An artifact is answered part by part, each as it would be on its own.
+            WaitingSource::Sketch => match Arc::clone(&self).artifact_answered_all(&id, &item.id, approve, words).await {
+                Ok(_) => self.published_hosted(&id).await,
+                Err(refusal) => Err(refusal),
+            },
             WaitingSource::Document => {
                 let path = item.id.strip_prefix(DOCUMENT_ITEM_PREFIX).unwrap_or(&item.id).to_string();
                 let revision = match self.document_held(&id, &path).await {

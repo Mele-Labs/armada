@@ -25,8 +25,8 @@ pub struct DeviceId(pub String);
 #[derive(Clone)]
 pub struct MacId(pub String);
 
-/// Only another Mac calls these, and it calls nothing else. A phone's routes are not share-filtered,
-/// so this line is what keeps the other Mac off private work.
+/// Only another Mac calls these, and it calls nothing else. A phone's routes are cut to the phone's share,
+/// not to what another Mac is sent, so this line is what keeps the other Mac off the phone's.
 const MAC_ROUTES: &str = "/api/mac/";
 
 /// Whose key `device` is: a phone's, or a linked Mac's.

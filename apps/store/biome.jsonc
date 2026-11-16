@@ -1,0 +1,12 @@
+// The bundle is wrangler's output, compared byte for byte with a fresh one by `pnpm bundle:check`,
+// so the formatter leaves it alone. Everything else here keeps the root config.
+{
+  "root": false,
+  "extends": "//",
+  "files": {
+    "includes": [
+      "**",
+      "!dist/worker.js"
+    ]
+  }
+}

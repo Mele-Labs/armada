@@ -111,7 +111,6 @@ where
             answered += self.items_answered(&mut helping, &jobs).await;
             answered += self.pulls_landed(&mut helping, &jobs).await;
             answered += self.set_asides_started(&mut helping).await;
-            answered += self.red_fixed(&helping).await;
         }
         Ok(answered)
     }
@@ -158,10 +157,6 @@ where
             for item in &job.items {
                 let id = format!("{}:{}", job.id, item.id);
                 if self.decision_kept(&id).await {
-                    continue;
-                }
-                // Where the Operator is on and a rule covers its questions, they are its to answer.
-                if crate::operator::is_question(item) && self.operator_answers_questions(&helping.kept.manifest_id).await {
                     continue;
                 }
                 let card = self.card_of(&job.id, item);

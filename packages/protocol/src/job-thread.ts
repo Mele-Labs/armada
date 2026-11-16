@@ -219,7 +219,42 @@ export type ThreadItem =
       at: string;
       artifact: JudgeArtifact;
       clean: boolean;
-    };
+    }
+  /** A branch the Job offered for his preview, as he tries it: one card a (branch, tip). Since 15 Nov 2026. */
+  | ({
+      kind: "ready_to_try";
+    } & ThreadReadyToTry);
+
+/** A Ready to try card: the build note of a (branch, tip), seen from the thread that offered it. */
+export type ThreadReadyToTry = {
+  /** `try:<branch>@<tip>`. */
+  id: string;
+  /** When the Job offered it, or when a reminder brought it back. */
+  at: string;
+  offered_at: string;
+  branch: string;
+  tip: string;
+  about: string;
+  look?: string;
+  steps?: {
+    say: string;
+    act?: string;
+  }[];
+  approved?: {
+    artifact: string;
+    title: string;
+    form: "sketch" | "draft" | "page";
+    revision: number;
+    approved_at?: string;
+  };
+  /** Read each through `get_repository_file`. */
+  pictures?: string[];
+  words?: string;
+  in_build: boolean;
+  state: "open" | "later" | "answered" | "withdrawn" | "replaced";
+  verdict?: "good" | "needs_work";
+  later_until?: string;
+};
 
 /** A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the ledger's kept scene draws alike. */
 export type ThreadSketch = {
@@ -274,3 +309,29 @@ export type CardSettled = {
 
 /** A value of a Job the person can change from its panel: `workflow`, `model` or `effort`. */
 export type ChangedValue = string;
+
+/**
+ * `POST /sessions/ready_to_try/answer`: his answer on the card of this (branch, tip), answered with the card as it now
+ * stands. 404 `fleet.ready_to_try_unknown`, 409 `fleet.ready_to_try_settled`, 422 `fleet.build_note_words_empty` and
+ * `fleet.ready_to_try_remind_past`. `crates/ipc/src/preview.rs`.
+ */
+export type AnswerReadyToTry = {
+  session_id: string;
+  branch: string;
+  tip: string;
+  answer: ReadyAnswer;
+};
+
+/** What he pressed: Looks good, Needs rework with his words, or Remind me at a time the client worked out from the Later ladder. */
+export type ReadyAnswer =
+  | {
+      kind: "looks_good";
+    }
+  | {
+      kind: "needs_rework";
+      words: string;
+    }
+  | {
+      kind: "remind";
+      until: string;
+    };

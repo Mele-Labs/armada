@@ -137,15 +137,29 @@ pub async fn upgrade(
     port: u16,
     path: &str,
 ) -> Result<TokioIo<hyper::upgrade::Upgraded>, Unreachable> {
+    match upgrade_or_refused(port, path).await? {
+        Ok(upgraded) => Ok(upgraded),
+        Err(answer) => Err(Unreachable { port, cause: format!("answered {} to the upgrade", answer.status) }),
+    }
+}
+
+/// [`upgrade`], with Fleet's answer read whole where it refused the upgrade, so its status and words can be
+/// passed on as it said them.
+pub(crate) async fn upgrade_or_refused(
+    port: u16,
+    path: &str,
+) -> Result<Result<TokioIo<hyper::upgrade::Upgraded>, Answer>, Unreachable> {
     let cut = |cause: String| Unreachable { port, cause };
     let io = TokioIo::new(connect(port).await?);
     let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
         .await
         .map_err(|why| cut(why.to_string()))?;
     tokio::spawn(connection.with_upgrades());
+    // Named as the phone, as [`send`] is: Fleet cuts `/events` to what the phone sees.
     let request = Request::builder()
         .uri(path)
         .header(HOST, format!("127.0.0.1:{port}"))
+        .header(CALLER, "phone")
         .header(CONNECTION, "Upgrade")
         .header(UPGRADE, "websocket")
         .header("Sec-WebSocket-Version", "13")
@@ -159,10 +173,13 @@ pub async fn upgrade(
         .await
         .map_err(|why| cut(why.to_string()))?;
     if response.status() != StatusCode::SWITCHING_PROTOCOLS {
-        return Err(cut(format!("answered {} to the upgrade", response.status())));
+        let status = response.status().as_u16();
+        let content_type = response.headers().get(CONTENT_TYPE).and_then(|value| value.to_str().ok()).map(str::to_string);
+        let body = response.into_body().collect().await.map_err(|why| cut(why.to_string()))?.to_bytes().to_vec();
+        return Ok(Err(Answer { status, body, content_type }));
     }
     let upgraded = hyper::upgrade::on(response)
         .await
         .map_err(|why| cut(why.to_string()))?;
-    Ok(TokioIo::new(upgraded))
+    Ok(Ok(TokioIo::new(upgraded)))
 }

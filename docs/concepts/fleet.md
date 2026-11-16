@@ -239,6 +239,71 @@ Neither is a 404, which is what a Fleet without the route answers; Bridge says s
 There is no size cap on the wire and Bridge draws the first 2,000 lines.
 `crates/fleet/src/clashing/file_read.rs`.
 
+### Claims a Job holds
+
+**Decided by the owner, 13 Nov 2026** (`.claude/decisions/2026-11-13-claims-store.md`).
+A Job in a project that names a store claims there what it works on, so a Job on another Mac, or a teammate's, knows.
+A project with no store sends nothing.
+The store and its wire are [Central store](../contracts/central-store.md).
+
+**Fleet works the claims out. The agent reports none.**
+
+| Claim | Taken from | Ends |
+|---|---|---|
+| Tracker item | Each open issue row on the Job's ledger | The item closes, or the row is given back |
+| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*) | A pull request of the Job's merges or closes |
+| Pull request | Each open pull request the Job holds | It merges or closes |
+| Failing test | A test Fleet started the Job to fix (*A test that fails the merge queue*) | The Job's fix merges and main reads green after it |
+
+A plan group with no paths claims no file.
+Every claim ends when the Job ends, and lapses 30 minutes after its renewals stop.
+
+**A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
+Nothing is logged to replay: while the store is down the difference waits, the Job carries on, and its record says `claims_unsent` until a pass sends it.
+A pass makes at most 40 calls a Job, so a Job that wrote many files stays under the store's 120 calls a minute.
+
+**One call renews every claim a live Job holds, every five minutes.**
+A renewal that answers `0` means the claims lapsed, say on a Mac that slept, and the next pass takes them again through the same rules as a first take.
+A claim another holds is asked for again at each renewal.
+
+| Held by | The Job |
+|---|---|
+| Another Job, an item | Waits. Its record carries a `claim_waits` line naming the holder's person, Mac and Job title, and the Job is told. When Fleet wins the claim, the line goes and the Job is woken to carry on |
+| A person in beads, an item | Waits the same way, and no claim is made. The line ends when the item is unassigned. Autopilot never picks such an item |
+| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal |
+
+A beads assignee is a person where it is a bare name; a Job claims as `<Mac>/<job>`.
+Other trackers' assignees are not read.
+A claim held by this Mac's own Job that ended is taken over, never waited on.
+
+**Memory only.** After a restart the first pass claims again, and the store answers a claim its holder already has as its own.
+A wait read from a Job on another Mac is told only to the Job that waits.
+`crates/fleet/src/job_claims.rs`.
+
+**The claims list on a project's page is grouped by who holds each claim** (`GET /projects/project/{project}/claims`).
+Each holder carries its person, Mac and Job title, when it last renewed, its claims and what each of its pull requests waits on.
+A claim's item, file or test is named only where this Mac has the repository and its hash matches; a teammate's claim in a repository this Mac does not have carries the Job title alone.
+`crates/fleet/src/claims_list.rs`.
+
+### A test that fails the merge queue
+
+**Decided by the owner, 13 Nov 2026** (`.claude/decisions/2026-11-13-claims-store.md`).
+When the merge queue throws a Job's pull request out, Fleet reads which tests failed from the run's log and judges each, at most three, in this order.
+
+| The test | Fleet | The Job |
+|---|---|---|
+| Fails on main too | Keeps a wait on main's own fix | Waits, and its pull request is queued again once main is green |
+| Is claimed by another Job | Keeps a wait on that claim | Waits, told the holder's person, Mac and Job title |
+| Is not reached by the pull request's changed files, or failed the queue for another pull request in the last day | Calls it a flake, claims it and starts one Job titled "Fix the flaky test …" holding the claim | Waits on that Job |
+| Is reached by the changes | Claims nothing | Is told its change reaches the test: it fixes its own code, or calls `call_test_flaky` with the log line that shows the flake, and only then does Fleet claim the test and start the fix |
+
+**A test map that never saw the test cannot say a change misses it**: with no edge of the test at all, the Job is asked.
+The fix Job starts whatever the Autopilot switch says, and the claim is taken before it is briefed: **the first claim wins**, and a Fleet that loses the race closes the Job it started and waits on the winner.
+A Job waiting on a test is not queued by anything else while it waits.
+The claim ends when the fix Job's pull request merges and main reads green after it; each waiting Job's pull request is then asked for auto-merge again and the Job is told.
+A project with no store keeps the claim on this Mac alone.
+`crates/fleet/src/flaky_tests.rs`.
+
 ### The territory
 
 **What the flight deck's map is drawn over** ([Cockpit](cockpit.md), *The map*): each served repository's directories, and where each agent has changed it.
@@ -382,6 +447,7 @@ When it ends red on the jobs the red already had, the red is back and the pickup
 The merge is the pull request's number and the Job that held the pull request or its branch in the ledger, in any state, given back included; a direct push has neither, and the forge's silence leaves both empty rather than guessed.
 When main goes red or green again Fleet says so on the turn it read it (`Turned::main_changed`), and acts on it in the same turn: a green ends every take of it.
 A red whose pull request a Job merged is claimed for that Job and the Job is told, or, if it cannot be, for a fork of it, and the take is recorded so the hub names it and no second fix is started while it holds.
+A red no Job took gets one Job titled "Fix main" at once, **whatever the Autopilot switch says**, once a red commit; the red is claimed for it before it is briefed, so of two Macs racing for one red the first claim wins and the other starts nothing (owner's ruling, 13 Nov 2026).
 `git show ecfffb2c1ebd:docs/capabilities/merge-line.md`, *When main goes red* and *When a Job's pull request turns main red*, have the ways a red is taken.
 
 **It is served as the merge line's `hub`**, protocol 23.41, 23.42 and 23.44, with the open pull requests: a pull request is `waiting_on_main` when every check that failed on it also fails on main, and its own failure otherwise.
@@ -455,6 +521,19 @@ Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `sessi
 **Fleet never takes a kept item off for a queue or auto-merge**, and an item kept before the rule, or written again unchanged, stands.
 Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
+
+### Telling the Jobs that read a wire type
+
+**No agent relays a wire change. Fleet tells every other live hosted Job whose branch reads a type a pull request changes.**
+It reads the pull request's patches from the forge when it enters the merge queue, and again once it has merged.
+The changed types are the `pub struct`, `pub enum` and `pub type` items under `crates/ipc/src` with an added or removed line in their body; a patch under `crates/ipc/src/tests` and a changed comment are not the wire.
+Where the lines are fields or variants, the notice names them as added, removed or changed.
+A Job reads a type when its branch, against its merge base with main, changes a file under `crates/bridge-native`, `apps/pocket` or `packages/protocol`, and its worktree names the type there as a whole word.
+The notice gives at most three `path:line` for each type.
+**The pull request's own Jobs are not told.**
+**Each notice is told once a pull request, cause and Job**, kept in the store beside the pull request notices.
+A Job told at the queue is told in one line at the merge; a Job the queue did not reach is told in full at the merge.
+The notice kind is `wire_changed`, and a person mutes it as any other.
 
 ### Watches
 
@@ -559,8 +638,16 @@ A job that cannot be told now is asked again at the next reading and nothing is 
 **A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
 `withdraw_preview` takes it back.
 Without a `branch`, the call names the one branch the Job holds a slot on.
-It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, and a repository with no `scripts/preview`.
+It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, a `look` or `steps` that do not read (below), and a repository with no `scripts/preview`.
 Only this repository has one.
+
+**An offer also says what the owner should look at and how to get there.**
+`look` is one line of at most 300 characters.
+`steps` are at most 9, because Bridge binds the keys 1 to 9, each a `say` of one line and at most 120 characters and an `act` where one takes him there.
+An `act` is an id in `crates/core-model/domain/actions.toml` as the offered tip holds it, since that is the tree his preview build runs, so an act the branch adds counts; Fleet falls back to the copy built in where the tip's cannot be read.
+A step that names an act the registry lacks is refused (`fleet.preview_look_invalid`, `fleet.preview_steps_invalid`, `fleet.preview_step_act_unknown`).
+An offer kept with no `look` is told so in its Job's thread, as `build_moved`, and asked to offer again with one.
+A re-offer that leaves `look` or `steps` out keeps the ones it had, an empty `look` clears it and an empty list clears the steps.
 
 **One check at a time, for the whole Fleet, in one kept worktree** at `<checkout>/.armada/preview-check`, made once and moved onto each merged commit.
 Triggers that arrive during a check run it once more afterwards.
@@ -585,6 +672,49 @@ Fleet drops an offer on the sweep when its branch moved (the Job is told), its t
 **`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads `Armada/preview-held`).
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
 `preview_offers.changed` carries the answer whole.
+
+**A note of each offer outlives it.**
+On every accepted offer Fleet keeps one note a (branch, tip) in `build_notes`: the Job, its `about`, `look` and `steps`, when it was offered and when the owner looked.
+A re-offer at the same tip updates the note and keeps the mark, and a new tip is a new note that is not looked at.
+Fleet drops an offer when its Job ends or its tip lands, and the note stays, because the build the owner loaded still holds the branch.
+**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
+Off the preview it answers no notes and no commit.
+`build_notes.changed` carries it whole, when a note is marked, when a Job whose note the build holds ends, and when the running build changes.
+Fleet looks for the last two on the sweep that reads `main`, so a Job's end reaches Bridge within one sweep.
+The owner has two acts on a note, each refused to a Job: `mark_build_note_looked_at` keeps the mark so the next build shows only what is new, with his verdict, `good` or `needs_work`, and `send_build_note_feedback` sends his words on it.
+The first mark and each change of verdict tell the note's Job, where it is live, as `build_moved` news: `The owner says your preview note "<about>" on <branch> at <tip> is good.`, or `… needs work. His words on it follow in a message: wait for them before you change it.`
+A mark with no verdict says `The owner looked at …`, and one that changes nothing tells it nothing.
+Where the note's Job is live, the words reach its thread as his message, led by `On your preview note "<about>":`.
+Where it has ended, Fleet starts a new Job in the same repository, running at once because the press is his, whose request carries his words, the ended Job's title, the note's `look` and `steps`, and the branch and tip.
+A note, a mark or a tip Fleet does not know is a 404, `fleet.build_note_unknown`, and empty words are a 422, `fleet.build_note_words_empty`.
+
+#### Ready to try
+
+**Each note is also a Ready to try card in the thread of the Job that offered it**, so he answers the work where the Job talks to him.
+The card is a `ready_to_try` item of `get_job_thread`, id `try:<branch>@<tip>`, drawn at the offer.
+It carries the note, `in_build`, and what the offer gave the card beside the note.
+`approved` is the sketch or page he approved that the branch builds, named by the offer as an artifact id or title, at a revision (the newest where none is named), with its title, form and when he approved it.
+An artifact the Job does not hold is refused, `fleet.artifact_not_held`, and so is a revision it does not have, `fleet.preview_approved_revision_unknown`.
+`pictures` are at most four shots of the built work, picture files resolved against the Job's checkout, which `get_repository_file` reads wherever they are (`fleet.preview_pictures_invalid`).
+`words` are his words that asked for the work, at most 2000 characters, until the request record carries them (`fleet.preview_words_invalid`).
+A re-offer that leaves any of the three out keeps it, and an empty list or empty words clear it.
+
+**His answer on the card is the note's answer**, `answer_ready_to_try`, refused to a Job.
+Looks good keeps the verdict `good` and tells the Job, where it is live, `The owner tried <branch> at <tip> in his preview and says it looks good: "<about>". Land it.`
+Needs rework sends his words as `send_build_note_feedback` does, then keeps `needs_work`.
+Remind keeps the instant Bridge worked out from his Later choice, and the card waits until then.
+The notice loop brings it back at that instant, open again and drawn there, at the end of the thread.
+A mark on the note from his build answers the card, since the verdict is one.
+
+**A card's state is read in one order**: `answered` where the note has a verdict, `withdrawn` where the Job withdrew the offer, `replaced` where the Job offered the branch again at a newer tip, `later` while a reminder is ahead, else `open`.
+Only an open or later card takes an answer: any other is a 409, `fleet.ready_to_try_settled`.
+A card the Job's thread does not hold is a 404, `fleet.ready_to_try_unknown`, and a reminder time that has passed or does not read is a 422, `fleet.ready_to_try_remind_past`.
+An offer made again at the tip it was withdrawn at opens its card again.
+
+**A Job with an open card has one row in Needs you**, however many builds it offered, so a card in the thread reaches him as a reading page does.
+The item is `ready_to_try`, derived on every read: id and `artifact` `try:<session_id>`, text `Ready to try`, since the oldest open card, so a client opens the Job's Ready to try list.
+It goes once no card is open, each answered, withdrawn, replaced or held by a reminder, and it comes back when a reminder comes due.
+It is answered only on the cards: `answer_waiting` refuses it, dismissing it puts away only the cards open then, so a card offered later raises it again, and Approve all passes it by.
 
 ### Restarting Fleet
 
@@ -634,7 +764,7 @@ worktrees a repository leases* — until a person changes the pool on this machi
 |---|---|
 | Lease | Takes the first free slot and points it at the branch. **A branch that exists here, or on `origin`, is checked out at its own tip and never moved**; a name nothing has is cut from the freshly fetched base with no upstream. Removes everything untracked except `target`, `node_modules`, `.gitnexus` and whatever `setup.seed.paths` names. A slot made for the first time has `setup.seed.paths` cloned into it, copy-on-write where the volume does it |
 | Release | `armada worktree release` is refused while the tree has anything uncommitted, or HEAD has commits the lease's branch, the remote and the base all lack. A commit on the branch is enough and a push is optional: HEAD is detached where it stands, the branch keeps its commits, and the build stays |
-| Merged | When the pull request from a branch a slot is leased on merges, Fleet tells the Job holding the slot one line, that the slot is free to lease for new work or give back. **When that Job's turn then ends with nothing queued, Fleet gives the slot back** if HEAD is still the merged branch, or detached on a commit the base has, the tree is clean and every commit is on a remote or the base. Another branch checked out is new work, and the slot stays. A dirty tree or commits on no remote or base keep it too, and the holder is told once for each, naming it. The branch is never deleted. Told once, and kept in the store, so a restart repeats nothing. Only a hosted Job's slot is given back; a terminal Job is told and gives its own back |
+| Merged | When the pull request from a branch a slot is leased on merges, Fleet tells the Job holding the slot one line, that the slot is free to lease for new work or give back. **When that Job's turn then ends with nothing queued, Fleet gives the slot back** if HEAD is still the merged branch, or detached on a commit the base has, the tree is clean and every commit is on a remote or the base. Another branch checked out is new work, and the slot stays. So does a branch the base does not hold whole, whose name was reused for the next pull request: that slot is not told it merged either. A dirty tree or commits on no remote or base keep it too, and the holder is told once for each, naming it. The branch is never deleted. Told once, and kept in the store, so a restart repeats nothing. Only a hosted Job's slot is given back; a terminal Job is told and gives its own back |
 | Park | Commits everything uncommitted, untracked files included and ignored ones not, to the slot's branch under a `WIP:` message, then releases. Never pushes. A clean slot is only released. Never refused for where HEAD points: a checkout on another branch than the lease names is committed there, and one on no branch or on the base, holding files or commits no branch has, gets a `kept/slot-<n>-<holder>` branch cut at HEAD (a number after it where the name is taken); a clean one holding nothing is only released. Refused while a take or release is under way. It answers with the commit and the paths it took |
 | Lease an existing branch | Puts a slot on a branch that exists, at its tip, so work parked there continues. Waits while every slot is held, as Lease does. Refused for a branch that does not exist here or on `origin`, and for one another checkout already has, naming where. A slot whose holder is gone and which is clean is taken back for its own branch; one holding uncommitted files is not. `armada worktree lease --existing <branch>` |
 | Status | Every slot, the branch checked out in it, who holds it and for how long. **The branch is the one git has checked out, not the one the lease was cut for**: where a job moved off it, both are said (`follow-up (leased as feature)`), and `detached` stands for a checkout on no branch. Bridge's Cleanup draws the same reading as one tile per slot, with whether every `setup.seed.paths` entry is on disk in it (warm) and how many commits the base has that it does not |

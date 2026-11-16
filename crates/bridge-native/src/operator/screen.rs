@@ -70,26 +70,26 @@ fn with_places(mut face: Face, here: Front, reviews: bool) -> Face {
 
 impl OperatorScreen {
     pub fn live(jobs: Entity<JobsScreen>, fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::live(fleet, false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
         Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
     /// On the walk's Fleet, with the page in front.
     pub fn mock(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         Self::new(jobs, page, Front::Operator, None, window, cx)
     }
 
     /// On the walk's Fleet, with the Jobs screen in front.
     pub fn mock_behind(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
     /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock,
     /// whose work lands on the walk's `Lands` steps.
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let page = cx.new(|cx| OperatorPageView::mock(false, window, cx));
+        let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| {
             let mut reviews = crate::reviews::ReviewsScreen::mock(window, cx);
             reviews.walk(cx);
@@ -154,7 +154,12 @@ impl OperatorScreen {
             .filter(|job| job.state != ipc::SessionState::Ended)
             .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
             .collect();
-        self.page.update(cx, |page, cx| page.set_jobs(named, cx));
+        // A card's chips name every Job it is about, ended ones too.
+        let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
+        self.page.update(cx, |page, cx| {
+            page.set_jobs(named, cx);
+            page.set_titles(titles, cx);
+        });
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.
@@ -230,6 +235,17 @@ impl OperatorScreen {
     }
 }
 
+/// A press on the banner of a call no Job holds, such as another Mac waiting to pair: the Operator's page in
+/// front with that call's card first and the keys on its Confirm. Never opens a Job.
+pub fn open_call(key: String, cx: &mut App) {
+    if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
+        (sink.0)(&Asked::Place("operator"), cx);
+    }
+    if let Some(page) = live(cx) {
+        page.update(cx, |page, cx| page.show_pairing(&key, cx));
+    }
+}
+
 fn go(me: &WeakEntity<OperatorScreen>, handle: AnyWindowHandle, to: Option<Front>, cx: &mut App) {
     let me = me.clone();
     cx.defer(move |cx| {
@@ -255,6 +271,84 @@ impl Render for OperatorScreen {
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(reviews)).into_any_element()
             }
         };
-        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone())
+        // ⌘K and the bar's search open the Jobs screen's palette over whichever place is in front; the Jobs screen
+        // draws it itself.
+        let palette = (self.front != Front::Jobs).then(|| self.jobs.read(cx).palette().clone());
+        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone()).children(palette)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Role, TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::jobs::JobsList;
+    use crate::labels::LabelBook;
+
+    fn ready(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            crate::titlebar::bind(cx);
+        });
+    }
+
+    fn jobs_screen(window: &mut Window, cx: &mut App) -> Entity<JobsScreen> {
+        let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let list = cx.new(|cx| JobsList::mock(&records, cx));
+        cx.new(|cx| JobsScreen::new(list, None, window, cx))
+    }
+
+    /// Whether the palette's box was drawn in this window.
+    fn palette_drawn(cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| cx.default_global::<LabelBook>().find(window.window_handle().window_id(), Role::Dialog, "Command palette").is_some())
+    }
+
+    #[gpui::test]
+    fn the_palette_opens_over_the_operator_page_and_esc_gives_the_page_its_keys_back(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            OperatorScreen::mock(jobs, window, cx)
+        });
+        cx.run_until_parked();
+        let (page_keys, palette) = screen.read_with(cx, |screen, cx| (screen.page.read(cx).focus.clone(), screen.jobs.read(cx).palette().clone()));
+        assert!(!palette_drawn(cx));
+        cx.simulate_keystrokes("cmd-k");
+        cx.run_until_parked();
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the page stays in front");
+        assert!(palette.read_with(cx, |palette, _| palette.is_open()));
+        assert!(palette_drawn(cx), "the palette is drawn over the page");
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(!palette.read_with(cx, |palette, _| palette.is_open()));
+        assert!(cx.update(|window, _| page_keys.is_focused(window)), "the keys go back to the page");
+    }
+
+    #[gpui::test]
+    fn the_palette_opens_over_settings_and_esc_shuts_the_palette_alone(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            let held = cx.new(|cx| OperatorScreen::mock(jobs, window, cx));
+            crate::settings::SettingsScreen::mock(held.into(), window, cx)
+        });
+        cx.run_until_parked();
+        let settings = screen.read_with(cx, |screen, _| screen.overlay.clone());
+        cx.simulate_keystrokes("cmd-,");
+        cx.run_until_parked();
+        assert!(settings.read_with(cx, |settings, _| settings.open), "⌘, opens Settings");
+        let keys = cx.update(|window, cx| window.focused(cx)).expect("Settings holds the keys");
+        cx.simulate_keystrokes("cmd-k");
+        cx.run_until_parked();
+        assert!(cx.update(|_, cx| crate::palette::is_up(cx)), "⌘K opens the palette over Settings");
+        assert!(palette_drawn(cx), "the palette is drawn over Settings");
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(!cx.update(|_, cx| crate::palette::is_up(cx)));
+        assert!(settings.read_with(cx, |settings, _| settings.open), "Esc on the palette leaves Settings open");
+        assert!(cx.update(|window, _| keys.is_focused(window)), "the keys go back into Settings");
     }
 }

@@ -34,6 +34,16 @@ pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
 
 /// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/projects` and `/api/mac/thread`: Fleet's answer as it came.
 pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
+    read_as(gateway, mac, uri, false).await
+}
+
+/// `GET /api/mac/conversation`: as [`read`], with the asking Mac named to Fleet, which hands a moving Job's
+/// conversation only to the Mac it moves to.
+pub async fn read_naming_mac(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
+    read_as(gateway, mac, uri, true).await
+}
+
+async fn read_as(gateway: Gateway, mac: String, uri: Uri, named: bool) -> Response {
     if let Some(refused) = refused_frozen(&gateway, &mac) {
         return refused;
     }
@@ -41,7 +51,12 @@ pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extensi
         Ok(port) => port,
         Err(refused) => return refused,
     };
-    let answer = match fleet_client::send(port, "GET", &fleet_target(&uri), None).await {
+    let target = fleet_target(&uri);
+    let sent = match named {
+        true => fleet_client::send_as_mac(port, "GET", &target, None, &mac).await,
+        false => fleet_client::send(port, "GET", &target, None).await,
+    };
+    let answer = match sent {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };

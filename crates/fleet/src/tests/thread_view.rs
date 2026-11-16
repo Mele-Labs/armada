@@ -99,6 +99,7 @@ pub(super) fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
             ThreadItem::NotStarted { .. } => "not_started",
             ThreadItem::Plan(_) => "plan",
             ThreadItem::Judged { .. } => "judged",
+            ThreadItem::ReadyToTry(_) => "ready_to_try",
         })
         .collect()
 }

@@ -9,6 +9,7 @@
 
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
+mod page_messages;
 mod bug_reports;
 mod debug_report;
 mod handoffs;
@@ -47,6 +48,7 @@ mod thought;
 /// A Job's timeline, in the three shapes a row can be.
 mod limits;
 mod judge;
+mod asides;
 mod pull_review_memory;
 mod review_runs;
 mod layout;
@@ -116,7 +118,6 @@ mod workflow_versions;
 mod workflow_migrating;
 /// Where a workflow is kept: the words, and a project's object.
 mod workflow_scope;
-mod operator_board;
 mod operator_scopes;
 mod operator_errors;
 mod operator_talk;

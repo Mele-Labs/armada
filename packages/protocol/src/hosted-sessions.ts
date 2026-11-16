@@ -420,6 +420,8 @@ export type HostedFacts = {
   commands?: string[];
   /** Set while the person has paused the session. Since 23.92. */
   paused?: SessionPaused;
+  /** The id of the Mac the Job is moving to, while its turn finishes and its branch is pushed. Absent once it has moved or the move failed. `move_job_to_mac`. */
+  moving_to_mac?: string;
   /** Present while the Job waits for `POST /sessions/begin`. Absent once it has begun, and for a Job never held. */
   start?: StartHeld;
   /** Present while the Job's process would not start, tried twice, and nothing has sent its turns since: `POST /sessions/start_again`, or a message, tries again. */

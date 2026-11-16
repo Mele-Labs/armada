@@ -91,6 +91,7 @@ async fn an_agents_own_item_for_a_held_child_is_left_off_the_parents_list() {
         act: Some(WaitingAct { kind: WaitingActKind::Message, target: target.into() }),
         options: Vec::new(),
         steps: Vec::new(),
+        artifact: None,
     };
     let items = vec![
         item("start-it", "Press Start on the reader Job so it runs", held.as_str()),

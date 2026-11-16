@@ -118,7 +118,7 @@ where
             self.values_warned("how a project's work lands was not kept", Some(id), &refusal.error().message);
             return None;
         }
-        self.project_learned_kept(&project, setting_of(choice).as_wire()).await;
+        self.project_learned_kept(&project, crate::project_learned::LEARNED_KEY, setting_of(choice).as_wire()).await;
         Some(format!("Kept for {name}: its Jobs land this way from now on. {WHERE_CHANGED}"))
     }
 }

@@ -5,7 +5,8 @@
 //! **The holder is told first**, because it may want the slot for follow-up work. **The release is
 //! Fleet's only once the holder has been told**, a session whose turn ends, a clean slot still on
 //! the merged branch and every commit on a remote or the base. A dirty tree or unpushed commits
-//! keep the slot and are told once a kind. Another branch checked out is new work, and left.
+//! keep the slot and are told once a kind. Another branch checked out is new work, and left, and so
+//! is a branch the base does not hold whole: its name was reused for the next pull request.
 //! Nothing here deletes a branch. Both are kept in `pull_notices`, so a restart repeats neither.
 //!
 //! A hosted session's slot is the one released: a terminal session's turn is seen by its mod, which
@@ -92,6 +93,7 @@ where
     pub(crate) async fn slots_told_of_merge(self: &Arc<Self>, served: &Served, number: u64, branch: &str) {
         let manifest = served.manifest().id().as_str().to_string();
         let root = served.root().to_string();
+        let mut merged = None;
         for slot in slots_on_disk(served) {
             let at = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
             if branch.starts_with(REVIEW_BAYS) || adapters::leasing::branch_of(Path::new(&at)).as_deref() != Some(branch) {
@@ -99,6 +101,12 @@ where
             }
             let held = session_in_slot(&*self.store().lock().await, &manifest, &root, slot);
             let Some(session) = held else { continue };
+            if merged.is_none() {
+                merged = Some(self.base_holds(served, branch).await);
+            }
+            if merged == Some(false) {
+                continue;
+            }
             let (commit, recipient) = (format!("slot-{slot}"), format!("session:{session}"));
             let told = self
                 .store()
@@ -155,7 +163,7 @@ where
                 .await
                 .pull_notice_kept(&root, number, &commit, FREE, &recipient)
                 .unwrap_or(false);
-            if !told {
+            if !told || !self.base_holds(&served, &branch).await {
                 continue;
             }
             let held = {
@@ -197,5 +205,14 @@ where
                 _ => {}
             }
         }
+    }
+
+    /// Whether the base holds every commit on `branch`. **A merge is by name, and a name is
+    /// reused**: a branch a pull request merged from may carry new commits for the next one.
+    async fn base_holds(&self, served: &Served, branch: &str) -> bool {
+        let (vcs, pool, branch) = (Arc::clone(self.vcs()), pool_of(served), branch.to_string());
+        tokio::task::spawn_blocking(move || vcs.branch_is_merged(&pool, &branch))
+            .await
+            .unwrap_or(false)
     }
 }

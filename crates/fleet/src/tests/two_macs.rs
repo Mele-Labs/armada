@@ -19,10 +19,12 @@ use tokio::task::JoinHandle;
 use tower::ServiceExt;
 
 mod acting;
+mod job_moves;
 mod messages;
 mod moving;
 mod pages;
 mod pairing_calls;
+mod terminals;
 mod updating;
 
 use super::session_host::{rig_fitted, Rig};
@@ -93,6 +95,21 @@ impl PhoneSwitch for Switch {
             })
         })
     }
+
+    fn follow_other_mac(&self, mac: &str, path: &str) -> crate::phone::OtherMacFollowing {
+        match self.0.lock().expect("not poisoned").as_ref() {
+            Some(gateway) => {
+                let following = pocket::follow_other_mac(gateway, mac, path);
+                Box::pin(async move {
+                    following.await.map(|followed| match followed {
+                        pocket::Followed::Open(lines) => crate::phone::OtherMacFollowed::Open(lines),
+                        pocket::Followed::Refused { status, body } => crate::phone::OtherMacFollowed::Refused { status, body },
+                    })
+                })
+            }
+            None => Box::pin(std::future::ready(Err(String::from("The Phone Gateway is off on this Mac.")))),
+        }
+    }
 }
 
 /// One Mac: its Fleet served on a loopback port, and its Gateway served on another, linking.
@@ -111,10 +128,21 @@ struct OneMac {
 impl OneMac {
     /// `clock` is shared by both Macs, so which of two edits came later is the order the test made them in.
     async fn new(name: &str, ids: &'static str, clock: &Arc<Ticking>) -> OneMac {
+        OneMac::fitted(name, ids, clock, |_| {}).await
+    }
+
+    /// [`OneMac::new`] over fittings the test changes first.
+    async fn fitted(
+        name: &str,
+        ids: &'static str,
+        clock: &Arc<Ticking>,
+        fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>),
+    ) -> OneMac {
         let clock = Arc::clone(clock);
         let rig = rig_fitted(|fittings| {
             fittings.mint = Arc::new(Minting(ids, AtomicU64::new(1)));
             fittings.clock = clock;
+            fit(fittings);
         });
         let fleet = api::router(api::Served::sharing(Arc::clone(&rig.fleet), ipc::RunId::carried("01RUN"), rig.fleet.events()));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("a loopback port for Fleet");

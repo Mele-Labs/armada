@@ -106,6 +106,21 @@ impl Commands for FakeDaemon {
         Ok(ipc::PreviewRefreshSkipped { id: asked.id })
     }
 
+    /// Answered with the notes [`shapes::build_notes`] describes; nothing is kept.
+    async fn mark_build_note_looked_at(self: std::sync::Arc<Self>, _asked: ipc::MarkBuildNoteLookedAt) -> Result<ipc::BuildNotes, Refusal> {
+        Ok(crate::tests::shapes::build_notes())
+    }
+
+    /// Answered as sent to a live Job; nothing is sent.
+    async fn send_build_note_feedback(self: std::sync::Arc<Self>, _asked: ipc::SendBuildNoteFeedback) -> Result<ipc::BuildNoteFeedbackSent, Refusal> {
+        Ok(ipc::BuildNoteFeedbackSent { session_id: ipc::SessionId::carried("01JOB"), started: false })
+    }
+
+    /// Refused as no card: the fake holds no thread.
+    async fn answer_ready_to_try(self: std::sync::Arc<Self>, _asked: ipc::AnswerReadyToTry) -> Result<ipc::ThreadReadyToTry, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.ready_to_try_unknown", "no card", crate::tests::shapes::run_id())))
+    }
+
     /// Counted and answered; nothing swaps.
     async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
         *self.swaps.lock().expect("not poisoned") += 1;

@@ -65,7 +65,7 @@ pub(crate) fn from_kept(kept: &Secret<String>) -> Option<SigningKey> {
 }
 
 /// The SPKI DER the other Mac verifies with, as hex.
-pub(crate) fn spki_hex(key: &SigningKey) -> Result<String, String> {
+pub fn spki_hex(key: &SigningKey) -> Result<String, String> {
     let der = key.verifying_key().to_public_key_der().map_err(|why| format!("This Mac's key could not be written out: {why}"))?;
     Ok(to_hex(der.as_bytes()))
 }
@@ -105,8 +105,8 @@ impl RngCore for Noise {
 
 impl CryptoRng for Noise {}
 
-/// The three headers `signing::signed` reads, for one request from this Mac.
-pub(crate) fn sign(
+/// The three headers `signing::signed` reads, for one request from this Mac, or from a phone in a test.
+pub fn sign(
     key: &SigningKey,
     device: &str,
     method: &str,

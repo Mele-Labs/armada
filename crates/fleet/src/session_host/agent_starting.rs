@@ -71,6 +71,7 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
         creating_since: None,
         create_refused: None,
         operator_read: None,
+        artifact: None,
     }
 }
 
@@ -183,7 +184,6 @@ where
             })
             .await?;
         let brief = words.message.clone();
-        let overlap_brief = brief.clone();
         // The agent's title, a plan group's too, is a hint the proposer names the Job over.
         self.hosts().of(made.id.as_str()).state().proposal.hint = Some(words.title.clone());
         // The brief is read now, so the proposal is in the dispatcher before the person sends it.
@@ -206,10 +206,6 @@ where
                 let _ = self.closed_and_parked(ipc::CloseSession { session_id: held.session_id.clone() }).await;
                 return Err(refusal);
             }
-        }
-        // A plan group is work the plan divided, so it is not weighed against the Jobs beside it.
-        if group.is_none() {
-            self.start_overlap_raised(held.session_id.as_str(), &overlap_brief, crate::operator::Source::Job(me.clone())).await;
         }
         Ok(held)
     }
@@ -341,6 +337,12 @@ where
         for (holder, kind, target) in [(new, STARTED_BY, caller), (caller, STARTED_TO, new)] {
             let link = attachment(holder, kind, manifest, target, AttachmentState::Spent, linked.clone(), &now);
             store.attach(&link, false).map_err(|why| self.ledger_fault(why))?;
+        }
+        let title = store.session(new).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| new.to_string());
+        drop(store);
+        // What the Operator's own session starts is on its page's feed.
+        if self.session_is_the_operator(caller) {
+            self.feed_kept(ipc::operator_page::OperatorFeedKind::Dispatched, &title, Some(new), None).await;
         }
         Ok(())
     }

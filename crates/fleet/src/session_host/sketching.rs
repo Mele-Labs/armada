@@ -11,6 +11,7 @@
 //! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
 //! sends it back, and a redraw of the title asks again.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -37,6 +38,7 @@ const SKETCH_ANSWER_EMPTY: &str = "fleet.sketch_answer_empty";
 const SKETCH_WITHDRAW_UNNAMED: &str = "fleet.sketch_withdraw_unnamed";
 const SKETCH_WITHDRAW_NOT_SHOWN: &str = "fleet.sketch_withdraw_not_shown";
 const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
+pub(crate) const SKETCH_TAKES: &str = "fleet.sketch_takes";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
 pub(crate) const TARGET_PREFIX: &str = "sketch:";
@@ -59,6 +61,9 @@ where
         let sketch = show
             .checked()
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
+        if let Some(why) = takes_refused(&sketch.scene) {
+            return Err(self.hosted_refusal(SKETCH_TAKES, &format!("the sketch was not drawn: {why}")));
+        }
         let against = show
             .against_title()
             .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?;
@@ -85,18 +90,16 @@ where
         };
         // Kept before `against` is read, so the earlier scene's `kept` rides in the size the cap counts.
         let sketch = self.sketch_styled(&id, sketch, "show_sketch").await?;
-        let sketch = match against {
-            None => sketch,
-            Some(title) => {
-                let target = format!("{TARGET_PREFIX}{title}");
-                let is_sketch = |one: &&ipc::Attachment| {
-                    one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch")
-                };
-                let earlier = held.iter().filter(is_sketch).find(|one| one.target == target);
-                let Some(earlier) = earlier.and_then(|one| one.detail.get("scene")) else {
+        let by_title = |wanted: &str| held.iter().filter(|one| is_artifact_sketch(one)).find(|one| titled_as(one, wanted));
+        // A drawing shown `against` an earlier title is that artifact's next revision, retitled: his list never holds both.
+        let earlier = match &against {
+            None => None,
+            Some(title) => match by_title(title) {
+                Some(earlier) => Some(earlier),
+                None => {
                     let titles: Vec<&str> = held
                         .iter()
-                        .filter(is_sketch)
+                        .filter(|one| is_artifact_sketch(one))
                         .filter_map(|one| one.detail.get("title").map(String::as_str))
                         .take(20)
                         .collect();
@@ -111,14 +114,33 @@ where
                              Sketches it holds: {held}. Draw that one first, or leave `against` out"
                         ),
                     ));
-                };
-                sketch
-                    .read_against(&title, earlier)
-                    .map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?
-            }
+                }
+            },
         };
-        let revisions = self.scene_kept(&id, &sketch).await;
+        let sketch = match (&against, earlier.and_then(|one| one.detail.get("scene"))) {
+            (Some(title), Some(scene)) => sketch.read_against(title, scene).map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?,
+            _ => sketch,
+        };
+        let existing = earlier.or_else(|| by_title(&sketch.title));
+        let target = existing.map_or_else(|| format!("{TARGET_PREFIX}{}", sketch.title), |one| one.target.clone());
+        let carried: Vec<(String, String)> = existing
+            .map(|one| {
+                [ipc::ARTIFACT_IN, ipc::ARTIFACT_PARTS]
+                    .into_iter()
+                    .filter_map(|key| Some((key.to_string(), one.detail.get(key)?.clone())))
+                    .collect()
+            })
+            .unwrap_or_default();
+        // **One open artifact per Job**: a drawing shown while one still asks him is a part of it.
+        let joins = match existing {
+            Some(_) => None,
+            None => self.artifact_joined(&id, &harness, &target, &sketch.title, true).await?,
+        };
+        let revisions = self.scene_kept(&id, target.trim_start_matches(TARGET_PREFIX), &sketch).await;
         let mut attachment = sketch_attachment(sketch);
+        attachment.target = target;
+        attachment.detail.extend(carried);
+        attachment.detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
         if let Some(revisions) = revisions {
@@ -142,12 +164,14 @@ where
         withdraw: ipc::WithdrawSketch,
     ) -> Result<SessionRecord, Refusal> {
         let title = withdraw.title.trim().to_string();
-        let target = format!("{TARGET_PREFIX}{title}");
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
             .or_else(|| withdraw.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.hosted_refusal(SKETCH_WITHDRAW_UNNAMED, "a job to withdraw it for"))?;
+        let rows = self.sketch_rows(&id).await?;
+        let found = rows.iter().find(|one| titled_as(one, &title));
+        let target = found.map_or_else(|| format!("{TARGET_PREFIX}{title}"), |one| one.target.clone());
         let (_, held) = self.sketch_held(&id, &target).await?;
         if held.is_none() {
             return Err(self.hosted_refusal(
@@ -155,10 +179,26 @@ where
                 &format!("this job showed no sketch titled `{title}`. Name the title you passed to show_sketch"),
             ));
         }
-        // The dismissal the person's own Withdraw writes, so both end the same way.
-        self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
+        // The dismissal the person's own Withdraw writes, so both end the same way. An artifact that holds other
+        // parts is not dismissed whole: only this drawing is taken back.
+        let others = held.as_ref().is_some_and(|one| !super::artifact_parts::stored(&one.detail).is_empty())
+            || rows.iter().any(|one| one.detail.get(ipc::ARTIFACT_IN) == Some(&target))
+            || super::artifact_parts::holds_members(&rows, &target);
+        if !others {
+            self.store().lock().await.dismiss_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;
+        }
         self.sketch_withdrawn_mark(&id, &target, true).await;
         self.published_hosted(&id).await
+    }
+
+    /// Every artifact row the Job holds, as the ledger keeps them.
+    async fn sketch_rows(&self, id: &str) -> Result<Vec<ipc::Attachment>, Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(SKETCH_ANSWER_UNNAMED, "a job Fleet knows"))?;
+        Ok(self.ledger_row(&store, &session)?.attachments)
     }
 
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
@@ -185,10 +225,20 @@ where
     /// Keep `sketch`'s scene as the next revision of its title, unless the newest holds it already, and
     /// answer every revision as the encoded list of paths, oldest first. `None` where keeping failed:
     /// the sketch is still drawn, only without its history.
-    async fn scene_kept(&self, id: &str, sketch: &Sketch) -> Option<String> {
-        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(titled_folder(&sketch.title));
+    async fn scene_kept(&self, id: &str, title: &str, sketch: &Sketch) -> Option<String> {
+        let folder = Path::new(&self.host().attachments_dir).join("sketches").join(id).join(titled_folder(title));
         revisions_kept(folder, sketch.scene.clone().into_bytes(), "json").await
     }
+}
+
+/// A sketch row, which is what an artifact is kept as.
+fn is_artifact_sketch(one: &ipc::Attachment) -> bool {
+    one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch")
+}
+
+/// Whether the sketch row is the one `wanted` names: by the title it was first kept under, or the one it has now.
+fn titled_as(one: &ipc::Attachment, wanted: &str) -> bool {
+    one.target.strip_prefix(TARGET_PREFIX) == Some(wanted) || one.detail.get("title").map(String::as_str) == Some(wanted)
 }
 
 /// `title` as one folder name. The digest of the exact title keeps "a b" and "a_b" apart, and a title of
@@ -225,6 +275,122 @@ pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
 
 pub(crate) fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back sketch: {title}\n{note}\nDraw it again with show_sketch under the same title.")
+}
+
+/// His message when his note only picks one of the sketch's takes. It is an approval, so the rail and a
+/// `sketch_approved` gate read it as one.
+pub(crate) fn picked(title: &str, take: &str) -> String {
+    format!("{APPROVED}{title}\nHe picked take {take}. Go on from take {take} as drawn, and drop the other takes.")
+}
+
+/// The take `note` picks, where the note is nothing but the name of one take the scene draws, such as
+/// `B` or `Take 2`; `None` for any other note. A take is named by the leading words of a mock's, a
+/// screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id,
+/// and only a scene of two or more mocks or screens has takes.
+pub(crate) fn take_picked(scene: &str, note: &str) -> Option<String> {
+    let scene: ipc::Scene = ipc::decode("a sketch's scene", scene.as_bytes()).ok()?;
+    let pictures = |node: &&ipc::SceneNode| is_picture(node);
+    if scene.nodes.iter().filter(pictures).count() < 2 {
+        return None;
+    }
+    let wanted = take_name(note);
+    let mut names = Vec::new();
+    for node in &scene.nodes {
+        let titled = match node.kind {
+            ipc::SceneKind::Label => node.title.as_deref().or(node.body.as_deref()),
+            _ if pictures(&node) => node.title.as_deref(),
+            _ => None,
+        };
+        if let Some(title) = titled {
+            let lead = title.split([',', ':', '·', '(', '—', '–']).next().unwrap_or_default();
+            let lead = lead.split(". ").next().unwrap_or_default().trim().trim_end_matches('.');
+            let lead = take_name(lead);
+            if let Some(first) = lead.split_whitespace().next().filter(|first| first.chars().count() <= 2) {
+                names.push(first.to_string());
+            }
+            names.push(lead);
+        }
+        if pictures(&node) {
+            names.push(take_name(&node.id));
+        }
+    }
+    let found = names.iter().find(|name| !name.is_empty() && **name == wanted)?;
+    Some(found.to_uppercase().chars().take(1).chain(found.chars().skip(1)).collect())
+}
+
+/// `said` lowercased, with the words that only introduce a take's name taken off: `Take B.` reads `b`.
+fn take_name(said: &str) -> String {
+    let said = said.trim().trim_matches(['"', '\'', '`', '*']).trim_end_matches(['.', '!']).trim().to_lowercase();
+    let mut said = said.as_str();
+    for lead in TAKE_LEADS {
+        said = said.strip_prefix(lead).unwrap_or(said).trim_start();
+    }
+    said.to_string()
+}
+
+/// The words that only introduce a take's name, lowercased.
+const TAKE_LEADS: [&str; 5] = ["i pick ", "pick ", "go with ", "take ", "option "];
+
+/// A mock or a screen: what a take is drawn as. Boxes and arrows draw no takes.
+fn is_picture(node: &ipc::SceneNode) -> bool {
+    matches!(node.kind, ipc::SceneKind::Mock | ipc::SceneKind::Screen)
+}
+
+/// How far above a picture's top, in scene units, a label still names it.
+const LABEL_REACH: f64 = 200.0;
+
+/// Why `scene` is refused as takes drawn side by side for Approve to stand in for a pick, or `None`. **Two or
+/// more mocks or screens are takes** when two of them lead with different take letters (`A · …`, `B: …`), by
+/// their own title or a label's just above them, or one says `(my pick)`. His ruling of 14 Nov: takes are a
+/// vote, so they go in a `takes` part he answers with a pick.
+pub(crate) fn takes_refused(scene: &str) -> Option<String> {
+    let scene: ipc::Scene = ipc::decode("a sketch's scene", scene.as_bytes()).ok()?;
+    let pictures: Vec<&ipc::SceneNode> = scene.nodes.iter().filter(|node| is_picture(node)).collect();
+    if pictures.len() < 2 {
+        return None;
+    }
+    let labels: Vec<&ipc::SceneNode> = scene.nodes.iter().filter(|node| matches!(node.kind, ipc::SceneKind::Label)).collect();
+    let mut letters = BTreeSet::new();
+    let mut picked = false;
+    let mut titles = Vec::new();
+    for picture in pictures {
+        let wide = picture.w.unwrap_or(240.0);
+        let above = labels
+            .iter()
+            .filter(|label| label.y < picture.y && picture.y - label.y <= LABEL_REACH && label.x >= picture.x - 40.0 && label.x < picture.x + wide)
+            .max_by(|one, two| one.y.total_cmp(&two.y))
+            .and_then(|label| label.title.as_deref().or(label.body.as_deref()));
+        for title in [picture.title.as_deref(), above].into_iter().flatten() {
+            let letter = take_letter(title);
+            let mine = title.to_lowercase().contains("(my pick)");
+            if letter.is_some() || mine {
+                letters.extend(letter);
+                picked |= mine;
+                titles.push(format!("`{}`", title.trim()));
+                break;
+            }
+        }
+    }
+    if letters.len() < 2 && !picked {
+        return None;
+    }
+    Some(format!(
+        "{} are takes, so put them to him with add_part, `kind` `takes`, each take a scene, your pick first, and he picks one with Send pick; Approve never stands in for a pick",
+        titles.join(", ")
+    ))
+}
+
+/// The take letter `title` leads with, A to F, past any word that only introduces it: `B · Tabs`, `Take C: …`.
+fn take_letter(title: &str) -> Option<char> {
+    let mut rest = title.trim();
+    for lead in TAKE_LEADS {
+        if rest.get(..lead.len()).is_some_and(|start| start.eq_ignore_ascii_case(lead)) {
+            rest = rest[lead.len()..].trim_start();
+        }
+    }
+    let mut chars = rest.chars();
+    let letter = chars.next().filter(|one| ('A'..='F').contains(one))?;
+    chars.next().is_some_and(|after| matches!(after, ' ' | ':' | '·' | '.' | ')')).then_some(letter)
 }
 
 /// When the person last approved any sketch, or `None` while he has not. **Read off the thread**, as
@@ -277,9 +443,15 @@ where
         if let Some(how) = sketch.detail.get(SKETCH_SETTLED) {
             return Err(not_open(format!("the sketch `{title}` was {} already", how.replace('_', " "))));
         }
-        let body = match said.how {
-            SketchHow::Approved => approved(&title, words),
-            SketchHow::SentBack => sent_back(&title, words.unwrap_or_default()),
+        // A note that only names one take is a pick, so the job goes on from that take, not a redraw.
+        let take = (said.how == SketchHow::SentBack)
+            .then(|| sketch.detail.get("scene").zip(words).and_then(|(scene, note)| take_picked(scene, note)))
+            .flatten();
+        let how = if take.is_some() { SketchHow::Approved } else { said.how };
+        let body = match (said.how, &take) {
+            (_, Some(take)) => picked(&title, take),
+            (SketchHow::Approved, None) => approved(&title, words),
+            (SketchHow::SentBack, None) => sent_back(&title, words.unwrap_or_default()),
         };
         let message = SendSessionMessage {
             session_id: said.session_id.clone(),
@@ -294,7 +466,7 @@ where
         let Some(mut sketch) = now.filter(|one| one.detail.get(SKETCH_DRAWN) == Some(&said.drawn)) else {
             return self.published_hosted(&id).await;
         };
-        sketch.detail.insert(SKETCH_SETTLED.into(), said.how.word().into());
+        sketch.detail.insert(SKETCH_SETTLED.into(), how.word().into());
         sketch.detail.insert(SKETCH_SETTLED_AT.into(), self.instant().as_str().to_string());
         if let Some(words) = words {
             sketch.detail.insert(SKETCH_WORDS.into(), words.to_string());
@@ -368,56 +540,80 @@ pub(super) fn drawn_in(detail: &std::collections::BTreeMap<String, String>, chan
     drawn.unwrap_or_else(|| (changed_at.replace([':', '-', '.'], ""), 0))
 }
 
-/// Every sketch put to the person, answered or not.
-fn asked_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
-    attachments
-        .iter()
-        .filter(|one| one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch"))
-        .filter(|one| one.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true"))
+/// Whether the sketch `target` was drawn at or after `began`, when the turn still running began. **Such a
+/// sketch waits only once the turn ends**, so the one `all_done` settles in the same turn never shows and goes.
+pub(crate) fn drawn_in_turn(attachments: &[ipc::Attachment], target: &str, began: Option<&str>) -> bool {
+    let Some(began) = began else { return false };
+    let digits = |instant: &str| instant.chars().filter(char::is_ascii_digit).collect::<String>();
+    let began = digits(began);
+    attachments.iter().filter(|one| one.target == target).any(|one| digits(&drawn_at(one).0) >= began)
 }
 
-/// Whether a sketch put to him is neither answered nor taken back.
+/// The titles of the sketches the record's pending plan names, which wait with the plan and not on their own.
+pub(crate) fn in_pending_plan(record: &SessionRecord) -> Vec<String> {
+    record
+        .plan
+        .as_ref()
+        .filter(|plan| !plan.approved && plan.set_aside_at.is_none())
+        .map(|plan| plan.sketches.iter().chain(plan.groups.iter().flat_map(|group| group.sketches.iter())).map(|one| one.title.clone()).collect())
+        .unwrap_or_default()
+}
+
+/// The items an answer or a dismissal may name: what waits on him, and each sketch drawn in the turn still
+/// running, `held`. **Such a sketch is not raised until the turn ends, and still takes his answer on its card.**
+pub(crate) fn answerable(mut items: Vec<WaitingItem>, held: Vec<WaitingItem>) -> Vec<WaitingItem> {
+    let fresh: Vec<WaitingItem> = held.into_iter().filter(|one| !items.iter().any(|waits| waits.id == one.id)).collect();
+    items.extend(fresh);
+    items
+}
+
+/// Whether a sketch row has a part put to him that is neither answered nor taken back: its drawing, or one
+/// added to it. A row that joined an artifact is asked for by the artifact.
 fn is_open(sketch: &ipc::Attachment) -> bool {
-    !sketch.detail.contains_key(SKETCH_SETTLED) && !sketch.detail.contains_key(SKETCH_WITHDRAWN)
+    super::artifact_parts::row_asks(&sketch.detail)
 }
 
 /// Whether a sketch was put to him and is neither answered nor taken back.
 pub(crate) fn still_asks(sketch: &ipc::Attachment) -> bool {
-    sketch.detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && is_open(sketch)
+    is_open(sketch)
 }
 
-/// Every sketch put to the person and neither answered nor taken back.
-fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
-    asked_sketches(attachments).filter(|one| is_open(one))
-}
-
-/// Every sketch put to the person and not answered or taken back, newest drawn first, as the items that
-/// wait on him: id the sketch's target, text its title, opening the Session. A plan's sketch is approved
-/// with the plan, so it is never one of these, and neither is one titled in `in_plan`, the titles the
-/// pending plan names: its Approve settles them. The first is the thread head's pin, so an answered
-/// sketch never stays it.
+/// Every artifact with a part still asking him, newest drawn first, as the one item that waits on him: id the
+/// artifact's, text its title where it is one drawing and else the title with what is still open, opening the
+/// Session. **A sketch, draft or page that joined an artifact is a part of it and raises no item of its own.** An
+/// artifact the pending plan names, by `in_plan` titles, is approved with the plan, and an answered one never stays
+/// the thread head's pin. `open_drafts` is the ledger id of each draft whose row is still open.
 pub(crate) fn sketch_items<'a>(
     attachments: &'a [ipc::Attachment],
     session: &'a str,
     in_plan: &'a [String],
+    open_drafts: &BTreeSet<String>,
+    dismissed: &[String],
 ) -> impl Iterator<Item = WaitingItem> + 'a {
     let titled = |one: &ipc::Attachment| one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string());
-    let mut open = open_sketches(attachments).filter(|one| !in_plan.contains(&titled(one))).collect::<Vec<_>>();
-    open.sort_by_key(|one| std::cmp::Reverse(drawn_at(one)));
-    open.into_iter().map(move |one| WaitingItem {
-            approves: false,
-            id: one.target.clone(),
-            text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),
-            since: one.changed_at.clone(),
-            source: WaitingSource::Sketch,
-            act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
-            options: Vec::new(),
-            steps: Vec::new(),
-            place: None,
-            confirmed: false,
-            holders: Vec::new(),
-            creating_since: None,
-            create_refused: None,
-            operator_read: None,
+    let mut open: Vec<(&ipc::Attachment, String)> = super::artifact_parts::asking_groups(attachments, in_plan, open_drafts, dismissed)
+        .into_iter()
+        .filter_map(|asking| {
+            let root = attachments.iter().find(|one| is_artifact_sketch(one) && one.target == asking.root)?;
+            Some((root, super::artifact_parts::asking_text(&titled(root), &asking)))
         })
+        .collect();
+    open.sort_by_key(|(one, _)| std::cmp::Reverse(drawn_at(one)));
+    open.into_iter().map(move |(one, text)| WaitingItem {
+        approves: false,
+        id: one.target.clone(),
+        text,
+        since: one.changed_at.clone(),
+        source: WaitingSource::Sketch,
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
+        operator_read: None,
+        artifact: None,
+    })
 }

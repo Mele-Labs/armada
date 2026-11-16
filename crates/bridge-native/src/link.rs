@@ -67,6 +67,10 @@ pub enum Signal {
     /// `GET /preferences`, once per connection. Nothing but a save changes them.
     Preferences(Preferences),
     PreferencesFailed(String),
+    /// The disk out of `GET /health`, once per connection and again each time the Fleet popover opens.
+    /// `None` where Fleet reports none.
+    Disk(Option<ipc::DiskHealth>),
+    DiskFailed(String),
     /// `GET /mods`, once per connection; `mods.changed` carries the list after that.
     Mods(ModList),
     ModsFailed(String),
@@ -76,6 +80,9 @@ pub enum Signal {
     /// `GET /fleet/build/offers`, on connect and after a `Missed`; `preview_offers.changed` carries it whole after that.
     Offers(ipc::PreviewOffers),
     OffersFailed(String),
+    /// `GET /fleet/build/notes`, on connect and after a `Missed`; `build_notes.changed` carries it whole after that.
+    BuildNotes(ipc::BuildNotes),
+    BuildNotesFailed(String),
     /// `GET /queued`, on connect and after a `Missed`; `queued.changed` carries it whole after that.
     Queued(ipc::QueuedList),
     QueuedFailed(String),
@@ -106,6 +113,9 @@ pub enum Signal {
     /// `GET /model_downshift`, once per connection; `model_downshift.changed` carries it after that.
     Downshift(ipc::ModelDownshiftState),
     DownshiftFailed(String),
+    /// `GET /agent/sign_in`, once per connection; `agent_sign_in.changed` carries it after that.
+    AgentSignIn(ipc::AgentSignIn),
+    AgentSignInFailed(String),
     /// `GET /clashes/all`, on connect and after a `Missed`; `write_clashes.changed` carries it after that.
     Clashes(ipc::AllWriteClashes),
     ClashesFailed(String),
@@ -258,6 +268,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tell_or_stop!(tx, LinkState::Connected);
                     tokio::spawn(fetch_jobs(tx.clone(), fleet.port));
                     tokio::spawn(fetch_preferences(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_disk(tx.clone(), fleet.port));
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
                     tokio::spawn(fetch_calls(tx.clone(), fleet.port));
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
@@ -267,6 +278,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     tokio::spawn(fetch_plan(tx.clone(), fleet.port));
                     tokio::spawn(fetch_offers(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_build_notes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_queued(tx.clone(), fleet.port));
                     tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
@@ -282,6 +294,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     tokio::spawn(fetch_clashes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_offers(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_build_notes(tx.clone(), fleet.port));
                     tokio::spawn(fetch_queued(tx.clone(), fleet.port));
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
@@ -362,6 +375,20 @@ async fn fetch_preferences(tx: Sender<Signal>, port: u16) {
     let _ = tx.send(signal).await;
 }
 
+/// `GET /health`, once per connection, retried as the Jobs are. Bridge draws the disk and nothing else of it.
+async fn fetch_disk(tx: Sender<Signal>, port: u16) {
+    let signal = match read_disk(port).await {
+        Ok(disk) => Signal::Disk(disk),
+        Err(why) => Signal::DiskFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// The disk `GET /health` reports: none from a Fleet that reads none.
+pub(crate) async fn read_disk(port: u16) -> Result<Option<ipc::DiskHealth>, String> {
+    read_with_retries::<ipc::FleetHealth>(port, "/health", "health").await.map(|health| health.disk)
+}
+
 /// `GET /calls`, once per connection, retried as the Jobs are.
 async fn fetch_calls(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<StandingCalls>(port, "/calls", "calls").await {
@@ -407,7 +434,7 @@ async fn fetch_workflows(tx: Sender<Signal>, port: u16) {
     let _ = tx.send(signal).await;
 }
 
-/// `GET /plan_usage` and `GET /model_downshift`, once per connection, retried as the Jobs are.
+/// `GET /plan_usage`, `GET /model_downshift` and `GET /agent/sign_in`, once per connection, retried as the Jobs are.
 async fn fetch_plan(tx: Sender<Signal>, port: u16) {
     let usage = match read_with_retries::<ipc::PlanUsage>(port, "/plan_usage", "plan usage").await {
         Ok(usage) => Signal::PlanUsage(usage),
@@ -420,7 +447,14 @@ async fn fetch_plan(tx: Sender<Signal>, port: u16) {
         Ok(state) => Signal::Downshift(state),
         Err(why) => Signal::DownshiftFailed(why),
     };
-    let _ = tx.send(downshift).await;
+    if tx.send(downshift).await.is_err() {
+        return;
+    }
+    let sign_in = match read_with_retries::<ipc::AgentSignIn>(port, "/agent/sign_in", "agent sign-in").await {
+        Ok(state) => Signal::AgentSignIn(state),
+        Err(why) => Signal::AgentSignInFailed(why),
+    };
+    let _ = tx.send(sign_in).await;
 }
 
 /// `GET /fleet/build/offers`, retried as the Jobs are.
@@ -428,6 +462,15 @@ async fn fetch_offers(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<ipc::PreviewOffers>(port, "/fleet/build/offers", "preview offers").await {
         Ok(offers) => Signal::Offers(offers),
         Err(why) => Signal::OffersFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /fleet/build/notes`, retried as the Jobs are.
+async fn fetch_build_notes(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<ipc::BuildNotes>(port, "/fleet/build/notes", "build notes").await {
+        Ok(notes) => Signal::BuildNotes(notes),
+        Err(why) => Signal::BuildNotesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

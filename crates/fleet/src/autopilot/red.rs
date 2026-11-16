@@ -1,26 +1,25 @@
-//! A red main, fixed by one Job Autopilot starts. **No call**: a red is fixed, and what a person
-//! would check is that it is one Job, once a red commit, and not where another already holds it.
-//! **With the Operator on, the red is a go-ahead in Your turn instead**, Start a fix, which a rule it
-//! kept does without asking; a red a Job already holds is none.
+//! A red main, fixed by one Job. **Fleet starts it whatever the Autopilot switch says** (the
+//! owner's ruling of 13 Nov 2026, `.claude/decisions/2026-11-13-claims-store.md`): every reading of
+//! main that finds a red no Job has taken starts one, once a red commit, and not where another Mac
+//! already holds it. The Operator's own go-ahead, Start a fix, is the same start in its name.
 //!
 //! The claim is the one a Job takes with `take_main_red` (`crate::red_claim`), made for the new Job
-//! before it is briefed, so a Fleet on another machine that holds the red refuses this one too.
+//! before it is briefed, so a Fleet on another machine racing for the same red closes its own Job
+//! unbriefed: first claim wins.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::HostedSessions;
-use ipc::{AutopilotDecision, CloseSession, ManifestId, Notice, SessionId, SessionVoice, StartSession};
-use store::{MainCi, TakenBy, TakenHow};
+use ipc::{CloseSession, ManifestId, SessionId, SessionVoice, StartSession};
+use store::{MainCi, TakenHow};
 
-use super::decisions::Helping;
 use crate::daemon::Fleet;
 use crate::main_fix::brief_of;
-use crate::operator::RedMain;
 use crate::red_claim::Taker;
 use crate::repositories::Served;
 
-const AUTOPILOT: &str = "Autopilot";
+const FLEET: &str = "Fleet";
 const OPERATOR: &str = "Operator";
 
 fn short(commit: &str) -> &str {
@@ -37,37 +36,23 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Start a Job on this repository's red main, where it is red, no run of newer commits holds it
-    /// back, nothing holds it and it has not been started for already. Answers how many it started.
-    pub(super) async fn red_fixed(self: &Arc<Self>, helping: &Helping) -> usize {
-        if !helping.kinds.contains(&AutopilotDecision::Red) {
-            return 0;
-        }
-        let manifest = ManifestId::carried(&helping.kept.manifest_id);
-        let Ok(served) = self.served_named(Some(&manifest)) else { return 0 };
-        let Ok((served, main)) = self.red_of(served.root()).await else { return 0 };
-        let id = format!("red:{}:{}", manifest.as_str(), main.red_commit());
-        if self.decision_kept(&id).await {
-            return 0;
-        }
-        if self.operator_on() {
-            let fixing = self.taking(&main).await.map(|TakenBy::Session(job)| job);
-            let red = RedMain { manifest_id: manifest.as_str().to_string(), commit: main.red_commit().to_string(), seen: brief_of(&main), fixing };
-            if let Some(arrival) = red.arrival() {
-                self.hand_once(arrival).await;
-                // Boxed: doing the item by a rule holds the whole act, too deep for the pass's own stack.
-                Box::pin(self.red_item_offered(&main)).await;
+    /// Every served repository's red main that no Job has taken gets one fix Job, once a red commit.
+    /// **No Autopilot gate**: a red is fixed, and a take that ended without a fix leaves the red to
+    /// the band's buttons. Answers how many started.
+    pub(crate) async fn reds_fixed(self: &Arc<Self>) -> usize {
+        let mut started = 0;
+        for served in self.repositories().served() {
+            let Ok((served, main)) = self.red_of(served.root()).await else { continue };
+            let Some(red_at) = main.red_at.as_ref() else { continue };
+            let taken = self.store().lock().await.main_fixes_of(&main.repository, red_at).is_ok_and(|takes| !takes.is_empty());
+            if taken {
+                continue;
             }
-            return 0;
+            if self.red_started(&served, &main, FLEET, "", false).await.is_some() {
+                started += 1;
+            }
         }
-        if self.taking(&main).await.is_some() {
-            return 0;
-        }
-        let Some(job) = self.red_started(&served, &main, AUTOPILOT, "", false).await else { return 0 };
-        let asked = format!("Main is red at {}", short(main.red_commit()));
-        let because = "A red main is fixed by one Job, once for each red commit.".to_string();
-        self.decision_kept_as(helping, &id, Some(&job), "Fix main", AutopilotDecision::Red, asked, "Start a Job to fix it", because).await;
-        1
+        started
     }
 
     /// A Job titled "Fix main" started on `main`'s red, the red claimed for it and its brief said in
@@ -125,13 +110,6 @@ where
         Some((served, main))
     }
 
-    /// The Operator ruled a new Job for the red: Autopilot's own start, in the Operator's name.
-    pub(crate) async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
-        let Some((served, main)) = self.red_still(manifest, commit).await else { return };
-        let held = self.agent_start_held(None, manifest).await;
-        self.red_started(&served, &main, OPERATOR, "", held).await;
-    }
-
     /// Whether `commit`'s red in `manifest` stands with no Job on it.
     pub(crate) async fn red_is_standing(&self, manifest: &str, commit: &str) -> bool {
         self.red_still(manifest, commit).await.is_some()
@@ -143,22 +121,5 @@ where
         let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
         let how = "\n\nJust get the fix in and have a pull request ready. There is no plan step: do not write a plan or wait for one to be approved.";
         self.red_started(&served, &main, OPERATOR, how, false).await.ok_or_else(|| "the Job did not start".to_string())
-    }
-
-    /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for
-    /// it, and it is told, as `take_main_red` would have it. Why not, where it was not.
-    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) -> Result<(), String> {
-        let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
-        if self.red_is_free(&main, false).await.is_err() || self.claim_red(&main, &Taker::Session(job.to_string()), false).await.is_err() {
-            return Err("the red could not be taken for that Job".to_string());
-        }
-        let facts = self.with_the_log(&served, &main, brief_of(&main)).await;
-        let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
-        if !matches!(self.told_by_fleet(job, &said, Notice::Operator).await, Ok(true)) {
-            self.release_red(&main).await;
-            return Err("the Job did not take the red".to_string());
-        }
-        self.recorded_session_take(&main, job, TakenHow::SentBack, None).await;
-        Ok(())
     }
 }

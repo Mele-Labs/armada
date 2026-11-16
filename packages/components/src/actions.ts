@@ -123,6 +123,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   terminal: [],
   // The Dispatch panel's keys, in the native Bridge only: found from Settings → Keyboard and the panel's own buttons.
   dispatch: [],
+  // The review sheet's keys, in the native Bridge only: found from Settings → Keyboard and the sheet's own buttons.
+  "review sheet": [],
 };
 
 /**

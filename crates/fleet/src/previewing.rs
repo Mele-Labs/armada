@@ -44,6 +44,8 @@ pub(crate) struct Previewing {
     compiler: Mutex<Arc<dyn Compiler>>,
     /// The answer last published, so only a change goes out.
     sent: Mutex<Option<PreviewOffers>>,
+    /// The notes last published, so only a change goes out.
+    pub(crate) notes_sent: Mutex<Option<ipc::BuildNotes>>,
     /// The main commit the last check ran against, so a move of main asks for another.
     main_seen: Mutex<Option<String>>,
 }
@@ -55,6 +57,7 @@ impl Default for Previewing {
             again: AtomicBool::new(false),
             compiler: Mutex::new(Arc::new(preview_check::Tools)),
             sent: Mutex::new(None),
+            notes_sent: Mutex::new(None),
             main_seen: Mutex::new(None),
         }
     }
@@ -260,6 +263,8 @@ where
     /// The sweep's part: drop what is over, and ask for a check where main moved or one never finished.
     pub(crate) async fn previews_watched(self: &Arc<Self>) {
         let went = self.preview_offers_swept().await;
+        // Before the early returns: a build holds notes whether or not an offer is left, and a Job ending is seen here.
+        self.build_notes_moved().await;
         let Some((checkout, _)) = self.preview_place() else {
             return;
         };
@@ -314,11 +319,19 @@ where
 
     /// The branches the running build holds, at the tips it holds them, where the build is the preview.
     fn preview_build_holds(&self) -> BTreeMap<String, String> {
+        self.preview_build().map(|(_, tips)| tips).unwrap_or_default()
+    }
+
+    /// The running build's commit and what it holds, where the build is the preview. `None` off it, and while
+    /// a restart is under way.
+    pub(crate) fn preview_build(&self) -> Option<(String, BTreeMap<String, String>)> {
         let support = crate::runtime::support_dir(&self.host().home);
         if restarting_in(&support, SystemTime::now()) || !matches!(source_in(&support), Ok(BuildSource::Preview)) {
-            return BTreeMap::new();
+            return None;
         }
-        commit_in(&support).and_then(|commit| held_in(&support, &commit)).map(|held| held.tips).unwrap_or_default()
+        let commit = commit_in(&support)?;
+        let tips = held_in(&support, &commit).map(|held| held.tips).unwrap_or_default();
+        Some((commit, tips))
     }
 
     /// The set of offers moved: write what `scripts/preview` reads and publish the answer, each only where
@@ -342,6 +355,8 @@ where
         if changed {
             self.publish(Event::PreviewOffersChanged(now));
         }
+        // An offer or a withdrawal moves its own Job's cards; what else moved here is not on a card.
+        self.build_notes_published().await;
     }
 }
 

@@ -13,8 +13,8 @@ use std::time::SystemTime;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::leasing::disk::{drop_first, inventory, mark_landed};
 use ipc::{Instant, WaitingItem, WaitingOption, WaitingSource};
+use store::KeptTurn;
 
-use super::raising::ToRaise;
 use crate::daemon::Fleet;
 use crate::sweeping::Seen;
 
@@ -72,7 +72,7 @@ where
         }
     }
 
-    /// Queued once while the disk is short, and done by a rule where one covers it, which none does.
+    /// Queued once while the disk is short.
     async fn disk_hold_offered(self: &Arc<Self>, manifest: String, root: &Path, free: u64, hold: u64, next: &[PathBuf]) {
         let id = format!("{DISK_HOLD}{manifest}");
         if self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == id) {
@@ -98,19 +98,32 @@ where
             creating_since: None,
             create_refused: None,
             operator_read: None,
+            artifact: None,
         };
-        let one = ToRaise { session: String::new(), job: None, manifest_id: manifest, go_ahead: true, item, thens: Vec::new(), vet: None };
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;
-        let standing = self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == one.item.id);
-        if standing || !self.raise_marked(&one) {
-            return;
+        let kept = {
+            let mut store = self.store().lock().await;
+            if store.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == item.id) {
+                return;
+            }
+            let row = KeptTurn {
+                manifest_id: manifest,
+                go_ahead: true,
+                body: ipc::operator_page::item_kept(&item),
+                raised_at: self.now().as_str().to_string(),
+                item: item.id.clone(),
+                ..KeptTurn::default()
+            };
+            store.add_operator_turn(&row)
+        };
+        match kept {
+            Ok(_) => {
+                self.operator_journaled(&format!("Queued: {}", item.text)).await;
+                self.operator_page_changed();
+            }
+            Err(why) => self.operator_warned("a short disk's item was not kept", why),
         }
-        let (ruled, rest) = self.rules_applied(vec![one]).await;
-        if ruled {
-            self.operator_page_changed();
-        }
-        self.review_queued(rest);
     }
 
     /// Every item `id` still in Your turn, answered or not, has left it.
