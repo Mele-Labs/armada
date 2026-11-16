@@ -293,6 +293,14 @@ impl Forge for ApiForge {
         )
     }
 
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        self.read_said(
+            in_repo,
+            |api, repository| reading::listed(api, repository, gate),
+            |gh| gh.pull_list(in_repo, gate).ok(),
+        )
+    }
+
     fn followed_pull(
         &self,
         in_repo: &str,
@@ -481,6 +489,14 @@ impl Forge for ApiForge {
             in_repo,
             |api, repository| compare::read(api, repository, base, head),
             |gh| gh.pull_request_compare(in_repo, base, head),
+        )
+    }
+
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.read(
+            in_repo,
+            |api, repository| compare::commit(api, repository, commit),
+            |gh| gh.commit_patches(in_repo, commit),
         )
     }
 

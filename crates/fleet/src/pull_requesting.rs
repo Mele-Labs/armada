@@ -148,6 +148,8 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
         ("state".to_string(), standing.to_string()),
         ("auto_merge".to_string(), state.auto_merge.to_string()),
         ("queued".to_string(), state.queued.to_string()),
+        // A Pull Requests row offers Merge only where the forge would take it, which passed checks alone do not say.
+        ("merge_state".to_string(), state.merge_state.word().to_string()),
         ("checks".to_string(), checks.to_string()),
         ("failing".to_string(), failing),
         ("title".to_string(), state.title.clone()),
@@ -235,7 +237,24 @@ fn read_from_forge<V: TheForge>(
         address: facts.url,
         body: facts.body,
         closes: facts.closes,
+        merge_state: merge_state_of(facts.merge_state),
     })
+}
+
+/// The forge's merge verdict in the wire's words. `pull_request_panel` carries it on the page too.
+pub(crate) fn merge_state_of(state: adapter_traits::MergeState) -> ipc::PullRequestMergeState {
+    use adapter_traits::MergeState as Said;
+    use ipc::PullRequestMergeState as Wire;
+    match state {
+        Said::Clean => Wire::Clean,
+        Said::Blocked => Wire::Blocked,
+        Said::Behind => Wire::Behind,
+        Said::Dirty => Wire::Dirty,
+        Said::Unstable => Wire::Unstable,
+        Said::HasHooks => Wire::HasHooks,
+        Said::Draft => Wire::Draft,
+        Said::Unknown => Wire::Unknown,
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -376,10 +395,23 @@ where
         numbers.sort_unstable();
         numbers.dedup();
         for number in numbers {
-            let _ = self.pull_request_followed(manifest_id, root, number).await;
+            if let Err(refused) = self.pull_request_followed(manifest_id, root, number).await {
+                let why = format!("pull request {number}: {}", refused.error().message);
+                self.pull_reading_warned("a pull request a Job holds was not read", manifest_id.as_str(), why);
+            }
         }
         // After the pull requests, so an issue one of them closed this pass is read in it too.
         self.issue_ledger_kept_current(manifest_id, root).await;
+    }
+
+    /// A line on Fleet's standard error for a pull reading that read nothing, **so a row left as it
+    /// was is never silence**.
+    pub(crate) fn pull_reading_warned(&self, msg: &str, repository: &str, why: String) {
+        use core_model::{Component, Envelope, FieldValue, Level};
+        let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
+            .with_field("repository", FieldValue::Str(repository.to_string()))
+            .with_field("why", FieldValue::Str(why));
+        crate::transcript::note_aloud(&envelope);
     }
 
     /// Read, and let the ledger follow. Every act's last step and the query.

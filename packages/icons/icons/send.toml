@@ -18,3 +18,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 12 Nov 2026 for the native walk `native-call-rows`. The call hands words to another agent, which is dispatch one step down. Tooltip `Message`. Replaces the wrench the row took as a tool with no kind."
+
+[[icons.send.usage]]
+  means = "Evaluate, handing one comment on a pull request to the Job that holds it, on the comment's head in the PR tab"
+  group = "PR tab"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 16 Nov 2026 for the native PR tab, on the owner's note that Evaluate did not read as a button. The comment goes to the Job's agent, which is dispatch one step down, as the Lanes comment row has it. Drawn before the word on a secondary button. The head then wears `check` with the tooltip `Sent to the Job`."

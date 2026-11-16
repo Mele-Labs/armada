@@ -19,6 +19,7 @@ struct Script {
     pulls: Option<OpenPulls>,
     queue: Option<MergeQueue>,
     followed: Option<FollowedPulls>,
+    listed: Option<FollowedPulls>,
     by_number: Vec<FollowedPull>,
     open_by_number: Vec<OpenPull>,
     asked_by_number: Vec<u64>,
@@ -86,8 +87,15 @@ impl MainCiScript {
         self.with(|it| it.followed = followed);
     }
 
-    /// The pull requests the forge answers for by number and not in its lists, as a pull reading reads
-    /// them: a pull request the lists' cap left out. An unscripted number is the forge's silence.
+    /// The open pull requests as the forge lists them without their checks, where that list answers
+    /// and the one with them does not. Unscripted, it is [`followed_are`](Self::followed_are)'s.
+    pub fn listed_are(&self, listed: Option<FollowedPulls>) {
+        self.with(|it| it.listed = listed);
+    }
+
+    /// The pull requests the forge answers for by number, as a pull reading reads them: a pull request
+    /// the lists' cap left out, or one read for its checks. A number neither here nor in
+    /// [`followed_are`](Self::followed_are)'s list is the forge's silence.
     pub fn followed_by_number_are(&self, followed: Vec<FollowedPull>) {
         self.with(|it| it.by_number = followed);
     }
@@ -238,10 +246,15 @@ impl MainCiScript {
         })
     }
 
+    pub(super) fn listed(&self) -> Option<FollowedPulls> {
+        self.with(|it| it.listed.clone().or_else(|| it.followed.clone()))
+    }
+
     pub(super) fn followed_one(&self, number: u64) -> Option<FollowedPull> {
         self.with(|it| {
             it.asked_by_number.push(number);
-            it.by_number.iter().find(|pull| pull.number == number).cloned()
+            let listed = it.followed.iter().flatten();
+            it.by_number.iter().chain(listed).find(|pull| pull.number == number).cloned()
         })
     }
 

@@ -234,6 +234,7 @@ WebSocket event stream, read this first.
 | [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
+| [The forge's merge verdict, and one commit's files: `merge_state`, `get_pull_request_commit_patches`](protocol/the-forges-merge-verdict-and-one-commits-files.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

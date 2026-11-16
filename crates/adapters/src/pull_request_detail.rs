@@ -13,11 +13,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use adapter_traits::{
-    CheckRow, CheckStanding, CommitLine, FileChange, LatestReview, Mergeability, Omitted, PageFile,
+    CheckRow, CheckStanding, CommitLine, FileChange, LatestReview, MergeState, Mergeability, Omitted, PageFile,
     PullRequestPageFacts, ReviewSaid, ReviewStanding, Reviewer, ReviewerKind, Said,
 };
 
 use crate::delivery::asked_lines;
+use crate::pull_request_facts::merge_state_word;
 use crate::pull_review_lists::latest_of;
 use crate::under_review::as_written;
 
@@ -31,7 +32,7 @@ pub(crate) const MOST_CHECKS: usize = 500;
 pub(crate) const MOST_SAID: usize = 200;
 
 const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable,reviewDecision,\
-                      latestReviews,reviewRequests,comments,reviews,statusCheckRollup,files,commits,headRefOid,body";
+                      latestReviews,reviewRequests,comments,reviews,statusCheckRollup,files,commits,headRefOid,body,mergeStateStatus";
 
 /// `// ""` on every field, so a `null` cannot stop jq mid-stream. Seconds are
 /// worked out here because jq reads the timestamps; `try` makes one it cannot
@@ -41,7 +42,7 @@ const FIELDS: &str = "baseRefName,author,createdAt,additions,deletions,mergeable
 const REDUCTION: &str = "\
     ([\"head\", (.baseRefName // \"\"), (.author.login // \"\"), (.createdAt // \"\"), \
       (.additions // 0), (.deletions // 0), (.mergeable // \"\"), (.reviewDecision // \"\"), \
-      (.headRefOid // \"\"), (.body // \"\")]), \
+      (.headRefOid // \"\"), (.body // \"\"), (.mergeStateStatus // \"\")]), \
     (.latestReviews // [] | .[] | select(.state == \"APPROVED\") | \
         [\"approver\", (.author.login // \"\")]), \
     (.latestReviews // [] | .[] | select(.state != \"PENDING\") | \
@@ -192,6 +193,7 @@ pub(crate) fn folded(lines: &[String]) -> Option<PullRequestPageFacts> {
                     review: review_standing(&next()),
                     commit: next(),
                     body: next(),
+                    merge_state: merge_state_word(&next()),
                 });
             }
             "approver" => {
@@ -314,6 +316,7 @@ impl PageParts {
             additions: head.additions,
             deletions: head.deletions,
             mergeable: head.mergeable,
+            merge_state: head.merge_state,
             review: head.review,
             approvals: approvers.len() as u64,
             conversation: said,
@@ -373,6 +376,7 @@ pub(crate) struct Head {
     pub review: ReviewStanding,
     pub commit: String,
     pub body: String,
+    pub merge_state: MergeState,
 }
 
 fn number(said: &str) -> u64 {

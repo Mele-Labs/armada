@@ -104,6 +104,11 @@ impl Forge for FakeVcs {
         self.main_ci.followed()
     }
 
+    fn pull_list(&self, _in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.listed().ok_or(None)
+    }
+
     fn followed_pull(
         &self,
         _in_repo: &str,
@@ -241,6 +246,7 @@ impl Forge for FakeVcs {
                 url: pull.url.as_written().to_string(),
                 body: None,
                 closes: Vec::new(),
+                merge_state: adapter_traits::MergeState::Unknown,
             })
         })
     }
@@ -297,6 +303,10 @@ impl Forge for FakeVcs {
         head: &str,
     ) -> Option<adapter_traits::ComparedPatches> {
         self.compare_read(base, head)
+    }
+
+    fn commit_patches(&self, _in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.commit_patches_read(commit)
     }
 
     fn pull_request_comments(&self, _in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {

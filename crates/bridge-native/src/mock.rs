@@ -1088,6 +1088,26 @@ pub fn patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
     pulls.pulls.into_iter().find(|one| one.key == key).map(|one| one.patches)
 }
 
+/// One commit's files as `GET /pull_request_commit_patches/:repository/:number/:commit` answers them, by
+/// `manifest#number@commit`.
+pub fn commit_patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        patches: ipc::PullRequestFilePatches,
+    }
+    #[derive(Deserialize)]
+    struct Commits {
+        commits: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let commits = ipc::decode::<Commits>("commit patches", include_bytes!("../fixtures/pulls-commit-patches.json")).unwrap_or_else(|why| panic!("the commit patches fixture does not decode: {why}"));
+    commits.commits.into_iter().find(|one| one.key == key).map(|one| one.patches)
+}
+
 /// A pull request's page as `GET /pull_request_details/:repository/:number` answers it, by
 /// `manifest#number`: Armada Classic's mock pages, narrowed to three.
 pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {

@@ -514,6 +514,7 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
     rig.fleet
         .vcs()
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            merge_state: adapter_traits::MergeState::Unknown,
             standing: adapter_traits::PullRequestStanding::Merged,
             branch: "armada/1".into(),
             base: "main".into(),
@@ -602,6 +603,24 @@ async fn a_forge_that_will_not_answer_changes_nothing() {
     rig.fleet.vcs().main_ci.followed_are(None);
     rig.reads().await;
     assert!(rig.runs_sent_to_the_session().is_empty());
+}
+
+/// A repository with hundreds open, whose list the forge times out on when it is asked for every
+/// check and answers without them: a held pull request's checks are read by its number, and its
+/// failure told.
+#[tokio::test]
+async fn a_list_the_forge_answers_only_without_checks_still_tells_a_failure() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.followed_are(None);
+    forge.listed_are(Some(vec![pull(7, vec![])]));
+    forge.followed_by_number_are(vec![failing(7)]);
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert!(sent.iter().any(|line| line.contains("#7 failed its checks")), "{sent:?}");
 }
 
 impl Rig {
@@ -708,6 +727,7 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
     rig.fleet
         .vcs()
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
+            merge_state: adapter_traits::MergeState::Unknown,
             standing: adapter_traits::PullRequestStanding::Open,
             branch: "armada/1".into(),
             base: "main".into(),
