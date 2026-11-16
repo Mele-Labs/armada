@@ -63,15 +63,6 @@ pub(super) struct Arranged {
     pub drop: Option<super::place_drag::Hover>,
     /// Each strip, tab, body and gap as last laid out, by `strip:{pane}`, `tab:{tab}`, `body:{pane}`, `gap:{split}`.
     pub drawn_at: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
-    /// The side opened over the reader while the Jobs list and the right column are folded: where he is looking, never kept.
-    pub over: Option<super::fold::Side>,
-    /// The tab of the reader he left the focus view on, by Esc or Back: the reader stays in front, drawn with the Job round it.
-    pub focus_left: Option<String>,
-    /// Whether the focus view was up the last frame, how many times that has changed, and whether it is up this frame: the
-    /// change plays a 150 ms fade and slide, and the readers draw their acts at the foot while it is.
-    pub focus_was: bool,
-    pub focus_flips: u32,
-    pub focus_now: bool,
 }
 
 impl Default for Arranged {
@@ -87,11 +78,6 @@ impl Default for Arranged {
             started: Instant::now(),
             drop: None,
             drawn_at: Rc::default(),
-            over: None,
-            focus_left: None,
-            focus_was: false,
-            focus_flips: 0,
-            focus_now: false,
         }
     }
 }

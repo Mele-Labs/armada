@@ -309,6 +309,8 @@ struct Laid {
     ways: Vec<Option<Way>>,
     /// The canvas the drawing stands on: everything it holds, with air round it.
     bounds: Rect,
+    /// The same canvas with `tile::EDGE` of air in place of the canvas's own: what a drawing that fills its tile stands on.
+    held: Rect,
     /// The "Start" pill of each node the sketch starts at, by node index.
     marks: Vec<Option<Rect>>,
     /// The step's badge and its number, by node index, where the node has a step.
@@ -526,7 +528,8 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     steps.sort_by(f64::total_cmp);
     steps.dedup();
     let kinds = facts.iter().map(|facts| facts.kind).collect();
-    Laid { rects, ways, bounds, marks, badges, kinds, steps, mocks }
+    let held = Rect { x: bounds.x + tile::CANVAS_PAD - tile::EDGE, y: bounds.y + tile::CANVAS_PAD - tile::EDGE, w: bounds.w - 2. * (tile::CANVAS_PAD - tile::EDGE), h: bounds.h - 2. * (tile::CANVAS_PAD - tile::EDGE) };
+    Laid { rects, ways, bounds, held, marks, badges, kinds, steps, mocks }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -854,8 +857,9 @@ fn lit<'a>(scene: &'a Scene, now: Option<&Playing>) -> HashSet<&'a str> {
 fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
-    let view = View::fit(bounds, laid.bounds, fit, lens);
-    keep_canvas(key, laid.bounds, window);
+    let canvas = if fit == Fit::Column { laid.held } else { laid.bounds };
+    let view = View::fit(bounds, canvas, fit, lens);
+    keep_canvas(key, canvas, window);
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
     let trees = trees(key, scene);
@@ -916,7 +920,10 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
     };
     let lit = lit(scene, now.as_ref());
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
-        paint_canvas(&ink, laid.bounds, window);
+        // A drawing that fills its tile has no ground of its own: the tile's surface is its background.
+        if fit != Fit::Column {
+            paint_canvas(&ink, laid.bounds, window);
+        }
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| ground(node)) {
             // A ground does not stand back for a step, but an unchanged one does against an earlier scene.
             let change = node_change(node);

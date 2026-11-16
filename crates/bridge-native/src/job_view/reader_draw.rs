@@ -173,7 +173,7 @@ impl JobView {
     /// In the focus view the acts leave the header for a bar pinned at the foot: the revision picker, the notes toggle and what
     /// he answers with. The header keeps the kind, the title, where it stands and the For line.
     fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, Option<AnyElement>) {
-        let pinned = self.arranged.focus_now;
+        let pinned = false;
         let editing = held.edit.is_some();
         let ink: Token = if editing { token::YOU } else { subject.stand.ink() };
         let (fill, edge) = if editing { (mixed(look, ink, 0.16), look.color(ink).opacity(0.45)) } else { (mixed(look, ink, 0.18), look.color(ink).opacity(0.4)) };

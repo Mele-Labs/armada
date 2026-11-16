@@ -306,12 +306,9 @@ impl JobView {
         self.row_tab_front(&id, RowKind::Document, page, window, cx);
     }
 
-    /// An artifact of parts as a tab named for it. One the Job no longer holds opens no tab.
+    /// An artifact of parts read in the review panel, picked in its list. One the Job no longer holds opens nothing.
     pub(super) fn open_artifact_tab(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
-        let Some(title) = self.artifact_of(&id, artifact).map(|one| one.title.clone()) else { return };
-        self.row_tabs_of(&id).focus(RowKind::Artifact, artifact, title);
-        self.row_tab_front(&id, RowKind::Artifact, artifact, window, cx);
+        self.open_artifact_review(artifact, window, cx);
     }
 
     /// Subagent `subagent` of Job `id`, as its ledger holds it, else as the press on its row in the thread gave it.
