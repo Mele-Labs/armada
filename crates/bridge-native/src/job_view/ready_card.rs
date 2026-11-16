@@ -363,7 +363,7 @@ impl JobView {
     /// The same act as the Refresh row of the title bar's build switcher: Fleet restarts onto a preview of the offered branches.
     fn refresh_preview(&mut self, cx: &mut Context<Self>) {
         if let Some(fleet) = self.fleet.clone() {
-            fleet.update(cx, |fleet, cx| fleet.build_act(crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false }), cx));
+            fleet.update(cx, |fleet, cx| fleet.build_act(crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None }), cx));
         }
     }
 

@@ -5,7 +5,7 @@
 
 use std::num::NonZeroU8;
 
-use adapter_traits::{Ask, Environment, Fork, Model, ModelClient, Reading, SpawnConfigRefused};
+use adapter_traits::{Ask, CallProgress, Environment, Fork, Heard, Model, ModelClient, Reading, SpawnConfigRefused};
 
 use crate::HeadlessAgent;
 
@@ -478,4 +478,27 @@ fn a_fork_of_an_id_that_could_read_as_a_flag_is_refused() {
     assert!(Fork::copy_of("--dangerously-skip-permissions", "cut", "copy").is_none());
     assert!(Fork::copy_of("session", "", "copy").is_none());
     assert!(Fork::copy_of("session", "cut", "../copy").is_none());
+}
+
+/// What a copy reading a checkout prints when it reaches for a read tool: the tool and what it was pointed at, one
+/// line each, and a tool the copy does not hold says nothing.
+#[test]
+fn a_turn_that_calls_a_read_tool_is_heard_as_what_it_read() {
+    let heard = |input: &str| {
+        let frame = format!(r#"{{"type":"assistant","message":{{"content":[{{"type":"text","text":"Let me look."}},{input}]}}}}"#);
+        HeadlessAgent::on_path().heard(&frame)
+    };
+    let reading = |tool: &str, target: &str| Heard::Moved(CallProgress::Reading { tool: tool.into(), target: target.into() });
+    assert_eq!(heard(r#"{"type":"tool_use","name":"Read","input":{"file_path":"/repo/crates/store/migrations"}}"#), reading("Read", "/repo/crates/store/migrations"));
+    assert_eq!(heard(r#"{"type":"tool_use","name":"Grep","input":{"pattern":"keep_aside"}}"#), reading("Grep", "keep_aside"));
+    assert_eq!(
+        heard(r#"{"type":"tool_use","name":"Grep","input":{"pattern":"keep_aside","path":"/repo/crates"}}"#),
+        reading("Grep", "keep_aside in /repo/crates")
+    );
+    assert_eq!(heard(r#"{"type":"tool_use","name":"Glob","input":{"pattern":"**/*.sql"}}"#), reading("Glob", "**/*.sql"));
+    // Not a read tool: the text is all there is, as before.
+    assert_eq!(heard(r#"{"type":"tool_use","name":"Bash","input":{"command":"ls"}}"#), Heard::Answer("Let me look.".into()));
+    // A turn that only answers is still the answer.
+    let answer = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Because."}]}}"#;
+    assert_eq!(HeadlessAgent::on_path().heard(answer), Heard::Answer("Because.".into()));
 }

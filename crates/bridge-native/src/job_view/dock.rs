@@ -679,7 +679,7 @@ impl JobView {
     /// (`sessions-wired.tsx` `switching`). Fleet answering that it began is the pass.
     fn restart(&mut self, command: String, build: BuildSource, adopt: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt }).map_err(|why| format!("{why:?}"));
+        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"));
         self.mark_run(&job, &command, Some(RunMark::Running), cx);
         let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
             self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);

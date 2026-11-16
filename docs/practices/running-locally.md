@@ -299,7 +299,9 @@ Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.br
 **Builds are signed with this Mac's own certificate, "Armada Local Signing", where it has one, so macOS remembers what was allowed.**
 macOS keeps a privacy grant, such as Local Network, against an app's designated requirement, and an ad hoc signature's requirement is its code hash, which every build changes, so each new build asked again.
 Signed with the certificate, the requirement is the identifier and the certificate, which stay the same from build to build.
-Fleet is the one that asks for Local Network, since Pocket's door listens on the network and advertises itself over Bonjour, so `scripts/keep-build` signs the kept `armada` binary as `dev.armada.fleet`; `scripts/native-app`, `scripts/armada-electron` and Armada Voice's `build.mjs` sign their apps the same way.
+Fleet is the one that asks for Local Network, since Pocket's door listens on the network and advertises itself over Bonjour, so `scripts/keep-build` keeps it as a bundle, `Armada Fleet.app`, with bundle id `dev.armada.fleet` and no Dock icon, and signs it; `scripts/native-app`, `scripts/armada-electron` and Armada Voice's `build.mjs` sign their apps the same way.
+A bundle, because macOS keeps a bare binary's Local Network grant against its resolved path, and every kept build is a new folder: signed alone, each Refresh preview asked again (16 Nov 2026).
+The build's `armada` is a link to the bundled binary, so launchd's `builds/current/armada` and everything else that names it are unchanged.
 
 | Command | What it does | Needs | What comes back |
 |---|---|---|---|
@@ -595,7 +597,8 @@ back**, in `~/Library/Application Support/Armada/`:
 |---|---|---|
 | `restart-source` | The tree the running build came from, `.armada/preview` or none for main | `scripts/restart` |
 | `restart-commit` | The commit it was built from | `scripts/restart`, once the new Fleet speaks the protocol its tree hashes to |
-| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
+| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first, and `failed` where the wrapper exits before it writes a stage |
+| `restart-build.start.log` | The wrapper's own stdout and stderr from its latest start | Fleet, emptied at each start |
 
 Its output is `~/Library/Logs/Armada/restart-build.log`. The line of why is the
 compiler's first error of the last run with its file, else the last thing a
@@ -625,6 +628,13 @@ runs in the background at most every ten minutes, so a read never waits on the
 network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
+**Fleet waits on the wrapper it started.**
+Where it exits non-zero while the status still holds Fleet's own two lines, it never took over, so Fleet writes `failed` with the last line of `restart-build.start.log`, else `restart-build exited N`.
+A stale wrapper that refuses an argument is then `failed` within seconds, not `running` for twenty minutes.
+
+**A checkout whose `main` cannot fast-forward is named.**
+`get_fleet_build`'s `blocked` is the checkout on `main`, behind `origin/main` as last fetched, holding untracked files that `origin/main` tracks: git will not overwrite them, so the `git pull --ff-only` in `scripts/preview` and `scripts/restart` refuses.
+`change_fleet_build` with `clear` `stash` or `delete` moves those files aside, stashed as `armada: before updating main <UTC time>` or removed, then runs `git pull --ff-only origin main` before it starts the wrapper.
 
 **A Job's restart is the same button.** A branch for the preview is offered with
 `offer_preview`, not handed over as a command (`docs/concepts/fleet.md`, *Offering a branch for the
