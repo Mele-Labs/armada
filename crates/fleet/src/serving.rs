@@ -100,6 +100,11 @@ where
         Ok(self.kit_inventory().await)
     }
 
+    /// One piece's file, found in a fresh inventory — `crate::kit_files`.
+    async fn get_kit_file(&self, asked: ipc::GetKitFile) -> Result<ipc::KitFile, Refusal> {
+        self.kit_file_read(asked).await
+    }
+
     /// The folders a person's agent CLI kept sessions for — `crate::session_import`.
     async fn list_import_folders(&self) -> Result<ipc::ImportFolders, Refusal> {
         self.import_folders().await

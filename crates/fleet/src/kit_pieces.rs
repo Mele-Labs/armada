@@ -125,7 +125,7 @@ pub(crate) fn trashed_lines(text: &str) -> Vec<(String, String)> {
 }
 
 /// The items of one kind an inventory read.
-fn items_of<'a>(inventory: &'a KitInventory, kind: &str) -> &'a [ipc::SetupItem] {
+pub(crate) fn items_of<'a>(inventory: &'a KitInventory, kind: &str) -> &'a [ipc::SetupItem] {
     match inventory.kinds.iter().find(|row| row.kind == kind).map(|row| &row.read) {
         Some(WhatWasRead::Read { items, .. }) => items,
         _ => &[],

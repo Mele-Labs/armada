@@ -97,6 +97,7 @@ mod app_runs;
 mod app_runs_fresh;
 mod kit_manifest;
 mod kit_allowlist;
+mod kit_files;
 mod kit_pieces;
 mod listener;
 mod manifest_proposals;

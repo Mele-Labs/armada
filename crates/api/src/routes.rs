@@ -1040,6 +1040,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/kit/pieces/install", post(crate::kit::install_kit_piece::<D>))
         .route("/kit/pieces/remove", post(crate::kit::remove_kit_piece::<D>))
         .route("/kit/pieces/restore", post(crate::kit::restore_kit_piece::<D>))
+        .route("/kit/pieces/open", post(crate::kit_files::open_kit_piece::<D>))
+        .route("/kit/file", get(crate::kit_files::get_kit_file::<D>))
+        .route("/kit/file/save", post(crate::kit_files::save_kit_file::<D>))
         .route(
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),

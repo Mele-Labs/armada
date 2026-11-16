@@ -1,0 +1,16 @@
+[operations.save_kit_file]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Write a corrected Kit piece's file to disk, only where it is still what the edit read"
+notes = """
+`POST /kit/file/save`, body `SaveKitFile` `{ kind, name, read, text }`. Answers 200 with `KitFile`, the file as it now stands.
+
+**Save writes the file and stops**, as `save_manifest_file` does: the bytes sent are the bytes on disk, replaced by a rename so a crash leaves no half written file, with the file's mode kept. A file that is a link is written through, so the link stays a link.
+
+**A save over a file that moved is refused, never merged and never overwritten.** `read` is required and carries the text the edit started from, whole, and Fleet compares it against the disk at the moment of the save. Omitting it fails to decode, so there is no unguarded save to reach for. A mismatch is a 409 `fleet.kit_file_moved` carrying `on_disk`, what is there now, absent where the file is gone.
+
+Refusals, each a 422 with its own code: `fleet.kit_file_not_listed` and `fleet.kit_file_ambiguous` as `get_kit_file`'s, `fleet.kit_file_none` for a piece with no file, and `fleet.kit_file_from_plugin` for a piece a plugin brought, since the plugin's next update overwrites the edit. A 500 `fleet.kit_file_unreadable` or `fleet.kit_file_unwritable` where the disk would not answer.
+
+`agent_access` is `Bridge only`, `install_kit_piece`'s reason: what a person's own skills and files say is what every Job they run is told, so the change is theirs to make.
+"""
