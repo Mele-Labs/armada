@@ -3242,6 +3242,8 @@ impl JobsScreen {
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
         } else if self.palette.read(cx).is_open() {
             cx.propagate();
+        } else if self.view.update(cx, |view, cx| view.side_chat_act(act, window, cx)) {
+            // ⌘J with a Job open is that Job's side chat; with none it is the Operator's, as the registry has it.
         } else if self.view.update(cx, |view, cx| view.pane_act(act, window, cx)) {
             // A key that arranges the open Job's panes, from wherever on the deck the keys are.
         } else {

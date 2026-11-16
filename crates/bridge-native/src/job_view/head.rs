@@ -1523,6 +1523,10 @@ impl JobView {
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
             return false;
         }
+        // ⌘W shuts the side chat's split, from its own box too.
+        if self.side_chat_key(event, window, cx) {
+            return true;
+        }
         if self.zoom_key(event, window, cx) {
             return true;
         }
