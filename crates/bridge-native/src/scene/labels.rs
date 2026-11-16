@@ -142,8 +142,58 @@ pub(crate) struct LabelEdge<'a> {
     pub path: &'a [Seg],
 }
 
-/// Each arrow's words, on its line where they fit and beside it where they do not, by id in edge order. `heads` are
-/// where arrows end, which the words keep off as they keep off boxes.
+/// A straight run of a way: where it starts and ends, and whether it goes across.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Straight {
+    pub(super) from: Pt,
+    pub(super) to: Pt,
+    pub(super) across: bool,
+}
+
+impl Straight {
+    pub(super) fn len(&self) -> f32 {
+        (self.to.x - self.from.x).hypot(self.to.y - self.from.y)
+    }
+
+    fn at(&self, along: f32) -> Pt {
+        let k = along / self.len().max(f32::EPSILON);
+        Pt { x: self.from.x + (self.to.x - self.from.x) * k, y: self.from.y + (self.to.y - self.from.y) * k }
+    }
+}
+
+/// The straight runs of a way, as drawn: what lies between its rounded corners, its hops and its curves.
+pub(super) fn straights(path: &[Seg]) -> Vec<Straight> {
+    let mut runs = Vec::new();
+    let mut here = Pt::default();
+    for seg in path {
+        match *seg {
+            Seg::Move(p) => here = p,
+            Seg::Line(p) => {
+                let run = Straight { from: here, to: p, across: (p.x - here.x).abs() >= (p.y - here.y).abs() };
+                if run.len() > 1.0 && ((p.x - here.x).abs() < 0.01 || (p.y - here.y).abs() < 0.01) {
+                    runs.push(run);
+                }
+                here = p;
+            }
+            Seg::Quad(_, p) | Seg::Cubic(_, _, p) | Seg::Arc(p, _, _) => here = p,
+        }
+    }
+    runs
+}
+
+/// What keeps words off the corners: the room kept at each end of a run, beyond half the words.
+const RUN_MARGIN: f32 = 6.0;
+
+/// Whether any run of `way` goes through `rect`.
+fn goes_through(way: &[Seg], rect: &Rect) -> bool {
+    let points = super::route::polyline(way);
+    points.windows(2).any(|pair| {
+        pair[0].x.max(pair[1].x) > rect.x && pair[0].x.min(pair[1].x) < rect.x + rect.w && pair[0].y.max(pair[1].y) > rect.y && pair[0].y.min(pair[1].y) < rect.y + rect.h
+    })
+}
+
+/// Each arrow's words, on a straight run of its line where they fit and beside it where they do not, by id in edge order.
+/// `heads` are where arrows end, which the words keep off as they keep off boxes, and the words keep off the lines of other arrows.
 #[allow(dead_code)]
 pub(crate) fn place_labels(
     drawn: &[LabelEdge<'_>],
@@ -160,58 +210,49 @@ pub(crate) fn place_labels(
             continue;
         }
         let LabelSize { lines, w, h } = label_size(label, m);
+        // Where the words may stand: the middle of each straight run they fit in, and either side of it, the longest run first.
+        let mut spots: Vec<(Pt, bool)> = Vec::new();
+        let mut runs = straights(edge.path);
+        runs.sort_by(|a, b| b.len().total_cmp(&a.len()));
+        for run in runs {
+            let need = if run.across { w } else { h } + 2.0 * RUN_MARGIN;
+            if run.len() < need {
+                continue;
+            }
+            let room = run.len() - need;
+            for share in [0.0_f32, 0.25, -0.25, 0.5, -0.5] {
+                spots.push((run.at(run.len() / 2.0 + share * room), run.across));
+            }
+        }
+        // A way with no straight run that fits them, a curve, has them along it as before.
+        if spots.is_empty() {
+            for t in ALONG {
+                let (at, ahead, behind) = (path_at(edge.path, t), path_at(edge.path, (t + 0.02).min(1.0)), path_at(edge.path, (t - 0.02).max(0.0)));
+                if let (Some(at), Some(ahead), Some(behind)) = (at, ahead, behind) {
+                    spots.push((at, (ahead.x - behind.x).abs() >= (ahead.y - behind.y).abs()));
+                }
+            }
+        }
         let mut best: Option<LabelPlace> = None;
         let mut best_cost = f32::INFINITY;
         let mut tried = 0_u32;
-        for t in ALONG {
-            let at = path_at(edge.path, t);
-            let ahead = path_at(edge.path, (t + 0.02).min(1.0));
-            let behind = path_at(edge.path, (t - 0.02).max(0.0));
-            let (Some(at), Some(ahead), Some(behind)) = (at, ahead, behind) else {
-                continue;
-            };
+        for (at, across) in spots {
             // Across the line, by half the words and a little: above or below a run across, beside a run down.
-            let across = (ahead.x - behind.x).abs() >= (ahead.y - behind.y).abs();
-            let step = if across {
-                Pt {
-                    x: 0.0,
-                    y: h / 2.0 + m.pad,
-                }
-            } else {
-                Pt {
-                    x: w / 2.0 + m.pad,
-                    y: 0.0,
-                }
-            };
+            let step = if across { Pt { x: 0.0, y: h / 2.0 + m.pad } } else { Pt { x: w / 2.0 + m.pad, y: 0.0 } };
             for side in [0.0_f32, 1.0, -1.0] {
                 let x = at.x + step.x * side;
                 let y = at.y + step.y * side;
-                let rect = Rect {
-                    x: x - w / 2.0,
-                    y: y - h / 2.0,
-                    w,
-                    h,
-                };
-                // A hit on a box or a head costs more than one on other words, and distance from the middle breaks ties.
-                let cost = hard
-                    .iter()
-                    .fold(0.0_f32, |sum, one| sum + overlap(&rect, one) * 4.0)
-                    + taken
-                        .iter()
-                        .fold(0.0_f32, |sum, one| sum + overlap(&rect, one))
+                let rect = Rect { x: x - w / 2.0, y: y - h / 2.0, w, h };
+                // A hit on a box or a head costs more than one on other words, and another arrow's line through them more than a
+                // little; distance from the middle breaks ties.
+                let cost = hard.iter().fold(0.0_f32, |sum, one| sum + overlap(&rect, one) * 4.0)
+                    + taken.iter().fold(0.0_f32, |sum, one| sum + overlap(&rect, one))
+                    + drawn.iter().filter(|other| other.id != edge.id && goes_through(other.path, &rect)).count() as f32 * 400.0
                     + tried as f32;
                 tried += 1;
                 if cost < best_cost {
                     best_cost = cost;
-                    best = Some(LabelPlace {
-                        lines: lines.clone(),
-                        x,
-                        y,
-                        w,
-                        h,
-                        line_h: m.line_h,
-                        pad: m.pad,
-                    });
+                    best = Some(LabelPlace { lines: lines.clone(), x, y, w, h, line_h: m.line_h, pad: m.pad });
                 }
             }
             if best_cost < tried as f32 {
@@ -219,12 +260,7 @@ pub(crate) fn place_labels(
             }
         }
         let Some(best) = best else { continue };
-        taken.push(Rect {
-            x: best.x - best.w / 2.0,
-            y: best.y - best.h / 2.0,
-            w: best.w,
-            h: best.h,
-        });
+        taken.push(Rect { x: best.x - best.w / 2.0, y: best.y - best.h / 2.0, w: best.w, h: best.h });
         placed.push((edge.id.to_string(), best));
     }
     placed

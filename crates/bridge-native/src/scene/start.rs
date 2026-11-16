@@ -60,16 +60,9 @@ fn only(found: Vec<&SceneNode>) -> Option<&str> {
     }
 }
 
-/// Where the pill stands for a node at `rect`, its word `word_w` wide. A tile carries it in its head band, at the right and
-/// clear of the step's badge when it has one; any other node has no band, so it stands over the node's top left.
-pub(super) fn pill(node: &SceneNode, rect: Rect, word_w: f32) -> Rect {
-    let w = word_w + 2. * tile::PILL_PAD;
-    if tile::is_tile(node) {
-        let clear = if node.step.is_some() { tile::PILL_CLEAR } else { 0. };
-        Rect { x: rect.x + rect.w - tile::BAND_PAD - clear - w, y: rect.y + (tile::BAND_H - tile::PILL_H) / 2., w, h: tile::PILL_H }
-    } else {
-        Rect { x: rect.x, y: rect.y - tile::PILL_H - tile::PILL_RISE, w, h: tile::PILL_H }
-    }
+/// Where the pill stands for a node at `rect`, its word `word_w` wide: above the node's top edge, at its left.
+pub(super) fn pill(rect: Rect, word_w: f32) -> Rect {
+    Rect { x: rect.x, y: rect.y - tile::PILL_H - tile::PILL_RISE, w: word_w + 2. * tile::PILL_PAD, h: tile::PILL_H }
 }
 
 #[cfg(test)]
@@ -167,19 +160,11 @@ mod tests {
     }
 
     #[test]
-    fn the_pill_stands_in_the_head_band_at_the_right_or_over_a_node_with_none() {
-        let node = |kind: &str, step: &str| scene(&format!(r#"{{"nodes":[{{"id":"a","kind":"{kind}","x":0,"y":0{step}}}],"edges":[]}}"#)).nodes.remove(0);
+    fn the_pill_stands_above_the_nodes_top_edge_at_its_left() {
         let rect = Rect { x: 100., y: 50., w: 200., h: 80. };
-        let plain = pill(&node("box", ""), rect, 30.);
-        assert_eq!((plain.w, plain.h), (30. + 2. * tile::PILL_PAD, tile::PILL_H));
-        // At the right of the band, a band's padding in, and in the band's height.
-        assert_eq!(plain.x + plain.w, 300. - tile::BAND_PAD);
-        assert!(plain.y >= 50. && plain.y + plain.h <= 50. + tile::BAND_H);
-        // A step's badge stands in from the corner, so the pill keeps clear of it.
-        let stepped = pill(&node("code", r#","step":1"#), rect, 30.);
-        assert_eq!(stepped.x + stepped.w, plain.x + plain.w - tile::PILL_CLEAR);
-        // A node with no band has it over its top left.
-        let over = pill(&node("mock", ""), rect, 30.);
-        assert_eq!((over.x, over.y + over.h < 50.), (100., true));
+        let over = pill(rect, 30.);
+        assert_eq!((over.w, over.h), (30. + 2. * tile::PILL_PAD, tile::PILL_H));
+        assert_eq!(over.x, 100.);
+        assert!(over.y + over.h < 50., "it stands wholly above the top edge, not in the node: {over:?}");
     }
 }

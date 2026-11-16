@@ -21,10 +21,11 @@ use resvg::{tiny_skia, usvg};
 
 use super::arrows::{self, Pattern};
 use super::geometry::{Pt, Rect};
+use super::glyph;
 use super::route::{self, Seg};
 use super::start;
 use super::tile;
-use super::{ground, hue, laid, part_label, shortened, sheet_top, trees, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, LEAD, PAD_X, PAD_Y, RADIUS};
+use super::{body_face, body_lines, glyph_hue, ground, hue, laid, lang_width, lead_width, part_label, shortened, sheet_top, trees, Facts, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, LEAD, PAD_X, PAD_Y, RADIUS};
 use crate::look::{token, Look, Token};
 
 /// What the toast names after a copy (`MERMAID_COPIED`).
@@ -388,31 +389,6 @@ fn glyph_inner(name: &str) -> Option<String> {
     (open < close).then(|| text[open + 1..close].lines().map(str::trim).collect::<Vec<_>>().concat())
 }
 
-/// A path through rounded corners, each radius clockwise from the top left.
-fn round_rect(x: f32, y: f32, w: f32, h: f32, [tl, tr, br, bl]: [f32; 4]) -> String {
-    format!(
-        "M{} {}H{}A{r2} {r2} 0 0 1 {} {}V{}A{r3} {r3} 0 0 1 {} {}H{}A{r4} {r4} 0 0 1 {} {}V{}A{r1} {r1} 0 0 1 {} {}Z",
-        n(x + tl),
-        n(y),
-        n(x + w - tr),
-        n(x + w),
-        n(y + tr),
-        n(y + h - br),
-        n(x + w - br),
-        n(y + h),
-        n(x + bl),
-        n(x),
-        n(y + h - bl),
-        n(y + tl),
-        n(x + tl),
-        n(y),
-        r1 = n(tl),
-        r2 = n(tr),
-        r3 = n(br),
-        r4 = n(bl),
-    )
-}
-
 // ---- tokens --------------------------------------------------------------------------------------
 
 /// The values a page's own stylesheet and a screen's read, written in beside them so the file needs nothing of Bridge's
@@ -555,27 +531,7 @@ impl<'a> Kit<'a> {
 
     /// The lines a text breaks into at `wrap` scene units, as the reader shows it.
     fn wrapped(&self, text: &str, at: f32, weight: f32, mono: bool, wrap: Option<f32>) -> Vec<String> {
-        let run = TextRun { len: text.len(), font: self.measure().font(weight, mono), ..Default::default() };
-        let Ok(shaped) = self.window.text_system().shape_text(SharedString::from(text.to_string()), gpui::px(at), &[run], wrap.map(gpui::px), None) else {
-            return text.split('\n').map(str::to_string).collect();
-        };
-        let mut lines = Vec::new();
-        for line in &shaped {
-            let whole: &str = line.text.as_ref();
-            let mut start = 0;
-            for boundary in line.wrap_boundaries() {
-                let Some(glyph) = line.runs().get(boundary.run_ix).and_then(|run| run.glyphs.get(boundary.glyph_ix)) else { continue };
-                if let Some(piece) = whole.get(start..glyph.index) {
-                    lines.push(piece.trim_end().to_string());
-                    start = glyph.index;
-                }
-            }
-            lines.push(whole.get(start..).unwrap_or("").to_string());
-        }
-        if lines.is_empty() {
-            lines.push(String::new());
-        }
-        lines
+        self.measure().broken(text, at, weight, mono, wrap)
     }
 
     fn width(&self, text: &str, at: f32, weight: f32, mono: bool) -> f32 {
@@ -742,11 +698,10 @@ fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
 /// `--text-base`: what a frame's name is set in where it has no node of its own to say.
 const TEXT_BASE: f32 = 14.;
 
-/// What a node is drawn with beyond itself: the word in its head band, its Start pill and step badge, and the canvas a lane runs to.
+/// What a node is drawn with beyond itself: the outline at its left, its Start pill and step badge, and the canvas a lane runs to.
 struct Face<'a> {
-    kind: &'a str,
+    glyph: Option<glyph::Mark>,
     started: bool,
-    mark: Option<Rect>,
     badge: Option<&'a (Rect, String)>,
     canvas: Rect,
 }
@@ -884,7 +839,7 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
     format!("<g {attrs}>{out}</g>")
 }
 
-/// The Start pill: the accent with its word on it, in a tile's head band or over the top left of a node with none.
+/// The Start pill: the accent with its word on it, above the top left of the node the sketch starts at.
 fn pill_svg(kit: &Kit, pill: Rect) -> String {
     let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(pill.x), n(pill.y));
     let _ = write!(out, r#"<rect width="{}" height="{}" rx="{}" fill="{}"/>"#, n(pill.w), n(pill.h), n(tile::PILL_H / 2.), kit.accent);
@@ -894,14 +849,12 @@ fn pill_svg(kit: &Kit, pill: Rect) -> String {
     out
 }
 
-/// A box or a code block: a raised tile in a hairline, its head band in the node's hue with the glyph and the word for what it
-/// is, then its title and its body as a line of mono, and the step's badge on its top right corner.
+/// A box or a code block: a raised card in a hairline, the outline of what it is at its left, its title and its body as a muted
+/// line of sans (a code block's as mono, with its language at the top right), and the step's badge on its top right corner.
 fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut String) {
     let look = kit.look;
     let (w, h) = (rect.w, rect.h);
     shadow_svg(kit, 0., 0., w, h, out);
-    let color = hue(look, node.color, SceneColor::Grey);
-    let said = css(color);
     let (edge, width) = if face.started { (&kit.accent, tile::FRAME) } else { (&kit.subtle, tile::HAIRLINE) };
     let _ = write!(
         out,
@@ -914,39 +867,45 @@ fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut Str
         kit.raised,
         n(width)
     );
-    let inset = tile::HAIRLINE;
-    let band = css(look.color(token::BG_RAISED).blend(color.opacity(tile::BAND_TINT)));
-    let corners = tile::RADIUS - inset;
-    let _ = write!(out, r#"<path d="{}" fill="{band}"/>"#, round_rect(inset, inset, w - 2. * inset, tile::BAND_H - inset, [corners, corners, 0., 0.]));
-    let up = (tile::BAND_H - LEAD) / 2.;
-    let mut x = tile::BAND_PAD;
+    let measure = kit.measure();
+    let (lead_w, lang_w) = (lead_width(node, Facts { mark: face.glyph }), lang_width(node, &measure));
+    let mut x = tile::PAD_X;
+    let up = (tile::TITLE_LEAD - glyph::SIZE) / 2.;
+    if let Some(mark) = face.glyph {
+        let said = css(glyph_hue(look, node, Some(mark), face.started));
+        let _ = write!(
+            out,
+            r#"<path class="sk-glyph" aria-hidden="true" d="{}" transform="translate({} {})" fill="none" stroke="{said}" stroke-width="{}" stroke-linecap="round" stroke-linejoin="round"/>"#,
+            glyph::path_text(mark),
+            n(x),
+            n(tile::PAD_Y + up),
+            n(glyph::STROKE)
+        );
+        x += glyph::SIZE + tile::GLYPH_GAP;
+    }
     if let Some(icon) = node.icon.as_deref() {
-        kit.icon(out, icon, x, (tile::BAND_H - tile::BAND_ICON) / 2., tile::BAND_ICON, &said);
-        x += tile::BAND_ICON + tile::BAND_GAP;
+        kit.icon(out, icon, x, tile::PAD_Y + up, glyph::SIZE, &kit.muted);
+        x += glyph::SIZE + tile::GLYPH_GAP;
     }
-    let spacing = format!(r#" letter-spacing="{}""#, n(tile::KIND_AT * tile::TRACKING));
-    kit.say(out, x, up, tile::KIND_AT, tile::KIND_WEIGHT, false, &said, "start", face.kind, &spacing);
     if let Some(lang) = node.lang.as_deref() {
-        let lang_w = kit.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true);
-        let stop = face.mark.map_or(w - tile::BAND_PAD - if node.step.is_some() { tile::PILL_CLEAR } else { 0. }, |mark| mark.x - rect.x - tile::BAND_GAP);
-        kit.say(out, stop - lang_w, up, tile::KIND_AT, tile::KIND_WEIGHT, true, &said, "start", lang, r#" fill-opacity="0.8""#);
+        let lang_text_w = kit.width(lang, tile::LANG_AT, tile::KIND_WEIGHT, true);
+        kit.say(out, w - tile::PAD_X - lang_text_w, tile::PAD_Y + (tile::TITLE_LEAD - LEAD) / 2., tile::LANG_AT, tile::KIND_WEIGHT, true, &kit.muted, "start", lang, "");
     }
-    let wrap = w - 2. * tile::BODY_PAD_X;
-    let mut y = tile::BAND_H + tile::BODY_PAD_TOP;
+    let wrap = (w - 2. * tile::PAD_X - lead_w - lang_w).max(1.);
+    let mut y = tile::PAD_Y;
     if let Some(title) = node.title.as_deref().filter(|title| !title.is_empty()) {
         // The picture's fonts stop at 600, and resvg draws a weight between two it has as the lighter.
         let weight = tile::TITLE_WEIGHT.min(600.);
         let lines = kit.wrapped(title, tile::TITLE_AT, weight, false, Some(wrap));
         for (at, line) in lines.iter().enumerate() {
-            kit.say(out, tile::BODY_PAD_X, y + at as f32 * tile::TITLE_LEAD + (tile::TITLE_LEAD - LEAD) / 2., tile::TITLE_AT, weight, false, &kit.fg, "start", line, "");
+            kit.say(out, x, y + at as f32 * tile::TITLE_LEAD + (tile::TITLE_LEAD - LEAD) / 2., tile::TITLE_AT, weight, false, &kit.fg, "start", line, "");
         }
         y += lines.len() as f32 * tile::TITLE_LEAD + tile::BODY_GAP;
     }
-    if let Some(body) = node.body.as_deref() {
-        let fill = if node.kind == SceneKind::Code { &kit.fg } else { &kit.muted };
-        for (at, line) in kit.wrapped(body, tile::BODY_AT, 400., true, Some(wrap)).iter().enumerate() {
-            kit.say(out, tile::BODY_PAD_X, y + at as f32 * tile::BODY_LEAD + (tile::BODY_LEAD - LEAD) / 2., tile::BODY_AT, 400., true, fill, "start", line, "");
-        }
+    let (body_at, body_lead, body_mono) = body_face(node);
+    let fill = if node.kind == SceneKind::Code { &kit.fg } else { &kit.muted };
+    for (at, line) in body_lines(node, &measure, wrap).iter().enumerate() {
+        kit.say(out, x, y + at as f32 * body_lead + (body_lead - LEAD) / 2., body_at, 400., body_mono, fill, "start", line, "");
     }
     if let Some((at, number)) = face.badge {
         let (cx, cy) = (at.x - rect.x + at.w / 2., at.y - rect.y + at.h / 2.);
@@ -968,7 +927,7 @@ fn draw_ground(kit: &Kit, node: &SceneNode, rect: Rect, canvas: Rect, out: &mut 
     }
     let Some(title) = node.title.as_deref() else { return };
     let spacing = format!(r#" letter-spacing="{}""#, n(tile::KIND_AT * tile::TRACKING));
-    kit.say(out, tile::BAND_PAD, tile::BAND_PAD - 2. + (tile::KIND_AT + 4. - LEAD) / 2., tile::KIND_AT, tile::KIND_WEIGHT, false, &kit.muted, "start", &title.to_uppercase(), &spacing);
+    kit.say(out, tile::GROUND_PAD, tile::GROUND_PAD - 2. + (tile::KIND_AT + 4. - LEAD) / 2., tile::KIND_AT, tile::KIND_WEIGHT, false, &kit.muted, "start", &title.to_uppercase(), &spacing);
 }
 
 /// A wireframe block: what a part of a screen is, drawn as grey bars and never as a control.
@@ -1100,7 +1059,7 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
 
     let draw = |index: usize, node: &SceneNode| {
         let mark = laid.marks[index];
-        let face = Face { kind: laid.kinds[index], started: mark.is_some() && tile::is_tile(node), mark, badge: laid.badges[index].as_ref(), canvas: laid.bounds };
+        let face = Face { glyph: laid.glyphs[index], started: mark.is_some() && tile::is_tile(node), badge: laid.badges[index].as_ref(), canvas: laid.bounds };
         // The pill stands outside the node's group, so a step that stands the node back leaves it be.
         let mut out = node_svg(&kit, node, laid.rects[index], trees[index].as_ref(), &sheets[index], mode, &face);
         if let Some(mark) = mark {
@@ -1944,5 +1903,33 @@ mod tests {
     #[test]
     fn a_png_of_something_that_is_not_an_svg_is_a_sentence() {
         assert_eq!(png("not a picture"), Err("The sketch did not draw as an image.".to_string()));
+    }
+
+    #[gpui::test]
+    fn the_picture_draws_each_kind_as_its_own_outline_with_no_band_and_no_kind_word(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let text = r#"{"nodes":[
+            {"id":"a","kind":"box","shape":"pill","x":0,"y":0,"title":"Begin","body":"Where it starts."},
+            {"id":"b","kind":"box","x":300,"y":0,"title":"Do it","body":"One step."},
+            {"id":"c","kind":"box","shape":"diamond","x":600,"y":0,"title":"Choose","body":"Which way."},
+            {"id":"d","kind":"box","shape":"cylinder","x":0,"y":200,"title":"Keep","body":"A store."},
+            {"id":"e","kind":"box","shape":"hexagon","x":300,"y":200,"title":"Work","body":"A process."},
+            {"id":"f","kind":"code","x":600,"y":200,"lang":"rs","title":"Code","body":"let x = 1;"}],
+            "edges":[{"id":"e1","from":"a","to":"b"}]}"#;
+        let raw: ipc::RawScene = serde_json::from_str(text).expect("a raw scene");
+        let drawn = raw.scene().expect("it reads");
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let svg = cx.update(|window, cx| svg(&SharedString::from("kinds"), &drawn, window, cx));
+        let outlines: Vec<&str> = svg.split(r#"class="sk-glyph""#).skip(1).filter_map(|rest| rest.split(r#" d=""#).nth(1)?.split('"').next()).collect();
+        assert_eq!(outlines.len(), 5, "a pill, a step, a decision, a store and a process draw an outline, and the code does not");
+        let distinct: HashSet<&&str> = outlines.iter().collect();
+        assert_eq!(distinct.len(), 5, "each kind draws its own outline: {outlines:?}");
+        for word in ["STEP", "DECIDE", "STORE", "PROCESS", "END", "CODE"] {
+            assert!(!svg.contains(&format!(">{word}<")), "{word} is not written in the picture");
+        }
+        assert!(svg.contains(">rs<"), "a block of code names its language");
     }
 }

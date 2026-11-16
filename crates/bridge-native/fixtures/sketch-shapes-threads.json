@@ -113,372 +113,120 @@
      ]
     },
     "sketch": {
-     "id": "sk-kinds",
+     "id": "sk-shapes",
      "at": "2026-11-10T22:00:41Z",
-     "sketch": "sketch:Arrow kinds",
-     "title": "Arrow kinds",
+     "sketch": "sketch:Version checks",
+     "title": "Version checks",
      "drawing": {
       "nodes": [
        {
-        "id": "k00a",
+        "id": "start",
         "kind": "box",
-        "x": 0,
+        "x": 300,
         "y": 0,
-        "w": 130,
-        "title": "Solid",
-        "shape": "pill",
-        "color": "teal"
+        "w": 220,
+        "title": "New version",
+        "body": "A loan product gets a new version.",
+        "shape": "pill"
        },
        {
-        "id": "k00b",
-        "kind": "box",
-        "x": 260,
-        "y": 0,
-        "w": 130,
-        "title": "To solid",
-        "shape": "pill",
-        "color": "teal"
-       },
-       {
-        "id": "k01a",
+        "id": "n1",
         "kind": "box",
         "x": 0,
-        "y": 125,
-        "w": 130,
-        "title": "Dashed",
-        "shape": "pill",
+        "y": 140,
+        "w": 220,
+        "title": "1. Configuration check",
+        "body": "The new version's settings are read and checked.",
         "color": "teal"
        },
        {
-        "id": "k01b",
+        "id": "n2",
         "kind": "box",
         "x": 260,
-        "y": 125,
-        "w": 130,
-        "title": "To dashed",
-        "shape": "pill",
-        "color": "teal"
-       },
-       {
-        "id": "k02a",
-        "kind": "box",
-        "x": 0,
-        "y": 250,
-        "w": 130,
-        "title": "Dotted",
-        "shape": "pill",
-        "color": "teal"
-       },
-       {
-        "id": "k02b",
-        "kind": "box",
-        "x": 260,
-        "y": 250,
-        "w": 130,
-        "title": "To dotted",
-        "shape": "pill",
-        "color": "teal"
-       },
-       {
-        "id": "k03a",
-        "kind": "box",
-        "x": 0,
-        "y": 375,
-        "w": 130,
-        "title": "Elbow",
-        "shape": "pill",
+        "y": 140,
+        "w": 220,
+        "title": "2. 50 loans still price",
+        "body": "Fifty sample loans are priced against the new version.",
         "color": "blue"
        },
        {
-        "id": "k03b",
+        "id": "n3",
         "kind": "box",
-        "x": 260,
-        "y": 445,
-        "w": 130,
-        "title": "To elbow",
-        "shape": "pill",
-        "color": "blue"
+        "x": 520,
+        "y": 140,
+        "w": 220,
+        "title": "3. 20 guardrail loans",
+        "body": "Twenty loans that must never change are priced.",
+        "color": "orange"
        },
        {
-        "id": "k04a",
+        "id": "off",
         "kind": "box",
-        "x": 0,
-        "y": 500,
-        "w": 130,
-        "title": "Straight",
-        "shape": "pill",
-        "color": "blue"
+        "x": 130,
+        "y": 290,
+        "w": 220,
+        "title": "Blocking OFF (now)",
+        "body": "A failed check only warns; the version still ships."
        },
        {
-        "id": "k04b",
+        "id": "on",
         "kind": "box",
-        "x": 260,
-        "y": 570,
-        "w": 130,
-        "title": "To straight",
-        "shape": "pill",
-        "color": "blue"
-       },
-       {
-        "id": "k05a",
-        "kind": "box",
-        "x": 0,
-        "y": 625,
-        "w": 130,
-        "title": "Curve",
-        "shape": "pill",
-        "color": "blue"
-       },
-       {
-        "id": "k05b",
-        "kind": "box",
-        "x": 260,
-        "y": 695,
-        "w": 130,
-        "title": "To curve",
-        "shape": "pill",
-        "color": "blue"
-       },
-       {
-        "id": "k10a",
-        "kind": "box",
-        "x": 470,
-        "y": 0,
-        "w": 130,
-        "title": "Head at end",
-        "shape": "pill",
+        "x": 390,
+        "y": 290,
+        "w": 220,
+        "title": "Blocking ON (later)",
+        "body": "A failed check stops the version from shipping.",
         "color": "amber"
-       },
-       {
-        "id": "k10b",
-        "kind": "box",
-        "x": 730,
-        "y": 0,
-        "w": 130,
-        "title": "To end head",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k11a",
-        "kind": "box",
-        "x": 470,
-        "y": 125,
-        "w": 130,
-        "title": "Head at start",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k11b",
-        "kind": "box",
-        "x": 730,
-        "y": 125,
-        "w": 130,
-        "title": "To start head",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k12a",
-        "kind": "box",
-        "x": 470,
-        "y": 250,
-        "w": 130,
-        "title": "Head both",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k12b",
-        "kind": "box",
-        "x": 730,
-        "y": 250,
-        "w": 130,
-        "title": "To both head",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k13a",
-        "kind": "box",
-        "x": 470,
-        "y": 375,
-        "w": 130,
-        "title": "No head",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k13b",
-        "kind": "box",
-        "x": 730,
-        "y": 375,
-        "w": 130,
-        "title": "To no head",
-        "shape": "pill",
-        "color": "amber"
-       },
-       {
-        "id": "k14a",
-        "kind": "box",
-        "x": 470,
-        "y": 500,
-        "w": 130,
-        "title": "Dotted both curve",
-        "shape": "pill",
-        "color": "green"
-       },
-       {
-        "id": "k14b",
-        "kind": "box",
-        "x": 730,
-        "y": 570,
-        "w": 130,
-        "title": "To dotted both curve",
-        "shape": "pill",
-        "color": "green"
-       },
-       {
-        "id": "k15a",
-        "kind": "box",
-        "x": 470,
-        "y": 625,
-        "w": 130,
-        "title": "Dashed start straight",
-        "shape": "pill",
-        "color": "green"
-       },
-       {
-        "id": "k15b",
-        "kind": "box",
-        "x": 730,
-        "y": 695,
-        "w": 130,
-        "title": "To dashed start straight",
-        "shape": "pill",
-        "color": "green"
        }
       ],
       "edges": [
        {
-        "id": "e00",
-        "from": "k00a",
-        "to": "k00b",
-        "label": "solid",
-        "step": 1,
-        "color": "teal",
-        "line": "solid"
+        "id": "s1",
+        "from": "start",
+        "to": "n1"
        },
        {
-        "id": "e01",
-        "from": "k01a",
-        "to": "k01b",
-        "label": "dashed",
-        "step": 1,
-        "color": "teal",
+        "id": "s2",
+        "from": "start",
+        "to": "n2"
+       },
+       {
+        "id": "s3",
+        "from": "start",
+        "to": "n3"
+       },
+       {
+        "id": "a1",
+        "from": "n1",
+        "to": "off"
+       },
+       {
+        "id": "a2",
+        "from": "n1",
+        "to": "on"
+       },
+       {
+        "id": "b1",
+        "from": "n2",
+        "to": "off"
+       },
+       {
+        "id": "b2",
+        "from": "n2",
+        "to": "on"
+       },
+       {
+        "id": "c1",
+        "from": "n3",
+        "to": "on",
         "line": "dashed"
        },
        {
-        "id": "e02",
-        "from": "k02a",
-        "to": "k02b",
-        "label": "dotted",
-        "step": 1,
-        "color": "teal",
-        "line": "dotted"
-       },
-       {
-        "id": "e03",
-        "from": "k03a",
-        "to": "k03b",
-        "label": "elbow",
-        "step": 2,
-        "color": "blue",
-        "line": "solid",
-        "path": "elbow"
-       },
-       {
-        "id": "e04",
-        "from": "k04a",
-        "to": "k04b",
-        "label": "straight",
-        "step": 2,
-        "color": "blue",
-        "line": "solid",
-        "path": "straight"
-       },
-       {
-        "id": "e05",
-        "from": "k05a",
-        "to": "k05b",
-        "label": "curve",
-        "step": 2,
-        "color": "blue",
-        "line": "solid",
-        "path": "curve"
-       },
-       {
-        "id": "e10",
-        "from": "k10a",
-        "to": "k10b",
-        "label": "end",
-        "step": 3,
-        "color": "amber",
-        "line": "solid",
-        "head": "end"
-       },
-       {
-        "id": "e11",
-        "from": "k11a",
-        "to": "k11b",
-        "label": "start",
-        "step": 3,
-        "color": "amber",
-        "line": "solid",
-        "head": "start"
-       },
-       {
-        "id": "e12",
-        "from": "k12a",
-        "to": "k12b",
-        "label": "both",
-        "step": 3,
-        "color": "amber",
-        "line": "solid",
-        "head": "both"
-       },
-       {
-        "id": "e13",
-        "from": "k13a",
-        "to": "k13b",
-        "label": "none",
-        "step": 3,
-        "color": "amber",
-        "line": "solid",
-        "head": "none"
-       },
-       {
-        "id": "e14",
-        "from": "k14a",
-        "to": "k14b",
-        "label": "dotted, both, curve",
-        "step": 4,
-        "color": "green",
+        "id": "c2",
+        "from": "n3",
+        "to": "off",
         "line": "dotted",
-        "head": "both",
-        "path": "curve"
-       },
-       {
-        "id": "e15",
-        "from": "k15a",
-        "to": "k15b",
-        "label": "dashed, start, straight",
-        "step": 4,
-        "color": "green",
-        "line": "dashed",
-        "head": "start",
-        "path": "straight"
+        "label": "alert only"
        }
       ],
       "strokes": []
@@ -487,365 +235,113 @@
       {
        "nodes": [
         {
-         "id": "k00a",
+         "id": "start",
          "kind": "box",
-         "x": 0,
+         "x": 300,
          "y": 0,
-         "w": 130,
-         "title": "Solid",
-         "shape": "pill",
-         "color": "teal"
+         "w": 220,
+         "title": "New version",
+         "body": "A loan product gets a new version.",
+         "shape": "pill"
         },
         {
-         "id": "k00b",
-         "kind": "box",
-         "x": 260,
-         "y": 0,
-         "w": 130,
-         "title": "To solid",
-         "shape": "pill",
-         "color": "teal"
-        },
-        {
-         "id": "k01a",
+         "id": "n1",
          "kind": "box",
          "x": 0,
-         "y": 125,
-         "w": 130,
-         "title": "Dashed",
-         "shape": "pill",
+         "y": 140,
+         "w": 220,
+         "title": "1. Configuration check",
+         "body": "The new version's settings are read and checked.",
          "color": "teal"
         },
         {
-         "id": "k01b",
+         "id": "n2",
          "kind": "box",
          "x": 260,
-         "y": 125,
-         "w": 130,
-         "title": "To dashed",
-         "shape": "pill",
-         "color": "teal"
-        },
-        {
-         "id": "k02a",
-         "kind": "box",
-         "x": 0,
-         "y": 250,
-         "w": 130,
-         "title": "Dotted",
-         "shape": "pill",
-         "color": "teal"
-        },
-        {
-         "id": "k02b",
-         "kind": "box",
-         "x": 260,
-         "y": 250,
-         "w": 130,
-         "title": "To dotted",
-         "shape": "pill",
-         "color": "teal"
-        },
-        {
-         "id": "k03a",
-         "kind": "box",
-         "x": 0,
-         "y": 375,
-         "w": 130,
-         "title": "Elbow",
-         "shape": "pill",
+         "y": 140,
+         "w": 220,
+         "title": "2. 50 loans still price",
+         "body": "Fifty sample loans are priced against the new version.",
          "color": "blue"
         },
         {
-         "id": "k03b",
+         "id": "n3",
          "kind": "box",
-         "x": 260,
-         "y": 445,
-         "w": 130,
-         "title": "To elbow",
-         "shape": "pill",
-         "color": "blue"
+         "x": 520,
+         "y": 140,
+         "w": 220,
+         "title": "3. 20 guardrail loans",
+         "body": "Twenty loans that must never change are priced.",
+         "color": "orange"
         },
         {
-         "id": "k04a",
+         "id": "off",
          "kind": "box",
-         "x": 0,
-         "y": 500,
-         "w": 130,
-         "title": "Straight",
-         "shape": "pill",
-         "color": "blue"
+         "x": 130,
+         "y": 290,
+         "w": 220,
+         "title": "Blocking OFF (now)",
+         "body": "A failed check only warns; the version still ships."
         },
         {
-         "id": "k04b",
+         "id": "on",
          "kind": "box",
-         "x": 260,
-         "y": 570,
-         "w": 130,
-         "title": "To straight",
-         "shape": "pill",
-         "color": "blue"
-        },
-        {
-         "id": "k05a",
-         "kind": "box",
-         "x": 0,
-         "y": 625,
-         "w": 130,
-         "title": "Curve",
-         "shape": "pill",
-         "color": "blue"
-        },
-        {
-         "id": "k05b",
-         "kind": "box",
-         "x": 260,
-         "y": 695,
-         "w": 130,
-         "title": "To curve",
-         "shape": "pill",
-         "color": "blue"
-        },
-        {
-         "id": "k10a",
-         "kind": "box",
-         "x": 470,
-         "y": 0,
-         "w": 130,
-         "title": "Head at end",
-         "shape": "pill",
+         "x": 390,
+         "y": 290,
+         "w": 220,
+         "title": "Blocking ON (later)",
+         "body": "A failed check stops the version from shipping.",
          "color": "amber"
-        },
-        {
-         "id": "k10b",
-         "kind": "box",
-         "x": 730,
-         "y": 0,
-         "w": 130,
-         "title": "To end head",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k11a",
-         "kind": "box",
-         "x": 470,
-         "y": 125,
-         "w": 130,
-         "title": "Head at start",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k11b",
-         "kind": "box",
-         "x": 730,
-         "y": 125,
-         "w": 130,
-         "title": "To start head",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k12a",
-         "kind": "box",
-         "x": 470,
-         "y": 250,
-         "w": 130,
-         "title": "Head both",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k12b",
-         "kind": "box",
-         "x": 730,
-         "y": 250,
-         "w": 130,
-         "title": "To both head",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k13a",
-         "kind": "box",
-         "x": 470,
-         "y": 375,
-         "w": 130,
-         "title": "No head",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k13b",
-         "kind": "box",
-         "x": 730,
-         "y": 375,
-         "w": 130,
-         "title": "To no head",
-         "shape": "pill",
-         "color": "amber"
-        },
-        {
-         "id": "k14a",
-         "kind": "box",
-         "x": 470,
-         "y": 500,
-         "w": 130,
-         "title": "Dotted both curve",
-         "shape": "pill",
-         "color": "green"
-        },
-        {
-         "id": "k14b",
-         "kind": "box",
-         "x": 730,
-         "y": 570,
-         "w": 130,
-         "title": "To dotted both curve",
-         "shape": "pill",
-         "color": "green"
-        },
-        {
-         "id": "k15a",
-         "kind": "box",
-         "x": 470,
-         "y": 625,
-         "w": 130,
-         "title": "Dashed start straight",
-         "shape": "pill",
-         "color": "green"
-        },
-        {
-         "id": "k15b",
-         "kind": "box",
-         "x": 730,
-         "y": 695,
-         "w": 130,
-         "title": "To dashed start straight",
-         "shape": "pill",
-         "color": "green"
         }
        ],
        "edges": [
         {
-         "id": "e00",
-         "from": "k00a",
-         "to": "k00b",
-         "label": "solid",
-         "step": 1,
-         "color": "teal",
-         "line": "solid"
+         "id": "s1",
+         "from": "start",
+         "to": "n1"
         },
         {
-         "id": "e01",
-         "from": "k01a",
-         "to": "k01b",
-         "label": "dashed",
-         "step": 1,
-         "color": "teal",
+         "id": "s2",
+         "from": "start",
+         "to": "n2"
+        },
+        {
+         "id": "s3",
+         "from": "start",
+         "to": "n3"
+        },
+        {
+         "id": "a1",
+         "from": "n1",
+         "to": "off"
+        },
+        {
+         "id": "a2",
+         "from": "n1",
+         "to": "on"
+        },
+        {
+         "id": "b1",
+         "from": "n2",
+         "to": "off"
+        },
+        {
+         "id": "b2",
+         "from": "n2",
+         "to": "on"
+        },
+        {
+         "id": "c1",
+         "from": "n3",
+         "to": "on",
          "line": "dashed"
         },
         {
-         "id": "e02",
-         "from": "k02a",
-         "to": "k02b",
-         "label": "dotted",
-         "step": 1,
-         "color": "teal",
-         "line": "dotted"
-        },
-        {
-         "id": "e03",
-         "from": "k03a",
-         "to": "k03b",
-         "label": "elbow",
-         "step": 2,
-         "color": "blue",
-         "line": "solid",
-         "path": "elbow"
-        },
-        {
-         "id": "e04",
-         "from": "k04a",
-         "to": "k04b",
-         "label": "straight",
-         "step": 2,
-         "color": "blue",
-         "line": "solid",
-         "path": "straight"
-        },
-        {
-         "id": "e05",
-         "from": "k05a",
-         "to": "k05b",
-         "label": "curve",
-         "step": 2,
-         "color": "blue",
-         "line": "solid",
-         "path": "curve"
-        },
-        {
-         "id": "e10",
-         "from": "k10a",
-         "to": "k10b",
-         "label": "end",
-         "step": 3,
-         "color": "amber",
-         "line": "solid",
-         "head": "end"
-        },
-        {
-         "id": "e11",
-         "from": "k11a",
-         "to": "k11b",
-         "label": "start",
-         "step": 3,
-         "color": "amber",
-         "line": "solid",
-         "head": "start"
-        },
-        {
-         "id": "e12",
-         "from": "k12a",
-         "to": "k12b",
-         "label": "both",
-         "step": 3,
-         "color": "amber",
-         "line": "solid",
-         "head": "both"
-        },
-        {
-         "id": "e13",
-         "from": "k13a",
-         "to": "k13b",
-         "label": "none",
-         "step": 3,
-         "color": "amber",
-         "line": "solid",
-         "head": "none"
-        },
-        {
-         "id": "e14",
-         "from": "k14a",
-         "to": "k14b",
-         "label": "dotted, both, curve",
-         "step": 4,
-         "color": "green",
+         "id": "c2",
+         "from": "n3",
+         "to": "off",
          "line": "dotted",
-         "head": "both",
-         "path": "curve"
-        },
-        {
-         "id": "e15",
-         "from": "k15a",
-         "to": "k15b",
-         "label": "dashed, start, straight",
-         "step": 4,
-         "color": "green",
-         "line": "dashed",
-         "head": "start",
-         "path": "straight"
+         "label": "alert only"
         }
        ],
        "strokes": []

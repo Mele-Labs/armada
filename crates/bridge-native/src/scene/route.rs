@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use ipc::ScenePath;
 
+use super::arrows::Pattern;
 use super::geometry::{Pt, Rect};
 
 #[allow(dead_code)]
@@ -107,8 +108,9 @@ fn side_at(r: Rect, p: Pt) -> Side {
 fn lanes(near: &[Rect], from: Rect, to: Rect, gap: f32, stub: f32, horizontal: bool) -> Vec<f32> {
     let key = |r: &Rect| if horizontal { r.x } else { r.y };
     let size = |r: &Rect| if horizontal { r.w } else { r.h };
-    let lo = key(&from).min(key(&to)) - gap * 2.0;
-    let hi = (key(&from) + size(&from)).max(key(&to) + size(&to)) + gap * 2.0;
+    // Far enough out to find a way round the boxes either side of a gap the way would otherwise run down.
+    let lo = key(&from).min(key(&to)) - gap * 8.0;
+    let hi = (key(&from) + size(&from)).max(key(&to) + size(&to)) + gap * 8.0;
     let mut found: Vec<f32> = Vec::new();
     for one in near {
         for lane in [key(one) - stub, key(one) + size(one) + stub] {
@@ -124,6 +126,10 @@ fn lanes(near: &[Rect], from: Rect, to: Rect, gap: f32, stub: f32, horizontal: b
 /// cross; its own two are kept out of everything but the first and last runs.
 /// **`need` is how far the way should run straight from each end**, which a head there asks for: a way that
 /// cannot give it, because a box is in the road, keeps the short run it had.
+///
+/// The way is the calmest that gets there: it leaves the side that faces its target, has at most two bends where a way with
+/// so few exists, passes no box it does not join nearer than `CLEAR`, does not run down the gap between two boxes side by
+/// side, and keeps `PARALLEL` from the runs of the ways in `traffic` that it does not share a trunk with.
 #[allow(dead_code)]
 pub(crate) fn route(
     from: Rect,
@@ -132,12 +138,15 @@ pub(crate) fn route(
     gap: f32,
     ends: Option<&Ends>,
     need: (f32, f32),
+    traffic: Traffic<'_>,
 ) -> Vec<Pt> {
     let stub = gap / 2.0;
     let mut near = vec![from, to];
     near.extend_from_slice(others);
     let xs = lanes(&near, from, to, gap, stub, true);
     let ys = lanes(&near, from, to, gap, stub, false);
+    let channels = channels(&near, gap * 4.0);
+    let facing_pair = facing(from, to);
 
     let outs: Vec<Side> = match ends {
         Some(ends) => vec![ends.out],
@@ -176,30 +185,23 @@ pub(crate) fn route(
                     x: end.x + out_of(into).x * lead.1,
                     y: end.y + out_of(into).y * lead.1,
                 };
-                let mut middles: Vec<Vec<Pt>> = vec![
-                    vec![Pt { x: b.x, y: a.y }],
-                    vec![Pt { x: a.x, y: b.y }],
-                    vec![
-                        Pt {
-                            x: (a.x + b.x) / 2.0,
-                            y: a.y,
-                        },
-                        Pt {
-                            x: (a.x + b.x) / 2.0,
-                            y: b.y,
-                        },
-                    ],
-                    vec![
-                        Pt {
-                            x: a.x,
-                            y: (a.y + b.y) / 2.0,
-                        },
-                        Pt {
-                            x: b.x,
-                            y: (a.y + b.y) / 2.0,
-                        },
-                    ],
-                ];
+                // Through the middle first, then just off it either side, so ways that would run along each other take a lane
+                // of their own; then a lane an earlier way of this trunk runs in, then a turn in one corner.
+                let (mid_x, mid_y) = ((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
+                let mut middles: Vec<Vec<Pt>> = Vec::new();
+                for step in LANE_STEPS {
+                    middles.push(vec![Pt { x: a.x, y: mid_y + step * PARALLEL }, Pt { x: b.x, y: mid_y + step * PARALLEL }]);
+                    middles.push(vec![Pt { x: mid_x + step * PARALLEL, y: a.y }, Pt { x: mid_x + step * PARALLEL, y: b.y }]);
+                }
+                for run in traffic.runs.iter().filter(|run| run.group == traffic.group) {
+                    if run.a.y == run.b.y {
+                        middles.push(vec![Pt { x: a.x, y: run.a.y }, Pt { x: b.x, y: run.a.y }]);
+                    } else if run.a.x == run.b.x {
+                        middles.push(vec![Pt { x: run.a.x, y: a.y }, Pt { x: run.a.x, y: b.y }]);
+                    }
+                }
+                middles.push(vec![Pt { x: b.x, y: a.y }]);
+                middles.push(vec![Pt { x: a.x, y: b.y }]);
                 for &x in &xs {
                     middles.push(vec![Pt { x, y: a.y }, Pt { x, y: b.y }]);
                 }
@@ -221,15 +223,25 @@ pub(crate) fn route(
                     } else {
                         0.0
                     };
+                    if ends.is_none() && (out, into) != facing_pair {
+                        cost += OFF_FACING;
+                    }
+                    cost += TOO_MANY_BENDS * points.len().saturating_sub(4) as f32;
                     let mut at = 1;
                     while at < points.len() && cost < best_cost {
                         let p = points[at - 1];
                         let q = points[at];
-                        cost += (q.x - p.x).abs() + (q.y - p.y).abs() + 24.0;
+                        cost += (q.x - p.x).abs() + (q.y - p.y).abs() + BEND;
                         for &one in others {
-                            if cuts(p, q, one) {
+                            if cuts(p, q, grown(one, CLEAR)) {
                                 cost += 100_000.0;
                             }
+                        }
+                        if p.x == q.x && channels.iter().any(|channel| channel.runs_down(p.x, p.y.min(q.y), p.y.max(q.y))) {
+                            cost += SQUEEZE;
+                        }
+                        if traffic.runs.iter().any(|run| crowded(p, q, run, traffic.group)) {
+                            cost += CROWDED;
                         }
                         let inner = at > 1 && at < points.len() - 1;
                         if inner && (cuts(p, q, from) || cuts(p, q, to)) {
@@ -257,6 +269,88 @@ pub(crate) fn route(
 
 /// What each unit a run falls short of what its head wants costs: less than going round a box, more than a bend.
 const SHORT_RUN: f32 = 2.0;
+/// What each run of a way costs beyond its length, so a way with fewer bends wins over a way no longer.
+const BEND: f32 = 60.0;
+/// What each bend past the second costs: more than any detour, less than cutting through a box.
+const TOO_MANY_BENDS: f32 = 20_000.0;
+/// What leaving by a side that does not face the target costs: more than a bend, so a way takes the facing sides when it can.
+const OFF_FACING: f32 = 400.0;
+/// How near a way may pass a box it does not join, and the room parallel runs keep from each other.
+const CLEAR: f32 = 8.0;
+pub(crate) const PARALLEL: f32 = 12.0;
+/// What running down the gap between two boxes side by side costs, and running along another way's run.
+const SQUEEZE: f32 = 8_000.0;
+const CROWDED: f32 = 4_000.0;
+/// The lanes a run is tried in, in `PARALLEL` steps from the middle of the road: the middle, then either side of it.
+const LANE_STEPS: [f32; 9] = [0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0];
+
+/// A run of a way already laid, and the trunk it belongs to: ways of one trunk may share a run.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Run {
+    pub a: Pt,
+    pub b: Pt,
+    pub group: usize,
+}
+
+/// The ways laid before this one, and the trunk this one belongs to.
+#[derive(Clone, Copy)]
+pub(crate) struct Traffic<'a> {
+    pub runs: &'a [Run],
+    pub group: usize,
+}
+
+impl Traffic<'_> {
+    pub(crate) const NONE: Traffic<'static> = Traffic { runs: &[], group: 0 };
+}
+
+fn grown(r: Rect, by: f32) -> Rect {
+    Rect { x: r.x - by, y: r.y - by, w: r.w + 2.0 * by, h: r.h + 2.0 * by }
+}
+
+/// Whether the run `p` to `q` runs along `run` closer than `PARALLEL` for any length, and is not the same lane of one trunk.
+fn crowded(p: Pt, q: Pt, run: &Run, group: usize) -> bool {
+    let along = |lo: f32, hi: f32, other_lo: f32, other_hi: f32| hi.min(other_hi) - lo.max(other_lo) > 1.0;
+    if p.y == q.y && run.a.y == run.b.y {
+        let apart = (p.y - run.a.y).abs();
+        return apart < PARALLEL - 0.01 && !(apart < 0.5 && run.group == group) && along(p.x.min(q.x), p.x.max(q.x), run.a.x.min(run.b.x), run.a.x.max(run.b.x));
+    }
+    if p.x == q.x && run.a.x == run.b.x {
+        let apart = (p.x - run.a.x).abs();
+        return apart < PARALLEL - 0.01 && !(apart < 0.5 && run.group == group) && along(p.y.min(q.y), p.y.max(q.y), run.a.y.min(run.b.y), run.a.y.max(run.b.y));
+    }
+    false
+}
+
+/// The gap between two boxes side by side: its x, and the y they share.
+#[derive(Clone, Copy, Debug)]
+struct Channel {
+    x0: f32,
+    x1: f32,
+    y0: f32,
+    y1: f32,
+}
+
+impl Channel {
+    /// Whether a run down at `x` from `y0` to `y1` goes along the gap, past both boxes.
+    fn runs_down(&self, x: f32, from: f32, to: f32) -> bool {
+        x > self.x0 && x < self.x1 && to.min(self.y1) - from.max(self.y0) > 4.0
+    }
+}
+
+/// The gaps between boxes side by side that are no wider than `widest`.
+fn channels(boxes: &[Rect], widest: f32) -> Vec<Channel> {
+    let mut found = Vec::new();
+    for a in boxes {
+        for b in boxes {
+            let (x0, x1) = (a.x + a.w, b.x);
+            let (y0, y1) = (a.y.max(b.y), (a.y + a.h).min(b.y + b.h));
+            if x1 > x0 && x1 - x0 <= widest && y1 - y0 > 4.0 {
+                found.push(Channel { x0, x1, y0, y1 });
+            }
+        }
+    }
+    found
+}
 
 /// One command of a drawn way: a move, a run, a rounded corner as its control point and its end, a curve as its two
 /// control points and its end, or a hop over another arrow as its end, its radius and which side it bulges to.
@@ -591,6 +685,8 @@ pub(crate) struct RouteEdge<'a> {
     pub to: &'a str,
     pub path: ScenePath,
     pub heads: (bool, bool),
+    /// How the line is laid down: ways of one pattern out of one side of a box share a trunk, and others take a place of their own.
+    pub pattern: Pattern,
 }
 
 /// The corners of an arrowhead whose tip is `at`, `len` long and `half` either side of its axis, pointing away from `from`.
@@ -635,16 +731,27 @@ fn straight_sides(from: Rect, to: Rect) -> (Side, Side) {
     best.unwrap_or_else(|| facing(from, to))
 }
 
-/// The sides of two boxes that face each other: across where they are further apart than down, else down.
+/// The sides of two boxes that face each other. A target wholly below or above faces down or up, unless it is far more across
+/// than it is down; one wholly beside faces across; boxes that overlap both ways go by which way they are further apart.
 fn facing(from: Rect, to: Rect) -> (Side, Side) {
+    let across_gap = (to.x - (from.x + from.w)).max(from.x - (to.x + to.w));
+    let down_gap = (to.y - (from.y + from.h)).max(from.y - (to.y + to.h));
     let across = (to.x + to.w / 2.0) - (from.x + from.w / 2.0);
     let down = (to.y + to.h / 2.0) - (from.y + from.h / 2.0);
-    if across.abs() / ((from.w + to.w) / 2.0).max(1.0) >= down.abs() / ((from.h + to.h) / 2.0).max(1.0) {
-        if across >= 0.0 { (Side::Right, Side::Left) } else { (Side::Left, Side::Right) }
-    } else if down >= 0.0 {
-        (Side::Bottom, Side::Top)
+    let vertical = if across_gap > 0.0 && down_gap > 0.0 {
+        across_gap <= 3.5 * down_gap
+    } else if down_gap > 0.0 {
+        true
+    } else if across_gap > 0.0 {
+        false
     } else {
-        (Side::Top, Side::Bottom)
+        across.abs() / ((from.w + to.w) / 2.0).max(1.0) < down.abs() / ((from.h + to.h) / 2.0).max(1.0)
+    };
+    match (vertical, if vertical { down >= 0.0 } else { across >= 0.0 }) {
+        (true, true) => (Side::Bottom, Side::Top),
+        (true, false) => (Side::Top, Side::Bottom),
+        (false, true) => (Side::Right, Side::Left),
+        (false, false) => (Side::Left, Side::Right),
     }
 }
 
@@ -726,7 +833,7 @@ pub(crate) fn route_all(
                 let (out, into) = straight_sides(*from, *to);
                 vec![side_of(*from, out), side_of(*to, into)]
             }
-            _ => route(*from, *to, &others_of(edge), gap, None, need(edge, radius)),
+            _ => route(*from, *to, &others_of(edge), gap, None, need(edge, radius), Traffic::NONE),
         })
         .collect();
 
@@ -763,6 +870,9 @@ pub(crate) fn route_all(
             end: Pt::default(),
         })
         .collect();
+    // The trunk each way belongs to: a number shared by the ways that go out together, else its own.
+    let mut trunk_of: Vec<usize> = (0..joined.len()).map(|k| usize::MAX - k).collect();
+    let mut next_trunk = 0;
     for (box_id, ends) in &mut by_side {
         let r = rect_of.get(*box_id).copied().unwrap_or_default();
         ends.sort_by(|a, b| {
@@ -770,32 +880,51 @@ pub(crate) fn route_all(
                 .partial_cmp(&b.along)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        let count = ends.len();
-        for (k, one) in ends.iter().enumerate() {
-            // A rounded or pointed outline meets its frame only at each side's middle, so its arrows are not spread.
-            let share = if pointed_ids.contains(*box_id) {
-                0.5
-            } else {
-                (k + 1) as f32 / (count + 1) as f32
-            };
-            let point = if one.side == Side::Left || one.side == Side::Right {
-                Pt {
-                    x: if one.side == Side::Left { r.x } else { r.x + r.w },
-                    y: r.y + r.h * share,
+        // Ways of one pattern that leave by one side as elbows share a place on it, which is their trunk: they go out together and
+        // fan out beyond. Every other end has a place of its own, spread along the side in the order of the boxes at the far ends.
+        let mut places: Vec<Vec<&End>> = Vec::new();
+        for one in ends.iter() {
+            let trunk = one.start && joined[one.edge].0.path == ScenePath::Elbow;
+            let shared = trunk.then(|| places.iter().position(|held| held.iter().all(|other| other.start && joined[other.edge].0.path == ScenePath::Elbow && joined[other.edge].0.pattern == joined[one.edge].0.pattern))).flatten();
+            match shared {
+                Some(at) => places[at].push(one),
+                None => places.push(vec![one]),
+            }
+        }
+        let count = places.len();
+        for (k, place) in places.iter().enumerate() {
+            if place.len() > 1 {
+                next_trunk += 1;
+                for one in place {
+                    trunk_of[one.edge] = next_trunk;
                 }
-            } else {
-                Pt {
-                    x: r.x + r.w * share,
-                    y: if one.side == Side::Top { r.y } else { r.y + r.h },
+            }
+            for one in place {
+                // A rounded or pointed outline meets its frame only at each side's middle, so its arrows are not spread.
+                let share = if pointed_ids.contains(*box_id) {
+                    0.5
+                } else {
+                    (k + 1) as f32 / (count + 1) as f32
+                };
+                let point = if one.side == Side::Left || one.side == Side::Right {
+                    Pt {
+                        x: if one.side == Side::Left { r.x } else { r.x + r.w },
+                        y: r.y + r.h * share,
+                    }
+                } else {
+                    Pt {
+                        x: r.x + r.w * share,
+                        y: if one.side == Side::Top { r.y } else { r.y + r.h },
+                    }
+                };
+                let held = &mut moved[one.edge];
+                if one.start {
+                    held.out = one.side;
+                    held.start = point;
+                } else {
+                    held.into = one.side;
+                    held.end = point;
                 }
-            };
-            let held = &mut moved[one.edge];
-            if one.start {
-                held.out = one.side;
-                held.start = point;
-            } else {
-                held.into = one.side;
-                held.end = point;
             }
         }
     }
@@ -830,12 +959,18 @@ pub(crate) fn route_all(
             }
         }
     }
+    // Each way in turn, keeping clear of the runs the ones before it laid down.
+    let mut runs: Vec<Run> = Vec::new();
     joined
         .iter()
         .enumerate()
         .map(|(k, (edge, from, to))| {
             let ways = match edge.path {
-                ScenePath::Elbow => rounded_path(&route(*from, *to, &others_of(edge), gap, Some(&moved[k]), need(edge, radius)), radius),
+                ScenePath::Elbow => {
+                    let points = route(*from, *to, &others_of(edge), gap, Some(&moved[k]), need(edge, radius), Traffic { runs: &runs, group: trunk_of[k] });
+                    runs.extend(points.windows(2).map(|pair| Run { a: pair[0], b: pair[1], group: trunk_of[k] }));
+                    rounded_path(&points, radius)
+                }
                 ScenePath::Straight => vec![Seg::Move(tenth_pt(moved[k].start)), Seg::Line(tenth_pt(moved[k].end))],
                 ScenePath::Curve => curve(&moved[k], need(edge, 0.0)),
             };
@@ -865,6 +1000,7 @@ mod tests {
             40.0,
             None,
             (0.0, 0.0),
+            Traffic::NONE,
         );
         assert_eq!(way, vec![pt(100.0, 25.0), pt(200.0, 25.0)]);
     }
@@ -879,6 +1015,7 @@ mod tests {
             40.0,
             None,
             (0.0, 0.0),
+            Traffic::NONE,
         );
         assert!(way.len() > 2);
         for pair in way.windows(2) {
@@ -901,7 +1038,7 @@ mod tests {
     }
 
     fn edge<'a>(id: &'a str, from: &'a str, to: &'a str, path: ScenePath, heads: (bool, bool)) -> RouteEdge<'a> {
-        RouteEdge { id, from, to, path, heads }
+        RouteEdge { id, from, to, path, heads, pattern: Pattern::Solid }
     }
 
     fn ways_of(rects: &[(String, Rect)], edges: &[RouteEdge<'_>]) -> Vec<(String, Vec<Seg>)> {
@@ -953,11 +1090,11 @@ mod tests {
     }
 
     #[test]
-    fn an_end_with_no_head_keeps_its_short_run() {
+    fn an_end_with_no_head_runs_no_further_than_one_with_a_head() {
         let rects = two_boxes(rect(300.0, 200.0, 100.0, 50.0));
         let headed = ways_of(&rects, &[edge("e", "a", "b", ScenePath::Elbow, (false, true))]);
         let bare = ways_of(&rects, &[edge("e", "a", "b", ScenePath::Elbow, (false, false))]);
-        assert!(run_in(&bare[0].1) < 32.0 || bare[0].1.len() <= 2, "{:?} against {:?}", bare[0].1, headed[0].1);
+        assert!(run_in(&bare[0].1) <= run_in(&headed[0].1) + 0.01, "{:?} against {:?}", bare[0].1, headed[0].1);
     }
 
     #[test]
@@ -1032,7 +1169,7 @@ mod tests {
         let rects = vec![
             ("a".to_string(), rect(0.0, 0.0, 100.0, 50.0)),
             ("b".to_string(), rect(300.0, 0.0, 100.0, 50.0)),
-            ("c".to_string(), rect(300.0, 120.0, 100.0, 50.0)),
+            ("c".to_string(), rect(300.0, 60.0, 100.0, 50.0)),
         ];
         for path in [ScenePath::Straight, ScenePath::Elbow] {
             let ways = ways_of(&rects, &[edge("ab", "a", "b", path, (false, true)), edge("ac", "a", "c", ScenePath::Elbow, (false, true))]);
@@ -1041,7 +1178,12 @@ mod tests {
             let (Seg::Move(start), Seg::Line(end)) = (segs[0], segs[1]) else { panic!("{segs:?}") };
             assert_eq!(start.y, end.y, "{path:?}: level");
             assert!(start.x == 100.0 && end.x == 300.0 && end.y > 0.0 && end.y < 50.0, "{path:?}: inside the lone box's side: {segs:?}");
-            assert_ne!(start.y, 25.0, "the start stays where the spread put it");
+            if path == ScenePath::Straight {
+                assert_ne!(start.y, 25.0, "the start stays where the spread put it");
+            } else {
+                // Two elbows of one line out of one side go as one trunk, which leaves from the middle of the side.
+                assert_eq!(start.y, 25.0, "{path:?}: the trunk leaves the middle");
+            }
         }
     }
 
