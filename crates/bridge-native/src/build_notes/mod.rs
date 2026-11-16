@@ -440,11 +440,16 @@ impl BuildNotesSheet {
     }
 
     /// Good or Needs work: the note reads so in this frame, and Fleet keeps it for this branch at this tip and tells
-    /// the Job. Needs work puts the keys in the box, since his words on it are what the Job waits for.
+    /// the Job. Needs work sends the words already in the box with it, since they are what the Job waits for, and
+    /// with an empty box puts the keys there.
     pub(super) fn judge(&mut self, given: NoteVerdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(note) = self.note().cloned() else { return };
         if given == NoteVerdict::NeedsWork {
-            self.feedback.update(cx, |state, cx| state.focus(window, cx));
+            if self.feedback.read(cx).value().trim().is_empty() {
+                self.feedback.update(cx, |state, cx| state.focus(window, cx));
+            } else {
+                self.send(window, cx);
+            }
         }
         if verdict(&note, &self.marked) == Some(given) {
             return;
