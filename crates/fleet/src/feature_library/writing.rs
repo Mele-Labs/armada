@@ -129,6 +129,7 @@ where
                 .put_feature_area(&KeptArea { project: project.clone(), slug: area.slug.trim().to_string(), title: area.title.trim().to_string(), position: place as u32 })
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        let now = self.now().as_str().to_string();
         let (mut created, mut updated) = (Vec::new(), Vec::new());
         for (place, feature) in upsert.features.iter().enumerate() {
             let slug = feature.slug.trim().to_string();
@@ -152,6 +153,7 @@ where
                     entry_points: feature.entry_points.iter().map(|point| point.trim().to_string()).filter(|point| !point.is_empty()).collect(),
                     paths: feature.paths.iter().map(|path| path.trim().to_string()).filter(|path| !path.is_empty()).collect(),
                     position: place as u32,
+                    added_at: now.clone(),
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             match before {

@@ -11,7 +11,8 @@ CREATE TABLE feature_areas (
 ) STRICT;
 
 -- `state` is `seeded` or `confirmed`. `manifest_id` is the repository the prefixes are in, empty for any member of the
--- project. `entry_points` is a JSON array of `path` or `path:line`, the code a Job should open first.
+-- project. `entry_points` is a JSON array of `path` or `path:line`, the code a Job should open first. `added_at` is when
+-- the feature first entered the catalog and is never rewritten: a Job started before it is not held for its sections.
 CREATE TABLE features (
     id           TEXT PRIMARY KEY,
     project      TEXT NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE features (
     manifest_id  TEXT NOT NULL DEFAULT '',
     entry_points TEXT NOT NULL DEFAULT '[]',
     position     INTEGER NOT NULL,
+    added_at     TEXT NOT NULL DEFAULT '',
     UNIQUE (project, slug)
 ) STRICT;
 CREATE INDEX features_by_project ON features (project, area, position);

@@ -22,6 +22,11 @@ pub(super) fn owed_by(store: &Store, job: &str) -> Result<Vec<(String, Vec<Featu
         let Some(feature) = store.feature_by_id(&id)? else {
             continue;
         };
+        // Approving a plan is not consent to change a Job already running: only a Job started once the feature was in
+        // the catalog owes it.
+        if feature.added_at.as_str() > session.started_at.as_str() {
+            continue;
+        }
         let written: BTreeSet<String> = store
             .feature_sections(&id)?
             .into_iter()

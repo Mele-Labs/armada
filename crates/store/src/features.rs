@@ -64,6 +64,8 @@ pub struct KeptFeature {
     /// The path prefixes it owns, as written.
     pub paths: Vec<String>,
     pub position: u32,
+    /// When the feature first entered the catalog. **Set at the first insert and kept by every upsert after it.**
+    pub added_at: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -125,7 +127,7 @@ fn json(lines: &[String]) -> String {
     serde_json::to_string(lines).unwrap_or_else(|_| String::from("[]"))
 }
 
-const FEATURE: &str = "id, project, area, slug, title, summary, state, manifest_id, entry_points, position";
+const FEATURE: &str = "id, project, area, slug, title, summary, state, manifest_id, entry_points, position, added_at";
 const SECTION: &str = "feature_id, section, text, job, written_at, at_commit";
 const LINK: &str = "feature_id, kind, target, job, title, state, via, at";
 
@@ -142,6 +144,7 @@ fn feature_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptFeature> {
         entry_points: strings(row.get(8)?),
         paths: Vec::new(),
         position: row.get(9)?,
+        added_at: row.get(10)?,
     })
 }
 
@@ -196,7 +199,7 @@ impl Store {
         let id = held.unwrap_or_else(|| feature.id.clone());
         tx.execute(
             &format!(
-                "INSERT INTO features ({FEATURE}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                "INSERT INTO features ({FEATURE}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
                  ON CONFLICT (id) DO UPDATE SET area = excluded.area, title = excluded.title, summary = excluded.summary,
                  state = excluded.state, manifest_id = excluded.manifest_id, entry_points = excluded.entry_points,
                  position = excluded.position"
@@ -212,6 +215,7 @@ impl Store {
                 feature.manifest_id,
                 json(&feature.entry_points),
                 feature.position,
+                feature.added_at,
             ],
         )
         .map_err(failed(doing))?;

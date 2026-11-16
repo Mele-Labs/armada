@@ -32,6 +32,7 @@ fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
         entry_points: Vec::new(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         position: 0,
+        added_at: "2026-11-16T09:00:00.000Z".to_string(),
     }
 }
 
@@ -249,8 +250,8 @@ fn refused(result: Result<ipc::SessionRecord, api::Refusal>) -> (String, String)
 async fn all_done_is_held_while_pushed_work_changed_a_feature_whose_sections_are_not_written_and_names_them() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    let id = an_agent_for(&rig, &project).await;
     rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     pushed(&rig, &id, "812").await;
 
@@ -274,8 +275,8 @@ async fn all_done_is_held_while_pushed_work_changed_a_feature_whose_sections_are
 async fn a_job_that_changed_no_feature_file_is_never_held_and_neither_is_one_that_pushed_nothing() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    let id = an_agent_for(&rig, &project).await;
     rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
 
     // It wrote only where no feature owns the file, and pushed.
     wrote(&rig, &id, "docs/elsewhere.md").await;
@@ -287,10 +288,50 @@ async fn a_job_that_changed_no_feature_file_is_never_held_and_neither_is_one_tha
 async fn work_that_was_never_pushed_holds_nothing_even_where_it_changed_a_feature() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    let id = an_agent_for(&rig, &project).await;
     rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     assert!(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await.is_ok());
+}
+
+#[tokio::test]
+async fn a_job_is_held_only_for_features_that_were_in_the_catalog_when_it_started() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        for (feature_id, slug, path, added_at) in
+            [("f-early", "early-feature", "crates/early", "2000-01-01T00:00:00.000Z"), ("f-late", "late-feature", "crates/late", "2999-01-01T00:00:00.000Z")]
+        {
+            store
+                .put_feature(&store::KeptFeature { project: project.clone(), added_at: added_at.to_string(), ..feature(feature_id, slug, &[path]) })
+                .expect("kept");
+        }
+    }
+    wrote(&rig, &id, "crates/early/a.rs").await;
+    wrote(&rig, &id, "crates/late/b.rs").await;
+    pushed(&rig, &id, "814").await;
+
+    let (code, said) = refused(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await);
+    assert_eq!(code, "fleet.feature_sections_owed");
+    assert!(said.contains("early-feature: test, runs, observe, debt"), "{said}");
+    assert!(!said.contains("late-feature"), "the Job started before it was in the catalog: {said}");
+
+    rig.fleet.write_feature_sections(caller(), write_all(&id, "early-feature", &FeatureSectionKind::ALL)).await.expect("written");
+    assert!(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await.is_ok(), "nothing else is owed");
+}
+
+#[tokio::test]
+async fn a_second_seed_keeps_the_date_a_feature_entered_the_catalog() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let first = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("the feature").added_at;
+    assert!(!first.is_empty());
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded again");
+    let again = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("the feature").added_at;
+    assert_eq!(again, first);
 }
 
 #[tokio::test]

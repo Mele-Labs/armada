@@ -16,6 +16,7 @@ fn feature(id: &str, slug: &str, paths: &[&str]) -> KeptFeature {
         entry_points: vec!["crates/fleet/src/session_host/page_votes.rs:40".to_string()],
         paths: paths.iter().map(|one| one.to_string()).collect(),
         position: 0,
+        added_at: "2026-11-16T09:00:00.000Z".to_string(),
     }
 }
 

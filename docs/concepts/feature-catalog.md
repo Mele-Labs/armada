@@ -69,6 +69,7 @@ When it is over the cap the last of these go first, and the head always stays.
 The refusal is 409 `fleet.feature_sections_owed`.
 It names each feature and the sections owed, one feature to a line.
 A Job whose work changed no feature's files is never held, and neither is a Job with nothing pushed.
+A Job that started before a feature entered the catalog is never held for it, because approving a plan is not consent to change a Job already running.
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
 
