@@ -182,6 +182,7 @@ where
                         style: None,
                         plugin: None,
                         uninstall: None,
+                        server: None,
                     })
                     .collect(),
                 unreadable: Vec::new(),
@@ -334,6 +335,7 @@ fn with_armadas_session_rules(mut seen: ipc::KitInventory) -> ipc::KitInventory 
         }),
         plugin: None,
         uninstall: None,
+        server: None,
     };
     if let Some(ipc::WhatWasRead::Read { items, .. }) = seen
         .kinds
@@ -380,6 +382,10 @@ fn what_was_read(what: adapter_traits::WhatWasRead) -> ipc::WhatWasRead {
                     }),
                     plugin: item.plugin,
                     uninstall: item.uninstall,
+                    server: item.server.map(|server| ipc::ServerFacts {
+                        from: server.from.as_wire().to_string(),
+                        folder: server.folder,
+                    }),
                 })
                 .collect(),
             unreadable: unreadable
