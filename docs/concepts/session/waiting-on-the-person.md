@@ -257,6 +257,7 @@ A line with a fenced command right after it is kept whatever its shape.
 Each remaining sentence is read alone by two heads of the local language model, one for what asks the person and one for what the agent keeps for itself.
 The sentence the asks rules find is always the first ask, so nothing the rules caught is lost.
 Every ask is the item `replied:<turn ended>:<n>`, with `n` its place among the reply's asks, its text the sentence, and its `since` the instant the reply ended.
+None is raised when the agent listed its own `waiting_for` items that turn, or when `features.readRepliesForNeeds` is off.
 `dismiss_waiting` drops one ask by its id and leaves the others.
 
 An ask's act is read from its words:
