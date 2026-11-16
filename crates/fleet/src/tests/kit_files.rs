@@ -52,7 +52,7 @@ fn saving(name: &str, read: &str, text: &str) -> SaveKitFile {
 }
 
 fn row(name: &str, source: &str) -> SetupItem {
-    SetupItem { name: name.to_string(), says: None, source: source.to_string(), style: None, plugin: None, uninstall: None }
+    SetupItem { name: name.to_string(), says: None, source: source.to_string(), style: None, plugin: None, uninstall: None, server: None }
 }
 
 fn holding(kind: &str, items: Vec<SetupItem>) -> KitInventory {

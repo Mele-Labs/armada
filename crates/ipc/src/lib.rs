@@ -556,7 +556,7 @@ pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,
     KitAllowedSource, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved,
     KitServerRow, KitServers, KitSourceChoice, KitSourceFound, LookAtKitSource, OutputStyleFacts,
-    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
+    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, ServerFacts, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };
 pub use kit_files::{
