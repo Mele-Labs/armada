@@ -409,6 +409,10 @@ mod tests {
         cx.run_until_parked();
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs, "the Job's view is in front");
         assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-op"), "the Operator's session is the Job open, though the list has no row for it");
+        // The first Esc gives the keys to the list, as in any Job; the next one goes back to the page.
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs, "the first Esc leaves the box only");
         cx.simulate_keystrokes("escape");
         cx.run_until_parked();
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "Esc is back on the page");

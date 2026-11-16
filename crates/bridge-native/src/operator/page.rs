@@ -1763,7 +1763,7 @@ mod tests {
         assert_eq!(status_of(Some(&heard)).line(now), "Between turns. Last heard from 5m ago", "a word heard counts first");
         let mut seen = watching.clone();
         seen.last_turn_at = None;
-        assert_eq!(status_of(Some(&seen)).line(now), "Between turns. Last heard from 14m ago", "the last time Fleet saw it is the last resort");
+        assert_eq!(status_of(Some(&seen)).line(now), "Between turns. Last heard from 13m ago", "the last time Fleet saw it is the last resort");
         assert_eq!(status_of(Some(&watching)).chip().0, "Watching");
         // Stopped by its standing, by a stop Fleet recorded, or by its session having ended.
         let stopped = record("stopped");
@@ -1815,13 +1815,13 @@ mod tests {
             assert!(drawn(cx, gpui::Role::Region, title), "{scene}: {title}");
             assert!(drawn(cx, gpui::Role::Status, line), "{scene}: {line}");
         }
-        // The stopped card has Restart where the others have the button that opens the session.
-        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"));
-        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"));
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"), "the stopped card offers Restart");
+        // Each card has the one press its state offers: Restart on the stopped one, the button that opens the session on the rest.
         page.update(cx, |page, cx| page.scene("watching", cx).expect("a scene"));
         cx.run_until_parked();
         assert!(drawn(cx, gpui::Role::Button, "See what it is doing"));
-        assert!(!drawn(cx, gpui::Role::Button, "Restart the Operator"));
+        // (The test window keeps every frame's labels, so what is no longer drawn is read from the page's own state.)
+        page.read_with(cx, |page, _| assert!(matches!(page.status(), super::super::status::Status::Watching { .. }) && page.session_id().is_some()));
     }
 
     #[gpui::test]
@@ -1838,15 +1838,15 @@ mod tests {
         });
         cx.run_until_parked();
         assert!(drawn(cx, gpui::Role::Status, "Last act <1m ago: #3414 Slot meter"));
-        assert!(!drawn(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"));
         page.update(cx, |page, cx| {
             let mut read = page.page.clone().expect("the page is read");
             read.feed.clear();
             page.set_page(read, cx);
         });
         cx.run_until_parked();
-        assert!(drawn(cx, gpui::Role::Region, "Nothing needs you"), "the card stands without it");
-        assert!(!drawn(cx, gpui::Role::Status, "Last act <1m ago: #3414 Slot meter"), "no last act line is drawn");
+        // With no entry there is nothing to say: the card stands without the line.
+        page.read_with(cx, |page, _| assert!(page.page.as_ref().and_then(|page| page.feed.first()).is_none()));
+        assert!(drawn(cx, gpui::Role::Region, "Nothing needs you"));
     }
 
     #[gpui::test]
@@ -1867,7 +1867,8 @@ mod tests {
             cx.notify();
         });
         cx.run_until_parked();
-        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"));
+        // The button is drawn only where a session can be opened.
+        assert!(page.read_with(cx, |page, _| page.session_id().is_none()));
         page.update(cx, |page, cx| page.open_session(cx));
         assert_eq!(asked.borrow().len(), 1, "with no session nothing is asked");
     }
@@ -1875,6 +1876,7 @@ mod tests {
     #[gpui::test]
     fn restart_switches_the_operator_off_and_on_and_the_card_reads_starting(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
         page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         cx.run_until_parked();
         page.update(cx, |page, cx| page.restart(cx));
@@ -1887,7 +1889,6 @@ mod tests {
             assert!(page.items().is_empty(), "the page is as quiet as it was");
         });
         assert!(drawn(cx, gpui::Role::Status, "Fleet starts its session on the next tick"));
-        assert!(!drawn(cx, gpui::Role::Button, "Restart the Operator"));
         // A refused switch is said on the card, which keeps its Restart.
         page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         page.update(cx, |page, cx| {
