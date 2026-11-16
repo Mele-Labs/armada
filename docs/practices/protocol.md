@@ -2094,3 +2094,21 @@ Electron reads none of it. The native Bridge names the account with it on the si
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.
+
+## Why the forge went quiet: `MergeLineHub.quiet_reason`, `MergeLineView.quiet_reason`
+
+Since 16 Nov 2026. `docs/concepts/fleet.md`, *A forge that does not answer*.
+**Additive only**: one optional field on two existing types, and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/merge-lines.ts` and `merge-line-view.ts`, written by hand, field for field.
+Electron reads none of it. The native strip says GitHub is rate-limiting us, until `until` where it is present, in place of not answering.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, beside `quiet_since` and absent with it: `QuietReason`, tagged by `kind` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, the hub's as it is |
+| `QuietReason` | Fleet writes, Bridge reads | `rate_limited` with `until?`, an instant: when GitHub said to try again, absent where it named no time. `not_answering`: no answer, or a refusal that is not the rate limit |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.

@@ -227,15 +227,18 @@ where
     /// from the first such visit until a visit is answered whole.
     pub(crate) async fn forge_visited(&self, root: &str, answered: bool) {
         let now = self.now();
+        let reason = (!answered).then(|| quiet_reason(adapters::forge_tally::latest_failure(), &now));
         let mut sweep = self.sweeping().lock().await;
         let visit = sweep.forge_visits.entry(root.to_string()).or_default();
         match answered {
             true => {
                 visit.read_at = Some(now);
                 visit.quiet_since = None;
+                visit.quiet_reason = None;
             }
             false => {
                 visit.quiet_since.get_or_insert(now);
+                visit.quiet_reason = reason;
             }
         }
     }
@@ -527,6 +530,7 @@ where
                 let instant = |at: &core_model::Timestamp| ipc::Instant::carried(at.as_str());
                 hub.forge_read_at = visits.get(&root).and_then(|it| it.read_at.as_ref()).map(instant);
                 hub.quiet_since = visits.get(&root).and_then(|it| it.quiet_since.as_ref()).map(instant);
+                hub.quiet_reason = visits.get(&root).and_then(|it| it.quiet_reason.clone());
                 if let Some(number) = by_hand.get(&root) {
                     for pull in hub.pull_requests.iter_mut().filter(|it| it.number == *number) {
                         pull.merge_by_hand = true;
@@ -625,7 +629,26 @@ pub(crate) fn hub_of(
         checkout: None,
         forge_read_at: None,
         quiet_since: None,
+        quiet_reason: None,
     })
+}
+
+/// Why a visit went unanswered, from the latest call GitHub did not answer: **the rate limit, until
+/// when GitHub said**, its `Retry-After` from when it was refused, else a spent window's reset, else no
+/// time. Anything else, or no call counted, is not answering.
+pub(crate) fn quiet_reason(failed: Option<adapters::forge_tally::Failed>, now: &Timestamp) -> ipc::QuietReason {
+    let Some(failed) = failed.filter(|it| it.rate_limited) else {
+        return ipc::QuietReason::NotAnswering;
+    };
+    let refused_at = Timestamp::from_rfc3339(failed.at.clone()).epoch_millis().or_else(|| now.epoch_millis());
+    let until_millis = match (failed.retry_after, failed.spent_until, refused_at) {
+        (Some(seconds), _, Some(at)) => Some(at + seconds as i64 * 1_000),
+        (_, Some(reset), _) => Some(reset as i64 * 1_000),
+        _ => None,
+    };
+    ipc::QuietReason::RateLimited {
+        until: until_millis.map(|millis| ipc::Instant::carried(crate::clock::rfc3339_utc(millis))),
+    }
 }
 
 fn standing(
