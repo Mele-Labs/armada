@@ -321,10 +321,21 @@ impl JobView {
         groups
     }
 
-    /// The things the panel lists, and the pages the band names for review: the To review rows, only where Fleet
-    /// says the band offers the sheet.
+    /// Whether the band offers the review sheet: where Fleet says so, and wherever a page waits on him at all. Fleet keeps a
+    /// lone plan, sketch or draft on its thread card, which can sit far up a long thread; he looks for it here (16 Nov).
+    pub(super) fn band_reviews(&self, id: &str, cx: &gpui::App) -> bool {
+        self.needs_of(id, cx).is_some_and(|view| {
+            view.review_in_band
+                || view.sections.iter().any(|section| {
+                    section.kind == NeedsYouSectionKind::ToReview && section.rows.iter().any(|row| row.source != ipc::WaitingSource::ReadyToTry)
+                })
+        })
+    }
+
+    /// The things the panel lists, and the pages the band names for review: the To review rows, wherever the band
+    /// offers the sheet.
     pub(super) fn things<'a>(&'a self, id: &str, cx: &'a gpui::App) -> (Vec<Thing<'a>>, Vec<&'a NeedsYouRow>) {
-        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
+        let in_band = self.band_reviews(id, cx);
         let mut things = Vec::new();
         let mut review = Vec::new();
         for group in self.groups(id, cx) {
@@ -482,6 +493,16 @@ impl JobView {
                 Thing::Row(_) => None,
             })
             .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            // Fleet leaves a lone page's mark off its glyphs; the band names it all the same.
+            .chain(
+                view.filter(|view| !view.review_in_band)
+                    .into_iter()
+                    .flat_map(|view| view.sections.iter())
+                    .filter(|section| section.kind == NeedsYouSectionKind::ToReview)
+                    .flat_map(|section| section.rows.iter())
+                    .filter(|row| row.source != ipc::WaitingSource::ReadyToTry)
+                    .map(|row| (icon_of(row.glyph.kind), row.glyph.said.clone())),
+            )
             .collect();
         if marks.is_empty() && restarts.is_empty() {
             if let Some(page) = self.pages.get(id) {
@@ -893,7 +914,7 @@ impl JobView {
 
     /// The list: Fleet's sections in its order, each under its label, each row as Fleet gave it.
     fn render_list(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
+        let in_band = self.band_reviews(id, cx);
         div()
             .flex()
             .flex_col()
@@ -997,7 +1018,7 @@ impl JobView {
             }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
-                let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
+                let sheet = self.shown.clone().is_some_and(|id| self.band_reviews(&id, cx));
                 if sheet {
                     self.review_press(window, cx);
                 } else if let NeedsYouAct::OpenDraft { row } = act {

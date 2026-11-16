@@ -1,0 +1,10 @@
+[operations."session.story"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A Job's message sorting, asks or story moved, naming the Job"
+notes = """
+Carries `StoryChanged` `{ session_id }`. A client that shows the Job reads `list_message_kinds`, `list_job_asks` and `get_job_story` again. **Published for both Jobs when an ask is handed on**, and for the Job that builds an ask when its pull request merges. Not coalesced: a message is sorted once, and an ask moves rarely.
+
+A resync does not carry it. A Bridge that missed one reads the three queries for the Job it shows. Since 16 Nov 2026.
+"""

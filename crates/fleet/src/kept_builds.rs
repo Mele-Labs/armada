@@ -2,8 +2,9 @@
 //!
 //! `scripts/keep-build` makes a folder per build, holding the `armada` binary, Bridge's `bridge/`
 //! and a `build.toml` of what went in, and points `current` at it with the old one as `previous`.
-//! launchd runs Fleet and Bridge through `current`, so **a revert changes two links and boots the
-//! two jobs out and back in**; no plist is written. `docs/practices/running-locally.md`, *Kept builds*.
+//! launchd runs Bridge through `current` and Fleet from the copy of `current`'s bundle under `fleet/`,
+//! so **a revert places one bundle, changes two links and boots the jobs out and back in**; no plist
+//! is written. `docs/practices/running-locally.md`, *Kept builds*.
 //!
 //! **Run by the build reverted to**, `builds/previous/armada build revert`, so a broken build
 //! never has to run its own undo. It outlives the Fleet it stops, as `scripts/restart-build` does.
@@ -32,6 +33,13 @@ pub const BUILDS: &str = "builds";
 pub const CURRENT: &str = "current";
 /// The build a revert starts.
 pub const PREVIOUS: &str = "previous";
+/// Under the support folder: the copy of `current`'s Fleet bundle launchd runs, at one path for every
+/// build, since macOS keeps Fleet's Local Network grant against the path launchd runs it from.
+pub const FLEET: &str = "fleet";
+/// Under [`FLEET`]: the name of the build the copy was placed from.
+pub const PLACED: &str = "build";
+/// Fleet's bundle, in a build's folder and under [`FLEET`].
+pub const APP: &str = "Armada Fleet.app";
 /// What went into a build, in its folder.
 pub const RECORD: &str = "build.toml";
 /// The store copies, one per swap, beside the ones `scripts/restart` takes.
@@ -179,13 +187,19 @@ pub fn revertible(support: &Path, label: &str) -> Result<(KeptBuild, KeptBuild),
     if let Some(why) = &to.unhealthy {
         return Err(format!("The build before this one was swapped back from, since it did not come up: {why}"));
     }
+    placeable(&builds, &to)?;
     runs_from_current(support, label)?;
     Ok((from, to))
 }
 
-/// launchd's Fleet runs `builds/current/armada`, so moving the links moves what it runs.
+/// The binary launchd's Fleet runs: the copy [`placed`] keeps under [`FLEET`].
+pub fn fleet_program(support: &Path) -> PathBuf {
+    support.join(FLEET).join(APP).join("Contents/MacOS/armada")
+}
+
+/// launchd's Fleet runs [`fleet_program`], so placing a build there and moving the links moves what it runs.
 fn runs_from_current(support: &Path, label: &str) -> Result<(), String> {
-    let runs_from = support.join(BUILDS).join(CURRENT).join("armada");
+    let runs_from = fleet_program(support);
     let named = std::fs::read_to_string(support.join(format!("{label}.plist"))).unwrap_or_default();
     match named.contains(&format!("<string>{}</string>", runs_from.display())) {
         true => Ok(()),
@@ -194,6 +208,62 @@ fn runs_from_current(support: &Path, label: &str) -> Result<(), String> {
             runs_from.display()
         )),
     }
+}
+
+/// A build kept before Fleet had its bundle cannot be placed, so it is not offered.
+fn placeable(builds: &Path, to: &KeptBuild) -> Result<(), String> {
+    match builds.join(&to.name).join(APP).join("Contents/MacOS/armada").is_file() {
+        true => Ok(()),
+        false => Err(format!("The build {} keeps Fleet without its {APP}, so it cannot be run. Restart with scripts/restart", to.name)),
+    }
+}
+
+/// `name`'s Fleet bundle copied to [`FLEET`], and `name` written beside it as [`PLACED`].
+///
+/// **Each file is written beside its place and renamed over it**, so the running Fleet keeps the inode it
+/// was started from, and no signed binary is rewritten in place, which macOS kills it for. A file the
+/// build's bundle does not have is removed. `scripts/keep-build point` places the same way.
+pub fn placed(support: &Path, name: &str) -> std::io::Result<()> {
+    let app = support.join(BUILDS).join(name).join(APP);
+    let fixed = support.join(FLEET).join(APP);
+    let mut wanted = Vec::new();
+    files_under(&app, Path::new(""), &mut wanted)?;
+    for rel in &wanted {
+        let to = fixed.join(rel);
+        if let Some(folder) = to.parent() {
+            std::fs::create_dir_all(folder)?;
+        }
+        let beside = PathBuf::from(format!("{}.placing", to.display()));
+        let _ = std::fs::remove_file(&beside);
+        let from = app.join(rel);
+        if std::fs::symlink_metadata(&from)?.file_type().is_symlink() {
+            std::os::unix::fs::symlink(std::fs::read_link(&from)?, &beside)?;
+        } else {
+            std::fs::copy(&from, &beside)?;
+        }
+        std::fs::rename(&beside, &to)?;
+    }
+    let mut there = Vec::new();
+    files_under(&fixed, Path::new(""), &mut there)?;
+    for rel in there.iter().filter(|rel| !wanted.contains(rel)) {
+        std::fs::remove_file(fixed.join(rel))?;
+    }
+    let beside = support.join(FLEET).join(format!(".{PLACED}.placing"));
+    std::fs::write(&beside, format!("{name}\n"))?;
+    std::fs::rename(&beside, support.join(FLEET).join(PLACED))
+}
+
+/// Every file and link under `root`, as paths relative to it.
+fn files_under(root: &Path, rel: &Path, found: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(root.join(rel))? {
+        let entry = entry?;
+        let one = rel.join(entry.file_name());
+        match entry.file_type()?.is_dir() {
+            true => files_under(root, &one, found)?,
+            false => found.push(one),
+        }
+    }
+    Ok(())
 }
 
 /// The build running and the snapshot Swap would move onto, or why there is none to move onto.
@@ -208,6 +278,7 @@ pub fn swappable(support: &Path, label: &str) -> Result<(KeptBuild, KeptBuild), 
     if let Some(why) = &to.unhealthy {
         return Err(format!("The kept build was swapped back from, since it did not come up: {why}"));
     }
+    placeable(&builds, &to)?;
     runs_from_current(support, label)?;
     Ok((from, to))
 }
@@ -640,7 +711,7 @@ fn recorded(support: &Path, to: &KeptBuild) {
     }
 }
 
-/// Copy the store, point `current` at `to` and `previous` at `from`, and boot Fleet out and in:
+/// Copy the store, place `to`'s Fleet, point `current` at `to` and `previous` at `from`, and boot Fleet out and in:
 /// the store copy, and the pid of the Fleet that was running.
 fn flipped(
     support: &Path,
@@ -667,6 +738,7 @@ fn flipped(
         Some(crate::runtime::Presence::Running(file)) => Some(file.pid),
         _ => None,
     };
+    placed(support, &to.name).map_err(|why| format!("Fleet could not be placed from {}: {why}", to.name))?;
     pointed(&builds, CURRENT, &to.name).map_err(|why| format!("current could not be pointed at {}: {why}", to.name))?;
     pointed(&builds, PREVIOUS, &from.name).map_err(|why| format!("previous could not be pointed at {}: {why}", from.name))?;
     services.rebooted(label, &plist)?;

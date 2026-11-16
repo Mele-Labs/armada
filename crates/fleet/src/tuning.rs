@@ -34,6 +34,8 @@ pub(crate) struct Tuning {
     pub(crate) workflows_off: ipc::workflows_off::WorkflowsOff,
     /// Whether a disputed notice starts a review and replies are read for one: `features.disputeReviews`.
     pub(crate) dispute_reviews: bool,
+    /// Whether the close of a reply is read for an ask: `features.readRepliesForNeeds`.
+    pub(crate) reads_replies: bool,
     pub(crate) judge_model: Model,
     pub(crate) proposer_model: Model,
     pub(crate) retro_model: Model,
@@ -74,6 +76,7 @@ impl Tuning {
                 |saved| saved.map(|value| ipc::workflows_off::WorkflowsOff::read(&value.to_json_text())).unwrap_or_default(),
             ),
             dispute_reviews: settings.chosen(keys::DISPUTE_REVIEWS).unwrap_or(self.dispute_reviews),
+            reads_replies: settings.chosen(keys::READ_REPLIES_FOR_NEEDS).unwrap_or(self.reads_replies),
             judge_model: model(keys::MODELS_JUDGE, keys::EFFORT_JUDGE, &self.judge_model),
             proposer_model: model(keys::MODELS_PROPOSER, keys::EFFORT_PROPOSER, &self.proposer_model),
             retro_model: Model::named_at(
@@ -116,6 +119,7 @@ impl<H, V, W> crate::daemon::Fittings<H, V, W> {
             workflows: true,
             workflows_off: Default::default(),
             dispute_reviews: false,
+            reads_replies: true,
             judge_model: self.judge_model.clone(),
             proposer_model: self.proposer_model.clone(),
             retro_model: self.retro_model.clone(),

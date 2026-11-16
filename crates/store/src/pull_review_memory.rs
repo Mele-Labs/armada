@@ -94,6 +94,43 @@ fn written(row: &Row<'_>) -> rusqlite::Result<KeptWrittenReview> {
     })
 }
 
+/// A review asked of the person by name that Fleet told him of.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptReviewRequest {
+    /// As the forge names it, lowercase: `owner/name`.
+    pub repository: String,
+    pub number: u64,
+    /// When his latest review before the request was submitted, as the forge wrote it; empty for none.
+    /// The forge drops him from the request when he reviews, so a request after one is a new request.
+    pub after_review: String,
+    pub told_at: String,
+}
+
+/// The last time a Bridge was served a pull request's page: he opened it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptPullOpened {
+    pub manifest_id: String,
+    pub number: u64,
+    pub opened_at: String,
+}
+
+fn told(row: &Row<'_>) -> rusqlite::Result<KeptReviewRequest> {
+    Ok(KeptReviewRequest {
+        repository: row.get(0)?,
+        number: row.get::<_, i64>(1)?.try_into().unwrap_or_default(),
+        after_review: row.get(2)?,
+        told_at: row.get(3)?,
+    })
+}
+
+fn opened(row: &Row<'_>) -> rusqlite::Result<KeptPullOpened> {
+    Ok(KeptPullOpened {
+        manifest_id: row.get(0)?,
+        number: row.get::<_, i64>(1)?.try_into().unwrap_or_default(),
+        opened_at: row.get(2)?,
+    })
+}
+
 fn layout(row: &Row<'_>) -> rusqlite::Result<KeptReviewLayout> {
     Ok(KeptReviewLayout { name: row.get(0)?, arrangement: row.get(1)?, saved_at: row.get(2)? })
 }
@@ -264,6 +301,80 @@ impl Store {
             .map_err(unreadable)?;
         let rows = statement.query_map([], written).map_err(unreadable)?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Keep a review request as told. One told before keeps its first instant.
+    pub fn keep_review_request_told(&mut self, kept: &KeptReviewRequest) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO review_requests_told (repository, number, after_review, told_at) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![kept.repository, number_of(kept.number), kept.after_review, kept.told_at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping a review request told"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every review request told.
+    pub fn review_requests_told(&self) -> Result<Vec<KeptReviewRequest>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading review requests told")(why));
+        let mut statement = self
+            .conn
+            .prepare("SELECT repository, number, after_review, told_at FROM review_requests_told")
+            .map_err(unreadable)?;
+        let rows = statement.query_map([], told).map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Keep a pull request as opened at its latest read.
+    pub fn keep_pull_request_opened(&mut self, kept: &KeptPullOpened) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO pull_requests_opened (manifest_id, number, opened_at) VALUES (?1, ?2, ?3)",
+                rusqlite::params![kept.manifest_id, number_of(kept.number), kept.opened_at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping a pull request opened"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every pull request opened, at its latest read.
+    pub fn pull_requests_opened(&self) -> Result<Vec<KeptPullOpened>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading pull requests opened")(why));
+        let mut statement =
+            self.conn.prepare("SELECT manifest_id, number, opened_at FROM pull_requests_opened").map_err(unreadable)?;
+        let rows = statement.query_map([], opened).map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Forget every review request told on a pull request not in `still`, by repository lowercase and number.
+    pub fn forget_review_requests_but(&mut self, still: &[(String, u64)]) -> Result<(), WriteError> {
+        let gone = self.review_requests_told()?.into_iter().filter(|it| !still.contains(&(it.repository.clone(), it.number)));
+        for it in gone {
+            self.conn
+                .execute(
+                    "DELETE FROM review_requests_told WHERE repository = ?1 AND number = ?2",
+                    rusqlite::params![it.repository, number_of(it.number)],
+                )
+                .map_err(fault("forgetting a review request told"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
+    }
+
+    /// Forget every pull request opened that is not in `still`, by manifest id and number.
+    pub fn forget_pull_requests_opened_but(&mut self, still: &[(String, u64)]) -> Result<(), WriteError> {
+        let gone = self.pull_requests_opened()?.into_iter().filter(|it| !still.contains(&(it.manifest_id.clone(), it.number)));
+        for it in gone {
+            self.conn
+                .execute(
+                    "DELETE FROM pull_requests_opened WHERE manifest_id = ?1 AND number = ?2",
+                    rusqlite::params![it.manifest_id, number_of(it.number)],
+                )
+                .map_err(fault("forgetting a pull request opened"))
+                .map_err(WriteError::Database)?;
+        }
+        Ok(())
     }
 
     /// The layout picked, if one was.

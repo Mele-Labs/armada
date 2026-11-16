@@ -96,6 +96,7 @@ fn fleet() -> FleetFacts {
         protocol: "5.2".into(),
         mod_facts: ModFacts { copy_filled: true, copy_version: Some("0.14.2".into()), installed_version: Some("0.14.1".into()) },
         repository: Some(RepositoryFacts { name: "web-app".into(), armada_yml: "present".into(), kept_in: "Kit".into() }),
+        forge_calls: Vec::new(),
         jobs: vec![
             JobFacts {
                 title: "Add retry to the sync worker".into(),
@@ -204,4 +205,17 @@ fn only_the_last_two_hundred_lines_and_only_the_last_day_are_read() {
 
     let buried = std::iter::once(recent.clone()).chain(std::iter::repeat(line("2026-11-02T09:00:01.000Z", "info", "")).take(200)).collect::<Vec<_>>().join("\n");
     assert!(trouble_in(&buried, since).is_empty(), "a warning past the last 200 lines is not read");
+}
+
+#[test]
+fn githubs_calls_are_a_block_of_their_own_after_the_jobs_and_none_prints_no_block() {
+    let mut taken = facts(Some(fleet()));
+    assert!(!render(&taken).contains("GitHub calls"), "no rows is no block");
+    taken.fleet.as_mut().unwrap().forge_calls =
+        vec![("last hour".into(), "6 calls in 2 finished minutes".into()), ("top, last hour".into(), "    6  rest a.rs:1\n    2  graphql b.rs:2".into())];
+    let text = render(&taken);
+    assert!(
+        text.contains("GitHub calls\n  last hour        6 calls in 2 finished minutes\n  top, last hour       6  rest a.rs:1\n                       2  graphql b.rs:2\n"),
+        "{text}"
+    );
 }

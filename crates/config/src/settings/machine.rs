@@ -16,6 +16,8 @@ pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
 pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
+/// Whether Fleet reads the close of an agent's reply for something it asks, and raises a Needs you item for it.
+pub const READ_REPLIES_FOR_NEEDS: Flag = Flag("features.readRepliesForNeeds");
 /// The Operator as a whole: off, nothing is handed to it, no call runs and nothing waits on it.
 pub const OPERATOR: Flag = Flag("features.operator");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
@@ -151,6 +153,18 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(true),
         applies: Applies::Live,
         row: Some("session-workflows"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: READ_REPLIES_FOR_NEEDS.0,
+        section: Section::Features,
+        title: "Read replies for needs",
+        description: "Fleet reads the end of an agent's reply and raises a Needs you item when it sounds like a question for you. Off, only what the agent lists or asks through a card appears.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(true),
+        applies: Applies::Live,
+        row: None,
         env: None,
         tip: None,
     },
