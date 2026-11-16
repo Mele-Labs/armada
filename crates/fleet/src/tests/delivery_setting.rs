@@ -230,6 +230,8 @@ async fn the_next_job_in_that_project_is_not_asked() {
 async fn an_answer_in_no_project_learns_nothing() {
     let rig = rig();
     let project = project(&rig, None).await;
+    // A second project holds the repository too, so a start naming none is in none.
+    project(&rig, None).await;
     let id = entering_the_rail(&rig, None, FIRST).await;
     answered(&rig, &id, 1).await;
 
