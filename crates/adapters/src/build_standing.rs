@@ -191,7 +191,7 @@ pub fn fetch_pull_head(root: &str, number: u64, within: Duration) -> Result<(), 
     fetch_within(root, &["fetch", "--quiet", "origin", &format!("pull/{number}/head")], within)
 }
 
-/// Run `git` with these arguments (a fetch) in `root`, stopped if it is still
+/// Run `git` with these arguments (a fetch or a pull) in `root`, stopped if it is still
 /// running after `within`. Errors with git's own sentence. **No prompt.**
 pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Result<(), String> {
     let mut child = crate::background::command("git")
@@ -218,7 +218,7 @@ pub(crate) fn fetch_within(root: &str, args: &[&str], within: Duration) -> Resul
             Ok(None) if Instant::now() >= deadline => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(format!("git fetch took longer than {}s", within.as_secs()));
+                return Err(format!("git {} took longer than {}s", args.first().unwrap_or(&"fetch"), within.as_secs()));
             }
             Ok(None) => std::thread::sleep(POLL),
             Err(why) => return Err(why.to_string()),
