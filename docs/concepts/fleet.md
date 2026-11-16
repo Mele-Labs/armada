@@ -722,10 +722,15 @@ It is answered only on the cards: `answer_waiting` refuses it, dismissing it put
 Bridge already owns bootstrapping the launchd job, so it owns restarting it, and the operation is a `child_process` call rather than a protocol operation.
 It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, hosted Jobs are reattached at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
 
+**A Job's item that asks him to restart settles itself once Fleet runs a build made after the item was raised.**
+Fleet reads the kept build's `built_at` and takes off a live Job's `run` item whose command is `scripts/preview --restart`, `scripts/restart` or `scripts/preview` and whose `since` is earlier, and tells the Job as a dismissal does.
+An item raised on or after that build stays.
+
 **`armada fleet start` starts the Fleet launchd holds, from whatever state it is in.** It loads the job from `<support>/<label>.plist` when launchd does not hold it, starts it when it is loaded and stopped, and leaves a running Fleet alone.
 It refuses while `restart.lock` names a live restart, which starts Fleet itself.
 It is the one way both Bridges start a Fleet that is down.
-Fleet writes the kept build folder it runs from as `build` in its runtime file, absent when it runs from a tree, so a Bridge can tell which side of a mismatch is off `builds/current`.
+Fleet writes the kept build it runs as `build` in its runtime file, absent when it runs from a tree, so a Bridge can tell which side of a mismatch is off `builds/current`.
+launchd runs it from one copy at `Armada/fleet/`, which no build folder names, so there it reads the build from `Armada/fleet/build`, written as the copy was placed (`docs/practices/running-locally.md`, *Kept builds*).
 
 **Restarting onto another build is an API command, and the restart is not Fleet's.** `change_fleet_build` starts `scripts/restart-build` detached from Fleet and answers 202; `get_fleet_build` reads the outcome from the files the scripts leave.
 The Fleet panel's Select and button are it (`docs/practices/running-locally.md`, *Restarting from Bridge*).
