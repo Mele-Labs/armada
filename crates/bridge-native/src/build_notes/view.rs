@@ -296,6 +296,14 @@ impl BuildNotesSheet {
             .when(self.needs_work_focus.is_focused(window), |button| button.border_color(ring))
             .on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::NeedsWork, window, cx)))
             .child(kbd(keymap::shown("build_note_needs_work"), look));
+        let open_job = Btn::new("build-note-open-job", "Open Job", Weight::Secondary)
+            .icon("message-square")
+            .draw(look, cx)
+            .tooltip(tip(format!("Opens the Job's thread  {}", keymap::shown("build_note_open_job"))))
+            .track_focus(&self.open_job_focus)
+            .when(self.open_job_focus.is_focused(window), |button| button.border_color(ring))
+            .on_click(cx.listener(|this, _, window, cx| this.open_job(window, cx)))
+            .child(kbd(keymap::shown("build_note_open_job"), look));
         let refusal = self
             .refused
             .clone()
@@ -319,7 +327,7 @@ impl BuildNotesSheet {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Good")).child(labelled(needs_work, Role::Button, "Needs work")))
+                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Good")).child(labelled(needs_work, Role::Button, "Needs work")).child(labelled(open_job, Role::Button, "Open Job")))
                     .children(ended.then(|| subtle(STARTS_WITH)))
                     .children(refusal),
             )
@@ -346,6 +354,7 @@ impl BuildNotesSheet {
             .child(one(keymap::shown("send_message"), "Send"))
             .child(one(keymap::shown("build_note_looked"), "Good"))
             .child(one(keymap::shown("build_note_needs_work"), "Needs work"))
+            .child(one(keymap::shown("build_note_open_job"), "Open Job"))
             .child(one("Esc".into(), "Close"))
     }
 }
