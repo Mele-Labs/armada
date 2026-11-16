@@ -43,6 +43,8 @@ pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
 pub(crate) enum Weight {
     Pick,
     JobPick,
+    /// A press that undoes a failure, such as Restart on a stopped Operator: filled in the failed hue.
+    Danger,
     Plain,
     Bare,
 }
@@ -52,13 +54,17 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
         Weight::JobPick => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
+        Weight::Danger => {
+            let danger = look.color(token::STATUS_COMPLETED_FAILED);
+            (danger, danger.opacity(0.85), look.color(token::FG_INVERSE), danger)
+        }
         Weight::Plain => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_STRONG)),
         Weight::Bare => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_MUTED), gpui::transparent_black()),
     };
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let cap = key.map(|key| {
         let cap = kbd(key, look);
-        if matches!(weight, Weight::Pick | Weight::JobPick) { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
+        if matches!(weight, Weight::Pick | Weight::JobPick | Weight::Danger) { cap.bg(ink.opacity(0.16)).border_color(ink.opacity(0.5)).text_color(ink) } else { cap }
     });
     div()
         .id(id)
@@ -74,7 +80,7 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
         .bg(ground)
         .text_color(ink)
         .text_size(look.length(token::TEXT_SM))
-        .font_weight(FontWeight(look.number(if matches!(weight, Weight::Pick | Weight::JobPick) { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
+        .font_weight(FontWeight(look.number(if matches!(weight, Weight::Pick | Weight::JobPick | Weight::Danger) { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
         .focusable()
@@ -434,7 +440,8 @@ impl Render for OperatorPageView {
         let Some(page) = self.page.as_ref() else {
             return root.child(top).child(self.skeleton(look)).into_any_element();
         };
-        let off = (!page.on).then(|| self.off(look, cx));
+        // A restart switches the Operator off and on: the page keeps its place while it does.
+        let off = (!page.on && !self.restarting).then(|| self.off(look, cx));
         let talking = self.talk.is_some();
         let main = if talking { self.talk_column(window, look, cx) } else { self.card_column(off, window, look, cx) };
         let feed = self.feed(page, look, cx);
@@ -452,6 +459,7 @@ impl OperatorPageView {
     /// The main column with no talk: a Mac asking to pair, the card in front, and the box directly under it.
     fn card_column(&self, off: Option<AnyElement>, window: &Window, look: &Look, cx: &Context<Self>) -> gpui::Stateful<Div> {
         let mut parts: Vec<AnyElement> = Vec::new();
+        let on = off.is_none();
         // Another Mac waiting for his Confirm stands first: it lapses in five minutes and no Job holds it.
         parts.extend(self.pairing_cards(look, cx));
         parts.extend(off);
@@ -460,7 +468,12 @@ impl OperatorPageView {
         match (self.front_idea(cx), self.front_working()) {
             (Some(idea), _) => parts.push(self.idea_card(&idea, window, look, cx)),
             (None, Some(turn)) => parts.push(self.working_card(turn, look, cx)),
-            (None, None) => parts.extend(self.open_item().map(|turn| self.card(turn, false, window, look, cx))),
+            (None, None) => match self.open_item() {
+                Some(turn) => parts.push(self.card(turn, false, window, look, cx)),
+                // Nothing is in front: the Operator's state stands in the card's place.
+                None if on => parts.push(self.status_card(look, cx)),
+                None => {}
+            },
         }
         parts.push(self.composer.clone().into_any_element());
         div()

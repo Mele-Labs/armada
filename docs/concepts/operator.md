@@ -54,6 +54,25 @@ A card never holds a count or a status report.
 | Open Next up, at the top of the right side | The cards queued behind the one in front, then the ideas the Operator kept, newest first. Pressing a card brings it to the front. The keys go into it: ↓ and ↑ move, Enter brings, Esc folds it |
 | Press a card working at the top of the feed | The card comes to the front to be read: its read, every option with your pick marked and none to press, and its steps. It has no Snooze and no Discuss. Esc puts the card that was in front back |
 | Press a kept idea in Next up | The idea comes to the front as a card with two options: Start it, which sends it as a dispatch, and Remove, which drops it. It has no Discuss and no Snooze. Esc puts the Operator's own card back |
+| Press See what it is doing on the status card | The Operator's own session opens as a Job's view does, with its thread. Esc, or the Operator place in the strip, comes back to the page |
+| Press Restart on a stopped status card | The Operator is switched off and on again. The card reads Starting until Fleet has started a new session |
+
+**With nothing in front, a status card stands in the card's place.**
+It reads Nothing needs you, with a chip for where the Operator's session stands, and a line for what it is doing.
+The state comes from the Operator's own session record, never from the page, so a quiet page tells a working Operator from a broken one.
+
+| Chip | When | The line |
+|---|---|---|
+| Working, in green | A turn is running | What Fleet saw it doing, such as `Editing gate.rs`, and for how long. With nothing seen, `In a turn`, and for how long |
+| Watching, in the accent | Between turns | `Between turns. Last heard from 5m ago`, from when Fleet last heard from it, else its last turn, else when it last saw the session |
+| Stopped, in red, with a red frame | Its standing is stopped, its session ended, or Fleet recorded a stop | Why, in plain words. The title reads `The Operator stopped 25m ago` and the button reads Restart |
+| Starting, neutral | The switch is on and no session exists yet | `Fleet starts its session on the next tick`, with no button |
+
+Under the line, `Last act 5m ago` names the newest entry of the feed.
+It is left out when the feed is empty.
+The head's button, See what it is doing, opens the session as a Job.
+**Restart goes through the switch.**
+Fleet has no act that starts a stopped Operator's session again: it ends the session when `features.operator` goes off and starts one on the next tick once it is on, so Restart saves the setting off and then on.
 
 **A card you picked is at the top of the feed until it is settled.**
 It shows the option you picked as its title, the card's own title under it, and a line for each step the Operator reports, such as a Job started, a pull request opened or a merge.

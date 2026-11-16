@@ -1,6 +1,7 @@
 //! The Operator page's walk: one card in front with its options, Discuss with a tag in the box, the talk under the folded
 //! card and a card the Operator raises in it, Next up and a kept idea brought from it, Snooze, the feed, a card arriving, a
-//! refused and a lost answer, and the Operator off and switched on. Fleet is the mock in `operator/scenes.rs`; a step that names a scene is
+//! refused and a lost answer, the Operator off and switched on, and the status card where nothing needs him: working, its
+//! session opened, watching, stopped and restarted. Fleet is the mock in `operator/scenes.rs`; a step that names a scene is
 //! Fleet speaking first. The key map is the last step's.
 
 use super::{answer, step, Step, Verb};
@@ -23,7 +24,7 @@ const ACTS: &str = "What the Operator does unasked, by project";
 /// Fleet's why for a Snooze whose time has passed, as the scene `late` has it refuse.
 const LATE: &str = "That time has passed. Pick a later one.";
 
-pub static STEPS: [Step; 44] = [
+pub static STEPS: [Step; 50] = [
     step("The head: Operator, the red main as a pill, and at the right what the Operator does unasked, by project, since the window is on All", Verb::Look, "button", ACTS),
     step("Its menu has each project as a header with its three values under it: Act then tell, Ask before starting or Only when told, ticked where set", Verb::Open("button", ACTS), "menuitemcheckbox", "Ask before starting"),
     step("A press sets that project's value at once", Verb::Open("menuitemcheckbox", "Ask before starting"), "button", ACTS),
@@ -67,6 +68,12 @@ pub static STEPS: [Step; 44] = [
     step("A press on it brings the card to the front to read: its read, every option with his pick marked and none to press, and its steps under them", Verb::Open("button", WORKING), "article", WORKING_TITLE),
     step("Esc puts the card that was in front back", Verb::Key("escape"), "article", NEXT),
     answer("The Operator reports the retry failed: the card comes back in front, with its kind chip reading Did not settle in red and a red frame, and its read starting with what he picked and why", "returns", "article", WORKING_TITLE),
+    answer("Nothing needs him: the page empties and the Operator is in a turn. A status card stands where the card was: Nothing needs you, a green Working chip, what it is doing and for how long, and the last act under it", "quiet", "status", "Reading the live Jobs, for 7m"),
+    step("See what it is doing opens the Operator's session as a Job's view, with its thread", Verb::Open("button", "See what it is doing"), "row", "Thread: Operator"),
+    step("Esc gives the keys to the Jobs list as it does in any Job, and Esc again comes back to the Operator's page and its status card", Verb::Keys(&["escape", "escape"]), "status", "Reading the live Jobs, for 7m"),
+    answer("Between turns the chip reads Watching in the accent and the line says when Fleet last heard from it", "watching", "status", "Between turns. Last heard from 14m ago"),
+    answer("Its session stopped: the card has a red frame and a red Stopped chip, the title says how long ago, and the line says why", "stopped", "status", "Its process ended"),
+    step("Restart switches the Operator off and on, as Fleet ends its session with the switch and starts one on the next tick. The card reads Starting, with no button", Verb::Open("button", "Restart the Operator"), "status", "Fleet starts its session on the next tick"),
     step("The keys: 1 to 4 settle the card with that option, A or Enter its pick, / Discuss, S Snooze, ↓ ↑ or j k bring the next or the last queued card, Esc leaves the box, Next up, a kept idea or a picked card, Tab moves through the page and Enter or Space presses what it is on", Verb::Look, "heading", "Operator"),
 ];
 

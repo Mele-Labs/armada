@@ -18,6 +18,7 @@
 //! | Another Mac waiting for his Confirm to pair, as a card atop the page | `pairing.rs` |
 //! | The routes, live or mock | `wire.rs` |
 //! | The walk's Fleet and its scenes, with a card working and one that comes back | `scenes.rs` |
+//! | The status card where nothing is in front: working, watching, stopped or starting, and the last act | `status.rs` |
 //! | The screen that puts the page beside the Jobs screen | `screen.rs` |
 //!
 //! **A new card raises a toast in the shared shell, which this module does not draw.** The page emits
@@ -37,8 +38,10 @@ mod pairing;
 mod parked;
 pub mod scenes;
 pub mod screen;
+pub mod status;
 mod talk;
 pub(crate) mod view;
 mod wire;
 
 pub use screen::{live, OperatorScreen};
+pub use status::session_of;

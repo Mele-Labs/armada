@@ -35,6 +35,10 @@ pub struct MockFleet {
     pub parked: Vec<ipc::ParkedIdea>,
     /// Every dispatch it was asked for, for a test to read.
     pub dispatched: Vec<ipc::DispatchJob>,
+    /// The Operator's own session, as Fleet's held Jobs carry it: none is a session not started.
+    pub session: Option<ipc::SessionRecord>,
+    /// The page was emptied by a scene, so switching on again does not bring its cards back.
+    pub quiet: bool,
     /// How many dispatches it has taken, which numbers what it answers with.
     taken: u32,
 }
@@ -46,6 +50,12 @@ pub fn page() -> OperatorPage {
 /// The ideas Fleet kept before the walk began: three thoughts, one called an idea and one a bug.
 pub fn parked() -> Vec<ipc::ParkedIdea> {
     ipc::decode::<ipc::ParkedIdeas>("ParkedIdeas", include_bytes!("../../fixtures/operator-parked.json")).expect("the parked ideas fixture decodes").ideas
+}
+
+/// The Operator's session record in one of the states the status card draws: `working`, `watching` or `stopped`.
+pub fn session(state: &str) -> ipc::SessionRecord {
+    let mut all = ipc::decode::<std::collections::BTreeMap<String, ipc::SessionRecord>>("the Operator's sessions", include_bytes!("../../fixtures/operator-session.json")).expect("the Operator session fixture decodes");
+    all.remove(state).unwrap_or_else(|| panic!("no Operator session in the state {state}"))
 }
 
 /// The Operator session's thread before the walk's talk.
@@ -84,6 +94,8 @@ impl MockFleet {
             refuse_pairing: None,
             parked: parked(),
             dispatched: Vec::new(),
+            session: Some(session("working")),
+            quiet: false,
             taken: 0,
         }
     }
@@ -163,9 +175,19 @@ impl MockFleet {
             self.page.working.clear();
             self.page.on_it = None;
             self.page.top = None;
-        } else if self.page.turn.is_empty() {
+            // Fleet ends the session when the switch goes off, and the next tick starts one once it is on.
+            self.session = None;
+        } else if self.page.turn.is_empty() && !self.quiet {
             self.page = page();
         }
+    }
+
+    /// The page empties and the Operator is in a turn: nothing needs him, so the status card stands in front.
+    pub fn quiet(&mut self) {
+        self.quiet = true;
+        self.page.turn.clear();
+        self.page.working.clear();
+        self.session = Some(session("working"));
     }
 
     /// What `set_operator_acts` does: the project's value is kept, or unset with none; every project's value is answered.

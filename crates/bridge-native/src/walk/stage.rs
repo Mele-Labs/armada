@@ -134,7 +134,15 @@ impl Stage {
                 }
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
-                let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+                // The page's own walk opens the Operator's session as a Job, so the Jobs screen holds its thread.
+                let threads = if walk.name == "operator-page" {
+                    let mut threads = crate::mock::threads(walk.scenario)?;
+                    threads.insert(crate::operator::scenes::session("working").id.as_str().to_string(), crate::operator::scenes::thread());
+                    Some(threads)
+                } else {
+                    None
+                };
+                let jobs = cx.new(|cx| JobsScreen::new(list, threads, window, cx));
                 let screen = cx.new(|cx| crate::operator::OperatorScreen::mock(jobs, window, cx));
                 let focus = Focus { keys: screen.read(cx).page.read(cx).focus.clone(), within: screen.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);

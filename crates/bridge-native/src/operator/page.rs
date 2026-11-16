@@ -30,6 +30,9 @@ pub enum Opened {
     Act(WaitingAct, Option<SessionId>),
     /// A Job, from a row of the feed.
     Job(SessionId),
+    /// The Operator's own session, from the status card's button: it opens as a Job's view does, and the Operator's page
+    /// is where Esc comes back to.
+    Session(SessionId),
 }
 
 /// Items that joined the queue since the page was last read, oldest first: what raises a toast. Jobs
@@ -80,6 +83,14 @@ pub struct OperatorPageView {
     /// The card in the feed's working entries brought to the front to be read, by id: it is picked, so it takes no press.
     pub(super) working_front: Option<String>,
     parked_reading: bool,
+    /// The Operator's own session as Fleet holds it, which the status card reads. `None` is a session not started.
+    pub(super) session: Option<ipc::SessionRecord>,
+    /// Restart is in flight: the switch goes off and on again, and the card reads Starting until it is done.
+    pub(super) restarting: bool,
+    /// The session that was running when Restart was pressed.
+    restart_from: Option<SessionId>,
+    /// Why Fleet refused the switch that restarts the Operator.
+    pub(super) restart_refused: Option<SharedString>,
     pub focus: FocusHandle,
     /// Every time on the page read as its age, with the clock in its tooltip; a press on one flips them together, as the thread's do.
     pub(super) aged: bool,
@@ -163,6 +174,10 @@ impl OperatorPageView {
             idea_front: None,
             working_front: None,
             parked_reading: false,
+            session: None,
+            restarting: false,
+            restart_from: None,
+            restart_refused: None,
             focus: cx.focus_handle(),
             aged: true,
             clock_now: None,
@@ -198,6 +213,7 @@ impl OperatorPageView {
     /// The page on the owner's Fleet: read when the port is known, and again on each `operator.page_changed`.
     pub fn live(fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this = Self::new(Wire::Live(fleet.clone()), window, cx);
+        this.session = super::status::session_of(&fleet.read(cx).held().jobs).cloned();
         this.subs.push(cx.observe(fleet, |this, fleet, cx| {
             let held = fleet.read(cx).held();
             // A Mac confirmed or declined stays pressed until Fleet's calls drop it.
@@ -205,6 +221,15 @@ impl OperatorPageView {
             this.pairing_pending.retain(|key| waiting.contains(key));
             let moved = held.operator_page_moved;
             let ready = held.port().is_some();
+            let session = super::status::session_of(&held.jobs).cloned();
+            if session != this.session {
+                // A restart is done once the session is a new one.
+                if this.restarting && session.as_ref().is_some_and(|new| this.restart_from.as_ref() != Some(&new.id)) {
+                    this.restarting = false;
+                }
+                this.session = session;
+                cx.notify();
+            }
             if ready && (moved != this.read_at || (this.page.is_none() && !this.reading)) {
                 this.read_at = moved;
                 this.read(cx);
@@ -231,6 +256,7 @@ impl OperatorPageView {
         let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), window, cx);
         this.clock_now = Some(scenes::now());
         this.titles = scenes::titles();
+        this.session = this.mock_fleet().and_then(|mock| mock.session.clone());
         this.read(cx);
         this.read_parked(cx);
         this
@@ -1048,6 +1074,87 @@ impl OperatorPageView {
         cx.emit(Opened::Job(id));
     }
 
+    // -- the Operator's own session ----------------------------------------------------------------
+
+    /// The Operator's session, where Fleet holds one.
+    pub fn session_id(&self) -> Option<SessionId> {
+        self.session.as_ref().map(|session| session.id.clone())
+    }
+
+    /// Where the Operator's session stands, as its record reads. While Restart is in flight it reads Starting.
+    pub fn status(&self) -> super::status::Status {
+        if self.restarting {
+            return super::status::Status::Starting;
+        }
+        super::status::status_of(self.session.as_ref())
+    }
+
+    /// "See what it is doing": the Operator's session opens as a Job's view does.
+    pub fn open_session(&mut self, cx: &mut Context<Self>) {
+        if let Some(id) = self.session_id() {
+            cx.emit(Opened::Session(id));
+        }
+    }
+
+    /// Restart, on a stopped Operator. Fleet has no act that starts a stopped Operator's session again: it ends the session when
+    /// `features.operator` goes off and starts one on the next tick once it is on, so the switch goes off and on.
+    /// The card reads Starting until the new session is held, or for half a minute where none comes.
+    pub fn restart(&mut self, cx: &mut Context<Self>) {
+        if self.restarting || self.switching {
+            return;
+        }
+        self.restarting = true;
+        self.restart_from = self.session_id();
+        self.restart_refused = None;
+        cx.notify();
+        let off = self.wire.switch(false, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let on = match off.await {
+                Ok(()) => this.update(cx, |this, cx| this.wire.switch(true, cx)).ok(),
+                Err(why) => {
+                    let _ = this.update(cx, |this, cx| this.restart_refused_by(why, cx));
+                    return;
+                }
+            };
+            let Some(on) = on else { return };
+            match on.await {
+                Ok(()) => {
+                    let live = this
+                        .update(cx, |this, cx| {
+                            // The walk's Fleet sends no event, so it is read in its place and holds no session yet.
+                            if !this.wire.is_live() {
+                                this.restarting = false;
+                                this.session = this.mock_fleet().and_then(|mock| mock.session.clone());
+                                this.read(cx);
+                            }
+                            cx.notify();
+                            this.wire.is_live()
+                        })
+                        .unwrap_or(false);
+                    if !live {
+                        return;
+                    }
+                    cx.background_executor().timer(std::time::Duration::from_secs(30)).await;
+                    let _ = this.update(cx, |this, cx| {
+                        if std::mem::take(&mut this.restarting) {
+                            cx.notify();
+                        }
+                    });
+                }
+                Err(why) => {
+                    let _ = this.update(cx, |this, cx| this.restart_refused_by(format!("switched off but not on again: {why}"), cx));
+                }
+            }
+        });
+        self.track(task);
+    }
+
+    fn restart_refused_by(&mut self, why: String, cx: &mut Context<Self>) {
+        self.restarting = false;
+        self.restart_refused = Some(why.into());
+        cx.notify();
+    }
+
     // -- the box and the ideas ---------------------------------------------------------------------
 
     /// The Jobs `@` names in the box.
@@ -1254,6 +1361,17 @@ impl OperatorPageView {
             // Fleet refuses the next Snooze: the time it names has passed by the time it reads it.
             "late" => mock.refuse_later = Some("That time has passed. Pick a later one.".into()),
             "acts-refused" => mock.refuse_acts = Some("No project has that id".into()),
+            // Nothing needs him: the page empties, and the Operator is in a turn, between turns, or stopped.
+            "quiet" | "working" | "watching" | "stopped" => {
+                if name == "quiet" {
+                    mock.quiet();
+                } else {
+                    mock.session = Some(scenes::session(name));
+                }
+                let (page, session) = (mock.page.clone(), mock.session.clone());
+                self.session = session;
+                self.set_page(page, cx);
+            }
             "off" => {
                 mock.switch(false);
                 let page = mock.page.clone();
@@ -1615,5 +1733,169 @@ mod tests {
         page.update_in(cx, |page, window, cx| page.on_act(&Act { id: "close", slot: 0, digit: None }, window, cx));
         page.read_with(cx, |page, _| assert!(page.front_working().is_none()));
         assert_eq!(front(&page, cx), "turn:31");
+    }
+
+    // -- the status card ---------------------------------------------------------------------------
+
+    fn record(wire: &str) -> ipc::SessionRecord {
+        let mut all = ipc::decode::<std::collections::BTreeMap<String, ipc::SessionRecord>>("the Operator's sessions", include_bytes!("../../fixtures/operator-session.json")).expect("the fixture decodes");
+        all.remove(wire).expect("a record in that state")
+    }
+
+    #[test]
+    fn the_state_is_read_from_the_shape_of_the_operators_session_record() {
+        use super::super::status::{session_of, status_of, Status};
+        let now = scenes::now();
+        // A turn running is Working, and the line says what Fleet saw it doing with how long the turn has run.
+        let working = record("working");
+        assert_eq!(status_of(Some(&working)), Status::Working { since: "2026-11-11T12:58:00-05:00".into(), doing: Some("Reading the live Jobs".into()) });
+        assert_eq!(status_of(Some(&working)).line(now), "Reading the live Jobs, for 7m");
+        assert_eq!(status_of(Some(&working)).chip().0, "Working");
+        // With no activity it says it is in a turn.
+        let mut quiet = working.clone();
+        quiet.activity = None;
+        assert_eq!(status_of(Some(&quiet)).line(now), "In a turn, for 7m");
+        // Between turns is Watching, from when Fleet last heard, else the last turn, else the last time it saw the session.
+        let watching = record("watching");
+        assert_eq!(status_of(Some(&watching)).line(now), "Between turns. Last heard from 14m ago");
+        let mut heard = watching.clone();
+        heard.last_heard_at = Some(ipc::Instant::carried("2026-11-11T13:00:00-05:00"));
+        assert_eq!(status_of(Some(&heard)).line(now), "Between turns. Last heard from 5m ago", "a word heard counts first");
+        let mut seen = watching.clone();
+        seen.last_turn_at = None;
+        assert_eq!(status_of(Some(&seen)).line(now), "Between turns. Last heard from 14m ago", "the last time Fleet saw it is the last resort");
+        assert_eq!(status_of(Some(&watching)).chip().0, "Watching");
+        // Stopped by its standing, by a stop Fleet recorded, or by its session having ended.
+        let stopped = record("stopped");
+        assert_eq!(status_of(Some(&stopped)).title(now), "The Operator stopped 25m ago");
+        assert_eq!(status_of(Some(&stopped)).line(now), "Its process ended");
+        assert_eq!(status_of(Some(&stopped)).chip().0, "Stopped");
+        let mut by_standing = watching.clone();
+        by_standing.standing = Some(ipc::SessionStanding::Stopped);
+        assert!(matches!(status_of(Some(&by_standing)), Status::Stopped { .. }));
+        let mut by_record = watching.clone();
+        by_record.stopped = stopped.stopped.clone();
+        assert!(matches!(status_of(Some(&by_record)), Status::Stopped { .. }));
+        let mut ended = watching.clone();
+        ended.state = ipc::SessionState::Ended;
+        assert_eq!(status_of(Some(&ended)).line(now), "Its session ended");
+        // Stopped wins over a turn that is still set.
+        let mut both = working.clone();
+        both.stopped = stopped.stopped.clone();
+        assert!(matches!(status_of(Some(&both)), Status::Stopped { .. }));
+        // No session yet is Starting, with a neutral chip and no button.
+        assert_eq!(status_of(None), Status::Starting);
+        assert_eq!(status_of(None).line(now), "Fleet starts its session on the next tick");
+        // Among Fleet's Jobs the Operator's live session is the one read, over an ended one that was seen later.
+        let mut old = watching.clone();
+        old.id = ipc::SessionId::carried("old-op");
+        old.state = ipc::SessionState::Ended;
+        old.last_seen_at = ipc::Instant::carried("2026-11-11T13:00:00-05:00");
+        let mut other = watching.clone();
+        other.id = ipc::SessionId::carried("a-job");
+        other.operator = false;
+        let held = [other, old, watching];
+        assert_eq!(session_of(&held).map(|job| job.id.as_str()), Some("mock-op"));
+        assert_eq!(session_of(&held[..2]).map(|job| job.id.as_str()), Some("old-op"), "an ended session is the one left to read");
+        assert_eq!(session_of(&held[..1]), None);
+    }
+
+    #[gpui::test]
+    fn with_nothing_in_front_a_status_card_stands_in_its_place_in_each_state(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        assert!(!drawn(cx, gpui::Role::Region, "Nothing needs you"), "a card in front leaves no status card");
+        for (scene, line, title) in [
+            ("quiet", "Reading the live Jobs, for 7m", "Nothing needs you"),
+            ("watching", "Between turns. Last heard from 14m ago", "Nothing needs you"),
+            ("stopped", "Its process ended", "The Operator stopped 25m ago"),
+        ] {
+            page.update(cx, |page, cx| page.scene(scene, cx).expect("a scene"));
+            cx.run_until_parked();
+            assert!(page.read_with(cx, |page, _| page.open_item().is_none()), "{scene}");
+            assert!(drawn(cx, gpui::Role::Region, title), "{scene}: {title}");
+            assert!(drawn(cx, gpui::Role::Status, line), "{scene}: {line}");
+        }
+        // The stopped card has Restart where the others have the button that opens the session.
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"));
+        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"));
+        page.update(cx, |page, cx| page.scene("watching", cx).expect("a scene"));
+        cx.run_until_parked();
+        assert!(drawn(cx, gpui::Role::Button, "See what it is doing"));
+        assert!(!drawn(cx, gpui::Role::Button, "Restart the Operator"));
+    }
+
+    #[gpui::test]
+    fn the_last_act_is_the_newest_feed_entry_and_the_line_is_left_out_when_the_feed_is_empty(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        cx.run_until_parked();
+        assert!(drawn(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"), "the feed's first entry, with its age");
+        // A newer entry replaces it, and a merged pull request says its number.
+        page.update(cx, |page, cx| {
+            let mut read = page.page.clone().expect("the page is read");
+            read.feed.insert(0, ipc::operator_page::OperatorFeedEntry { at: ipc::Instant::carried("2026-11-11T13:05:00-05:00"), kind: ipc::operator_page::OperatorFeedKind::Merged, title: "Slot meter".into(), session_id: None, number: Some("3414".into()), said: None });
+            page.set_page(read, cx);
+        });
+        cx.run_until_parked();
+        assert!(drawn(cx, gpui::Role::Status, "Last act <1m ago: #3414 Slot meter"));
+        assert!(!drawn(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"));
+        page.update(cx, |page, cx| {
+            let mut read = page.page.clone().expect("the page is read");
+            read.feed.clear();
+            page.set_page(read, cx);
+        });
+        cx.run_until_parked();
+        assert!(drawn(cx, gpui::Role::Region, "Nothing needs you"), "the card stands without it");
+        assert!(!drawn(cx, gpui::Role::Status, "Last act <1m ago: #3414 Slot meter"), "no last act line is drawn");
+    }
+
+    #[gpui::test]
+    fn a_press_on_see_what_it_is_doing_asks_to_open_the_operators_session_by_its_id(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let heard = asked.clone();
+        let _hearing = cx.update(|_, cx| cx.subscribe(&page, move |_, event: &Opened, _| heard.borrow_mut().push(event.clone())));
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        cx.run_until_parked();
+        let button = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "See what it is doing").map(|drawn| drawn.bounds)).expect("the button is drawn");
+        cx.simulate_click(button.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        assert_eq!(*asked.borrow(), [Opened::Session(SessionId::carried("mock-op"))]);
+        // Starting has no session to open and no button.
+        page.update(cx, |page, cx| {
+            page.session = None;
+            cx.notify();
+        });
+        cx.run_until_parked();
+        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"));
+        page.update(cx, |page, cx| page.open_session(cx));
+        assert_eq!(asked.borrow().len(), 1, "with no session nothing is asked");
+    }
+
+    #[gpui::test]
+    fn restart_switches_the_operator_off_and_on_and_the_card_reads_starting(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.update(cx, |page, cx| page.restart(cx));
+        assert!(page.read_with(cx, |page, _| page.restarting), "it reads Starting while the switch goes round");
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(!page.restarting && page.session.is_none());
+            assert_eq!(page.status(), super::super::status::Status::Starting);
+            assert!(page.page.as_ref().is_some_and(|page| page.on), "the Operator is on again");
+            assert!(page.items().is_empty(), "the page is as quiet as it was");
+        });
+        assert!(drawn(cx, gpui::Role::Status, "Fleet starts its session on the next tick"));
+        assert!(!drawn(cx, gpui::Role::Button, "Restart the Operator"));
+        // A refused switch is said on the card, which keeps its Restart.
+        page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").refuse_switch = Some("Settings are locked".into());
+            page.restart(cx);
+        });
+        cx.run_until_parked();
+        assert!(drawn(cx, gpui::Role::Alert, "Not restarted: Settings are locked"));
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"));
     }
 }
