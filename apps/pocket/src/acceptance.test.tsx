@@ -10,7 +10,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { answer, type Posted } from "./fixture/gateway";
-import { everyState, fixtureMacs, type FixtureMac } from "./fixture/wire";
+import { PARTS_JOB, STEP_BAR, TRY_CARD } from "./fixture/artifacts";
+import { everyState, fixtureMacs, partsJob, type FixtureMac } from "./fixture/wire";
 import { signedMessage } from "./signing";
 
 const STUDIO = "https://studio.tail0.ts.net";
@@ -1186,6 +1187,206 @@ describe("a draft Job, and the acts on a Job", {
         new RegExp(`^/jobs/${encodeURIComponent(STUDIO)}/a2-fork-`),
       ),
     );
+  });
+
+  describe("an artifact and a build to try", () => {
+    const F2 = `/jobs/${encodeURIComponent(STUDIO)}/${PARTS_JOB}`;
+    const READER = `${F2}/artifact?id=${encodeURIComponent(STEP_BAR)}`;
+    const TRY = `${F2}/try?id=${encodeURIComponent(TRY_CARD)}`;
+    const to = (path: string) =>
+      posted[STUDIO]!.filter((one) => one.path === path).map((one) => one.body);
+    const part = (kind: string) =>
+      host.querySelector<HTMLElement>(`section.pk-art__part[data-kind="${kind}"]`);
+    const inPart = (kind: string, label: string) =>
+      Array.from(part(kind)?.querySelectorAll("button") ?? []).find(
+        (one) => one.textContent?.trim() === label,
+      );
+    const inTake = (n: number, label: string) =>
+      Array.from(
+        part("takes")?.querySelectorAll("li.pk-art__take")[n]?.querySelectorAll("button") ?? [],
+      ).find((one) => one.textContent?.trim() === label);
+    beforeEach(() => {
+      const studio = macs[STUDIO]!;
+      const parts = partsJob(NOW);
+      studio.live.unshift(parts.listed);
+      studio.needs.unshift(parts.listed);
+      studio.threads[PARTS_JOB] = parts.thread;
+      studio.artifacts = {
+        [PARTS_JOB]: parts.artifacts,
+      };
+      studio.tries = {
+        [PARTS_JOB]: parts.tries,
+      };
+    });
+
+    it("puts the asking artifact and the open build at the thread's foot, and folds the answered artifact to one line", async () => {
+      await open(F2);
+      await vi.waitFor(() =>
+        expect(host.querySelector('[aria-label="Step bar"].pk-art-card')).toBeTruthy(),
+      );
+      await vi.waitFor(() =>
+        expect(
+          host.querySelector(
+            `[aria-label="Ready to try: Steps drawn as a bar under each Job's title"]`,
+          ),
+        ).toBeTruthy(),
+      );
+      const fold = host.querySelector(".armada-session-artifact");
+      expect(fold?.textContent).toContain("Slot colours");
+      expect(fold?.textContent).toContain("Picked A · Green: Green, and keep the grey for held.");
+    });
+
+    it("draws every part in the order the Job added it, and approves the words alone at the drawn it read", async () => {
+      await open(READER);
+      await vi.waitFor(() => expect(part("page")).toBeTruthy());
+      expect(
+        Array.from(host.querySelectorAll("section.pk-art__part")).map((one) =>
+          one.getAttribute("data-kind"),
+        ),
+      ).toEqual([
+        "words",
+        "takes",
+        "drawing",
+        "buttons",
+        "page",
+      ]);
+      await press(inPart("words", "Approve"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/artifacts/part/answer")).toEqual([
+          {
+            session_id: PARTS_JOB,
+            artifact: STEP_BAR,
+            part: "intro",
+            drawn: "intro-1",
+            how: "approved",
+          },
+        ]),
+      );
+    });
+
+    it("sends a pick with its words and a take's note, and never before a take is chosen", async () => {
+      await open(READER);
+      await vi.waitFor(() => expect(part("takes")).toBeTruthy());
+      expect((inPart("takes", "Send pick") as HTMLButtonElement).disabled).toBe(true);
+      await press(inTake(1, "Pick"));
+      await press(inTake(1, "Note"));
+      await typeInto(field("Note on B · Rail (Job's pick)"), "Thinner rail.");
+      await typeInto(field("Words with your pick"), "The rail, with the names.");
+      await press(inPart("takes", "Send pick"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/artifacts/part/answer")).toEqual([
+          {
+            session_id: PARTS_JOB,
+            artifact: STEP_BAR,
+            part: "bar",
+            drawn: "bar-1",
+            how: "picked",
+            take: "rail",
+            words: "The rail, with the names.",
+            notes: {
+              rail: "Thinner rail.",
+            },
+          },
+        ]),
+      );
+    });
+
+    it("opens a take full screen, steps to the next by its name, and Pick chooses it and closes back to the artifact", async () => {
+      await open(READER);
+      await vi.waitFor(() => expect(part("takes")).toBeTruthy());
+      await press(host.querySelector(`[aria-label="Open A · Bar under the title full screen"]`));
+      const viewer = () => host.ownerDocument.querySelector('[role="dialog"].pk-pictures');
+      expect(viewer()?.getAttribute("aria-label")).toBe("A · Bar under the title");
+      await press(host.ownerDocument.querySelector('[aria-label="After: B · Rail (Job\'s pick)"]'));
+      expect(viewer()?.getAttribute("aria-label")).toBe("B · Rail (Job's pick)");
+      await press(
+        Array.from(viewer()!.querySelectorAll("button")).find(
+          (one) => one.textContent?.trim() === "Pick",
+        ),
+      );
+      expect(viewer()).toBeNull();
+      expect(
+        part("takes")!.querySelectorAll("li.pk-art__take")[1]!.getAttribute("data-picked"),
+      ).toBe("true");
+      expect((inPart("takes", "Send pick") as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it("presses a button of a buttons part at the part's revision", async () => {
+      await open(READER);
+      await vi.waitFor(() => expect(part("buttons")).toBeTruthy());
+      await press(inPart("buttons", "Try it on this Job"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/artifacts/press")).toEqual([
+          {
+            session_id: PARTS_JOB,
+            artifact: STEP_BAR,
+            revision: 1,
+            action: "try",
+          },
+        ]),
+      );
+    });
+
+    it("draws a build to try pictures first and answers Looks good with its branch and tip", async () => {
+      await open(TRY);
+      await vi.waitFor(() => expect(host.querySelectorAll(".pk-try__picture")).toHaveLength(2));
+      expect(
+        Array.from(host.querySelectorAll(".pk-try__caption")).map((one) => one.textContent),
+      ).toEqual([
+        expect.stringMatching(/^You approved/),
+        "Built · in the preview",
+      ]);
+      expect(text()).toContain("Show each Job's steps, so I can see where it is at a glance.");
+      await press(button("Show me how"));
+      expect(
+        Array.from(host.querySelectorAll('[aria-label="Steps on your Mac"] li')).map(
+          (one) => one.textContent,
+        ),
+      ).toEqual([
+        "Press Refresh preview on your Mac",
+        "Open any Job",
+        "Look under its title",
+      ]);
+      await press(button("Looks good"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/ready_to_try/answer")).toEqual([
+          {
+            session_id: PARTS_JOB,
+            branch: "armada/step-bar",
+            tip: "4e735d6c1f0a9b2e7d3c5a8f0e1b2c3d4e5f6a7b",
+            answer: {
+              kind: "looks_good",
+            },
+          },
+        ]),
+      );
+    });
+
+    it("sends Needs rework only with his words", async () => {
+      await open(TRY);
+      await vi.waitFor(() => expect(button("Needs rework")).toBeTruthy());
+      await press(button("Needs rework"));
+      expect((button("Send") as HTMLButtonElement).disabled).toBe(true);
+      await typeInto(field("What needs rework"), "The dots are too small.");
+      await press(button("Send"));
+      await vi.waitFor(() =>
+        expect(
+          to("/api/sessions/ready_to_try/answer").map(
+            (one) =>
+              (
+                one as {
+                  answer: unknown;
+                }
+              ).answer,
+          ),
+        ).toEqual([
+          {
+            kind: "needs_rework",
+            words: "The dots are too small.",
+          },
+        ]),
+      );
+    });
   });
 
   describe("what a Job waits on", () => {

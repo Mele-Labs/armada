@@ -796,6 +796,8 @@ pub struct Face {
     pub build: Option<Build>,
     /// The branches Jobs offered for the preview, and the Refresh row Fleet reads from them.
     pub offers: Option<ipc::PreviewOffers>,
+    /// The notes of the branches the running build holds: the switcher's In this build row shows while there are some.
+    pub build_notes: Option<ipc::BuildNotes>,
     pub fleet: FleetFace,
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
@@ -823,6 +825,7 @@ impl Face {
             usage: Usage::Hidden,
             build: None,
             offers: None,
+            build_notes: None,
             fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None, disk: None },
             repositories: Vec::new(),
             chosen: None,

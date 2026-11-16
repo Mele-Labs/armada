@@ -11,13 +11,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use ipc::{
     Instant, JudgeState, PlanCardState, RawScene, SessionAskState, SessionRecord, SessionRow, SessionThread,
-    SessionVoice, ThreadHead, ThreadItem, ThreadPlan, ThreadTrail, TimelineEvent,
+    SessionVoice, ThreadHead, ThreadItem, ThreadPlan, ThreadReadyToTry, ThreadTrail, TimelineEvent,
 };
 
 mod cards;
 mod head;
 
-use cards::{file_card_of, form_of, reads, sketch_card_of, with_changes, with_documents, with_sketch_state};
+use cards::{file_card_of, form_of, reads, sketch_card_of, with_changes, with_documents, with_ready, with_sketch_state};
 use head::{ask_of, head_of, pinned_of, waiting_plan_of};
 
 const FLEET: &str = "fleet";
@@ -30,15 +30,21 @@ const UNDRAWN: [&str; 6] = ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "
 /// itself: [`revision_paths`] says which it needs.
 pub(crate) type Revisions = HashMap<String, RawScene>;
 
-/// The thread of a Job: its head and all of its items, oldest first.
+/// The thread of a Job: its head and all of its items, oldest first. Its tests read it with no cards.
+#[cfg(test)]
 pub(crate) fn folded(thread: &SessionThread, timeline: &[TimelineEvent], revisions: &Revisions) -> (ThreadHead, Vec<ThreadItem>) {
+    folded_with(thread, timeline, revisions, &[])
+}
+
+/// [`folded`], with the Job's Ready to try cards placed among its items.
+pub(crate) fn folded_with(thread: &SessionThread, timeline: &[TimelineEvent], revisions: &Revisions, ready: &[ThreadReadyToTry]) -> (ThreadHead, Vec<ThreadItem>) {
     let record = &thread.session;
     let mut head = head_of(thread);
     head.plan = waiting_plan_of(record);
     head.sketch = pinned_of(record, revisions);
     // While the Job waits on him, the Fleet turn that led to it stays open.
     let asking = head.asked.is_some() || head.plan.is_some() || head.sketch.is_some();
-    let items = items_of(thread, timeline, revisions, head.sketch.as_ref().map(|pin| pin.sketch.as_str()), asking);
+    let items = items_of(thread, timeline, revisions, ready, head.sketch.as_ref().map(|pin| pin.sketch.as_str()), asking);
     (head, items)
 }
 
@@ -67,7 +73,7 @@ pub(crate) fn folded_cut(thread: &SessionThread, timeline: &[TimelineEvent], rev
         plan: None,
         sketch: None,
     };
-    (head, items_of(thread, timeline, revisions, None, false))
+    (head, items_of(thread, timeline, revisions, &[], None, false))
 }
 
 /// Every revision path the sketches of a record name, which [`folded`] draws once each is in [`Revisions`].
@@ -150,6 +156,7 @@ fn items_of(
     thread: &SessionThread,
     timeline: &[TimelineEvent],
     revisions: &Revisions,
+    ready: &[ThreadReadyToTry],
     pinned: Option<&str>,
     asking: bool,
 ) -> Vec<ThreadItem> {
@@ -176,6 +183,7 @@ fn items_of(
     with_changes(&mut entries, &record.id, timeline);
     with_sketch_state(&mut entries, ledger, revisions);
     with_documents(&mut entries, ledger);
+    with_ready(&mut entries, ready);
     if let Some(failed) = record.hosted.as_ref().and_then(|hosted| hosted.start_failed.as_ref()) {
         let at = entries
             .last()

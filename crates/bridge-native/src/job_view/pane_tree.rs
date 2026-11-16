@@ -6,7 +6,7 @@
 //! **A change that does nothing hands back its own input** (`Cow::Borrowed`), as Classic returns the
 //! same object, because the store's `next !== was` reads that. Everything else is `Cow::Owned`.
 //!
-//! The serde shape is Classic's own JSON: `{ root, focus, next, threadWas? }`, nodes tagged by
+//! The serde shape is Classic's own JSON: `{ root, focus, next, threadWas? }`, plus native's own `offered?`, nodes tagged by
 //! `type`, a tab's kind its string name, and an absent field never written as `null`.
 #![allow(dead_code)] // The drag, layout and kept-shape parts are drawn by the pane PRs after this one.
 
@@ -24,9 +24,9 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 }
 
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
-pub(crate) const JOB_TAB_KINDS: [&str; 27] = [
+pub(crate) const JOB_TAB_KINDS: [&str; 30] = [
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
-    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "custom", "draft", "walk", "document", "subagent",
+    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "custom", "draft", "walk", "document", "subagent", "artifact",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
 pub(crate) const PR_TAB_KINDS: [&str; 8] = ["pr-overview", "pr-files", "pr-checks", "pr-commits", "pr-review", "pr-tool", "pr-comments", "pr-ask"];
@@ -177,6 +177,9 @@ pub(crate) struct Arrangement {
     /// Absent: the thread has not been closed.
     #[serde(default, rename = "threadWas", skip_serializing_if = "Option::is_none")]
     pub thread_was: Option<ThreadPlace>,
+    /// Kinds of tab the Job put in once on its own, so one he closed stays closed. Native's own: Classic never wrote it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub offered: Vec<String>,
 }
 
 /// A box as shares of the whole, or in px.
@@ -453,21 +456,22 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
             }
         }
     }
-    let mut at = Arrangement { root: Node::Pane(Pane { id: "p0".into(), tabs: Vec::new(), active: None }), focus: "p0".into(), next: 1, thread_was: None };
+    let mut at = Arrangement { root: Node::Pane(Pane { id: "p0".into(), tabs: Vec::new(), active: None }), focus: "p0".into(), next: 1, thread_was: None, offered: Vec::new() };
     let root = make(&mut at, shape, front, labels);
     at.focus = panes_of(&root).first().map(|pane| pane.id.clone()).unwrap_or_default();
     at.root = root;
     at
 }
 
-/// Today's Job arrangement: the thread, and to its right Open, Done and Deferred as tabs of one pane over Now (Classic's `defaultArrangement`).
+/// Today's Job arrangement: the thread, and to its right For you, Open, Done and Deferred as tabs of one pane over Now (Classic's
+/// `defaultArrangement`, with For you first and in front in the column).
 pub(crate) fn default_arrangement() -> Arrangement {
     build(
         &Shape::split(
             Dir::Row,
             0.62,
             Shape::pane(&["thread"]),
-            Shape::split(Dir::Column, 0.4, Shape::pane(&["open", "done", "deferred"]), Shape::pane(&["now"])),
+            Shape::split(Dir::Column, 0.4, Shape::pane(&["for_you", "open", "done", "deferred"]), Shape::pane(&["now"])),
         ),
         None,
         &[],

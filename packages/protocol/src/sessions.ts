@@ -485,7 +485,9 @@ export type WaitingAct = {
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
- * `detail.settled`. Its press opens the document. `answer_document` answers it.
+ * `detail.settled`. Its press opens the document. `answer_document` answers it. A page that asks nothing waits as id `read:<path>` with
+ * the same source, text `Read: <title>` and `artifact` the page, while `detail.reads` stands and he has not opened its newest revision:
+ * opening it (`mark_artifact_seen`) is the answer, nothing approves it, and the Job is told nothing.
  * `gate` (id `gate:<group id>`, text `"<group title>" waits on <what>`, act `answer` whose `target` is the Job's own id) is the Job's
  * `all_done` held at a gate that nothing in the Job can close and he can: `Approve` (choice 0) and `Skip this group` (choice 1).
  * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of
@@ -498,6 +500,8 @@ export type WaitingAct = {
  * `Tell <sender> to change` (choice 0), `Tell <other>` (choice 1) and `Hold both` (choice 2). The Job that raised it holds it; each Job named is told his answer.
  * `job_held` (id `held:<repository>:<pull or branch>`, act `answer`) is an `ask_held` Fleet could not answer: `Land it` (choice 0) and `Hold it` (choice 1);
  * the Job that asked is told. Neither can be dismissed. Since 14 Nov 2026.
+ * `ready_to_try` (id and `artifact` `try:<session_id>`, text `Ready to try`, act `message`) is the Job's one row while any Ready to try
+ * card in its thread is open; each card is answered with `answer_ready_to_try`, and dismissing the row puts away only the cards open then. Since 15 Nov 2026, one per Job since 16 Nov 2026.
  */
 export type WaitingSource =
   | "agent"
@@ -527,7 +531,8 @@ export type WaitingSource =
   | "gate"
   | "operator_undone"
   | "job_conflict"
-  | "job_held";
+  | "job_held"
+  | "ready_to_try";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:

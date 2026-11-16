@@ -120,6 +120,8 @@ where
             fleet.stops_told().await;
             // A Later that ran out puts its item back, which the page is told of.
             fleet.laters_run_out().await;
+            // A Ready to try card whose reminder came, back in its Job's thread.
+            fleet.ready_cards_come_back().await;
             // A bug report, a new issue or a note left, told to the Operator's session once.
             fleet.sources_handed().await;
             // What each live Job holds, claimed in its project's store, renewed and waited on.

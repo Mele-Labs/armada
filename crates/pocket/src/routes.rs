@@ -152,6 +152,16 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/waiting/dismiss", post(forward::forward))
         .route("/api/sessions/change_waiting", post(forward::forward))
         .route("/api/sessions/start_waiting", post(forward::forward))
+        // A Job's artifacts, drawn and answered on the phone. The page is sealed `text/html`, and `forward` hands its type back.
+        .route("/api/sessions/artifacts", get(forward::forward))
+        .route("/api/sessions/artifacts/page", get(forward::forward))
+        .route("/api/sessions/artifacts/part/answer", post(forward::forward))
+        .route("/api/sessions/artifacts/press", post(forward::forward))
+        .route("/api/sessions/artifacts/vote", post(forward::forward))
+        .route("/api/sessions/artifacts/seen", post(forward::forward))
+        .route("/api/sessions/thread", get(forward::forward))
+        .route("/api/sessions/repository_file", get(forward::forward))
+        .route("/api/sessions/ready_to_try/answer", post(forward::forward))
         .route("/api/plan_usage", get(forward::forward))
         // Bridge's model list reads Fleet's `/models` too, so the path maps as it is.
         .route("/api/models", get(forward::forward))

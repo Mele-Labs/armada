@@ -11,7 +11,7 @@ use std::time::Duration;
 use adapters::preview_check::{Broke, Compile, Compiler, CONFLICTS};
 use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
-    BuildNotes, CloseSession, MarkBuildNoteLookedAt, OfferPreview, PreviewOffers, PreviewState, PreviewStep, SendBuildNoteFeedback, SessionId,
+    BuildNotes, CloseSession, MarkBuildNoteLookedAt, NoteVerdict, OfferPreview, PreviewOffers, PreviewState, PreviewStep, SendBuildNoteFeedback, SessionId,
     SkipPreviewRefresh, WaitingSource, WithdrawPreview,
 };
 
@@ -29,12 +29,12 @@ impl Compiler for Planted {
     }
 }
 
-fn root(rig: &Rig) -> PathBuf {
+pub(super) fn root(rig: &Rig) -> PathBuf {
     PathBuf::from(rig.fleet.repositories().first().expect("served").root())
 }
 
 /// The repository has a build to read and a `scripts/preview` to offer to, and nothing compiles for real.
-fn a_previewable_repository(rig: &Rig) {
+pub(super) fn a_previewable_repository(rig: &Rig) {
     let scripts = root(rig).join("scripts");
     fs::create_dir_all(&scripts).unwrap();
     fs::write(scripts.join("restart-build"), "#!/bin/sh\n").unwrap();
@@ -43,7 +43,7 @@ fn a_previewable_repository(rig: &Rig) {
 }
 
 /// A branch off `from` with one file committed on it, and its tip.
-fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
+pub(super) fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) -> String {
     let root = root(rig);
     git(&root, &["checkout", "-q", "-B", branch, from]);
     let path = root.join(file);
@@ -54,7 +54,7 @@ fn branch_with(rig: &Rig, branch: &str, from: &str, file: &str, contents: &str) 
     git(&root, &["rev-parse", "HEAD"])
 }
 
-fn base(rig: &Rig) -> String {
+pub(super) fn base(rig: &Rig) -> String {
     git(&root(rig), &["rev-parse", "origin/main"])
 }
 
@@ -69,13 +69,16 @@ async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&st
                 // A look, so the tests of the check read only what the check tells the Job.
                 look: Some("Look at it".to_string()),
                 steps: None,
+                approved: None,
+                pictures: None,
+                words: None,
             },
         )
         .await
 }
 
 /// Every check asked for has run.
-async fn checked(rig: &Rig) {
+pub(super) async fn checked(rig: &Rig) {
     for _ in 0..3000 {
         if rig.fleet.previewing().idle() {
             return;
@@ -98,7 +101,7 @@ fn states(read: &PreviewOffers) -> Vec<(String, PreviewState)> {
 }
 
 /// A Job holding one branch with one file on it, offered with a line.
-async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
+pub(super) async fn a_job_offering(rig: &Rig, branch: &str, file: &str, contents: &str) -> (String, String) {
     let session = rig.a_hosted_session().await;
     rig.holds_branch(&session, branch).await;
     let tip = branch_with(rig, branch, &base(rig), file, contents);
@@ -380,7 +383,7 @@ async fn the_moved_since_the_preview_left_it_out_row_is_no_longer_raised() {
     assert!(raised.is_empty(), "{raised:?}");
 }
 
-fn step(say: &str, act: Option<&str>) -> PreviewStep {
+pub(super) fn step(say: &str, act: Option<&str>) -> PreviewStep {
     PreviewStep { say: say.to_string(), act: act.map(str::to_string) }
 }
 
@@ -395,6 +398,9 @@ async fn offer_noting(rig: &Rig, session: &str, about: Option<&str>, look: Optio
                 about: about.map(str::to_string),
                 look: look.map(str::to_string),
                 steps,
+                approved: None,
+                pictures: None,
+                words: None,
             },
         )
         .await
@@ -404,7 +410,7 @@ async fn offer_kept(rig: &Rig, session: &str) -> store::KeptPreviewOffered {
     rig.fleet.store().lock().await.preview_offered_of(session, "armada/one").unwrap().expect("an offer")
 }
 
-fn code<T>(refused: Result<T, Refusal>) -> String {
+pub(super) fn code<T>(refused: Result<T, Refusal>) -> String {
     match refused {
         Ok(_) => panic!("expected a refusal"),
         Err(refusal) => refusal.error().code.clone(),
@@ -416,7 +422,7 @@ async fn notes(rig: &Rig) -> BuildNotes {
 }
 
 /// The running build is the preview and holds each (branch, tip) given.
-fn holding(rig: &Rig, held: &[(&str, &str)]) {
+pub(super) fn holding(rig: &Rig, held: &[(&str, &str)]) {
     rig.on_file(true);
     let lines: String = held.iter().map(|(branch, tip)| format!("{branch}\t{tip}\n")).collect();
     fs::write(rig.support().join("preview-held"), format!("{}\n{}\n{lines}", rig.build, base(rig))).unwrap();
@@ -506,7 +512,7 @@ async fn the_build_notes_are_the_held_branches_notes_in_offer_order_and_a_note_o
 }
 
 #[tokio::test]
-async fn a_note_is_marked_looked_at_by_branch_and_tip_and_a_new_tip_is_not() {
+async fn a_note_is_marked_looked_at_by_branch_and_tip_with_a_verdict_its_job_is_told_and_a_new_tip_is_not() {
     let rig = a_rig();
     a_previewable_repository(&rig);
     let (session, tip) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
@@ -515,9 +521,10 @@ async fn a_note_is_marked_looked_at_by_branch_and_tip_and_a_new_tip_is_not() {
     holding(&rig, &[("armada/one", &tip)]);
     let mut watching = rig.fleet.events().subscribe();
 
-    let marked = api::Commands::mark_build_note_looked_at(&*rig.fleet, MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: tip.clone() }).await.expect("marked");
+    let mark = |verdict| MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: tip.clone(), verdict };
+    let marked = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::Good))).await.expect("marked");
 
-    assert!(marked.notes[0].looked_at);
+    assert_eq!((marked.notes[0].looked_at, marked.notes[0].verdict), (true, Some(NoteVerdict::Good)));
     assert!(notes(&rig).await.notes[0].looked_at);
     let told = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -534,8 +541,22 @@ async fn a_note_is_marked_looked_at_by_branch_and_tip_and_a_new_tip_is_not() {
     .await
     .expect("build_notes.changed arrives");
     assert!(told.notes[0].looked_at);
+    let thread = rig.thread_of(&session).await;
+    let named = format!("your preview note \"Keeps one thing\" on armada/one at {}", &tip[..7]);
+    assert_eq!(thread.last().map(String::as_str), Some(format!("The owner says {named} is good.").as_str()), "the note's Job is told");
 
-    let unknown = api::Commands::mark_build_note_looked_at(&*rig.fleet, MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: "0".repeat(40) }).await;
+    api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::Good))).await.expect("the same again");
+    assert_eq!(rig.thread_of(&session).await.len(), thread.len(), "the same verdict again tells it nothing");
+    let changed = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), mark(Some(NoteVerdict::NeedsWork))).await.expect("changed");
+    assert_eq!(changed.notes[0].verdict, Some(NoteVerdict::NeedsWork));
+    let thread = rig.thread_of(&session).await;
+    assert_eq!(
+        thread.last().map(String::as_str),
+        Some(format!("The owner says {named} needs work. His words on it follow in a message: wait for them before you change it.").as_str()),
+        "a changed verdict is told"
+    );
+
+    let unknown = api::Commands::mark_build_note_looked_at(Arc::clone(&rig.fleet), MarkBuildNoteLookedAt { branch: "armada/one".into(), tip: "0".repeat(40), verdict: None }).await;
     assert_eq!(unknown.expect_err("no such note").status(), 404);
 
     let newer = branch_with(&rig, "armada/one", "armada/one", "crates/x/more.rs", "2");

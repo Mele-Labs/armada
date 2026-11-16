@@ -69,6 +69,13 @@ pub(super) struct Item {
     /// Whether Ask for changes is offered. A proposed workflow has no note to send back with, and a plan
     /// with no group has nowhere to put one.
     pub send_back: bool,
+    /// A page he is only to read (`read:<page>`): it has no Approve, Ask for changes or Dismiss, only Open.
+    pub read: bool,
+}
+
+/// The page a Document item is about: `document:<page>` waits on his answer, `read:<page>` on his reading it.
+pub(super) fn page_of_item(item: &str) -> Option<&str> {
+    item.strip_prefix("document:").or_else(|| item.strip_prefix("read:"))
 }
 
 impl Item {
@@ -242,6 +249,7 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
                 for_line,
                 revision,
                 send_back,
+                read: one.source == WaitingSource::Document && one.id.starts_with("read:"),
             };
             match one.source {
                 WaitingSource::Plan => head
@@ -253,12 +261,14 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
                     let revision = (!card.revisions.is_empty()).then(|| format!("r{}", card.revisions.len()));
                     item(Kind::Sketch, card.title.clone(), for_text(card.for_line.as_ref()), revision, true)
                 }),
-                WaitingSource::Document => document_card(thread, one.id.strip_prefix("document:").unwrap_or(&one.id))
-                    .map(|card| item(Kind::Document, card.title.clone(), for_text(card.for_line.as_ref()), Some(format!("r{}", card.revision)), true)),
+                WaitingSource::Document => document_card(thread, page_of_item(&one.id).unwrap_or(&one.id))
+                    .map(|card| item(Kind::Document, card.title.clone(), for_text(card.for_line.as_ref()), Some(format!("r{}", card.revision)), !one.id.starts_with("read:"))),
                 WaitingSource::Draft => match draft_row(thread, one.id.strip_prefix("draft:").unwrap_or(&one.id)) {
                     Some(SessionRow::Draft { title, change, for_line, .. }) => Some(item(Kind::Draft, title.clone(), for_text(for_line.as_ref()), None, change.is_none())),
                     _ => None,
                 },
+                // A card to try is answered on its own card, so Approve all passes it by.
+                WaitingSource::ReadyToTry => None,
                 _ => None,
             }
         })
@@ -439,7 +449,7 @@ impl JobView {
         if let Some(one) = lone_page(&items).map(|one| one.id.clone()) {
             self.set_needs(false, None, window, cx);
             match self.sole_document(&id, cx) {
-                Some(page) if one.strip_prefix("document:") == Some(page.as_str()) => self.open_document_tab(&page, window, cx),
+                Some(page) if page_of_item(&one) == Some(page.as_str()) => self.open_document_tab(&page, window, cx),
                 _ => self.go_to_card(&id, &one, cx),
             }
             return;
@@ -450,7 +460,7 @@ impl JobView {
     /// The thread comes to the card of the page owed, where the page is not all the Job owes.
     pub(super) fn go_to_card(&mut self, id: &SharedString, waiting: &str, cx: &mut Context<Self>) {
         let at = self.thread(id, cx).and_then(|held| {
-            let page = waiting.strip_prefix("document:")?;
+            let page = page_of_item(waiting)?;
             held.items.iter().position(|item| matches!(item, ThreadItem::Document(card) if card.page == page))
         });
         if let (Some(at), Some(page)) = (at, self.pages.get(id)) {
@@ -615,7 +625,15 @@ impl JobView {
     /// The items still asking, in the list's order.
     fn review_asking(&self) -> Vec<Item> {
         let Some(review) = self.review() else { return Vec::new() };
-        review.items().filter(|item| review.row(&item.key()).verdict.is_none()).cloned().collect()
+        review.items().filter(|item| !item.read && review.row(&item.key()).verdict.is_none()).cloned().collect()
+    }
+
+    /// Open: the page he is to read, in the reader, with the sheet shut.
+    fn review_read(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((item, row)) = self.review_current() else { return };
+        let Some(page) = page_of_item(&item.id).map(str::to_string).filter(|_| item.read && row.verdict.is_none()) else { return };
+        self.close_review(window, cx);
+        self.open_document_tab(&page, window, cx);
     }
 
     // ---- answers ---------------------------------------------------------------------------
@@ -623,7 +641,7 @@ impl JobView {
     /// `A`: Approve the chosen item, with its notes.
     fn review_approve(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() {
+        if row.verdict.is_some() || item.read {
             return;
         }
         let body = answer_batch(&[&item], ItemHow::Approve, |one| self.review_notes_text(one, cx));
@@ -634,7 +652,7 @@ impl JobView {
     /// send back with no note is refused.
     fn review_changes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() || !item.send_back {
+        if row.verdict.is_some() || !item.send_back || item.read {
             return;
         }
         if notes_of(&self.review_notes_text(&item, cx)).is_empty() {
@@ -648,7 +666,7 @@ impl JobView {
     /// `D`: the chosen item off his list, with no verdict.
     fn review_dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() {
+        if row.verdict.is_some() || item.read {
             return;
         }
         let body = dismiss_batch(&[&item]);
@@ -828,7 +846,9 @@ impl JobView {
         let current = self.review_current();
         let open = current.as_ref().is_some_and(|(_, row)| row.verdict.is_none());
         let mut stops: Vec<FocusHandle> = vec![focus.list.clone()];
-        if open {
+        if open && current.as_ref().is_some_and(|(item, _)| item.read) {
+            stops.push(focus.approve.clone());
+        } else if open {
             stops.push(focus.dismiss.clone());
             if current.as_ref().is_some_and(|(item, _)| item.send_back) {
                 stops.push(focus.changes.clone());
@@ -880,11 +900,13 @@ impl JobView {
         if review.row(key).verdict.is_some() {
             return;
         }
-        let mut entries = vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }];
+        let mut entries = if item.read { vec![Entry::Act { id: "open", label: "Open".into(), icon: Some("scroll-text"), danger: false }] } else { vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }] };
         if item.send_back {
             entries.push(Entry::Act { id: "changes", label: "Ask for changes".into(), icon: Some("pencil"), danger: false });
         }
-        entries.push(Entry::Act { id: "dismiss", label: "Dismiss".into(), icon: Some("x"), danger: false });
+        if !item.read {
+            entries.push(Entry::Act { id: "dismiss", label: "Dismiss".into(), icon: Some("x"), danger: false });
+        }
         let back = Some(self.review_focus.list.clone());
         self.open_pop_back(
             "Item",
@@ -893,6 +915,7 @@ impl JobView {
             from_keys,
             back,
             move |this, id, window, cx| match id {
+                "open" => this.review_read(window, cx),
                 "approve" => this.review_approve(window, cx),
                 "changes" => this.review_changes(window, cx),
                 "dismiss" => this.review_dismiss(window, cx),
@@ -1192,6 +1215,16 @@ impl JobView {
         };
         let focus = &self.review_focus;
         let acts = open.then(|| {
+            // A page he is only to read has Open and nothing to answer.
+            if item.read {
+                return div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .justify_end()
+                    .gap(look.length(token::SPACE_2))
+                    .child(self.review_button(look, "review-open", "Open", Tone::Primary, None, false, "\u{21b5}", &focus.approve, true, Self::review_read, cx));
+            }
             div()
                 .flex()
                 .flex_wrap()
@@ -1515,6 +1548,16 @@ mod tests {
     }
 
     #[test]
+    fn a_card_to_try_is_left_out_of_the_sheet_so_approve_all_passes_it_by() {
+        let (head, items) = held();
+        let mut with_card = owed();
+        with_card.extend(waiting(r#"[{"id":"try:native/chip@aaaa1111","text":"Try: Chip","since":"2026-11-09T14:20:00Z","source":"ready_to_try","artifact":"try:native/chip@aaaa1111"}]"#));
+        let built = build("j", &with_card, &head, &items, true);
+        assert!(built.iter().all(|item| !item.id.starts_with("try:")), "no item of the sheet names the card");
+        assert_eq!(built.len(), build("j", &owed(), &head, &items, true).len(), "the card adds nothing to what Approve all sends");
+    }
+
+    #[test]
     fn the_items_stand_oldest_first_and_a_question_is_not_one_of_them() {
         let (head, items) = held();
         let built = build("j", &owed(), &head, &items, true);
@@ -1525,6 +1568,19 @@ mod tests {
         assert_eq!(built[1].for_line.as_deref(), Some("Picks the tail the thread keeps."));
         assert_eq!(built[2].revision.as_deref(), Some("r2"));
         assert!(built.iter().all(|item| item.job == "j"));
+    }
+
+    #[test]
+    fn a_read_item_stands_on_the_sheet_with_only_open_to_do() {
+        let (head, items) = held();
+        let wire = waiting(r#"[{"id":"read:design","text":"Read: Stale branch design","since":"2026-11-09T14:03:00Z","source":"document","artifact":"design"}]"#);
+        let built = build("j", &wire, &head, &items, true);
+        assert_eq!(built.len(), 1, "a Read item is matched as a document is");
+        assert_eq!((built[0].kind, built[0].read, built[0].send_back), (Kind::Document, true, false), "no Ask for changes, and only Open");
+        assert_eq!(page_of_item("read:design"), Some("design"));
+        assert_eq!(page_of_item("document:design"), Some("design"));
+        assert_eq!(page_of_item("sketch:Tail"), None);
+        assert!(!build("j", &owed(), &head, &items, true).iter().any(|item| item.read), "an item that waits on his answer is not a read one");
     }
 
     #[test]
@@ -1571,7 +1627,7 @@ mod tests {
     }
 
     fn item(job: &str, id: &str, since: &str) -> Item {
-        Item { job: job.into(), id: id.into(), kind: Kind::Sketch, name: id.into(), since: since.into(), for_line: None, revision: None, send_back: true }
+        Item { job: job.into(), id: id.into(), kind: Kind::Sketch, name: id.into(), since: since.into(), for_line: None, revision: None, send_back: true, read: false }
     }
 
     fn group(job: &str, items: Vec<Item>) -> Group {

@@ -96,3 +96,10 @@
   size = "14px"
   status = "Specified"
   notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Done`, in --step-advanced. A completed step is bare check, which circle-check's reservation names."
+
+[[icons.check.usage]]
+  means = "A pull request of the Job's own still open, on a row of the For you tab's Landing on green"
+  group = "Job column"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 15 Nov 2026 for the walk `native-for-you`. In the section's success hue, tooltip `Pull request open`; the row's number and title follow it."

@@ -467,6 +467,10 @@ impl JobView {
                 off: offer.off.map(Into::into),
             }));
         }
+        // Ended Jobs move as live ones do: Fleet writes the project on either. A Job on another Mac is off, with why, below.
+        if crate::move_to_project::movable(job) {
+            acts.push(Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: None, off: None });
+        }
         if live && hosted {
             acts.push(Entry::Toggle { id: "land", label: "Auto land".into(), on: self.auto_land(id, cx) });
             let holds = self.holds(id, cx).is_empty();
@@ -603,6 +607,12 @@ impl JobView {
             }
             "snooze" => self.ask_snooze(&id, window, cx),
             "move_mac" => self.list.update(cx, |list, cx| list.move_to_mac(&id, cx)),
+            "move_project" => {
+                // Under the tab, and back to it when the picker shuts: this menu's own act is on this Job alone.
+                let at = drawn(window, cx, Role::Row, &self.tab_name(&id, cx)).map(below_left);
+                let back = Some(self.head.tab.clone());
+                self.list.update(cx, |list, cx| list.open_project_picker(vec![id.clone()], at, true, back, window, cx));
+            }
             "wake" => self.list.update(cx, |list, cx| list.snooze(&id, None, cx)),
             "land" => {
                 let on = !self.auto_land(&id, cx);
@@ -1588,6 +1598,7 @@ fn route_of(act: &str) -> Option<&'static str> {
         "end" => "/sessions/close",
         "rename" => "/sessions/rename",
         "move_mac" => crate::move_to_mac::ROUTE,
+        "move_project" => crate::move_to_project::ROUTE,
         _ => return None,
     })
 }

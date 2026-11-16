@@ -76,18 +76,22 @@ fn an_offer_keeps_its_look_and_steps_and_its_note_outlives_the_offer() {
 }
 
 #[test]
-fn a_note_is_looked_at_for_its_tip_alone_and_a_re_offer_at_the_same_tip_keeps_the_mark() {
+fn a_note_is_looked_at_for_its_tip_alone_with_its_latest_verdict_and_a_re_offer_at_the_same_tip_keeps_both() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store.keep_preview_offered("s1", B, "t1", "first", Some("one"), &[], "2026-11-13T09:00:00Z").expect("kept");
-    assert!(store.keep_build_note_looked_at(B, "t1", "2026-11-13T09:30:00Z").expect("marked"));
-    assert!(store.keep_build_note_looked_at(B, "t1", "2026-11-13T09:45:00Z").expect("marked again"));
-    assert!(!store.keep_build_note_looked_at(B, "t9", "2026-11-13T09:45:00Z").expect("no such tip"));
-    assert_eq!(store.build_note_of(B, "t1").expect("reads").expect("a note").looked_at.as_deref(), Some("2026-11-13T09:30:00Z"), "the first time stands");
+    assert!(store.keep_build_note_looked_at(B, "t1", "2026-11-13T09:30:00Z", Some("good")).expect("marked"));
+    assert!(store.keep_build_note_looked_at(B, "t1", "2026-11-13T09:45:00Z", Some("needs_work")).expect("marked again"));
+    assert!(!store.keep_build_note_looked_at(B, "t9", "2026-11-13T09:45:00Z", None).expect("no such tip"));
+    let marked = store.build_note_of(B, "t1").expect("reads").expect("a note");
+    assert_eq!(marked.looked_at.as_deref(), Some("2026-11-13T09:30:00Z"), "the first time stands");
+    assert_eq!(marked.verdict.as_deref(), Some("needs_work"), "the latest verdict stands");
+    assert!(store.keep_build_note_looked_at(B, "t1", "2026-11-13T09:50:00Z", None).expect("marked with none"));
+    assert_eq!(store.build_note_of(B, "t1").expect("reads").expect("a note").verdict.as_deref(), Some("needs_work"), "no verdict keeps the one kept");
 
     store.keep_preview_offered("s1", B, "t1", "second", Some("two"), &[], "2026-11-13T10:00:00Z").expect("same tip again");
     let again = store.build_note_of(B, "t1").expect("reads").expect("a note");
-    assert_eq!((again.about.as_str(), again.look.as_deref(), again.looked_at.is_some()), ("second", Some("two"), true), "updated, still looked at");
+    assert_eq!((again.about.as_str(), again.look.as_deref(), again.looked_at.is_some(), again.verdict.as_deref()), ("second", Some("two"), true, Some("needs_work")), "updated, still looked at");
 
     store.keep_preview_offered("s1", B, "t2", "second", Some("two"), &[], "2026-11-13T11:00:00Z").expect("a new tip");
     assert_eq!(store.build_note_of(B, "t2").expect("reads").expect("a note").looked_at, None, "a new tip is a new note");

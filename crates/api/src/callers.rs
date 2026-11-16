@@ -114,6 +114,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("skip_preview_refresh", "chooses the build Fleet runs"),
     ("mark_build_note_looked_at", "marks the notes of his preview build looked at"),
     ("send_build_note_feedback", "answers the notes of his preview build"),
+    ("answer_ready_to_try", "answers the notes of his preview build"),
     ("start_sign_in", "signs this Mac in and out"),
     ("register_sign_in_app", "signs this Mac in and out"),
     ("sign_out", "signs this Mac in and out"),

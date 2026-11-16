@@ -225,6 +225,7 @@ pub fn rest() -> Face {
         usage: limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
         build: Some(main_aligned()),
         offers: None,
+        build_notes: None,
         fleet: fleet(connected(), Power::Live),
         repositories,
         chosen: None,

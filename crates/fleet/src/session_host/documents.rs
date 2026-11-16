@@ -7,7 +7,8 @@
 //! will not count. The
 //! write is never refused, but a page that asks and buries its ask is kept as one for reading (`page_measure`). **A revision is put to the person
 //! only where the page asks**: it marks itself `<meta name="armada-review" content="approve">`, or the
-//! Job waits on a `document_approved` gate or step. Every other page is for reading. Read off the page
+//! Job waits on a `document_approved` gate or step. Every other page is for reading, and the Job's own revision of
+//! one waits on him as `read:<path>` until he opens it (`reads`). Read off the page
 //! kept here and never off the tool call: `document_answers` answers it.
 //! **A page is asked only of the Job that changed it.** The file stays in a slot that changes hands, so a
 //! Job that took another's place is given the page's history, and any other Job passes over a page
@@ -23,7 +24,7 @@ use api::Sessions;
 use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 use store::{Holder, KeptAttachment};
 
-use super::document_answers::is_document;
+use super::document_answers::{is_document, DOCUMENT_READS, READ_ITEM_PREFIX};
 use super::artifact_for::with_for;
 use super::page_actions::actions_that_will_not_run;
 use super::page_measure::buried_ask;
@@ -82,6 +83,9 @@ where
         // A vote or buttons ask him too, on a page with no Approve mark.
         let presses = { let lower = html.to_ascii_lowercase(); lower.contains("<armada-vote") || lower.contains("<armada-action") };
         let buried = if (asks || presses) && measured { buried_ask(html, path) } else { None };
+        // The Job's own revision of a page that asks nothing waits on him to read it. One that buried its ask goes
+        // back to the Job, and his Edit he has read.
+        let reads = measured && !asks && !presses;
         let asks = asks && buried.is_none();
         let (text, links) = for_of(html);
         let (said, dropped) = ipc::ArtifactFor::kept(text.as_deref(), &links);
@@ -96,6 +100,9 @@ where
             (DOCUMENT_KEPT_AT.to_string(), self.instant().as_str().to_string()),
         ]
         .into();
+        if reads {
+            detail.insert(DOCUMENT_READS.to_string(), String::from("true"));
+        }
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
@@ -118,6 +125,7 @@ where
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
+        let _ = self.store().lock().await.restore_waiting(id, &format!("{READ_ITEM_PREFIX}{path}"));
         let _ = self
             .report_session(SessionReport {
                 harness: String::from(adapters::HOSTED_HARNESS),
@@ -200,9 +208,13 @@ where
     /// own folder, the newest revision's number, the revisions he wrote and his answer or dismissal, so only
     /// a real edit asks again. `old` keeps its own, so a hand undone has lost nothing.
     pub(super) async fn pages_carried(&self, old: &str, new: &str) {
-        let (held, dismissed) = {
+        let (held, dismissed, opened) = {
             let store = self.store().lock().await;
-            (store.attachments_of(&Holder::session(old)).unwrap_or_default(), store.dismissed_waiting(old).unwrap_or_default())
+            (
+                store.attachments_of(&Holder::session(old)).unwrap_or_default(),
+                store.dismissed_waiting(old).unwrap_or_default(),
+                store.artifact_seen(old).unwrap_or_default(),
+            )
         };
         for page in held.into_iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)) {
             let folder = self.documents_of(new).join(folder_of(&page.target));
@@ -219,6 +231,14 @@ where
             let _ = store.attach(&carried, false);
             if dismissed.contains(&item) {
                 let _ = store.dismiss_waiting(new, &item);
+            }
+            // What he read of it is read still, so a page waits to be read again only where it did.
+            let read = format!("{READ_ITEM_PREFIX}{}", carried.target);
+            if dismissed.contains(&read) {
+                let _ = store.dismiss_waiting(new, &read);
+            }
+            if let Some(kept) = opened.iter().find(|one| one.artifact == carried.target) {
+                let _ = store.keep_artifact_seen(new, &kept.artifact, kept.revision);
             }
         }
     }

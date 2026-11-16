@@ -1,7 +1,8 @@
 //! The claim, written before the code: **any kept revision of a Job's page is served as one sealed HTML answer: its
 //! policy is the first child of its `<head>`, only the kit's script carries the nonce the policy names, the kit's
-//! stylesheet is inlined and no relative address is left to fetch, and the presses and votes made on that revision,
-//! and no other, ride with it. A revision never kept is refused, and an archived page still serves.**
+//! stylesheet is inlined and no relative address is left to fetch, and the presses and votes made on that revision or
+//! an earlier one ride with it, where their action, or their vote in the same form with the same takes, is still on
+//! it. A revision never kept is refused, and an archived page still serves.**
 //! `crates/ipc/operations/get_artifact_page.toml`.
 
 use std::collections::BTreeMap;
@@ -140,8 +141,9 @@ async fn the_kit_css_is_inlined_and_no_relative_address_is_left() {
     }
 }
 
+/// The owner, 15 Nov 2026: votes he cast read as never cast once the Job revised other sections of the page.
 #[tokio::test]
-async fn presses_and_votes_ride_with_the_revision_they_were_made_on_only() {
+async fn presses_and_votes_stand_on_later_revisions_while_their_action_and_vote_do() {
     let rig = rig_placing(None);
     let (id, at) = a_job(&rig).await;
     let path = page_holding(&rig, &id, at, PAGE).await;
@@ -153,14 +155,19 @@ async fn presses_and_votes_ride_with_the_revision_they_were_made_on_only() {
     rewritten(&rig, &id, at, &path, &PAGE.replace("Flaky tests</h1>", "Flaky tests, again</h1>"), 2).await;
 
     let newest = page(&rig, &id, &path, None).await.expect("the newest");
-    let first = page(&rig, &id, &path, Some(1)).await.expect("the first");
-
     assert_eq!(newest.revision, 2);
-    let record = record_of(&newest.html);
-    assert_eq!((record.artifact.as_str(), record.revision, record.presses.len(), record.votes.len()), (path.as_str(), 2, 0, 0));
     assert!(newest.html.contains("Flaky tests, again"));
-    let record = record_of(&first.html);
+    let record = record_of(&newest.html);
+    assert_eq!((record.artifact.as_str(), record.revision), (path.as_str(), 2));
+    assert_eq!((record.presses, record.votes), (vec![pressed.clone()], vec![voted.clone()]), "another section changed, so both stand, read as made on 1");
+    let record = record_of(&page(&rig, &id, &path, Some(1)).await.expect("the first").html);
     assert_eq!((record.revision, record.presses, record.votes), (1, vec![pressed], vec![voted]));
+
+    // The action gone and the take he picked gone: neither stands on the revision that dropped them.
+    let changed = PAGE.replace("<armada-action id=\"discuss-1\" act=\"message\" label=\"Discuss\" item=\"row-1\"></armada-action>", "").replace("id=\"roomy\" title=\"Roomy\"", "id=\"wide\" title=\"Wide\"");
+    rewritten(&rig, &id, at, &path, &changed, 3).await;
+    let record = record_of(&page(&rig, &id, &path, None).await.expect("the third").html);
+    assert_eq!((record.revision, record.presses.len(), record.votes.len()), (3, 0, 0));
 }
 
 #[tokio::test]

@@ -102,6 +102,13 @@ So does a reply of his in the thread that a model call reads as approving the pa
 `answer_waiting` on it is refused.
 A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
+**A page that asks nothing waits until he opens it.** One item per page, `read:<path>`, source `document`, its text `Read: <title>`, its act `message` on the job and its `artifact` the page, while the newest revision's `detail.reads` is `true` and the newest revision he opened (`mark_artifact_seen`) is older.
+Fleet writes `reads` on the job's own revision of a page that asks nothing, so a page that buried its ask, which goes back to the job, raises none, and his own Edit raises none.
+Opening the newest revision closes it, and the job is told nothing; opening an older one leaves it.
+A new revision raises it again and lifts a dismissal, and `dismiss_waiting` puts it away telling the job nothing.
+The page archived, deleted or joined to an artifact raises none.
+It asks no verdict: Approve all passes it by, and it neither holds `all_done` nor makes a working job read as waiting.
+
 **The job takes a Document back with `withdraw_document`** (`path`, `session_id`) when he has moved past it.
 `path` is the page's path as its item names it, the end of it (`lease.html`) or its title.
 It writes the dismissal `dismiss_waiting` writes for `document:<path>`, so the item leaves the list, the card stops asking and the plan held behind the page is no longer held by it.
@@ -117,6 +124,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
+An open Ready to try card is always in the band, alone or not: `fold` and `review_in_band` are true, and `glyphs` carries its mark, `Ready to try`.
 A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
 Where it is not `none`, `dismiss_waiting` takes the item.
@@ -152,6 +160,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 | `job_conflict` | questions | none: Fleet refuses it |
 | `job_held` | questions | none: Fleet refuses it |
+| `ready_to_try` | to_review | plain; one row for the Job while any card is open, its cards answer it, and a dismissal covers only the cards open then |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.

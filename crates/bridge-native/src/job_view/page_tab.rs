@@ -12,7 +12,7 @@ use ipc::{HostToPage, PageToHost, WalkTarget};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
-use crate::web::{finder, kit, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
+use crate::web::{finder, kit, reader, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
 
 /// How long a walk's aim at the page waits for its target, as a web page's walk waits.
 const PATIENCE: Duration = Duration::from_secs(5);
@@ -22,6 +22,8 @@ const RETRY: Duration = Duration::from_millis(150);
 pub enum PageTabEvent {
     /// The kit posted a press or a vote, for the Job view to carry to Fleet.
     Posted(PageToHost),
+    /// The page's headings were read, for the reader's contents.
+    Read,
 }
 
 enum Held {
@@ -36,7 +38,12 @@ pub struct PageTab {
     job: SharedString,
     page: String,
     revision: u32,
+    /// The revision drawn: the card's own, or an earlier one the reader chose.
+    shown: u32,
     held: Held,
+    /// The page's headings, once it has loaded.
+    heads: Vec<reader::Head>,
+    _reading: Option<Task<()>>,
     /// The page's posts and loads, heard while it is held.
     _hearing: Option<Subscription>,
     /// A walk's aim, found and pressed in the page.
@@ -49,7 +56,52 @@ impl EventEmitter<PageTabEvent> for PageTab {}
 
 impl PageTab {
     pub fn new(job: SharedString, page: String, revision: u32) -> Self {
-        PageTab { job, page, revision, held: Held::Loading, _hearing: None, _aim: None, _told: Vec::new() }
+        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
+    }
+
+    /// The revision the page draws.
+    pub fn shown(&self) -> u32 {
+        self.shown
+    }
+
+    /// The page asked for another revision: it draws its shapes until Fleet answers.
+    pub fn show_revision(&mut self, revision: u32, cx: &mut Context<Self>) {
+        self.shown = revision;
+        self.held = Held::Loading;
+        self.heads.clear();
+        self._hearing = None;
+        cx.notify();
+    }
+
+    /// The headings the page holds, once it has loaded.
+    pub fn heads(&self) -> &[reader::Head] {
+        &self.heads
+    }
+
+    /// A script run in the page's finder world: the reader's asks. The channel answers `None` where the page is not up.
+    pub fn ask(&self, script: &str, cx: &gpui::App) -> async_channel::Receiver<Option<String>> {
+        match &self.held {
+            Held::Ready(page) => page.read(cx).ask(script),
+            _ => {
+                let (tx, rx) = async_channel::bounded(1);
+                let _ = tx.try_send(None);
+                rx
+            }
+        }
+    }
+
+    /// The headings are read from the page once it has loaded.
+    fn read_heads(&mut self, cx: &mut Context<Self>) {
+        let ask = self.ask(&reader::words(), cx);
+        self._reading = Some(cx.spawn(async move |this, cx| {
+            let answer = ask.recv().await.ok().flatten();
+            this.update(cx, |this, cx| {
+                this.heads = reader::heads_of(answer.as_deref());
+                cx.emit(PageTabEvent::Read);
+                cx.notify();
+            })
+            .ok();
+        }));
     }
 
     pub fn job(&self) -> &SharedString {
@@ -69,7 +121,7 @@ impl PageTab {
         self.held = match answer {
             Ok(html) => {
                 let page = cx.new(|cx| WebPage::new(None, Source::Sealed(html), cx));
-                let hearing = cx.subscribe(&page, |_, page, event: &WebPageEvent, cx| match event {
+                let hearing = cx.subscribe(&page, |this, page, event: &WebPageEvent, cx| match event {
                     WebPageEvent::Posted(text) => {
                         if let Some(posted) = kit::read(text) {
                             cx.emit(PageTabEvent::Posted(posted));
@@ -77,6 +129,9 @@ impl PageTab {
                     }
                     // A page drawn as a picture (under a layer, or with no window of its own) is pictured once it has loaded.
                     WebPageEvent::Loaded | WebPageEvent::Shown => {
+                        if matches!(event, WebPageEvent::Loaded) && *page.read(cx).status() == Status::Ready {
+                            this.read_heads(cx);
+                        }
                         let pictured = *page.read(cx).status() == Status::Ready && page.read(cx).mode() == Mode::Picture;
                         if pictured {
                             page.update(cx, |page, cx| page.take_picture(cx));
@@ -147,6 +202,18 @@ impl PageTab {
                 }
             });
             let _ = tx.try_send(found);
+        }));
+        rx
+    }
+
+    /// A walk's step that selects the words of the element it found, as a person drags over them. The channel answers
+    /// once the page has run it.
+    pub fn select(&mut self, cx: &mut Context<Self>) -> async_channel::Receiver<bool> {
+        let (tx, rx) = async_channel::bounded(1);
+        let asked = self.ask(&finder::select(), cx);
+        self._aim = Some(cx.spawn(async move |_, _| {
+            let said = asked.recv().await.ok().flatten();
+            let _ = tx.try_send(said.as_deref() == Some("true"));
         }));
         rx
     }
@@ -272,8 +339,10 @@ impl JobView {
         for (page, revision) in new {
             let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision));
             let carrying = cx.subscribe_in(&tab, window, |this, tab, event: &PageTabEvent, window, cx| {
-                let PageTabEvent::Posted(posted) = event;
-                this.carry(tab.clone(), posted.clone(), window, cx);
+                match event {
+                    PageTabEvent::Posted(posted) => this.carry(tab.clone(), posted.clone(), window, cx),
+                    PageTabEvent::Read => cx.notify(),
+                }
             });
             let mut opened = cx.try_global::<Opened>().map(|kept| kept.0.clone()).unwrap_or_default();
             opened.retain(|one| one.upgrade().is_some());
@@ -282,23 +351,27 @@ impl JobView {
             self.row_tabs.entry(id.clone()).or_default().pages.insert(page, (tab.clone(), carrying));
             self.fetch_page(tab, window, cx);
         }
+        self.sync_readers(id, window, cx);
     }
 
     /// The page, sealed, as Fleet serves it (`get_artifact_page`), or Fleet's refusal of it.
-    fn fetch_page(&mut self, tab: Entity<PageTab>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn fetch_page(&mut self, tab: Entity<PageTab>, window: &mut Window, cx: &mut Context<Self>) {
         let (job, page, revision) = {
             let held = tab.read(cx);
-            (held.job().clone(), held.page().to_string(), held.revision())
+            (held.job().clone(), held.page().to_string(), held.shown())
         };
         if self.fleet.is_none() {
             let kept = self.row_tabs.get(&job).and_then(|tabs| tabs.mock_kept.get(&page)).cloned().unwrap_or_default();
-            let answer = crate::mock::sealed_page(&page, revision, &kept.presses, &kept.votes);
+            let answer = crate::mock::sealed_page(&page, revision, &kept.presses, &kept.votes).map(|html| super::page_sketches::drawn(&html, &page, window, cx));
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
             return;
         }
         let path = format!("/sessions/artifacts/page?session_id={}&artifact={}&revision={revision}", super::wire::encoded(&job), super::wire::encoded(&page));
-        let done: super::wire::Done = Box::new(move |_, answer, _, cx| {
+        let named = page.clone();
+        let done: super::wire::Done = Box::new(move |_, answer, window, cx| {
             let answer = answer.and_then(|bytes| String::from_utf8(bytes).map_err(|_| "Fleet's page is not text".to_string()));
+            // The sketches the page holds are drawn before the page reaches its web view (`page_sketches.rs`).
+            let answer = answer.map(|html| super::page_sketches::drawn(&html, &named, window, cx));
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
         });
         self.get(path, window, cx, done);
@@ -366,6 +439,16 @@ mod tests {
         assert!(page.contains(r#""take":"fade""#), "the newest cast rides in the record");
         assert!(page.contains("window.armadaHost = hear"), "the kit Fleet sealed it with");
         assert!(crate::mock::sealed_page("notes", 1, &[], &[]).is_err(), "a page the mock never kept is refused");
+    }
+
+    #[test]
+    fn the_mock_serves_the_first_revision_of_the_design_page_and_the_marks_page_with_a_sketch_in_each_take() {
+        let first = crate::mock::sealed_page("design", 1, &[], &[]).expect("revision 1 is kept");
+        assert!(first.contains("Three branches are stale now.") && first.contains(r#""revision":1"#));
+        assert!(crate::mock::sealed_page("design", 3, &[], &[]).is_err());
+        let marks = crate::mock::sealed_page("marks", 1, &[], &[]).expect("the marks page is served");
+        assert_eq!(marks.matches("<armada-sketch").count(), 3, "its own drawing and one in each take");
+        assert!(marks.contains(r#"<armada-take id="chip""#) && marks.contains(r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#));
     }
 
     #[test]

@@ -1,0 +1,10 @@
+[operations."session.aside"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One aside of a Job, whole, as its answer grows, ends, or is told"
+notes = """
+Carries the `Aside` itself, so a client replaces the one it holds by `aside_id` and never patches it. **Coalesced**: while the answer is arriving Fleet publishes at most about five a second, and always the last, with `state` `answered` or `failed`. It is published again when the owner tells the aside to the Job (`told_at` set).
+
+A resync does not carry it. A Bridge that missed one, or reconnects, reads `list_asides` for the Job it shows.
+"""

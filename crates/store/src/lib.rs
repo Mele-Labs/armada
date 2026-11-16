@@ -56,6 +56,8 @@ mod fleet_disputes;
 mod bug_reports;
 /// What a Job asked the Operator with `raise_conflict` and `ask_held`.
 mod job_asks;
+/// What the owner asked a Job on the side, kept beside its record and never in its thread.
+mod job_asides;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -92,6 +94,8 @@ mod page_presses;
 mod page_votes;
 /// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
 mod artifact_seen;
+/// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
+mod for_you;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -251,6 +255,7 @@ pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
+pub use job_asides::{aside_state, KeptAside};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
@@ -272,6 +277,7 @@ pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use page_presses::KeptPress;
 pub use page_votes::KeptVote;
 pub use artifact_seen::KeptArtifactSeen;
+pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -286,7 +292,7 @@ pub use judge_readings::{KeptJudgeNote, KeptJudgeReading};
 pub use fleet_calls::KeptCall;
 pub use preview_offers::KeptPreviewOffer;
 pub use preview_offered::{KeptPreviewOffered, KeptStep};
-pub use build_notes::KeptBuildNote;
+pub use build_notes::{KeptApproved, KeptBuildNote, KeptCard};
 pub use issue_queries::KeptIssueQuery;
 pub use projects::{
     Edited, KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,

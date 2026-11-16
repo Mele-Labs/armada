@@ -1303,3 +1303,410 @@ button.pk-send__title {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
+
+/* An artifact read whole: its parts one under another, each in a raised frame with its kind and where it stands. */
+.pk-art__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-4);
+}
+.pk-art__for {
+  margin: 0;
+  color: var(--fg-muted);
+}
+.pk-art__part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card);
+}
+.pk-art__part[data-asks="true"] {
+  border-color: var(--status-awaiting-approval);
+}
+.pk-art__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pk-art__kind {
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+.pk-art__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+}
+.pk-art__tag[data-state="open"] {
+  background: var(--status-awaiting-approval-bg);
+  color: var(--status-awaiting-approval);
+}
+.pk-art__tag[data-state="approved"],
+.pk-art__tag[data-state="picked"] {
+  background: var(--status-completed-success-bg);
+  color: var(--status-completed-success);
+}
+.pk-art__tag[data-state="sent_back"] {
+  background: var(--status-awaiting-review-bg);
+  color: var(--status-awaiting-review);
+}
+
+/* A picture is as wide as the phone, and as tall as a phone's width allows; a tap opens it full screen. */
+.pk-art__picture {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  aspect-ratio: 16 / 9;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.pk-art__picture:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.pk-art__picture[data-picked="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 var(--border-width) var(--accent);
+}
+.pk-art__shot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pk-art__question {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+.pk-art__takes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pk-art__take {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.pk-art__take-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-art__take-title {
+  font-weight: var(--weight-medium);
+}
+.pk-art__take[data-picked="true"] .pk-art__take-title {
+  color: var(--accent);
+}
+.pk-art__mark {
+  display: inline-flex;
+  color: var(--accent);
+}
+.pk-art__take-acts {
+  display: flex;
+  gap: var(--space-2);
+}
+.pk-art__said {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: var(--border-width) solid var(--border-strong);
+  color: var(--fg-muted);
+}
+.pk-art__settled {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--status-completed-success);
+}
+.pk-art__settled-words {
+  color: var(--fg-muted);
+}
+.pk-art__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.pk-art__revision {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+/* A sealed page scrolls inside its own frame, as tall as the screen under the band. */
+.pk-art__page {
+  display: block;
+  width: 100%;
+  height: calc(100dvh - var(--h-title-bar) * 3);
+  min-height: calc(var(--space-12) * 6);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+}
+
+/* The card at the thread's foot while an artifact or a build waits on him. */
+.pk-art-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--status-awaiting-approval);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card);
+}
+.pk-art-card--try {
+  border-color: var(--status-completed-success);
+}
+.pk-art-card__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pk-art-card__chip,
+.pk-try__chip {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  background: var(--status-awaiting-approval-bg);
+  color: var(--status-awaiting-approval);
+}
+.pk-try__chip {
+  background: var(--status-completed-success-bg);
+  color: var(--status-completed-success);
+}
+.pk-art-card__title {
+  min-width: 0;
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-art-card__for {
+  margin: 0;
+  color: var(--fg-muted);
+}
+.pk-art-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.pk-art-card__still {
+  margin-right: auto;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+/* A picture over the whole screen: a thin band, the stage, and the takes' names to step between. */
+.pk-pictures {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: var(--pk-inset-bottom, env(safe-area-inset-bottom));
+  background: var(--bg-base);
+}
+.pk-pictures__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+}
+.pk-pictures__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-pictures__stage {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+.pk-pictures__stage[data-zoomed="true"] {
+  cursor: grab;
+}
+.pk-pictures__scene {
+  position: absolute;
+  inset: var(--space-3);
+  transform-origin: center;
+}
+.pk-pictures__shot {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.pk-pictures__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+}
+.pk-pictures__step {
+  justify-self: start;
+  max-width: 100%;
+  min-width: 0;
+}
+.pk-pictures__step--next {
+  justify-self: end;
+}
+.pk-pictures__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ready to try, pictures first: what he approved over what was built, his words, the fold, then the answers. */
+.pk-try {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--status-completed-success);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card);
+}
+.pk-try__band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-try__at {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+.pk-try__title {
+  margin: 0;
+  font: inherit;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-medium);
+}
+.pk-try__pictures {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.pk-try__picture {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+.pk-try__caption {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  color: var(--status-completed-success);
+}
+.pk-try__caption[data-side="approved"] {
+  color: var(--status-awaiting-approval);
+}
+.pk-try__words {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: calc(var(--border-width) * 3) solid var(--status-awaiting-approval);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--status-awaiting-approval-bg);
+}
+.pk-try__words-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--status-awaiting-approval);
+}
+.pk-try__fold summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.pk-try__facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+}
+.pk-try__facts dt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+.pk-try__facts dd {
+  margin: 0 0 var(--space-2);
+}
+.pk-try__steps {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-6);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.pk-try__settled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--status-completed-success);
+}
+.pk-try__settled[data-verdict="needs_work"] {
+  color: var(--status-awaiting-review);
+}
+.pk-try__settled[data-state="later"],
+.pk-try__settled[data-state="withdrawn"],
+.pk-try__settled[data-state="replaced"] {
+  color: var(--fg-muted);
+}
+.pk-try__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* A shot keeps its own shape. */
+.pk-art__picture:has(> .pk-art__shot) {
+  aspect-ratio: auto;
+}
+.pk-art__picture > .pk-art__shot {
+  height: auto;
+  max-height: 70vh;
+}

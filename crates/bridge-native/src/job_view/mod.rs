@@ -12,6 +12,10 @@
 
 mod aa;
 mod acts;
+mod artifacts_tab;
+mod for_you_tab;
+mod fold;
+mod band_card;
 mod bands;
 mod bar;
 mod calls;
@@ -21,6 +25,7 @@ mod choose;
 mod claim_waits;
 mod moving;
 mod slot_wait;
+pub(crate) use fold::{presses, rail, rail_said, shuts, Side};
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
@@ -50,6 +55,7 @@ mod lines;
 mod menus;
 pub(crate) mod offer;
 mod perm;
+mod picture_view;
 mod pictures;
 mod pinned;
 mod place;
@@ -59,6 +65,7 @@ mod plan_marks;
 mod plan_sketches;
 mod pop;
 mod quick;
+mod ready_card;
 mod teach;
 mod records;
 mod refs;
@@ -66,6 +73,15 @@ mod review;
 mod row_tabs;
 mod web_pages;
 mod page_tab;
+mod parts_card;
+mod parts_fold;
+mod parts_reader;
+mod live_pill;
+mod page_sketches;
+mod reader;
+mod reader_draw;
+mod reader_edit;
+mod reader_page;
 mod web_walk;
 pub(crate) mod rows;
 mod judge_tab;
@@ -77,11 +93,11 @@ mod mod_panel;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
-mod sketch_keys;
 mod sketch_notes;
 mod sketch_read;
 mod subagent_read;
 mod zoom;
+mod zoomer;
 mod panes;
 mod panel_tab;
 mod pane_store;
@@ -186,6 +202,8 @@ pub(crate) enum Extra {
     SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
+    Parts(String, u32),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -224,6 +242,8 @@ struct Page {
     earlier_version: Option<u64>,
     count: usize,
     extras: Vec<Extra>,
+    /// The cards of artifacts of parts kept before later items of the thread, each drawn under the item it follows.
+    anchors: Vec<parts_fold::Anchor>,
     /// The thread version the list was last measured for.
     version: Option<u64>,
     /// The folds the person opened, by item id.
@@ -263,7 +283,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -369,6 +389,8 @@ pub struct JobView {
     mock_needs: HashMap<String, ipc::NeedsYou>,
     /// The sends the mock keeps for a Mac asleep, as Fleet's `GET /queued` would answer.
     mock_queued: ipc::QueuedList,
+    /// Every answer to a Ready to try card the mock Fleet took, oldest first.
+    mock_ready: Vec<ipc::AnswerReadyToTry>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -386,6 +408,10 @@ pub struct JobView {
     aged: bool,
     /// How Done lists what was made, for the run.
     ledger_view: done::LedgerView,
+    /// What each Job's artifacts list holds, and the first screens of its pages.
+    artifacts: artifacts_tab::Artifacts,
+    /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
+    for_you: for_you_tab::ForYouTab,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -409,6 +435,8 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
+    /// The scroll of an artifact's tab body: its parts and the note under one are read by scrolling it.
+    body_scroll: gpui::ScrollHandle,
     /// Where he left off, kept between runs.
     place: place::Place,
     focus: FocusHandle,
@@ -536,6 +564,7 @@ impl JobView {
                 this.review_sync(window, cx);
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -603,6 +632,7 @@ impl JobView {
             mock,
             mock_needs: HashMap::new(),
             mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
+            mock_ready: Vec::new(),
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
@@ -612,6 +642,8 @@ impl JobView {
             starts: start_card::Starts::default(),
             composer,
             aged: false,
+            artifacts: artifacts_tab::Artifacts::default(),
+            for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -625,6 +657,7 @@ impl JobView {
             view_tabs: Default::default(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
+            body_scroll: gpui::ScrollHandle::new(),
             place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
             pop: None,
@@ -930,6 +963,13 @@ impl JobView {
         let before = earlier_read.map_or(0, |(_, items, _)| items + rule);
         let earlier_version = earlier_read.map(|(version, ..)| version);
         let mut extras = extras_of(&held.head, &held.items, &page.pending, working, self.moved(id, "forked_to", cx).is_some() || self.record(id, cx).is_some_and(crate::move_to_mac::moved), self.refreshing(id, cx));
+        // Each revision of an artifact that holds parts has a card where it was kept: under the item before later ones, else before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
+        let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
+        let (anchors, tail) = parts_fold::place(&held.items, &kept);
+        let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        extras.splice(stands..stands, cards);
+        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -958,11 +998,13 @@ impl JobView {
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
-        if page.version == Some(version) && page.extras == extras && dirty.is_none() && above == above_was {
+        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was {
             return;
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
+        // A card kept under an item that is not new changes that item's element, so the list measures from there.
+        let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
@@ -983,6 +1025,7 @@ impl JobView {
         page.lead = lead;
         page.count = total;
         page.extras = extras;
+        page.anchors = anchors;
         page.version = Some(version);
         if first {
             // Within a screen of the top, the older items are read: the row says so when it draws.
@@ -1191,6 +1234,9 @@ impl Render for JobView {
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
+        self.sync_artifacts(&id, window, cx);
+        self.sync_for_you(&id, window, cx);
+        self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
         // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
@@ -1200,14 +1246,17 @@ impl Render for JobView {
             self.pages.values().for_each(|page| page.list.remeasure());
         }
         // The column follows the width the thread was last drawn at; a change draws once more at the new one.
-        let pane = head::drawn(window, cx, Role::Region, "Thread").map(|bounds| bounds.size.width);
+        let region = head::drawn(window, cx, Role::Region, "Thread");
+        let pane = region.map(|bounds| bounds.size.width);
         if pane.is_some() && pane != self.pane {
             self.pane = pane;
             self.pages.values().for_each(|page| page.list.remeasure());
             window.request_animation_frame();
         }
         // A pinned sketch is cut to the thread's height, so a change of it measures the thread again.
-        let room = self.pages.get(&id).map(|page| page.list.viewport_bounds().size.height).filter(|room| *room > gpui::px(0.));
+        // The region's own height, not the list's: the call chip's room is padding inside the region, and a room that shrank
+        // with the chip would cut the pin again, measure the list, and so show or hide the chip, every frame.
+        let room = region.map(|bounds| bounds.size.height - look.length(token::SPACE_4)).filter(|room| *room > gpui::px(0.));
         if room.is_some() && room != self.pane_height {
             self.pane_height = room;
             if self.thread(&id, cx).is_some_and(|held| held.head.sketch.is_some()) {
@@ -1241,6 +1290,7 @@ impl Render for JobView {
                     .on_action(cx.listener(Self::on_to_end))
                     .size_full()
                     .pt(look.length(token::SPACE_4))
+                    .pb(self.chip_room(&id, cx))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
                     .child(fade(&look, true))

@@ -1,6 +1,6 @@
 // Paths without a library. `/` home, `/pair` (`?code=…` from a pairing link, `?origin=…` to pair a Mac
 // again), `/dispatch`, `/operator`, and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
-// `/sketch?id=…` and `/document?page=…` under it for what the Job showed, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
+// `/sketch?id=…`, `/document?page=…` and `/artifact?id=…` under it for what the Job showed, `/try?id=…` for a Ready to try card, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
 
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -47,7 +47,9 @@ export function homeWhenBack(): void {
       screen === "draft" ||
       screen === "file" ||
       screen === "sketch" ||
-      screen === "document"
+      screen === "document" ||
+      screen === "artifact" ||
+      screen === "try"
     )
       go("/", true);
   });
@@ -95,6 +97,18 @@ export type Route =
       origin: string;
       id: string;
       page: string;
+    }
+  | {
+      screen: "artifact";
+      origin: string;
+      id: string;
+      artifact: string;
+    }
+  | {
+      screen: "try";
+      origin: string;
+      id: string;
+      card: string;
     };
 
 export const jobPath = (origin: string, id: string) =>
@@ -107,6 +121,10 @@ export const sketchPath = (origin: string, id: string, sketch: string) =>
   `${jobPath(origin, id)}/sketch?id=${encodeURIComponent(sketch)}`;
 export const documentPath = (origin: string, id: string, page: string) =>
   `${jobPath(origin, id)}/document?page=${encodeURIComponent(page)}`;
+export const artifactPath = (origin: string, id: string, artifact: string) =>
+  `${jobPath(origin, id)}/artifact?id=${encodeURIComponent(artifact)}`;
+export const tryPath = (origin: string, id: string, card: string) =>
+  `${jobPath(origin, id)}/try?id=${encodeURIComponent(card)}`;
 export const pairPath = (origin?: string) =>
   origin === undefined ? "/pair" : `/pair?origin=${encodeURIComponent(origin)}`;
 
@@ -140,7 +158,9 @@ export function routeOf(whole: string): Route {
       origin: decodeURIComponent(draft[1]!),
       id: decodeURIComponent(draft[2]!),
     };
-  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document))?$/.exec(url.pathname);
+  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document|artifact|try))?$/.exec(
+    url.pathname,
+  );
   if (job !== null) {
     const mac = decodeURIComponent(job[1]!);
     const id = decodeURIComponent(job[2]!);
@@ -164,6 +184,20 @@ export function routeOf(whole: string): Route {
         origin: mac,
         id,
         page: query.get("page") ?? "",
+      };
+    if (job[3] === "artifact" && mac !== "_")
+      return {
+        screen: "artifact",
+        origin: mac,
+        id,
+        artifact: query.get("id") ?? "",
+      };
+    if (job[3] === "try" && mac !== "_")
+      return {
+        screen: "try",
+        origin: mac,
+        id,
+        card: query.get("id") ?? "",
       };
     return {
       screen: "job",

@@ -107,7 +107,7 @@ fn note_start(words: &str) -> String {
 }
 
 /// `color-mix(in srgb, <ink> pct, --bg-raised)`.
-fn mixed(look: &Look, ink: Token, pct: f32) -> Hsla {
+pub(super) fn mixed(look: &Look, ink: Token, pct: f32) -> Hsla {
     let (base, ink) = (Rgba::from(look.color(token::BG_RAISED)), Rgba::from(look.color(ink)));
     let at = |from: f32, to: f32| from + (to - from) * pct;
     Rgba { r: at(base.r, ink.r), g: at(base.g, ink.g), b: at(base.b, ink.b), a: 1. }.into()
@@ -124,7 +124,7 @@ struct Acts {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
+pub(super) enum Kind {
     Approve,
     Secondary,
     Primary,
@@ -150,7 +150,7 @@ fn cap_on(look: &Look, text: &str, ink: Hsla) -> gpui::Div {
 }
 
 /// One of the footer's buttons: 28 px tall, its key cap at the right. The caller adds `on_click`.
-fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: bool) -> Stateful<gpui::Div> {
+pub(super) fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: bool) -> Stateful<gpui::Div> {
     let base = div()
         .id(SharedString::from(id))
         .flex_none()
@@ -190,7 +190,7 @@ fn act(look: &Look, id: String, said: &'static str, kind: Kind, cap: &str, on: b
             kbd(look, cap),
         ),
     };
-    styled.when(on, |button| button.cursor_pointer()).when(!on, |button| button.opacity(0.4)).child(said).child(key_cap)
+    styled.when(on, |button| button.cursor_pointer()).when(!on, |button| button.opacity(0.4)).child(said).children((!cap.is_empty()).then_some(key_cap))
 }
 
 /// The icon of one For link.
@@ -202,12 +202,15 @@ fn link_icon(kind: ArtifactLinkKind) -> &'static str {
     }
 }
 
-fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
+pub(super) fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
     let ink = look.color(token::ACCENT);
     labelled(
         div()
             .id(SharedString::from(format!("for-link:{}", link.target)))
-            .flex_none()
+            // A long label gives way to the For sentence: the chip shrinks and cuts its label, never the card's edge.
+            .flex_shrink_1()
+            .min_w_0()
+            .max_w(gpui::relative(0.4))
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
@@ -218,7 +221,7 @@ fn link_chip(look: &Look, link: &ArtifactLink) -> AnyElement {
             .line_height(look.length(token::LEADING_2XS))
             .text_color(ink)
             .child(gpui::svg().path(icon_path(link_icon(link.kind))).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
-            .child(SharedString::from(link.label.clone())),
+            .child(div().min_w_0().truncate().child(SharedString::from(link.label.clone()))),
         Role::Label,
         link.label.clone(),
     )

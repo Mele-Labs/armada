@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { ArtifactView } from "./Artifact";
 import { Dispatch } from "./Dispatch";
 import { DocumentView } from "./Document";
 import { Draft } from "./Draft";
@@ -12,6 +13,7 @@ import { Operator } from "./Operator";
 import { Pair } from "./Pair";
 import { subscribe } from "./push";
 import { go, routeOf, usePath, type Route } from "./router";
+import { TryView } from "./ReadyToTry";
 import { FileView, SketchView } from "./Shown";
 
 let subscribed = false;
@@ -45,6 +47,10 @@ function Screen({ route }: { route: Route }) {
       return <SketchView origin={route.origin} id={route.id} sketch={route.sketch} />;
     case "document":
       return <DocumentView origin={route.origin} id={route.id} page={route.page} />;
+    case "artifact":
+      return <ArtifactView origin={route.origin} id={route.id} artifact={route.artifact} />;
+    case "try":
+      return <TryView origin={route.origin} id={route.id} card={route.card} />;
   }
 }
 

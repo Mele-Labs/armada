@@ -109,6 +109,11 @@ impl RunMark {
     }
 }
 
+/// Whether a thing is Fleet's row for a Ready to try card.
+fn is_ready(thing: &Thing) -> bool {
+    matches!(thing, Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry)
+}
+
 /// One thing the panel lists.
 pub(super) enum Thing<'a> {
     Ask(&'a ThreadAsk),
@@ -325,7 +330,13 @@ impl JobView {
         for group in self.groups(id, cx) {
             if group.kind != NeedsYouSectionKind::ToReview {
                 things.extend(group.things);
-            } else if !in_band && crate::ways::looks() {
+                continue;
+            }
+            // A card to try is a row of the panel, not of the review sheet's pages: the sheet holds no body for it.
+            let (cards, group_things): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
+            things.extend(cards);
+            let group = Group { kind: group.kind, label: group.label, things: group_things };
+            if !in_band && crate::ways::looks() {
                 // In Look a sketch to review is an item of the panel, opened whole there.
                 things.extend(group.things.into_iter().filter(|thing| matches!(thing, Thing::Row(row) if matches!(row.act, NeedsYouAct::OpenSketch { .. }))));
             } else if in_band {
@@ -889,6 +900,8 @@ impl JobView {
             .gap(look.length(token::SPACE_4))
             .children(self.groups(id, cx).into_iter().map(|group| {
                 let label = SharedString::from(group.label.to_string());
+                // A card to try is its own row beside the review sheet's: the sheet holds no body for it.
+                let (cards, rest): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
                 labelled(
                     div()
                         .id(SharedString::from(format!("needs-group:{label}")))
@@ -907,9 +920,10 @@ impl JobView {
                                 .child(label.clone()),
                         )
                         .children(if group.kind == NeedsYouSectionKind::ToReview && in_band {
-                            vec![self.sheet_row(&group.things, look, cx)]
+                            let sheet = (!rest.is_empty()).then(|| self.sheet_row(&rest, look, cx));
+                            sheet.into_iter().chain(cards.iter().map(|thing| self.thing_row(id, thing, look, cx))).collect()
                         } else {
-                            group.things.iter().map(|thing| self.thing_row(id, thing, look, cx)).collect()
+                            rest.iter().chain(cards.iter()).map(|thing| self.thing_row(id, thing, look, cx)).collect::<Vec<_>>()
                         }),
                     Role::Region,
                     label,
@@ -976,6 +990,11 @@ impl JobView {
             return;
         }
         match act {
+            // A page he is only to read opens in the reader at once, beside whatever else is owed.
+            NeedsYouAct::OpenDocument { path } if item.starts_with("read:") => {
+                self.set_needs(false, None, window, cx);
+                self.open_document_tab(path, window, cx);
+            }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
                 let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
@@ -1027,6 +1046,21 @@ impl JobView {
         let name = text.clone();
         let dock = self.dock_of(id);
         let page = self.pages.get(id);
+        // What the item names, to open: pressed on the row where the row has no act of its own, else on its words.
+        let artifact = row.and_then(|row| self.row_artifact(id, &row.id, cx));
+        let gone = artifact.as_deref().is_some_and(|named| self.artifact_gone(id, named));
+        let own = row.is_some_and(|row| !matches!(row.act, NeedsYouAct::None));
+        // A card to try goes to the card, whatever act Fleet gave its row: Message would only go to the box.
+        let card = row.is_some_and(|row| row.source == ipc::WaitingSource::ReadyToTry);
+        let press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)> = match &artifact {
+            Some(named) if !own || card => {
+                let named = named.clone();
+                Box::new(move |this, window, cx| {
+                    this.open_named(&named, window, cx);
+                })
+            }
+            _ => press,
+        };
         let misread = row.filter(|row| row.dismiss == NeedsYouDismiss::NotAQuestion);
         let spot = misread.zip(page).map(|(_, page)| page.keys.spot(&format!("needs-row:{key}"), cx));
         let refused = row.and(dock).and_then(|dock| dock.said.get(key).cloned());
@@ -1043,9 +1077,13 @@ impl JobView {
             let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
             self.answer_buttons(row, keyed, look, cx)
         });
+        let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
+            Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
+            None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
+        };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
             .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
-            .child(div().flex_1().min_w_0().when(buttons.is_none(), |text| text.truncate()).child(SharedString::from(text)))
+            .child(words)
             .children(thumbs)
             .children(done)
             .children(away)
@@ -1078,7 +1116,15 @@ impl JobView {
                 _ => None,
             })
             .and_then(|command| crate::terminal::run::under_item(id, &command, cx));
-        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() {
+        let unheld = gone.then(|| {
+            labelled(
+                div().id(SharedString::from(format!("needs-gone:{key}"))).px(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child("No longer held"),
+                Role::Label,
+                "No longer held",
+            )
+            .into_any_element()
+        });
+        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() && unheld.is_none() {
             return line;
         }
         div()
@@ -1086,6 +1132,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .child(line)
+            .children(unheld)
             .children(buttons)
             .children(steps)
             .children(boxed)

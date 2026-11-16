@@ -52,6 +52,27 @@ struct Live(WeakEntity<Toasts>, AnyWindowHandle);
 
 impl Global for Live {}
 
+/// Whether he is reading an artifact with everything else faded away: what the Operator raised waits for him to finish.
+#[derive(Default)]
+struct Reading(bool);
+
+impl Global for Reading {}
+
+/// He began or finished reading in the focus view. The Operator's toasts and its rulings stay held, and draw when he is done;
+/// Fleet's states and the presses Fleet did not take show all the same.
+pub fn reading(on: bool, cx: &mut App) {
+    if cx.try_global::<Reading>().map_or(on, |now| now.0 != on) {
+        cx.set_global(Reading(on));
+        if let Some(toasts) = cx.try_global::<Live>().map(|live| live.0.clone()) {
+            cx.defer(move |cx| {
+                if let Some(toasts) = toasts.upgrade() {
+                    toasts.update(cx, |_, cx| cx.notify());
+                }
+            });
+        }
+    }
+}
+
 /// Fleet's states as the title bar last read them, drawn as urgent toasts above the Operator's.
 #[derive(Default)]
 struct FleetNotices(Vec<FleetNotice>);
@@ -996,14 +1017,15 @@ impl Render for Toasts {
         if on_page {
             self.shelf.hush();
         }
-        let shown: Vec<Toast> = self.shelf.shown().into_iter().cloned().collect();
+        let reading = cx.try_global::<Reading>().is_some_and(|now| now.0);
+        let shown: Vec<Toast> = if reading { Vec::new() } else { self.shelf.shown().into_iter().cloned().collect() };
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
         let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default().into_iter().chain(signed_out_notice(cx)).collect();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the Operator did with his dispatches, each until he presses it or closes it.
-        let ruled: Vec<Raised> = if on_page { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
+        let ruled: Vec<Raised> = if on_page || reading { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let mut cards: Vec<AnyElement> = Vec::new();
         cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));
@@ -1221,3 +1243,54 @@ mod sign_in_tests {
         assert!(signed_out_news(Some(&out("09:00")), &out("11:30")));
     }
 }
+
+#[cfg(test)]
+mod reading_tests {
+    use super::*;
+
+    struct Root(Entity<Toasts>);
+
+    impl Render for Root {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            crate::labels::label_root(div().size_full().child(self.0.clone()))
+        }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some()))
+    }
+
+    #[gpui::test]
+    fn while_he_reads_the_operators_toasts_wait_and_fleets_states_still_show(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            at_rest(cx);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx))
+        });
+        cx.update(|_, cx| {
+            dispatched(OperatorDispatched { dispatch_id: "d".into(), manifest_id: "armada".into(), way: DispatchWay::Started, session_id: None, title: Some("Fix the build".into()) }, cx);
+            fleet(vec![FleetNotice { id: "slow", headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None }], cx);
+        });
+        let redraw = |cx: &mut gpui::VisualTestContext| {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        };
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "a ruling shows while he is not reading");
+        cx.update(|_, cx| reading(true, cx));
+        redraw(cx);
+        redraw(cx);
+        assert!(!drawn(cx, Role::Button, "Operator started Fix the build"), "it waits while he reads");
+        assert!(drawn(cx, Role::Alert, "Toast: Fleet is slow"), "a state of Fleet still shows");
+        cx.update(|_, cx| reading(false, cx));
+        redraw(cx);
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "and it shows when he is done");
+    }
+}
+

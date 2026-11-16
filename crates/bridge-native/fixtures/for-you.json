@@ -1,0 +1,34 @@
+{
+  "job": "mock-01",
+  "waiting": [
+    {
+      "id": "document:design",
+      "kind": "document",
+      "title": "Stale branch design",
+      "placed": true,
+      "since": "2026-11-09T13:45:15Z",
+      "added_by": "fleet",
+      "opens": { "kind": "artifact", "id": "design" },
+      "approves": false
+    },
+    {
+      "id": "sketch:Chip states",
+      "kind": "sketch",
+      "title": "Chip states",
+      "line": "Pick take A or B",
+      "placed": false,
+      "since": "2026-11-09T13:43:01Z",
+      "added_by": "fleet",
+      "opens": { "kind": "artifact", "id": "sketch:Chip states" },
+      "approves": false
+    }
+  ],
+  "building": [
+    { "job": "mock-02", "title": "Native Bridge foundation", "standing": "working", "line": "Build, step 3 of 5" },
+    { "job": "mock-08", "title": "Dark mode for the settings page", "standing": "replied" }
+  ],
+  "landing": [
+    { "pr": 3388, "title": "Show when the merge line is behind main" },
+    { "pr": 3390, "title": "" }
+  ]
+}

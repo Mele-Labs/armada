@@ -36,8 +36,10 @@ The tokens are the base theme's, the dark one Bridge ships, and a mod's theme is
 A page's own scripts carry nothing a page needs: the page rules say nothing runs, and the one `<script>` they use is a sketch's `<script type="application/json">` scene, which is data and is kept as written.
 An `<armada-sketch>` is not drawn on a sealed page.
 
-**The record** is `<script type="application/json" id="armada-page-record" nonce="<n>">` holding `{ artifact, revision, presses, votes }`: each `PagePress` made on this revision, and the newest `VoteCast` per vote cast on it.
-A press or a vote on another revision is not in it.
+**The record** is `<script type="application/json" id="armada-page-record" nonce="<n>">` holding `{ artifact, revision, presses, votes }`: each `PagePress` made on this revision or an earlier one whose action is still on it, and the newest `VoteCast` per vote cast on this revision or an earlier one where that vote is still on it in the same form with the takes the cast names.
+Each keeps the `revision` it was made on.
+A press or a vote on a later revision is not in it, nor one whose action or vote this revision dropped or changed.
+Why: on 15 Nov 2026 the owner's votes read as never cast once the Job revised other sections of the page.
 Every `<` in it is written `<`, so no text in it closes its script.
 
 **The kit's script**, `crates/fleet/src/session_host/page_kit.js`, is the one script that runs.

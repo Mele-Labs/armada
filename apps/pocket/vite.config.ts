@@ -10,7 +10,8 @@ import tailwindcss from "@tailwindcss/vite";
 
 import { answer, type Posted } from "./src/fixture/gateway";
 import { pairing, STORE_AT } from "./src/fixture/store";
-import { everyState, fixtureMacs, mediaJob, type FixtureMac } from "./src/fixture/wire";
+import { PARTS_JOB } from "./src/fixture/artifacts";
+import { everyState, fixtureMacs, mediaJob, partsJob, type FixtureMac } from "./src/fixture/wire";
 
 const read = (request: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -155,6 +156,17 @@ function fixtureGateway(): Plugin {
   const states = everyState(now);
   macs["studio"]!.live.push(...states.live);
   Object.assign(macs["studio"]!.threads, states.threads);
+  // The Job whose artifact and Ready to try card wait on him, first on the list.
+  const parts = partsJob(now);
+  macs["studio"]!.live.unshift(parts.listed);
+  macs["studio"]!.needs.unshift(parts.listed);
+  macs["studio"]!.threads[PARTS_JOB] = parts.thread;
+  macs["studio"]!.artifacts = {
+    [PARTS_JOB]: parts.artifacts,
+  };
+  macs["studio"]!.tries = {
+    [PARTS_JOB]: parts.tries,
+  };
   const media = mediaJob(now);
   macs["studio"]!.live.unshift(media.listed);
   macs["studio"]!.threads[media.listed.id] = media.thread;

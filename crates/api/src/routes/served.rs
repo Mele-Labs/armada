@@ -151,6 +151,11 @@ const ROUTES: &[Route] = &[
         path: "/fleet/build/notes/feedback",
     },
     Route {
+        operation: "answer_ready_to_try",
+        method: "POST",
+        path: "/sessions/ready_to_try/answer",
+    },
+    Route {
         operation: "pick_fleet_build_job",
         method: "POST",
         path: "/fleet/build/pick",

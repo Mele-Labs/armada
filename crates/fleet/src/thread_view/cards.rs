@@ -190,6 +190,16 @@ pub(super) fn with_documents(entries: &mut Vec<Entry<'_>>, ledger: &[Attachment]
     }
 }
 
+/// Each Ready to try card, where it is drawn: before the first item later than its `at`, as a document's is.
+pub(super) fn with_ready(entries: &mut Vec<Entry<'_>>, ready: &[ipc::ThreadReadyToTry]) {
+    let mut cards = ready.to_vec();
+    cards.sort_by(|a, b| a.at.cmp(&b.at));
+    for card in cards {
+        let later = entries.iter().position(|entry| later_than(&entry.at, &card.at)).unwrap_or(entries.len());
+        entries.insert(later, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::ReadyToTry(card)) });
+    }
+}
+
 /// What a timeline entry that changed a Job's workflow, model or effort says: the value's name and what
 /// it was and became.
 pub(super) fn change_of_event(kind: TimelineKind, says: &str) -> Option<(ChangedValue, String, String)> {

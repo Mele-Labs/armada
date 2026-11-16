@@ -19,6 +19,7 @@
 mod annotate;
 mod assets;
 mod banner;
+mod build_notes;
 mod capture;
 mod chrome;
 mod clash_mark;
@@ -55,7 +56,9 @@ mod menu;
 mod merge_strip;
 mod option_pictures;
 mod mock;
+mod mock_parts;
 mod move_to_mac;
+mod move_to_project;
 mod new_project;
 mod notify;
 mod operator;
@@ -281,6 +284,7 @@ fn main() -> ExitCode {
         if matches!(mode, Mode::Live) {
             crash::install(cx);
             drafts::persist(drafts::file(), cx);
+            build_notes::persist(build_notes::opened_file(), cx);
             launch_services::point_at_current_build();
             pairing::follow(cx);
             job_view::keep_arrangements(cx);

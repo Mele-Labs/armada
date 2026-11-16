@@ -779,7 +779,9 @@ pub enum WaitingSource {
     /// Fleet: the newest revision of a page the Job wrote under `.armada/documents/` is not answered.
     /// Derived on every read off the document, never kept: id `document:<page path>`, text its title, a
     /// `message` act that opens the Job. Settled by `answer_document`, or by dismissing it; answering
-    /// it here is refused. A new revision asks again and lifts a dismissal.
+    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing waits as
+    /// `read:<page path>`** with this source, text `Read: <title>` and `artifact` the page, until he opens its newest
+    /// revision with `mark_artifact_seen`: nothing approves it, and the Job is told nothing.
     Document,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
@@ -901,6 +903,13 @@ pub enum WaitingSource {
     /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
     /// item waits until the Operator raises it. Since 14 Nov 2026.
     JobHeld,
+    /// Fleet: one or more Ready to try cards in the Job's thread are open. One item for the Job, derived on every
+    /// read off its build notes, never kept: id and `artifact` `try:<session_id>`, text `Ready to try`, since the
+    /// oldest open card, and a `message` act that opens the Job. Gone once no card is open: each is answered
+    /// (`answer_ready_to_try`, or a verdict on its build note), withdrawn, replaced or held by a reminder; back when
+    /// a reminder comes due. Answering it here is refused and Approve all passes it by. Dismissing it puts away only the cards open then, so a card offered later raises it again.
+    /// Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
+    ReadyToTry,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

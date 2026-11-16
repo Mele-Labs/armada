@@ -33,11 +33,13 @@ pub(super) struct Placed {
     history: History,
     /// A change has been made here, so what the store held when this was read no longer replaces it.
     changed: bool,
+    /// The store has answered, with what it kept or with nothing, so a tab the Job puts in is not lost to it.
+    answered: bool,
 }
 
 impl Placed {
     fn new(arrangement: Arrangement) -> Self {
-        Placed { arrangement, history: History::default(), changed: false }
+        Placed { arrangement, history: History::default(), changed: false, answered: false }
     }
 }
 
@@ -61,6 +63,15 @@ pub(super) struct Arranged {
     pub drop: Option<super::place_drag::Hover>,
     /// Each strip, tab, body and gap as last laid out, by `strip:{pane}`, `tab:{tab}`, `body:{pane}`, `gap:{split}`.
     pub drawn_at: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
+    /// The side opened over the reader while the Jobs list and the right column are folded: where he is looking, never kept.
+    pub over: Option<super::fold::Side>,
+    /// The tab of the reader he left the focus view on, by Esc or Back: the reader stays in front, drawn with the Job round it.
+    pub focus_left: Option<String>,
+    /// Whether the focus view was up the last frame, how many times that has changed, and whether it is up this frame: the
+    /// change plays a 150 ms fade and slide, and the readers draw their acts at the foot while it is.
+    pub focus_was: bool,
+    pub focus_flips: u32,
+    pub focus_now: bool,
 }
 
 impl Default for Arranged {
@@ -76,6 +87,11 @@ impl Default for Arranged {
             started: Instant::now(),
             drop: None,
             drawn_at: Rc::default(),
+            over: None,
+            focus_left: None,
+            focus_was: false,
+            focus_flips: 0,
+            focus_now: false,
         }
     }
 }
@@ -121,6 +137,7 @@ pub(super) fn row_kind_name(kind: RowKind) -> &'static str {
         RowKind::Document => "document",
         RowKind::Walk => "walk",
         RowKind::Subagent => "subagent",
+        RowKind::Artifact => "artifact",
     }
 }
 
@@ -130,6 +147,7 @@ pub(super) fn row_kind_of(kind: &str) -> Option<RowKind> {
         "document" => Some(RowKind::Document),
         "walk" => Some(RowKind::Walk),
         "subagent" => Some(RowKind::Subagent),
+        "artifact" => Some(RowKind::Artifact),
         _ => None,
     }
 }
@@ -217,6 +235,43 @@ pub(super) fn put_terminal(was: &Arrangement, terminal: &str, target: Option<&st
     next
 }
 
+/// A tab the Job puts in once on its own, behind: right after Now in the pane that holds Now, else at the end of the
+/// column's foot, else in a split of its own. The front tab of every pane and the focus stay where they were. A Job it
+/// was offered to before gets nothing, so one he closed stays closed; one already open is only marked offered.
+pub(super) fn offer_beside_now<'a>(was: &'a Arrangement, kind: &str) -> Out<'a> {
+    if was.offered.iter().any(|one| one == kind) {
+        return Cow::Borrowed(was);
+    }
+    let mut next = if tree::has_kind(was, kind) {
+        was.clone()
+    } else {
+        let after_now = tree::holder_of(was, "now").map(|pane| (pane.id.clone(), pane.tabs.iter().position(|tab| tab.kind == "now").map(|at| at + 1)));
+        let target = after_now.or_else(|| pane_for(was, ViewPane::Bottom).map(|pane| (pane, None)));
+        let mut next = match &target {
+            Some((pane, _)) => tree::add_tab(was, pane, kind, Extras::default()).into_owned(),
+            None => tree::arrive(was, kind, Extras::default()),
+        };
+        if let Some((pane, Some(at))) = &target {
+            let made = tree::pane_by_id(&next, pane).and_then(|one| one.tabs.last()).map(|tab| tab.id.clone());
+            if let Some(made) = made {
+                next = tree::move_tab_to_pane(&next, &made, pane, Some(*at)).into_owned();
+            }
+        }
+        // Behind: each pane keeps the tab it had in front, and the focus stays.
+        for pane in tree::panes_of(&was.root) {
+            if let Some(active) = &pane.active {
+                next = tree::activate(&next, active).into_owned();
+            }
+        }
+        if tree::pane_by_id(&next, &was.focus).is_some() {
+            next.focus = was.focus.clone();
+        }
+        next
+    };
+    next.offered.push(kind.to_string());
+    Cow::Owned(next)
+}
+
 impl JobView {
     // ---- the arrangement ---------------------------------------------------------------------
 
@@ -250,19 +305,27 @@ impl JobView {
         let read = pane_store::read(&pane_store::job_key(job), cx);
         let job = job.clone();
         cx.spawn(async move |this, cx| {
-            if let Some(kept) = read.await {
+            let kept = read.await.map(|kept| {
                 // A side panel's tab holds what this run read, so a kept one comes back with nothing to draw: it goes.
                 let panels: Vec<String> = tree::panes_of(&kept.root).into_iter().flat_map(|pane| pane.tabs.iter()).filter(|tab| tab.kind == "terminal" && tab.terminal.as_deref().is_some_and(|key| key.starts_with("panel:"))).map(|tab| tab.id.clone()).collect();
-                let kept = panels.iter().fold(kept, |was, tab| tree::close_tab(&was, tab).into_owned());
-                let _ = this.update(cx, |this, cx| {
-                    if let Some(placed) = this.arranged.jobs.get_mut(&job).filter(|placed| !placed.changed) {
-                        placed.arrangement = kept;
-                        cx.notify();
-                    }
-                });
-            }
+                panels.iter().fold(kept, |was, tab| tree::close_tab(&was, tab).into_owned())
+            });
+            let _ = this.update(cx, |this, cx| {
+                let Some(placed) = this.arranged.jobs.get_mut(&job) else { return };
+                placed.answered = true;
+                if let Some(kept) = kept.filter(|_| !placed.changed) {
+                    placed.arrangement = kept;
+                    cx.notify();
+                }
+                this.offer_artifacts(&job, cx);
+            });
         })
         .detach();
+    }
+
+    /// Whether the store has answered for the Job's panes.
+    pub(super) fn panes_answered(&self, job: &str) -> bool {
+        self.arranged.jobs.get(job).is_some_and(|placed| placed.answered)
     }
 
     fn now_ms(&self) -> u64 {
@@ -660,7 +723,7 @@ mod tests {
         (root, top, foot)
     }
 
-    /// Today's screen: the thread, then a column of Open, Done and Deferred over Now, 0.62 across and 2:3 down.
+    /// Today's screen: the thread, then a column of For you, Open, Done and Deferred over Now, 0.62 across and 2:3 down.
     #[test]
     fn a_job_starts_with_the_screen_it_always_had() {
         let arrangement = tree::default_arrangement();
@@ -673,7 +736,7 @@ mod tests {
         assert_eq!(inner.dir, Dir::Column);
         // Top to Now is two parts to three.
         assert!((inner.ratio - 0.4).abs() < 1e-9);
-        assert_eq!(kinds(top), ["open", "done", "deferred"]);
+        assert_eq!(kinds(top), ["for_you", "open", "done", "deferred"]);
         assert_eq!(kinds(foot), ["now"]);
         assert_eq!(arrangement.focus, thread.id);
         // The three panes read by the names their strips and regions have always had.
@@ -716,6 +779,63 @@ mod tests {
         let (top, foot) = (top.id.clone(), foot.id.clone());
         let alone = tree::close_pane(&tree::close_pane(&arrangement, &top).into_owned(), &foot).into_owned();
         assert_eq!(pane_for(&alone, ViewPane::Bottom), None);
+    }
+
+    /// A Job's first artifact puts Artifacts right after Now, behind it, with the focus where it was.
+    #[test]
+    fn a_first_artifact_puts_artifacts_after_now_behind_it() {
+        let mut arrangement = tree::default_arrangement();
+        let (_, _, foot) = column(&arrangement);
+        let foot = foot.id.clone();
+        arrangement = put_terminal(&arrangement, "t1", Some(&foot), false);
+        let now = tree::holder_of(&arrangement, "now").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "now")).map(|tab| tab.id.clone());
+        let offered = offer_beside_now(&arrangement, "artifacts").into_owned();
+        let pane = tree::pane_by_id(&offered, &foot).expect("the foot");
+        assert_eq!(kinds(pane), ["now", "artifacts", "terminal"]);
+        assert_eq!(pane.active, now, "Now stays in front");
+        assert_eq!(offered.focus, arrangement.focus);
+        assert_eq!(offered.offered, ["artifacts"]);
+    }
+
+    /// Read again, the Job is not given a second Artifacts tab.
+    #[test]
+    fn a_second_read_adds_no_second_artifacts_tab() {
+        let once = offer_beside_now(&tree::default_arrangement(), "artifacts").into_owned();
+        assert!(matches!(offer_beside_now(&once, "artifacts"), Cow::Borrowed(_)));
+        // Already open where he put it, it is only marked offered.
+        let fresh = tree::default_arrangement();
+        let (_, top, _) = column(&fresh);
+        let opened = tree::add_tab(&fresh, &top.id, "artifacts", Extras::default()).into_owned();
+        let marked = offer_beside_now(&opened, "artifacts").into_owned();
+        assert_eq!(marked.root, opened.root);
+        assert_eq!(marked.offered, ["artifacts"]);
+    }
+
+    /// Closed, the tab stays closed, through a restart too.
+    #[test]
+    fn a_closed_artifacts_tab_is_not_put_back() {
+        let once = offer_beside_now(&tree::default_arrangement(), "artifacts").into_owned();
+        let tab = tree::holder_of(&once, "artifacts").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "artifacts")).map(|tab| tab.id.clone()).expect("the tab");
+        let closed = tree::close_tab(&once, &tab).into_owned();
+        let kept = tree::revive(&serde_json::to_value(&closed).expect("json")).expect("an arrangement");
+        let again = offer_beside_now(&kept, "artifacts");
+        assert!(matches!(again, Cow::Borrowed(_)));
+        assert!(!tree::has_kind(&again, "artifacts"));
+    }
+
+    /// With no Now, it goes where Now would: the end of the column's foot.
+    #[test]
+    fn with_no_now_artifacts_goes_to_the_columns_foot() {
+        let arrangement = tree::default_arrangement();
+        let (_, _, foot) = column(&arrangement);
+        let foot = foot.id.clone();
+        let with_shell = put_terminal(&arrangement, "t1", Some(&foot), false);
+        let now = tree::holder_of(&with_shell, "now").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "now")).map(|tab| tab.id.clone()).expect("now");
+        let no_now = tree::close_tab(&with_shell, &now).into_owned();
+        let offered = offer_beside_now(&no_now, "artifacts").into_owned();
+        let pane = tree::pane_by_id(&offered, &foot).expect("the foot");
+        assert_eq!(kinds(pane), ["terminal", "artifacts"]);
+        assert_eq!(front_of(pane).map(|tab| tab.kind.as_str()), Some("terminal"));
     }
 
     /// A shell arrives in the column, or in the pane its + was pressed in; the same shell is not opened twice.

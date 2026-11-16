@@ -61,6 +61,12 @@ fn store_parts(detail: &mut BTreeMap<String, String>, parts: &[ArtifactPart]) ->
     Ok(())
 }
 
+/// Whether `scene` holds a `mock` with no `kept`, which native draws without the app's styles.
+fn unkept(scene: &str) -> bool {
+    ipc::decode::<ipc::Scene>("a kept scene", scene.as_bytes())
+        .is_ok_and(|scene| scene.nodes.iter().any(|node| matches!(node.kind, ipc::SceneKind::Mock) && node.kept.is_none()))
+}
+
 /// Whether a row's detail is a sketch row, which is what an artifact is kept as.
 fn is_sketch(one: &ipc::Attachment) -> bool {
     one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch")
@@ -391,6 +397,7 @@ where
             let store = self.store().lock().await;
             store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a job Fleet knows"))?.harness
         };
+        let checked = self.takes_styled(&id, checked).await?;
         let held = self.held_rows(&id).await?;
         // A part the Job put before is revised where it stands.
         let earlier = held.iter().filter(|one| is_sketch(one)).find(|one| stored(&one.detail).iter().any(|part| part.id == checked.id)).map(|one| one.target.clone());
@@ -402,6 +409,67 @@ where
             },
         };
         self.part_put(&id, &harness, &target, &checked, said).await
+    }
+
+    /// `checked` with each take's mocks kept with their style set, as `show_sketch` keeps a sketch's. Without it a
+    /// take's mock draws with its own `css` alone, so the repository's tokens read as nothing and it draws blank.
+    async fn takes_styled(&self, id: &str, mut checked: ipc::CheckedPart) -> Result<ipc::CheckedPart, Refusal> {
+        if let PartContent::Takes { takes, .. } = &mut checked.content {
+            for take in takes.iter_mut() {
+                let Some(scene) = take.scene.take() else { continue };
+                let sketch = ipc::Sketch { title: take.title.clone(), scene, nodes: 0, edges: 0, against: None };
+                take.scene = Some(self.sketch_styled(id, sketch, "add_part").await?.scene);
+            }
+        }
+        Ok(checked)
+    }
+
+    /// **Drawings and takes a Fleet kept before their mocks carried `kept` are styled once, the first time they are
+    /// read**: each mock with no `kept` is kept with its style set and the row is written back, so it stops drawing
+    /// blank. One that cannot be styled now is left as it was.
+    pub(crate) async fn old_mocks_styled(&self, id: &str) -> Result<(), Refusal> {
+        let held = self.held_rows(id).await?;
+        for row in held.into_iter().filter(is_sketch) {
+            let mut detail = row.detail;
+            let mut changed = false;
+            if let Some(scene) = detail.get("scene").filter(|scene| unkept(scene)).cloned() {
+                let title = detail.get("title").cloned().unwrap_or_default();
+                let sketch = ipc::Sketch { title, scene: scene.clone(), nodes: 0, edges: 0, against: detail.get("against").cloned() };
+                if let Ok(styled) = self.sketch_styled(id, sketch, "show_sketch").await {
+                    changed |= styled.scene != scene;
+                    detail.insert("scene".into(), styled.scene);
+                }
+            }
+            let mut parts = stored(&detail);
+            for part in parts.iter_mut() {
+                let PartContent::Takes { takes, .. } = &mut part.content else { continue };
+                for take in takes.iter_mut() {
+                    let Some(scene) = take.scene.clone().filter(|scene| unkept(scene)) else { continue };
+                    let sketch = ipc::Sketch { title: take.title.clone(), scene: scene.clone(), nodes: 0, edges: 0, against: None };
+                    if let Ok(styled) = self.sketch_styled(id, sketch, "add_part").await {
+                        changed |= styled.scene != scene;
+                        take.scene = Some(styled.scene);
+                    }
+                }
+            }
+            if !changed {
+                continue;
+            }
+            let harness = {
+                let store = self.store().lock().await;
+                store.session(id).map_err(|why| self.ledger_fault(why))?.map(|session| session.harness).unwrap_or_default()
+            };
+            if !parts.is_empty() {
+                store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
+            }
+            self.report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached { attachment: AttachmentReport { kind: row.kind, target: row.target, detail } },
+            })
+            .await?;
+        }
+        Ok(())
     }
 
     /// `checked` put on the artifact at `target`, kept, and the artifact asked again where the part asks.
