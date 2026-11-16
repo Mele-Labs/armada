@@ -90,6 +90,10 @@ impl Forge for GhForge {
         crate::pull_reading::read(in_repo, gate)
     }
 
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        crate::pull_reading::read_bare(in_repo, gate).ok_or(None)
+    }
+
     fn followed_pull(
         &self,
         in_repo: &str,

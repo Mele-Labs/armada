@@ -178,7 +178,7 @@ where
         let list_gate = gate.clone();
         let listed = self
             .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.pull_reading_said(root, &list_gate)
+                vcs.pull_list(root, &list_gate)
             })
             .await;
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
@@ -194,15 +194,38 @@ where
                 return;
             }
         };
+        // **The list carries no checks**, which a repository with hundreds open timed the forge out
+        // on. The person's own by a known login, and those a Job holds, are read by number, checks
+        // and all; the rest are told nothing that needs a check.
+        let mine = self.mine_in(&root).await;
+        let held = self.held_pulls(served).await;
+        let mut read = Vec::new();
+        for pull in followed.iter_mut() {
+            let author = pull.author.as_ref().map(|it| it.as_written());
+            if !held.contains(&pull.number) && !mine.knows(author) {
+                continue;
+            }
+            let (gate, number) = (gate.clone(), pull.number);
+            let one = self
+                .forge_asked(&root, move |vcs: &V, root: &str| {
+                    vcs.followed_pull(root, &gate, number)
+                })
+                .await;
+            if let Some(one) = one {
+                *pull = one;
+                read.push(number);
+            }
+        }
         // The list stops at 100: a pull request someone holds that it left out is read by number.
         let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
-        for number in self.held_beyond(served, &listed).await {
+        for number in held.into_iter().filter(|number| !listed.contains(number)) {
             let gate = gate.clone();
             let one = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
                     vcs.followed_pull(root, &gate, number)
                 })
                 .await;
+            read.extend(one.as_ref().map(|pull| pull.number));
             followed.extend(one);
         }
         let reading = self.pulls_reading(&root).await;
@@ -213,13 +236,18 @@ where
             .pulls_seen_queued(&root)
             .unwrap_or_default();
         // **Only the person's own**: another author's pull request is nobody here's to tell.
-        let mine = self.mine_in(&root).await;
         let mut queued = Vec::new();
         for pull in followed
             .iter()
             .filter(|pull| mine.owns(pull.author.as_ref().map(|it| it.as_written())))
         {
-            if self.followed_told(served, &base, &before, pull).await {
+            // Unread, it has no checks to tell of, and the queue last seen keeps it as it was.
+            let stays = if read.contains(&pull.number) {
+                self.followed_told(served, &base, &before, pull).await
+            } else {
+                before.contains(&pull.number)
+            };
+            if stays {
                 queued.push(pull.number);
             }
             if pull.queue != PullQueue::Outside {

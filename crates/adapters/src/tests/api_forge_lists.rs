@@ -164,6 +164,30 @@ fn the_pull_reading_over_the_api_is_the_pull_reading_gh_reads() {
     assert_eq!(forge.followed_pull(&root, "ci", 2189), None, "merged since");
 }
 
+/// A repository with hundreds open: the forge times the list out when it is asked for every check,
+/// and answers it without them.
+#[test]
+fn the_list_a_pull_reading_tells_from_asks_no_checks_and_says_why_it_failed() {
+    let server = serve(|seen| match seen.body.as_str() {
+        body if body.contains("pullRequests(states:OPEN") && body.contains("statusCheckRollup") => refused(504),
+        body if body.contains("pullRequests(states:OPEN") => ok(READING),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let root = repo.root_str();
+
+    assert_eq!(forge.pull_reading(&root, "ci"), None, "the list with every check times out");
+    let listed = forge.pull_list(&root, "ci").expect("the list without them answers");
+    let numbers: Vec<u64> = listed.iter().map(|it| it.number).collect();
+    let expected: Vec<u64> = lines(READING_GH).iter().filter_map(|line| pull_of_line(line, "ci")).map(|it| it.number).collect();
+    assert_eq!(numbers, expected);
+
+    let down = serve(|_| refused(504));
+    let refusal = ApiForge::through(api(&down.url, &["t"]).0).pull_list(&root, "ci").expect_err("down");
+    assert!(refusal.is_some(), "the forge's reason, for the log");
+}
+
 #[test]
 fn the_merge_queue_over_the_api_is_the_queue_gh_reads_in_position_order() {
     let server = serve(|seen| match seen.body.as_str() {

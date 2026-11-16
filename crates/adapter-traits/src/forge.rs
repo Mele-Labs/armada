@@ -137,9 +137,11 @@ pub trait Forge {
     /// forge call for all of them.** `None` is the forge's silence.
     fn pull_reading(&self, in_repo: &str, gate: &str) -> Option<crate::FollowedPulls>;
 
-    /// [`pull_reading`](Forge::pull_reading), with the forge's reason when it would not answer,
-    /// **so a pass that reads nothing says why** rather than leaving every row as it was in silence.
-    fn pull_reading_said(&self, in_repo: &str, gate: &str) -> Result<crate::FollowedPulls, Option<String>> {
+    /// [`pull_reading`](Forge::pull_reading) **without the checks**, which a forge times out on in a
+    /// repository with hundreds open: `checks` is empty, and each one told of is read by number.
+    /// `Err(Some(sentence))` is the forge's reason, **so a pass that reads nothing says why**.
+    /// A forge with no cheaper list answers the whole reading.
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<crate::FollowedPulls, Option<String>> {
         self.pull_reading(in_repo, gate).ok_or(None)
     }
 

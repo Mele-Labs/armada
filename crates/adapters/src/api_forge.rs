@@ -293,11 +293,11 @@ impl Forge for ApiForge {
         )
     }
 
-    fn pull_reading_said(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
         self.read_said(
             in_repo,
-            |api, repository| reading::read(api, repository, gate),
-            |gh| gh.pull_reading(in_repo, gate),
+            |api, repository| reading::listed(api, repository, gate),
+            |gh| gh.pull_list(in_repo, gate).ok(),
         )
     }
 

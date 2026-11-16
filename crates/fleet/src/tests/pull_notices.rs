@@ -605,6 +605,24 @@ async fn a_forge_that_will_not_answer_changes_nothing() {
     assert!(rig.runs_sent_to_the_session().is_empty());
 }
 
+/// A repository with hundreds open, whose list the forge times out on when it is asked for every
+/// check and answers without them: a held pull request's checks are read by its number, and its
+/// failure told.
+#[tokio::test]
+async fn a_list_the_forge_answers_only_without_checks_still_tells_a_failure() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.followed_are(None);
+    forge.listed_are(Some(vec![pull(7, vec![])]));
+    forge.followed_by_number_are(vec![failing(7)]);
+
+    rig.reads().await;
+
+    let sent = rig.runs_sent_to_the_session();
+    assert!(sent.iter().any(|line| line.contains("#7 failed its checks")), "{sent:?}");
+}
+
 impl Rig {
     async fn a_session_that_worked(&self, id: &str, branch: &str, state: AttachmentState) {
         let root = self.fleet.repositories().first().unwrap().root().to_string();

@@ -11,6 +11,10 @@ use crate::under_review::as_written;
 /// limit, and a runner that hung is the likeliest cause.
 const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
+/// What the pull reading reads of each pull request but its checks.
+const BARE: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
+    mergeQueueEntry{state} isDraft reviewDecision";
+
 /// What the pull reading reads of each pull request, in the list's query and in the by-number one.
 const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
     mergeQueueEntry{state} isDraft reviewDecision \
@@ -23,6 +27,17 @@ pub(crate) fn list_query() -> String {
         "query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{\
          pullRequests(states:OPEN,first:100,orderBy:{{field:UPDATED_AT,direction:DESC}}){{nodes{{\
          {FIELDS}}}}}}}}}"
+    )
+}
+
+/// The list without the checks. **Every check of a hundred pull requests is a query the forge times
+/// out on** in a repository with hundreds open, measured 16 Nov 2026: about ten seconds and a 502,
+/// against three without them. The checks are read by number, for the pull requests told of.
+pub(crate) fn bare_list_query() -> String {
+    format!(
+        "query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{\
+         pullRequests(states:OPEN,first:100,orderBy:{{field:UPDATED_AT,direction:DESC}}){{nodes{{\
+         {BARE}}}}}}}}}"
     )
 }
 
@@ -51,7 +66,16 @@ const LINE: &str = "[(.number | tostring), (.headRefName // \"\"), \
 
 /// Every open pull request, `None` where the forge would not answer.
 pub(crate) fn read(in_repo: &str, gate: &str) -> Option<FollowedPulls> {
-    let query = format!("query={}", list_query());
+    read_by(in_repo, gate, &list_query())
+}
+
+/// Every open pull request without its checks, `None` where the forge would not answer.
+pub(crate) fn read_bare(in_repo: &str, gate: &str) -> Option<FollowedPulls> {
+    read_by(in_repo, gate, &bare_list_query())
+}
+
+fn read_by(in_repo: &str, gate: &str, list: &str) -> Option<FollowedPulls> {
+    let query = format!("query={list}");
     let lines = format!(".data.repository.pullRequests.nodes[]? | {LINE}");
     let run = run_in(
         in_repo,
@@ -240,11 +264,12 @@ mod tests {
 
     #[test]
     fn both_queries_close_every_brace_they_open() {
-        for query in [list_query(), one_query()] {
+        for query in [list_query(), bare_list_query(), one_query()] {
             let open = query.matches('{').count();
             assert_eq!(open, query.matches('}').count(), "{query}");
         }
         assert!(one_query().contains("pullRequest(number:$number)"));
+        assert!(!bare_list_query().contains("statusCheckRollup"), "the list the forge can answer asks no checks");
     }
 
     #[test]
