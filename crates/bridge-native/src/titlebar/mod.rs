@@ -515,13 +515,15 @@ impl TitleBar {
     /// scoped to by its id, and goes back to All where Fleet no longer lists it.
     pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
         let listed = face::projects_of(served, read);
+        let unread = face::unread_of(read);
         let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
         let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
-        if listed == self.face.projects && scoped == self.face.scoped {
+        if listed == self.face.projects && scoped == self.face.scoped && unread == self.face.unread {
             return;
         }
         self.face.projects = listed;
         self.face.scoped = scoped;
+        self.face.unread = unread;
         cx.notify();
     }
 
@@ -1080,6 +1082,9 @@ impl TitleBar {
         entries.push(Entry::Row(Row::new("all", "All").icon("globe").ticked(face.chosen.is_none() && face.scoped.is_none())));
         for (p, project) in face.projects.iter().enumerate() {
             entries.push(Entry::Row(Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p))));
+        }
+        for (u, one) in face.unread.iter().enumerate() {
+            entries.push(Entry::Row(Row::new(id_of(format!("unread-{}", u + 1)), one.name.clone()).icon("layers").under(one.said.clone()).off(one.said.clone())));
         }
         for at in face.lone().into_iter().take(REPO.len()) {
             let one = &face.repositories[at];

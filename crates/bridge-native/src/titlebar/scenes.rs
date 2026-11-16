@@ -231,6 +231,7 @@ pub fn rest() -> Face {
         chosen: None,
         projects: face::projects_of(&served, &crate::mock::projects()),
         scoped: Some(0),
+        unread: face::unread_of(&crate::mock::projects()),
         signed_in: true,
         downshift: None,
         places: vec![Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true }],
