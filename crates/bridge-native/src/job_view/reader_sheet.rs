@@ -40,7 +40,7 @@ pub(super) fn key_of_artifact(job: &str, artifact: &str) -> String {
 
 /// The artifact an item stands for, where it is one.
 pub(super) fn artifact_in(item: &Item) -> Option<&str> {
-    item.id.strip_prefix(PREFIX).filter(|_| item.kind == Kind::Artifact)
+    item.artifact.as_deref().filter(|_| item.kind == Kind::Artifact)
 }
 
 /// The zoom of the drawing the panel's detail holds in place, with the scene key it draws under. Fresh for each item chosen.
@@ -56,13 +56,13 @@ impl DetailZoom {
 }
 
 /// What the stage draws and how it is enlarged over the whole app.
-struct Staged {
+pub(super) struct Staged {
     held: String,
     scene: Rc<ipc::Scene>,
     enlarge: Enlarge,
 }
 
-enum Enlarge {
+pub(super) enum Enlarge {
     Drawing(String),
     Sketch(String),
 }
@@ -85,7 +85,15 @@ impl JobView {
             revision: revision.map(|last| format!("r{}", last.number)),
             send_back: false,
             read: false,
+            artifact: Some(one.id.clone()),
         })
+    }
+
+    /// The artifact of parts a waiting row names, by its `artifact`, or by a title the row's words begin with, as an item.
+    pub(super) fn waiting_artifact_item(&self, job: &str, row: &ipc::WaitingItem) -> Option<Item> {
+        let named = row.artifact.as_deref().into_iter().chain(std::iter::once(row.text.as_str()));
+        let found = named.filter_map(|name| self.artifacts_of(job).into_iter().find(|one| one.id == name || one.title == name || name.starts_with(&format!("{}:", one.title)))).next()?;
+        self.artifact_item(job, &found.id)
     }
 
     /// The artifacts of parts Job `job` holds that still ask, and the one he opened, as the panel's items.
@@ -157,7 +165,7 @@ impl JobView {
 
 impl JobView {
     /// A drawing the detail fills with: an artifact of one drawing and nothing else, or a sketch.
-    fn staged(&self, item: &Item, cx: &gpui::App) -> Option<Staged> {
+    pub(super) fn staged(&self, item: &Item, cx: &gpui::App) -> Option<Staged> {
         match item.kind {
             Kind::Artifact => {
                 let artifact = self.artifact_of(&item.job, artifact_in(item)?)?;
@@ -295,6 +303,24 @@ mod tests {
         redraw(cx);
         assert!(!view.read_with(cx, |view, _| view.review_open()));
         assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "the panes are as they were");
+    }
+
+    #[gpui::test]
+    fn a_takes_row_of_the_jobs_review_opens_the_panel_on_this_jobs_items_with_that_row_picked(cx: &mut gpui::TestAppContext) {
+        let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {
+            let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+            jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the job").waiting_for.extend(held);
+        });
+        view.update_in(cx, |view, window, cx| view.open_review_on("sketch:takes:bar", window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            assert!(view.review_open(), "the row opens the panel, though no card of the thread stands for it");
+            let chosen = view.review_chosen().expect("one item is chosen");
+            assert_eq!((chosen.kind, chosen.artifact.as_deref()), (Kind::Artifact, Some(ID)), "the row stands for the artifact it names");
+            let review = view.review().expect("review");
+            assert!(review.groups.iter().all(|group| group.job == JOB), "this Job's items alone");
+        });
     }
 
     #[gpui::test]
