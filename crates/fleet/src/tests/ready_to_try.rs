@@ -4,14 +4,14 @@
 use std::fs;
 use std::sync::Arc;
 
-use api::{Refusal, Sessions};
+use api::{HostedSessions, Refusal, Sessions};
 use ipc::{
     AnswerReadyToTry, AnswerSketch, ArtifactForm, Instant, JobThreadRead, NoteVerdict, OfferApproved, OfferPreview, PreviewOffered, ReadyAnswer,
     ReadyState, SessionId, ShowSketch, SketchHow, ThreadItem, ThreadReadyToTry, WithdrawPreview,
 };
 
 use super::build_notices::{a_rig, Rig};
-use super::preview_offering::{a_job_offering, a_previewable_repository, branch_with, checked, code, holding, step};
+use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, checked, code, holding, step};
 
 const BRANCH: &str = "armada/one";
 
@@ -261,11 +261,11 @@ async fn tries(rig: &Rig, session: &str) -> Vec<ipc::WaitingItem> {
 async fn an_open_card_waits_in_needs_you_until_answered_and_comes_back_with_its_reminder() {
     let rig = a_rig();
     let (session, tip) = an_offered_job(&rig).await;
-    let id = format!("try:{BRANCH}@{tip}");
+    let id = format!("try:{session}");
 
     let raised = tries(&rig, &session).await;
-    let [item] = raised.as_slice() else { panic!("one item an open card: {raised:?}") };
-    assert_eq!((item.id.as_str(), item.text.as_str(), item.artifact.as_deref()), (id.as_str(), "Try: Keeps one thing", Some(id.as_str())));
+    let [item] = raised.as_slice() else { panic!("one item for the Job: {raised:?}") };
+    assert_eq!((item.id.as_str(), item.text.as_str(), item.artifact.as_deref()), (id.as_str(), "Ready to try", Some(id.as_str())));
     let said = ipc::AnswerWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), choice: None, text: Some("Fine".into()), mode: None, fixed: None };
     let refused = Arc::clone(&rig.fleet).settle_waiting(said).await;
     assert_eq!(code(refused), "fleet.session_waiting_empty", "answered on its card, not here");
@@ -288,8 +288,47 @@ async fn a_withdrawn_or_replaced_card_waits_on_nobody() {
     offer(&rig, offered(&session)).await.expect("offered again");
 
     let ids: Vec<String> = tries(&rig, &session).await.into_iter().map(|one| one.id).collect();
-    assert_eq!(ids, [format!("try:{BRANCH}@{newer}")], "the replaced card {tip} waits on nobody");
+    assert_eq!(ids, [format!("try:{session}")], "the Job's one item stands for the newer card {newer}; the replaced card {tip} waits on nobody");
 
     Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: None }).await.expect("withdrawn");
     assert!(tries(&rig, &session).await.is_empty());
+}
+
+#[tokio::test]
+async fn two_open_cards_of_one_job_raise_one_item_and_answering_both_leaves_none() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    rig.holds_branch(&session, "armada/two").await;
+    let second = branch_with(&rig, "armada/two", &base(&rig), "crates/x/two.rs", "2");
+    offer(&rig, OfferPreview { branch: Some("armada/two".into()), ..offered(&session) }).await.expect("offered the second");
+    assert_eq!(cards(&rig, &session).await.iter().filter(|one| one.state == ReadyState::Open).count(), 2, "two open cards");
+
+    let raised = tries(&rig, &session).await;
+    let [item] = raised.as_slice() else { panic!("one item for two cards: {raised:?}") };
+    let id = format!("try:{session}");
+    assert_eq!((item.id.as_str(), item.text.as_str(), item.artifact.as_deref()), (id.as_str(), "Ready to try", Some(id.as_str())));
+
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("first answered");
+    assert_eq!(tries(&rig, &session).await.len(), 1, "one card still open");
+    let asked = AnswerReadyToTry { session_id: SessionId::carried(session.as_str()), branch: "armada/two".into(), tip: second, answer: ReadyAnswer::LooksGood };
+    api::Commands::answer_ready_to_try(Arc::clone(&rig.fleet), asked).await.expect("second answered");
+    assert!(tries(&rig, &session).await.is_empty(), "both answered leaves none");
+}
+
+#[tokio::test]
+async fn dismissing_the_ready_to_try_row_puts_away_only_the_cards_open_then() {
+    let rig = a_rig();
+    let (session, _tip) = an_offered_job(&rig).await;
+    let id = format!("try:{session}");
+
+    let dismissal = ipc::DismissWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), reason: None, misread: false };
+    Arc::clone(&rig.fleet).dismiss_waiting(dismissal).await.expect("dismissed");
+    assert!(tries(&rig, &session).await.is_empty(), "the card open then is put away");
+
+    rig.holds_branch(&session, "armada/two").await;
+    branch_with(&rig, "armada/two", &base(&rig), "crates/x/two.rs", "2");
+    offer(&rig, OfferPreview { branch: Some("armada/two".into()), ..offered(&session) }).await.expect("offered a new card");
+    let raised = tries(&rig, &session).await;
+    let [item] = raised.as_slice() else { panic!("the new card raises the row again: {raised:?}") };
+    assert_eq!(item.id, id);
 }

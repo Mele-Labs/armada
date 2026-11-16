@@ -65,7 +65,7 @@ fn cases() -> Vec<Case> {
         case(item("handoff:r2", Source::Handoff, Some((Act::Answer, "handoff:r2")), &["Carry on in a new Job", "Stay here"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("sketch:Flow", Source::Sketch, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("document:/w/a.html", Source::Document, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
-        case(item("try:armada/one@abc", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
+        case(item("try:job-1", Source::ReadyToTry, Some(own), &[], &[]), Section::ToReview, Dismiss::Plain, false),
         case(item("first", Source::FirstMessage, Some(own), &[], &[]), Section::Questions, Dismiss::None, false),
         case(item("replied:1", Source::Replied, None, &[], &[]), Section::Questions, Dismiss::NotAQuestion, true),
         case(item("done:1", Source::Done, None, &[], &[]), Section::Done, Dismiss::Plain, false),
@@ -255,7 +255,7 @@ fn needs_you_review_is_in_the_band_for_one_document_alone_but_not_one_plan() {
 
 #[test]
 fn needs_you_puts_a_ready_to_try_card_in_the_band_alone_or_not() {
-    let card = item("try:armada/one@abc", Source::ReadyToTry, Some((WaitingActKind::Message, JOB)), &[], &[]);
+    let card = item("try:job-1", Source::ReadyToTry, Some((WaitingActKind::Message, JOB)), &[], &[]);
     let alone = view_of(std::slice::from_ref(&card));
     assert!(alone.fold && alone.review_in_band, "a lone card is in the band");
     assert_eq!(alone.glyphs.iter().map(|one| one.said.as_str()).collect::<Vec<_>>(), ["Ready to try"]);

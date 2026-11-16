@@ -759,8 +759,9 @@ where
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A page that asks nothing waits to be read, until he opens its newest revision.
             items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
-            // A Ready to try card waits on him while it is open: answered on the card, back when a reminder comes due.
-            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str()).filter(|one| !dismissed.contains(&one.id)));
+            // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
+            // cards open then, so one offered later raises it again.
+            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
@@ -1583,6 +1584,21 @@ where
         let id = id.to_string();
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
+        }
+        // Dismissing the one Ready to try row puts away the cards open now, each by its own id, so a card offered
+        // later raises it again.
+        if item.source == WaitingSource::ReadyToTry {
+            let open: Vec<String> = self.ready_cards_of(&id).await.into_iter().filter(|card| card.state == ipc::ReadyState::Open).map(|card| card.id).collect();
+            let record = {
+                let mut store = self.store().lock().await;
+                let session = store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+                for card in &open {
+                    store.dismiss_waiting(&id, card).map_err(|why| self.ledger_fault(why))?;
+                }
+                self.ledger_row(&store, &session)?
+            };
+            self.publish(ipc::Event::SessionChanged(record.clone()));
+            return Ok(record);
         }
         let closed = self.closed_as_it_stood(item);
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
