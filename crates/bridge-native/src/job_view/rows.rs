@@ -495,14 +495,19 @@ impl JobView {
             })
             .code_block_actions(code_copy(look, job.to_string(), key.clone(), base))
             .when(!tags.is_empty(), |words| words.markdown_extensions(tag_extensions(tags, look)))
-            // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
+            // No surface navigates (design-system.md, hard rule 2): a Job opens here, a forge pull request in the
+            // PR tab, any other address in the browser.
             .on_link_click({
                 let view = view.clone();
-                move |address, _, _, cx| match super::refs::Refs::job_of(address) {
+                move |address, _, window, cx| match super::refs::Refs::job_of(address) {
                     Some(id) => {
                         view.update(cx, |this, cx| this.open_job(id, cx)).ok();
                     }
-                    None => cx.open_url(address),
+                    None => {
+                        if !view.update(cx, |this, cx| this.open_pull_address(address, window, cx)).unwrap_or(false) {
+                            cx.open_url(address);
+                        }
+                    }
                 }
             });
         // A run a block of these words started is drawn right under that block (`InlineTerminal`): the words part there.

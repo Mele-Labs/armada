@@ -115,6 +115,58 @@ pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> 
     }
 }
 
+/// The repository path and number of a forge pull request's address, as Classic's `PULL` reads one
+/// (`shared-panel/store.ts`): `https://<host>/<owner>/<name>/pull/<number>`, nothing after the number
+/// but one slash. Any other address, `/files` after the number or an issue's, is not one.
+pub(super) fn pull_address(address: &str) -> Option<(&str, u64)> {
+    let rest = address.strip_prefix("https://").or_else(|| address.strip_prefix("http://"))?;
+    let (host, path) = rest.split_once('/')?;
+    let path = path.strip_suffix('/').unwrap_or(path);
+    let (repository, number) = path.rsplit_once("/pull/")?;
+    if host.is_empty() || repository.split('/').any(str::is_empty) || number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some((repository, number.parse().ok()?))
+}
+
+/// The Manifest a pull request's repository path names, by the name its `armada.yml`'s directory has,
+/// as Classic's `repositoryOf` matches it. A repository no Manifest is read from has none. Classic's
+/// fall back to the only Manifest there is is left out: it would open another repository's number.
+pub(super) fn manifest_named(repositories: &[ipc::RepositorySummary], repository: &str) -> Option<String> {
+    let whole = repository.to_lowercase();
+    let name = repository.rsplit('/').next().unwrap_or(repository).to_lowercase();
+    repositories
+        .iter()
+        .filter_map(|one| one.manifest.as_ref())
+        .find(|manifest| {
+            let held = manifest.repository.to_lowercase();
+            held == whole || held == name
+        })
+        .map(|manifest| manifest.id.as_str().to_string())
+}
+
+/// A pull request no Job holds, opened from its address: its title is the merge line's where one holds it,
+/// and its Checks the forge's read of its page, filled in as the panel reads it.
+pub(super) fn addressed(manifest: String, address: &str, number: u64, title: String) -> Pull {
+    Pull {
+        number,
+        title,
+        branch: String::new(),
+        address: address.to_string(),
+        state: PullState::Open,
+        checks: PullChecks::Running,
+        failing: String::new(),
+        auto: false,
+        queued: false,
+        job: String::new(),
+        manifest: Some(manifest),
+        from: None,
+        base: None,
+        root_base: None,
+        stacked_on: None,
+    }
+}
+
 /// A pull request's Checks as the forge's read of its page says them, with the failing ones by name.
 pub(super) fn checks_of_page(page: &ipc::PullRequestPage) -> (PullChecks, String) {
     use ipc::PullRequestCheckState as State;
@@ -374,6 +426,33 @@ impl JobView {
             }
         }
         out
+    }
+
+    /// A forge pull request's address pressed in words opens in the PR tab: the pull request a Job holds at
+    /// that address, else one no Job holds in the Manifest its repository names. False where it is no pull
+    /// request's address or no Manifest is read from its repository, and the browser takes it.
+    pub(super) fn open_pull_address(&mut self, address: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((repository, number)) = pull_address(address) else { return false };
+        let same = |one: &str| one.trim_end_matches('/').eq_ignore_ascii_case(address.trim_end_matches('/'));
+        let held = self.list.read(cx).records().iter().find_map(|record| record.attachments.iter().filter_map(|one| pull_of(record, one, None)).find(|pull| same(&pull.address)));
+        let pull = match held {
+            Some(pull) => pull,
+            None => {
+                let (served, lines) = match &self.fleet {
+                    Some(fleet) => {
+                        let held = fleet.read(cx).held();
+                        (held.repositories.clone().unwrap_or_default(), held.merge_lines.clone().unwrap_or_default())
+                    }
+                    None => (crate::mock::repositories(), crate::mock::merge_lines().unwrap_or_default()),
+                };
+                let Some(manifest) = manifest_named(&served, repository) else { return false };
+                // The forge's page carries no title: the merge line has one for a pull request in it.
+                let title = lines.iter().flat_map(|line| &line.pulls).find(|view| same(&view.pull.url)).map(|view| view.pull.title.clone()).unwrap_or_default();
+                addressed(manifest, address, number, title)
+            }
+        };
+        self.open_pull(pull, window, cx);
+        true
     }
 
     /// Pull Requests: every row as the Ledger draws it. None, and nothing is drawn.
@@ -681,5 +760,45 @@ mod tests {
         assert_eq!(checks_said(&one), "Checks passed; not required, failing: lint");
         one.checks = PullChecks::Failed;
         assert_eq!(checks_said(&one), "Checks failed: lint");
+    }
+
+    #[test]
+    fn a_pull_request_address_names_its_repository_and_number() {
+        assert_eq!(pull_address("https://forge.example/acme-labs/storefront/pull/418"), Some(("acme-labs/storefront", 418)));
+        assert_eq!(pull_address("https://forge.example/acme-labs/storefront/pull/418/"), Some(("acme-labs/storefront", 418)));
+        assert_eq!(pull_address("http://git.example/group/sub/storefront/pull/7"), Some(("group/sub/storefront", 7)));
+    }
+
+    #[test]
+    fn an_address_past_the_number_or_of_an_issue_is_not_a_pull_request() {
+        for address in [
+            "https://forge.example/acme-labs/storefront/pull/418/files",
+            "https://forge.example/acme-labs/storefront/pull/418#discussion_r1",
+            "https://forge.example/acme-labs/storefront/pull/418?w=1",
+            "https://forge.example/acme-labs/storefront/issues/418",
+            "https://forge.example/pull/418",
+            "https://forge.example/acme-labs/storefront/pull/",
+            "https://forge.example/acme-labs/storefront/pull/41a",
+            "ftp://forge.example/acme-labs/storefront/pull/418",
+            "armada://pull/acme-labs/storefront/418",
+        ] {
+            assert_eq!(pull_address(address), None, "{address}");
+        }
+    }
+
+    #[test]
+    fn a_repository_path_finds_the_manifest_named_for_it() {
+        let repo = |root: &str, manifest: Option<(&str, &str)>| -> ipc::RepositorySummary {
+            let mut one = serde_json::json!({ "root": root, "records_root": "/records" });
+            if let Some((id, name)) = manifest {
+                one["manifest"] = serde_json::json!({ "id": id, "repository": name, "path": format!("{root}/armada.yml"), "records_root": "/records", "version": 1, "checks": [] });
+            }
+            ipc::decode("RepositorySummary", one.to_string().as_bytes()).expect("a repository summary")
+        };
+        let served = [repo("/work/storefront", Some(("m-store", "Storefront"))), repo("/work/ledger", Some(("m-ledger", "ledger"))), repo("/work/loose", None)];
+        assert_eq!(manifest_named(&served, "acme-labs/storefront").as_deref(), Some("m-store"));
+        assert_eq!(manifest_named(&served, "acme-labs/ledger").as_deref(), Some("m-ledger"));
+        assert_eq!(manifest_named(&served, "acme-labs/loose"), None, "no Manifest is read there");
+        assert_eq!(manifest_named(&served, "acme-labs/elsewhere"), None, "not the only one there is, as Classic falls back to");
     }
 }
