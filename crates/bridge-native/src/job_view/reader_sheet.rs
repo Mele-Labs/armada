@@ -327,7 +327,7 @@ mod tests {
     fn a_pick_sent_from_the_panels_foot_carries_the_take_and_his_words(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         let key = super::super::parts_card::part_key(ID, "bar");
-        let pick = bounds_of(cx, Role::RadioButton, TAKES[1]);
+        let pick = bounds_of(cx, Role::RadioButton, &format!("Pick {}", TAKES[1]));
         let send = bounds_of(cx, Role::Button, "Send pick");
         let words = bounds_of(cx, Role::TextInput, "Note on your pick");
         assert!(send.top() > pick.bottom() && words.top() > pick.bottom(), "the words box and Send pick stand below the takes, in the foot");

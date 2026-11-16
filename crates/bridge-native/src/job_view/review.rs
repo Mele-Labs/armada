@@ -815,7 +815,7 @@ impl JobView {
     /// `A`: Approve the chosen item, with its notes.
     fn review_approve(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() || item.read || item.kind == Kind::Artifact {
+        if row.verdict.is_some() || item.read || item.kind == Kind::Artifact || !self.item_asks(&item, cx) {
             return;
         }
         let body = answer_batch(&[&item], ItemHow::Approve, |one| self.review_notes_text(one, cx));
@@ -826,7 +826,7 @@ impl JobView {
     /// send back with no note is refused.
     fn review_changes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() || !item.send_back || item.read {
+        if row.verdict.is_some() || !item.send_back || item.read || !self.item_asks(&item, cx) {
             return;
         }
         if notes_of(&self.review_notes_text(&item, cx)).is_empty() {
@@ -1519,10 +1519,19 @@ impl JobView {
             .into_any_element()
     }
 
+    /// Whether the item puts a question to him. A sketch the Job showed with `asks: false` arrives with `asked` false and has no
+    /// answer bar, here as on its card (`sketch_card.rs`) and in its reading (`sketch_read.rs`).
+    fn item_asks(&self, item: &Item, cx: &gpui::App) -> bool {
+        if item.kind != Kind::Sketch {
+            return true;
+        }
+        self.thread(&item.job, cx).and_then(|held| sketch_card(&held.head, &held.items, &item.id).map(|card| card.asked)).unwrap_or(true)
+    }
+
     /// The chosen item's own answers, for the foot: none where it is answered, an artifact (its parts answer where they stand)
     /// or an item he is only to read, which has Open.
     fn review_item_acts(&self, item: &Item, row: &Row, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        if row.verdict.is_some() || item.kind == Kind::Artifact {
+        if row.verdict.is_some() || item.kind == Kind::Artifact || !self.item_asks(item, cx) {
             return None;
         }
         let focus = &self.review_focus;
