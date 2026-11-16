@@ -162,10 +162,11 @@ where
         // The Job is for its starter's project, which takes the repository in as a whole member where it is not one.
         let starters = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
         let project = self.started_project(&me, starters, manifest.as_str()).await;
+        // A starter in none starts it in the one project that holds its repository, where exactly one does.
+        let project = project.or_else(|| self.only_project_holding(manifest.as_str()));
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
         // A Job that waits follows it too, once its wait is met, so the word is read whether or not there is a wait.
         let held_by_word = self.agent_start_held(project.as_deref(), manifest.as_str()).await;
-        // Its starter's project or none: never the default of a start that names none.
         let made = self
             .started_hosted(StartSession {
                 project,
