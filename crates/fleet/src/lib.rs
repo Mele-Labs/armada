@@ -78,6 +78,7 @@ pub mod rail_following;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
+mod build_start;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;

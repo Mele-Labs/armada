@@ -3,7 +3,7 @@
 //! request that omits `adopt` does not adopt.
 
 use crate::{
-    decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildReport,
+    decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, CheckoutBlocked, ClearBlocked, FleetBuildReport,
     FleetBuildKept, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant, KeptBuildPrevious,
     KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState, WaitingActKind,
     WaitingItem, WaitingSource,
@@ -30,6 +30,7 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         switcher: None,
         origin: Vec::new(),
         holds: Vec::new(),
+        blocked: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(json, r#"{"on":"main"}"#);
@@ -63,6 +64,7 @@ fn a_full_report_round_trips() {
         switcher: None,
         origin: Vec::new(),
         holds: Vec::new(),
+        blocked: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
@@ -108,6 +110,7 @@ fn the_kept_builds_cross_as_they_are_named_and_what_is_empty_leaves_no_key() {
         switcher: None,
         origin: Vec::new(),
         holds: Vec::new(),
+        blocked: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(
@@ -176,6 +179,7 @@ fn the_snapshot_crosses_as_it_is_named_and_what_is_empty_leaves_no_key() {
         switcher: None,
         origin: Vec::new(),
         holds: Vec::new(),
+        blocked: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(
@@ -261,11 +265,32 @@ fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
             switcher: None,
             origin: Vec::new(),
             holds: Vec::new(),
+            blocked: None,
         };
         let json = encode(&report).expect("a report is plain data");
         assert!(json.contains(&format!(r#""stage":"{word}""#)), "{json}");
         assert_eq!(decode::<FleetBuildReport>("build", json.as_bytes()).expect("round-trips"), report);
     }
+}
+
+#[test]
+fn a_blocked_checkout_crosses_with_its_count_and_files_and_round_trips() {
+    let json = br#"{"on":"preview","blocked":{"behind":3,"files":[".armada/workflows/bug.toml"]}}"#;
+    let report = decode::<FleetBuildReport>("build", json).expect("blocked reads");
+    assert_eq!(report.blocked, Some(CheckoutBlocked { behind: 3, files: vec![String::from(".armada/workflows/bug.toml")] }));
+    assert_eq!(encode(&report).expect("a report is plain data").as_bytes(), json);
+}
+
+#[test]
+fn a_change_asked_to_clear_crosses_as_a_snake_case_word_and_round_trips() {
+    for (clear, word) in [(ClearBlocked::Stash, "stash"), (ClearBlocked::Delete, "delete")] {
+        let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: Some(clear) };
+        let json = encode(&asked).expect("a request is plain data");
+        assert_eq!(json, format!(r#"{{"build":"main","adopt":false,"clear":"{word}"}}"#));
+        assert_eq!(decode::<ChangeFleetBuild>("build to change to", json.as_bytes()).expect("round-trips"), asked);
+    }
+    let plain = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: None };
+    assert_eq!(encode(&plain).expect("a request is plain data"), r#"{"build":"main","adopt":false}"#);
 }
 
 #[test]
@@ -289,7 +314,8 @@ fn a_request_that_omits_adopt_does_not_adopt() {
         asked,
         ChangeFleetBuild {
             build: BuildSource::Preview,
-            adopt: false
+            adopt: false,
+            clear: None,
         }
     );
 }
