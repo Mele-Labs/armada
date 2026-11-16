@@ -10,7 +10,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 
-use super::face::Face;
+use super::face::{Face, Unread};
 use super::parts::{glyph, Btn, Weight};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
@@ -54,6 +54,12 @@ pub(super) fn picks(face: &Face, query: &str) -> Vec<Pick> {
     picks.extend(face.lone().into_iter().filter(|&at| has(&face.repositories[at].name)).map(Pick::Lone));
     picks.push(Pick::New);
     picks
+}
+
+/// The projects Fleet could not read that Find leaves, drawn dimmed after the projects. **Never a pick.**
+pub(super) fn unread_shown<'a>(face: &'a Face, query: &str) -> Vec<&'a Unread> {
+    let wanted = query.trim().to_lowercase();
+    face.unread.iter().filter(|one| wanted.is_empty() || one.name.to_lowercase().contains(&wanted)).collect()
 }
 
 /// The row the window is on now, which the keys start at.
@@ -172,7 +178,18 @@ impl TitleBar {
         let mut left: Vec<AnyElement> = self.find_box(look).into_iter().collect();
         let mut said_projects = false;
         let mut said_lone = false;
+        let mut dimmed = Some(unread_shown(face, &self.switcher.query)).filter(|unread| !unread.is_empty());
         for (at, pick) in rows.iter().enumerate() {
+            // New project ends every list, so the dimmed rows always land after the projects.
+            if matches!(pick, Pick::Lone(_) | Pick::New) {
+                if let Some(unread) = dimmed.take() {
+                    if !said_projects {
+                        said_projects = true;
+                        left.push(caption("Projects", look));
+                    }
+                    left.extend(unread.into_iter().map(|one| unread_row(one, look)));
+                }
+            }
             match pick {
                 Pick::Project(_) if !said_projects => {
                     said_projects = true;
@@ -410,6 +427,33 @@ impl TitleBar {
     }
 }
 
+/// A project whose file did not read: its name and Fleet's reason under it, dimmed, with nothing to press.
+fn unread_row(one: &Unread, look: &Look) -> AnyElement {
+    labelled(
+        div()
+            .id(SharedString::from(format!("unread:{}", one.id)))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .text_color(look.color(token::FG_MUTED))
+            .child(glyph("layers", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .child(div().truncate().child(one.name.clone()))
+                    .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(one.said.clone())),
+            ),
+        Role::ListBoxOption,
+        format!("{}: {}", one.name, one.said),
+    )
+    .into_any_element()
+}
+
 /// A heading of the left pane, as `PROJECTS`.
 fn caption(said: &'static str, look: &Look) -> AnyElement {
     div()
@@ -474,6 +518,17 @@ mod tests {
     }
 
     #[test]
+    fn a_project_fleet_could_not_read_is_listed_dimmed_with_its_reason_and_is_not_a_pick() {
+        let face = scenes::rest();
+        let unread: Vec<(&str, &str)> = face.unread.iter().map(|one| (one.name.as_ref(), one.said.as_ref())).collect();
+        assert_eq!(unread, vec![("Ledger", "members: a repository is listed twice")], "Fleet's own reason, as it said it");
+        assert_eq!(picks(&face, "ledger"), vec![Pick::New], "it cannot be picked");
+        let shown: Vec<&str> = unread_shown(&face, "ledger").iter().map(|one| one.name.as_ref()).collect();
+        assert_eq!(shown, vec!["Ledger"], "but Find still lists it");
+        assert!(unread_shown(&face, "store").is_empty());
+    }
+
+    #[test]
     fn a_member_fleet_serves_no_repository_for_is_left_out_of_its_project() {
         let served = served();
         let read = crate::mock::projects();
@@ -481,6 +536,17 @@ mod tests {
         let listed = super::super::face::projects_of(fewer, &read);
         assert_eq!(listed[1].members.len(), 1, "sample-api is not served here");
         assert_eq!(listed[1].members[0].repository, 1);
+    }
+
+    #[test]
+    fn a_copy_of_another_macs_project_is_not_a_scope_the_window_can_take() {
+        let served = served();
+        let json = r#"{"projects":[
+            {"id":"own","name":"Armada","rows":[],"members":[],"place":{"place":"this_mac"}},
+            {"id":"theirs","name":"Armada","rows":[],"members":[],"place":{"place":"this_mac"},"mac":"866126a3"}],"loose":[],"left_out":[]}"#;
+        let read: ipc::Projects = ipc::decode("Projects", json.as_bytes()).expect("projects");
+        let ids: Vec<String> = super::super::face::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
+        assert_eq!(ids, vec!["own"]);
     }
 
     #[test]

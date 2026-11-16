@@ -121,6 +121,11 @@ where
         self.tuned(|dials| dials.dispute_reviews)
     }
 
+    /// Whether the close of a reply is read for an ask: `features.readRepliesForNeeds`.
+    pub(crate) fn reads_replies_on(&self) -> bool {
+        self.tuned(|dials| dials.reads_replies)
+    }
+
     /// How far this machine lets a Job on your words act rather than only read. **The one
     /// place `settings.action-authority-tier-1-redirect-enabled-vs-read-only` is resolved to a
     /// value** — `crate::on_your_words` is the one place it is asked, and the door follows that

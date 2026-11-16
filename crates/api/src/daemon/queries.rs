@@ -110,6 +110,10 @@ pub trait Queries: Send + Sync + 'static {
     /// fault — a home that is not there is an answer.
     fn get_kit_inventory(&self) -> impl Future<Output = Result<ipc::KitInventory, Refusal>> + Send;
 
+    /// `get_kit_file` — one inventory piece's file, whole. [`Refusal::Unacceptable`] for a piece a
+    /// fresh inventory does not name once, or one with no file.
+    fn get_kit_file(&self, asked: ipc::GetKitFile) -> impl Future<Output = Result<ipc::KitFile, Refusal>> + Send;
+
     /// `get_flight_controls` — the Cockpit's tiles a person arranged, from
     /// `~/.armada/flight-controls.toml`. **An absent file is the defaults and a
     /// file that will not read is `not_read`**, never the defaults: the only

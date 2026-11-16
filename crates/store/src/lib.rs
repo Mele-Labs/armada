@@ -58,6 +58,8 @@ mod bug_reports;
 mod job_asks;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
+/// What the owner asked of a Job, sorted from his messages: asks, how each message was sorted, merges and hands.
+mod story_asks;
 mod session_tells;
 mod session_later;
 mod watches;
@@ -258,6 +260,7 @@ pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
+pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
@@ -331,7 +334,7 @@ pub use review_runs::KeptReviewRun;
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
-pub use pull_review_memory::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+pub use pull_review_memory::{KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{

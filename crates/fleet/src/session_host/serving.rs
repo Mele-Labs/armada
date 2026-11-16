@@ -549,7 +549,7 @@ where
         self.session_paused(asked).await
     }
 
-    async fn snooze_session(&self, asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
+    async fn snooze_session(self: Arc<Self>, asked: ipc::SnoozeSession) -> Result<SessionRecord, Refusal> {
         self.session_snoozed(asked).await
     }
 
