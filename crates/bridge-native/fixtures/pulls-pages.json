@@ -236,6 +236,16 @@
     {
      "login": "nick",
      "kind": "person"
+    },
+    {
+     "login": "omar",
+     "kind": "person",
+     "name": "Omar Haddad",
+     "team": "bridge"
+    },
+    {
+     "login": "bridge",
+     "kind": "team"
     }
    ],
    "conversation": [

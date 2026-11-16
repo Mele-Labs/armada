@@ -1118,6 +1118,7 @@ pub static WALKS: &[Walk] = &[
             step("Esc", Verb::Key("escape"), "list", "Pull requests"),
             step("#2210's row says a new description waits", Verb::Wheel("list", "Pull requests", -420), "button", "Pull request #2210 Show the merge line in a Session"),
             press_on("Every check passed, yet the forge will not merge it: the head says Review required, with what stands in the way under it, and offers Enable auto-merge, not Merge", "button", "Pull request #2210 Show the merge line in a Session", "button", "Enable auto-merge"),
+            step("Under it, Review required from names who it waits on: a team in bold with its people under it, then the rest", Verb::Look, "region", "Review required from"),
             step("Its panel has the draft in the description's place, revision 2", Verb::Look, "article", "Description draft"),
             step("What the draft adds is marked in green", Verb::Look, "group", "Added by the draft"),
             step("What it takes out is struck through", Verb::Look, "group", "Taken out by the draft"),

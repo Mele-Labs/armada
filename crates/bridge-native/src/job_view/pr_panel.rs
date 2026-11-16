@@ -227,7 +227,9 @@ fn blocked_facts(pull: &Pull, page: Option<&PullRequestPage>) -> Option<String> 
             PullRequestMergeable::Unknown => {}
         }
         match page.review {
-            PullRequestReviewState::Required => facts.push("Needs an approving review"),
+            // Where the forge names who, Review required from says it in the merge box.
+            PullRequestReviewState::Required if page.reviewers.is_empty() => facts.push("Needs an approving review"),
+            PullRequestReviewState::Required => {}
             PullRequestReviewState::ChangesRequested => facts.push("Changes requested"),
             PullRequestReviewState::Approved => facts.push("Approved"),
             PullRequestReviewState::None => {}
@@ -1170,7 +1172,8 @@ impl JobView {
             match (page.review, page.approvals) {
                 (PullRequestReviewState::ChangesRequested, _) => facts.push(("review", "ban", "Changes requested", Some(Tone::Failed))),
                 (PullRequestReviewState::Approved, _) | (_, 1..) => facts.push(("review", "check", "Approved", Some(Tone::Success))),
-                (PullRequestReviewState::Required, _) => facts.push(("review", "user-check", "Review required", None)),
+                (PullRequestReviewState::Required, _) if page.reviewers.is_empty() => facts.push(("review", "user-check", "Review required", None)),
+                (PullRequestReviewState::Required, _) => {}
                 (PullRequestReviewState::None, _) => {}
             }
             if !pull.ended() {
@@ -1348,15 +1351,18 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Reviewers (`PullRequestReviewers`) in the merge box, under its facts: a muted label, then a row each,
+    /// Reviewers (`PullRequestReviewers`) in the merge box, under its facts: a muted label, Review required
+    /// from where the forge waits on a review and Reviewers otherwise, then a row each,
     /// its review state and a team's mark each in a column of their own at the left, then the name: a
     /// requested team in bold with its people indented under it. A name wraps rather than clips. Nothing
     /// where the page names none.
     fn pull_reviewers(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let reviewers = panel.page()?.reviewers.as_slice();
+        let page = panel.page()?;
+        let reviewers = page.reviewers.as_slice();
         if reviewers.is_empty() {
             return None;
         }
+        let said = if page.review == PullRequestReviewState::Required { "Review required from" } else { "Reviewers" };
         let teams: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Team).collect();
         let people: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Person).collect();
         let row = |one: &PullRequestReviewer, under: bool| -> AnyElement {
@@ -1391,7 +1397,7 @@ impl JobView {
             out.extend(people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).map(|one| row(one, true)));
         }
         out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one, false)));
-        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().pt(look.length(token::SPACE_1)).child(eyebrow(look).child("Reviewers")).children(out), Role::Region, "Reviewers").into_any_element())
+        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().pt(look.length(token::SPACE_1)).child(eyebrow(look).child(said)).children(out), Role::Region, said).into_any_element())
     }
 }
 
@@ -2084,6 +2090,26 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_review_required_names_who_from_in_the_merge_box_as_one_fact(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2210).expect("the Job holds #2210");
+            view.open_pull(pull, window, cx);
+        });
+        redraw(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds));
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| find(cx, role, name).unwrap_or_else(|| panic!("{name} was not drawn"));
+        let status = at(cx, Role::Region, "Status");
+        let from = at(cx, Role::Region, "Review required from");
+        assert!(from.origin.y >= status.origin.y && from.bottom() <= status.bottom(), "Review required from stands in the merge box: {from:?}, {status:?}");
+        assert!(find(cx, Role::Region, "Reviewers").is_none(), "one fact: no Reviewers label besides it");
+        let rows: Vec<_> = ["bridge", "omar", "nick"].into_iter().map(|who| at(cx, Role::ListItem, who)).collect();
+        assert!(rows.iter().all(|row| row.origin.y >= from.origin.y && row.bottom() <= from.bottom()), "who it needs stands under it: {rows:?}");
+        assert!(rows.windows(2).all(|two| two[0].origin.y < two[1].origin.y), "the team, its people under it, then the rest: {rows:?}");
+    }
+
+    #[gpui::test]
     fn reviewers_stand_in_the_merge_box_under_its_facts_whole_on_a_wide_pane_and_not_on_files(cx: &mut gpui::TestAppContext) {
         use super::super::parts_fold::{redraw, rooted_job};
         let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |_| {});
@@ -2177,7 +2203,10 @@ mod tests {
         .expect("a page");
         let mut pull = super::super::pulls::addressed("m".into(), "", 7, String::new());
         (pull.merge, pull.checks) = (Merge::Blocked, PullChecks::Passed);
-        assert_eq!(blocked_facts(&pull, Some(&page)).as_deref(), Some("Checks passed \u{b7} No conflicts \u{b7} Needs an approving review"));
+        assert_eq!(blocked_facts(&pull, Some(&page)).as_deref(), Some("Checks passed \u{b7} No conflicts \u{b7} Needs an approving review"), "nobody named, so the line says it");
+        let mut asked = page.clone();
+        asked.reviewers = vec![ipc::decode("PullRequestReviewer", br#"{"login": "omar", "kind": "person"}"#).expect("a reviewer")];
+        assert_eq!(blocked_facts(&pull, Some(&asked)).as_deref(), Some("Checks passed \u{b7} No conflicts"), "Review required from says it, with who under it");
         pull.merge = Merge::Clean;
         assert_eq!(blocked_facts(&pull, Some(&page)), None, "only a blocked merge says why");
     }
