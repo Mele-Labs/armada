@@ -142,6 +142,9 @@ pub mod language_model;
 pub mod kit_allowlist;
 /// Kit's Add and Remove for a plugin or a skill, across the seam.
 pub mod kit_pieces;
+/// A Kit piece's file, read, saved and opened elsewhere, across the seam.
+mod kit_files;
+mod kit_open;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.

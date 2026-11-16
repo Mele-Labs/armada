@@ -146,6 +146,8 @@ mod values;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
+/// A Kit piece's file read, saved and opened elsewhere. `docs/concepts/kit.md`.
+mod kit_files;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
 /// The merge line of each served repository, as Fleet serves it.
@@ -549,6 +551,9 @@ pub use kit::{
     KitServerRow, KitServers, KitSourceChoice, KitSourceFound, LookAtKitSource, OutputStyleFacts,
     RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
+};
+pub use kit_files::{
+    GetKitFile, KitFile, KitFileKind, KitOpenKind, KitPieceOpened, KitPlace, OpenKitPiece, SaveKitFile,
 };
 pub use limits::{
     ChecksAtOnce, DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent,

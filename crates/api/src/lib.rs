@@ -67,6 +67,7 @@ mod issues;
 mod autopilots;
 /// Kit's MCP servers, and each Manifest's word over one. `#1275`.
 mod kit;
+mod kit_files;
 /// Share: pieces made into a package, read, added to Kit, and bound.
 mod sharing;
 /// The build Fleet runs on, read, and the restart onto another.
