@@ -302,6 +302,10 @@ impl JobView {
     pub(super) fn open_document_tab(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let Some(title) = self.thread(&id, cx).and_then(|held| super::review::document_card(&held.items, page)).map(|card| card.title.clone()) else { return };
+        // The page is a tab of the Job: the Review panel, if it is up, gives way to it and never stands over it.
+        if self.review_open() {
+            self.close_review(window, cx);
+        }
         self.row_tabs_of(&id).focus(RowKind::Document, page, title);
         self.row_tab_front(&id, RowKind::Document, page, window, cx);
     }
