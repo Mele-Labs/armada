@@ -1987,6 +1987,20 @@ pub const ACTIONS: &[Act] = &[
         unbuilt: None,
         in_palette: true,
     },
+    Act {
+        id: "build_note_open_job",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "Open Job",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "⌥⌘O",
+        scope: ActionScope::ReviewSheet,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
 ];
 
 /// One act, by the id an implementation binds to. `None` for an id this build has never heard of.

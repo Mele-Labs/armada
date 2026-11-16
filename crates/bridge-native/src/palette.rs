@@ -252,6 +252,14 @@ pub fn without_of(job: &SessionRecord) -> Vec<&'static str> {
     without
 }
 
+/// The Jobs screen comes to the front if another place is there, as Electron's `openSession`: the last step of
+/// opening a Job from the palette, and from the In this build sheet.
+pub fn show_jobs(cx: &mut App) {
+    if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+        (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
+    }
+}
+
 fn is_paused(job: &SessionRecord) -> bool {
     job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some())
 }
@@ -1259,9 +1267,7 @@ impl Palette {
     /// A Job opens on the Jobs screen, which comes to the front if another place is there, as Electron's `openSession`.
     fn open_job(&self, job: String, cx: &mut Context<Self>) {
         self.list.update(cx, |list, cx| list.open(job.into(), cx));
-        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
-            (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
-        }
+        show_jobs(cx);
     }
 
     fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
