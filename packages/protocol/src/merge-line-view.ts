@@ -13,6 +13,7 @@ import type {
   HubSession,
   MainChecking,
   MainMerge,
+  QuietReason,
 } from "./merge-lines";
 
 /** `get_merge_line_view` (`GET /merge_lines/view`), and what `merge_line_view.changed` carries whole. */
@@ -47,6 +48,8 @@ export type MergeLineView = {
   read_at?: string;
   /** When the forge first failed to answer, since the last whole visit, RFC 3339. */
   quiet_since?: string;
+  /** Why, beside `quiet_since`: the hub's own. */
+  quiet_reason?: QuietReason;
 };
 
 /** The tone of a pull request's chip: `bad` for one whose ci failed, `ask` for one the person can merge, `calm` for the rest. A state, never a colour. */

@@ -122,6 +122,18 @@ fn limit_of(limit: Option<RateLimit>) -> String {
     }
 }
 
+/// The latest call GitHub did not answer, for what Fleet says of a quiet forge.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Failed {
+    pub rate_limited: bool,
+    /// Seconds GitHub said to wait: `retry-after`.
+    pub retry_after: Option<u64>,
+    /// When a spent window resets, in seconds since the epoch: `x-ratelimit-reset` with none remaining.
+    pub spent_until: Option<u64>,
+    /// Fleet's instant at the tick after it; empty until then.
+    pub at: String,
+}
+
 thread_local! {
     static ASKED_FROM: Cell<Option<Place>> = const { Cell::new(None) };
 }
@@ -150,6 +162,11 @@ pub(crate) fn counted(at: &'static Location<'static>, api: Api, outcome: Outcome
 /// What GitHub said is left of a limit, `x-ratelimit-resource` and `x-ratelimit-remaining`.
 pub(crate) fn left(resource: &str, remaining: u64) {
     held().left.insert(resource.to_string(), remaining);
+}
+
+/// The latest call GitHub did not answer, if any has failed since Fleet started.
+pub fn latest_failure() -> Option<Failed> {
+    held().latest_failure.clone()
 }
 
 /// Fleet's tick: `minute` since the epoch and `now` as Fleet's clock wrote it. The lines to log: the
@@ -189,6 +206,7 @@ pub(crate) struct Tally {
     latest_limited: Option<Limited>,
     first_told: bool,
     left: BTreeMap<String, u64>,
+    latest_failure: Option<Failed>,
 }
 
 impl Tally {
@@ -203,16 +221,26 @@ impl Tally {
             latest_limited: None,
             first_told: false,
             left: BTreeMap::new(),
+            latest_failure: None,
         }
     }
 
     fn count(&mut self, key: Key, limited: Option<(String, Option<RateLimit>)>) {
         *self.counts.entry(key).or_default() += 1;
         *self.totals.entry(key).or_default() += 1;
-        if key.outcome != Outcome::RateLimited {
+        if key.outcome == Outcome::Answered {
             return;
         }
         let (said, limit) = limited.unwrap_or_default();
+        self.latest_failure = Some(Failed {
+            rate_limited: key.outcome == Outcome::RateLimited,
+            retry_after: limit.and_then(|it| it.retry_after),
+            spent_until: limit.filter(|it| it.remaining == Some(0)).and_then(|it| it.reset_at),
+            at: String::new(),
+        });
+        if key.outcome != Outcome::RateLimited {
+            return;
+        }
         let limited = Limited { at: String::new(), caller: key.caller(), said, limit };
         self.first_limited.get_or_insert_with(|| limited.clone());
         self.latest_limited = Some(limited);
@@ -223,6 +251,9 @@ impl Tally {
             if limited.at.is_empty() {
                 limited.at = now.to_string();
             }
+        }
+        if let Some(failed) = self.latest_failure.as_mut().filter(|it| it.at.is_empty()) {
+            failed.at = now.to_string();
         }
         let mut lines = Vec::new();
         match &self.open {
@@ -429,6 +460,23 @@ mod tests {
         let row = |label: &str| rows.iter().find(|(it, _)| it == label).map(|(_, value)| value.clone()).unwrap_or_default();
         assert_eq!(row("last hour"), "6 calls in 2 finished minutes, peak 5/min at 17:01Z");
         assert_eq!(row("top, last hour"), format!("    6  rest {}", Place::of(at)));
+    }
+
+    #[test]
+    fn the_latest_failure_says_whether_it_was_the_rate_limit_and_when_github_said_to_come_back() {
+        let at = here();
+        let mut tally = Tally::new();
+        let spent = RateLimit { remaining: Some(0), reset_at: Some(1_795_369_200), retry_after: None };
+        tally.count(key(at, Api::GraphQl, Outcome::RateLimited), Some(("spent".to_string(), Some(spent))));
+        tally.tick(100, "2026-11-16T17:52:05.000Z");
+        let failed = tally.latest_failure.clone().expect("a failure is kept");
+        assert!(failed.rate_limited);
+        assert_eq!((failed.spent_until, failed.retry_after), (Some(1_795_369_200), None));
+        assert_eq!(failed.at, "2026-11-16T17:52:05.000Z");
+        tally.count(key(at, Api::Rest, Outcome::Failed), None);
+        assert!(!tally.latest_failure.clone().expect("kept").rate_limited, "the latest failure wins");
+        tally.count(key(at, Api::Rest, Outcome::Answered), None);
+        assert!(tally.latest_failure.is_some(), "an answer does not clear it: Fleet's visit says when the forge answers");
     }
 
     #[test]
