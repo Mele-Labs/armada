@@ -161,7 +161,9 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         self.assertEqual(os.path.dirname(snapshot), self.builds)
         self.assertRegex(os.path.basename(snapshot), r"^\d{4}-\d{2}-\d{2}T\d{6}Z-" + self.git("rev-parse", "HEAD")[:7] + "$")
-        self.assertEqual(sorted(os.listdir(snapshot)), ["armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+        self.assertEqual(sorted(os.listdir(snapshot)),
+                         ["Armada Fleet.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+        self.assertEqual(os.readlink(os.path.join(snapshot, "armada")), "Armada Fleet.app/Contents/MacOS/armada")
         self.assertEqual(self.read(os.path.join(snapshot, "armada")), "#!/bin/sh\necho armada\n")
         self.assertTrue(os.access(os.path.join(snapshot, "armada"), os.X_OK))
         self.assertTrue(os.access(os.path.join(snapshot, "bridge-launch"), os.X_OK))
@@ -187,7 +189,7 @@ class KeepBuild(unittest.TestCase):
     def test_the_native_bridge_is_kept_as_armada_app(self):
         snapshot = self.make(native=self.native_binary())
         self.assertEqual(sorted(os.listdir(snapshot)),
-                         ["Armada.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+                         ["Armada Fleet.app", "Armada.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
         app = os.path.join(snapshot, "Armada.app", "Contents")
         self.assertEqual(sorted(os.listdir(app)), ["Info.plist", "MacOS", "Resources", "_CodeSignature"])
         self.assertEqual(os.listdir(os.path.join(app, "MacOS")), ["Armada"])
@@ -216,13 +218,24 @@ class KeepBuild(unittest.TestCase):
         # Ad hoc, or with this Mac's certificate where `scripts/signing-identity` made one.
         self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
 
+    def test_fleet_is_kept_in_a_bundle_named_dev_armada_fleet_with_no_dock_icon(self):
+        snapshot = self.make()
+        with open(os.path.join(snapshot, "Armada Fleet.app", "Contents", "Info.plist"), "rb") as f:
+            info = plistlib.load(f)
+        self.assertEqual(info["CFBundleIdentifier"], "dev.armada.fleet")
+        self.assertEqual(info["CFBundleExecutable"], "armada")
+        self.assertIs(info["LSUIElement"], True)
+        self.assertTrue(os.access(os.path.join(snapshot, "Armada Fleet.app", "Contents", "MacOS", "armada"), os.X_OK))
+
     @SIGNS
-    def test_fleets_binary_is_signed_as_dev_armada_fleet_and_its_source_is_left_alone(self):
+    def test_fleets_bundle_is_signed_as_dev_armada_fleet_and_its_source_is_left_alone(self):
         self.armada = self.native_binary("armada-built")
         with open(self.armada, "rb") as f:
             built = f.read()
         snapshot = self.make()
-        kept = os.path.join(snapshot, "armada")
+        kept = os.path.join(snapshot, "Armada Fleet.app")
+        verified = subprocess.run(["codesign", "--verify", "--strict", kept], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
         shown = subprocess.run(["codesign", "-dv", kept], capture_output=True, text=True)
         self.assertIn("Identifier=dev.armada.fleet", shown.stderr)
         self.assertTrue("Signature=adhoc" in shown.stderr or "Authority=Armada Local Signing" in shown.stderr, shown.stderr)
