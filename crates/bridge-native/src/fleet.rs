@@ -343,6 +343,21 @@ impl Held {
         self.calls.as_ref().map(|calls| calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()))).count())
     }
 
+    /// The pull requests asked of him by name that he has not opened: the figure beside Reviews. Zero until Fleet answers.
+    pub fn reviews_unopened(&self) -> usize {
+        self.calls.as_ref().map_or(0, StandingCalls::reviews_unopened)
+    }
+
+    /// The pull request a `review_requested` call of this key asks him to review, while the call stands.
+    pub fn review_asked(&self, key: &str) -> Option<&ipc::ReviewAsked> {
+        self.calls.as_ref()?.calls.iter().find(|call| call.key == key)?.review.as_ref()
+    }
+
+    /// Whether he has opened what the call of this key asks, or it no longer stands. False until Fleet answers.
+    pub fn call_settled(&self, key: &str) -> bool {
+        self.calls.as_ref().is_some_and(|calls| !calls.calls.iter().any(|call| call.key == key && !call.opened))
+    }
+
     /// The news folded since the last take, oldest first, but for a snoozed Job's.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
         let arrived = std::mem::take(&mut self.arrived);
@@ -1280,6 +1295,11 @@ impl FleetConnection {
             changes_asked: BTreeSet::new(),
             _drain: Task::ready(()),
         }
+    }
+
+    /// Fleet's calls, as a read of them would hold them.
+    pub fn hold_calls(&mut self, calls: StandingCalls) {
+        self.held.calls = Some(calls);
     }
 }
 

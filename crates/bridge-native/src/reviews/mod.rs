@@ -199,6 +199,8 @@ pub struct ReviewsScreen {
     next_draft: u64,
     /// Fleet's half, on the live app; a walk plays the mock with none.
     live: Option<live::Live>,
+    /// A walk's stand-in for Fleet's calls: the reviews asked of him, opened as he opens each, for the strip's figure.
+    asked: Option<ipc::StandingCalls>,
     _subs: Vec<Subscription>,
 }
 
@@ -286,6 +288,7 @@ impl ReviewsScreen {
             walked: false,
             next_draft: 1,
             live: None,
+            asked: None,
             _subs: subs,
         }
     }
@@ -417,6 +420,19 @@ impl ReviewsScreen {
         lines.iter().map(|line| read.get(line.text.as_str()).cloned()).collect()
     }
 
+    /// A pull request asked of him, from its toast or its banner: opened as a press on its row opens it, though the
+    /// inbox may not have listed it yet.
+    pub fn open_asked(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
+        self.live_hold_asked(asked);
+        self.press_row(asked.number, window, cx);
+    }
+
+    /// The pull request being opened or open, for a test.
+    #[cfg(test)]
+    pub fn showing(&self) -> Option<u64> {
+        self.waiting.or(self.open)
+    }
+
     /// A row pressed. While the inbox refreshes, its page is read first and opens once read.
     fn press_row(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         self.focused = Some(number);
@@ -451,6 +467,13 @@ impl ReviewsScreen {
         // He left the one before: the head he leaves it at is what its next visit's change is since.
         if let Some(was) = self.open.filter(|was| *was != number && self.is_live()) {
             self.live_seen(was, cx);
+        }
+        // In a walk, opening a pull request asked of him opens its call, as Fleet does on the live app.
+        if let Some(asked) = self.asked.as_mut() {
+            for call in asked.calls.iter_mut().filter(|call| call.review.as_ref().is_some_and(|review| review.number == number)) {
+                call.opened = true;
+            }
+            self.tell_asked(cx);
         }
         let changed = self.pages[&number].changed() || (self.pages[&number].kept && self.pages[&number].seen.is_some());
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
@@ -823,6 +846,16 @@ impl ReviewsScreen {
     pub fn walk(&mut self, cx: &mut Context<Self>) {
         self.walked = true;
         cx.set_global(Walked(cx.entity().downgrade()));
+        self.asked = Some(mock::asked());
+        self.tell_asked(cx);
+    }
+
+    /// The strip's figure beside Reviews, from the walk's stand-in calls as the live app reads Fleet's.
+    fn tell_asked(&self, cx: &mut App) {
+        let Some(count) = self.asked.as_ref().map(ipc::StandingCalls::reviews_unopened) else { return };
+        if let Some(bar) = crate::titlebar::live(cx) {
+            bar.update(cx, |bar, cx| bar.set_figure("reviews", count, cx));
+        }
     }
 
     /// The walk's `Lands`: every piece of the mock's work in flight ends now, as its clock would have

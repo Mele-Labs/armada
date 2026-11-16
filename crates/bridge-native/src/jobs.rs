@@ -933,6 +933,7 @@ impl JobsList {
                 let notes = fleet.read(cx).held().build_notes.clone();
                 let disk = fleet.read(cx).held().disk.clone();
                 let link = fleet.read(cx).held().link();
+                let asked = fleet.read(cx).held().reviews_unopened();
                 let moved = bar.update(cx, |bar, cx| bar.set_build_notes(notes.as_ref(), cx));
                 if let (true, Some(notes)) = (moved, notes) {
                     crate::dispatch::screen::hold_build_notes(notes, cx);
@@ -943,6 +944,7 @@ impl JobsList {
                     bar.set_build(build.as_ref(), cx);
                     bar.set_offers(offers.as_ref(), cx);
                     bar.set_disk(disk.as_ref(), cx);
+                    bar.set_figure("reviews", asked, cx);
                 });
             }
             // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.

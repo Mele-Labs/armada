@@ -191,14 +191,33 @@ struct Told(Vec<TellOne>);
 
 impl Global for Told {}
 
-/// What the Operator did with a dispatch, as a toast of its own: the sentence it says, and what a press on it opens.
+/// What a press on a raised toast opens.
+#[derive(Clone)]
+enum Opens {
+    /// The Job the Operator started or folded into, or a button on a Job's page started.
+    Job(String),
+    Operator,
+    /// A pull request asked of him by name, in Reviews, under its call's key.
+    Review { key: String, asked: ipc::ReviewAsked },
+}
+
+/// What the Operator did with a dispatch, or a review asked of him, as a toast of its own: its state, the sentence it
+/// says, and what a press on it opens.
 #[derive(Clone)]
 struct Raised {
     key: u64,
-    way: DispatchWay,
-    /// The Job a press opens, where the Operator started or folded into one.
-    job: Option<String>,
+    state: JobState,
+    opens: Opens,
     sentence: SharedString,
+    /// Fleet's line under the sentence, where it sends one.
+    detail: Option<SharedString>,
+}
+
+impl Raised {
+    /// The Operator's own: held while its page is in front, since the page holds each item.
+    fn operators(&self) -> bool {
+        !matches!(self.opens, Opens::Review { .. })
+    }
 }
 
 /// The Operator's rulings on dispatches, oldest first, each until he presses it or closes it.
@@ -236,21 +255,49 @@ pub(crate) fn about(words: &str) -> String {
 pub fn dispatched(news: OperatorDispatched, cx: &mut App) {
     let held = cx.try_global::<Holding>().and_then(|kept| kept.0.iter().find(|(id, _)| *id == news.dispatch_id).map(|(_, words)| about(words)));
     let sentence = ruling_said(&news, held);
-    let job = news.session_id.as_ref().map(|id| id.as_str().to_string()).filter(|_| matches!(news.way, DispatchWay::Started | DispatchWay::Handed));
+    let opens = news.session_id.as_ref().map(|id| id.as_str().to_string()).filter(|_| matches!(news.way, DispatchWay::Started | DispatchWay::Handed)).map_or(Opens::Operator, Opens::Job);
+    // The glyph is the registry's for the state the work stands in: working, waiting on him, or held as an idea.
+    let state = match news.way {
+        DispatchWay::Started | DispatchWay::Handed => JobState::Working,
+        DispatchWay::Asked => JobState::Waiting,
+        DispatchWay::Parked => JobState::Held,
+    };
+    raise(state, opens, sentence.into(), None, cx);
+}
+
+fn raise(state: JobState, opens: Opens, sentence: SharedString, detail: Option<SharedString>, cx: &mut App) {
     let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
     let key = rulings.last().map_or(1, |one| one.key + 1);
-    rulings.push(Raised { key, way: news.way, job, sentence: sentence.into() });
+    rulings.push(Raised { key, state, opens, sentence, detail });
     cx.set_global(Rulings(rulings));
     ring(cx);
 }
 
 /// A button on a Job's page started a Job: a toast says it, as the Operator's start does, and a press on it opens the Job.
 pub fn job_started(job: &str, sentence: impl Into<SharedString>, cx: &mut App) {
-    let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
-    let key = rulings.last().map_or(1, |one| one.key + 1);
-    rulings.push(Raised { key, way: DispatchWay::Started, job: Some(job.to_string()), sentence: sentence.into() });
-    cx.set_global(Rulings(rulings));
-    ring(cx);
+    raise(JobState::Working, Opens::Job(job.to_string()), sentence.into(), None, cx);
+}
+
+/// Somebody asked him by name to review a pull request: a toast names it with Fleet's line under it, and a press on it
+/// opens it in Reviews. One toast a request, which goes once he has opened it anywhere.
+pub fn review_asked(key: &str, asked: ipc::ReviewAsked, said: &str, cx: &mut App) {
+    let standing = cx.try_global::<Rulings>().is_some_and(|kept| kept.0.iter().any(|one| matches!(&one.opens, Opens::Review { key: held, .. } if held == key)));
+    if standing {
+        return;
+    }
+    let sentence = SharedString::from(asked.title.clone());
+    raise(JobState::Waiting, Opens::Review { key: key.to_string(), asked }, sentence, Some(said.to_string().into()), cx);
+}
+
+/// Fleet's calls moved: a review's toast goes once he has opened that pull request, here or anywhere else.
+fn settle_reviews(settled: impl Fn(&str) -> bool, cx: &mut App) -> bool {
+    let Some(kept) = cx.try_global::<Rulings>() else { return false };
+    let left: Vec<Raised> = kept.0.iter().filter(|one| !matches!(&one.opens, Opens::Review { key, .. } if settled(key))).cloned().collect();
+    if left.len() == kept.0.len() {
+        return false;
+    }
+    cx.set_global(Rulings(left));
+    true
 }
 
 /// The bell says a ruling is new. Deferred, because a caller may be inside the toasts' own update, as their
@@ -405,6 +452,7 @@ impl Toasts {
             cx.set_global(SignedOut(fleet.read(cx).held().agent_sign_in.clone()));
             subs.push(cx.observe_in(&fleet, window, |this, fleet, window, cx| this.sign_in_moved(&fleet, window, cx)));
             subs.push(Self::hear_dispatches(&fleet, cx));
+            subs.extend(Self::hear_reviews(&fleet, cx));
         }
         Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, _subs: subs }
     }
@@ -415,6 +463,29 @@ impl Toasts {
                 dispatched(one.clone(), cx);
             }
         })
+    }
+
+    /// A review asked of him raises its toast; the toast goes once Fleet says he opened it.
+    fn hear_reviews(fleet: &Entity<crate::fleet::FleetConnection>, cx: &mut Context<Self>) -> Vec<Subscription> {
+        vec![
+            cx.subscribe(fleet, |_, fleet, arrived: &crate::fleet::Arrived, cx| {
+                for one in arrived.0.iter().filter(|one| one.kind == ipc::CallArrivalKind::ReviewRequested) {
+                    let Some(key) = one.key.as_deref() else { continue };
+                    let Some(asked) = fleet.read(cx).held().review_asked(key).cloned() else { continue };
+                    review_asked(key, asked, &one.text, cx);
+                }
+            }),
+            cx.observe(fleet, |_, fleet, cx| {
+                let held = fleet.read(cx).held();
+                let settled: Vec<String> = cx
+                    .try_global::<Rulings>()
+                    .map(|kept| kept.0.iter().filter_map(|one| match &one.opens { Opens::Review { key, .. } if held.call_settled(key) => Some(key.clone()), _ => None }).collect())
+                    .unwrap_or_default();
+                if !settled.is_empty() && settle_reviews(|key| settled.iter().any(|one| one == key), cx) {
+                    cx.notify();
+                }
+            }),
+        ]
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -498,9 +569,10 @@ impl Toasts {
         self.history = false;
         self.back = None;
         if let Some(screen) = self.screen.upgrade() {
-            screen.update(cx, |screen, cx| match &one.job {
-                Some(job) => screen.open_job(job, window, cx),
-                None => screen.bring(Some(Front::Operator), window, cx),
+            screen.update(cx, |screen, cx| match &one.opens {
+                Opens::Job(job) => screen.open_job(job, window, cx),
+                Opens::Operator => screen.bring(Some(Front::Operator), window, cx),
+                Opens::Review { asked, .. } => screen.open_review(Some(asked), window, cx),
             });
         }
         cx.notify();
@@ -827,15 +899,13 @@ impl Toasts {
     /// the Job or the Operator's page, and its close.
     fn ruling_toast(&self, one: &Raised, newest: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let key = one.key;
-        // The glyph is the registry's for the state the work stands in: working, waiting on him, or held as an idea.
-        let state = match one.way {
-            DispatchWay::Started | DispatchWay::Handed => JobState::Working,
-            DispatchWay::Asked => JobState::Waiting,
-            DispatchWay::Parked => JobState::Held,
+        let (name, said) = crate::jobs::glyph_of(one.state, None);
+        let ink = look.color(crate::jobs::hue_of(one.state));
+        let opens: SharedString = match one.opens {
+            Opens::Job(_) => "Opens the Job".into(),
+            Opens::Operator => "Opens the Operator".into(),
+            Opens::Review { .. } => "Opens it in Reviews".into(),
         };
-        let (name, said) = crate::jobs::glyph_of(state, None);
-        let ink = look.color(crate::jobs::hue_of(state));
-        let opens: SharedString = if one.job.is_some() { "Opens the Job".into() } else { "Opens the Operator".into() };
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let mark = labelled(
             div().id(SharedString::from(format!("toast-ruling-state:{key}"))).flex_none().pt(look.length(token::SPACE_1) / 2.).tooltip(tip(said.clone())).child(glyph(name, look.length(token::SPACE_4), ink)),
@@ -859,7 +929,8 @@ impl Toasts {
                 .text_color(look.color(token::FG_DEFAULT))
                 .tooltip(tip(opens))
                 .on_click(cx.listener(move |this, _, window, cx| this.open_ruling(key, window, cx)))
-                .child(one.sentence.clone()),
+                .child(one.sentence.clone())
+                .children(one.detail.clone().map(|detail| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(detail))),
             Role::Button,
             one.sentence.clone(),
         );
@@ -1024,8 +1095,13 @@ impl Render for Toasts {
         let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default().into_iter().chain(signed_out_notice(cx)).collect();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
-        // Then what the Operator did with his dispatches, each until he presses it or closes it.
-        let ruled: Vec<Raised> = if on_page || reading { Vec::new() } else { cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default() };
+        // Then what the Operator did with his dispatches and the reviews asked of him, each until he presses it or closes
+        // it. The Operator's page holds its own; a review asked of him is not on it.
+        let ruled: Vec<Raised> = if reading {
+            Vec::new()
+        } else {
+            cx.try_global::<Rulings>().map(|kept| kept.0.iter().filter(|one| !on_page || !one.operators()).cloned().collect()).unwrap_or_default()
+        };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let mut cards: Vec<AnyElement> = Vec::new();
         cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));
@@ -1294,3 +1370,122 @@ mod reading_tests {
     }
 }
 
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+    use crate::operator::screen::OperatorScreen;
+    use ipc::{CallArrival, CallArrivalKind, SessionId, StandingCalls};
+
+    const KEY: &str = "review:harbor/ledger-api#2231";
+    const TITLE: &str = "Say which stage of an invoice failed";
+    const SAID: &str = "Review requested on harbor/ledger-api#2231, opened by mira";
+
+    fn asked() -> ipc::ReviewAsked {
+        ipc::ReviewAsked {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number: 2231,
+            title: TITLE.into(),
+            author: "mira".into(),
+            address: "https://example.com/harbor/ledger-api/pull/2231".into(),
+        }
+    }
+
+    /// Fleet's calls with the one review asked of him, opened or not.
+    fn calls(opened: bool) -> StandingCalls {
+        let review = r#"{"manifest_id":"ledger-api","repository":"harbor/ledger-api","number":2231,"title":"Say which stage of an invoice failed","author":"mira","address":"https://example.com/harbor/ledger-api/pull/2231"}"#;
+        let call = format!(
+            r#"{{"key":"{KEY}","owner":"{KEY}","kind":"review_requested","title":"{TITLE}","text":"{SAID}","since":"2026-11-16T09:00:00.000Z","tone":"waiting","opened":{opened},"review":{review}}}"#
+        );
+        ipc::decode("StandingCalls", format!(r#"{{"calls":[{call}]}}"#).as_bytes()).expect("the calls decode")
+    }
+
+    fn arrival() -> CallArrival {
+        CallArrival { session_id: SessionId::carried(KEY), title: TITLE.into(), text: SAID.into(), tone: CallTone::Waiting, kind: CallArrivalKind::ReviewRequested, key: Some(KEY.into()) }
+    }
+
+    struct Root(gpui::AnyView);
+
+    impl Render for Root {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            crate::labels::label_root(div().size_full().child(self.0.clone()))
+        }
+    }
+
+    fn ready(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            crate::titlebar::bind(cx);
+            at_rest(cx);
+        });
+    }
+
+    fn redraw(cx: &mut gpui::VisualTestContext) {
+        for _ in 0..2 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Option<gpui::Bounds<gpui::Pixels>> {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, name)).map(|one| one.shown))
+    }
+
+    fn raised(cx: &mut gpui::VisualTestContext) -> Vec<String> {
+        cx.update(|_, cx| cx.try_global::<Rulings>().map(|kept| kept.0.iter().map(|one| one.sentence.to_string()).collect()).unwrap_or_default())
+    }
+
+    #[gpui::test]
+    fn a_review_asked_of_him_raises_one_toast_that_goes_once_he_opens_it(cx: &mut gpui::TestAppContext) {
+        ready(cx);
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx).into())
+        });
+        let toasts: Entity<Toasts> = root.read_with(cx, |root, _| root.0.clone().downcast().expect("the toasts"));
+        let fleet = cx.update(|_, cx| cx.new(crate::fleet::FleetConnection::idle));
+        let heard = cx.update(|_, cx| toasts.update(cx, |_, cx| Toasts::hear_reviews(&fleet, cx)));
+        fleet.update(cx, |fleet, cx| {
+            fleet.hold_calls(calls(false));
+            cx.notify();
+            cx.emit(crate::fleet::Arrived(vec![arrival()]));
+        });
+        redraw(cx);
+        assert_eq!(raised(cx), [TITLE], "the toast names the pull request");
+        assert!(drawn(cx, Role::Alert, &format!("Toast: {TITLE}")).is_some(), "it is drawn");
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::Arrived(vec![arrival()])));
+        redraw(cx);
+        assert_eq!(raised(cx), [TITLE], "a request told again while its toast stands raises no second one");
+        fleet.update(cx, |fleet, cx| {
+            fleet.hold_calls(calls(true));
+            cx.notify();
+        });
+        redraw(cx);
+        assert!(raised(cx).is_empty(), "opened anywhere, its toast goes");
+        drop(heard);
+    }
+
+    #[gpui::test]
+    fn pressing_a_review_toast_opens_that_pull_request_in_reviews(cx: &mut gpui::TestAppContext) {
+        ready(cx);
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+            let list = cx.new(|cx| crate::jobs::JobsList::mock(&records, cx));
+            let jobs = cx.new(|cx| crate::jobs::JobsScreen::new(list, None, window, cx));
+            Root(cx.new(|cx| OperatorScreen::mock_reviews(jobs, window, cx)).into())
+        });
+        let screen: Entity<OperatorScreen> = root.read_with(cx, |root, _| root.0.clone().downcast().expect("the screen"));
+        cx.update(|_, cx| review_asked(KEY, asked(), SAID, cx));
+        redraw(cx);
+        let press = drawn(cx, Role::Button, TITLE).expect("the toast's press is drawn");
+        cx.simulate_click(press.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Reviews, "Reviews comes to the front");
+        let reviews = cx.update(|_, cx| crate::reviews::walked(cx)).expect("the reviews screen");
+        assert_eq!(reviews.read_with(cx, |reviews, _| reviews.showing()), Some(2231), "on the pull request asked of him");
+        assert!(raised(cx).is_empty(), "the pressed toast goes");
+    }
+}

@@ -13,6 +13,8 @@
 
 #[cfg(test)]
 mod centred;
+#[cfg(test)]
+mod figure;
 mod disk;
 mod face;
 mod fleet_down;
@@ -440,6 +442,16 @@ impl TitleBar {
         self.face.build_notes = notes.cloned();
         cx.notify();
         true
+    }
+
+    /// The figure beside a place's name, as Fleet last counted it.
+    pub fn set_figure(&mut self, id: &'static str, count: usize, cx: &mut Context<Self>) {
+        if self.face.figures.iter().any(|one| *one == (id, count)) {
+            return;
+        }
+        self.face.figures.retain(|(one, _)| *one != id);
+        self.face.figures.push((id, count));
+        cx.notify();
     }
 
     /// The disk Fleet last reported. Its section of the Fleet panel draws it, and nothing where there is none.
@@ -1210,6 +1222,21 @@ impl TitleBar {
             let here = self.face.here == Some(id);
             let ink = look.color(if here { token::FG_DEFAULT } else { token::FG_MUTED });
             let keys = self.place_focus.iter().find(|(one, _)| *one == id).map(|(_, handle)| handle.clone());
+            // Destinations' figure: trailing mono in the subtle ink, never a filled pill, and nothing at zero.
+            let figure = self.face.figure_of(id).map(|count| {
+                let said = face::figure_said(id, count);
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("place-figure-{id}")))
+                        .font_family(mono(look))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .tooltip(tip(said.clone()))
+                        .child(count.to_string()),
+                    Role::Status,
+                    said,
+                )
+            });
             labelled(
                 div()
                     .id(SharedString::from(format!("place-{id}")))
@@ -1246,6 +1273,7 @@ impl TitleBar {
                     .hover(move |style| style.text_color(look.color(token::FG_DEFAULT)))
                     .child(glyph(glyph_name, look.length(token::SPACE_4), ink))
                     .child(label)
+                    .children(figure)
                     .on_click(cx.listener(move |this, _, _, cx| this.place_pressed(id, cx)))
                     .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                         cx.stop_propagation();
