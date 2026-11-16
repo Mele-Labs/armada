@@ -948,7 +948,12 @@ impl ReviewsScreen {
             .flex_col()
             .gap(look.length(token::SPACE_3))
             .child(heading("overview-why-head", format!("Why, from {}", named(&page.author)), look))
-            .child(words("overview-why", page.overview.why.clone(), look))
+            // The author writes markdown: headings, tables and links are drawn, not shown as their marks.
+            .child(labelled(
+                div().id("overview-why").text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name("overview-why-text".into()), page.overview.why.clone()).selectable(true)),
+                Role::Article,
+                page.overview.why.clone(),
+            ))
             .child(div().pt(look.length(token::SPACE_2)).child(heading("overview-flags-head", "Blockers, risks and possible bugs".into(), look)));
         if page.kept {
             column = column.child(
