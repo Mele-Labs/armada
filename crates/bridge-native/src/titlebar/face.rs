@@ -745,11 +745,12 @@ fn place_of(place: &ProjectPlace) -> RunsPlace {
 
 /// The projects the switcher lists, in the order Fleet keeps them. A project whose file would not read
 /// has no members to draw and is left out, as the Workspaces page leaves it. A member Fleet serves no
-/// repository for is left out of its project.
+/// repository for is left out of its project. **A copy of another Mac's project is left out**: Fleet answers a
+/// project-scoped read only for a project it keeps itself, so scoping the window to a copy ends in `fleet.no_such_project`.
 pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
     read.projects
         .iter()
-        .filter(|one| one.unread.is_none())
+        .filter(|one| one.unread.is_none() && one.mac.is_none())
         .map(|one| Project {
             id: one.id.clone().into(),
             name: one.name.clone().into(),
