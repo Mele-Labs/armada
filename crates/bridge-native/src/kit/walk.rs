@@ -9,7 +9,7 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
 
 const LOCK: &str = "Comes with the design-kit plugin. Remove the plugin under Plugins.";
 
-pub static STEPS: [Step; 17] = [
+pub static STEPS: [Step; 20] = [
     step("Kit in the strip: its kinds down the rail", Verb::PressOn("tab", "Kit"), "listbox", "Kinds"),
     step("Pieces grouped by where they come from: yours, a plugin's, this repository's", Verb::Look, "heading", "design-kit plugin"),
     step("A piece: a lamp for whether it is on in the project, its name and what it says", Verb::PressOn("option", "review-pr"), "heading", "review-pr"),
@@ -25,6 +25,9 @@ pub static STEPS: [Step; 17] = [
     step("Restore: it is back, as it was", Verb::PressOn("button", "Restore pdf-tools"), "option", "pdf-tools"),
     step("A long file scrolls inside the pane, its long line wrapping, the numbers moving with it", Verb::PressOn("option", "long-notes"), "region", "File"),
     step("Page down: the pane reads on from a line further in", Verb::Keys(&["tab", "pagedown"]), "region", "File"),
-    step("A server has no file: its facts stand in the pane", Verb::PressOn("option", "MCP servers"), "region", "Facts"),
+    step("An output style a plugin brought reads like any file", Verb::PressOn("option", "Output styles"), "heading", "armada plugin"),
+    step("Armada's style: its file, with the plugin named in its group", Verb::PressOn("option", "Armada"), "region", "File"),
+    step("MCP servers grouped by where they are configured", Verb::PressOn("option", "MCP servers"), "heading", "design-kit plugin"),
+    step("A server has no file: its facts stand in the pane", Verb::PressOn("option", "docs"), "region", "Facts"),
     step("Models, Prompts and Workflows open in Settings", Verb::Look, "button", "Models in Settings"),
 ];

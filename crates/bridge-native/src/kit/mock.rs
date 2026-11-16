@@ -21,7 +21,7 @@ pub fn scope() -> Scope {
 }
 
 fn item(name: &str, says: &str, source: &str, plugin: Option<&str>) -> SetupItem {
-    SetupItem { name: name.into(), says: Some(says.into()), source: source.into(), style: None, plugin: plugin.map(str::to_string), uninstall: None }
+    SetupItem { name: name.into(), says: Some(says.into()), source: source.into(), style: None, plugin: plugin.map(str::to_string), uninstall: None, server: None }
 }
 
 fn row(kind: &str, items: Vec<SetupItem>) -> SetupKindRow {
@@ -33,6 +33,12 @@ pub fn inventory() -> KitInventory {
     style.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "active".into(), plugin: None });
     let mut other = item("Explainer", "Walks through the why of a change", "/Users/you/.claude/output-styles/explainer.md", None);
     other.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "available".into(), plugin: None });
+    let mut armada = item("Armada", "The house voice: short, plain, no filler", "/Users/you/.claude/plugins/armada/output-styles/armada.md", None);
+    armada.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
+    let mut docs_here = item("design-docs", "design-docs-mcp", "/Users/you/.claude/plugins/design-kit/.mcp.json", Some("design-kit@design-kit"));
+    docs_here.says = Some("design-docs-mcp".into());
+    let mut ci = item("ci-logs", "ci-logs-mcp", "/work/armada/.mcp.json", None);
+    ci.server = Some(ipc::ServerFacts { from: "repository".into(), folder: "/work/armada".into() });
     let mut plugin = item("design-kit@design-kit", "version 1.4.0", "/Users/you/.claude/plugins/design-kit", None);
     plugin.uninstall = Some("claude plugin uninstall design-kit@design-kit".into());
     let mut notes = item("release-notes", "Writes release notes from merged pull requests", "/Users/you/.claude/skills/release-notes", None);
@@ -57,8 +63,8 @@ pub fn inventory() -> KitInventory {
             row("sub_agents", vec![item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/you/.claude/agents/code-reviewer.md", None)]),
             row("commands", vec![item("ship", "Merges the open pull request and tags it", "/Users/you/.claude/commands/ship.md", None)]),
             row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "/Users/you/.claude/CLAUDE.md", None)]),
-            row("output_styles", vec![style, other]),
-            row("mcp_servers", vec![item("linear", "linear.app", "", None)]),
+            row("output_styles", vec![style, other, armada]),
+            row("mcp_servers", vec![item("linear", "linear.app", "", None), docs_here, ci]),
             row("allowlist", vec![item("cargo check", "", "always allow", None), item("git status", "", "written by hand", None)]),
         ],
     }

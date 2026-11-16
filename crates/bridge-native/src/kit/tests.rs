@@ -181,7 +181,7 @@ fn the_read_pane_scrolls_on_a_page_key_and_goes_back_to_the_top_for_another_piec
 #[test]
 fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group_says_so() {
     let mut inventory = mock::inventory();
-    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/you/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None };
+    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/you/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None, server: None };
     style.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
     if let Some(one) = inventory.kinds.iter_mut().find(|one| one.kind == "output_styles") {
         if let ipc::WhatWasRead::Read { items, .. } = &mut one.read {
@@ -194,4 +194,32 @@ fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group
     assert_eq!(armada.comes_with.as_deref(), Some("armada"), "the short name, for drawing");
     assert_eq!(armada.mark.label(), "armada plugin", "a plugin's group never reads as Armada's own");
     assert_eq!(Mark::Armada.label(), "Armada");
+}
+
+#[test]
+fn servers_are_grouped_by_where_they_are_configured_and_several_repositories_each_by_their_folder() {
+    let facts = |from: &str, folder: &str| Some(ipc::ServerFacts { from: from.into(), folder: folder.into() });
+    let mut inventory = mock::inventory();
+    if let Some(one) = inventory.kinds.iter_mut().find(|one| one.kind == "mcp_servers") {
+        if let ipc::WhatWasRead::Read { items, .. } = &mut one.read {
+            let mut other = items.last().cloned().expect("the mock lists servers");
+            other.name = "ledger-db".into();
+            other.server = facts("repository", "/work/ledger");
+            let mut local = other.clone();
+            local.name = "scratch".into();
+            local.server = facts("project", "/work/notes");
+            items.push(other);
+            items.push(local);
+        }
+    }
+    let Read::Rows(rows) = model::read_kind(Kind::Servers, &inventory, &[]) else { panic!("servers read") };
+    let mark = |name: &str| rows.iter().find(|row| row.name == name).map(|row| row.mark.clone());
+    assert_eq!(mark("linear"), Some(Mark::Yours), "the person's own file has no marker");
+    assert_eq!(mark("design-docs"), Some(Mark::Plugin("design-kit".into())));
+    assert_eq!(mark("ci-logs"), Some(Mark::Folder("armada".into())), "two repositories each name their folder");
+    assert_eq!(mark("ledger-db"), Some(Mark::Folder("ledger".into())));
+    assert_eq!(mark("scratch"), Some(Mark::Folder("notes".into())), "a project's local scope names its folder");
+    let alone = mock::inventory();
+    let Read::Rows(rows) = model::read_kind(Kind::Servers, &alone, &[]) else { panic!("servers read") };
+    assert_eq!(rows.iter().find(|row| row.name == "ci-logs").map(|row| row.mark.clone()), Some(Mark::Repository), "one repository is just This repository");
 }

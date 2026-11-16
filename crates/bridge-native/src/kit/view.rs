@@ -40,7 +40,7 @@ fn mark_hue(mark: &Mark) -> Token {
     match mark {
         Mark::Yours => token::ACCENT,
         Mark::Plugin(_) | Mark::Market(_) => token::KIND_GATE,
-        Mark::Repository => token::KIND_SETUP,
+        Mark::Repository | Mark::Folder(_) => token::KIND_SETUP,
         Mark::Armada => token::OPERATOR,
         Mark::Plain(_) => token::FG_MUTED,
     }
@@ -662,7 +662,8 @@ impl KitScreen {
             (Kind::Servers, None) => {
                 let program = row.says.clone().unwrap_or_default();
                 card = card
-                    .child(fact("From", "Connected outside Armada".into(), false))
+                    .child(fact("From", if row.mark == Mark::Yours { "Your own settings".into() } else { row.mark.label() }, false))
+                    .child(fact("Connected", "Outside Armada".into(), false))
                     .when(!program.is_empty(), |card| card.child(fact("Program or host", program, true)))
                     .child(fact("Reach", "Reaches no Drone".into(), false));
             }

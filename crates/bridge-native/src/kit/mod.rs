@@ -483,7 +483,7 @@ impl KitScreen {
     fn brings_pieces(&self, plugin: &Row) -> Vec<(Kind, String, String)> {
         let Load::Read(inventory) = &self.inventory else { return Vec::new() };
         let provider = plugin.name.clone();
-        [Kind::Skills, Kind::SubAgents, Kind::Commands, Kind::OutputStyles]
+        [Kind::Skills, Kind::SubAgents, Kind::Commands, Kind::OutputStyles, Kind::Servers]
             .into_iter()
             .filter_map(|kind| match model::read_kind(kind, inventory, &[]) {
                 Read::Rows(rows) => Some(rows),

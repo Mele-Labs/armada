@@ -129,6 +129,8 @@ pub enum Mark {
     Plugin(String),
     /// A marketplace, which the plugins of Plugins are grouped under.
     Market(String),
+    /// A folder's own, where more than one is listed: a repository's `.mcp.json`, or a project's local scope.
+    Folder(String),
     Repository,
     Armada,
     Plain(String),
@@ -140,7 +142,7 @@ impl Mark {
             Mark::Yours => "Yours".into(),
             // A plugin's group says so, so it never reads as Armada's own.
             Mark::Plugin(name) => format!("{name} plugin"),
-            Mark::Market(name) | Mark::Plain(name) => name.clone(),
+            Mark::Market(name) | Mark::Folder(name) | Mark::Plain(name) => name.clone(),
             Mark::Repository => "This repository".into(),
             Mark::Armada => "Armada".into(),
         }
@@ -152,6 +154,7 @@ impl Mark {
             Mark::Yours => (0, String::new()),
             Mark::Plugin(name) | Mark::Market(name) => (1, name.to_lowercase()),
             Mark::Repository => (2, String::new()),
+            Mark::Folder(name) => (2, name.to_lowercase()),
             Mark::Armada => (3, String::new()),
             Mark::Plain(name) => (4, name.to_lowercase()),
         }
@@ -212,6 +215,11 @@ pub struct Row {
 pub enum Read {
     Rows(Vec<Row>),
     NotRead(String),
+}
+
+/// A folder's own name: the last part of its path.
+fn last_part(folder: &str) -> String {
+    folder.trim_end_matches('/').rsplit('/').next().unwrap_or(folder).to_string()
 }
 
 /// The harness's name for a plugin, without its marketplace.
@@ -310,8 +318,15 @@ fn row_of(kind: Kind, item: &ipc::SetupItem, home: &str) -> Row {
         },
         Kind::SubAgents | Kind::Commands | Kind::OutputStyles => row.comes_with = row.plugin_id.as_deref().map(|plugin| provider_of(plugin).to_string()),
         Kind::Servers => {
-            row.mark = Mark::Plain("Outside Armada".into());
-            row.path = None;
+            // Where it is configured: the person's own file, a plugin's, a repository's `.mcp.json`, or a project's local scope.
+            row.path = item.server.as_ref().map(|server| server.folder.clone());
+            row.comes_with = row.plugin_id.as_deref().map(|plugin| provider_of(plugin).to_string());
+            row.mark = match (&item.plugin, &item.server) {
+                (Some(plugin), _) => Mark::Plugin(provider_of(plugin).to_string()),
+                (None, Some(server)) if server.from == "repository" => Mark::Repository,
+                (None, Some(server)) => Mark::Folder(last_part(&server.folder)),
+                (None, None) => Mark::Yours,
+            };
         }
         Kind::Allowed => {
             row.mark = Mark::Plain(source_words(&item.source));
@@ -349,7 +364,7 @@ pub fn read_kind(kind: Kind, inventory: &KitInventory, servers: &[KitServerRow])
             kind,
             name: server.name.clone(),
             says: None,
-            mark: Mark::Yours,
+            mark: Mark::Armada,
             path: None,
             piece: None,
             comes_with: None,
@@ -370,6 +385,17 @@ pub fn read_kind(kind: Kind, inventory: &KitInventory, servers: &[KitServerRow])
             file: None,
         });
         rows.splice(0..0, held);
+        // Where several repositories each list servers, each is grouped under its own folder's name.
+        let mut roots: Vec<&String> = rows.iter().filter(|row| row.mark == Mark::Repository).filter_map(|row| row.path.as_ref()).collect();
+        roots.sort();
+        roots.dedup();
+        if roots.len() > 1 {
+            for row in rows.iter_mut().filter(|row| row.mark == Mark::Repository) {
+                if let Some(path) = &row.path {
+                    row.mark = Mark::Folder(last_part(path));
+                }
+            }
+        }
     }
     Read::Rows(rows)
 }
