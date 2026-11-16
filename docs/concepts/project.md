@@ -53,7 +53,7 @@ A Job another Mac holds is left off, with why.
 
 **In the native Bridge the dispatch sheet starts a Job in a project.**
 Its picker lists his projects by name, each with its repository on a line under the name, once for every repository the project holds.
-Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project.
+Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project, except that a start naming none is put in the one project that holds its repository, where exactly one does.
 A window scoped to a project offers that project's rows alone, and a window on one repository in no project starts there.
 The words of the request choose the first row of the repository they name, a project's before none.
 Queue for later keeps the row's project with the idea, and the Job it starts is for that project, wherever the window is then.

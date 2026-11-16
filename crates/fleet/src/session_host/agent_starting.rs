@@ -165,8 +165,9 @@ where
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
         // A Job that waits follows it too, once its wait is met, so the word is read whether or not there is a wait.
         let held_by_word = self.agent_start_held(project.as_deref(), manifest.as_str()).await;
+        // Its starter's project or none: never the default of a start that names none.
         let made = self
-            .start_session(StartSession {
+            .started_hosted(StartSession {
                 project,
                 manifest_id: manifest,
                 title: Some(words.title.clone()),
@@ -181,7 +182,7 @@ where
                 held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
-            })
+            }, super::Marked::Plain)
             .await?;
         let brief = words.message.clone();
         // The agent's title, a plan group's too, is a hint the proposer names the Job over.

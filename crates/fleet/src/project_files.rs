@@ -245,6 +245,27 @@ where
         }
     }
 
+    /// `start`, with the one project that holds its repository where it names none, is not rooted and has a
+    /// repository. A fork, a handoff and a Job an agent starts keep their own rules and do not come here.
+    pub(crate) fn start_in_its_only_project(&self, mut start: ipc::StartSession) -> ipc::StartSession {
+        let named = start.project.as_deref().is_some_and(|one| !one.trim().is_empty());
+        if !named && start.root.is_none() && start.fork.is_none() {
+            let served = self.served_named(Some(&start.manifest_id)).ok();
+            start.project = served.and_then(|served| self.only_project_holding(served.manifest().id().as_str()));
+        }
+        start
+    }
+
+    /// The project a Job in `repository` is in when its start names none: the one project that holds it,
+    /// or `None` where none does or more than one.
+    pub(crate) fn only_project_holding(&self, repository: &str) -> Option<String> {
+        let held = self.projects_held();
+        match held.holding(&Repository::carried(Ulid::carried(repository))).as_slice() {
+            [only] => Some(only.id().as_str().to_string()),
+            _ => None,
+        }
+    }
+
     /// The repositories project `id` holds, a folder member counting as its repository: a 404
     /// `fleet.no_such_project` where he has none by that id, and a 422 `fleet.project_unreadable`
     /// where its file did not read and Fleet cannot say.

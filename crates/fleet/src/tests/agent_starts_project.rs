@@ -101,6 +101,8 @@ async fn a_repository_the_project_does_not_hold_becomes_a_whole_member_and_the_c
 #[tokio::test]
 async fn a_starter_in_no_project_starts_its_job_in_none() {
     let rig = rig(None);
+    // Two projects hold the repository, so the starter's own start is in none.
+    a_project(&rig).await;
     a_project(&rig).await;
     rig.an_agent().await;
 

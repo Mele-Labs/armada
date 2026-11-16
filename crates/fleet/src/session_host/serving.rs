@@ -156,6 +156,7 @@ where
         if let Some(from) = start.fork.take() {
             return self.start_forked(start, from).await;
         }
+        let start = self.start_in_its_only_project(start);
         self.started_hosted(start, Marked::Plain).await
     }
 
