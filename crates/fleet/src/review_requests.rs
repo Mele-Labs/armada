@@ -8,7 +8,8 @@ use std::time::Duration;
 use adapter_traits::{AgentHarness, Delivery, ReviewList, ReviewListAsk, Vcs, WorkProduct};
 use core_model::Timestamp;
 use ipc::{CallArrival, CallArrivalKind, CallTone, Instant, PullInbox, PullReviewRow, ReviewAsked, StandingCall, StandingCallKind, MOST_PER_LIST};
-use store::KeptReviewRequest;
+use ipc::ManifestId;
+use store::{KeptPullOpened, KeptReviewRequest};
 use tokio::task::JoinHandle;
 
 use crate::clock::{elapsed, rfc3339_utc};
@@ -23,13 +24,21 @@ pub const EVERY: Duration = Duration::from_secs(5 * 60);
 const SETTLING: Duration = EVERY;
 
 /// The call's key: the repository lowercase, so the forge's casing of it does not make two.
-pub(crate) fn key_of(repository: &str, number: u64) -> String {
+fn key_of(repository: &str, number: u64) -> String {
     format!("review:{}#{number}", repository.to_lowercase())
 }
 
+/// Whether a page read at `read` was of this request: any read for a first one, else a read after his
+/// review before it. An instant that does not parse reads as not since.
+pub(crate) fn read_since(after: &str, read: &str) -> bool {
+    let millis = |at: &str| Timestamp::from_rfc3339(at.to_string()).epoch_millis();
+    after.is_empty() || matches!((millis(read), millis(after)), (Some(read), Some(after)) if read > after)
+}
+
 /// The call on him for one pull request, standing while he is asked. **Opened once he has opened it
-/// or a review of his stands**: a seen head kept, or an inbox other than a first look.
-fn call_of(row: &PullReviewRow, since: Instant) -> StandingCall {
+/// or a review of his stands**: its page read since the request, a seen head kept, or an inbox other
+/// than a first look.
+fn call_of(row: &PullReviewRow, since: Instant, read: bool) -> StandingCall {
     let key = key_of(&row.repository, row.number);
     StandingCall {
         owner: key.clone(),
@@ -40,7 +49,7 @@ fn call_of(row: &PullReviewRow, since: Instant) -> StandingCall {
         text: format!("Review requested on {}#{}, opened by {}", row.repository, row.number, row.author),
         since,
         tone: CallTone::Waiting,
-        opened: row.seen.is_some() || row.inbox != PullInbox::NeedsFirstLook,
+        opened: read || row.seen.is_some() || row.inbox != PullInbox::NeedsFirstLook,
         mac: None,
         review: Some(ReviewAsked {
             manifest_id: row.manifest_id.clone(),
@@ -144,6 +153,7 @@ where
         {
             let mut store = self.store().lock().await;
             let kept = store.review_requests_told().unwrap_or_default();
+            let opened = store.pull_requests_opened().unwrap_or_default();
             for (row, after) in rows.iter().zip(&after) {
                 let repository = row.repository.to_lowercase();
                 let before = kept.iter().filter(|it| it.repository == repository && it.number == row.number);
@@ -163,11 +173,30 @@ where
                         at.clone()
                     }
                 };
-                calls.push(call_of(row, Instant::carried(since)));
+                let read = opened
+                    .iter()
+                    .find(|it| it.manifest_id == row.manifest_id.as_str() && it.number == row.number)
+                    .is_some_and(|it| read_since(after, &it.opened_at));
+                calls.push(call_of(row, Instant::carried(since), read));
+            }
+            // The list read whole: what it no longer holds was taken back, reviewed or closed.
+            let still: Vec<(String, u64)> = rows.iter().map(|row| (row.repository.to_lowercase(), row.number)).collect();
+            let pages: Vec<(String, u64)> = rows.iter().map(|row| (row.manifest_id.as_str().to_string(), row.number)).collect();
+            if let Err(why) = store.forget_review_requests_but(&still).and_then(|()| store.forget_pull_requests_opened_but(&pages)) {
+                unkept = Some(format!("review requests no longer asked could not be forgotten: {why:?}"));
             }
         }
         let told = news.into_iter().map(|at| arrival_of(&calls[at])).collect();
         self.calls_reviewed(calls, told);
         unkept
+    }
+
+    /// He opened a pull request's page in Bridge (`PullRequestPanel::pull_request_opened`). Kept for the
+    /// next look, and a review call on it opened now.
+    pub(crate) async fn review_pull_opened(&self, manifest_id: &ManifestId, number: u64) {
+        let kept = KeptPullOpened { manifest_id: manifest_id.as_str().to_string(), number, opened_at: self.clock().now().as_str().to_string() };
+        // Unkept, the next look reads it unopened again until his next read; the page is served either way.
+        let _ = self.store().lock().await.keep_pull_request_opened(&kept);
+        self.calls_review_opened(manifest_id.as_str(), number);
     }
 }

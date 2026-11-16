@@ -368,11 +368,16 @@ impl Keeper {
         self.news.extend(told);
     }
 
-    /// He left the pull request a review call names: opened now, not at the next look.
-    pub(crate) fn review_opened(&mut self, key: &str) {
-        for call in self.reviews.iter_mut().filter(|one| one.key == key) {
+    /// He opened or left a pull request a review call names: opened now, not at the next look. True
+    /// where a call moved.
+    pub(crate) fn review_opened(&mut self, manifest_id: &str, number: u64) -> bool {
+        let mut moved = false;
+        let names = |one: &StandingCall| one.review.as_ref().is_some_and(|it| it.manifest_id.as_str() == manifest_id && it.number == number);
+        for call in self.reviews.iter_mut().filter(|one| !one.opened && names(one)) {
             call.opened = true;
+            moved = true;
         }
+        moved
     }
 
     /// A Mac waiting to pair: it asks him, so it is never opened. Its acts are the Gateway's.
@@ -698,10 +703,13 @@ where
         self.calls_told();
     }
 
-    /// He left a pull request: a review call on it is opened.
-    pub(crate) fn calls_review_opened(&self, key: &str) {
-        self.hosts().calls.0.lock().expect("held across no panic").review_opened(key);
-        self.calls_told();
+    /// He opened or left a pull request: a review call on it is opened. Told only where one moved, since
+    /// a page is read again while it is open.
+    pub(crate) fn calls_review_opened(&self, manifest_id: &str, number: u64) {
+        let moved = self.hosts().calls.0.lock().expect("held across no panic").review_opened(manifest_id, number);
+        if moved {
+            self.calls_told();
+        }
     }
 
     /// `hold_mac_claims`: the Macs waiting for his Confirm here, handed in whole by the Phone Gateway, then told.

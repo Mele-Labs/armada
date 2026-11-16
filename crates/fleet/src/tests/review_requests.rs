@@ -7,12 +7,19 @@ use adapter_traits::{LatestReview, LatestReviewSaid, ReviewList};
 use api::PullRequestPanel;
 use ipc::{CallArrival, CallArrivalKind, CallTone, Event, MarkPullSeen, StandingCall, StandingCallKind};
 
+use super::pull_request_panel::a_page;
 use super::pull_requesting::{a_fleet, manifest, Fixture};
 use super::pull_review_lists::{pull, signed_in_as, SLUG};
 use crate::tests::tmp::TempDir;
 
 /// What `pull` says the head is.
 const HEAD: &str = "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e";
+
+/// What the route does for a page Bridge reads: the page, then the open.
+async fn opens(fleet: &Fixture, id: &ipc::ManifestId, number: u64) {
+    fleet.get_pull_request_detail(id.clone(), number).await.expect("read");
+    fleet.pull_request_opened(id.clone(), number).await;
+}
 
 /// Every arrival `calls.changed` tells from now on.
 fn told(fleet: &Fixture) -> Arc<Mutex<Vec<CallArrival>>> {
@@ -24,6 +31,18 @@ fn told(fleet: &Fixture) -> Arc<Mutex<Vec<CallArrival>>> {
         }
     });
     told
+}
+
+/// How many times `calls.changed` is sent from now on.
+fn changes(fleet: &Fixture) -> Arc<Mutex<usize>> {
+    let sent: Arc<Mutex<usize>> = Arc::default();
+    let seen = Arc::clone(&sent);
+    fleet.events().tap(move |event| {
+        if let Event::CallsChanged(_) = event {
+            *seen.lock().expect("not poisoned") += 1;
+        }
+    });
+    sent
 }
 
 fn reviews(fleet: &Fixture) -> Vec<StandingCall> {
@@ -167,4 +186,71 @@ async fn nobody_signed_in_skips_the_tick() {
     let note = fleet.review_requests_looked().await.expect("a note for the log");
     assert!(note.contains("signed in"), "{note}");
     assert!(reviews(&fleet).is_empty());
+}
+
+#[tokio::test]
+async fn a_page_read_for_his_pull_request_opens_its_review_call_and_one_for_another_does_not() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "NickMele");
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(12, SLUG), pull(13, SLUG)]);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.review_requests_looked().await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2);
+
+    opens(&fleet, &id, 14).await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2, "another pull request's page opens nothing");
+
+    // Bridge reads the page when he opens the pull request: the count falls then, not when he leaves it.
+    let sent = changes(&fleet);
+    opens(&fleet, &id, 12).await;
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 1);
+    opens(&fleet, &id, 12).await;
+    assert_eq!(*sent.lock().expect("not poisoned"), 1, "a page read again changes no call");
+
+    fleet.review_requests_looked().await;
+    let opened: Vec<(u64, bool)> = reviews(&fleet).iter().map(|one| (one.review.as_ref().expect("named").number, one.opened)).collect();
+    assert_eq!(opened, [(12, true), (13, false)], "the next look keeps it opened");
+}
+
+#[test]
+fn a_page_read_opens_a_request_only_when_read_after_the_review_before_it() {
+    use crate::review_requests::read_since;
+    assert!(read_since("", "2026-01-01T09:00:00.000Z"), "a first request: any read");
+    assert!(read_since("2026-01-02T09:00:00Z", "2026-01-02T09:00:01.000Z"));
+    assert!(!read_since("2026-01-02T09:00:00Z", "2026-01-01T09:00:00.000Z"), "a read before his review was of the request before");
+}
+
+#[tokio::test]
+async fn a_tick_forgets_the_requests_no_longer_asked_of_him_and_tells_one_asked_again() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "NickMele");
+    let told = told(&fleet);
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(12, SLUG), pull(13, SLUG)]);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.review_requests_looked().await;
+    opens(&fleet, &id, 12).await;
+
+    // Taken back, reviewed or closed: the forge lists it no more.
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(13, SLUG)]);
+    fleet.review_requests_looked().await;
+    let kept = || async {
+        let store = fleet.store().lock().await;
+        let told: Vec<u64> = store.review_requests_told().expect("read").iter().map(|it| it.number).collect();
+        let opened: Vec<u64> = store.pull_requests_opened().expect("read").iter().map(|it| it.number).collect();
+        (told, opened)
+    };
+    assert_eq!(kept().await, (vec![13], vec![]));
+
+    fleet.vcs().review_list_silent(ReviewList::Requested);
+    fleet.review_requests_looked().await;
+    assert_eq!(kept().await, (vec![13], vec![]), "a tick the forge did not answer forgets nothing");
+
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(12, SLUG), pull(13, SLUG)]);
+    fleet.review_requests_looked().await;
+    assert_eq!(told.lock().expect("not poisoned").len(), 3, "asked again after it was taken back is a new request");
+    assert_eq!(fleet.calls_read().expect("the calls").reviews_unopened(), 2, "the read before it was of the request taken back");
 }

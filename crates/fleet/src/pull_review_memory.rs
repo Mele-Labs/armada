@@ -170,7 +170,7 @@ where
             seen_at: self.clock().now().as_str().to_string(),
         };
         self.store().lock().await.keep_seen_head(&kept).map_err(|why| self.memory_unkept(why))?;
-        self.calls_review_opened(&crate::review_requests::key_of(&kept.repository, kept.number));
+        self.calls_review_opened(&kept.manifest_id, kept.number);
         Ok(seen_of(kept))
     }
 
