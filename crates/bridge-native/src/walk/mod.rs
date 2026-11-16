@@ -2942,15 +2942,13 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "needs-plan",
-        title: "A plan alone stays on the thread's card",
+        title: "A plan alone is named in the band as well as on its card",
         screen: Screen::Jobs,
         scenario: "needs-plan",
         steps: &[
             step("A Job with only its plan waiting", Verb::Look, "row", "Projects in Fleet"),
-            step("Enter opens it: Fleet's Needs you holds one page to read, which stays on the thread's card", Verb::Key("enter"), "region", "Thread"),
-            step("The band is not drawn, as there is no list to open and no sheet to offer", Verb::Absent("button", "Needs you"), "region", "Thread"),
-            step("⌥⌘Y opens no empty panel", Verb::Key("alt-cmd-y"), "region", "Thread"),
-            step("Nothing is listed over the box", Verb::Absent("region", "To review"), "region", "Thread"),
+            step("Enter opens it: Fleet's Needs you holds one page to read, and its card can sit far up the thread", Verb::Key("enter"), "region", "Thread"),
+            step("The band is drawn all the same, so he sees the plan waits without scrolling up", Verb::Look, "button", "Needs you"),
         ],
     },
     Walk {
