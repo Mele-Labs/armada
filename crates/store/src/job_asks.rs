@@ -11,10 +11,14 @@ pub mod kind {
     pub const HELD: &str = "held";
 }
 
-/// An ask while it stands, and once it is answered.
+/// An ask while it stands, once it is answered, and once it was settled with no answer.
 pub mod standing {
     pub const OPEN: &str = "open";
     pub const ANSWERED: &str = "answered";
+    /// He dismissed it.
+    pub const DISMISSED: &str = "dismissed";
+    /// The Job that asked took it back.
+    pub const WITHDRAWN: &str = "withdrawn";
 }
 
 /// One ask, as it was made.
@@ -207,6 +211,15 @@ impl Store {
             )
             .map(|moved| moved > 0)
             .map_err(failed("answering what a Job asked the Operator"))
+    }
+
+    /// Settle the open ask `id` with no answer: `how` is [`standing::DISMISSED`] or [`standing::WITHDRAWN`]. **The first
+    /// settling wins**: whether this one moved it.
+    pub fn settle_job_ask(&mut self, id: &str, how: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE job_asks SET state = ?2, answered_at = ?3 WHERE id = ?1 AND state = ?4", params![id, how, at, standing::OPEN])
+            .map(|moved| moved > 0)
+            .map_err(failed("settling what a Job asked the Operator"))
     }
 
     /// When pull request `pull` of repository `manifest` merged, as the timeline kept it. Absent where it kept no merge.

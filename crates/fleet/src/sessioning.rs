@@ -1114,6 +1114,14 @@ where
         self.held_asked(caller, asked).await
     }
 
+    async fn withdraw_held(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        withdrawn: ipc::WithdrawHeld,
+    ) -> Result<ipc::HeldWithdrawn, Refusal> {
+        self.held_withdrawn(caller, withdrawn).await
+    }
+
     async fn report_bug(
         &self,
         caller: Option<api::Caller>,

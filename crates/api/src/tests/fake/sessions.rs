@@ -808,6 +808,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::HeldAsked { id: String::from("held:repo:1"), answer: None })
     }
 
+    async fn withdraw_held(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        _withdrawn: ipc::WithdrawHeld,
+    ) -> Result<ipc::HeldWithdrawn, Refusal> {
+        Ok(ipc::HeldWithdrawn { id: String::from("held:repo:1") })
+    }
+
     async fn report_bug(
         &self,
         _caller: Option<crate::Caller>,

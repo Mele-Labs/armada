@@ -818,6 +818,19 @@ pub(crate) async fn ask_held<D: Sessions>(State(served): State<Served<D>>, body:
     }
 }
 
+/// The agent takes back a landing question it asked. 200 with the ask's id; 422 for a part Fleet refuses, or a
+/// question this Job holds none open of. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn withdraw_held<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let withdrawn: ipc::WithdrawHeld = match ipc::decode_body("which landing question is taken back", &body) {
+        Ok(withdrawn) => withdrawn,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().withdraw_held(crate::acting::asking(), withdrawn).await {
+        Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The bug reports on this Mac, newest first.
 pub(crate) async fn list_bug_reports<D: Sessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().list_bug_reports().await {

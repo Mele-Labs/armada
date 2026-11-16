@@ -1483,7 +1483,7 @@ fn mock_place(item: &WaitingItem, act: &NeedsYouAct) -> (NeedsYouSectionKind, Ne
         WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::WatchNotOurs | WaitingSource::BrowserAsk => (Section::Questions, Dismiss::Plain),
         WaitingSource::RuleAct | WaitingSource::OperatorSuggestion => (Section::Questions, Dismiss::Skip),
         WaitingSource::OperatorUndone => (by_act(), Dismiss::Plain),
-        WaitingSource::Handoff => (Section::Questions, Dismiss::Plain),
+        WaitingSource::Handoff | WaitingSource::JobHeld => (Section::Questions, Dismiss::Plain),
         _ => (Section::Questions, Dismiss::None),
     }
 }

@@ -159,7 +159,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `gate` | questions | none: Fleet refuses it |
 | `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 | `job_conflict` | questions | none: Fleet refuses it |
-| `job_held` | questions | none: Fleet refuses it |
+| `job_held` | questions | plain; the ask is settled with no answer and the Job that asked is sent `held? <pull or branch>: He dismissed it with no answer.` |
 | `ready_to_try` | to_review | plain; one row for the Job while any card is open, its cards answer it, and a dismissal covers only the cards open then |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**

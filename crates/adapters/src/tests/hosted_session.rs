@@ -314,7 +314,7 @@ fn the_rules_say_when_to_call_report_bug_and_with_what() {
 #[test]
 fn the_rules_say_when_to_call_raise_conflict_and_ask_held() {
     let asking = rules().split("\n\n").find(|block| block.starts_with("Asking the Operator.")).expect("a paragraph on asking the Operator");
-    for named in ["`raise_conflict`", "`with`", "`files`", "`wire`", "`mine`", "`theirs`", "`breaks`", "`ask_held`", "`pull`", "`branch`", "reach the Operator, an agent that watches every project", "It may answer in your thread"] {
+    for named in ["`raise_conflict`", "`with`", "`files`", "`wire`", "`mine`", "`theirs`", "`breaks`", "`ask_held`", "`withdraw_held`", "`pull`", "`branch`", "reach the Operator, an agent that watches every project", "It may answer in your thread"] {
         assert!(asking.contains(named), "{named}");
     }
 }

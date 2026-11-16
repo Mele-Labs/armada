@@ -84,7 +84,7 @@ fn cases() -> Vec<Case> {
         case(item("gate:g", Source::Gate, Some((Act::Answer, JOB)), &["Approve", "Skip this group"], &[]), Section::Questions, Dismiss::None, false),
         case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
         case(item("conflict:s-a:s-b", Source::JobConflict, Some((Act::Answer, "conflict:s-a:s-b")), &["Tell A to change", "Tell B", "Hold both"], &[]), Section::Questions, Dismiss::None, false),
-        case(item("held:armada:12", Source::JobHeld, Some((Act::Answer, "held:armada:12")), &["Land it", "Hold it"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("held:armada:12", Source::JobHeld, Some((Act::Answer, "held:armada:12")), &["Land it", "Hold it"], &[]), Section::Questions, Dismiss::Plain, false),
     ]
 }
 
@@ -214,7 +214,7 @@ fn needs_you_offers_no_dismissal_where_fleet_refuses_it() {
             assert_eq!(row.dismiss, Dismiss::None, "{:?} is answered, not dismissed", item.source);
         }
     }
-    assert_eq!(refused, 7, "delivery, slot_choice, task_done, held_child, gate, job_conflict and job_held");
+    assert_eq!(refused, 6, "delivery, slot_choice, task_done, held_child, gate and job_conflict");
 }
 
 #[test]
