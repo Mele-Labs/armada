@@ -154,8 +154,21 @@ pub struct ReviewsScreen {
     refresh: Option<Task<()>>,
     reading: Option<Task<()>>,
     critique: Option<Task<()>>,
+    /// In a walk the mock's work waits for the walk's `Lands` step instead of its own clock, so no
+    /// step races a person's Next.
+    walked: bool,
     next_draft: u64,
     _subs: Vec<Subscription>,
+}
+
+/// The reviews screen a walk is playing, so its `Lands` step reaches it.
+struct Walked(gpui::WeakEntity<ReviewsScreen>);
+
+impl gpui::Global for Walked {}
+
+/// The reviews screen a walk is playing, if one is drawn.
+pub fn walked(cx: &App) -> Option<Entity<ReviewsScreen>> {
+    cx.try_global::<Walked>().and_then(|walked| walked.0.upgrade())
 }
 
 impl ReviewsScreen {
@@ -220,6 +233,7 @@ impl ReviewsScreen {
             refresh: None,
             reading: None,
             critique: None,
+            walked: false,
             next_draft: 1,
             _subs: subs,
         }
@@ -249,8 +263,9 @@ impl ReviewsScreen {
 
     fn start_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.inbox.refreshing = true;
+        let wait = self.wait(REFRESH_READ, cx);
         self.refresh = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(REFRESH_READ).await;
+            wait.await;
             let _ = this.update_in(cx, |this, window, cx| this.end_refresh(window, cx));
         }));
         cx.notify();
@@ -304,8 +319,9 @@ impl ReviewsScreen {
             return;
         }
         self.waiting = Some(number);
+        let wait = self.wait(PAGE_READ, cx);
         self.reading = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(PAGE_READ).await;
+            wait.await;
             let _ = this.update_in(cx, |this, window, cx| this.end_refresh(window, cx));
         }));
         cx.notify();
@@ -344,17 +360,20 @@ impl ReviewsScreen {
             return;
         }
         page.summary = Summary::Writing;
+        let wait = self.wait(SUMMARY_WRITE, cx);
         let task = cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(SUMMARY_WRITE).await;
-            let _ = this.update(cx, |this, cx| {
-                if let Some(page) = this.pages.get_mut(&number) {
-                    page.summary = Summary::Written(mock::summary(number));
-                }
-                this.writing.remove(&number);
-                cx.notify();
-            });
+            wait.await;
+            let _ = this.update(cx, |this, cx| this.end_summary(number, cx));
         });
         self.writing.insert(number, task);
+    }
+
+    fn end_summary(&mut self, number: u64, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            page.summary = Summary::Written(mock::summary(number));
+        }
+        self.writing.remove(&number);
+        cx.notify();
     }
 
     /// A text box for each suggestion of the page's critique and each finding on its Overview, holding
@@ -414,22 +433,26 @@ impl ReviewsScreen {
             return;
         }
         self.explains.insert(key.clone(), None);
+        let wait = self.wait(EXPLAIN_RUN, cx);
         let task = cx.spawn_in(window, {
             let key = key.clone();
             async move |this, cx| {
-                cx.background_executor().timer(EXPLAIN_RUN).await;
-                let _ = this.update(cx, |this, cx| {
-                    this.explains.insert(key.clone(), Some(mock::explanation(number, &set, explain)));
-                    this.explain_runs.remove(&key);
-                    // The answer reads under the foot, so the set still in view scrolls down to it.
-                    if this.open == Some(number) && this.rail_on().as_deref() == Some(set.as_str()) {
-                        this.set_scroll.scroll_to_bottom();
-                    }
-                    cx.notify();
-                });
+                wait.await;
+                let _ = this.update(cx, |this, cx| this.end_explain(key, cx));
             }
         });
         self.explain_runs.insert(key, task);
+        cx.notify();
+    }
+
+    fn end_explain(&mut self, key: (u64, String, Explain), cx: &mut Context<Self>) {
+        let (number, set, explain) = key.clone();
+        self.explains.insert(key.clone(), Some(mock::explanation(number, &set, explain)));
+        self.explain_runs.remove(&key);
+        // The answer reads under the foot, so the set still in view scrolls down to it.
+        if self.open == Some(number) && self.rail_on().as_deref() == Some(set.as_str()) {
+            self.set_scroll.scroll_to_bottom();
+        }
         cx.notify();
     }
 
@@ -580,18 +603,61 @@ impl ReviewsScreen {
         page.critique = Critique::Running { range: range.clone() };
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
+        let wait = self.wait(CRITIQUE_RUN, cx);
         self.critique = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(CRITIQUE_RUN).await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                if let Some(page) = this.pages.get_mut(&number) {
-                    let findings = if number == 2198 { mock::retry_findings() } else { Vec::new() };
-                    page.critique = Critique::Finished { range, findings };
-                }
-                this.suggestion_boxes(number, window, cx);
-                this.critique = None;
-                cx.notify();
-            });
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.end_critique(number, window, cx));
         }));
+        cx.notify();
+    }
+
+    fn end_critique(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            if let Critique::Running { range } = &page.critique {
+                let findings = if number == 2198 { mock::retry_findings() } else { Vec::new() };
+                page.critique = Critique::Finished { range: range.clone(), findings };
+            }
+        }
+        self.suggestion_boxes(number, window, cx);
+        self.critique = None;
+        cx.notify();
+    }
+
+    /// How long a piece of the mock's work takes: its own clock, or in a walk until the walk lands it.
+    fn wait(&self, time: Duration, cx: &App) -> impl std::future::Future<Output = ()> + 'static {
+        let timer = (!self.walked).then(|| cx.background_executor().timer(time));
+        async move {
+            match timer {
+                Some(timer) => timer.await,
+                None => std::future::pending().await,
+            }
+        }
+    }
+
+    /// Played by a walk: the mock's work waits for the walk's `Lands` step, not its clock.
+    pub fn walk(&mut self, cx: &mut Context<Self>) {
+        self.walked = true;
+        cx.set_global(Walked(cx.entity().downgrade()));
+    }
+
+    /// The walk's `Lands`: every piece of the mock's work in flight ends now, as its clock would have
+    /// ended it. The refresh first, since the page it lands starts a summary of its own.
+    pub fn land(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refresh.is_some() || self.reading.is_some() {
+            self.end_refresh(window, cx);
+        }
+        let writing: Vec<u64> = self.writing.keys().copied().collect();
+        for number in writing {
+            self.end_summary(number, cx);
+        }
+        let running: Vec<u64> = self.pages.values().filter(|page| matches!(page.critique, Critique::Running { .. })).map(|page| page.number).collect();
+        for number in running {
+            self.end_critique(number, window, cx);
+        }
+        let explaining: Vec<(u64, String, Explain)> = self.explain_runs.keys().cloned().collect();
+        for key in explaining {
+            self.end_explain(key, cx);
+        }
         cx.notify();
     }
 

@@ -2,7 +2,9 @@
 //! on the first step that faults or whose target is not drawn. A Job runs it before it shows the
 //! walk. `--shots <dir>` also writes each step as a picture, which is how a Job looks at a native
 //! screen without putting a window in front of the owner; `--hold <ms>` takes each picture that long
-//! into the step, so a moving thing is caught mid-way.
+//! into the step, so a moving thing is caught mid-way. `--pace <ms>` moves the clock that far between
+//! one Next and the next, as a person reading each step does, and fails a step still playing then:
+//! his Next would do nothing.
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -15,7 +17,7 @@ use super::window::{Next, Take, WalkWindow};
 use super::Walk;
 
 /// Play `walk` to its end. `Ok` says every step was reached and its target drawn.
-pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, height: Option<f32>) -> Result<(), String> {
+pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>) -> Result<(), String> {
     let platform = gpui_platform::current_platform(true);
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || {
         gpui_platform::current_headless_renderer()
@@ -48,6 +50,17 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
             cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
         }
         cx.run_until_parked();
+        // A person reads the step for this long, and his Next does nothing while it still plays.
+        if let Some(ms) = pace {
+            for _ in 0..ms.div_ceil(100) {
+                cx.advance_clock(std::time::Duration::from_millis(100));
+                cx.run_until_parked();
+                cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+            }
+            if walking.read_with(&cx, |walking, _| walking.playing()) {
+                return Err(format!("step {}: still playing {ms} ms after Next, so a person's Next does nothing", at + 1));
+            }
+        }
         // The check's clock is its own: a step that lets time go by is played to its end by moving it on.
         for _ in 0..600 {
             if !walking.read_with(&cx, |walking, _| walking.playing()) {
