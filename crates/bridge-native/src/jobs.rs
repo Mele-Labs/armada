@@ -989,6 +989,13 @@ impl JobsList {
         Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
+    /// The mock Jobs over a Fleet connection, so a test reaches the paths a live Fleet takes.
+    #[cfg(test)]
+    pub fn mock_over(jobs: &[SessionRecord], fleet: Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
+        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects()));
+        Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, Some(fleet), None, cx)
+    }
+
     fn with(
         jobs: Vec<SessionRecord>,
         names: Names,

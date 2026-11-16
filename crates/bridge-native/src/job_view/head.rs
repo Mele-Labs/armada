@@ -130,7 +130,7 @@ pub(super) fn act_button(look: &Look, id: &'static str, icon: &'static str, act:
     icon_frame(look, id, icon, lit, off).tooltip(keyed_tip(act, tip_said))
 }
 
-fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
+pub(super) fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
     let ink = if lit { look.color(token::FG_DEFAULT) } else { look.color(token::FG_SUBTLE) };
     div()
         .id(id)

@@ -83,6 +83,9 @@ enum Read {
 pub(super) struct SideChat {
     job: SharedString,
     view: WeakEntity<JobView>,
+    /// Fleet's connection, held here so the chat never reads the view back for the port: the view opens the chat inside its
+    /// own update, where a read of it panics.
+    fleet: Option<Entity<crate::fleet::FleetConnection>>,
     /// No Fleet: the mock answers as a Fleet that took the question would.
     mock: bool,
     asides: Vec<Aside>,
@@ -106,7 +109,8 @@ pub(super) struct SideChat {
 }
 
 impl SideChat {
-    pub(super) fn new(job: SharedString, view: WeakEntity<JobView>, mock: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub(super) fn new(job: SharedString, view: WeakEntity<JobView>, fleet: Option<Entity<crate::fleet::FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mock = fleet.is_none();
         let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 6).submit_on_enter(true).placeholder(PLACEHOLDER));
         let key = keep_key(&job);
         if let Some(words) = crate::drafts::kept(&key, cx) {
@@ -124,6 +128,7 @@ impl SideChat {
         SideChat {
             job,
             view,
+            fleet,
             mock,
             asides: Vec::new(),
             read: Read::Reading,
@@ -186,7 +191,7 @@ impl SideChat {
     }
 
     fn port(&self, cx: &gpui::App) -> Option<u16> {
-        self.view.upgrade().and_then(|view| view.read(cx).port(cx))
+        self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port())
     }
 
     /// Read the Job's asides again, so what was asked before comes back, whole.
@@ -737,8 +742,8 @@ impl JobView {
         if let Some(held) = self.side_chats.get(job.as_ref()) {
             return held.clone();
         }
-        let (view, mock) = (cx.weak_entity(), self.fleet.is_none());
-        let chat = cx.new(|cx| SideChat::new(job.clone(), view, mock, window, cx));
+        let (view, fleet) = (cx.weak_entity(), self.fleet.clone());
+        let chat = cx.new(|cx| SideChat::new(job.clone(), view, fleet, window, cx));
         self.side_chats.insert(job.to_string(), chat.clone());
         chat
     }
@@ -891,29 +896,12 @@ impl JobView {
     }
 
     /// The button under the box: the eye and its name, in the tool's hue, lit while the split is open.
-    pub(super) fn side_chat_button(&self, look: &Look, narrow: bool, cx: &Context<Self>) -> AnyElement {
+    /// Side chat in the box's tool bar: an icon button as the others there, lit while the chat is open.
+    pub(super) fn side_chat_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
         let lit = self.side_split_open() || self.side_chat_in_front();
-        let ink = look.color(token::TOOL_LOOK);
         let key = open_key();
         labelled(
-            div()
-                .id("side-chat-button")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL))
-                .px(look.length(if narrow { token::SPACE_2 } else { token::SPACE_3 }))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(ink.opacity(0.55))
-                .text_size(look.length(token::TEXT_SM))
-                .text_color(ink)
-                .when(lit, |button| button.bg(ink.opacity(0.22)).font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING))))
-                .cursor_pointer()
-                .hover(|style| style.bg(ink.opacity(0.14)))
-                .child(glyph(look, "eye", Size::Small, ink))
-                .children((!narrow).then(|| div().child("Side chat")))
+            super::head::icon_frame(look, "side-chat-button", "eye", lit, false)
                 .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(BUTTON_TIP).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
                 .on_click(cx.listener(|this, _, window, cx| this.open_side_chat(None, window, cx))),
             Role::Button,
@@ -988,6 +976,31 @@ mod tests {
         list.update(cx, |list, cx| list.open(open.to_string().into(), cx));
         cx.run_until_parked();
         (view, cx)
+    }
+
+    /// A live view opens the chat inside its own update; the chat must not read the view back then. It panicked and took the
+    /// app down on a press of Side chat (16 Nov), which the mock never reached.
+    #[gpui::test]
+    fn side_chat_opens_over_a_live_fleet_without_reading_the_view_it_opens_from(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("side-chat").expect("the fixture decodes");
+        let open = jobs.first().expect("a Job").id.as_str().to_string();
+        let fleet = cx.new(crate::fleet::FleetConnection::idle);
+        let list = cx.new(|cx| crate::jobs::JobsList::mock_over(&jobs, fleet, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, None, window, cx)
+        });
+        list.update(cx, |list, cx| list.open(open.clone().into(), cx));
+        cx.run_until_parked();
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get(open.as_str()).cloned()).expect("the chat opened");
+        assert!(chat.read_with(cx, |chat, _| !chat.mock), "a Fleet behind the view makes the chat live");
+        assert!(chat.read_with(cx, |chat, _| matches!(chat.read, Read::Refused(_))), "an idle Fleet has no port, so the read is refused, not panicked");
     }
 
     fn operator() -> crate::keymap::Act {
