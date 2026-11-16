@@ -277,6 +277,10 @@ Other trackers' assignees are not read.
 A claim held by this Mac's own Job that ended is taken over, never waited on.
 
 **Memory only.** After a restart the first pass claims again, and the store answers a claim its holder already has as its own.
+What each Job was told is kept in Fleet's store (`claims_told`), by the item or file and the Job that holds it, so a restart tells it nothing again.
+A wait that ends forgets its item, so a later wait on it is told.
+Everything a pass has for one Job goes as one notice.
+Confirmed 16 Nov 2026: each restart told every Job again of every file another Job writes, one notice for each.
 A wait read from a Job on another Mac is told only to the Job that waits.
 `crates/fleet/src/job_claims.rs`.
 

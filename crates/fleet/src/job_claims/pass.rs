@@ -29,6 +29,35 @@ fn same_job(one: &Holder, other: &Holder) -> bool {
     one.kind == other.kind && one.id == other.id && one.machine == other.machine
 }
 
+/// A holder as the store keeps what a Job was told of it: its Mac and Job, without `since`.
+fn holder_key(holder: &Holder) -> String {
+    format!("{}/{}", holder.machine, holder.id)
+}
+
+/// What a Job's wait word does to what the store keeps it was told, so a restart says it once.
+#[derive(Debug, PartialEq, Eq)]
+enum Keeps {
+    /// A wait started: kept as told, by the item and who holds it.
+    Told { about: String, holder: String },
+    /// A wait ended: what it was told of the item is forgotten, so a wait on it again is news.
+    Forgets(String),
+}
+
+/// One word of a Job's waits, and what it keeps.
+#[derive(Debug, PartialEq, Eq)]
+struct Word {
+    text: String,
+    keeps: Keeps,
+}
+
+fn about_item(item: &str) -> String {
+    format!("item:{item}")
+}
+
+fn about_file(file: &Wanted) -> String {
+    format!("file:{}", file.named)
+}
+
 /// What the pass asks for `job`, with its held state brought up to date first: files a pull request
 /// that merged or closed ended stay ended, and a claim held elsewhere is asked for again only when
 /// the renewal is due.
@@ -93,7 +122,7 @@ fn answered_in(held: &mut JobHeld, answered: Option<Answered>, wanted: &BTreeSet
 
 /// The waits `held` has after a pass: each item a person or another Job holds. Answers the words
 /// that start and end them.
-fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, String>, since: &str) -> Vec<String> {
+fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, String>, since: &str) -> Vec<Word> {
     let mut now_waiting: BTreeMap<String, WaitedOn> = person_held.iter().map(|(item, person)| (item.clone(), WaitedOn::Person(person.clone()))).collect();
     for (one, by) in &held.elsewhere {
         if one.kind == ClaimKind::Item {
@@ -105,10 +134,11 @@ fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, 
     let ended: Vec<String> = held.waits.iter().filter(|(item, wait)| wait.requeues.is_none() && !now_waiting.contains_key(*item)).map(|(item, _)| item.clone()).collect();
     for item in ended {
         held.waits.remove(&item);
-        words.push(match job.items.contains_key(&item) {
+        let text = match job.items.contains_key(&item) {
             true => wait_over(&item),
             false => item_closed(&item),
-        });
+        };
+        words.push(Word { text, keeps: Keeps::Forgets(about_item(&item)) });
     }
     for (item, on) in now_waiting {
         let same = held.waits.get(&item).is_some_and(|wait| match (&wait.on, &on) {
@@ -116,7 +146,12 @@ fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, 
             (was, is) => was == is,
         });
         if !same {
-            words.push(waiting(&item, &on));
+            let holder = match &on {
+                WaitedOn::Job(by) => holder_key(&by.holder),
+                WaitedOn::Person(person) => format!("person:{person}"),
+                WaitedOn::Main => "main".to_string(),
+            };
+            words.push(Word { text: waiting(&item, &on), keeps: Keeps::Told { about: about_item(&item), holder } });
             held.waits.insert(item, Wait { on, since: since.to_string(), requeues: None });
         }
     }
@@ -188,8 +223,7 @@ where
                 }
                 words
             });
-            let shared = shared.iter().map(|(files, by)| files_shared(&files.iter().collect::<Vec<_>>(), by));
-            let words: Vec<String> = words.into_iter().chain(shared).collect();
+            let words = self.claims_unrepeated(&job.id, words, shared).await;
             if !words.is_empty() {
                 said.told.entry(job.id.clone()).or_default().extend(words);
             }
@@ -216,6 +250,43 @@ where
         }
     }
 
+    /// The words to `session` that it was not told before, as the store keeps it, so a restart, which
+    /// forgets `held`, does not repeat them. A store that cannot say tells again rather than stays quiet.
+    async fn claims_unrepeated(&self, session: &str, waits: Vec<Word>, shared: Vec<(Vec<Wanted>, Claimant)>) -> Vec<String> {
+        if waits.is_empty() && shared.is_empty() {
+            return Vec::new();
+        }
+        let now = self.now();
+        let mut store = self.store().lock().await;
+        let mut words = Vec::new();
+        for word in waits {
+            match &word.keeps {
+                Keeps::Told { about, holder } => {
+                    if store.claims_told_before(session, about, holder).unwrap_or(false) {
+                        continue;
+                    }
+                    let _ = store.keep_claims_told(session, about, holder, &now);
+                }
+                Keeps::Forgets(about) => {
+                    let _ = store.forget_claims_told(session, Some(about));
+                }
+            }
+            words.push(word.text);
+        }
+        for (files, by) in shared {
+            let holder = holder_key(&by.holder);
+            let new: Vec<&Wanted> = files.iter().filter(|file| !store.claims_told_before(session, &about_file(file), &holder).unwrap_or(false)).collect();
+            if new.is_empty() {
+                continue;
+            }
+            for file in &new {
+                let _ = store.keep_claims_told(session, &about_file(file), &holder, &now);
+            }
+            words.push(files_shared(&new, &by));
+        }
+        words
+    }
+
     async fn claims_said(self: &Arc<Self>, said: Said) {
         // One notice a Job, a line for each word, so a pass that finds several Jobs on its files
         // wakes it once.
@@ -236,6 +307,7 @@ where
     /// A Job ended: give back every claim it holds, so another Job need not wait the 30 minutes
     /// of its lapse. A store that does not answer leaves them to lapse.
     pub(crate) async fn claims_given_back(&self, session: &str) {
+        let _ = self.store().lock().await.forget_claims_told(session, None);
         let Some(held) = self.job_claims().with(|kept| kept.jobs.remove(session)) else { return };
         if held.sent.is_empty() {
             return;
@@ -269,7 +341,8 @@ mod tests {
         assert!(waits_kept(&job, &mut held, &BTreeMap::new(), "t1").is_empty(), "told once");
         assert_eq!(held.waits["armada-1"].since, "t0");
         answered_in(&mut held, Some(Answered { won: vec![Wanted::item("armada-1")], ..Answered::default() }), &wanted, 0, &mut Vec::new());
-        assert_eq!(waits_kept(&job, &mut held, &BTreeMap::new(), "t2"), vec![wait_over("armada-1")]);
+        let over = waits_kept(&job, &mut held, &BTreeMap::new(), "t2");
+        assert_eq!(over, vec![Word { text: wait_over("armada-1"), keeps: Keeps::Forgets(about_item("armada-1")) }]);
         assert!(held.waits.is_empty());
     }
 
