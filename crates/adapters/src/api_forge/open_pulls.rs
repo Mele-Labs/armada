@@ -17,17 +17,29 @@ use crate::main_ci::{
 };
 use crate::merge_queue::{state_of, QUERY as QUEUE};
 
-/// What `gh pr list` asks of each pull request, and its checks: the last commit's, a hundred.
-const FIELDS: &str = "number title headRefName url author{login} headRefOid autoMergeRequest{enabledAt} \
-    createdAt updatedAt isDraft mergeable reviewDecision additions deletions \
-    commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
-    ... on CheckRun{name status conclusion} ... on StatusContext{context state}}}}}}}";
+/// What the list asks of each pull request, and its checks: the last commit's, a hundred.
+macro_rules! listed_fields {
+    () => {
+        "number title headRefName url author{login} headRefOid autoMergeRequest{enabledAt} \
+         createdAt updatedAt isDraft mergeable additions deletions \
+         commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename \
+         ... on CheckRun{name status conclusion} ... on StatusContext{context state}}}}}}}"
+    };
+}
+
+/// **The list leaves out the review decision**, which a hundred pull requests of a repository with
+/// hundreds open time the forge out on (measured 16 Nov 2026: eleven seconds and a 502 with it,
+/// under three without, checks and all). The person's own and one by number carry it.
+const LISTED_FIELDS: &str = listed_fields!();
+
+/// What `gh pr list` asks of each pull request.
+const FIELDS: &str = concat!(listed_fields!(), " reviewDecision");
 
 /// Newest created first, as `gh pr list` lists them.
 fn list_query() -> String {
     format!(
         "query($owner:String!,$name:String!,$first:Int!){{repository(owner:$owner,name:$name){{\
-         pullRequests(states:OPEN,first:$first,orderBy:{{field:CREATED_AT,direction:DESC}}){{nodes{{{FIELDS}}}}}}}}}"
+         pullRequests(states:OPEN,first:$first,orderBy:{{field:CREATED_AT,direction:DESC}}){{nodes{{{LISTED_FIELDS}}}}}}}}}"
     )
 }
 

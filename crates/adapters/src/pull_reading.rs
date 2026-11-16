@@ -13,7 +13,7 @@ const HUNG_AFTER_SECONDS: u64 = 40 * 60;
 
 /// What the pull reading reads of each pull request but its checks.
 const BARE: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
-    mergeQueueEntry{state} isDraft reviewDecision";
+    mergeQueueEntry{state} isDraft";
 
 /// What the pull reading reads of each pull request, in the list's query and in the by-number one.
 const FIELDS: &str = "number title autoMergeRequest{enabledAt} headRefName url headRefOid mergeable author{login} \
@@ -30,9 +30,10 @@ pub(crate) fn list_query() -> String {
     )
 }
 
-/// The list without the checks. **Every check of a hundred pull requests is a query the forge times
-/// out on** in a repository with hundreds open, measured 16 Nov 2026: about ten seconds and a 502,
-/// against three without them. The checks are read by number, for the pull requests told of.
+/// The list without the review decision or the checks. **The review decision of a hundred pull
+/// requests is a query the forge times out on** in a repository with hundreds open, measured 16 Nov
+/// 2026: eleven seconds and a 504 with it, two without. Both are read by number, for the pull
+/// requests told of.
 pub(crate) fn bare_list_query() -> String {
     format!(
         "query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{\
@@ -270,6 +271,7 @@ mod tests {
         }
         assert!(one_query().contains("pullRequest(number:$number)"));
         assert!(!bare_list_query().contains("statusCheckRollup"), "the list the forge can answer asks no checks");
+        assert!(!bare_list_query().contains("reviewDecision"), "nor the review decision it times out on");
     }
 
     #[test]

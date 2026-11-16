@@ -70,6 +70,30 @@ fn a_listing_the_forge_will_not_answer_is_asked_again_for_fewer_over_the_api_too
     assert_eq!(down.seen().len(), 2, "both sizes were asked");
 }
 
+/// **The list of every open one asks no review decision**: a hundred of them time the forge out with
+/// it, and answer without it, checks and all. One author's search still asks it.
+#[test]
+fn the_open_pull_requests_are_listed_without_the_review_decision_the_forge_times_out_on() {
+    let searched = OPEN.replacen(r#"{"data":{"repository":{"pullRequests":"#, r#"{"data":{"search":"#, 1);
+    let searched = searched.trim_end().strip_suffix('}').unwrap().to_string();
+    let server = serve(move |seen| match seen.body.as_str() {
+        body if body.contains("pullRequests(states:OPEN") && body.contains("reviewDecision") => refused(502),
+        body if body.contains("pullRequests(states:OPEN") => ok(OPEN),
+        body if body.contains("search(query:$q,type:ISSUE") => ok(&searched),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let root = repo.root_str();
+
+    let pulls = forge.open_pull_requests(&root, "ci").expect("the list without it answers");
+    assert_eq!(pulls.len(), 3);
+    assert_eq!(server.seen().len(), 1, "answered at the first size");
+    assert!(server.seen()[0].body.contains("statusCheckRollup"), "the checks are cheap, and stay");
+    forge.open_pull_requests_by(&root, "ci", "grace").expect("the search answers");
+    assert!(server.seen()[1].body.contains("reviewDecision"), "the person's own carry it");
+}
+
 /// The search answers what the listing does, its nodes under `search` rather than the repository.
 #[test]
 fn one_authors_open_pull_requests_over_the_api_are_a_search_for_their_login() {
@@ -167,8 +191,9 @@ fn the_pull_reading_over_the_api_is_the_pull_reading_gh_reads() {
 /// A repository with hundreds open: the forge times the list out when it is asked for every check,
 /// and answers it without them.
 #[test]
-fn the_list_a_pull_reading_tells_from_asks_no_checks_and_says_why_it_failed() {
+fn the_list_a_pull_reading_tells_from_asks_no_checks_or_review_and_says_why_it_failed() {
     let server = serve(|seen| match seen.body.as_str() {
+        body if body.contains("pullRequests(states:OPEN") && body.contains("reviewDecision") => refused(504),
         body if body.contains("pullRequests(states:OPEN") && body.contains("statusCheckRollup") => refused(504),
         body if body.contains("pullRequests(states:OPEN") => ok(READING),
         _ => not_found(),
