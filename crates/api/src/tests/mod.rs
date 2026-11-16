@@ -44,6 +44,7 @@ mod limits;
 mod pull_requests;
 mod settings;
 mod the_persons_own;
+mod pull_request_opened;
 mod logbook;
 mod teaching;
 mod preferences;

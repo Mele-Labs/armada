@@ -52,6 +52,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's sorting, asks or story moved: the Job to read again.
+    Route {
+        operation: "session.story",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",

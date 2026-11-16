@@ -183,7 +183,7 @@ pub(crate) enum Extra {
     Sketch(String),
     Pending(usize),
     Working,
-    /// The card of the subagents running now.
+    /// The card of the subagents and background tasks running now.
     Subagents,
     /// The agent's last word: what it made and the two ways on (`DoneBody`).
     End,
@@ -982,6 +982,10 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // A background task Fleet lists is a row of the running card, so the card stands while one runs.
+        if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
+            extras.push(Extra::Subagents);
+        }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
         extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));

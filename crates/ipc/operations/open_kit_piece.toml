@@ -1,0 +1,16 @@
+[operations.open_kit_piece]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Open a Kit piece's file in the person's editor, or show it in Finder"
+notes = """
+`POST /kit/pieces/open`, body `OpenKitPiece` `{ kind, name, plugin?, place }`. `kind` is `get_kit_file`'s and `plugins`. `place` is `editor` or `finder`. Answers 200 with `KitPieceOpened` `{ path }`, the path Fleet opened.
+
+**Nothing in the request carries a path.** Fleet reads the inventory again for the call and opens only what the row that names the piece holds, so a body reaches nothing the inventory does not list. A skill opens its `SKILL.md` in the editor and its folder in Finder. A plugin opens in Finder alone, at its install path. A piece a plugin brought opens in either.
+
+**The editor is the person's own**, in the order `editor.command` in settings, `$VISUAL`, `$EDITOR`, then the system's own opener. It starts on an argument list and never through a shell, detached, with `{file}` and `{line}` filled in as the setting describes. A named editor that is not there is refused rather than falling through to the system opener, so the setting does not look ignored.
+
+Refusals, each a 422 with its own code: `fleet.kit_file_not_listed`, `fleet.kit_file_ambiguous` and `fleet.kit_file_none` as `get_kit_file`'s, `fleet.kit_open_plugin_in_editor` for a plugin sent to the editor, and `fleet.kit_open_no_editor` for an editor that is not there. A 500 `fleet.kit_open_failed` where the program would not start.
+
+`agent_access` is `Bridge only`: a window opening on the person's screen is theirs to ask for.
+"""

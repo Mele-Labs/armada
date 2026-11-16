@@ -1,0 +1,18 @@
+[operations.get_job_story]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A Job's story: its asks, open ones first, with what he was shown and decided, what was built and what was handed on"
+notes = """
+`GET /sessions/story?session_id=`. `JobStory` `{ session_id, asks, shown_otherwise?, lead? }`. Since 16 Nov 2026.
+
+`asks` are `StoryAsk` `{ ask, shown?, built?, handed?, open }`, open asks first and each group oldest first. `ask` is the `Ask` as `list_job_asks` answers it: how it started (`first_words`), its revisions (`said`) and where it stands. `shown` is each artifact of the Job (`StoryShown` `{ artifact, title, form, state, words?, votes?, presses?, shown_at }`) first kept after his latest words on that ask and before his next words on another: `state` is what he decided (`approved`, `sent_back`, `dismissed`) or `asking` where it still waits. **Fleet does not record which message an artifact answers**, so the artifact goes by the time it was first kept. `built` is each merge (`StoryBuilt` `{ pull_request, merged_at }`), `handed` each hand (`StoryHanded` `{ from, to, to_title?, at }`), and `open` is true while the ask is not built and not dropped.
+
+`shown_otherwise` holds what he was shown before he spoke on any ask of the Job.
+
+**`lead` is one plain line an ask, open ones first**, for the done card to draw beside the Job's own `done_summary`: the title, then where it stands. The summary stays on the record.
+
+404 `fleet.no_such_session` where Fleet hosts no such Job. A Job with no asks answers empty lists.
+
+`agent_access` is `No`.
+"""
