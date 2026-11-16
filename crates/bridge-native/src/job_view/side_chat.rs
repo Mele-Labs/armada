@@ -531,6 +531,7 @@ impl SideChat {
         div()
             .w_full()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .child(tell)
@@ -588,7 +589,7 @@ impl SideChat {
                 .text_color(look.color(token::TOOL_LOOK))
                 .bg(look.color(token::TOOL_LOOK).opacity(0.10))
                 .child(glyph(look, "lock", Size::Small, look.color(token::TOOL_LOOK)))
-                .child(BAND),
+                .child(div().min_w_0().flex_1().child(BAND)),
             Role::Group,
             BAND,
         )
@@ -863,5 +864,156 @@ impl JobView {
             "Side chat",
         )
         .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::Role;
+
+    fn aside(id: &str, state: AsideState) -> Aside {
+        ipc::decode::<Aside>(
+            "Aside",
+            format!(r#"{{"aside_id":"{id}","session_id":"mock-01","question":"why","answer":"because","state":"{}","asked_at":"2026-11-16T10:00:00Z","reads":[]}}"#, match state {
+                AsideState::Asking => "asking",
+                AsideState::Answered => "answered",
+                AsideState::Failed => "failed",
+            })
+            .as_bytes(),
+        )
+        .expect("an aside")
+    }
+
+    #[test]
+    fn an_aside_the_event_carries_replaces_the_one_held_by_its_id_and_a_new_one_goes_last() {
+        let mut held = vec![aside("a1", AsideState::Asking), aside("a2", AsideState::Answered)];
+        let mut grown = aside("a1", AsideState::Answered);
+        grown.answer = "because, and more".into();
+        replaced(&mut held, grown);
+        assert_eq!(held.len(), 2);
+        assert_eq!((held[0].aside_id.as_str(), held[0].state, held[0].answer.as_str()), ("a1", AsideState::Answered, "because, and more"), "replaced where it stood");
+        replaced(&mut held, aside("a3", AsideState::Asking));
+        assert_eq!(held.iter().map(|one| one.aside_id.as_str()).collect::<Vec<_>>(), ["a1", "a2", "a3"]);
+    }
+
+    #[test]
+    fn tell_the_job_waits_for_an_answer_and_ends_once_told() {
+        assert!(!tellable(&aside("a", AsideState::Asking)));
+        assert!(!tellable(&aside("a", AsideState::Failed)));
+        let mut answered = aside("a", AsideState::Answered);
+        assert!(tellable(&answered));
+        answered.told_at = Some(ipc::Instant::carried("2026-11-16T10:05:00Z"));
+        assert!(!tellable(&answered), "Fleet refuses a second tell, so it is not offered");
+    }
+
+    #[test]
+    fn the_question_goes_to_fleet_trimmed_with_the_quote_where_there_is_one_and_never_blank() {
+        let plain = asked("mock-01", "  what is this?  ", None).expect("a question");
+        assert_eq!((plain.question.as_str(), plain.quote.as_deref(), plain.session_id.as_str()), ("what is this?", None, "mock-01"));
+        let quoted = asked("mock-01", "what does this mean?", Some(" write-clash probe ")).expect("a question");
+        assert_eq!(quoted.quote.as_deref(), Some("write-clash probe"));
+        assert!(asked("mock-01", "   ", Some("words")).is_none());
+        assert_eq!(asked("mock-01", "q", Some("  ")).expect("a question").quote, None, "a blank quote is none");
+    }
+
+    fn job<'a>(cx: &'a mut gpui::TestAppContext, open: &str) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("side-chat").expect("the fixture decodes");
+        let threads = crate::mock::threads("side-chat").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        list.update(cx, |list, cx| list.open(open.to_string().into(), cx));
+        cx.run_until_parked();
+        (view, cx)
+    }
+
+    fn operator() -> crate::keymap::Act {
+        crate::keymap::Act { id: "operator", slot: 0, digit: None }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| super::super::head::drawn(window, cx, role, name)).is_some()
+    }
+
+    #[gpui::test]
+    fn what_the_copy_read_stands_one_muted_row_each_in_the_order_fleet_sent_them(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        let reads: Vec<Vec<String>> = chat.read_with(cx, |chat, _| chat.asides().iter().map(|one| reads_of(one).to_vec()).collect());
+        assert_eq!(reads[0], ["Read crates/store/migrations"]);
+        assert_eq!(reads[3], ["Grep retry in crates/api/src", "Read crates/api/src/webhook.rs"], "the asking one has read two things so far");
+        for name in ["Read crates/store/migrations", "Grep retry in crates/api/src", "Read crates/api/src/webhook.rs"] {
+            assert!(drawn(cx, Role::ListItem, name), "{name} is drawn as a row");
+        }
+    }
+
+    #[gpui::test]
+    fn tell_the_job_does_nothing_until_answered_and_a_told_one_shows_told(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        let told = |cx: &mut gpui::VisualTestContext| chat.read_with(cx, |chat, _| chat.asides().iter().map(|one| one.told_at.is_some()).collect::<Vec<_>>());
+        assert_eq!(told(cx), [true, false, false, false], "only the first was told");
+        // The one still asking, and the one answered: Tell goes only for the answered.
+        chat.update_in(cx, |chat, window, cx| chat.tell("mock-aside-4", window, cx));
+        assert_eq!(told(cx), [true, false, false, false], "an asking aside is not told");
+        chat.update_in(cx, |chat, window, cx| chat.tell("mock-aside-2", window, cx));
+        assert_eq!(told(cx), [true, true, false, false]);
+        // The Job's thread now holds the message Fleet writes, as his own.
+        let said = view.read_with(cx, |view, cx| view.thread("mock-02", cx).map(|held| format!("{:?}", held.items.last())));
+        assert!(said.is_some_and(|said| said.contains("Aside, answered on a read-only copy of this Job:")), "the told words are his message in the thread");
+        assert!(drawn(cx, Role::Status, "Told"));
+    }
+
+    #[gpui::test]
+    fn the_selected_words_reach_the_question_as_its_quote(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-01");
+        view.update_in(cx, |view, window, cx| view.open_side_chat(Some("write-clash probe".into()), window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-01").cloned()).expect("the Job's side chat");
+        assert_eq!(chat.read_with(cx, |chat, _| chat.quote().map(str::to_string)).as_deref(), Some("write-clash probe"));
+        assert!(drawn(cx, Role::TextInput, "What does this mean?"), "the box asks what the words mean");
+        chat.update_in(cx, |chat, window, cx| {
+            chat.input.update(cx, |input, cx| input.set_value("what does this mean?", window, cx));
+            chat.ask(window, cx);
+        });
+        let sent = chat.read_with(cx, |chat, _| chat.asked().to_vec());
+        assert_eq!(sent.len(), 1);
+        assert_eq!((sent[0].question.as_str(), sent[0].quote.as_deref(), sent[0].session_id.as_str()), ("what does this mean?", Some("write-clash probe"), "mock-01"));
+        assert_eq!(chat.read_with(cx, |chat, _| chat.quote().map(str::to_string)), None, "the quote is spent with the question");
+        assert!(drawn(cx, Role::TextInput, "Ask about this Job"));
+    }
+
+    #[gpui::test]
+    fn w_shuts_the_split_and_j_brings_it_back_with_every_aside(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        let split = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| (view.side_split_open(), view.view_tab_ids("mock-02")));
+        assert_eq!(split(&view, cx), (false, Vec::<String>::new()));
+        let took = view.update_in(cx, |view, window, cx| view.side_chat_act(&operator(), window, cx));
+        cx.run_until_parked();
+        assert!(took, "⌘J with a Job open is the side chat's");
+        assert_eq!(split(&view, cx), (true, vec!["aside:mock-02".to_string()]));
+        let w = gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse("cmd-w").expect("a key"), is_held: false, prefer_character_input: false };
+        assert!(view.update_in(cx, |view, window, cx| view.side_chat_key(&w, window, cx)), "⌘W shuts the split");
+        cx.run_until_parked();
+        assert_eq!(split(&view, cx), (false, vec!["aside:mock-02".to_string()]), "the tab stays among the Job's own");
+        assert_eq!(view.read_with(cx, |view, _| view.view_tab_pane("mock-02", "aside:mock-02")), Some(ViewPane::Thread));
+        assert!(!view.update_in(cx, |view, window, cx| view.side_chat_key(&w, window, cx)), "with no split ⌘W is left alone");
+        view.update_in(cx, |view, window, cx| view.side_chat_act(&operator(), window, cx));
+        cx.run_until_parked();
+        assert!(split(&view, cx).0, "⌘J opens it again");
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        assert_eq!(chat.read_with(cx, |chat, _| chat.asides().len()), 4, "every question is kept");
     }
 }
