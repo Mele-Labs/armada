@@ -132,6 +132,8 @@ where
             fleet.clashes_published().await;
             // What main's moves made stale in the test map, read again where that costs nothing.
             fleet.test_map_moves_fed();
+            // The minute's calls to GitHub, logged once it is over.
+            fleet.forge_calls_logged();
             // A Session that ended or handed on, distilled into the Logbook one at a time.
             fleet.logbook_distils_run();
             // The open lessons that are repository facts, moved into the Logbook once per store.
