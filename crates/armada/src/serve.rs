@@ -440,6 +440,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 fleet::backlog::LOOK_EVERY,
                 |said| eprintln!("{said}"),
             );
+            // A review asked of him by name, told once a request as a call, every five minutes.
+            fleet::review_requests::keep_asking_for_reviews(
+                Arc::clone(&fleet),
+                fleet::review_requests::EVERY,
+                |said| eprintln!("{said}"),
+            );
             // `GET /worktrees` kept in memory and read again behind its requests.
             fleet::keep_worktrees_warm(Arc::clone(&fleet));
             // A hosted session refused a slot for a full pool, leased one when one frees.

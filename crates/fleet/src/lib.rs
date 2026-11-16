@@ -164,6 +164,8 @@ mod lane_keeping;
 mod merge_line_view;
 /// What calls the person and which of it he has not opened, read once for every client: `get_calls`, `calls.changed`.
 pub mod standing_calls;
+/// A review asked of him by name, looked for every five minutes and told once a request as a call.
+pub mod review_requests;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;

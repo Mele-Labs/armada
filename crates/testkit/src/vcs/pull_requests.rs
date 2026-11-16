@@ -327,6 +327,11 @@ impl FakeVcs {
         forge.review_lists.push((list, rows));
     }
 
+    /// Make one review list silent again, as a forge that stopped answering.
+    pub fn review_list_silent(&self, list: ReviewList) {
+        self.pull_requests.lock().expect("not poisoned").review_lists.retain(|(held, _)| *held != list);
+    }
+
     /// Hold each review list read until `n` are being read at once. One left alone for two seconds
     /// is silent, which is what reading the lists one after another comes to.
     pub fn review_lists_answer_together(&self, n: usize) {
