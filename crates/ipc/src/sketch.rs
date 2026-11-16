@@ -113,6 +113,18 @@ pub struct ShowSketch {
     /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<crate::ForLink>,
+    /// Whether it is put to the person to approve or send back. **`false` for a sketch that only explains**: it never
+    /// waits on him and has no Approve, and his note on it reaches the Job as a message. Left out while `true`.
+    #[serde(default = "asks", skip_serializing_if = "is_asking")]
+    pub asks: bool,
+}
+
+fn asks() -> bool {
+    true
+}
+
+fn is_asking(asks: &bool) -> bool {
+    *asks
 }
 
 /// The keys of a sketch's `detail` that put it to the person and say how he answered. `detail`
