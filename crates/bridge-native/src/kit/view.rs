@@ -42,6 +42,7 @@ fn mark_hue(mark: &Mark) -> Token {
         Mark::Plugin(_) | Mark::Market(_) => token::KIND_GATE,
         Mark::Repository | Mark::Folder(_) => token::KIND_SETUP,
         Mark::Armada => token::OPERATOR,
+        Mark::Kit => token::KIND_STEP,
         Mark::Plain(_) => token::FG_MUTED,
     }
 }

@@ -133,6 +133,8 @@ pub enum Mark {
     Folder(String),
     Repository,
     Armada,
+    /// A server Kit holds itself, added in Kit.
+    Kit,
     Plain(String),
 }
 
@@ -145,6 +147,7 @@ impl Mark {
             Mark::Market(name) | Mark::Folder(name) | Mark::Plain(name) => name.clone(),
             Mark::Repository => "This repository".into(),
             Mark::Armada => "Armada".into(),
+            Mark::Kit => "Kit".into(),
         }
     }
 
@@ -155,7 +158,7 @@ impl Mark {
             Mark::Plugin(name) | Mark::Market(name) => (1, name.to_lowercase()),
             Mark::Repository => (2, String::new()),
             Mark::Folder(name) => (2, name.to_lowercase()),
-            Mark::Armada => (3, String::new()),
+            Mark::Armada | Mark::Kit => (3, String::new()),
             Mark::Plain(name) => (4, name.to_lowercase()),
         }
     }
@@ -364,7 +367,7 @@ pub fn read_kind(kind: Kind, inventory: &KitInventory, servers: &[KitServerRow])
             kind,
             name: server.name.clone(),
             says: None,
-            mark: Mark::Armada,
+            mark: Mark::Kit,
             path: None,
             piece: None,
             comes_with: None,

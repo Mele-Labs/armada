@@ -194,6 +194,8 @@ fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group
     assert_eq!(armada.comes_with.as_deref(), Some("armada"), "the short name, for drawing");
     assert_eq!(armada.mark.label(), "armada plugin", "a plugin's group never reads as Armada's own");
     assert_eq!(Mark::Armada.label(), "Armada");
+    // A server Kit holds is grouped under the word its card says.
+    assert_eq!(Mark::Kit.label(), "Kit");
 }
 
 #[test]
