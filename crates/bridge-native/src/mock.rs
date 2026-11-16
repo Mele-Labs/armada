@@ -718,6 +718,28 @@ fn ready_tip(id: &str) -> String {
     format!("{:0<40}", format!("{}c1e9a2", id.len()))
 }
 
+/// What the Job said after it offered its builds, so the builds stand far up its thread: the card of them is at its end all the same.
+fn after_the_builds() -> Result<Vec<ipc::ThreadItem>, String> {
+    let said = [
+        "The three builds are offered above. While you look, I am reading the reviewer's brief again.",
+        "The brief names its files, but not in the order the reviewer opens them. I will put the files first.",
+        "The Jobs list search now matches a branch as well as a title. I checked it against forty branches, and none was missed.",
+        "The sketch boxes take their strip from the box's own kind. A box with no kind keeps the plain header.",
+        "I will leave the preview as it is and wait for what you find. Nothing else is open on this branch.",
+        "One more thing I noticed while reading: the strip says START on a box that has no step number. I left it.",
+        "The chip colour you answered earlier is in the preview already, and the rest of the branch builds clean.",
+        "If a build needs rework, say what should change in the box on its card and I will pick it up from there.",
+        "I am idle until you answer. The card at the foot of this thread lists each build still to try.",
+    ];
+    said.iter()
+        .enumerate()
+        .map(|(n, text)| {
+            let wire = format!(r#"{{"kind":"row","row":{{"kind":"message","id":"m-after-{n}","at":"2026-11-15T14:{:02}:00Z","from":{{"kind":"agent"}},"text":"{text}"}}}}"#, 30 + n);
+            ipc::decode::<ipc::ThreadItem>("after the builds", wire.as_bytes()).map_err(|why| why.to_string())
+        })
+        .collect()
+}
+
 /// The cards of the `ready-to-try` scenario, put at the foot of two Jobs' threads.
 fn ready_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
     let card = |id: &str, at: &str, about: &str, rest: &str| -> Result<ipc::ThreadItem, String> {
@@ -763,7 +785,10 @@ fn ready_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
                 r#""state":"open","pictures":["/work/shots/queue-search.png"],"look":"Type a branch name in the search box of the Jobs list.","steps":[{"say":"Press the search box"}]"#,
             )?),
             card("reviewer-brief", "2026-11-15T14:20:00Z", "The reviewer's brief names its files", r#""state":"open""#)?,
-        ],
+        ]
+        .into_iter()
+        .chain(after_the_builds()?)
+        .collect(),
     );
     put(
         "tool-done",

@@ -203,6 +203,8 @@ pub(crate) enum Extra {
     SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The Job's one compact card of builds to try, pinned at the thread's end while any build is open or put off (`ready_compact`).
+    Ready,
     /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
     Parts(String, u32),
 }
@@ -269,8 +271,8 @@ struct Page {
     side: side::SideState,
     /// The whole Job's Judge pane, while it is open.
     judge: Option<judge_tab::JudgePane>,
-    /// What Fleet last said of each build to try, so the thread measures again where one changed.
-    ready: (Vec<(String, ipc::ReadyState)>, Option<usize>),
+    /// What Fleet last said of each build to try, and where its item stands, so the thread measures again where one changed.
+    ready: Vec<(usize, String, ipc::ReadyState)>,
     /// His bubble open for new words.
     editing: Option<edit::Editing>,
     /// New words saved on his messages, by row id, drawn until Fleet's row reads them.
@@ -286,7 +288,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: (Vec::new(), None), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: Vec::new(), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -981,7 +983,11 @@ impl JobView {
         // Each revision of an artifact that holds parts has a card where it was kept: under the item before later ones, else before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
-        let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        let mut cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
+        if ready_compact::asks(&held.items) {
+            cards.push(Extra::Ready);
+        }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
         extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
@@ -1010,8 +1016,8 @@ impl JobView {
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
-        // The builds to try are one compact card at the newest open one's place: where a build changed, it and the place measure again.
-        let ready = (ready_compact::signature(&held.items), ready_compact::place_in(&held.items));
+        // Where a build changed, its item measures again: it draws a line when settled and nothing while it is listed on the card.
+        let ready = ready_compact::signature(&held.items);
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
@@ -1020,7 +1026,7 @@ impl JobView {
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
-        let from = if page.ready == ready { from } else { [page.ready.1, ready.1].into_iter().flatten().fold(from, usize::min) };
+        let from = ready_compact::first_change(&page.ready, &ready).map_or(from, |at| from.min(at));
         // A card kept under an item that is not new changes that item's element, so the list measures from there.
         let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
