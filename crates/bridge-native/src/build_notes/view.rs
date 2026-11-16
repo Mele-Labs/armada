@@ -171,6 +171,7 @@ impl BuildNotesSheet {
         let Some(note) = self.note() else { return div().id("build-note-pane").flex_1().into_any_element() };
         let ended = note.job_ended;
         let good = verdict(note, &self.marked) == Some(NoteVerdict::Good);
+        let needs_work_marked = verdict(note, &self.marked) == Some(NoteVerdict::NeedsWork);
         let title: SharedString = note.title.clone().into();
         let heading = div()
             .flex()
@@ -288,10 +289,12 @@ impl BuildNotesSheet {
             .when(self.good_focus.is_focused(window), |button| button.border_color(ring))
             .when(!good, |button| button.on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::Good, window, cx))))
             .child(kbd(keymap::shown("build_note_looked"), look));
-        // Never off: on a note already marked so, it still puts the keys in the box.
+        // Never off: on a note already marked so it still sends his words, and it wears the mark's hue so the press
+        // that set it shows.
         let needs_work = Btn::new("build-note-needs-work", "Needs work", Weight::Secondary)
             .icon("circle-alert")
             .draw(look, cx)
+            .when(needs_work_marked, |button| button.border_color(look.color(token::STATUS_ESCALATED)).text_color(look.color(token::STATUS_ESCALATED)))
             .track_focus(&self.needs_work_focus)
             .when(self.needs_work_focus.is_focused(window), |button| button.border_color(ring))
             .on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::NeedsWork, window, cx)))
