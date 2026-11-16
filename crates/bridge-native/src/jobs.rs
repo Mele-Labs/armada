@@ -453,8 +453,6 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
     Some(placed)
 }
 
-/// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
-/// by its kind where its words do not. Otherwise what it is doing now, or what it last summed up.
 /// Fleet's mark, save that an idle Job with work still going past its turn reads as running it: idle would say nothing runs.
 pub(crate) fn mark_of(job: &SessionRecord) -> Option<JobMark> {
     let mark = job.mark?;
@@ -462,6 +460,9 @@ pub(crate) fn mark_of(job: &SessionRecord) -> Option<JobMark> {
     let state = if first.kind == ipc::RunningKind::Subagent { JobState::Subagent } else { JobState::Running };
     Some(JobMark { state, lamp: JobLamp::Running, ..mark })
 }
+
+/// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
+/// by its kind where its words do not. Otherwise what it is doing now, a background task still going, or what it last summed up.
 
 pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
     let waits = job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
