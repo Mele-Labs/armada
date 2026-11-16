@@ -102,7 +102,7 @@ where
             BuildSource::Preview => self.push_as().await.map(|me| vec![String::from("--push-as"), me]).unwrap_or_default(),
             BuildSource::Main => Vec::new(),
         };
-        self.change_fleet_build_now(asked, &extra)
+        self.change_fleet_build_now(asked, &extra).await
     }
 
     /// This Mac's id, where another Mac is linked to share a preview with.
@@ -132,7 +132,7 @@ where
             }
             (BuildSource::Main, _) => {}
         }
-        self.change_fleet_build_now(&ChangeFleetBuild { build: onto.build, adopt: true }, &extra)
+        self.change_fleet_build_now(&ChangeFleetBuild { build: onto.build, adopt: true, clear: None }, &extra).await
     }
 
     /// The build this Mac runs, as another Mac would build it: main, or this Mac's pushed preview.

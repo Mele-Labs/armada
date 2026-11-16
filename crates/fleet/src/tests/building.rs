@@ -13,7 +13,7 @@ use crate::building::{
     checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
     NotSwapped,
 };
-use crate::kept_builds::{fleet_label, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
+use crate::kept_builds::{fleet_label, fleet_program, APP, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -213,9 +213,10 @@ async fn wait_for(path: &Path) -> String {
 async fn a_change_starts_the_wrapper_with_the_build_and_adopt_and_marks_it_running() {
     let (checkout, support) = rig();
     let building = Building::default();
-    let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: true };
+    let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: true, clear: None };
     let changing = building
         .change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now())
+        .await
         .expect("started");
     assert_eq!(changing.build, BuildSource::Preview);
     assert_eq!(
@@ -228,9 +229,10 @@ async fn a_change_starts_the_wrapper_with_the_build_and_adopt_and_marks_it_runni
 #[tokio::test]
 async fn a_change_without_adopt_passes_none() {
     let (checkout, support) = rig();
-    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
+    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: None };
     Building::default()
         .change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now())
+        .await
         .expect("started");
     assert_eq!(wait_for(&checkout.path().join("ran")).await.trim(), "main");
 }
@@ -240,8 +242,8 @@ async fn a_second_change_while_one_is_under_way_is_refused() {
     let (checkout, support) = rig();
     let building = Building::default();
     fs::write(support.path().join("restart-build.status"), "running\nmain\n").unwrap();
-    let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: false };
-    let refused = building.change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now());
+    let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: false, clear: None };
+    let refused = building.change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now()).await;
     assert_eq!(refused, Err(NotChanged::Restarting(BuildSource::Main)));
     assert!(!checkout.path().join("ran").exists(), "nothing was started");
 }
@@ -249,8 +251,8 @@ async fn a_second_change_while_one_is_under_way_is_refused() {
 #[tokio::test]
 async fn a_change_with_no_wrapper_to_run_is_refused() {
     let support = TempDir::new();
-    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
-    let refused = Building::default().change(None, support.path(), &asked, &[], SystemTime::now());
+    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: None };
+    let refused = Building::default().change(None, support.path(), &asked, &[], SystemTime::now()).await;
     assert_eq!(refused, Err(NotChanged::NotOffered(NotOffered::NoWrapper)));
 }
 
@@ -259,10 +261,56 @@ async fn a_wrapper_that_will_not_start_leaves_no_status_behind() {
     let (checkout, support) = rig();
     let wrapper = checkout.path().join("scripts/restart-build");
     Command::new("chmod").arg("-x").arg(&wrapper).status().expect("chmod");
-    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false };
-    let refused = Building::default().change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now());
+    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: None };
+    let refused = Building::default().change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now()).await;
     assert!(matches!(refused, Err(NotChanged::NotStarted(_))), "{refused:?}");
     assert!(!support.path().join("restart-build.status").exists());
+}
+
+/// The wrapper a stale checkout held, which refused `--push-as` before it wrote any stage: its words went
+/// nowhere and the panel spun for twenty minutes. Fleet now reads them off the start log within seconds.
+#[tokio::test]
+async fn a_wrapper_that_exits_before_writing_a_stage_is_reported_failed_with_its_last_line() {
+    let (checkout, support) = rig();
+    let wrapper = checkout.path().join("scripts/restart-build");
+    fs::write(&wrapper, "#!/bin/sh
+echo 'starting' >&2
+echo 'usage: restart-build main|preview [--adopt]' >&2
+exit 1
+").unwrap();
+    let building = Building::default();
+    let asked = ChangeFleetBuild { build: BuildSource::Preview, adopt: false, clear: None };
+    let extra = [String::from("--push-as"), String::from("mac-1")];
+    building.change(Some(checkout.path()), support.path(), &asked, &extra, SystemTime::now()).await.expect("started");
+    for _ in 0..100 {
+        let report = building.report(Some(checkout.path()), support.path(), SystemTime::now()).await.expect("a build");
+        if report.failed.is_some() {
+            assert_eq!(report.restarting, None);
+            assert_eq!(report.failed.as_deref(), Some("usage: restart-build main|preview [--adopt]"));
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("still restarting: {:?}", fs::read_to_string(support.path().join("restart-build.status")));
+}
+
+/// A wrapper that took over writes its own stage, and its own failure; Fleet leaves that alone.
+#[tokio::test]
+async fn a_wrapper_that_wrote_a_stage_owns_the_status_when_it_exits() {
+    let (checkout, support) = rig();
+    let wrapper = checkout.path().join("scripts/restart-build");
+    let status = support.path().join("restart-build.status");
+    fs::write(&wrapper, format!("#!/bin/sh
+printf 'running\\nmain\\nfetching_main\\n' > '{}'
+echo 'it broke' >&2
+exit 1
+", status.display())).unwrap();
+    let asked = ChangeFleetBuild { build: BuildSource::Main, adopt: false, clear: None };
+    Building::default().change(Some(checkout.path()), support.path(), &asked, &[], SystemTime::now()).await.expect("started");
+    let log = support.path().join("restart-build.start.log");
+    wait_for(&log).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(fs::read_to_string(&status).unwrap(), "running\nmain\nfetching_main\n");
 }
 
 #[test]
@@ -385,14 +433,22 @@ fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
             text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
         }
         fs::write(builds.join(name).join("build.toml"), text).unwrap();
+        bundled(&builds.join(name));
     }
     let undo = builds.join("old").join("armada");
     fs::write(&undo, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
     Command::new("chmod").arg("+x").arg(&undo).status().expect("chmod");
     std::os::unix::fs::symlink("new", builds.join(CURRENT)).unwrap();
     std::os::unix::fs::symlink("old", builds.join(PREVIOUS)).unwrap();
-    let runs = builds.join(CURRENT).join("armada");
+    let runs = fleet_program(support);
     fs::write(support.join(format!("{label}.plist")), format!("<string>{}</string>", runs.display())).unwrap();
+}
+
+/// Fleet's bundle in the build at `build`, as `scripts/keep-build` keeps it, so a revert or swap can place it.
+fn bundled(build: &Path) {
+    let bundled = build.join(APP).join("Contents/MacOS");
+    fs::create_dir_all(&bundled).unwrap();
+    fs::write(bundled.join("armada"), "fleet").unwrap();
 }
 
 #[tokio::test]
@@ -526,6 +582,7 @@ fn snapshot_in(support: &Path, jobs: &[&str]) {
         text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
     }
     fs::write(snap.join("build.toml"), text).unwrap();
+    bundled(&snap);
     fs::write(support.join(SNAPSHOT), "snap\n").unwrap();
     let swap = support.join(BUILDS).join("new").join("armada");
     fs::write(&swap, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
