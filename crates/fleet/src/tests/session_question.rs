@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use api::HostedSessions;
+use api::{HostedSessions, Sessions};
 use ipc::{
     AnswerSessionAsk, AskingToRun, CallAnswer, QuestionAnswer, RunOrNot, SessionAskState,
     SessionId, SessionRow, SessionVoice,
@@ -315,5 +315,33 @@ async fn a_reply_in_the_turn_of_a_question_card_asks_nothing_more_and_a_turn_wit
     a_turn(&rig, &id, "and dessert").await;
     rig.stand_in.finishes(0, AFTER);
     ended_on(&rig, &id, AFTER).await;
+    assert_eq!(replied_items(&rig, &id).await, ["Want me to order it now?"]);
+}
+
+/// The agent's own `waiting_for` items are the turn's ask: its reply's close restates them, so it raises
+/// no second item. Once the agent lists nothing, the same close asks again.
+#[tokio::test]
+async fn a_reply_in_a_turn_where_the_agent_listed_items_asks_nothing_more() {
+    const CLOSE: &str = "Both are in. Want me to order it now?";
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let list = |items: Vec<ipc::WaitingInput>| ipc::SetWaitingFor { session_id: Some(id.clone()), items };
+    let listed = ipc::WaitingInput {
+        approves: false,
+        id: "order".into(),
+        text: "Pick the order".into(),
+        act: None,
+        options: Vec::new(),
+        steps: Vec::new(),
+        artifact: None,
+    };
+
+    a_turn(&rig, &id, "order lunch").await;
+    rig.fleet.waiting_for(None, list(vec![listed])).await.unwrap();
+    rig.stand_in.finishes(0, CLOSE);
+    ended_on(&rig, &id, CLOSE).await;
+    assert_eq!(replied_items(&rig, &id).await, Vec::<String>::new());
+
+    rig.fleet.waiting_for(None, list(Vec::new())).await.unwrap();
     assert_eq!(replied_items(&rig, &id).await, ["Want me to order it now?"]);
 }
