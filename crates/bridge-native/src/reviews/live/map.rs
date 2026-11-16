@@ -1,0 +1,467 @@
+//! Fleet's answers as the screen's view model. Words and places are carried over as Fleet gives them;
+//! what is cut here is only what the screen draws, such as a hunk's lines out of its file's patch.
+
+use std::collections::{HashMap, HashSet};
+
+use ipc::{
+    ChangeSetKind, MyReviewSaid, OverviewSeverity, PracticeVerdict, PullInbox, PullRequestCommit, PullRequestCompare, PullRequestFilePatch, PullRequestNote, PullRequestPage, PullReviewList,
+    PullReviewLists, ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewToolKind, ReviewTools,
+};
+
+use super::Row;
+use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Seen, Summary, Verdict, Viewed};
+
+/// Where one of Fleet's runs stands for the head in front.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Find {
+    /// Nothing kept at this head: only a press starts it.
+    #[default]
+    NotRun,
+    Running,
+    Failed(String),
+    Done,
+}
+
+/// Where the page's runs stand, beside what they found.
+#[derive(Clone, Debug, Default)]
+pub struct Finds {
+    pub sets: Find,
+    pub flags: Find,
+    /// By change set id.
+    pub practices: HashMap<String, Find>,
+    /// A sentence for each tool run that failed or was refused.
+    pub critique_failed: Vec<String>,
+}
+
+/// What a pull request's runs come to, for its page.
+pub struct Mapped {
+    pub summary: Summary,
+    pub sets: Vec<ChangeSet>,
+    pub flags: Vec<Flag>,
+    pub critique: Critique,
+    pub finds: Finds,
+}
+
+/// What the runs are read against: the heads, the runs and patches as Fleet answered, and the runs it refused.
+#[derive(Clone, Debug, Default)]
+pub struct Facts {
+    /// The head the page was read at, whole.
+    pub head: Option<String>,
+    /// The head he last left it at, whole.
+    pub seen: Option<String>,
+    pub gone: bool,
+    pub runs: Vec<ReviewRun>,
+    pub patches: Vec<PullRequestFilePatch>,
+    /// Runs Fleet refused to start, by kind and name, with its reason.
+    pub refused: Vec<(ReviewRunKind, String, String)>,
+}
+
+impl Facts {
+    /// Whether some run of this kind and name is kept at another head, so a press must ask again for this one.
+    pub fn kept_elsewhere(&self, kind: ReviewRunKind, name: &str) -> bool {
+        self.runs.iter().any(|run| run.kind == kind && named(kind, &run.name, name) && Some(run.head.as_str()) != self.head.as_deref())
+    }
+}
+
+/// `change_sets` and `overview` are kept under Fleet's own names whatever was asked.
+fn named(kind: ReviewRunKind, kept: &str, asked: &str) -> bool {
+    matches!(kind, ReviewRunKind::ChangeSets | ReviewRunKind::Overview) || kept == asked
+}
+
+fn short(sha: &str) -> String {
+    sha.chars().take(7).collect()
+}
+
+/// The day and time of an instant, as a person says them: `today`, `yesterday`, `Tuesday`, `4 Nov`.
+pub fn when(at: &str) -> Option<(String, String)> {
+    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
+    let days = (chrono::Local::now().date_naive() - at.date_naive()).num_days();
+    let day = match days {
+        ..=0 => "today".to_string(),
+        1 => "yesterday".to_string(),
+        2..=6 => at.format("%A").to_string(),
+        _ => at.format("%-d %b").to_string(),
+    };
+    Some((day, at.format("%H:%M").to_string()))
+}
+
+/// How long since an instant, in its largest unit, as an inbox row says it.
+fn age(at: &str) -> String {
+    let Ok(at) = chrono::DateTime::parse_from_rfc3339(at) else { return String::new() };
+    let minutes = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_minutes().max(0);
+    match minutes {
+        0 => "just now".into(),
+        1..=59 => format!("{minutes}m"),
+        60..=1439 => format!("{}h", minutes / 60),
+        _ => format!("{}d", minutes / 1440),
+    }
+}
+
+/// A commit's time as the What changed list says it: `Fri 08:58`, or `4 Nov` past a week.
+fn stamp(at: &str) -> String {
+    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(at) else { return at.to_string() };
+    let at = parsed.with_timezone(&chrono::Local);
+    if (chrono::Local::now().date_naive() - at.date_naive()).num_days() < 7 {
+        at.format("%a %H:%M").to_string()
+    } else {
+        at.format("%-d %b").to_string()
+    }
+}
+
+fn verdict_of(said: Option<MyReviewSaid>) -> Verdict {
+    match said {
+        Some(MyReviewSaid::Approved) => Verdict::Approved,
+        Some(MyReviewSaid::ChangesRequested) => Verdict::ChangesRequested,
+        Some(MyReviewSaid::Commented) => Verdict::Commented,
+        None => Verdict::NotReviewed,
+    }
+}
+
+/// The four lists as one inbox: a pull request on several lists is one row that names each. The rows
+/// kept, by number. Two repositories' pull requests of one number keep the first.
+pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
+    let mut rows: Vec<InboxRow> = Vec::new();
+    let mut kept: Vec<(u64, Row)> = Vec::new();
+    let all = [(PullReviewList::Requested, &lists.requested), (PullReviewList::Team, &lists.team), (PullReviewList::Assigned, &lists.assigned), (PullReviewList::Mine, &lists.mine)];
+    for (list, on) in all {
+        for row in on.iter() {
+            if let Some(at) = kept.iter().position(|(number, _)| *number == row.number) {
+                if kept[at].1.manifest == row.manifest_id.as_str() && !rows[at].lists.contains(&list) {
+                    rows[at].lists.push(list);
+                }
+                continue;
+            }
+            let group = match row.inbox {
+                PullInbox::NeedsFirstLook => Group::FirstLook,
+                PullInbox::ChangedSinceYouLooked => Group::Changed,
+                PullInbox::WaitingOnAuthor => Group::Waiting,
+                PullInbox::Done => Group::Done,
+            };
+            rows.push(InboxRow {
+                number: row.number,
+                repository: row.repository.clone(),
+                title: row.title.clone(),
+                author: row.author.clone(),
+                age: age(&row.updated_at),
+                group,
+                new_commits: None,
+                lists: vec![list],
+                checks: row.checks,
+                mine: verdict_of(row.my_review.as_ref().map(|mine| mine.said)),
+            });
+            kept.push((
+                row.number,
+                Row {
+                    manifest: row.manifest_id.as_str().to_string(),
+                    repository: row.repository.clone(),
+                    title: row.title.clone(),
+                    branch: row.branch.clone(),
+                    author: row.author.clone(),
+                    holder: row.holder.clone(),
+                },
+            ));
+        }
+    }
+    (rows, kept)
+}
+
+/// The review tools that make findings, the first ticked until he picks.
+pub fn tools_of(tools: &ReviewTools) -> Vec<model::ReviewTool> {
+    tools
+        .tools
+        .iter()
+        .filter(|tool| tool.kind == ReviewToolKind::Tool)
+        .enumerate()
+        .map(|(at, tool)| {
+            // After another word it reads lower case, but for a name that opens on an acronym.
+            let mut chars = tool.name.chars();
+            let said = match (chars.next(), chars.next()) {
+                (Some(first), Some(second)) if !second.is_uppercase() => first.to_lowercase().chain(tool.name.chars().skip(1)).collect(),
+                _ => tool.name.clone(),
+            };
+            model::ReviewTool { id: tool.id.clone(), name: tool.name.clone(), said, first: at == 0 }
+        })
+        .collect()
+}
+
+/// A pull request's page, from its inbox row, Fleet's page, its patches, the change since he looked and his notes.
+pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[PullRequestFilePatch], compare: Option<&PullRequestCompare>, notes: &[PullRequestNote]) -> Page {
+    let head = detail.head.clone().unwrap_or_default();
+    let gone = matches!(compare, Some(PullRequestCompare::BaseGone { .. }));
+    let since: HashMap<&str, Option<&str>> = match compare {
+        Some(PullRequestCompare::Patches { files, .. }) => files.iter().map(|file| (file.path.as_str(), file.patch.as_deref())).collect(),
+        _ => HashMap::new(),
+    };
+    let viewed: HashMap<&str, bool> = detail.viewed.iter().map(|file| (file.path.as_str(), file.still)).collect();
+    let files = detail
+        .files
+        .iter()
+        .map(|file| PageFile {
+            path: file.path.clone(),
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            viewed: match viewed.get(file.path.as_str()) {
+                Some(true) => Viewed::Yes,
+                Some(false) => Viewed::ChangedAfter,
+                None => Viewed::No,
+            },
+            since: since.contains_key(file.path.as_str()),
+            patch: patches.iter().find(|one| one.path == file.path).and_then(|one| one.patch.clone()).unwrap_or_default(),
+            patch_since: since.get(file.path.as_str()).copied().flatten().map(str::to_string),
+        })
+        .collect();
+    let seen = detail.seen.as_ref().map(|seen| {
+        let (day, time) = when(&seen.at).unwrap_or_default();
+        Seen { day, time, old: short(&seen.head), new: short(&head), gone }
+    });
+    // The commits after the one he left it at, newest first; all of them where his is no longer there.
+    let new_commits: Vec<PullRequestCommit> = match &detail.seen {
+        Some(seen) if seen.head != head => {
+            let after = detail.commits.iter().position(|commit| !commit.sha.is_empty() && seen.head.starts_with(&commit.sha)).map_or(0, |at| at + 1);
+            detail.commits[after..].iter().rev().cloned().map(|commit| PullRequestCommit { at: commit.at.as_deref().map(stamp), ..commit }).collect()
+        }
+        _ => Vec::new(),
+    };
+    let mine = match &detail.my_review {
+        Some(review) => Mine {
+            verdict: verdict_of(Some(review.said)),
+            on: review.commit.as_deref().map(short),
+            day: review.submitted_at.as_deref().and_then(when).map(|(day, _)| day),
+            requested: None,
+            commits: detail.since_my_review.and_then(|since| since.commits).unwrap_or(0) as u32,
+            replies: detail.since_my_review.and_then(|since| since.replies).unwrap_or(0) as u32,
+        },
+        None => Mine { verdict: Verdict::NotReviewed, on: None, day: None, requested: None, commits: 0, replies: 0 },
+    };
+    let author = detail.author.clone().unwrap_or_else(|| row.author.clone());
+    let body = detail.body.clone().unwrap_or_default();
+    let why = if body.trim().is_empty() { format!("{} wrote no description", model::named(&author)) } else { body.clone() };
+    Page {
+        number,
+        repository: row.repository.clone(),
+        title: row.title.clone(),
+        author,
+        branch: row.branch.clone(),
+        base: detail.base.clone(),
+        head: short(&head),
+        body,
+        mine,
+        seen,
+        new_commits,
+        files,
+        replies: Vec::new(),
+        checks: detail.checks.clone(),
+        conversation: detail.conversation.clone(),
+        threads: detail.threads.clone(),
+        critique: Critique::None,
+        summary: Summary::None,
+        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new() },
+        holder: row.holder.as_ref().map(|holder| holder.title.clone()),
+        notes: notes.iter().filter(|note| note.sent_to.is_none() && note.status == ipc::NoteStatus::Open).map(|note| format!("{}:{} {}", note.path, note.line, note.body)).collect(),
+        kept: false,
+        ended: None,
+    }
+}
+
+fn find_of(run: Option<&ReviewRun>, refused: Option<&str>) -> Find {
+    match run {
+        Some(run) => match run.state {
+            ReviewRunState::Queued | ReviewRunState::Running => Find::Running,
+            ReviewRunState::Failed => Find::Failed(run.failed.clone().unwrap_or_else(|| "The run ended without a result".into())),
+            ReviewRunState::Done => Find::Done,
+        },
+        None => refused.map_or(Find::NotRun, |why| Find::Failed(why.to_string())),
+    }
+}
+
+/// What the runs kept at the page's head come to.
+pub fn from_runs(page: &Page, facts: &Facts) -> Mapped {
+    let head = facts.head.as_deref().unwrap_or_default();
+    let at_head: Vec<&ReviewRun> = facts.runs.iter().filter(|run| run.head == head).collect();
+    let latest = |kind: ReviewRunKind, name: &str, since: Option<&str>| -> Option<&ReviewRun> {
+        at_head.iter().filter(|run| run.kind == kind && named(kind, &run.name, name) && run.since.as_deref() == since).max_by(|a, b| a.started_at.cmp(&b.started_at)).copied()
+    };
+    let refused = |kind: ReviewRunKind, name: &str| facts.refused.iter().find(|(was, asked, _)| *was == kind && named(kind, asked, name)).map(|(_, _, why)| why.as_str());
+
+    let summary = match facts.seen.as_deref().and_then(|seen| latest(ReviewRunKind::Explanation, super::WHAT_CHANGED, Some(seen))) {
+        Some(run) => match (&run.state, &run.result) {
+            (ReviewRunState::Done, Some(ReviewResult::Text { body })) => Summary::Written(body.clone()),
+            (ReviewRunState::Queued | ReviewRunState::Running, _) => Summary::Writing,
+            _ => Summary::None,
+        },
+        None => Summary::None,
+    };
+
+    let sets_run = latest(ReviewRunKind::ChangeSets, "", None);
+    let flags_run = latest(ReviewRunKind::Overview, "", None);
+    let mut finds = Finds { sets: find_of(sets_run, refused(ReviewRunKind::ChangeSets, "")), flags: find_of(flags_run, refused(ReviewRunKind::Overview, "")), ..Finds::default() };
+
+    let flags: Vec<Flag> = match flags_run.and_then(|run| run.result.as_ref().map(|result| (run, result))) {
+        Some((run, ReviewResult::Overview { findings })) => findings
+            .iter()
+            .enumerate()
+            .map(|(at, finding)| Flag {
+                id: format!("overview@{}#{at}", run.started_at),
+                kind: match finding.severity {
+                    OverviewSeverity::Blocker => FlagKind::Blocker,
+                    OverviewSeverity::Risk => FlagKind::Risk,
+                    OverviewSeverity::Bug => FlagKind::PossibleBug,
+                },
+                set: finding.set.clone(),
+                title: finding.title.clone(),
+                said: finding.reason.clone(),
+                path: finding.at.path.clone(),
+                line: finding.at.end.max(finding.at.start),
+                fix: finding.title.clone(),
+                comment: finding.reason.clone(),
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+
+    let mut sets: Vec<ChangeSet> = Vec::new();
+    if let Some(ReviewResult::ChangeSets { sets: found }) = sets_run.and_then(|run| run.result.as_ref()) {
+        let short_repo = page.repository.rsplit('/').next().unwrap_or(&page.repository).to_string();
+        for set in found {
+            let practices_run = latest(ReviewRunKind::Practices, &set.id, None);
+            finds.practices.insert(set.id.clone(), find_of(practices_run, refused(ReviewRunKind::Practices, &set.id)));
+            let (kept_note, practices) = match practices_run.and_then(|run| run.result.as_ref()) {
+                Some(ReviewResult::Practices { kind, area, read_at, sources, checks, .. }) => {
+                    let area = if area.is_empty() { short_repo.clone() } else { area.clone() };
+                    let note = if sources.is_empty() {
+                        format!("No doc in {short_repo} states a practice for {} in {area}.", kind_said(*kind))
+                    } else {
+                        let docs: Vec<&str> = sources.iter().map(|source| source.path.as_str()).collect();
+                        let day = when(read_at).map_or_else(String::new, |(day, _)| format!(" {}", model::on_day(&day)));
+                        format!("Kept by Armada for every pull request that touches {area} in {short_repo}. Read from {}{day}, and read again when a doc changes.", docs.join(", "))
+                    };
+                    let practices = checks
+                        .iter()
+                        .map(|check| Practice {
+                            said: check.item.clone(),
+                            kept: match check.verdict {
+                                PracticeVerdict::Met => Kept::Met,
+                                PracticeVerdict::Missed => Kept::Missed,
+                                PracticeVerdict::NotApplicable => Kept::DoesNotApply,
+                            },
+                        })
+                        .collect();
+                    (note, practices)
+                }
+                _ => (String::new(), Vec::new()),
+            };
+            let mut hunks = Vec::new();
+            for at in &set.hunks {
+                let Some(patch) = facts.patches.iter().find(|file| file.path == at.path).and_then(|file| file.patch.as_deref()).and_then(|patch| cut(patch, at.old_start, at.new_start)) else { continue };
+                let reach = at.new_start..at.new_start + at.new_lines.max(1);
+                let flag = flags.iter().find(|flag| flag.set == set.id && flag.path == at.path && reach.contains(&flag.line));
+                let hot = flag.and_then(|flag| {
+                    let drawn = crate::diff::file_diff_of(&at.path, Some(&patch), None);
+                    let lines = drawn.files.into_iter().next().map(|file| file.lines).unwrap_or_default();
+                    crate::diff::places(&lines).iter().position(|place| *place == Some((flag.line, false)))
+                });
+                hunks.push(Hunk { path: at.path.clone(), caption: String::new(), patch, hot, flag: flag.map(|flag| flag.id.clone()) });
+            }
+            let files = set.hunks.iter().map(|hunk| hunk.path.as_str()).collect::<HashSet<_>>().len() as u32;
+            sets.push(ChangeSet { id: set.id.clone(), title: set.title.clone(), purpose: set.purpose.clone(), files, kind: kind_said(set.kind).into(), kept_note, practices, hunks });
+        }
+    }
+
+    // The tools he asked at this head, each its latest run: running while any runs, their findings once all end.
+    let mut tools: Vec<&ReviewRun> = Vec::new();
+    for run in at_head.iter().filter(|run| run.kind == ReviewRunKind::Tool) {
+        match tools.iter().position(|held| held.name == run.name) {
+            Some(at) if tools[at].started_at < run.started_at => tools[at] = run,
+            Some(_) => {}
+            None => tools.push(run),
+        }
+    }
+    let refused_tools: Vec<&(ReviewRunKind, String, String)> = facts.refused.iter().filter(|(kind, name, _)| *kind == ReviewRunKind::Tool && !tools.iter().any(|run| run.name == *name)).collect();
+    finds.critique_failed = tools
+        .iter()
+        .filter(|run| run.state == ReviewRunState::Failed)
+        .map(|run| format!("{} failed: {}", run.name, run.failed.clone().unwrap_or_default()))
+        .chain(refused_tools.iter().map(|(_, name, why)| format!("{name} failed: {why}")))
+        .collect();
+    let critique = if tools.is_empty() {
+        Critique::None
+    } else {
+        let asked = model::ReviewAsk { tools: tools.iter().map(|run| run.name.clone()).collect(), effort: model::Effort::default(), focus: String::new() };
+        let range = page.range();
+        if tools.iter().any(|run| matches!(run.state, ReviewRunState::Queued | ReviewRunState::Running)) {
+            Critique::Running { range, asked }
+        } else {
+            let mut findings = Vec::new();
+            for run in &tools {
+                if let Some(ReviewResult::Findings { findings: found }) = &run.result {
+                    findings.extend(found.iter().enumerate().map(|(at, finding)| model::Finding {
+                        id: format!("{}@{}#{at}", run.name, run.started_at),
+                        title: finding.title.clone(),
+                        path: finding.at.path.clone(),
+                        line: finding.at.end.max(finding.at.start),
+                        comment: if finding.comment.trim().is_empty() { finding.body.clone() } else { finding.comment.clone() },
+                    }));
+                }
+            }
+            Critique::Finished { range, findings, asked }
+        }
+    };
+    Mapped { summary, sets, flags, critique, finds }
+}
+
+/// What kind of change a set is, after "Practices for".
+fn kind_said(kind: ChangeSetKind) -> &'static str {
+    match kind {
+        ChangeSetKind::Migration => "migrations",
+        ChangeSetKind::Data => "data changes",
+        ChangeSetKind::Logic => "logic",
+        ChangeSetKind::Api => "API changes",
+        ChangeSetKind::Ui => "UI",
+        ChangeSetKind::Tests => "tests",
+        ChangeSetKind::Config => "config",
+        ChangeSetKind::Other => "other changes",
+    }
+}
+
+/// A hunk header's old and new starts: `@@ -12,4 +12,6 @@`.
+fn hunk_head(line: &str) -> Option<(u64, u64)> {
+    let rest = line.strip_prefix("@@ -")?;
+    let (old, rest) = rest.split_once(" +")?;
+    let (new, _) = rest.split_once(' ')?;
+    let start = |range: &str| range.split(',').next().and_then(|start| start.parse::<u64>().ok());
+    Some((start(old)?, start(new)?))
+}
+
+/// One hunk of a file's patch, its header first, by the starts Fleet names it by.
+fn cut(patch: &str, old_start: u64, new_start: u64) -> Option<String> {
+    let mut out: Option<Vec<&str>> = None;
+    for line in patch.lines() {
+        if line.starts_with("@@") {
+            if out.is_some() {
+                break;
+            }
+            if hunk_head(line) == Some((old_start, new_start)) {
+                out = Some(vec![line]);
+            }
+            continue;
+        }
+        if let Some(lines) = out.as_mut() {
+            lines.push(line);
+        }
+    }
+    out.map(|lines| lines.join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_hunk_is_cut_from_its_file_by_its_starts() {
+        let patch = "@@ -1,2 +1,3 @@\n a\n+b\n c\n@@ -10,1 +11,2 @@\n x\n+y";
+        assert_eq!(cut(patch, 10, 11).as_deref(), Some("@@ -10,1 +11,2 @@\n x\n+y"));
+        assert_eq!(cut(patch, 1, 1).as_deref(), Some("@@ -1,2 +1,3 @@\n a\n+b\n c"));
+        assert_eq!(cut(patch, 5, 5), None);
+    }
+}

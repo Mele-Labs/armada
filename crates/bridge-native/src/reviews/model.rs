@@ -333,6 +333,11 @@ impl ReviewAsk {
 
     /// What was asked, in words: `Possible bugs and risks, thorough`.
     pub fn said(&self, list: &[ReviewTool]) -> String {
+        format!("{}, {}", self.what(list), self.effort.name().to_lowercase())
+    }
+
+    /// What was asked to look for, without how hard: `Possible bugs and risks`. Fleet takes no effort.
+    pub fn what(&self, list: &[ReviewTool]) -> String {
         let named: Vec<&str> = list.iter().filter(|tool| self.has(&tool.id)).map(|tool| tool.said.as_str()).collect();
         let what = match named.as_slice() {
             [] => String::new(),
@@ -340,8 +345,7 @@ impl ReviewAsk {
             [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
         };
         let mut chars = what.chars();
-        let what = chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect());
-        format!("{what}, {}", self.effort.name().to_lowercase())
+        chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
     }
 }
 

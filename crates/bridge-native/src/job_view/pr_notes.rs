@@ -38,7 +38,7 @@ pub(super) struct NoteBox {
 
 /// What the Job reads: each note numbered, with the file and line the forge names it by and the id to
 /// resolve it with (`messageOf`).
-fn message_of(number: u64, notes: &[&PullRequestNote]) -> String {
+pub(crate) fn message_of(number: u64, notes: &[&PullRequestNote]) -> String {
     let mut lines = vec![
         format!("Notes on #{number} from the owner, kept on his Mac and not posted to the pull request. When you have dealt with a note, call resolve_pull_request_note with its id."),
         String::new(),

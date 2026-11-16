@@ -111,7 +111,7 @@ mod issues;
 mod system;
 mod bays;
 mod pr_files;
-mod pr_notes;
+pub(crate) mod pr_notes;
 mod pr_panel;
 mod report_brief;
 mod side;

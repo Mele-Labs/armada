@@ -75,6 +75,15 @@ impl Layouts {
         }
     }
 
+    /// Fleet's layouts in place of these, its Default first.
+    pub fn set(&mut self, all: Vec<(String, Arrangement)>, picked: usize) {
+        if all.is_empty() {
+            return;
+        }
+        self.picked = picked.min(all.len() - 1);
+        self.all = all;
+    }
+
     pub fn delete(&mut self) {
         if !self.shipped() {
             self.all.remove(self.picked);

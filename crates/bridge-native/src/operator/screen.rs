@@ -71,7 +71,8 @@ fn with_places(mut face: Face, here: Front, reviews: bool) -> Face {
 impl OperatorScreen {
     pub fn live(jobs: Entity<JobsScreen>, fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
-        Self::new(jobs, page, Front::Jobs, None, window, cx)
+        let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
+        Self::new(jobs, page, Front::Jobs, Some(reviews), window, cx)
     }
 
     /// On the walk's Fleet, with the page in front.
