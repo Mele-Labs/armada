@@ -330,7 +330,11 @@ mod tests {
         let pick = bounds_of(cx, Role::RadioButton, &format!("Pick {}", TAKES[1]));
         let send = bounds_of(cx, Role::Button, "Send pick");
         let words = bounds_of(cx, Role::TextInput, "Note on your pick");
-        assert!(send.top() > pick.bottom() && words.top() > pick.bottom(), "the words box and Send pick stand below the takes, in the foot");
+        // The takes scroll in the detail, so a tall one runs past the foot: the foot is what the pick row stands in, at the panel's bottom.
+        let panel = bounds_of(cx, Role::Dialog, "Review");
+        let low = panel.top() + panel.size.height * 0.75;
+        assert!(send.top() > pick.top() && words.top() > pick.top(), "the words box and Send pick stand under the takes' tops");
+        assert!(send.top() > low && words.top() > low && send.bottom() < panel.bottom(), "and in the foot, at the panel's bottom");
         view.update_in(cx, |view, window, cx| {
             view.choose_take(&key, 1, cx);
             let input = view.pages.get(JOB).and_then(|page| page.cards.parts.notes(&key)).expect("the words box");
