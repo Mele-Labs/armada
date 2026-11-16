@@ -1083,7 +1083,7 @@ impl JobView {
         let (label, icon, target, said) = match act {
             Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
             Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
-            Act::Done { target, said } => ("You did", "square-check-big", target.to_string(), said),
+            Act::Done { target, said } => ("Completed", "square-check-big", target.to_string(), said),
         };
         let you = look.color(token::YOU);
         let edge = look.color(token::YOU_EDGE);

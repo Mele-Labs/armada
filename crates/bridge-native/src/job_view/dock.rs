@@ -1087,10 +1087,15 @@ impl JobView {
         });
         let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
             Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
-            // A To do row's words are selectable, so he can copy what he is asked to do.
+            // A To do row's words are selectable, so he can copy what he is asked to do. A press on them only
+            // selects: the row's press would open the note box, whose field then takes ⌘C and copies nothing.
             None if done.is_some() => div()
+                .id(SharedString::from(format!("needs-words:{key}")))
                 .flex_1()
                 .min_w_0()
+                .cursor_text()
+                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(|_, _, cx| cx.stop_propagation())
                 .child(TextView::markdown(gpui::ElementId::Name(format!("needs-words:{key}").into()), text).w_full().selectable(true))
                 .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),

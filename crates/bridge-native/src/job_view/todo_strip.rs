@@ -205,8 +205,29 @@ mod tests {
     #[gpui::test]
     fn his_done_reads_as_what_he_did_with_the_to_do_quoted(cx: &mut gpui::TestAppContext) {
         let (_view, cx) = on_screen_saying(cx, Vec::new(), Some("Done: Follow three steps\nUsed the new vault."));
-        assert!(drawn(cx, Role::Region, "You did"), "drawn as his act: {:?}", where_drawn(cx, "You did"));
+        assert!(drawn(cx, Role::Region, "Completed"), "drawn as his act: {:?}", where_drawn(cx, "Completed"));
         assert!(drawn(cx, Role::Group, "To do"), "the To do is quoted");
         assert!(!drawn(cx, Role::Group, "Question"));
+    }
+
+    /// Whether the row's note box is open.
+    fn note_open(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> bool {
+        view.read_with(cx, |view, _| view.dock_of(JOB).is_some_and(|dock| dock.row_box.is_some()))
+    }
+
+    #[gpui::test]
+    fn a_click_on_the_words_selects_and_opens_no_note_box_and_the_glyph_still_does(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, vec![item("grant", "Grant Local Network to Armada so it can find your other Mac", "")]);
+        fresh(cx);
+        let row = cx
+            .update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Button, "Open Grant Local Network to Armada so it can find your other Mac").map(|one| one.bounds)))
+            .expect("the row is drawn");
+        let middle = row.origin.y + row.size.height / 2.;
+        cx.simulate_click(gpui::point(row.origin.x + gpui::px(120.), middle), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!note_open(&view, cx), "a press on the words is for selecting them, so ⌘C copies them");
+        cx.simulate_click(gpui::point(row.origin.x + gpui::px(16.), middle), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(note_open(&view, cx), "a press on the glyph still opens the note box");
     }
 }
