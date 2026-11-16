@@ -42,8 +42,10 @@ pub(super) enum Kind {
     Artifact,
     /// A Ready to try card: what a Job built, with what he approved and what was built side by side. Reserved: no item is
     /// built as this yet, and its detail draws as a skeleton.
-    // TODO(native-bridge): the detail is `JobView::ready_detail` once it exists, answered through `answer_ready`
-    // (`ready_card.rs`), laid out as "You approved" beside "Built". `build` makes no Build item until then.
+    // TODO(native-bridge): once PR #3764 (`native/ready-to-try-tab`) is on main, the detail is
+    // `JobView::ready_detail(card, SHEET, wide, page, now, look, cx)` and the answers are
+    // `answer_ready(SHEET, card, ReadyAnswer, window, cx)`, both in `ready_card.rs`, never through `ready_in_band`.
+    // `build` makes no Build item until then.
     Build,
 }
 
