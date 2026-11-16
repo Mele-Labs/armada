@@ -146,12 +146,20 @@ where
         let at = self.now().as_str().to_string();
         let removed = {
             let mut store = self.store().lock().await;
-            let offered = store.preview_offered_of(&id, &branch).map_err(|why| self.ledger_fault(why))?;
-            // Its card says so: the note of the tip the offer stood at.
-            if let Some(offered) = &offered {
-                store.keep_build_note_withdrawn(&branch, &offered.tip, &at).map_err(|why| self.ledger_fault(why))?;
+            // Every card of the branch he has not answered, the offer's own tip among them: an offer that left the
+            // list when its branch merged still leaves its card waiting on him, and the Job takes that back too.
+            let unanswered: Vec<String> = store
+                .build_notes_of_session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .into_iter()
+                .filter(|note| note.branch == branch && note.verdict.is_none() && note.withdrawn_at.is_none())
+                .map(|note| note.tip)
+                .collect();
+            for tip in &unanswered {
+                store.keep_build_note_withdrawn(&branch, tip, &at).map_err(|why| self.ledger_fault(why))?;
             }
-            store.remove_preview_offered(&id, &branch).map_err(|why| self.ledger_fault(why))?
+            let offer_removed = store.remove_preview_offered(&id, &branch).map_err(|why| self.ledger_fault(why))?;
+            offer_removed || !unanswered.is_empty()
         };
         if !removed {
             return Err(Refusal::NotFound(WireError::raised(NOT_OFFERED, format!("{branch} is not on the preview list from this job"), self.run_id())));

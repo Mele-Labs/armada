@@ -223,6 +223,34 @@ async fn a_withdrawn_offer_withdraws_its_card_and_an_offer_made_again_opens_it()
 }
 
 #[tokio::test]
+async fn a_card_whose_offer_left_the_list_is_withdrawn_by_its_branch_and_then_nothing_is_left_to_withdraw() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    // The branch merged: its offer left the preview list, and the card still waits on him.
+    assert!(rig.fleet.store().lock().await.remove_preview_offered(&session, BRANCH).unwrap());
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Open);
+    let withdraw = || WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: Some(BRANCH.into()) };
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, withdraw()).await.expect("its card withdrawn");
+
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Withdrawn);
+    assert!(tries(&rig, &session).await.is_empty(), "it waits on nobody");
+    let again = Arc::clone(&rig.fleet).withdraw_preview(None, withdraw()).await;
+    assert_eq!(code(again), "fleet.preview_not_offered", "no offer and no open card");
+}
+
+#[tokio::test]
+async fn an_answered_card_stays_answered_when_its_branch_is_withdrawn() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: None }).await.expect("the offer withdrawn");
+
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Answered);
+}
+
+#[tokio::test]
 async fn a_new_tip_replaces_the_card_before_it_and_an_unknown_card_is_not_found() {
     let rig = a_rig();
     let (session, tip) = an_offered_job(&rig).await;
