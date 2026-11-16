@@ -438,12 +438,12 @@ async fn an_ask_to_restart_settles_itself_once_fleet_runs_a_build_made_after_it_
     assert_eq!(rig.waiting_on(&session).await, ["restart"]);
 
     running_a_build_made(&rig, "2000-01-01T00:00:00Z");
-    rig.fleet.build_asks_settled().await;
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
     assert_eq!(rig.waiting_on(&session).await, ["restart"], "raised after the build was made, so it stays");
 
     fs::remove_file(rig.support().join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)).unwrap();
     running_a_build_made(&rig, "2999-01-01T00:00:00Z");
-    rig.fleet.build_asks_settled().await;
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
 
     assert!(rig.waiting_on(&session).await.is_empty(), "raised before the build was made, so it is done");
     let said = rig.thread_of(&session).await;
@@ -457,7 +457,7 @@ async fn a_command_that_is_not_a_restart_is_left_when_a_newer_build_runs() {
     rig.waits_to_run(&session, "cargo xtask verify-docs --write").await;
 
     running_a_build_made(&rig, "2999-01-01T00:00:00Z");
-    rig.fleet.build_asks_settled().await;
+    rig.fleet.build_asks_settled_on(Some("new".into())).await;
 
     assert_eq!(rig.waiting_on(&session).await, ["restart"]);
 }
