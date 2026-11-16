@@ -3999,7 +3999,7 @@ mod tests {
         job.mark = Some(JobMark { state: JobState::Idle, lamp: JobLamp::Idle, group: JobGroup::Held });
         job.activity = serde_json::from_value(serde_json::json!({"said": "Still waiting on the breakdown"})).expect("activity decodes");
         assert_eq!(mark_of(&job).map(|mark| mark.state), Some(JobState::Idle), "nothing runs: idle");
-        job.running = vec![serde_json::from_value(serde_json::json!({"kind": "background_task", "what": "Break down develop folder by project", "since": "2026-11-16T16:40:10Z"})).expect("work decodes")];
+        job.running = vec![ipc::RunningWork { kind: ipc::RunningKind::BackgroundTask, what: "Break down develop folder by project".into(), since: ipc::Instant::carried("2026-11-16T16:40:10Z") }];
         let mark = mark_of(&job).expect("a mark");
         assert_eq!((mark.state, mark.lamp, mark.group), (JobState::Running, JobLamp::Running, JobGroup::Held));
         assert_eq!(glyph_of(mark.state, None).1.as_ref(), "Running");

@@ -4,9 +4,9 @@
 //! other Mac.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
+use ipc::{RunningKind, RunningWork, ThreadItem, ToolSubagent, ToolSubagentState};
 
-use super::rows::{glyph, tip, Size};
+use super::rows::{elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -81,7 +81,37 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The subagents running now: a card at the foot with the count, and the list behind a press.
+    /// The background tasks Fleet lists in the record's `running`, each with its place there.
+    pub(super) fn background_tasks<'a>(&self, id: &str, cx: &'a gpui::App) -> impl Iterator<Item = (usize, &'a RunningWork)> {
+        self.record(id, cx).into_iter().flat_map(|job| job.running.iter().enumerate().filter(|(_, one)| one.kind == RunningKind::BackgroundTask))
+    }
+
+    /// One background task in the running card, drawn as a subagent row is: the running ring, what it is, its kind and how long it has run.
+    fn background_line(&self, id: &str, at: usize, work: &RunningWork, look: &Look) -> AnyElement {
+        let since = elapsed_words(work.since.as_str(), &super::runs::running_now(id).to_rfc3339());
+        let said = SharedString::from(format!("Background task {}", work.what));
+        labelled(
+            div()
+                .id(SharedString::from(format!("background-live:{at}")))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_2))
+                .py(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(look.color(token::FG_DEFAULT))
+                .child(div().id(SharedString::from(format!("background-mark:{at}"))).flex_none().child(self.working_mark(look, look.color(token::STATUS_RUNNING))).tooltip(tip("Running in the background")))
+                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(work.what.clone())))
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("shell"))
+                .children(since.map(|since| div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(since))),
+            Role::Status,
+            said,
+        )
+        .into_any_element()
+    }
+
+    /// The subagents and background tasks running now: a card at the foot with what runs, and the list behind a press.
     pub(super) fn subagents_card(&self, ix: usize, items: &[ThreadItem], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let running: Vec<&ToolSubagent> = items
             .iter()
@@ -90,11 +120,17 @@ impl JobView {
                 _ => None,
             })
             .collect();
-        if running.is_empty() {
+        let id = self.shown.clone().unwrap_or_default();
+        let background: Vec<(usize, &RunningWork)> = self.background_tasks(&id, cx).collect();
+        if running.is_empty() && background.is_empty() {
             return None;
         }
         let open = self.open_in_card("subagents");
-        let count = if running.len() == 1 { "1 subagent running".to_string() } else { format!("{} subagents running", running.len()) };
+        let count = match running.len() {
+            0 => "Running in the background".to_string(),
+            1 => "1 subagent running".to_string(),
+            many => format!("{many} subagents running"),
+        };
         let toggle = labelled(
             div()
                 .id("subagents-toggle")
@@ -127,6 +163,7 @@ impl JobView {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .p(look.length(token::SPACE_1))
                 .children(running.iter().map(|subagent| self.subagent_line(&format!("subagent-live:{}", subagent.id), subagent, format!("Subagent {}", subagent.task), look, cx)))
+                .children(background.iter().map(|(at, work)| self.background_line(&id, *at, work, look)))
         });
         let _ = page;
         Some(
@@ -144,7 +181,7 @@ impl JobView {
                     .child(head)
                     .children(rows),
                 Role::Region,
-                "Subagents running",
+                "Running now",
             )
             .into_any_element(),
         )

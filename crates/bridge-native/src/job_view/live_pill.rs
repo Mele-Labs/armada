@@ -238,15 +238,22 @@ mod tests {
     }
 
     #[gpui::test]
-    fn an_idle_job_shows_each_background_task_at_its_threads_end_until_fleet_stops_listing_it(cx: &mut gpui::TestAppContext) {
+    fn the_running_card_holds_a_row_for_each_background_task_until_fleet_stops_listing_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |jobs| {
             let one = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
             one.mark = Some(ipc::JobMark { state: ipc::JobState::Idle, lamp: ipc::JobLamp::Idle, group: ipc::JobGroup::Held });
             one.hosted = None;
-            one.running = vec![serde_json::from_value(serde_json::json!({"kind": "background_task", "what": "Break down develop folder by project", "since": "2026-11-16T16:40:10Z"})).expect("work decodes")];
+            one.running = vec![ipc::RunningWork { kind: ipc::RunningKind::BackgroundTask, what: "Break down develop folder by project".into(), since: ipc::Instant::carried("2026-11-16T16:40:10Z") }];
         });
-        let rows = drawn_like(cx, Role::Status, "Running in the background: Break down develop folder by project");
-        assert_eq!(rows.len(), 1, "one row for the one task");
+        assert_eq!(drawn_like(cx, Role::Region, "Running now").len(), 1, "the running card stands for the task");
+        view.update(cx, |view, cx| {
+            if let Some(cards) = view.cards_mut() {
+                cards.opened.insert("subagents".to_string());
+            }
+            cx.notify();
+        });
+        redraw(cx);
+        assert_eq!(drawn_like(cx, Role::Status, "Background task Break down develop folder by project").len(), 1, "one row for the one task");
         view.update(cx, |view, cx| {
             view.list.update(cx, |list, cx| {
                 list.record_mut(JOB).expect("the folds' Job").running.clear();
@@ -254,6 +261,7 @@ mod tests {
             });
         });
         redraw(cx);
-        assert!(drawn_like(cx, Role::Status, "Running in the background").is_empty(), "gone once Fleet stops listing it");
+        assert!(drawn_like(cx, Role::Status, "Background task").is_empty(), "the row goes once Fleet stops listing it");
+        assert!(drawn_like(cx, Role::Region, "Running now").is_empty(), "and the card with it");
     }
 }
