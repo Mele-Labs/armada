@@ -28,8 +28,8 @@ pub enum StandingCallKind {
     /// `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`. Never opened while it waits.
     MacPairing,
     /// Somebody asked him by name to review a pull request, and he is still asked. `review` names it.
-    /// **Opened once he has opened the pull request**, or his review stands. Not on the Dock count:
-    /// `StandingCalls::reviews_unopened` is its own.
+    /// **Opened once he has opened the pull request**, or his review stands. On the Dock count until
+    /// then, and counted apart by `StandingCalls::reviews_unopened`.
     ReviewRequested,
 }
 
@@ -98,10 +98,9 @@ pub struct StandingCalls {
 impl StandingCalls {
     /// The calls still to be opened for a badge, the one that began last in front, **one for each
     /// owner**: `incomingOf`. A Job that asks him is never opened, so it stays here. A review asked of
-    /// him is counted apart, by `reviews_unopened`.
+    /// him is here until he opens it, and `reviews_unopened` counts it apart as well.
     pub fn unopened(&self) -> Vec<&StandingCall> {
-        let mut unopened: Vec<&StandingCall> =
-            self.calls.iter().filter(|one| !one.opened && one.kind != StandingCallKind::ReviewRequested).collect();
+        let mut unopened: Vec<&StandingCall> = self.calls.iter().filter(|one| !one.opened).collect();
         unopened.sort_by(|a, b| b.since.cmp(&a.since));
         let mut owners = std::collections::HashSet::new();
         unopened.retain(|one| owners.insert(one.owner.as_str()));

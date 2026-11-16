@@ -1,5 +1,5 @@
 //! A review asked of him on the calls wire: its kinds in Bridge's words, the pull request it names, and
-//! a count of its own that the Dock count leaves out.
+//! a count of its own, counted on the Dock too until he opens it.
 
 use crate::{decode, encode, CallArrivalKind, StandingCall, StandingCallKind, StandingCalls};
 
@@ -27,7 +27,7 @@ fn a_review_asked_of_him_is_review_requested_on_both_kinds_and_names_its_pull_re
 }
 
 #[test]
-fn the_reviews_count_is_his_unopened_requests_and_the_dock_count_leaves_them_out() {
+fn the_reviews_count_is_his_unopened_requests_and_the_dock_counts_them_too() {
     let calls = StandingCalls {
         calls: vec![
             call("review:example-org/harbour#41", "review_requested", false),
@@ -38,5 +38,5 @@ fn the_reviews_count_is_his_unopened_requests_and_the_dock_count_leaves_them_out
     };
     assert_eq!(calls.reviews_unopened(), 2);
     let dock: Vec<&str> = calls.unopened().iter().map(|one| one.key.as_str()).collect();
-    assert_eq!(dock, ["main:/x"]);
+    assert_eq!(dock, ["review:example-org/harbour#41", "review:example-org/harbour#42", "main:/x"], "an opened request drops off the Dock");
 }

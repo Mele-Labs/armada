@@ -103,8 +103,8 @@ Fleet drops them all when the Gateway is turned off or starts afresh, and a rest
 ## A review asked of him: `review_requested`
 
 Since 16 Nov 2026.
-**Two enum values, one type and one field on `StandingCall`**: no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+**Two enum values, one type and one field on `StandingCall`**: no new operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/fleet/src/review_requests.rs`; Bridge's half is `review_requested` and `ReviewAsked` in `packages/protocol/src/standing-calls.ts`.
 
 | Where | Side | Carries |
@@ -113,6 +113,7 @@ The Rust half is `crates/fleet/src/review_requests.rs`; Bridge's half is `review
 | `StandingCall.review?` | Fleet writes, Bridge reads | `ReviewAsked { manifest_id, repository, number, title, author, address }` on a `review_requested` call, absent on every other kind |
 | `CallArrivalKind` | Fleet writes, Bridge reads | Gains `review_requested`, told once a request. Its `key` is the call's key, and its `session_id` carries the same key and names no Job. The call of that key carries the pull request |
 | `StandingCalls::reviews_unopened` | Bridge reads | The reviews' count: `review_requested` calls not `opened`. A Rust helper, no field; a TypeScript reader counts the same |
+| `get_pull_request_detail` | Bridge reads | No new field. A page answered to a caller no Job holds opens a `review_requested` call on the pull request |
 
 **Fleet asks the forge every five minutes**, for the one list that asks him by name, `user-review-requested:<login>` over every served repository, as `get_review_lists` reads its `requested` list.
 A request asked of a team he is on is not his by name, and does not call.
@@ -123,11 +124,19 @@ A request is the pull request and his latest submitted review before it, or none
 The forge drops him from a pull request's requests when he reviews it, so a pull request listed again after a review of his was asked of him again, and is told again.
 A review he submitted less than five minutes before the tick waits for the next, since the forge's search can list him for a while after he reviewed.
 What stood the first time a Fleet ever looks is told, so the first tick tells every request waiting, in one banner where the client collects them.
+A tick that reads the list forgets every kept request the list no longer holds, since one taken back, reviewed or closed leaves it.
+A pull request listed again after that is a new request, and is told again.
 
-**A call stands while he is asked**, and is `opened` once he has opened the pull request or a review of his stands on it: its row in `get_review_lists` has a `seen` head, or an `inbox` other than `needs_first_look`.
-Bridge sends `mark_pull_request_seen` when he leaves the pull request, and Fleet opens the call then, not at the next tick.
+**A call stands while he is asked**, and is `opened` once he has opened the pull request or a review of his stands on it.
+Bridge reads `get_pull_request_detail` when he opens a pull request's page, and Fleet keeps that instant in `pull_requests_opened` and opens the call at once.
+A read from inside a Job opens nothing, since a Job reading the pull request it reviews says nothing of whether he has.
+A read counts for a request when it is later than his review before the request, and any read counts for a first request.
+A call is opened too when its row in `get_review_lists` has a `seen` head, or an `inbox` other than `needs_first_look`.
+Bridge sends `mark_pull_request_seen` when he leaves the pull request, and Fleet opens the call then as well.
+A read already counted sends no `calls.changed`, so a page read again while it is open tells nothing.
+The tick that forgets a request forgets the reads of pull requests it no longer lists.
 `open_call` does not open it.
-**It is not on the Dock count**: `StandingCalls::unopened` leaves it out, and `StandingCalls::reviews_unopened` counts it.
+**It is on the Dock count until he opens it**: `StandingCalls::unopened` holds it, one owner a request, and `StandingCalls::reviews_unopened` counts it apart as well.
 
 **The banner's press names no Job.**
 `session_id` carries the key for readers that do not read `key` yet, so a client that opens the Job a banner names finds none and opens nothing.
