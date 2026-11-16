@@ -124,6 +124,9 @@ pub enum Verb {
     /// This many milliseconds go by before the target is ringed, as they do while a person reads the
     /// step before: for what the app ends on its own clock, such as a read.
     Later(u64),
+    /// The reviews mock's work in flight ends now, as its clock would end it: a refresh, a summary, a
+    /// critique or a How it works. A walk lands it on a step, so no step races a person's Next.
+    Lands,
     /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
     /// or a state of the sheet's face. A scene changes data and presses nothing.
     Answer(&'static str),
