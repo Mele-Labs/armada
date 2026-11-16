@@ -123,6 +123,7 @@ mod terminal_thread;
 mod test_map_for;
 mod test_map_static;
 mod transcript;
+mod feature_commits;
 mod turn_lines;
 mod transcript_acts;
 mod under_review;

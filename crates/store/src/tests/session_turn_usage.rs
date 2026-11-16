@@ -2,7 +2,7 @@
 //! changes nothing, and a read by session and time window returns the model, the four token fields
 //! and the names of the tools the turn called.
 
-use crate::session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnTimes, KeptTurnUsage};
+use crate::session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnTimes, KeptTurnUsage};
 use crate::tests::{open, TempDir};
 
 fn at(minute: u32) -> String {
@@ -125,4 +125,33 @@ fn a_result_read_after_its_call_ends_the_turn_s_tools_and_a_repeat_keeps_the_tim
     let timed = store.turns_timed("s1").unwrap();
     assert_eq!((timed[0].tools_began.as_deref(), timed[0].tools_ended.as_deref()), (Some(at(2).as_str()), Some(at(5).as_str())));
     assert_eq!(timed[0].model_began.as_deref(), Some(at(1).as_str()));
+}
+
+/// A Job's figure is what its turns up to and including its first edit counted, in the week of that edit, and a turn
+/// read before searches were counted leaves the Job unmeasured rather than at zero.
+#[test]
+fn the_searches_before_a_first_edit_are_summed_by_week_and_a_turn_without_a_figure_is_unmeasured() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let searched = |counts: &[(&str, u32)]| KeptReading {
+        searched: counts.iter().map(|(id, searches)| KeptTurnSearches { message_id: id.to_string(), searches: *searches }).collect(),
+        ..Default::default()
+    };
+    let turns = [turn("m1", 1, &["Grep"]), turn("m2", 2, &["Edit"]), turn("m3", 3, &["Grep"])];
+    store.keep_turns_read("s1", &turns, &searched(&[("m1", 2), ("m2", 1), ("m3", 5)]), "/s1.jsonl", 10).unwrap();
+    store.keep_turn_usage("s2", &turn("m1", 1, &["Grep"])).unwrap();
+    store.keep_turn_usage("s2", &turn("m2", 2, &["Write"])).unwrap();
+    store.keep_turn_usage("s3", &turn("m1", 1, &["Read"])).unwrap();
+    let mut early = turn("m1", 1, &["Edit"]);
+    early.at = "2026-10-01T09:00:00.000Z".into();
+    store.keep_turns_read("s4", &[early], &searched(&[("m1", 7)]), "/s4.jsonl", 10).unwrap();
+
+    let now = "2026-10-18T00:00:00.000Z";
+    let this_week = store.first_edits(now, 1).unwrap();
+    let figures: Vec<(&str, &str, u32, bool)> =
+        this_week.iter().map(|one| (one.session_id.as_str(), one.week.as_str(), one.searches, one.measured)).collect();
+    assert_eq!(figures, [("s1", "2026-10-12", 3, true), ("s2", "2026-10-12", 0, false)], "s3 never edited; s4 edited in an earlier week");
+    let four = store.first_edits(now, 4).unwrap();
+    assert_eq!(four.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s4", "s1", "s2"]);
+    assert_eq!((four[0].week.as_str(), four[0].searches), ("2026-09-28", 7));
 }

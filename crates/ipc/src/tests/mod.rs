@@ -12,6 +12,7 @@ mod absent;
 mod page_messages;
 mod bug_reports;
 mod debug_report;
+mod features;
 mod handoffs;
 mod lifecycles;
 mod piece_saving;

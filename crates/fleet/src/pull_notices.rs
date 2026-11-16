@@ -567,6 +567,8 @@ where
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
             // A task a person linked this to is asked about, whoever opened the pull request.
             self.tasks_asked_by_linked_pull(served.manifest().id().as_str(), one.pull.number, one.pull.title.as_written()).await;
+            // Whoever opened it, a merge is kept with its files: it is what makes a written section of the library stale.
+            self.feature_pull_filed(served, one.pull.number, Some((one.pull.merged_at.as_written(), one.pull.commit.as_ref().map(|it| it.as_written())))).await;
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }
