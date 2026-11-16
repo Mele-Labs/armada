@@ -21,6 +21,27 @@ pub enum PullRequestStanding {
     Closed,
 }
 
+/// Whether the forge would merge a pull request now, and if not what stops it: the
+/// forge's merge state. **The forge's own verdict, not one worked out from the checks**, which pass
+/// on a pull request still waiting on a review the base branch asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MergeState {
+    Clean,
+    /// A rule of the base branch stops it, such as a review it asks for.
+    Blocked,
+    /// The base branch moved on and its rules ask for the branch to be brought up to date.
+    Behind,
+    /// It conflicts with the base branch.
+    Dirty,
+    /// It can merge, with checks that did not pass.
+    Unstable,
+    /// It can merge, and the forge's hooks will run.
+    HasHooks,
+    Draft,
+    /// The forge is still working it out, or used a word this build has no meaning for.
+    Unknown,
+}
+
 /// One forge read of a pull request. **No checks**: those are
 /// [`UnderReview::checks`](crate::UnderReview), which names what the forge
 /// ran and is already guarded as text written outside this machine.
@@ -43,4 +64,5 @@ pub struct PullRequestFacts {
     /// The issues the forge says it closes when it merges, by number, ascending.
     /// Empty where it closes none.
     pub closes: Vec<u64>,
+    pub merge_state: MergeState,
 }

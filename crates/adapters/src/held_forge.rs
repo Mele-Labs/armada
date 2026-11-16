@@ -196,6 +196,10 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.pull_request_compare(in_repo, base, head)
     }
 
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.forge.commit_patches(in_repo, commit)
+    }
+
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
         self.forge.pull_request_comments(in_repo, number)
     }

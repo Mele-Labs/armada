@@ -215,6 +215,10 @@ impl Forge for GhForge {
         crate::pull_request_patch::read_compared(in_repo, base, head)
     }
 
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        crate::pull_request_patch::read_commit(in_repo, commit)
+    }
+
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
         crate::pull_request_comments::read(in_repo, number)
     }

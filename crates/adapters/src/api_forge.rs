@@ -484,6 +484,14 @@ impl Forge for ApiForge {
         )
     }
 
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        self.read(
+            in_repo,
+            |api, repository| compare::commit(api, repository, commit),
+            |gh| gh.commit_patches(in_repo, commit),
+        )
+    }
+
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {
         self.read(
             in_repo,

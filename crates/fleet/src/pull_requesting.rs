@@ -148,6 +148,8 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
         ("state".to_string(), standing.to_string()),
         ("auto_merge".to_string(), state.auto_merge.to_string()),
         ("queued".to_string(), state.queued.to_string()),
+        // A Pull Requests row offers Merge only where the forge would take it, which passed checks alone do not say.
+        ("merge_state".to_string(), state.merge_state.word().to_string()),
         ("checks".to_string(), checks.to_string()),
         ("failing".to_string(), failing),
         ("title".to_string(), state.title.clone()),
@@ -235,7 +237,24 @@ fn read_from_forge<V: TheForge>(
         address: facts.url,
         body: facts.body,
         closes: facts.closes,
+        merge_state: merge_state_of(facts.merge_state),
     })
+}
+
+/// The forge's merge verdict in the wire's words. `pull_request_panel` carries it on the page too.
+pub(crate) fn merge_state_of(state: adapter_traits::MergeState) -> ipc::PullRequestMergeState {
+    use adapter_traits::MergeState as Said;
+    use ipc::PullRequestMergeState as Wire;
+    match state {
+        Said::Clean => Wire::Clean,
+        Said::Blocked => Wire::Blocked,
+        Said::Behind => Wire::Behind,
+        Said::Dirty => Wire::Dirty,
+        Said::Unstable => Wire::Unstable,
+        Said::HasHooks => Wire::HasHooks,
+        Said::Draft => Wire::Draft,
+        Said::Unknown => Wire::Unknown,
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>

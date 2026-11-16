@@ -40,6 +40,7 @@ pub(super) fn a_fleet(home: &TempDir) -> Fixture {
 
 pub(super) fn facts(standing: PullRequestStanding) -> PullRequestFacts {
     PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing,
         branch: "fleet/pr-acts".into(),
         base: "main".into(),
@@ -268,6 +269,28 @@ async fn a_read_refreshes_the_detail_of_the_row_a_session_holds() {
     assert_eq!(said("base"), Some("main"));
     assert_eq!(said("address"), Some(ADDRESS));
     assert_eq!(said("title"), Some("Take a draft out"));
+}
+
+/// **Checks that passed are not a merge the forge will take**: a pull request waiting on a review
+/// the base branch asks for is `blocked`, and the row says so for a Pull Requests row to read.
+#[tokio::test]
+async fn the_forges_merge_state_rides_the_read_and_the_row_a_session_holds() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet.vcs().now_pull_request(Some(PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Blocked,
+        ..facts(PullRequestStanding::Open)
+    }));
+    forge_ran(&fleet, passed());
+
+    let read = fleet.get_pull_request(id, 12).await.expect("read");
+
+    assert_eq!(read.merge_state, ipc::PullRequestMergeState::Blocked);
+    let row = the_row(&fleet, "s1", "pr").await;
+    assert_eq!(row.detail.get("checks").map(String::as_str), Some("passed"));
+    assert_eq!(row.detail.get("merge_state").map(String::as_str), Some("blocked"));
 }
 
 /// Stacked pull requests are drawn from the base, so a blank one is left off the row.

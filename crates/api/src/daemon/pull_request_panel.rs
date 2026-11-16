@@ -43,6 +43,17 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         number: u64,
     ) -> impl Future<Output = Result<PullRequestFilePatches, Refusal>> + Send;
 
+    /// `get_pull_request_commit_patches` — every file one commit changed, against its first
+    /// parent, in the shape [`get_pull_request_patches`](Self::get_pull_request_patches) answers.
+    /// [`Refusal::Unacceptable`] for a name that is not a commit; [`Refusal::Fault`] where the
+    /// forge would not answer.
+    fn get_pull_request_commit_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        commit: String,
+    ) -> impl Future<Output = Result<PullRequestFilePatches, Refusal>> + Send;
+
     /// `write_pull_request` — a comment, an approval or a request for changes.
     /// **A write to a shared place, a person's ask.** Answers the page read
     /// again afterwards. [`Refusal::Unacceptable`] for a comment or a request

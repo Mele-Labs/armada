@@ -325,6 +325,15 @@ pub trait Forge {
         None
     }
 
+    /// The patches of the files one commit changed, against its first parent, in the forge's order:
+    /// one commit of a pull request read on its own. **`None` is the forge's silence**, for
+    /// [`landed`](crate::Delivery::landed)'s reason, a commit it does not have included, and a forge
+    /// with no call for it is silent by default.
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<crate::PatchedFile>> {
+        let _ = (in_repo, commit);
+        None
+    }
+
     /// Every comment on a pull request, in no order: the conversation's, each review's body and
     /// every comment on the diff, **one forge call**. `None` is the forge's silence, for
     /// [`landed`](crate::Delivery::landed)'s reason; no comments is `Some(vec![])`.
