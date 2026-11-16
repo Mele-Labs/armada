@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Write a corrected Kit piece's file to disk, only where it is still what the edit read"
 notes = """
-`POST /kit/file/save`, body `SaveKitFile` `{ kind, name, read, text }`. Answers 200 with `KitFile`, the file as it now stands.
+`POST /kit/file/save`, body `SaveKitFile` `{ kind, name, plugin?, read, text }`. Answers 200 with `KitFile`, the file as it now stands.
 
 **Save writes the file and stops**, as `save_manifest_file` does: the bytes sent are the bytes on disk, replaced by a rename so a crash leaves no half written file, with the file's mode kept. A file that is a link is written through, so the link stays a link.
 

@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Open a Kit piece's file in the person's editor, or show it in Finder"
 notes = """
-`POST /kit/pieces/open`, body `OpenKitPiece` `{ kind, name, place }`. `kind` is `get_kit_file`'s and `plugins`. `place` is `editor` or `finder`. Answers 200 with `KitPieceOpened` `{ path }`, the path Fleet opened.
+`POST /kit/pieces/open`, body `OpenKitPiece` `{ kind, name, plugin?, place }`. `kind` is `get_kit_file`'s and `plugins`. `place` is `editor` or `finder`. Answers 200 with `KitPieceOpened` `{ path }`, the path Fleet opened.
 
 **Nothing in the request carries a path.** Fleet reads the inventory again for the call and opens only what the row that names the piece holds, so a body reaches nothing the inventory does not list. A skill opens its `SKILL.md` in the editor and its folder in Finder. A plugin opens in Finder alone, at its install path. A piece a plugin brought opens in either.
 

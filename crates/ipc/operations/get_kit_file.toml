@@ -4,11 +4,11 @@ transport = "HTTP"
 agent_access = "No"
 description = "One Kit piece's file, whole, found by the kind and name the inventory gives it"
 notes = """
-`GET /kit/file?kind=<kind>&name=<name>`, `GetKitFile`. `kind` is `skills`, `sub_agents`, `commands`, `agent_file` or `output_styles`, and `name` is `SetupItem.name` as `get_kit_inventory` spells it. Answers 200 with `KitFile` `{ path, text, at, plugin? }`. A skill's file is its `SKILL.md`. `at` is when Fleet read it. `plugin` names the plugin that brought the piece and is left out of the person's own.
+`GET /kit/file?kind=<kind>&name=<name>&plugin=<plugin>`, `GetKitFile`, with `plugin` as `SetupItem.plugin` names it and left out for the person's own or a repository's piece, so a plugin's piece of the same name is told apart. `kind` is `skills`, `sub_agents`, `commands`, `agent_file` or `output_styles`, and `name` is `SetupItem.name` as `get_kit_inventory` spells it. Answers 200 with `KitFile` `{ path, text, at, plugin? }`. A skill's file is its `SKILL.md`. `at` is when Fleet read it. `plugin` names the plugin that brought the piece and is left out of the person's own.
 
 **Nothing in the request carries a path.** Fleet reads the inventory again for the call and takes the file from the one row that names it, so no file the inventory does not list can be read. A piece a plugin brought is readable.
 
-Refusals, each a 422 with its own code and `message`: `fleet.kit_file_not_listed` where no row of that kind has the name, `fleet.kit_file_ambiguous` where several do, and `fleet.kit_file_none` for a piece with no file, such as a built in output style and Armada's own rules. A 500 `fleet.kit_file_unreadable` where the file would not read as text.
+Refusals, each a 422 with its own code and `message`: `fleet.kit_file_not_listed` where no row of that kind has the name, `fleet.kit_file_ambiguous` where several of the same plugin, or of none, do, and `fleet.kit_file_none` for a piece with no file, such as a built in output style and Armada's own rules. A 500 `fleet.kit_file_unreadable` where the file would not read as text.
 
 `agent_access` is `No`, `get_kit_inventory`'s reason: a person's own files are theirs to read, and a tool that let an agent read the set is a step toward one that changes it.
 """

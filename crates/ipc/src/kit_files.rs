@@ -54,6 +54,10 @@ impl From<KitFileKind> for KitOpenKind {
 pub struct GetKitFile {
     pub kind: KitFileKind,
     pub name: String,
+    /// The plugin that brought the piece, as `SetupItem::plugin` names it. Absent means the person's
+    /// own or a repository's, so a piece of the same name from a plugin is told apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
 }
 
 /// A piece's file as it is on disk. **Whole and not windowed**: a partial text handed to an editor
@@ -82,6 +86,10 @@ pub struct SaveKitFile {
     pub read: String,
     /// The bytes to put on disk, exactly as they arrive.
     pub text: String,
+    /// The plugin that brought the piece, as `SetupItem::plugin` names it. Absent means the person's
+    /// own or a repository's, so a piece of the same name from a plugin is told apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
 }
 
 /// Where `open_kit_piece` opens a piece.
@@ -99,6 +107,10 @@ pub enum KitPlace {
 pub struct OpenKitPiece {
     pub kind: KitOpenKind,
     pub name: String,
+    /// The plugin that brought the piece, as `SetupItem::plugin` names it. Absent means the person's
+    /// own or a repository's, so a piece of the same name from a plugin is told apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
     pub place: KitPlace,
 }
 

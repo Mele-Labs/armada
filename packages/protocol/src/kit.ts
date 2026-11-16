@@ -315,6 +315,8 @@ export type KitOpenKind = KitFileKind | "plugins";
 export type GetKitFile = {
   kind: KitFileKind;
   name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
 };
 
 /** `get_kit_file`'s answer, and `save_kit_file`'s: a piece's file whole. `plugin` is left out of the person's own pieces. */
@@ -329,6 +331,8 @@ export type KitFile = {
 export type SaveKitFile = {
   kind: KitFileKind;
   name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
   read: string;
   text: string;
 };
@@ -340,6 +344,8 @@ export type KitPlace = "editor" | "finder";
 export type OpenKitPiece = {
   kind: KitOpenKind;
   name: string;
+  /** The plugin that brought the piece, as `SetupItem.plugin` names it. Absent means the person's own or a repository's. */
+  plugin?: string;
   place: KitPlace;
 };
 

@@ -97,17 +97,29 @@ fn source_path(source: &str, home: &str) -> Option<PathBuf> {
     })
 }
 
+/// The plugin that brought a row: `plugin`, or an output style's own.
+fn brought_by(item: &ipc::SetupItem) -> Option<String> {
+    item.plugin.clone().or_else(|| item.style.as_ref().and_then(|style| style.plugin.clone()))
+}
+
 /// The piece `name` of `kind`, from an inventory read for the call.
-pub(crate) fn piece_named(inventory: &KitInventory, kind: KitOpenKind, name: &str) -> Result<Piece, Unnamed> {
-    let named: Vec<&ipc::SetupItem> =
-        items_of(inventory, words_of(kind).0).iter().filter(|item| item.name == name).collect();
+pub(crate) fn piece_named(
+    inventory: &KitInventory,
+    kind: KitOpenKind,
+    name: &str,
+    plugin: Option<&str>,
+) -> Result<Piece, Unnamed> {
+    let named: Vec<&ipc::SetupItem> = items_of(inventory, words_of(kind).0)
+        .iter()
+        .filter(|item| item.name == name && brought_by(item).as_deref() == plugin)
+        .collect();
     let item = match named.as_slice() {
         [one] => *one,
         [] => return Err(Unnamed::NotListed),
         several => return Err(Unnamed::Several(several.len())),
     };
     let place = source_path(&item.source, &inventory.home).ok_or(Unnamed::NoFile)?;
-    let plugin = item.plugin.clone().or_else(|| item.style.as_ref().and_then(|style| style.plugin.clone()));
+    let plugin = brought_by(item);
     let file = match kind {
         KitOpenKind::Skills => place.join(SKILL_FILE),
         _ => place.clone(),
@@ -126,9 +138,15 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The piece an inventory, read again for this call, names once.
-    async fn kit_piece_found(&self, kind: KitOpenKind, name: &str, doing: Doing) -> Result<Piece, Refusal> {
+    async fn kit_piece_found(
+        &self,
+        kind: KitOpenKind,
+        name: &str,
+        plugin: Option<&str>,
+        doing: Doing,
+    ) -> Result<Piece, Refusal> {
         let inventory = self.kit_inventory().await;
-        piece_named(&inventory, kind, name).map_err(|why| {
+        piece_named(&inventory, kind, name, plugin).map_err(|why| {
             let (_, one, many) = words_of(kind);
             let done = doing.done();
             match why {
@@ -148,7 +166,7 @@ where
 
     /// `get_kit_file`: the file whole, as it is on disk.
     pub(crate) async fn kit_file_read(&self, asked: GetKitFile) -> Result<KitFile, Refusal> {
-        let piece = self.kit_piece_found(asked.kind.into(), &asked.name, Doing::Read).await?;
+        let piece = self.kit_piece_found(asked.kind.into(), &asked.name, asked.plugin.as_deref(), Doing::Read).await?;
         let file = piece.file.clone();
         let text = tokio::task::spawn_blocking(move || fs::read_to_string(&file).map_err(|cause| (file, cause)))
             .await
@@ -166,7 +184,7 @@ where
     /// the piece is the person's own. A plugin's update overwrites its pieces, so an edit there
     /// would be lost without a word.
     pub(crate) async fn kit_file_saved(&self, asked: SaveKitFile) -> Result<KitFile, Refusal> {
-        let piece = self.kit_piece_found(asked.kind.into(), &asked.name, Doing::Save).await?;
+        let piece = self.kit_piece_found(asked.kind.into(), &asked.name, asked.plugin.as_deref(), Doing::Save).await?;
         if let Some(plugin) = &piece.plugin {
             return Err(self.kit_file_refusal(
                 FROM_PLUGIN,
@@ -211,7 +229,7 @@ where
 
     /// `open_kit_piece`: the piece in the person's editor, or shown in Finder.
     pub(crate) async fn kit_piece_opened(&self, asked: OpenKitPiece) -> Result<KitPieceOpened, Refusal> {
-        let piece = self.kit_piece_found(asked.kind, &asked.name, Doing::Open).await?;
+        let piece = self.kit_piece_found(asked.kind, &asked.name, asked.plugin.as_deref(), Doing::Open).await?;
         let launch = match asked.place {
             KitPlace::Finder => kit_open::in_finder(&piece.place.display().to_string()),
             KitPlace::Editor if asked.kind == KitOpenKind::Plugins => {

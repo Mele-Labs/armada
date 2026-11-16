@@ -38,11 +38,17 @@ fn plugin_skill(home: &TempDir, plugin: &str, name: &str) -> PathBuf {
 }
 
 fn getting(name: &str) -> GetKitFile {
-    GetKitFile { kind: KitFileKind::Skills, name: name.to_string() }
+    GetKitFile { kind: KitFileKind::Skills, name: name.to_string(), plugin: None }
 }
 
 fn saving(name: &str, read: &str, text: &str) -> SaveKitFile {
-    SaveKitFile { kind: KitFileKind::Skills, name: name.to_string(), read: read.to_string(), text: text.to_string() }
+    SaveKitFile {
+        kind: KitFileKind::Skills,
+        name: name.to_string(),
+        plugin: None,
+        read: read.to_string(),
+        text: text.to_string(),
+    }
 }
 
 fn row(name: &str, source: &str) -> SetupItem {
@@ -61,27 +67,27 @@ fn holding(kind: &str, items: Vec<SetupItem>) -> KitInventory {
 #[test]
 fn a_skills_file_is_the_one_in_its_folder_and_anything_else_the_row_names_is_the_file() {
     let skills = holding("skills", vec![row("docs", "/home/user/.setup/skills/docs")]);
-    let found = piece_named(&skills, KitOpenKind::Skills, "docs").expect("named once");
+    let found = piece_named(&skills, KitOpenKind::Skills, "docs", None).expect("named once");
     assert_eq!(found.place, Path::new("/home/user/.setup/skills/docs"));
     assert_eq!(found.file, Path::new("/home/user/.setup/skills/docs/SKILL.md"));
 
     let relative = holding("commands", vec![row("ship", ".setup/commands/ship.md")]);
-    let found = piece_named(&relative, KitOpenKind::Commands, "ship").expect("a row under the home");
+    let found = piece_named(&relative, KitOpenKind::Commands, "ship", None).expect("a row under the home");
     assert_eq!(found.file, Path::new("/home/user/.setup/commands/ship.md"));
 }
 
 #[test]
 fn a_name_the_inventory_does_not_hold_once_names_no_file() {
     let twice = holding("skills", vec![row("docs", "/home/user/a/docs"), row("docs", "/home/user/b/docs")]);
-    assert_eq!(piece_named(&twice, KitOpenKind::Skills, "docs"), Err(Unnamed::Several(2)));
+    assert_eq!(piece_named(&twice, KitOpenKind::Skills, "docs", None), Err(Unnamed::Several(2)));
     for name in ["lint", "../../etc/passwd", "/etc/passwd", ""] {
-        assert_eq!(piece_named(&twice, KitOpenKind::Skills, name), Err(Unnamed::NotListed), "{name}");
+        assert_eq!(piece_named(&twice, KitOpenKind::Skills, name, None), Err(Unnamed::NotListed), "{name}");
     }
-    assert_eq!(piece_named(&twice, KitOpenKind::Commands, "docs"), Err(Unnamed::NotListed));
+    assert_eq!(piece_named(&twice, KitOpenKind::Commands, "docs", None), Err(Unnamed::NotListed));
 
     let built_in = holding("output_styles", vec![row("Explanatory", "built in to the harness"), row("Armada job rules", "Armada")]);
     for name in ["Explanatory", "Armada job rules"] {
-        assert_eq!(piece_named(&built_in, KitOpenKind::OutputStyles, name), Err(Unnamed::NoFile), "{name}");
+        assert_eq!(piece_named(&built_in, KitOpenKind::OutputStyles, name, None), Err(Unnamed::NoFile), "{name}");
     }
 }
 
@@ -128,11 +134,19 @@ async fn a_piece_a_plugin_brought_reads_and_is_never_saved() {
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     let file = plugin_skill(&home, "impeccable", "polish");
 
-    let read = fleet.kit_file_read(getting("polish")).await.expect("a plugin's skill reads");
+    let by_plugin = |mut asked: GetKitFile| {
+        asked.plugin = Some(String::from("impeccable"));
+        asked
+    };
+    let read = fleet.kit_file_read(by_plugin(getting("polish"))).await.expect("a plugin's skill reads");
+    let unnamed = fleet.kit_file_read(getting("polish")).await.expect_err("no plugin named, so not the person's own");
+    assert_eq!(unnamed.error().code, "fleet.kit_file_not_listed");
     assert_eq!(read.plugin.as_deref(), Some("impeccable"));
     assert!(read.text.contains("from impeccable"));
 
-    let refused = fleet.kit_file_saved(saving("polish", &read.text, "mine\n")).await.expect_err("refused");
+    let mut save = saving("polish", &read.text, "mine\n");
+    save.plugin = Some(String::from("impeccable"));
+    let refused = fleet.kit_file_saved(save).await.expect_err("refused");
     assert_eq!(refused.status(), 422);
     assert_eq!(refused.error().code, "fleet.kit_file_from_plugin");
     assert_eq!(
@@ -163,13 +177,27 @@ async fn a_piece_not_named_is_not_opened_and_a_plugin_is_not_opened_in_an_editor
     let fleet = crate::tests::daemon::a_fleet(&home, FakeWorkProduct::changed(&[]));
     plugin_skill(&home, "impeccable", "polish");
 
-    let nowhere = OpenKitPiece { kind: KitOpenKind::Skills, name: String::from("/etc/passwd"), place: KitPlace::Finder };
+    let nowhere = OpenKitPiece { kind: KitOpenKind::Skills, name: String::from("/etc/passwd"), plugin: None, place: KitPlace::Finder };
     let refused = fleet.kit_piece_opened(nowhere).await.expect_err("not listed");
     assert_eq!(refused.error().code, "fleet.kit_file_not_listed");
 
-    let plugin = OpenKitPiece { kind: KitOpenKind::Plugins, name: String::from("impeccable@market"), place: KitPlace::Editor };
+    let plugin = OpenKitPiece { kind: KitOpenKind::Plugins, name: String::from("impeccable@market"), plugin: None, place: KitPlace::Editor };
     let refused = fleet.kit_piece_opened(plugin).await.expect_err("Finder only");
     assert_eq!(refused.error().code, "fleet.kit_open_plugin_in_editor");
+}
+
+#[test]
+fn a_persons_skill_and_a_plugins_of_one_name_each_resolve_by_plugin() {
+    let mut brought = row("polish", "/home/user/cache/impeccable/skills/polish");
+    brought.plugin = Some(String::from("impeccable"));
+    let both = holding("skills", vec![row("polish", "/home/user/skills/polish"), brought]);
+
+    let own = piece_named(&both, KitOpenKind::Skills, "polish", None).expect("the person's own");
+    assert_eq!((own.place.as_path(), own.plugin.as_deref()), (Path::new("/home/user/skills/polish"), None));
+    let theirs = piece_named(&both, KitOpenKind::Skills, "polish", Some("impeccable")).expect("the plugin's");
+    assert_eq!(theirs.place, Path::new("/home/user/cache/impeccable/skills/polish"));
+    assert_eq!(theirs.plugin.as_deref(), Some("impeccable"));
+    assert_eq!(piece_named(&both, KitOpenKind::Skills, "polish", Some("other")), Err(Unnamed::NotListed));
 }
 
 fn no_env(_: &str) -> Option<String> {
