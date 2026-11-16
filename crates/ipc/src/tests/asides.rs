@@ -15,6 +15,7 @@ fn an_aside() -> Aside {
         asked_at: Instant::carried("2026-11-15T09:00:00.000Z"),
         answered_at: None,
         told_at: None,
+        reads: Vec::new(),
     }
 }
 
@@ -25,6 +26,9 @@ fn an_aside_leaves_no_key_for_what_it_does_not_hold_and_reads_back() {
     for absent in ["quote", "failed", "answered_at", "told_at"] {
         assert!(!text.contains(absent), "{absent}: {text}");
     }
+    assert!(text.contains(r#""reads":[]"#), "reads are always sent: {text}");
+    let before: Aside = decode("an aside from before reads", br#"{"aside_id":"a1","session_id":"s1","question":"q","answer":"","state":"asking","asked_at":"2026-11-15T09:00:00.000Z"}"#).expect("read");
+    assert!(before.reads.is_empty());
     assert_eq!(decode::<Aside>("an aside", text.as_bytes()).expect("read"), an_aside());
 }
 

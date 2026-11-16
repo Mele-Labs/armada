@@ -44,6 +44,11 @@ pub struct Aside {
     /// When the owner told it to the Job. Absent: not told.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub told_at: Option<Instant>,
+    /// What the copy has looked at so far, in order, one `<Tool> <target>` each: `Read <file>`, `Grep <pattern>` (and
+    /// ` in <path>` where it gave one) or `Glob <pattern>`. Paths inside the Job's directory are relative to it.
+    /// Always sent, empty until the copy reads something. Since 16 Nov 2026.
+    #[serde(default)]
+    pub reads: Vec<String>,
 }
 
 /// `ask_aside`: put a side question to a Job.
