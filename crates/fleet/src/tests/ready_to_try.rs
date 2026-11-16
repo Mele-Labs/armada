@@ -363,3 +363,14 @@ async fn withdrawing_a_branch_with_open_cards_and_no_offer_takes_the_cards_back(
     let again = Arc::clone(&rig.fleet).withdraw_preview(None, withdraw()).await;
     assert_eq!(code(again), "fleet.preview_not_offered", "neither an offer nor an open card");
 }
+
+#[tokio::test]
+async fn an_answered_card_stays_answered_when_its_branch_is_withdrawn() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: None }).await.expect("the offer withdrawn");
+
+    assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Answered);
+}

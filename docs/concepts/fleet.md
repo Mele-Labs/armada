@@ -636,7 +636,8 @@ A job that cannot be told now is asked again at the next reading and nothing is 
 ### Offering a branch for the preview
 
 **A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
-`withdraw_preview` takes it back.
+`withdraw_preview` takes it back, and with it every Ready to try card of the branch the owner has not answered.
+It does so for a branch that merged and left the list too, and Fleet withdraws such a card itself once its offer is gone.
 Without a `branch`, the call names the one branch the Job holds a slot on.
 It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, a `look` or `steps` that do not read (below), and a repository with no `scripts/preview`.
 Only this repository has one.
