@@ -349,6 +349,7 @@ where
             notice: None,
             queued: false,
             edited_at: None,
+            aside: None,
             sketches: Vec::new(),
         };
         self.row_put(id, row).await;

@@ -31,6 +31,7 @@ fn a_message_row_carries_its_notice_and_an_older_row_reads_without_one() {
         notice: notice.map(String::from),
         queued: false,
         edited_at: None,
+        aside: None,
         sketches: Vec::new(),
     };
     let plain = encode(&row(None)).unwrap();
@@ -54,6 +55,7 @@ fn a_message_row_carries_its_sketches_and_an_older_row_reads_without_them() {
         notice: None,
         queued: false,
         edited_at: None,
+        aside: None,
         sketches,
     };
     let plain = encode(&row(Vec::new())).unwrap();

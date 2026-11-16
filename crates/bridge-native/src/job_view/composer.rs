@@ -860,7 +860,7 @@ impl JobView {
         let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         if let Some(held) = self.mock.get_mut(id.as_str()) {
             held.items.push(ThreadItem::Row {
-                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, sketches },
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, aside: None, sketches },
             });
             held.version += 1;
             let at = held.items.len() - 1;

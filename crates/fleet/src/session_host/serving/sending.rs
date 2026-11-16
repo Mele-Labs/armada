@@ -131,11 +131,18 @@ where
         tags: &[ipc::SessionTag],
         sketches: &[ipc::SentSketch],
     ) -> SessionRow {
+        let aside = match written {
+            Written::Told(aside) => Some(aside.clone()),
+            _ => None,
+        };
         match written {
-            Written::Message(from) => SessionRow::Message {
+            Written::Message(_) | Written::Told(_) => SessionRow::Message {
                 id: self.row_id(session),
                 at: self.instant(),
-                from: from.clone(),
+                from: match written {
+                    Written::Message(from) => from.clone(),
+                    _ => SessionVoice::You,
+                },
                 text: text.to_string(),
                 files: files.to_vec(),
                 tags: tags.to_vec(),
@@ -143,6 +150,7 @@ where
                 notice: None,
                 queued: false,
                 edited_at: None,
+                aside,
             },
             Written::Noticed(notice) => SessionRow::Message {
                 id: self.row_id(session),
@@ -159,6 +167,7 @@ where
                 notice: Some(notice.word().to_string()),
                 queued: false,
                 edited_at: None,
+                aside: None,
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
@@ -217,13 +226,16 @@ where
         let addressed = self.addressed(&sent.mentions).await?;
         // A person's first message to a Session that was started without a request is read as a request is.
         // Fleet's words and a Session's brief (`first_message_from`) are not the person's to be read.
-        if matches!(written, Written::Message(SessionVoice::You)) {
+        if written.yours() {
             self.reading_begun(&session, &hosting, &text);
         }
         // A held Job's turns are kept off the thread, whole: the first for him to edit, and Start writes and sends them all.
         let first = match &written {
-            Written::Message(from) => Some(FirstTurn {
-                from: from.clone(),
+            Written::Message(_) | Written::Told(_) => Some(FirstTurn {
+                from: match &written {
+                    Written::Message(from) => from.clone(),
+                    _ => SessionVoice::You,
+                },
                 text: text.clone(),
                 files: kept.files.clone(),
                 tags: sent.mentions.clone(),
@@ -231,12 +243,16 @@ where
                 instead: instead.clone(),
                 ahead: ahead.clone(),
                 row: None,
+                aside: match &written {
+                    Written::Told(aside) => Some(aside.clone()),
+                    _ => None,
+                },
             }),
             _ => None,
         };
         if let Some(first) = first {
             if self.turn_kept_while_held(&id, &first).await? {
-                if matches!(written, Written::Message(SessionVoice::You)) {
+                if written.yours() {
                     self.noted_on_the_ledger(&session, &text).await?;
                     self.issues_named(&id, &text, &sent.mentions).await;
                     self.links_seen(&id, &text, LinkedBy::You).await;
@@ -247,7 +263,7 @@ where
         }
         let mut row = self.written_row(&id, &written, &text, &kept.files, &sent.mentions, &sent.sketches);
         let row_id = row.id().to_string();
-        if matches!(written, Written::Message(SessionVoice::You)) {
+        if written.yours() {
             let runtime = self.hosts().of(&id);
             let mut state = runtime.state();
             state.activity.writing.person_said(row.id(), &text);
@@ -262,13 +278,13 @@ where
         self.row_put(&id, row).await;
         // Before the early returns below. A waiting Session's brief is the person's too, though it is
         // written in the voice of the Job it waited on.
-        if followed || matches!(written, Written::Message(SessionVoice::You)) {
+        if followed || written.yours() {
             // The artifacts drawn from here on follow this message, until the next one.
             if let Err(why) = self.store().lock().await.keep_session_message(&id, &row_id) {
                 self.session_warned(&id, "a job's latest message was not kept", format!("{why:?}"));
             }
         }
-        if matches!(written, Written::Message(SessionVoice::You)) {
+        if written.yours() {
             self.noted_on_the_ledger(&session, &text).await?;
             self.issues_named(&id, &text, &sent.mentions).await;
             self.links_seen(&id, &text, LinkedBy::You).await;
@@ -300,7 +316,7 @@ where
             // here, which has no bound but Bridge's own and read as `bridge.not_sent`. A start that runs
             // past `DELIVERY_GRACE` goes on behind the answer: one that fails keeps its turn in
             // `start_failed`, and the thread shows the message already.
-            Some(held) if matches!(written, Written::Message(SessionVoice::You)) => {
+            Some(held) if written.yours() => {
                 self.delivered_in_order(&id, held).await;
             }
             Some(held) => self.deliver_turn(&id, held).await?,
@@ -548,6 +564,29 @@ where
         ahead: Option<String>,
         instead: Option<String>,
     ) -> Result<SessionRecord, Refusal> {
+        self.send_known_marked(terminal, sent, ahead, instead, None).await
+    }
+
+    /// [`Self::send_known`] for the person's words telling the Job the answer of `aside`, which the
+    /// thread's row is marked with.
+    pub(crate) async fn send_known_told(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        aside: String,
+    ) -> Result<SessionRecord, Refusal> {
+        Box::pin(self.send_known_marked(terminal, sent, None, None, Some(aside))).await
+    }
+
+    /// [`Self::send_known_added`], the hosted row marked with `aside` where it is one's answer.
+    async fn send_known_marked(
+        self: Arc<Self>,
+        terminal: Option<KeptSession>,
+        sent: SendSessionMessage,
+        ahead: Option<String>,
+        instead: Option<String>,
+        aside: Option<String>,
+    ) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().to_string();
         let approved = super::super::walking::approved_address(&sent.text).map(str::to_string);
         let noted = super::super::readiness::note_address(&sent.text).map(str::to_string);
@@ -575,9 +614,11 @@ where
             self.send_to_terminal(&session, sent, addressed, paths, instead)
                 .await?
         } else {
-            Arc::clone(&self)
-                .send_hosted_ahead(sent, SessionVoice::You, ahead, instead)
-                .await?
+            let written = match aside {
+                Some(aside) => Written::Told(aside),
+                None => Written::Message(SessionVoice::You),
+            };
+            Arc::clone(&self).send_hosted_written(sent, written, ahead, instead, false).await?
         };
         if let Some(url) = approved {
             self.walk_ended(&id, &url).await;

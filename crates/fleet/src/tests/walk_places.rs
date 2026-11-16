@@ -31,6 +31,7 @@ fn a_bot_saying(body: &str) -> Said {
         bot: true,
         at: "2026-10-16T09:00:00Z".into(),
         edited_at: None,
+        aside: None,
         body: body.into(),
     }
 }

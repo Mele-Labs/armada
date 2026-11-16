@@ -694,6 +694,11 @@ pub enum SessionRow {
         /// and on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         edited_at: Option<Instant>,
+        /// The side question (`Aside::aside_id`) whose answer the person told the Job with these words
+        /// (`tell_aside`), so the thread says they came from the side chat. Absent on every other
+        /// message, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        aside: Option<String>,
     },
     /// A tool call, one line.
     Tool {
