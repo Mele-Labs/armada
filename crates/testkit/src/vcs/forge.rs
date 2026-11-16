@@ -104,6 +104,11 @@ impl Forge for FakeVcs {
         self.main_ci.followed()
     }
 
+    fn pull_list(&self, _in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        self.main_ci.gated_by(gate);
+        self.main_ci.listed().ok_or(None)
+    }
+
     fn followed_pull(
         &self,
         _in_repo: &str,

@@ -76,8 +76,8 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.pull_reading(in_repo, gate)
     }
 
-    fn pull_reading_said(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
-        self.forge.pull_reading_said(in_repo, gate)
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        self.forge.pull_list(in_repo, gate)
     }
 
     fn followed_pull(
