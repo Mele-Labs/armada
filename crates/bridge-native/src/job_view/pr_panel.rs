@@ -93,8 +93,17 @@ pub(super) struct PullPanel {
     _noting: Option<Subscription>,
     /// The note on the description reached the Job.
     pub noted: bool,
+    /// The commit Files shows alone, pressed in Commits. None shows every file.
+    pub commit: Option<CommitShown>,
     _typing: Subscription,
     _copied: Option<Task<()>>,
+}
+
+/// A commit Files shows alone, and the page narrowed to the files it changed once its patches are read.
+pub(super) struct CommitShown {
+    pub sha: String,
+    pub headline: String,
+    pub files: Option<PullRequestPage>,
 }
 
 impl PullPanel {
@@ -113,6 +122,20 @@ impl PullPanel {
     /// The key Fleet's patches are kept under, as the Changes pane keeps them.
     pub(super) fn patches_key(&self) -> Option<String> {
         self.pull.manifest.as_ref().map(|manifest| format!("{manifest}#{}", self.pull.number))
+    }
+
+    /// The key of the patches Files draws: the commit's alone where one is pressed, else the pull request's.
+    pub(super) fn shown_patches_key(&self) -> Option<String> {
+        let whole = self.patches_key()?;
+        Some(self.commit.as_ref().map_or_else(|| whole.clone(), |commit| format!("{whole}@{}", commit.sha)))
+    }
+
+    /// The page Files draws: narrowed to the commit's files where one is pressed, None until they are read.
+    pub(super) fn files_page(&self) -> Option<&PullRequestPage> {
+        match &self.commit {
+            Some(commit) => commit.files.as_ref(),
+            None => self.page(),
+        }
     }
 }
 
@@ -655,6 +678,7 @@ impl JobView {
             note: None,
             _noting: None,
             noted: false,
+            commit: None,
             _typing: typing,
             _copied: None,
         };
@@ -712,6 +736,52 @@ impl JobView {
             pressed.clone()
         };
         super::pulls::with_page_read(pull, page)
+    }
+
+    /// A commit pressed in Commits: Files opens on the files it changed alone, read from Fleet.
+    fn show_commit(&mut self, sha: String, headline: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.commit = Some(CommitShown { sha, headline, files: None });
+        (panel.files_at, panel.current) = (None, None);
+        self.pull_tab(PullTab::Files, window, cx);
+        self.want_pull_patches(window, cx);
+    }
+
+    /// Show all: Files goes back to every file of the pull request.
+    fn show_all_files(&mut self, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.commit = None;
+        (panel.files_at, panel.current) = (None, None);
+        panel.scroll.set_offset(point(px(0.), px(0.)));
+        cx.notify();
+    }
+
+    /// Files, with the commit it is narrowed to and Show all over it where one was pressed in Commits.
+    fn pull_files_shown(&self, panel: &PullPanel, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let Some(commit) = panel.commit.as_ref() else { return self.pull_files(panel, page, tree_inside, look, cx) };
+        let short: String = commit.sha.chars().take(7).collect();
+        let read = panel.shown_patches_key().and_then(|key| self.panes.patches.get(&key));
+        let body: Option<AnyElement> = match (read, commit.files.as_ref()) {
+            (Some(Err(why)), _) => Some(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(why.clone())).into_any_element()),
+            (_, Some(files)) => self.pull_files(panel, files, tree_inside, look, cx),
+            _ => Some(stand_ins(look, "pull-commit-reading", &[0.9, 0.7, 0.8])),
+        };
+        let bar = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_w_0()
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(div().flex_none().child("Files in"))
+            .child(div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(short)))
+            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(commit.headline.clone())))
+            .child(labelled(
+                small_button(look, "pull-files-all", "Show all", false, true).tooltip(tip("Every file the pull request changes")).on_click(cx.listener(|this, _, _, cx| this.show_all_files(cx))),
+                Role::Button,
+                "Show all",
+            ));
+        Some(div().flex().flex_col().gap(look.length(token::SPACE_3)).child(labelled(div().id("pull-files-commit").child(bar), Role::Group, format!("Files in {}", commit.headline))).children(body).into_any_element())
     }
 
     fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
@@ -981,7 +1051,7 @@ impl JobView {
         let wide = look.length(token::W_DIALOG_WIDE);
         let high = crate::room::of(window, cx).size.height;
         let aside_w = px(336.);
-        let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
+        let files_beside = panel.tab == PullTab::Files && panel.files_page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
         let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, width, look, cx);
         let foot = self.pull_composer(panel, look, cx);
         let sheet = labelled(
@@ -1004,7 +1074,7 @@ impl JobView {
             Role::Region,
             title,
         );
-        let beside: Option<AnyElement> = if files_beside { panel.page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
+        let beside: Option<AnyElement> = if files_beside { panel.files_page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
         Some(div().size_full().flex().items_stretch().gap(look.length(token::SPACE_3)).children(beside.map(|list| div().flex_none().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list))).child(sheet).into_any_element())
     }
 
@@ -1519,8 +1589,8 @@ impl JobView {
             PullTab::Overview => self.pull_overview(panel, pull, page, look, cx),
             PullTab::Comments => self.pull_comments(panel, pull, page, look, cx),
             PullTab::Checks => pull_checks(page, look, cx),
-            PullTab::Files => self.pull_files(panel, page, tree_inside, look, cx),
-            PullTab::Commits => pull_commits(page, look),
+            PullTab::Files => self.pull_files_shown(panel, page, tree_inside, look, cx),
+            PullTab::Commits => pull_commits(page, look, cx),
         };
         div()
             .flex()
@@ -1893,8 +1963,9 @@ fn pull_checks(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Op
     Some(labelled(div().id("pull-checks").flex().flex_col().children(rows), Role::List, "Checks").into_any_element())
 }
 
-/// Commits: each one's short sha, headline and author (`Commits`). None, nothing drawn.
-fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
+/// Commits: each one's short sha, headline and author (`Commits`). A press opens Files on its files alone.
+/// None, nothing drawn.
+fn pull_commits(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Option<AnyElement> {
     if page.commits.is_empty() {
         return None;
     }
@@ -1904,6 +1975,8 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
         .iter()
         .enumerate()
         .map(|(at, commit)| {
+            let (sha, headline) = (commit.sha.clone(), commit.headline.clone());
+            let hover = look.color(token::BG_HOVER);
             labelled(
                 div()
                     .id(SharedString::from(format!("pull-commit-row:{at}")))
@@ -1911,6 +1984,10 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_2))
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover))
+                    .tooltip(tip("Shows the files it changed"))
+                    .on_click(cx.listener(move |this, _, window, cx| this.show_commit(sha.clone(), headline.clone(), window, cx)))
                     .when(at < last, |row| row.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
@@ -1918,7 +1995,7 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
                     .child(div().id(SharedString::from(format!("pull-commit:{at}"))).flex_none().font_family(mono(look)).tooltip(tip("Commit")).child(SharedString::from(commit.sha.chars().take(7).collect::<String>())))
                     .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(commit.headline.clone())))
                     .children(commit.author.clone().map(|author| div().flex_none().child(SharedString::from(author)))),
-                Role::ListItem,
+                Role::Button,
                 commit.headline.clone(),
             )
             .into_any_element()

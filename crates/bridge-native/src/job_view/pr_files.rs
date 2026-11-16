@@ -5,7 +5,7 @@
 
 use chrono::Local;
 use gpui::{div, point, prelude::*, px, AnyElement, Context, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Window};
-use ipc::{JudgeKind, JudgeNote, PullRequestFileStatus, PullRequestFilePatches, PullRequestPage, PullReviewThread};
+use ipc::{JudgeKind, JudgeNote, PullRequestFile, PullRequestFileStatus, PullRequestFilePatches, PullRequestPage, PullReviewThread};
 
 use super::pr_panel::{diff_size, mark, stand_ins, PullPanel, Tone};
 use super::rows::{glyph, mono, tip, Size};
@@ -22,6 +22,35 @@ fn status_look(status: PullRequestFileStatus) -> (&'static str, &'static str, Op
         PullRequestFileStatus::Removed => ("trash", "Removed", Some(Tone::Failed)),
         PullRequestFileStatus::Renamed => ("corner-up-right", "Renamed", None),
     }
+}
+
+/// The files one commit changed, as its patches say them, in the forge's order: the lines each adds and takes
+/// out counted from its patch, and Added or Removed read from its first hunk, since the pull request's own
+/// status for the file is its whole change, not this commit's. A file with no patch keeps the pull request's
+/// status where it has one.
+pub(super) fn commit_files(page: &PullRequestPage, patches: &PullRequestFilePatches) -> Vec<PullRequestFile> {
+    patches
+        .files
+        .iter()
+        .map(|one| {
+            let Some(patch) = one.patch.as_deref() else {
+                let status = page.files.iter().find(|file| file.path == one.path).map_or(PullRequestFileStatus::Modified, |file| file.status);
+                return PullRequestFile { path: one.path.clone(), additions: 0, deletions: 0, status };
+            };
+            let lines = || patch.lines().filter(|line| !line.starts_with("@@"));
+            let additions = lines().filter(|line| line.starts_with('+')).count() as u64;
+            let deletions = lines().filter(|line| line.starts_with('-')).count() as u64;
+            let first = patch.lines().next().unwrap_or_default();
+            let status = if first.starts_with("@@ -0,0 ") {
+                PullRequestFileStatus::Added
+            } else if first.contains(" +0,0 @@") {
+                PullRequestFileStatus::Removed
+            } else {
+                PullRequestFileStatus::Modified
+            };
+            PullRequestFile { path: one.path.clone(), additions, deletions, status }
+        })
+        .collect()
 }
 
 /// A judge note's file and line, where it names both (`path:line`, a range read from its first line).
@@ -278,9 +307,14 @@ impl JobView {
         labelled(div().id(SharedString::from(format!("pull-reach:{at}"))).flex().flex_col().children(rows), Role::List, format!("{path}, tests")).into_any_element()
     }
 
-    /// Fleet's patches for the open pull request, read once and kept as the Changes pane keeps them.
+    /// Fleet's patches for the open pull request, read once and kept as the Changes pane keeps them; or the
+    /// commit's alone where one was pressed in Commits.
     pub(super) fn want_pull_patches(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel() else { return };
+        if panel.commit.is_some() {
+            self.want_commit_patches(window, cx);
+            return;
+        }
         let Some(key) = panel.patches_key() else { return };
         if self.panes.patches.contains_key(&key) {
             return;
@@ -304,10 +338,56 @@ impl JobView {
         );
     }
 
-    /// The patch of one file of the open pull request, where Fleet has read it.
+    /// `GET /pull_request_commit_patches/:repository/:number/:commit`: the files the pressed commit changed,
+    /// kept beside the pull request's, and the page narrowed to them for Files.
+    fn want_commit_patches(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        let (Some(key), Some(manifest), Some(sha), number) = (panel.shown_patches_key(), panel.pull.manifest.clone(), panel.commit.as_ref().map(|commit| commit.sha.clone()), panel.pull.number) else { return };
+        if self.panes.patches.contains_key(&key) {
+            self.narrow_to_commit(&key, cx);
+            return;
+        }
+        if self.fleet.is_none() {
+            let read = crate::mock::commit_patches(&key).ok_or_else(|| "The forge did not answer for this commit".to_string());
+            self.panes.patches.insert(key.clone(), read);
+            self.narrow_to_commit(&key, cx);
+            return;
+        }
+        self.get(
+            format!("/pull_request_commit_patches/{}/{number}/{sha}", super::wire::encoded(&manifest)),
+            window,
+            cx,
+            Box::new(move |this, answer, _, cx| {
+                let read = answer.and_then(|bytes| ipc::decode::<PullRequestFilePatches>("PullRequestFilePatches", &bytes).map_err(|why| why.to_string()));
+                this.panes.patches.insert(key.clone(), read);
+                this.narrow_to_commit(&key, cx);
+            }),
+        );
+    }
+
+    /// The pressed commit's patches are read: Files is narrowed to its files, if that commit is still the one shown.
+    fn narrow_to_commit(&mut self, key: &str, cx: &mut Context<Self>) {
+        let Some(Ok(patches)) = self.panes.patches.get(key) else {
+            cx.notify();
+            return;
+        };
+        let patches = patches.clone();
+        let Some(panel) = self.pull_panel_mut() else { return };
+        if panel.shown_patches_key().as_deref() != Some(key) {
+            return;
+        }
+        let narrowed = panel.page().map(|page| PullRequestPage { files: commit_files(page, &patches), ..page.clone() });
+        if let Some(commit) = panel.commit.as_mut() {
+            commit.files = narrowed;
+        }
+        cx.notify();
+    }
+
+    /// The patch of one file of the open pull request, where Fleet has read it: the pressed commit's where
+    /// it changed the file, else the pull request's.
     fn pull_patch<'a>(&'a self, panel: &PullPanel, path: &str) -> Option<&'a ipc::PullRequestFilePatch> {
-        let key = panel.patches_key()?;
-        self.panes.patches.get(&key)?.as_ref().ok()?.files.iter().find(|one| one.path == path)
+        let find = |key: Option<String>| self.panes.patches.get(&key?)?.as_ref().ok()?.files.iter().find(|one| one.path == path);
+        find(panel.shown_patches_key()).or_else(|| find(panel.patches_key()))
     }
 
     /// The lines a thread is about, under its head in Comments and Files.
@@ -352,7 +432,7 @@ impl JobView {
             .collect();
         let top = pinned.as_ref().filter(|_| !lineless.is_empty()).and_then(|at| self.notes_list(at, lineless, "Notes from the judge".into(), job_page, look, cx));
         let now = Local::now();
-        let read = panel.patches_key().and_then(|key| self.panes.patches.get(&key));
+        let read = panel.shown_patches_key().and_then(|key| self.panes.patches.get(&key));
         let sections: Vec<AnyElement> = page
             .files
             .iter()
@@ -537,7 +617,7 @@ impl JobView {
             return false;
         }
         let Some(panel) = self.pull_panel() else { return false };
-        let Some(page) = panel.page() else { return false };
+        let Some(page) = panel.files_page() else { return false };
         let paths: Vec<&str> = page.files.iter().map(|file| file.path.as_str()).collect();
         let mut nav = Vec::new();
         self.file_nav(panel, page, &tree_of(&paths), "", &mut nav);
@@ -739,5 +819,45 @@ mod tests {
         assert_eq!(tree[0].under.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), vec!["lib.rs", "main.rs"]);
         assert_eq!(tree[1].name, "README.md");
         assert_eq!(tree[1].file, Some(2));
+    }
+
+    #[test]
+    fn a_commits_files_are_its_patches_counted_from_their_lines() {
+        let page: PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "review": "none", "approvals": 0,
+                "conversation": [], "checks": [], "commits": [],
+                "files": [
+                    { "path": "src/b.rs", "additions": 40, "deletions": 0, "status": "added" },
+                    { "path": "logo.png", "additions": 0, "deletions": 0, "status": "added" },
+                ],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let patches: PullRequestFilePatches = ipc::decode(
+            "PullRequestFilePatches",
+            serde_json::json!({ "files": [
+                { "manifest_id": "m", "number": 7, "path": "src/b.rs", "patch": "@@ -1,2 +1,3 @@\n keep\n-old\n+new\n+more" },
+                { "manifest_id": "m", "number": 7, "path": "src/c.rs", "patch": "@@ -0,0 +1,2 @@\n+one\n+two" },
+                { "manifest_id": "m", "number": 7, "path": "src/d.rs", "patch": "@@ -1,2 +0,0 @@\n-one\n-two" },
+                { "manifest_id": "m", "number": 7, "path": "logo.png", "said": "A binary file" },
+            ]})
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("patches");
+        let files: Vec<(String, u64, u64, PullRequestFileStatus)> = commit_files(&page, &patches).into_iter().map(|file| (file.path, file.additions, file.deletions, file.status)).collect();
+        assert_eq!(
+            files,
+            vec![
+                ("src/b.rs".to_string(), 2, 1, PullRequestFileStatus::Modified),
+                ("src/c.rs".to_string(), 2, 0, PullRequestFileStatus::Added),
+                ("src/d.rs".to_string(), 0, 2, PullRequestFileStatus::Removed),
+                ("logo.png".to_string(), 0, 0, PullRequestFileStatus::Added),
+            ]
+        );
     }
 }
