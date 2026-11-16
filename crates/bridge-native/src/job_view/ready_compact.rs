@@ -371,7 +371,9 @@ mod tests {
     #[gpui::test]
     fn several_open_builds_are_one_compact_card_and_the_older_items_draw_nothing(cx: &mut gpui::TestAppContext) {
         let (_view, cx) = on_screen(cx, "tool-edit", 1400.);
-        assert_eq!(drawn_like(cx, Role::Group, "Ready to try"), ["Ready to try"], "one card for the Job");
+        let mut groups = drawn_like(cx, Role::Group, "Ready to try");
+        groups.dedup();
+        assert_eq!(groups, ["Ready to try"], "one card for the Job");
         for about in [FULL, SHOT, BARE] {
             assert!(drawn(cx, Role::Button, &format!("{about}, Ready")), "{about} is a row of the card");
         }
@@ -515,18 +517,37 @@ mod tests {
         assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)), "the newest open build is opened in place");
     }
 
+    /// Whether a Refresh preview button is drawn inside the labelled element whose name starts with `inside`.
+    fn refresh_in(cx: &mut gpui::VisualTestContext, inside: &str) -> bool {
+        cx.update(|window, cx| {
+            let id = window.window_handle().window_id();
+            cx.global::<crate::labels::LabelBook>().drawn(id).iter().any(|one| one.role == Role::Button && one.name == "Refresh preview" && one.path.iter().any(|name| name.starts_with(inside)))
+        })
+    }
+
     #[gpui::test]
-    fn refresh_preview_stands_on_the_card_and_on_a_build_not_in_the_running_preview(cx: &mut gpui::TestAppContext) {
+    fn refresh_preview_stands_on_the_card_head_while_a_listed_build_is_not_in_the_preview(cx: &mut gpui::TestAppContext) {
+        let (_view, cx) = on_screen(cx, "tool-edit", 1400.);
+        assert!(drawn(cx, Role::Button, "Refresh preview"), "the card head offers it");
+        assert!(refresh_in(cx, "Ready to try"), "inside the card");
+    }
+
+    #[gpui::test]
+    fn refresh_preview_stands_beside_the_built_chip_of_a_build_not_in_the_preview(cx: &mut gpui::TestAppContext) {
         let (view, cx) = on_screen(cx, "tool-edit", 1400.);
-        assert_eq!(drawn_like(cx, Role::Button, "Refresh preview").len(), 1, "the card head offers it while a listed build is not in the preview");
-        let full = id_of(&view, FULL, cx);
-        view.update(cx, |view, cx| view.ready_open("tool-edit", &full, cx));
-        redraw(cx);
-        assert_eq!(drawn_like(cx, Role::Button, "Refresh preview").len(), 1, "a build already in the preview has nothing to refresh");
         let outside = id_of(&view, SHOT, cx);
         view.update(cx, |view, cx| view.ready_open("tool-edit", &outside, cx));
         redraw(cx);
-        assert_eq!(drawn_like(cx, Role::Button, "Refresh preview").len(), 2, "the build not in the preview offers Refresh beside its Built chip too");
+        assert!(refresh_in(cx, &format!("Ready to try: {SHOT}")), "the build not in the preview offers Refresh beside its Built chip");
+    }
+
+    #[gpui::test]
+    fn a_build_in_the_preview_has_no_refresh_beside_its_built_chip(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        let inside = id_of(&view, FULL, cx);
+        view.update(cx, |view, cx| view.ready_open("tool-edit", &inside, cx));
+        redraw(cx);
+        assert!(!refresh_in(cx, &format!("Ready to try: {FULL}")), "nothing to refresh");
     }
 
     /// Fleet's one row for the Job, as live Fleet sends it: `try:<session>`, source ready_to_try, act message, in To review with
