@@ -117,7 +117,7 @@ pub(crate) use rows::new_id;
 #[cfg(test)]
 pub(crate) use rows::mention_line;
 pub(crate) mod signed_out;
-mod serving;
+pub(crate) mod serving;
 pub(crate) use serving::NoticeBatches;
 pub(crate) mod asks;
 pub(crate) mod asks_model;

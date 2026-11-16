@@ -168,6 +168,8 @@ mod lane_keeping;
 mod merge_line_view;
 /// What calls the person and which of it he has not opened, read once for every client: `get_calls`, `calls.changed`.
 pub mod standing_calls;
+/// A review asked of him by name, looked for every five minutes and told once a request as a call.
+pub mod review_requests;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;
@@ -317,6 +319,8 @@ pub mod lifecycles;
 pub mod gate_keeping;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
+/// What the owner said in a Job, sorted by kind, the asks that came of it, and a Job's story.
+mod story;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
 /// Links already on a Studio, read as what their addresses name — `#1394`.

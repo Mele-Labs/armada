@@ -14,8 +14,9 @@ const MACS: [&str; 3] = ["Studio", "Work MacBook", "Mac mini"];
 /// When the walk's stores were deployed, as Fleet writes it.
 const DEPLOYED: &str = "2026-11-14T12:00:00Z";
 
-/// Cloudflare's page that makes a token with the rights a deploy needs.
-const TOKEN_PAGE: &str = "https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=workers_scripts_write&name=Armada";
+/// Cloudflare's page that makes a token with the rights a deploy needs: Workers Scripts edit and Account Settings read,
+/// as `CLOUDFLARE_TOKEN_PAGE` in `crates/adapters/src/store_worker.rs` asks for them.
+const TOKEN_PAGE: &str = "https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&name=Armada%20claims%20store";
 
 /// The team the mock's forge says he is not a member of.
 pub const NOT_A_MEMBER: &str = "acme/platform";
@@ -25,6 +26,10 @@ const NOT_A_MEMBER_SAID: &str = "GitHub says you are not a member of acme/platfo
 
 /// What Cloudflare refused every sign-in with.
 const NEEDS_TOKEN_SAID: &str = "Cloudflare refused every sign-in this Mac has.";
+
+/// What Fleet says of a token Cloudflare answered with a 400 (code 6003, chain 6111) because it was no token at all,
+/// such as the test command pasted from under it. The adapter's `TOKEN_UNREADABLE_SAID`.
+const UNREADABLE_TOKEN_SAID: &str = "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token.";
 
 /// One call the page made, oldest first, for a test to read.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -103,6 +108,10 @@ impl MockStores {
         let held = self.states.get_mut(project).ok_or_else(|| no_such(project))?;
         if let Some(said) = refusal {
             return Err(Refused { key: None, said, code: Some("fleet.store_cloudflare_refused".into()) });
+        }
+        // A paste with a space in it is a command or a sentence, not a token: Cloudflare cannot read it, and the ask comes back.
+        if deploy.cloudflare_token.as_deref().is_some_and(|token| token.contains(char::is_whitespace)) {
+            return Ok(StoreDeployed::NeedsToken { page: held.token_page.clone(), said: UNREADABLE_TOKEN_SAID.into() });
         }
         // A sign-in kept for the account deploys at once; the tunnel's is refused, so a token is asked for.
         if deploy.cloudflare_token.is_none() && held.deploy != StoreDeploy::Ready {
