@@ -85,6 +85,14 @@ pub(crate) struct Boxed {
     _changed: Subscription,
 }
 
+/// The one-line reason field under a practice he called wrong, open until Save or Cancel.
+pub(crate) struct Correcting {
+    pub at: model::PracticeAt,
+    pub wrong: model::Wrong,
+    pub field: Entity<InputState>,
+    _enter: Subscription,
+}
+
 /// A menu that is open, and what listens to it.
 struct Pop {
     menu: Entity<Dropdown>,
@@ -138,6 +146,12 @@ pub struct ReviewsScreen {
     /// Each suggestion's words, which he can edit before it becomes a draft, by pull request and finding.
     suggestions: HashMap<(u64, String), Boxed>,
     dismissed: HashSet<(u64, String)>,
+    /// His corrections of practices' results, until Fleet stores them.
+    corrections: HashMap<model::PracticeAt, model::Correction>,
+    /// The practice whose reason he is writing.
+    correcting: Option<Correcting>,
+    /// Change sets whose set-aside practices are unfolded, by pull request and set.
+    aside_open: HashSet<(u64, String)>,
     /// Summaries being written, by pull request.
     writing: HashMap<u64, Task<()>>,
     /// Each change set's How it works and How to test: absent until run, None while it runs.
@@ -221,6 +235,9 @@ impl ReviewsScreen {
             sent_open: HashSet::new(),
             suggestions: HashMap::new(),
             dismissed: HashSet::new(),
+            corrections: HashMap::new(),
+            correcting: None,
+            aside_open: HashSet::new(),
             writing: HashMap::new(),
             explains: HashMap::new(),
             explain_runs: HashMap::new(),
@@ -684,7 +701,8 @@ impl ReviewsScreen {
         // His edit of the suggestion is what goes, not what the critique wrote.
         let body = self.suggestions.get(&(number, found.id.clone())).map(|boxed| boxed.state.read(cx).value().to_string()).filter(|said| !said.trim().is_empty()).unwrap_or(found.comment);
         self.let_go(number, &found.id, window, cx);
-        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body, finding: Some(found.id) };
+        let excerpt = self.page().and_then(|page| model::excerpt(&page.files, &found.path, found.line));
+        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body, finding: Some(found.id), excerpt };
         let boxed = self.boxed(&format!("reviews:draft:{id}"), Some(&draft.body), 2, 6, window, cx);
         self.boxes.insert(id, boxed);
         self.drafts.push(draft);
@@ -814,6 +832,59 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// Wrong beside a practice: Doesn't apply here or Check is wrong, each then asking why.
+    fn open_wrong(&mut self, at: model::PracticeAt, point: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        let entries = [model::Wrong::DoesNotApply, model::Wrong::CheckIsWrong]
+            .into_iter()
+            .map(|wrong| Entry::Act { id: wrong.said(), label: wrong.said().into(), icon: None, danger: false })
+            .collect();
+        self.open_menu("Wrong", entries, point, move |this, id, window, cx| {
+            let wrong = if id == model::Wrong::DoesNotApply.said() { model::Wrong::DoesNotApply } else { model::Wrong::CheckIsWrong };
+            this.start_correcting(at.clone(), wrong, window, cx);
+        }, window, cx);
+    }
+
+    fn start_correcting(&mut self, at: model::PracticeAt, wrong: model::Wrong, window: &mut Window, cx: &mut Context<Self>) {
+        let field = cx.new(|cx| InputState::new(window, cx).placeholder(wrong.asks()));
+        let enter = cx.subscribe_in(&field, window, |this, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::PressEnter { .. }) {
+                this.save_correction(window, cx);
+            }
+        });
+        field.update(cx, |field, cx| field.focus(window, cx));
+        self.correcting = Some(Correcting { at, wrong, field, _enter: enter });
+        cx.notify();
+    }
+
+    /// Save keeps the correction once it has a reason; an empty one saves nothing.
+    fn save_correction(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.correcting.as_ref() else { return };
+        let reason = open.field.read(cx).value().trim().to_string();
+        if reason.is_empty() {
+            return;
+        }
+        if let Some(open) = self.correcting.take() {
+            self.corrections.insert(open.at, model::Correction { wrong: open.wrong, reason });
+        }
+        window.focus(&self.within, cx);
+        cx.notify();
+    }
+
+    fn cancel_correcting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.correcting.take().is_some() {
+            window.focus(&self.within, cx);
+            cx.notify();
+        }
+    }
+
+    fn fold_aside(&mut self, number: u64, set: String, cx: &mut Context<Self>) {
+        let key = (number, set);
+        if !self.aside_open.remove(&key) {
+            self.aside_open.insert(key);
+        }
+        cx.notify();
+    }
+
     /// Lists: the forge lists a pull request is on, as a filter on the inbox.
     fn open_lists(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         let on = self.lists;
@@ -860,6 +931,11 @@ impl ReviewsScreen {
         let keys = &event.keystroke;
         if keys.key == "escape" && self.asking.is_some() {
             self.dismiss(window, cx);
+            cx.stop_propagation();
+            return;
+        }
+        if keys.key == "escape" && self.correcting.is_some() {
+            self.cancel_correcting(window, cx);
             cx.stop_propagation();
             return;
         }

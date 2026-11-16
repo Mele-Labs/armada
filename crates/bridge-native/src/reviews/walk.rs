@@ -18,7 +18,7 @@ const RISK: &str = "Risk: Strict clients may reject the new field";
 const KEPT: &str = "Kept by Armada for every PR that touches migrations/ in ledger-api. Read from docs/migrations.md on Tuesday, and read again when that doc changes.";
 const HOW_IT_WORKS: &str = "How it works: The migration adds a stage column that may be empty, then copies each invoice's last failed stage from the job log in one update. The down migration drops the column.";
 
-pub static STEPS: [Step; 60] = [
+pub static STEPS: [Step; 65] = [
     step("Reviews in the strip. The pull request open last time opens at once, as you left it", Verb::PressOn("tab", "Reviews"), "heading", INVOICE),
     step("The inbox reads the forge again, and keeps the last one drawn meanwhile", Verb::Look, "status", "Refreshing"),
     step("It opens on its Overview. What Find problems writes on the commits since you looked waits in grey for the refresh", Verb::Look, "status", "Finding problems in the commits since you looked"),
@@ -51,6 +51,10 @@ pub static STEPS: [Step; 60] = [
     step("Show in change set: the database migration in focus, at the blocker's hunk", Verb::OpenIn(BLOCKER, "Show in change set"), "article", "Suggestion: Batch the backfill"),
     step("The practices for migrations, kept by Armada from the repository's own doc", Verb::Look, "label", KEPT),
     step("One it misses: the backfill runs as one statement", Verb::Look, "row", "Missed: Backfill runs in batches. It runs as one statement."),
+    step("Wrong beside a practice: say its result is wrong", Verb::Open("button", "Wrong: Has a down migration"), "menuitem", "Check is wrong"),
+    step("Check is wrong: it asks why, in one line", Verb::PressOn("menuitem", "Check is wrong"), "textbox", "Why the check is wrong"),
+    step("Say why", Verb::Typed("The down migration drops the column but loses the stages it held."), "textbox", "Why the check is wrong"),
+    step("Save: the practice turns to missed, with what you said under it", Verb::PressOn("button", "Save reason"), "label", "You said: The down migration drops the column but loses the stages it held."),
     step("How it works", Verb::PressOn("button", "How it works"), "button", "How it works"),
     step("Its answer reads under it", Verb::Lands, "article", HOW_IT_WORKS),
     step("Next: Data layer", Verb::PressOn("button", "Next: Data layer"), "heading", "Data layer"),
@@ -58,6 +62,7 @@ pub static STEPS: [Step; 60] = [
     step("Overview in the rail", Verb::PressOn("option", "Overview"), "article", RISK),
     step("Not a problem: the card goes", Verb::OpenIn(RISK, "Not a problem"), "article", "Possible bug: A crash can retry forever"),
     step("The risk is gone from the Overview", Verb::Absent("article", RISK), "heading", "Blockers, risks and possible bugs"),
+    step("Each change set's row says what is still found in it, in the glyph and hue of its worst finding", Verb::Wheel("heading", "Blockers, risks and possible bugs", 700), "label", "1 possible bug"),
     step("Back to Retry failed webhooks", Verb::PressOn("row", ROW), "heading", "Why, from Tobias"),
     step("Drag Comments to the pane's bottom edge", Verb::Carry("tab", "Comments", 50, 92), "region", "Pane: Review comments, Comments"),
     step("Let go: the pane splits, Comments under the rest", Verb::Release, "region", "Pane: Comments"),

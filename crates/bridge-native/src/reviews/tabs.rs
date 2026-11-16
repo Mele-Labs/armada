@@ -4,16 +4,16 @@ use gpui::{div, prelude::*, AnyElement, Context, Div, ElementId, FontWeight, Rol
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
-use gpui_component::input::Textarea;
+use gpui_component::input::{Input, Textarea};
 
-use super::model::{named, on_day, ChangeSet, Critique, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Summary, Viewed};
+use super::model::{named, on_day, ChangeSet, Critique, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
 use super::{Ask, ReviewsScreen, HUNKS_AT};
 use crate::diff;
 use crate::job_view::pulls::state_chip;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
-use crate::titlebar::parts::{glyph, mono, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{glyph, icon_button, mono, spinner, tip, Btn, Weight};
 
 /// The glyph on a tab and in the Add tab menu.
 pub(super) fn glyph_of(kind: &str) -> &'static str {
@@ -523,6 +523,15 @@ impl ReviewsScreen {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(place_line(format!("draft-card-place-{}", draft.id), place.clone(), look))
+                .children(draft.excerpt.as_deref().map(|lines| {
+                    // The commented line is the excerpt's last, picked as a change set's hot line is.
+                    let slots = diff::Slots { picked: lines.len().checked_sub(1), ..Default::default() };
+                    labelled(
+                        frame(look).id(SharedString::from(format!("draft-card-diff-{}", draft.id))).child(diff::lines_with(SharedString::from(format!("draft-diff-{}", draft.id)), lines, look, slots)),
+                        Role::Article,
+                        format!("Diff at {place}"),
+                    )
+                }))
                 .child(labelled(
                     div().id(SharedString::from(format!("draft-card-box-{}", draft.id))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&boxed.state)),
                     Role::TextInput,
@@ -709,7 +718,8 @@ impl ReviewsScreen {
         column = column.child(div().pt(look.length(token::SPACE_2)).child(heading("overview-sets-head", "Change sets".into(), look)));
         let mut table = frame(look).flex().flex_col();
         for set in &page.overview.sets {
-            table = table.child(self.set_row(set, look, cx));
+            let mark = self.set_mark_of(page, &set.id);
+            table = table.child(self.set_row(set, &mark, look, cx));
         }
         if page.kept {
             table = table.child(waiting("overview-sets-wait", "Writing the change sets of the commits since you looked", &[0.4, 0.8], look));
@@ -790,7 +800,6 @@ impl ReviewsScreen {
             .pb(look.length(token::SPACE_3))
             .child(add)
             .child(show)
-            .child(div().flex_1())
             .child(drop);
         labelled(
             frame(look)
@@ -812,8 +821,109 @@ impl ReviewsScreen {
         self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(flag)).then(|| "Added as draft comment".to_string())
     }
 
-    /// A change set's row on the Overview: its glyph, title, purpose, and Review.
-    fn set_row(&self, set: &ChangeSet, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    /// One practice: its result's glyph, its words with what he said under them, and Wrong in a column
+    /// of its own, held empty where a row has none.
+    fn practice_row(&self, n: usize, practice: &Practice, kept: Kept, reason: Option<&str>, wrong: Option<Option<AnyElement>>, look: &Look) -> AnyElement {
+        let (name, ink, said) = kept_mark(kept);
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(SharedString::from(practice.said.clone()))
+            .children(reason.map(|reason| {
+                let you_said = format!("You said: {reason}");
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("practice-said-{n}")))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(SharedString::from(you_said.clone())),
+                    Role::Label,
+                    you_said,
+                )
+            }));
+        let column = wrong.map(|wrong| div().flex_none().w(look.length(token::LEADING_SM)).h(look.length(token::LEADING_SM)).children(wrong));
+        labelled(
+            div()
+                .id(SharedString::from(format!("practice-{n}")))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(mark(format!("practice-mark-{n}"), name, ink, said, look)))
+                .child(words)
+                .children(column),
+            Role::Row,
+            format!("{said}: {}", practice.said),
+        )
+        .into_any_element()
+    }
+
+    /// Wrong: a ghost glyph that opens Doesn't apply here and Check is wrong.
+    fn wrong_button(&self, at: PracticeAt, practice: &Practice, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let name = format!("Wrong: {}", practice.said);
+        let n = at.2;
+        labelled(
+            icon_button(SharedString::from(format!("practice-wrong-{n}")), "flag", look.color(token::FG_MUTED), look)
+                .size(look.length(token::LEADING_SM))
+                .rounded(look.length(token::RADIUS_SM))
+                .tooltip(tip("Say this result is wrong"))
+                .on_click(cx.listener({
+                    let name = name.clone();
+                    move |this, event: &gpui::ClickEvent, window, cx| {
+                        let point = super::under_label(Role::Button, &name, event.position(), window, cx);
+                        this.open_wrong(at.clone(), point, window, cx);
+                    }
+                })),
+            Role::Button,
+            name,
+        )
+        .into_any_element()
+    }
+
+    /// The reason, in one line, under the practice he called wrong: Save keeps it, Cancel drops it.
+    fn reason_field(&self, open: &super::Correcting, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let asks = open.wrong.asks();
+        let save = labelled(
+            Btn::new("practice-reason-save", "Save", Weight::Primary).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.save_correction(window, cx))),
+            Role::Button,
+            "Save reason",
+        );
+        let cancel = labelled(
+            Btn::new("practice-reason-cancel", "Cancel", Weight::Ghost).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.cancel_correcting(window, cx))),
+            Role::Button,
+            "Cancel reason",
+        );
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            // Under the practice's words, past its glyph.
+            .pl(look.length(token::SPACE_4) + look.length(token::SPACE_2))
+            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(open.wrong.said()))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(labelled(div().id("practice-reason").flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).child(Input::new(&open.field)), Role::TextInput, asks))
+                    .child(save)
+                    .child(cancel),
+            )
+            .into_any_element()
+    }
+
+    /// What the findings on a set come to, leaving out those he called Not a problem.
+    pub(super) fn set_mark_of(&self, page: &Page, set: &str) -> Mark {
+        let open: Vec<&Flag> = page.overview.flags.iter().filter(|flag| !self.dismissed.contains(&(page.number, flag.id.clone()))).collect();
+        Mark::of(set, &open)
+    }
+
+    /// A change set's row on the Overview: its glyph, title, what was found in it, purpose, and Review.
+    fn set_row(&self, set: &ChangeSet, mark: &Mark, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let id = set.id.clone();
         let review = labelled(
             Btn::new(SharedString::from(format!("set-review-{}", set.id)), "Review", Weight::Secondary)
@@ -833,7 +943,7 @@ impl ReviewsScreen {
                 .border_b(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 // The glyph sits on the title's line; Review stays centred on the row.
-                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(set_mark(format!("set-mark-{}", set.id), set.mark, look.length(token::SPACE_4), look)))
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(set_mark(format!("set-mark-{}", set.id), mark, look.length(token::SPACE_4), look)))
                 .child(
                     div()
                         .flex_1()
@@ -842,7 +952,20 @@ impl ReviewsScreen {
                         .flex_col()
                         .text_size(look.length(token::TEXT_SM))
                         .line_height(look.length(token::LEADING_SM))
-                        .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(set.title.clone())))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_wrap()
+                                .gap_x(look.length(token::SPACE_2))
+                                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(set.title.clone())))
+                                .when_some(mark.worst, |line, worst| {
+                                    line.child(labelled(
+                                        div().id(SharedString::from(format!("set-found-{}", set.id))).text_color(look.color(flag_hue(worst))).child(SharedString::from(mark.said.clone())),
+                                        Role::Label,
+                                        mark.said.clone(),
+                                    ))
+                                }),
+                        )
                         .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(set.line()))),
                 )
                 .child(div().flex_none().self_center().child(review)),
@@ -885,21 +1008,48 @@ impl ReviewsScreen {
             set.kept_note.clone(),
         );
         let mut practices = div().flex().flex_col().gap(look.length(token::SPACE_1));
+        let mut aside = Vec::new();
         for (n, practice) in set.practices.iter().enumerate() {
-            let (name, ink, said) = kept_mark(practice.kept);
-            practices = practices.child(labelled(
+            let at: PracticeAt = (page.number, set.id.clone(), n);
+            let fixed = self.corrections.get(&at);
+            if let Some(fixed) = fixed.filter(|fixed| fixed.wrong == Wrong::DoesNotApply) {
+                aside.push(self.practice_row(n, practice, Kept::DoesNotApply, Some(&fixed.reason), None, look));
+                continue;
+            }
+            let kept = if fixed.is_some() { practice.kept.flipped() } else { practice.kept };
+            // Only a result he has not corrected, and one that applies, can be called wrong.
+            let wrong = (fixed.is_none() && practice.kept != Kept::DoesNotApply).then(|| self.wrong_button(at.clone(), practice, look, cx));
+            practices = practices.child(self.practice_row(n, practice, kept, fixed.map(|fixed| fixed.reason.as_str()), Some(wrong), look));
+            if let Some(open) = self.correcting.as_ref().filter(|open| open.at == at) {
+                practices = practices.child(self.reason_field(open, look, cx));
+            }
+        }
+        if !aside.is_empty() {
+            let open = self.aside_open.contains(&(page.number, set.id.clone()));
+            let said = format!("{} set aside", aside.len());
+            let (number, id) = (page.number, set.id.clone());
+            let fold = labelled(
                 div()
-                    .id(SharedString::from(format!("practice-{n}")))
+                    .id("practices-aside")
                     .flex()
-                    .items_start()
+                    .items_center()
                     .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::LEADING_SM))
                     .text_size(look.length(token::TEXT_SM))
                     .line_height(look.length(token::LEADING_SM))
-                    .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(mark(format!("practice-mark-{n}"), name, ink, said, look)))
-                    .child(div().flex_1().min_w_0().child(SharedString::from(practice.said.clone()))),
-                Role::Row,
-                format!("{said}: {}", practice.said),
-            ));
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .aria_expanded(open)
+                    .on_click(cx.listener(move |this, _, _, cx| this.fold_aside(number, id.clone(), cx)))
+                    .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                    .child(SharedString::from(said.clone())),
+                Role::Button,
+                said,
+            );
+            practices = practices.child(fold);
+            if open {
+                practices = practices.children(aside);
+            }
         }
         let lead: Vec<AnyElement> = vec![
             labelled(
@@ -945,6 +1095,22 @@ impl ReviewsScreen {
                             .text_size(look.length(token::TEXT_XS))
                             .child(div().min_w_0().truncate().child(SharedString::from(hunk.path.clone()))),
                     )
+                    .when(!hunk.caption.is_empty(), |code| {
+                        code.child(labelled(
+                            div()
+                                .id(SharedString::from(format!("hunk-caption-{n}")))
+                                .px(look.length(token::SPACE_3))
+                                .py(look.length(token::SPACE_1))
+                                .border_b(look.length(token::BORDER_WIDTH))
+                                .border_color(look.color(token::BORDER_SUBTLE))
+                                .text_size(look.length(token::TEXT_XS))
+                                .line_height(look.length(token::LEADING_XS))
+                                .text_color(look.color(token::FG_MUTED))
+                                .child(SharedString::from(hunk.caption.clone())),
+                            Role::Label,
+                            hunk.caption.clone(),
+                        ))
+                    })
                     .child(diff::lines_with(SharedString::from(format!("hunk-diff-{}-{n}", set.id)), &lines, look, slots)),
                 Role::Article,
                 format!("File: {}", hunk.path),
@@ -1238,15 +1404,17 @@ fn flag_hue(kind: FlagKind) -> Token {
     }
 }
 
-/// A change set's worst finding as a registry glyph that says itself in a tooltip.
-pub(super) fn set_mark(id: String, mark: Mark, size: gpui::Pixels, look: &Look) -> AnyElement {
-    let (name, ink, said) = match mark {
-        Mark::Blocked => ("circle-x", token::RUN_FAILED, "A blocker"),
-        Mark::Risky => ("triangle-alert", token::STATUS_AWAITING_REVIEW, "A risk"),
-        Mark::Clear => ("circle-check", token::RUN_PASSED, "Nothing blocks it"),
+/// A change set's worst finding in its card's glyph and hue, with the findings in its tooltip. A set
+/// with none takes a quiet mark.
+pub(super) fn set_mark(id: String, mark: &Mark, size: gpui::Pixels, look: &Look) -> AnyElement {
+    let (name, ink, said) = match mark.worst {
+        Some(kind) => (kind.glyph(), flag_hue(kind), mark.said.clone()),
+        None => ("circle-check", token::FG_SUBTLE, NOTHING_FOUND.to_string()),
     };
-    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said)).child(glyph(name, size, look.color(ink))), Role::Image, said).into_any_element()
+    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said.clone())).child(glyph(name, size, look.color(ink))), Role::Image, said).into_any_element()
 }
+
+const NOTHING_FOUND: &str = "No problems found";
 
 fn kept_mark(kept: Kept) -> (&'static str, Token, &'static str) {
     match kept {
