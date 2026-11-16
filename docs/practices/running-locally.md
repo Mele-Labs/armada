@@ -595,7 +595,8 @@ back**, in `~/Library/Application Support/Armada/`:
 |---|---|---|
 | `restart-source` | The tree the running build came from, `.armada/preview` or none for main | `scripts/restart` |
 | `restart-commit` | The commit it was built from | `scripts/restart`, once the new Fleet speaks the protocol its tree hashes to |
-| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first |
+| `restart-build.status` | `running`, the build and, once the wrapper has read a heading, the stage (`merging`, `fetching_main`, `building_fleet`, `building_bridge`, `restarting_fleet`, `reopening_bridge`, `retrying`), or `failed`, the build, the commit then current and one line of why. No file means the last restart took | `scripts/restart-build`; Fleet writes `running` first, and `failed` where the wrapper exits before it writes a stage |
+| `restart-build.start.log` | The wrapper's own stdout and stderr from its latest start | Fleet, emptied at each start |
 
 Its output is `~/Library/Logs/Armada/restart-build.log`. The line of why is the
 compiler's first error of the last run with its file, else the last thing a
@@ -625,6 +626,13 @@ runs in the background at most every ten minutes, so a read never waits on the
 network and the counts are as fresh as the last fetch. Bridge reads it on every
 connection and every minute, and every two seconds while a restart is under way.
 A `running` status older than twenty minutes is a wrapper that died and is ignored.
+**Fleet waits on the wrapper it started.**
+Where it exits non-zero while the status still holds Fleet's own two lines, it never took over, so Fleet writes `failed` with the last line of `restart-build.start.log`, else `restart-build exited N`.
+A stale wrapper that refuses an argument is then `failed` within seconds, not `running` for twenty minutes.
+
+**A checkout whose `main` cannot fast-forward is named.**
+`get_fleet_build`'s `blocked` is the checkout on `main`, behind `origin/main` as last fetched, holding untracked files that `origin/main` tracks: git will not overwrite them, so the `git pull --ff-only` in `scripts/preview` and `scripts/restart` refuses.
+`change_fleet_build` with `clear` `stash` or `delete` moves those files aside, stashed as `armada: before updating main <UTC time>` or removed, then runs `git pull --ff-only origin main` before it starts the wrapper.
 
 **A Job's restart is the same button.** A branch for the preview is offered with
 `offer_preview`, not handed over as a command (`docs/concepts/fleet.md`, *Offering a branch for the
