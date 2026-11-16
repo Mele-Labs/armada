@@ -2505,10 +2505,27 @@ impl JobsList {
         let going: Option<SharedString> = row.moved.then(|| crate::move_to_mac::went_to(crate::pairing::macs(cx)).map(|id| SharedString::from(id.to_string()))).flatten();
         let going_name = going.as_deref().and_then(|id| crate::pairing::chip(Some(id), cx)).map(|chip| chip.name);
         let moved_said: Option<SharedString> = row.moved.then_some(going_name.as_ref()).flatten().map(|name| format!("Moved to {name}").into());
-        let mut mac_dot = dotted
-            .then(|| crate::pairing::chip(going.as_deref().or(row.mac.as_deref()), cx))
-            .flatten()
-            .map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip));
+        // A Job on this Mac wears no mark. One on another Mac, or gone to it, wears a muted laptop glyph; the Mac's name is in
+        // the row's hover card. Only a Job on its way keeps the Mac's dot, in its from → to mark.
+        let mut mac_dot = if row.moving_to.is_some() {
+            dotted
+                .then(|| crate::pairing::chip(going.as_deref().or(row.mac.as_deref()), cx))
+                .flatten()
+                .map(|chip| crate::pairing::dot(look, SharedString::from(format!("mac-{}", row.id)), &chip))
+        } else {
+            let away = going.as_deref().or(row.mac.as_deref());
+            dotted.then(|| crate::pairing::chip(away, cx)).flatten().filter(|_| away.is_some()).map(|chip| {
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("mac-{}", row.id)))
+                        .flex_none()
+                        .child(svg().path(icon_path("laptop")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE))),
+                    Role::Image,
+                    SharedString::from(format!("On {}", chip.name)),
+                )
+                .into_any_element()
+            })
+        };
         // A Job on its way keeps its place and wears an amber edge. At the row's end stand its Mac's dot, a muted arrow, the other
         // Mac's dot and the amber word Moving, so the title keeps the width and the row stays one line. Where it goes is the mark's
         // tooltip and its name.
