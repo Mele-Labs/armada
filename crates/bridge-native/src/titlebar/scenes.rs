@@ -135,11 +135,15 @@ const LIVE_PREVIEW: &str = r#""on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8
 /// Branches on origin that main lacks and no Job here holds, newest first (#3547).
 const ORIGIN: &str = r#""origin":[{"branch":"native/refresh-set","committed_at":"2026-11-13T15:40:00Z"},{"branch":"fleet/dispute-reviews","committed_at":"2026-11-13T14:10:00Z"},{"branch":"fleet/artifacts-route","committed_at":"2026-11-13T11:05:00Z"},{"branch":"native/macs-setup","committed_at":"2026-11-13T09:30:00Z"},{"branch":"fleet/acting-queue","committed_at":"2026-11-12T18:20:00Z"},{"branch":"native/voice-session-rest","committed_at":"2026-11-12T10:00:00Z"},{"branch":"docs/key-map-panes","committed_at":"2026-11-11T16:45:00Z"},{"branch":"fleet/origin-fetch","committed_at":"2026-11-10T08:15:00Z"},{"branch":"native/sketch-jumps","committed_at":"2026-11-08T12:00:00Z"}]"#;
 
+/// Untracked files in the checkout that origin/main tracks, so main cannot fast-forward.
+const BLOCKED: &str = r#""blocked":{"behind":4,"files":[".armada/workflows/bug.yml",".armada/workflows/feature.yml",".armada/workflows/review.yml"]}"#;
+
 fn build_live(name: &str) -> Option<Build> {
     Some(match name {
         "build-live-main" => live_build(&format!(r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":0}},"switcher":{{"aligned":true,"idle_on_main":true,"restart":"update_to_main"}}"#)),
         "build-live-preview" => live_build(&format!("{LIVE_PREVIEW},{LEFT_OUT}")),
         "build-live-refused" => live_build(&format!(r#"{LIVE_PREVIEW},"failed":"no served repository holds scripts/restart-build""#)),
+        "build-live-blocked" => live_build(&format!(r#"{LIVE_PREVIEW},{BLOCKED}"#)),
         "build-live-carried" => live_build(&format!(
             r#"{LIVE_MAIN},"position":{{"ahead":0,"behind":3}},"switcher":{{"aligned":false,"idle_on_main":false,"restart":"update_to_main"}},"carried":["Native Bridge foundation","Audit the docs index"]"#
         )),
@@ -556,6 +560,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-live-main" => |face| face.build = build_live("build-live-main"),
         "build-live-preview" => |face| face.build = build_live("build-live-preview"),
         "build-live-refused" => |face| face.build = build_live("build-live-refused"),
+        "build-live-blocked" => |face| face.build = build_live("build-live-blocked"),
         "build-live-carried" => |face| face.build = build_live("build-live-carried"),
         "build-live-trying" => |face| face.build = build_live("build-live-trying"),
         "build-origin" => |face| face.build = build_live("build-origin"),

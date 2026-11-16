@@ -30,9 +30,12 @@ pub struct KeptAside {
     pub answered_at: Option<String>,
     /// When the owner told it to the Job. Absent until he does.
     pub told_at: Option<String>,
+    /// What the copy read while it answered, one `<Tool> <target>` each, in order. Kept as one line apiece, so an
+    /// entry never carries a newline.
+    pub reads: Vec<String>,
 }
 
-const COLUMNS: &str = "aside_id, session_id, question, quote, answer, state, failed, asked_at, answered_at, told_at";
+const COLUMNS: &str = "aside_id, session_id, question, quote, answer, state, failed, asked_at, answered_at, told_at, reads";
 
 fn failed(doing: &'static str) -> impl Fn(rusqlite::Error) -> WriteError {
     move |why| WriteError::Database(fault(doing)(why))
@@ -50,6 +53,7 @@ fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptAside> {
         asked_at: row.get(7)?,
         answered_at: row.get(8)?,
         told_at: row.get(9)?,
+        reads: row.get::<_, String>(10)?.lines().filter(|line| !line.is_empty()).map(str::to_string).collect(),
     })
 }
 
@@ -60,8 +64,8 @@ impl Store {
         self.conn
             .execute(
                 &format!(
-                    "INSERT INTO job_asides ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
-                     ON CONFLICT (aside_id) DO UPDATE SET answer = ?5, state = ?6, failed = ?7, answered_at = ?9, \
+                    "INSERT INTO job_asides ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
+                     ON CONFLICT (aside_id) DO UPDATE SET answer = ?5, state = ?6, failed = ?7, answered_at = ?9, reads = ?11, \
                      told_at = COALESCE(job_asides.told_at, ?10)"
                 ),
                 params![
@@ -75,6 +79,7 @@ impl Store {
                     aside.asked_at,
                     aside.answered_at,
                     aside.told_at,
+                    aside.reads.join("\n"),
                 ],
             )
             .map(|_| ())

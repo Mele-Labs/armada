@@ -29,6 +29,7 @@ use ipc::{
 };
 use store::HolderKind;
 
+use crate::build_start;
 use crate::daemon::Fleet;
 use crate::kept_builds::{self, RevertStatus};
 use crate::Detached;
@@ -544,6 +545,10 @@ impl Building {
             }
         });
         let switcher = Some(switcher_of(on, position, restarting));
+        let blocked = {
+            let root = checkout.to_string_lossy().into_owned();
+            tokio::task::spawn_blocking(move || build_start::blocked_in(&root)).await.ok().flatten()
+        };
         Ok(FleetBuildReport {
             on,
             commit,
@@ -563,6 +568,7 @@ impl Building {
             switcher,
             origin,
             holds,
+            blocked,
         })
     }
 
@@ -661,8 +667,10 @@ impl Building {
     /// Start the wrapper detached and answer. **The status is written first**,
     /// so a read between the answer and the wrapper's first line already says a
     /// restart is under way. `extra` follows the wrapper's own arguments: the preview's
-    /// `--push-as`, `--tell` and `--at`, which [`crate::mac_update`] sends.
-    pub(crate) fn change(
+    /// `--push-as`, `--tell` and `--at`, which [`crate::mac_update`] sends. `asked.clear`
+    /// moves the files blocking `main` aside and fast-forwards it first; a failure there starts
+    /// nothing. The wrapper is watched until it exits: [`build_start::watch`].
+    pub(crate) async fn change(
         &self,
         checkout: Option<&Path>,
         support: &Path,
@@ -677,24 +685,36 @@ impl Building {
         if let Some(Status::Running(build, _)) = status_in(support, now) {
             return Err(NotChanged::Restarting(build));
         }
+        if let Some(how) = asked.clear {
+            let root = checkout.to_path_buf();
+            tokio::task::spawn_blocking(move || build_start::cleared(&root, how, now))
+                .await
+                .map_err(|why| NotChanged::NotStarted(why.to_string()))?
+                .map_err(NotChanged::NotStarted)?;
+        }
         let status = support.join(STATUS);
         std::fs::create_dir_all(support).map_err(|why| NotChanged::NotStarted(why.to_string()))?;
-        std::fs::write(&status, format!("running\n{}\n", build_word(asked.build)))
-            .map_err(|why| NotChanged::NotStarted(why.to_string()))?;
+        let log = std::fs::File::create(support.join(build_start::START_LOG)).map_err(|why| NotChanged::NotStarted(why.to_string()))?;
+        let mark = format!("running\n{}\n", build_word(asked.build));
+        std::fs::write(&status, &mark).map_err(|why| NotChanged::NotStarted(why.to_string()))?;
         let mut wrapper = Detached::program(checkout.join(WRAPPER))
             .arg(build_word(asked.build))
             .in_directory(checkout)
             .outliving_fleet()
-            .ignoring_output();
+            .writing_output_to(&log)
+            .map_err(|why| NotChanged::NotStarted(why.to_string()))?;
         if asked.adopt {
             wrapper = wrapper.arg("--adopt");
         }
         for one in extra {
             wrapper = wrapper.arg(one);
         }
-        if let Err(why) = wrapper.spawn() {
-            let _ = std::fs::remove_file(&status);
-            return Err(NotChanged::NotStarted(why.to_string()));
+        match wrapper.spawn() {
+            Ok(child) => build_start::watch(child, support.to_path_buf(), status, mark, build_word(asked.build)),
+            Err(why) => {
+                let _ = std::fs::remove_file(&status);
+                return Err(NotChanged::NotStarted(why.to_string()));
+            }
         }
         Ok(FleetBuildChanging { build: asked.build })
     }
@@ -920,7 +940,7 @@ where
     }
 
     /// `change_fleet_build`, with `extra` after the wrapper's own arguments.
-    pub(crate) fn change_fleet_build_now(
+    pub(crate) async fn change_fleet_build_now(
         &self,
         asked: &ChangeFleetBuild,
         extra: &[String],
@@ -928,6 +948,7 @@ where
         let support = crate::runtime::support_dir(&self.host().home);
         self.building()
             .change(self.build_checkout().as_deref(), &support, asked, extra, SystemTime::now())
+            .await
             .map_err(|why| match why {
                 NotChanged::NotOffered(why) => self.build_refusal(why),
                 NotChanged::Restarting(build) => Refusal::IllegalMove(WireError::raised(

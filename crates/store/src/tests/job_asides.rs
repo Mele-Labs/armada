@@ -15,6 +15,7 @@ fn aside(id: &str, session: &str, at: &str) -> KeptAside {
         asked_at: at.to_string(),
         answered_at: None,
         told_at: None,
+        reads: Vec::new(),
     }
 }
 
@@ -29,6 +30,7 @@ fn an_aside_reads_back_after_a_reopen_answered_in_place_and_listed_oldest_first(
     answered.answer = "Because two tasks share it.".to_string();
     answered.state = aside_state::ANSWERED.to_string();
     answered.answered_at = Some("2026-11-15T10:00:05.000Z".to_string());
+    answered.reads = vec!["Read crates/store/migrations".to_string(), "Grep keep_aside in crates".to_string()];
     store.keep_aside(&answered).unwrap();
     drop(store);
 
@@ -36,6 +38,8 @@ fn an_aside_reads_back_after_a_reopen_answered_in_place_and_listed_oldest_first(
     let held = store.asides_of("s1").unwrap();
     assert_eq!(held.iter().map(|one| one.aside_id.as_str()).collect::<Vec<_>>(), ["a", "b"]);
     assert_eq!(held[0], answered);
+    assert_eq!(held[0].reads, ["Read crates/store/migrations", "Grep keep_aside in crates"], "the reads come back in order");
+    assert!(held[1].reads.is_empty());
     assert_eq!(held[1].state, aside_state::ASKING);
     assert!(store.aside_of("s2", "a").unwrap().is_none(), "an aside is read through its own Job");
     assert!(store.aside_of("s1", "zz").unwrap().is_none());

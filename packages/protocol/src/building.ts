@@ -90,7 +90,23 @@ export type FleetBuildReport = {
    * made. Omitted when none. Since 14 Nov 2026.
    */
   holds?: HeldBranch[];
+  /**
+   * The checkout is on `main`, behind `origin/main` as last fetched, and holds untracked files `origin/main` tracks, so
+   * `main` cannot fast-forward. Omitted otherwise. `ChangeFleetBuild.clear` moves them aside. Since 16 Nov 2026.
+   */
+  blocked?: CheckoutBlocked;
 };
+
+/** Untracked files in the checkout that stop `main` fast-forwarding to `origin/main`. */
+export type CheckoutBlocked = {
+  /** Commits `origin/main` holds that local `main` lacks. */
+  behind: number;
+  /** The untracked files `origin/main` tracks, relative to the checkout, sorted. */
+  files: string[];
+};
+
+/** What a change does with the files `CheckoutBlocked` names: keep them in a git stash entry, or remove them. */
+export type ClearBlocked = "stash" | "delete";
 
 /** A branch on origin a snapshot can take, and when its tip was committed. */
 export type OriginBranch = {
@@ -173,6 +189,8 @@ export type ChangeFleetBuild = {
   build: BuildSource;
   /** Restart with a Drone working, and adopt it. A person's say-so; omitted is no. */
   adopt?: boolean;
+  /** Stash or delete the files `FleetBuildReport.blocked` names, then fast-forward `main`, before the restart. Omitted leaves the checkout as it is. Since 16 Nov 2026. */
+  clear?: ClearBlocked;
 };
 
 /** The 202 answer: the restart has begun, onto this build. */

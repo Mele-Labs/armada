@@ -251,6 +251,11 @@ pub fn behind_said(count: u32) -> String {
     format!("{} behind main", commits(count))
 }
 
+/// The line over the untracked files that stop the checkout's main fast-forwarding.
+pub fn blocked_said(behind: u32) -> String {
+    format!("Main is {} behind origin. These untracked files block its update:", commits(behind))
+}
+
 /// The restart button as the section draws it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Restart {
