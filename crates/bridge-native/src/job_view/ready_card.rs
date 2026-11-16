@@ -30,6 +30,21 @@ pub(super) fn is_card(id: &str) -> bool {
     id.starts_with("try:")
 }
 
+/// The card an id names in a thread, with where it stands. A card's own id (`try:<branch>@<tip>`) names that card; the Job's
+/// one Needs you row (`try:<session>`, no `@`) names its newest open card, else its newest card.
+fn card_named(items: &[ThreadItem], id: &str) -> Option<(usize, String)> {
+    let cards = || items.iter().enumerate().rev().filter_map(|(at, item)| match item {
+        ThreadItem::ReadyToTry(card) => Some((at, card)),
+        _ => None,
+    });
+    let found = if id.contains('@') {
+        cards().find(|(_, card)| card.id == id)
+    } else {
+        cards().find(|(_, card)| card.state == ReadyState::Open).or_else(|| cards().next())
+    };
+    found.map(|(at, card)| (at, card.id.clone()))
+}
+
 /// Where Fleet takes his answer to a card.
 pub(super) const ANSWER_READY: &str = "/sessions/ready_to_try/answer";
 
@@ -771,9 +786,9 @@ impl JobView {
     /// The card an item in Needs you names: scrolled to, given the keys, and pulsed once as its draw reaches it. A Job whose thread
     /// holds no such card opens nothing.
     pub(super) fn go_to_ready(&mut self, job: &str, id: &str, _window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(at) = self.thread(job, cx).and_then(|held| held.items.iter().position(|item| matches!(item, ThreadItem::ReadyToTry(card) if card.id == id))) else { return false };
+        let Some((at, id)) = self.thread(job, cx).and_then(|held| card_named(&held.items, id)) else { return false };
         let Some(page) = self.pages.get_mut(job) else { return false };
-        *page.cards.go.borrow_mut() = Some(id.to_string());
+        *page.cards.go.borrow_mut() = Some(id);
         page.list.scroll_to_reveal_item(page.entry(at));
         cx.notify();
         true
@@ -892,6 +907,29 @@ mod tests {
         assert_eq!(Parts::of(&none).pictures, Pictures::None);
         let drawn_only = card(r#","state":"open","approved":{"artifact":"sketch:Chip","title":"Chip","form":"sketch","revision":1}"#);
         assert_eq!(Parts::of(&drawn_only).pictures, Pictures::Approved);
+    }
+
+    #[test]
+    fn the_jobs_ready_to_try_row_names_its_newest_open_card_and_a_card_id_names_that_card() {
+        let one = |id: &str, state: &str| ThreadItem::ReadyToTry(card(&format!(r#","state":"{state}""#)).tap_id(id));
+        let items = [one("try:native/a@1111", "open"), one("try:native/b@2222", "open"), one("try:native/c@3333", "answered")];
+        assert_eq!(card_named(&items, "try:job-1"), Some((1, "try:native/b@2222".into())), "the newest open card");
+        assert_eq!(card_named(&items, "try:native/a@1111"), Some((0, "try:native/a@1111".into())));
+        assert_eq!(card_named(&items, "try:native/z@9999"), None, "a card the thread lacks opens nothing");
+        let settled = [one("try:native/a@1111", "answered"), one("try:native/c@3333", "withdrawn")];
+        assert_eq!(card_named(&settled, "try:job-1"), Some((1, "try:native/c@3333".into())), "with none open, the newest card");
+        assert_eq!(card_named(&[], "try:job-1"), None);
+    }
+
+    trait TapId {
+        fn tap_id(self, id: &str) -> Self;
+    }
+
+    impl TapId for ThreadReadyToTry {
+        fn tap_id(mut self, id: &str) -> Self {
+            self.id = id.to_string();
+            self
+        }
     }
 
     #[test]
