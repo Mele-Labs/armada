@@ -13,7 +13,7 @@ use crate::building::{
     checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
     NotSwapped,
 };
-use crate::kept_builds::{fleet_label, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
+use crate::kept_builds::{fleet_label, fleet_program, APP, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -433,14 +433,22 @@ fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
             text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
         }
         fs::write(builds.join(name).join("build.toml"), text).unwrap();
+        bundled(&builds.join(name));
     }
     let undo = builds.join("old").join("armada");
     fs::write(&undo, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
     Command::new("chmod").arg("+x").arg(&undo).status().expect("chmod");
     std::os::unix::fs::symlink("new", builds.join(CURRENT)).unwrap();
     std::os::unix::fs::symlink("old", builds.join(PREVIOUS)).unwrap();
-    let runs = builds.join(CURRENT).join("armada");
+    let runs = fleet_program(support);
     fs::write(support.join(format!("{label}.plist")), format!("<string>{}</string>", runs.display())).unwrap();
+}
+
+/// Fleet's bundle in the build at `build`, as `scripts/keep-build` keeps it, so a revert or swap can place it.
+fn bundled(build: &Path) {
+    let bundled = build.join(APP).join("Contents/MacOS");
+    fs::create_dir_all(&bundled).unwrap();
+    fs::write(bundled.join("armada"), "fleet").unwrap();
 }
 
 #[tokio::test]
@@ -574,6 +582,7 @@ fn snapshot_in(support: &Path, jobs: &[&str]) {
         text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
     }
     fs::write(snap.join("build.toml"), text).unwrap();
+    bundled(&snap);
     fs::write(support.join(SNAPSHOT), "snap\n").unwrap();
     let swap = support.join(BUILDS).join("new").join("armada");
     fs::write(&swap, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
