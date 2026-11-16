@@ -40,6 +40,11 @@ pub(super) enum Kind {
     Draft,
     /// An artifact of parts, answered part by part in its own detail (`reader_sheet.rs`).
     Artifact,
+    /// A Ready to try card: what a Job built, with what he approved and what was built side by side. Reserved: no item is
+    /// built as this yet, and its detail draws as a skeleton.
+    // TODO(native-bridge): the detail is `JobView::ready_detail` once it exists, answered through `answer_ready`
+    // (`ready_card.rs`), laid out as "You approved" beside "Built". `build` makes no Build item until then.
+    Build,
 }
 
 impl Kind {
@@ -51,6 +56,7 @@ impl Kind {
             Kind::Draft => ("file-text", "Draft", token::KIND_SETUP),
             Kind::Document => ("scroll-text", "Document", token::KIND_GATE),
             Kind::Artifact => ("layers", "Artifact", token::KIND_STEP),
+            Kind::Build => ("hammer", "Build", token::KIND_DELIVERY),
         }
     }
 }
@@ -1610,6 +1616,7 @@ impl JobView {
         let (Some(held), Some(page)) = (self.thread(job, cx), self.pages.get(job)) else { return self.review_skeleton(look) };
         match item.kind {
             Kind::Artifact => self.review_parts(item, look, cx),
+            Kind::Build => self.review_skeleton(look),
             Kind::Plan => {
                 let card = held.head.plan.as_ref();
                 match card.and_then(|card| self.record(job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version).map(|plan| (card, plan))) {
