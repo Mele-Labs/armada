@@ -1,4 +1,4 @@
-//! The `reviews` walk: back to a pull request he reviewed, what changed since he looked, a critique
+//! The `reviews` walk: back to a pull request he reviewed, what changed since he looked, a review
 //! of just that, a new pull request read by change set, and the page's panes arranged and kept as a layout.
 
 use crate::walk::{Step, Target, Verb};
@@ -18,7 +18,7 @@ const RISK: &str = "Risk: Strict clients may reject the new field";
 const KEPT: &str = "Kept by Armada for every PR that touches migrations/ in ledger-api. Read from docs/migrations.md on Tuesday, and read again when that doc changes.";
 const HOW_IT_WORKS: &str = "How it works: The migration adds a stage column that may be empty, then copies each invoice's last failed stage from the job log in one update. The down migration drops the column.";
 
-pub static STEPS: [Step; 65] = [
+pub static STEPS: [Step; 70] = [
     step("Reviews in the strip. The pull request open last time opens at once, as you left it", Verb::PressOn("tab", "Reviews"), "heading", INVOICE),
     step("The inbox reads the forge again, and keeps the last one drawn meanwhile", Verb::Look, "status", "Refreshing"),
     step("It opens on its Overview. What Find problems writes on the commits since you looked waits in grey for the refresh", Verb::Look, "status", "Finding problems in the commits since you looked"),
@@ -36,9 +36,12 @@ pub static STEPS: [Step; 65] = [
     step("Whole PR: every file, the viewed ones folded", Verb::Press, "radio", "Whole PR"),
     step("Tick a file viewed: it folds away", Verb::Press, "checkbox", "Viewed: src/webhooks/queue.rs"),
     step("Press anywhere on its row: it opens again, still ticked", Verb::PressOn("button", "src/webhooks/queue.rs"), "checkbox", "Viewed: src/webhooks/queue.rs"),
-    step("⌥2 brings What changed forward again", Verb::Key("alt-2"), "button", "Critique these changes"),
-    step("Critique these changes asks first, as every run does", Verb::Open("button", "Critique these changes"), "dialog", "Critique these changes"),
-    step("Start it. Review comments comes forward while it reads the range", Verb::PressOn("button", "Start critique"), "status", "Critique running"),
+    step("⌥2 brings What changed forward again", Verb::Key("alt-2"), "button", "Review these changes"),
+    step("Review these changes asks what to look for and how hard, with your last choice for this repository", Verb::Open("button", "Review these changes"), "dialog", "Review these changes"),
+    step("Look for API breaking changes too", Verb::PressOn("checkbox", "API breaking changes"), "checkbox", "API breaking changes"),
+    step("Thorough: the line under it says what that costs", Verb::PressOn("radio", "Thorough"), "label", "Several minutes, reads around each change"),
+    step("Start: Review comments comes forward while it reads the range", Verb::PressOn("button", "Start review"), "status", "Review running"),
+    step("It says what you asked it to look for, and how hard", Verb::Look, "label", "Possible bugs, risks and API breaking changes, thorough"),
     step("Its suggestions, each in a box you can edit", Verb::Lands, "article", SUGGESTION),
     step("Change its words before they go", Verb::Type(" Clamp after adding it."), "textbox", SUGGESTION),
     step("Add as draft comment: your words become a draft on that line", Verb::OpenIn(SUGGESTION, "Add as draft comment"), "textbox", "Draft comment on src/webhooks/retry.rs:9"),
@@ -55,6 +58,8 @@ pub static STEPS: [Step; 65] = [
     step("Check is wrong: it asks why, in one line", Verb::PressOn("menuitem", "Check is wrong"), "textbox", "Why the check is wrong"),
     step("Say why", Verb::Typed("The down migration drops the column but loses the stages it held."), "textbox", "Why the check is wrong"),
     step("Save: the practice turns to missed, with what you said under it", Verb::PressOn("button", "Save reason"), "label", "You said: The down migration drops the column but loses the stages it held."),
+    step("Its flag again: change the reason, or undo what you said", Verb::Open("button", "Wrong: Has a down migration"), "menuitem", "Undo"),
+    step("Undo: the check's own result comes back, and what you said goes", Verb::PressOn("menuitem", "Undo"), "row", "Met: Has a down migration"),
     step("How it works", Verb::PressOn("button", "How it works"), "button", "How it works"),
     step("Its answer reads under it", Verb::Lands, "article", HOW_IT_WORKS),
     step("Next: Data layer", Verb::PressOn("button", "Next: Data layer"), "heading", "Data layer"),
@@ -83,5 +88,5 @@ pub static STEPS: [Step; 65] = [
     step("Its glyph says the state in a tooltip", Verb::Hover, "img", "Running"),
     step("Your draft from an earlier visit waits in its own box", Verb::Hover, "article", "Draft comment on src/jobs/invoice.rs:41"),
     step("What went with Tuesday's review, folded", Verb::Hover, "button", "Sent with your review on Tuesday"),
-    step("The last critique says what it read in words; the commits are in its tooltip", Verb::Hover, "heading", "Suggestions on Mira's changes up to your review"),
+    step("The last review says what it read in words; the commits are in its tooltip", Verb::Hover, "heading", "Suggestions on Mira's changes up to your review"),
 ];

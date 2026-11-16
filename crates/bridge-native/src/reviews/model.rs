@@ -254,12 +254,95 @@ pub struct Span {
     pub commits: String,
 }
 
-/// A critique of a range: Fleet's range critique, a review run.
+/// A critique of a range: Fleet's range critique, a review run, with what he asked it to look for.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Critique {
     None,
-    Running { range: Span },
-    Finished { range: Span, findings: Vec<Finding> },
+    Running { range: Span, asked: ReviewAsk },
+    Finished { range: Span, findings: Vec<Finding>, asked: ReviewAsk },
+}
+
+/// A review tool that makes findings, which he can ask a review to look for. The mock names them
+/// now; Fleet's review tools list them later.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReviewTool {
+    pub id: String,
+    /// As its checkbox says it: `API breaking changes`.
+    pub name: String,
+    /// As a sentence says it after another: `API breaking changes`, `risks`.
+    pub said: String,
+    /// Ticked until he picks for himself.
+    pub first: bool,
+}
+
+/// How hard a review looks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Effort {
+    Quick,
+    #[default]
+    Standard,
+    Thorough,
+}
+
+impl Effort {
+    pub const ALL: [Effort; 3] = [Effort::Quick, Effort::Standard, Effort::Thorough];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Effort::Quick => "Quick",
+            Effort::Standard => "Standard",
+            Effort::Thorough => "Thorough",
+        }
+    }
+
+    /// Its rough time and cost.
+    pub fn costs(self) -> &'static str {
+        match self {
+            Effort::Quick => "About a minute, reads only the changed lines",
+            Effort::Standard => "A few minutes, reads each changed file",
+            Effort::Thorough => "Several minutes, reads around each change",
+        }
+    }
+}
+
+/// What he asks a review to look for, how hard, and anything to focus on: remembered per repository,
+/// and the shape that goes to Fleet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReviewAsk {
+    /// The ticked tools' ids, in the list's order.
+    pub tools: Vec<String>,
+    pub effort: Effort,
+    pub focus: String,
+}
+
+impl ReviewAsk {
+    /// The ask before he has made one: the tools ticked first, at Standard.
+    pub fn first(tools: &[ReviewTool]) -> ReviewAsk {
+        ReviewAsk { tools: tools.iter().filter(|tool| tool.first).map(|tool| tool.id.clone()).collect(), effort: Effort::default(), focus: String::new() }
+    }
+
+    pub fn has(&self, tool: &str) -> bool {
+        self.tools.iter().any(|one| one == tool)
+    }
+
+    /// Ticks or unticks a tool, keeping the list's order.
+    pub fn toggle(&mut self, tool: &str, list: &[ReviewTool]) {
+        let on = !self.has(tool);
+        self.tools = list.iter().filter(|one| if one.id == tool { on } else { self.has(&one.id) }).map(|one| one.id.clone()).collect();
+    }
+
+    /// What was asked, in words: `Possible bugs and risks, thorough`.
+    pub fn said(&self, list: &[ReviewTool]) -> String {
+        let named: Vec<&str> = list.iter().filter(|tool| self.has(&tool.id)).map(|tool| tool.said.as_str()).collect();
+        let what = match named.as_slice() {
+            [] => String::new(),
+            [one] => (*one).to_string(),
+            [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+        };
+        let mut chars = what.chars();
+        let what = chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect());
+        format!("{what}, {}", self.effort.name().to_lowercase())
+    }
 }
 
 /// The written summary of the commits since he looked: written when he opens a pull request that
@@ -614,6 +697,20 @@ mod tests {
 
     fn flagged(set: &str, kind: FlagKind) -> Flag {
         Flag { id: "f".into(), kind, set: set.into(), title: String::new(), said: String::new(), path: String::new(), line: 0, fix: String::new(), comment: String::new() }
+    }
+
+    #[test]
+    fn a_review_ask_says_what_it_looks_for_and_how_hard() {
+        let tool = |id: &str, said: &str, first: bool| ReviewTool { id: id.into(), name: said.into(), said: said.into(), first };
+        let list = [tool("bugs", "possible bugs", true), tool("risks", "risks", true), tool("api", "API breaking changes", false)];
+        let mut ask = ReviewAsk::first(&list);
+        assert_eq!(ask.said(&list), "Possible bugs and risks, standard");
+        ask.toggle("api", &list);
+        ask.effort = Effort::Thorough;
+        assert_eq!(ask.tools, ["bugs", "risks", "api"]);
+        assert_eq!(ask.said(&list), "Possible bugs, risks and API breaking changes, thorough");
+        ask.toggle("bugs", &list);
+        assert_eq!(ask.said(&list), "Risks and API breaking changes, thorough");
     }
 
     #[test]

@@ -1,19 +1,19 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
+use gpui::{anchored, deferred, div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
 use gpui_component::input::{Input, Textarea};
 
-use super::model::{named, on_day, ChangeSet, Critique, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, Summary, Viewed, Wrong};
+use super::model::{named, on_day, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
-use super::{Ask, ReviewsScreen, HUNKS_AT};
+use super::{AskingReview, ReviewsScreen, HUNKS_AT};
 use crate::diff;
 use crate::job_view::pulls::state_chip;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
-use crate::titlebar::parts::{glyph, icon_button, mono, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{card, glyph, icon_button, mono, spinner, tip, Btn, Weight};
 
 /// The glyph on a tab and in the Add tab menu.
 pub(super) fn glyph_of(kind: &str) -> &'static str {
@@ -220,11 +220,138 @@ impl ReviewsScreen {
     fn critique_button(&self, id: &'static str, name: &'static str, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let running = matches!(page.critique, Critique::Running { .. });
         labelled(
-            Btn::new(id, name, Weight::Primary).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.ask(Ask::Critique, window, cx))),
+            Btn::new(id, name, Weight::Primary).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.open_review(name, window, cx))),
             Role::Button,
             name,
         )
         .into_any_element()
+    }
+
+    /// The sheet under Review these changes: what to look for, how hard, and anything to focus on.
+    pub(super) fn render_review_ask(&self, open: &AskingReview, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let caption = |id: &'static str, said: &'static str| {
+            labelled(
+                div()
+                    .id(id)
+                    .text_size(look.length(token::TEXT_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(said),
+                Role::Label,
+                said,
+            )
+        };
+        let muted = |id: &'static str, said: String| {
+            labelled(
+                div().id(id).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())),
+                Role::Label,
+                said,
+            )
+        };
+        let heading = labelled(
+            div()
+                .id("review-ask-title")
+                .text_size(look.length(token::TEXT_BASE))
+                .line_height(look.length(token::LEADING_BASE))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .child(open.title),
+            Role::Heading,
+            open.title,
+        );
+        let range = self.page().map_or_else(|| "the whole pull request".to_string(), |page| page.range().said);
+        let mut tools = div().flex().flex_col().gap(look.length(token::SPACE_1));
+        for tool in &self.review_tools {
+            let on = open.ask.has(&tool.id);
+            let ink = if on { look.color(token::ACCENT) } else { look.color(token::FG_MUTED) };
+            let id = tool.id.clone();
+            tools = tools.child(labelled(
+                div()
+                    .id(SharedString::from(format!("review-tool-{}", tool.id)))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .cursor_pointer()
+                    .text_size(look.length(token::TEXT_SM))
+                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_review_tool(&id, cx)))
+                    .child(glyph(if on { "square-check" } else { "square" }, look.length(token::SPACE_4), ink))
+                    .child(SharedString::from(tool.name.clone())),
+                Role::CheckBox,
+                tool.name.clone(),
+            ));
+        }
+        let picked = open.ask.effort;
+        let mut efforts = div().id("review-effort").flex().p(look.length(token::SPACE_1)).gap(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_LG)).bg(look.color(token::BG_SUNKEN));
+        for effort in Effort::ALL {
+            let on = effort == picked;
+            let ink = if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
+            efforts = efforts.child(labelled(
+                div()
+                    .id(SharedString::from(format!("review-effort-{}", effort.name())))
+                    .flex_1()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .h(look.length(token::H_CONTROL))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(ink)
+                    .when(on, |radio| radio.bg(look.color(token::BG_RAISED)).shadow(look.shadows(token::SHADOW_CARD)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                    .tooltip(tip(effort.costs()))
+                    .on_click(cx.listener(move |this, _, _, cx| this.pick_effort(effort, cx)))
+                    .child(effort.name()),
+                Role::RadioButton,
+                effort.name(),
+            ));
+        }
+        let focus = labelled(div().id("review-ask-focus").key_context(crate::keymap::TEXT_BOX).child(Input::new(&open.focus)), Role::TextInput, "Anything to focus on?");
+        let none = open.ask.tools.is_empty();
+        let start = labelled(
+            Btn::new("review-ask-start", "Start", Weight::Primary).icon("bot").disabled(none).draw(look, cx).when(none, |button| button.tooltip(tip("Tick something to look for"))).on_click(cx.listener(|this, _, window, cx| this.start_review(window, cx))),
+            Role::Button,
+            "Start review",
+        );
+        let cancel = labelled(
+            Btn::new("review-ask-cancel", "Cancel", Weight::Ghost).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.cancel_review(window, cx))),
+            Role::Button,
+            "Cancel",
+        );
+        let sheet = labelled(
+            card(look)
+                .id("review-ask")
+                .track_focus(&self.dialog)
+                .occlude()
+                .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    if crate::room::of(window, cx).contains(&event.position) {
+                        this.cancel_review(window, cx);
+                    }
+                }))
+                .w(look.length(token::W_DIALOG))
+                .p(look.length(token::SPACE_4))
+                .gap(look.length(token::SPACE_3))
+                .border_t(look.length(token::BORDER_WIDTH) * 2.)
+                .border_color(look.color(token::ACCENT))
+                .child(heading)
+                .child(muted("review-ask-range", format!("Reads {range}. Its suggestions come to Review comments.")))
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-what", "What to look for")).child(tools))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
+                        .child(caption("review-ask-effort", "Effort"))
+                        .child(labelled(efforts, Role::RadioGroup, "Effort"))
+                        .child(muted("review-ask-costs", picked.costs().to_string())),
+                )
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-focus-label", "Anything to focus on?")).child(focus))
+                .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(cancel).child(start)),
+            Role::Dialog,
+            open.title,
+        );
+        deferred(anchored().position(open.at).snap_to_window_with_margin(look.length(token::SPACE_3)).child(sheet)).with_priority(1).into_any_element()
     }
 
     /// What changed since he looked: new commits, the files they touched, replies to him, and checks.
@@ -264,7 +391,7 @@ impl ReviewsScreen {
             );
             return column
                 .child(notice)
-                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Critique the whole PR", page, look, cx)).child(whole))
+                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Review the whole PR", page, look, cx)).child(whole))
                 .into_any_element();
         }
         column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
@@ -339,7 +466,7 @@ impl ReviewsScreen {
             "Diff since you looked",
         );
         column
-            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Critique these changes", page, look, cx)).child(diff))
+            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Review these changes", page, look, cx)).child(diff))
             .child(table)
             .into_any_element()
     }
@@ -485,7 +612,8 @@ impl ReviewsScreen {
             let patch = if whole { file.patch.as_str() } else { file.patch_since.as_deref().unwrap_or(&file.patch) };
             let drawn = diff::file_diff_of(&file.path, Some(patch), None);
             let lines = drawn.files.first().map(|one| one.lines.clone()).unwrap_or_default();
-            diff::lines(SharedString::from(format!("file-diff-{at}-{whole}")), &lines, look)
+            let slots = diff::Slots { hues: self.hues_of(&file.path, &lines), ..Default::default() };
+            diff::lines_with(SharedString::from(format!("file-diff-{at}-{whole}")), &lines, look, slots)
         });
         labelled(frame(look).id(SharedString::from(format!("file-{at}"))).flex().flex_col().child(head).children(body), Role::Article, format!("File: {}", file.path)).into_any_element()
     }
@@ -548,7 +676,7 @@ impl ReviewsScreen {
                 .child(place_line(format!("draft-card-place-{}", draft.id), place.clone(), look))
                 .children(draft.excerpt.as_deref().map(|lines| {
                     // The commented line is the excerpt's last, picked as a change set's hot line is.
-                    let slots = diff::Slots { picked: lines.len().checked_sub(1), wrap: true, ..Default::default() };
+                    let slots = diff::Slots { picked: lines.len().checked_sub(1), wrap: true, hues: self.hues_of(&draft.path, lines), ..Default::default() };
                     labelled(
                         frame(look).id(SharedString::from(format!("draft-card-diff-{}", draft.id))).child(diff::lines_with(SharedString::from(format!("draft-diff-{}", draft.id)), lines, look, slots)),
                         Role::Article,
@@ -569,19 +697,25 @@ impl ReviewsScreen {
 
     fn critique_part(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let muted = look.color(token::FG_MUTED);
+        // What he asked the review to look for and how hard, under its status or its heading.
+        let asked = |asked: &ReviewAsk| {
+            let said = asked.said(&self.review_tools);
+            let said = if asked.focus.is_empty() { said } else { format!("{said}. Focus: {}", asked.focus) };
+            labelled(div().id("findings-asked").text_size(look.length(token::TEXT_XS)).text_color(muted).child(SharedString::from(said.clone())), Role::Label, said)
+        };
         match &page.critique {
             Critique::None => div()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
                 .child(status("findings-none", "No suggestions on this pull request".into(), glyph("bot", look.length(token::SPACE_4), muted).into_any_element(), look))
-                .child(div().flex().child(self.critique_button("findings-critique", "Critique this pull request", page, look, cx)))
+                .child(div().flex().child(self.critique_button("findings-critique", "Review this pull request", page, look, cx)))
                 .into_any_element(),
-            Critique::Running { range } => div()
+            Critique::Running { range, asked: ask } => div()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(status("findings-running", "Critique running".into(), spinner("findings-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look))
+                .child(status("findings-running", "Review running".into(), spinner("findings-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look))
                 .child(labelled(
                     div()
                         .id("findings-range")
@@ -592,9 +726,11 @@ impl ReviewsScreen {
                     Role::Label,
                     format!("Reading {}", range.said),
                 ))
+                .child(asked(ask))
                 .into_any_element(),
-            Critique::Finished { range, findings } => {
-                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading_tipped("findings-head", format!("Suggestions on {}", range.said), Some(range.commits.clone()), look));
+            Critique::Finished { range, findings, asked: ask } => {
+                let head = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(heading_tipped("findings-head", format!("Suggestions on {}", range.said), Some(range.commits.clone()), look)).child(asked(ask));
+                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head);
                 // What already went sits folded under the heading, where a long list cannot push it out of sight.
                 column = column.children(self.sent_part(page, look, cx));
                 // A drafted one is among the drafts above, a sent one in its folded line below.
@@ -608,7 +744,7 @@ impl ReviewsScreen {
                     })
                     .collect();
                 if findings.is_empty() {
-                    column = column.child(status("findings-empty", "Critique found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
+                    column = column.child(status("findings-empty", "Review found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
                 } else if open.is_empty() {
                     column = column.child(words("findings-done", "No suggestions left".into(), look));
                 }
@@ -885,15 +1021,16 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    /// Wrong: a ghost glyph that opens Doesn't apply here and Check is wrong.
-    fn wrong_button(&self, at: PracticeAt, practice: &Practice, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    /// Wrong: a ghost glyph that opens Doesn't apply here and Check is wrong, or on a result he
+    /// corrected, Change the reason and Undo.
+    fn wrong_button(&self, at: PracticeAt, practice: &Practice, corrected: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let name = format!("Wrong: {}", practice.said);
         let n = at.2;
         labelled(
             icon_button(SharedString::from(format!("practice-wrong-{n}")), "flag", look.color(token::FG_MUTED), look)
                 .size(look.length(token::LEADING_SM))
                 .rounded(look.length(token::RADIUS_SM))
-                .tooltip(tip("Say this result is wrong"))
+                .tooltip(tip(if corrected { "Change or undo what you said" } else { "Say this result is wrong" }))
                 .on_click(cx.listener({
                     let name = name.clone();
                     move |this, event: &gpui::ClickEvent, window, cx| {
@@ -1035,17 +1172,18 @@ impl ReviewsScreen {
         for (n, practice) in set.practices.iter().enumerate() {
             let at: PracticeAt = (page.number, set.id.clone(), n);
             let fixed = self.corrections.get(&at);
+            let reason_field = self.correcting.as_ref().filter(|open| open.at == at).map(|open| self.reason_field(open, look, cx));
             if let Some(fixed) = fixed.filter(|fixed| fixed.wrong == Wrong::DoesNotApply) {
-                aside.push(self.practice_row(n, practice, Kept::DoesNotApply, Some(&fixed.reason), None, look));
+                let wrong = self.wrong_button(at.clone(), practice, true, look, cx);
+                aside.push(self.practice_row(n, practice, Kept::DoesNotApply, Some(&fixed.reason), Some(Some(wrong)), look));
+                aside.extend(reason_field);
                 continue;
             }
             let kept = if fixed.is_some() { practice.kept.flipped() } else { practice.kept };
-            // Only a result he has not corrected, and one that applies, can be called wrong.
-            let wrong = (fixed.is_none() && practice.kept != Kept::DoesNotApply).then(|| self.wrong_button(at.clone(), practice, look, cx));
+            // A result that does not apply has no reverse to call it; a corrected one can be undone.
+            let wrong = (fixed.is_some() || practice.kept != Kept::DoesNotApply).then(|| self.wrong_button(at.clone(), practice, fixed.is_some(), look, cx));
             practices = practices.child(self.practice_row(n, practice, kept, fixed.map(|fixed| fixed.reason.as_str()), Some(wrong), look));
-            if let Some(open) = self.correcting.as_ref().filter(|open| open.at == at) {
-                practices = practices.child(self.reason_field(open, look, cx));
-            }
+            practices = practices.children(reason_field);
         }
         if !aside.is_empty() {
             let open = self.aside_open.contains(&(page.number, set.id.clone()));
@@ -1097,7 +1235,7 @@ impl ReviewsScreen {
         for (n, hunk) in set.hunks.iter().enumerate() {
             let drawn = diff::file_diff_of(&hunk.path, Some(&hunk.patch), None);
             let lines = drawn.files.first().map(|one| one.lines.clone()).unwrap_or_default();
-            let slots = diff::Slots { picked: hunk.hot, ..Default::default() };
+            let slots = diff::Slots { picked: hunk.hot, hues: self.hues_of(&hunk.path, &lines), ..Default::default() };
             let code = labelled(
                 frame(look)
                     .id(SharedString::from(format!("hunk-{n}")))

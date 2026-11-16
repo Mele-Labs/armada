@@ -181,6 +181,8 @@ pub struct Slots {
     pub under: HashMap<usize, AnyElement>,
     /// Wrap long lines inside the frame, for a card too narrow to scroll sideways (a draft's excerpt).
     pub wrap: bool,
+    /// Each line's coloured code, by its place in the file; a line with none is drawn plain.
+    pub hues: Vec<Option<crate::syntax::Pieces>>,
 }
 
 /// A file's lines alone, with no path above them: what a pull request's Files section and a thread's
@@ -275,14 +277,7 @@ pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, 
                 .children(picked.then(|| div().absolute().inset_0().bg(accent.opacity(0.16))))
                 .children(picked.then(|| div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).bg(accent)))
                 .when(line.collides.is_some(), |row| row.child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(collides)))
-                .child(if wrap && line.kind != LineKind::Hunk && !line.text.is_empty() {
-                    // The sign keeps a column of its own, so a wrapped line breaks in its words and
-                    // never between the sign and the indent.
-                    let (sign, rest) = line.text.split_at(line.text.chars().next().map_or(0, char::len_utf8));
-                    div().relative().flex().child(div().flex_none().child(SharedString::from(sign.to_string()))).child(div().flex_1().min_w_0().child(SharedString::from(rest.to_string())))
-                } else {
-                    div().relative().min_w_0().child(SharedString::from(line.text.clone()))
-                })
+                .child(code_of(line, slots.hues.get(at).cloned().flatten(), wrap, look))
                 .children(gutter)
                 .children(swords);
             let under = slots.under.remove(&at).map(|under| {
@@ -312,6 +307,35 @@ pub fn lines_with(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look, 
         .line_height(look.length(token::LEADING_2XS))
         .child(div().flex().flex_col().min_w_full().when(wrap, |rows| rows.w_full()).children(rows))
         .into_any_element()
+}
+
+/// A line's words: its sign in a column of its own when the code is coloured or wraps, so a wrapped
+/// line breaks in its code and never between the sign and the indent.
+fn code_of(line: &DiffLine, pieces: Option<crate::syntax::Pieces>, wrap: bool, look: &Look) -> gpui::Div {
+    // A colliding line keeps its one warning hue.
+    let pieces = pieces.filter(|_| line.collides.is_none() && line.kind != LineKind::Hunk);
+    if line.kind == LineKind::Hunk || line.text.is_empty() || !(wrap || pieces.is_some()) {
+        return div().relative().min_w_0().child(SharedString::from(line.text.clone()));
+    }
+    let (sign, code) = line.text.split_at(line.text.chars().next().map_or(0, char::len_utf8));
+    let code: AnyElement = match pieces {
+        Some(pieces) => {
+            // Plain code reads as the row's text; the sign alone keeps the added or removed hue.
+            let plain = if line.kind == LineKind::Context { token::DIFF_CONTEXT } else { token::FG_DEFAULT };
+            let runs = pieces
+                .iter()
+                .filter(|(range, _)| range.end <= code.len())
+                .map(|(range, hue)| (range.clone(), gpui::HighlightStyle { color: Some(look.color(hue.token())), ..Default::default() }))
+                .collect::<Vec<_>>();
+            div().text_color(look.color(plain)).child(gpui::StyledText::new(code.to_string()).with_highlights(runs)).into_any_element()
+        }
+        None => SharedString::from(code.to_string()).into_any_element(),
+    };
+    div()
+        .relative()
+        .flex()
+        .child(div().flex_none().child(SharedString::from(sign.to_string())))
+        .child(div().when(wrap, |code| code.flex_1().min_w_0()).when(!wrap, |code| code.flex_none()).child(code))
 }
 
 /// The lines a review thread is about: up to four, ending at its line on its side, under their hunk's

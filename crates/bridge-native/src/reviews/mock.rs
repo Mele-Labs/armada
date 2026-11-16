@@ -253,6 +253,19 @@ fn retry_page() -> Page {
     }
 }
 
+/// The review tools that make findings, which a review can be asked to look for: Fleet's review tools
+/// later.
+pub fn review_tools() -> Vec<model::ReviewTool> {
+    let tool = |id: &str, name: &str, said: &str, first: bool| model::ReviewTool { id: id.into(), name: name.into(), said: said.into(), first };
+    vec![
+        tool("bugs", "Possible bugs", "possible bugs", true),
+        tool("risks", "Risks", "risks", true),
+        tool("api-breaking-changes", "API breaking changes", "API breaking changes", false),
+        tool("user-impact", "User impact", "user impact", false),
+        tool("practices", "This repo's practices", "this repo's practices", false),
+    ]
+}
+
 /// What the critique of Retry failed webhooks finds, once it has run.
 pub fn retry_findings() -> Vec<Finding> {
     vec![
@@ -411,6 +424,7 @@ fn invoice_page() -> Page {
                 line: 28,
                 comment: "A slow first stage uses up the retries the later ones need. Give each stage its own.".into(),
             }],
+            asked: model::ReviewAsk::first(&review_tools()),
         },
         summary: Summary::None,
         overview: invoice_overview(),

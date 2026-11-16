@@ -77,6 +77,7 @@ mod sketch;
 mod slot_wait;
 mod snooze;
 mod sketch_png;
+mod syntax;
 mod terminal;
 mod titlebar;
 mod toasts;
