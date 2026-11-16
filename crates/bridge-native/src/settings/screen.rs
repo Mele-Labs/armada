@@ -159,6 +159,22 @@ impl SettingsScreen {
                 });
                 return;
             }
+            // Kit's links: Settings on that page, for every project.
+            if let Asked::SettingsPage(page) = asked {
+                let (me, page) = (me.clone(), *page);
+                cx.defer(move |cx| {
+                    let Some(me) = me.upgrade() else { return };
+                    let _ = handle.update(cx, move |_, window, cx| {
+                        me.update(cx, |this, cx| {
+                            this.show(None, false, window, cx);
+                            if let Some(entry) = super::entries::entry(page) {
+                                this.pick(entry.id, cx);
+                            }
+                        })
+                    });
+                });
+                return;
+            }
             let project = match asked {
                 Asked::Settings => Some(None),
                 Asked::RepositorySettings(_) => None,

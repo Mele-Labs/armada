@@ -43,14 +43,14 @@ pub enum Wire {
     Mock(Box<MockFleet>),
 }
 
-enum Ask {
+pub(crate) enum Ask {
     Get(String),
     Post(String, String),
     Put(String, String),
     Delete(String),
 }
 
-fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Refused>> {
+pub(crate) fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Refused>> {
     cx.background_spawn(async move {
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| Refused::said(why.to_string()))?;
         let (status, bytes) = match ask {
@@ -76,12 +76,12 @@ fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'st
     })
 }
 
-fn body(value: &impl serde::Serialize) -> String {
+pub(crate) fn body(value: &impl serde::Serialize) -> String {
     serde_json::to_string(value).unwrap_or_default()
 }
 
 /// A route under the Manifest it acts in (`?manifest_id=`, as Classic's `manifestNamed` adds it).
-fn scoped(route: &str, manifest: &str) -> String {
+pub(crate) fn scoped(route: &str, manifest: &str) -> String {
     let join = if route.contains('?') { '&' } else { '?' };
     format!("{route}{join}manifest_id={}", crate::link::percent_encoded(manifest))
 }
@@ -101,7 +101,7 @@ fn piece_query(kind: ipc::LifecyclePieceKind, id: &str, scope: &ipc::PieceScope)
     format!("kind={}&id={}{within}", kind.as_wire(), crate::link::percent_encoded(id))
 }
 
-fn unreachable<T: Send + 'static>() -> Task<Result<T, Refused>> {
+pub(crate) fn unreachable<T: Send + 'static>() -> Task<Result<T, Refused>> {
     Task::ready(Err(Refused::said("Fleet is not connected")))
 }
 

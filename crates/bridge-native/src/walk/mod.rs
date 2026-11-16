@@ -227,6 +227,8 @@ pub enum Screen {
     Settings,
     /// The Jobs screen in front inside the Operator's screen, with Reviews in the strip on `reviews/mock.rs`.
     Reviews,
+    /// The Jobs screen in front inside the Operator's screen, with Kit in the strip on `kit/mock.rs`.
+    Kit,
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
@@ -396,6 +398,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "kit",
+        title: "Kit: the setup you work with, kind by kind",
+        screen: Screen::Kit,
+        scenario: "jobs-many",
+        steps: &crate::kit::walk::STEPS,
+    },
     Walk {
         name: "reviews",
         title: "Reviews: what changed since you looked, on free panes",
