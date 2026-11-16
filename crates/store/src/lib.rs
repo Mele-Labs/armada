@@ -47,6 +47,8 @@ mod process_stops;
 mod session_slot_waits;
 mod time_summary;
 mod session_turn_usage;
+/// How many code searches each Job ran before its first edit, by week.
+mod first_edit_searches;
 mod usage_summary;
 mod usage_spent;
 mod usage_rule_trips;
@@ -56,6 +58,8 @@ mod fleet_disputes;
 mod bug_reports;
 /// What a Job asked the Operator with `raise_conflict` and `ask_held`.
 mod job_asks;
+/// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
+mod features;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
 mod session_tells;
@@ -247,13 +251,18 @@ pub use fleet_builds::{KeptFleetBuild, KeptBuildSplit, KeptPullRequestWait, NewB
 pub use job_times::{KeptCheckSpan, KeptJobTime, KeptTurnTimed};
 pub use session_slot_waits::KeptSlotWait;
 pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, SplitMs, TimeRead, Usual, DEFAULT_HOURS, DEFAULT_SLOWEST, OWNER_ASKING_TOOLS};
-pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
+pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
+pub use first_edit_searches::KeptFirstEdit;
 pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use features::{
+    feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
+    KeptFeatureMerge, KeptSection,
+};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use session_focus::KeptFocus;

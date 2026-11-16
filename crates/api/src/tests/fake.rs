@@ -16,6 +16,7 @@ mod autopilots;
 mod clashing;
 mod commands;
 mod conversing;
+mod features;
 mod hosted_sessions;
 mod issues;
 mod lifecycles;

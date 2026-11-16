@@ -1,0 +1,306 @@
+//! A project's library read into the shapes the wire carries: the list with who is on each feature, one page whole, and
+//! the page condensed.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use ipc::{
+    FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
+    FeatureSectionKind, FeatureState, Instant, SessionId,
+};
+use store::{feature_link_kind, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
+
+use super::brief::{condensed, first_line, tokens_of, BriefFacts};
+use super::mapping::FeatureMap;
+use super::staleness::stale_since;
+use crate::daemon::Fleet;
+
+pub(super) const UNKNOWN: &str = "fleet.feature_unknown";
+
+/// A project's features, areas and the map that says which own a file.
+pub(super) struct Loaded {
+    pub(super) project: String,
+    pub(super) areas: Vec<store::KeptArea>,
+    pub(super) map: FeatureMap,
+}
+
+impl Loaded {
+    pub(super) fn read(store: &Store, project: &str) -> Result<Loaded, WriteError> {
+        let features = store.features_in(project)?;
+        let filed = store.feature_filed_paths(project)?;
+        Ok(Loaded { project: project.to_string(), areas: store.feature_areas(project)?, map: FeatureMap::new(features, filed) })
+    }
+
+    pub(super) fn feature(&self, slug: &str) -> Option<&KeptFeature> {
+        self.map.features().iter().find(|feature| feature.slug == slug)
+    }
+}
+
+fn state_of(kept: &str) -> FeatureState {
+    match kept {
+        store::feature_state::CONFIRMED => FeatureState::Confirmed,
+        _ => FeatureState::Seeded,
+    }
+}
+
+fn instant(at: &str) -> Instant {
+    Instant::carried(at.to_string())
+}
+
+/// The date of an RFC3339 instant.
+fn date(at: &str) -> String {
+    at.chars().take(10).collect()
+}
+
+/// Each written section of the feature with the merge it is stale since, if any. One read of the merges serves them all.
+pub(super) fn sections_marked(store: &Store, loaded: &Loaded, feature: &KeptFeature) -> Result<Vec<(KeptSection, Option<u64>)>, WriteError> {
+    let sections = store.feature_sections(&feature.id)?;
+    let Some(oldest) = sections.iter().map(|one| one.written_at.as_str()).min() else {
+        return Ok(Vec::new());
+    };
+    let merges = store.feature_merges_after(&feature.manifest_id, oldest)?;
+    Ok(sections
+        .into_iter()
+        .map(|section| {
+            let since = stale_since(&loaded.map, &feature.id, &section, &merges);
+            (section, since)
+        })
+        .collect())
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// The project ids a call is about: the one named, else the project the calling Job was started for, else those that
+    /// hold its repository.
+    pub(super) fn projects_asked(&self, store: &Store, caller: Option<api::Caller>, named: Option<&str>) -> Result<Vec<String>, Refusal> {
+        if let Some(named) = named.map(str::trim).filter(|named| !named.is_empty()) {
+            return Ok(vec![named.to_string()]);
+        }
+        let job = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .ok_or_else(|| self.hosted_refusal("fleet.feature_project", "name a project, or call from a job that works in one"))?;
+        let projects = self.projects_of_job_in(store, &job);
+        match projects.is_empty() {
+            true => Err(self.hosted_refusal("fleet.feature_project", "this job works in no project")),
+            false => Ok(projects),
+        }
+    }
+
+    /// The projects a Job's work is filed in: the one it was started for, else those that hold its repository.
+    pub(crate) fn projects_of_job_in(&self, store: &Store, job: &str) -> Vec<String> {
+        let hosting = store.hosting(job).ok().flatten();
+        if let Some(project) = hosting.as_ref().and_then(|hosting| hosting.project.clone()) {
+            return vec![project];
+        }
+        let manifest = hosting
+            .map(|hosting| hosting.manifest_id)
+            .or_else(|| store.session(job).ok().flatten().and_then(|session| session.manifest_id))
+            .filter(|manifest| !manifest.is_empty());
+        let Some(manifest) = manifest else {
+            return Vec::new();
+        };
+        let held = self.projects_held();
+        held.holding(&ipc::ManifestId::carried(&manifest).to_domain()).into_iter().map(|one| one.id().as_str().to_string()).collect()
+    }
+
+    fn feature_fault(&self, why: WriteError) -> Refusal {
+        self.ledger_fault(why)
+    }
+
+    pub(super) fn feature_unknown(&self, slug: &str) -> Refusal {
+        Refusal::NotFound(ipc::WireError::raised(UNKNOWN, format!("no feature `{slug}` in this project"), self.run_id()))
+    }
+
+    /// `list_features`.
+    pub(super) async fn features_listed(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<FeatureLibrary, Refusal> {
+        self.feature_writes_filed().await;
+        let store = self.store().lock().await;
+        let projects = self.projects_asked(&store, caller, project.as_deref())?;
+        // A Job in several projects reads the first that has a library.
+        let mut chosen = projects[0].clone();
+        for one in &projects {
+            if store.project_has_features(one).map_err(|why| self.feature_fault(why))? {
+                chosen = one.clone();
+                break;
+            }
+        }
+        let loaded = Loaded::read(&store, &chosen).map_err(|why| self.feature_fault(why))?;
+        let on = self.jobs_on_features(&store, &chosen)?;
+        let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
+        for feature in loaded.map.features() {
+            let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
+            let stale = marked.iter().filter_map(|(_, since)| *since).min();
+            let row = row_of(feature, on.get(&feature.id).cloned().unwrap_or_default(), stale);
+            match areas.iter_mut().find(|area| area.slug == feature.area) {
+                Some(area) => area.features.push(row),
+                // A feature whose area was never kept is listed under its own slug rather than dropped.
+                None => areas.push(FeatureAreaRow { slug: feature.area.clone(), title: feature.area.clone(), features: vec![row] }),
+            }
+        }
+        Ok(FeatureLibrary { project: chosen, areas })
+    }
+
+    /// The live Jobs that filed a file under each feature of the project.
+    fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
+        let pairs = store.feature_job_pairs(project).map_err(|why| self.feature_fault(why))?;
+        let jobs: BTreeSet<&str> = pairs.iter().map(|(_, job)| job.as_str()).collect();
+        let mut live: BTreeMap<String, String> = BTreeMap::new();
+        for job in jobs {
+            if let Ok(Some(session)) = store.session(job) {
+                if session.state == store::SessionState::Live {
+                    live.insert(job.to_string(), session.title.unwrap_or_else(|| job.to_string()));
+                }
+            }
+        }
+        let mut on: BTreeMap<String, Vec<FeatureJob>> = BTreeMap::new();
+        for (feature, job) in pairs {
+            if let Some(title) = live.get(&job) {
+                on.entry(feature).or_default().push(FeatureJob { session_id: SessionId::carried(&job), title: title.clone() });
+            }
+        }
+        Ok(on)
+    }
+
+    /// Find the feature `slug` in the first of `projects` that has it.
+    fn feature_in(&self, store: &Store, projects: &[String], slug: &str) -> Result<(Loaded, KeptFeature), Refusal> {
+        for project in projects {
+            let loaded = Loaded::read(store, project).map_err(|why| self.feature_fault(why))?;
+            if let Some(feature) = loaded.feature(slug.trim()).cloned() {
+                return Ok((loaded, feature));
+            }
+        }
+        Err(self.feature_unknown(slug))
+    }
+
+    /// `get_feature_page`.
+    pub(super) async fn feature_paged(&self, caller: Option<api::Caller>, project: Option<String>, slug: String) -> Result<FeaturePage, Refusal> {
+        self.feature_writes_filed().await;
+        let store = self.store().lock().await;
+        let projects = self.projects_asked(&store, caller, project.as_deref())?;
+        let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
+        let on = self.jobs_on_features(&store, &loaded.project)?;
+        let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
+        let stale = marked.iter().filter_map(|(_, since)| *since).min();
+        let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
+        let files = store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?;
+        Ok(FeaturePage {
+            project: loaded.project.clone(),
+            feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
+            manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
+            paths: feature.paths.clone(),
+            entry_points: feature.entry_points.clone(),
+            sections: marked.into_iter().filter_map(|(section, since)| section_on_the_wire(section, since)).collect(),
+            links: links.into_iter().filter_map(link_on_the_wire).collect(),
+            files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
+        })
+    }
+
+    /// `get_feature_brief`.
+    pub(super) async fn feature_briefed(&self, caller: Option<api::Caller>, project: Option<String>, slug: String) -> Result<FeatureBrief, Refusal> {
+        self.feature_writes_filed().await;
+        let store = self.store().lock().await;
+        let projects = self.projects_asked(&store, caller, project.as_deref())?;
+        let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
+        let on = self.jobs_on_features(&store, &loaded.project)?;
+        let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
+        let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
+        let files = store.feature_top_files(&feature.id, 5).map_err(|why| self.feature_fault(why))?;
+        let newest = store.feature_merge_newest(&feature.manifest_id).map_err(|why| self.feature_fault(why))?;
+        let area = loaded.areas.iter().find(|area| area.slug == feature.area).map(|area| area.title.clone()).unwrap_or_else(|| feature.area.clone());
+        let text_of = |name: &str| marked.iter().find(|(section, _)| section.section == name).and_then(|(section, _)| first_line(&section.text));
+        let mut entry_points = feature.entry_points.clone();
+        for (path, _) in files {
+            if !entry_points.iter().any(|point| point.split(':').next() == Some(path.as_str())) {
+                entry_points.push(path);
+            }
+        }
+        let facts = BriefFacts {
+            slug: feature.slug.clone(),
+            title: feature.title.clone(),
+            area,
+            current_as_of: newest.map(|(number, at)| (number, date(&at))),
+            stale: marked
+                .iter()
+                .filter_map(|(section, since)| Some((FeatureSectionKind::from_name(&section.section)?.name().to_string(), (*since)?)))
+                .collect(),
+            jobs_now: on.get(&feature.id).map(|jobs| jobs.iter().map(|job| job.title.clone()).collect()).unwrap_or_default(),
+            entry_points,
+            test: text_of(store::feature_section::TEST),
+            bugs: open_bugs(&links),
+            runs: text_of(store::feature_section::RUNS),
+            designs: designs(&links),
+            debt: text_of(store::feature_section::DEBT),
+        };
+        let text = condensed(&facts);
+        Ok(FeatureBrief { feature: feature.slug, tokens: tokens_of(&text), text })
+    }
+}
+
+fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
+    FeatureRow {
+        id: feature.id.clone(),
+        slug: feature.slug.clone(),
+        area: feature.area.clone(),
+        title: feature.title.clone(),
+        summary: feature.summary.clone(),
+        state: state_of(&feature.state),
+        jobs_now,
+        stale_since,
+    }
+}
+
+fn section_on_the_wire(section: KeptSection, stale_since: Option<u64>) -> Option<FeatureSection> {
+    Some(FeatureSection {
+        section: FeatureSectionKind::from_name(&section.section)?,
+        text: section.text,
+        job: section.job,
+        written_at: instant(&section.written_at),
+        commit: Some(section.at_commit).filter(|one| !one.is_empty()),
+        stale_since,
+    })
+}
+
+fn link_on_the_wire(link: KeptFeatureLink) -> Option<FeatureLink> {
+    Some(FeatureLink {
+        kind: FeatureLinkKind::from_name(&link.kind)?,
+        target: link.target,
+        title: link.title,
+        state: link.state,
+        job: Some(link.job).filter(|one| !one.is_empty()),
+        via: link.via,
+        at: instant(&link.at),
+    })
+}
+
+/// The open bugs, newest first.
+fn open_bugs(links: &[KeptFeatureLink]) -> Vec<String> {
+    links
+        .iter()
+        .rev()
+        .filter(|link| link.kind == feature_link_kind::BUG && link.state != "closed")
+        .map(|link| if link.title.is_empty() { link.target.clone() } else { link.title.clone() })
+        .collect()
+}
+
+/// The titles of the sketches, pages, walks and drafts, newest first, each once.
+fn designs(links: &[KeptFeatureLink]) -> Vec<String> {
+    let mut titles: Vec<String> = Vec::new();
+    for link in links.iter().rev() {
+        if matches!(link.kind.as_str(), feature_link_kind::SKETCH | feature_link_kind::PAGE | feature_link_kind::WALK | feature_link_kind::DRAFT) {
+            let title = if link.title.is_empty() { link.target.rsplit('/').next().unwrap_or(&link.target).to_string() } else { link.title.clone() };
+            if !titles.contains(&title) {
+                titles.push(title);
+            }
+        }
+    }
+    titles
+}
