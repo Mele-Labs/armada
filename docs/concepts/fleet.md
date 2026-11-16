@@ -570,6 +570,9 @@ Every one is searched for the person's login, the first of *Whose pull requests 
 **The four are read at once**, so a person waits on the slowest and not on the sum.
 For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
 Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
+**A refusal for GitHub's rate limit holds every call of that client** until GitHub's `Retry-After`, else the reset of a window it spent, else three minutes that double for each refusal that follows a hold, up to fifteen.
+A held call is not made: it fails at once, as a forge that did not answer, and a person reads that GitHub is rate-limiting us.
+Each hold has up to a quarter more added at random, at most a minute, so the callers it releases do not all ask in the same second.
 A row of a repository Fleet does not serve is dropped.
 `?project=<id>` asks only the repositories that project holds, a folder member counting as its repository; an unknown project is a 404 `fleet.no_such_project`.
 A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
