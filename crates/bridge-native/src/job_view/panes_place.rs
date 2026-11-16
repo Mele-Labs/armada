@@ -442,6 +442,10 @@ impl JobView {
 
     /// The tab at the front of its pane, and the pane takes the focus.
     pub(super) fn activate_tab(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) {
+        // The Side chat tab among the thread's own opens its split.
+        if self.side_tab_pressed(tab, window, cx) {
+            return;
+        }
         let tab = tab.to_string();
         self.look(|arrangement| tree::activate(arrangement, &tab), cx);
         self.want_pane_reads(window, cx);

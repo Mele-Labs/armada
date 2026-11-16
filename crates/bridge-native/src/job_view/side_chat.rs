@@ -600,6 +600,9 @@ impl SideChat {
     fn composer(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
         let empty = self.input.read(cx).value().is_empty();
         let asking = if self.quote.is_some() { QUOTED_PLACEHOLDER } else { PLACEHOLDER };
+        // The Return key gives way where the pane is too narrow to show the placeholder whole beside it; a pane not yet measured has room.
+        let width = self.scroll.bounds().size.width;
+        let roomy = width == px(0.) || width >= look.length(token::SPACE_12) * 6.;
         div()
             .flex_none()
             .px(look.length(token::SPACE_2))
@@ -614,8 +617,9 @@ impl SideChat {
                     why.clone(),
                 )
             }))
-            .child(
+            .child(labelled(
                 div()
+                    .id("aside-frame")
                     .flex()
                     .flex_col()
                     .rounded(look.length(token::RADIUS_LG))
@@ -630,7 +634,12 @@ impl SideChat {
                             .items_start()
                             .gap(look.length(token::SPACE_2))
                             .pb(look.length(token::SPACE_1))
-                            .child(quoted(look, "aside-quoting".into(), words).flex_1().min_w_0().max_h(look.length(token::SPACE_12)).overflow_hidden())
+                            .child({
+                                // One line, cut with an ellipsis; the whole of it in the tooltip.
+                                let whole = SharedString::from(words.to_string());
+                                let line = words.split_whitespace().collect::<Vec<_>>().join(" ");
+                                quoted(look, "aside-quoting".into(), &line).flex_1().min_w_0().truncate().tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(whole.clone()).build(window, cx))
+                            })
                             .child(labelled(
                                 super::head::icon_button(look, "aside-quote-drop", "x", "Remove the quote".into(), false, false)
                                     .size(look.length(token::H_CONTROL_SM))
@@ -644,7 +653,7 @@ impl SideChat {
                             .flex()
                             .items_center()
                             .gap(look.length(token::SPACE_2))
-                            .child(labelled(
+                            .child(
                                 div()
                                     .id("aside-box")
                                     .flex_1()
@@ -652,12 +661,12 @@ impl SideChat {
                                     .text_size(look.length(token::TEXT_SM))
                                     .text_color(look.color(token::FG_DEFAULT))
                                     .child(Textarea::new(&self.input).appearance(false).bordered(false).aria_label(asking)),
-                                Role::TextInput,
-                                asking,
-                            ))
-                            .children(empty.then(|| crate::titlebar::parts::kbd("\u{21b5}", look))),
+                            )
+                            .children((empty && roomy).then(|| crate::titlebar::parts::kbd("\u{21b5}", look))),
                     ),
-            )
+                Role::TextInput,
+                asking,
+            ))
             .into_any_element()
     }
 }
@@ -757,25 +766,65 @@ impl JobView {
         }
     }
 
-    /// Open the side chat as a split beside the thread, the keys in its box. `quote` is the words he selected.
+    /// Open the side chat as a split of the thread's pane, the thread on the left and the tab on the right, the keys in its box. `quote` is the words he selected.
     pub(super) fn open_side_chat(&mut self, quote: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let chat = self.side_chat_of(&job, window, cx);
-        let tab = self.side_tab(&job, &chat);
-        self.open_view_tab_in(&job, ViewPane::Top, tab, true, cx);
+        if self.side_split_open() {
+            self.front_view_tab(&job, &tab_id(&job), cx);
+        } else {
+            let tab = self.side_tab(&job, &chat);
+            // In the thread's own strip first, behind the thread; then the split takes it, at the pane's full height.
+            self.open_view_tab_in(&job, ViewPane::Thread, tab, false, cx);
+            let terminal = super::panes_place::terminal_key(&tab_id(&job)).to_string();
+            // A pane too narrow to hold two halves refuses the split: the tab then stands in front of the thread, in its strip.
+            let split = self.rearrange_in(&job, None, false, move |arrangement| {
+                let tab = super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == "terminal" && tab.terminal.as_deref() == Some(terminal.as_str())).map(|tab| tab.id.clone());
+                let Some((tab, thread)) = tab.zip(super::pane_tree::holder_of(arrangement, "thread").map(|pane| pane.id.clone())) else { return std::borrow::Cow::Borrowed(arrangement) };
+                let split = super::pane_tree::split_pane(arrangement, &thread, super::pane_tree::SplitInto::Right).into_owned();
+                let beside = split.focus.clone();
+                std::borrow::Cow::Owned(super::pane_tree::move_tab_to_pane(&split, &tab, &beside, None).into_owned())
+            }, cx);
+            if !split {
+                self.front_view_tab(&job, &tab_id(&job), cx);
+            }
+        }
         chat.update(cx, |chat, cx| {
             chat.reread(cx);
             chat.quoting(quote, window, cx);
         });
         let focus = chat.read(cx).box_focus(cx);
+        window.focus(&focus, cx);
         window.on_next_frame(move |window, cx| window.focus(&focus, cx));
         cx.notify();
+    }
+
+    /// A press on the Side chat tab among the thread's own opens the split again.
+    pub(super) fn side_tab_pressed(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(job) = self.shown.clone() else { return false };
+        let pressed = self.arrangement_of(&job).and_then(|arrangement| super::pane_tree::tab_by_id(arrangement, tab)).and_then(|tab| self.view_id_of(&job, tab));
+        if pressed.as_deref() != Some(tab_id(&job).as_str()) || self.side_split_open() {
+            return false;
+        }
+        self.open_side_chat(None, window, cx);
+        true
     }
 
     /// Whether the side chat stands in a split beside the thread, and not among the thread's own tabs.
     pub(super) fn side_split_open(&self) -> bool {
         let Some(job) = self.shown.as_ref() else { return false };
         self.view_tab_pane(job, &tab_id(job)).is_some_and(|pane| pane != ViewPane::Thread)
+    }
+
+    /// Whether the side chat is the front tab of the thread's pane, as it is where the pane was too narrow to split.
+    pub(super) fn side_chat_in_front(&self) -> bool {
+        let Some(job) = self.shown.as_ref() else { return false };
+        let Some(arrangement) = self.arrangement_of(job) else { return false };
+        let id = tab_id(job);
+        let terminal = super::panes_place::terminal_key(&id);
+        super::pane_tree::panes_of(&arrangement.root).into_iter().any(|pane| {
+            pane.active.as_deref().is_some_and(|front| pane.tabs.iter().any(|tab| tab.id == front && tab.kind == "terminal" && tab.terminal.as_deref() == Some(terminal))) && super::panes_place::view_pane_of(arrangement, &pane.id) == ViewPane::Thread
+        })
     }
 
     /// ⌘W: the split shuts and the tab stays among the thread's own, behind them. True where there was a split.
@@ -787,7 +836,14 @@ impl JobView {
     fn shut_side_split_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let id = tab_id(job);
         if self.view_tab_pane(job, &id).is_none_or(|pane| pane == ViewPane::Thread) {
-            return false;
+            // In front of the thread in its own strip: the thread comes back in front.
+            if !self.side_chat_in_front() {
+                return false;
+            }
+            self.front_thread();
+            self.to_composer(window, cx);
+            cx.notify();
+            return true;
         }
         let Some(chat) = self.side_chats.get(job).cloned() else { return false };
         let tab = self.side_tab(job, &chat);
@@ -812,7 +868,7 @@ impl JobView {
     pub(super) fn side_chat_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let keys = &event.keystroke;
         let alone = keys.modifiers.platform && !keys.modifiers.shift && !keys.modifiers.alt && !keys.modifiers.control;
-        alone && keys.key == "w" && self.side_split_open() && self.shut_side_split(window, cx)
+        alone && keys.key == "w" && (self.side_split_open() || self.side_chat_in_front()) && self.shut_side_split(window, cx)
     }
 
     /// `session.aside` news: each aside replaces the one its Job's side chat holds.
@@ -836,7 +892,7 @@ impl JobView {
 
     /// The button under the box: the eye and its name, in the tool's hue, lit while the split is open.
     pub(super) fn side_chat_button(&self, look: &Look, narrow: bool, cx: &Context<Self>) -> AnyElement {
-        let lit = self.side_split_open();
+        let lit = self.side_split_open() || self.side_chat_in_front();
         let ink = look.color(token::TOOL_LOOK);
         let key = open_key();
         labelled(
@@ -1015,5 +1071,63 @@ mod tests {
         assert!(split(&view, cx).0, "⌘J opens it again");
         let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
         assert_eq!(chat.read_with(cx, |chat, _| chat.asides().len()), 4, "every question is kept");
+    }
+
+    /// The panes of Job `mock-02`, as (the thread's pane tabs, the side chat's pane tabs, how many panes).
+    fn shape(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> (Vec<String>, Vec<String>, usize) {
+        view.read_with(cx, |view, _| {
+            let arrangement = view.arrangement_of("mock-02").expect("the Job's panes");
+            let panes = super::super::pane_tree::panes_of(&arrangement.root);
+            let held = |pane: &super::super::pane_tree::Pane| pane.tabs.iter().map(|tab| tab.kind.clone()).collect::<Vec<_>>();
+            let thread = super::super::pane_tree::holder_of(arrangement, "thread").expect("the thread's pane");
+            let side = panes.iter().find(|pane| pane.tabs.iter().any(|tab| tab.terminal.as_deref() == Some("aside:mock-02")));
+            (held(thread), side.map(|pane| held(pane)).unwrap_or_default(), panes.len())
+        })
+    }
+
+    #[gpui::test]
+    fn the_side_chat_splits_the_thread_pane_in_two_and_its_tab_goes_back_to_the_thread_strip(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        let (_, _, before) = shape(&view, cx);
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let (thread, side, panes) = shape(&view, cx);
+        assert_eq!(panes, before + 1, "the thread's pane splits");
+        assert_eq!(side, vec!["terminal".to_string()], "the Side chat tab stands alone in the pane the split makes");
+        assert!(thread.contains(&"thread".to_string()) && !thread.contains(&"terminal".to_string()), "the thread keeps its own pane");
+        view.update_in(cx, |view, window, cx| view.shut_side_split(window, cx));
+        cx.run_until_parked();
+        let (thread, side, panes) = shape(&view, cx);
+        assert_eq!(panes, before, "the split is gone");
+        assert!(thread.contains(&"thread".to_string()) && thread.contains(&"terminal".to_string()), "the tab stays in the thread's strip beside Thread");
+        assert_eq!(side, thread, "that strip is where the tab stands");
+        assert!(!view.read_with(cx, |view, _| view.side_chat_in_front()), "the thread is in front");
+        let tab = view.read_with(cx, |view, _| {
+            let arrangement = view.arrangement_of("mock-02").expect("the Job's panes");
+            super::super::pane_tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.terminal.as_deref() == Some("aside:mock-02")).map(|tab| tab.id.clone()).expect("the tab")
+        });
+        view.update_in(cx, |view, window, cx| view.activate_tab(&tab, window, cx));
+        cx.run_until_parked();
+        let (thread, side, panes) = shape(&view, cx);
+        assert_eq!(panes, before + 1, "a press on the tab splits again");
+        assert_eq!(side, vec!["terminal".to_string()]);
+        assert!(!thread.contains(&"terminal".to_string()));
+    }
+
+    #[gpui::test]
+    fn a_pane_too_narrow_for_two_halves_shows_the_side_chat_in_front_of_the_thread_and_w_brings_the_thread_back(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        let (_, _, before) = shape(&view, cx);
+        view.update(cx, |view, _| view.arranged.area.set(Some(super::super::pane_tree::Size { w: 300., h: 600. })));
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let (_, _, panes) = shape(&view, cx);
+        assert_eq!(panes, before, "no room for a split");
+        assert!(view.read_with(cx, |view, _| view.side_chat_in_front()), "the tab stands in front of the thread instead");
+        let w = gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse("cmd-w").expect("a key"), is_held: false, prefer_character_input: false };
+        assert!(view.update_in(cx, |view, window, cx| view.side_chat_key(&w, window, cx)), "⌘W brings the thread back");
+        cx.run_until_parked();
+        assert!(!view.read_with(cx, |view, _| view.side_chat_in_front()), "the thread is in front again");
+        assert_eq!(view.read_with(cx, |view, _| view.view_tab_ids("mock-02")), vec!["aside:mock-02".to_string()], "the tab stays");
     }
 }
