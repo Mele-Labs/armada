@@ -38,6 +38,8 @@ pub(super) enum Kind {
     Sketch,
     Document,
     Draft,
+    /// A Job's builds to try: answered one by one in the Ready to try tab, so the sheet offers Open and Dismiss and no Approve.
+    Ready,
 }
 
 impl Kind {
@@ -48,6 +50,7 @@ impl Kind {
             Kind::Sketch => ("layers", "Sketch", token::KIND_STEP),
             Kind::Draft => ("file-text", "Draft", token::KIND_SETUP),
             Kind::Document => ("scroll-text", "Document", token::KIND_GATE),
+            Kind::Ready => ("circle-dot", "Ready to try", token::STATUS_COMPLETED_SUCCESS),
         }
     }
 }
@@ -267,8 +270,8 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
                     Some(SessionRow::Draft { title, change, for_line, .. }) => Some(item(Kind::Draft, title.clone(), for_text(for_line.as_ref()), None, change.is_none())),
                     _ => None,
                 },
-                // A card to try is answered on its own card, so Approve all passes it by.
-                WaitingSource::ReadyToTry => None,
+                // A Job's builds to try are answered in the tab, so Approve all passes it by and Dismiss all takes it.
+                WaitingSource::ReadyToTry => thread.iter().any(|one| matches!(one, ThreadItem::ReadyToTry(_))).then(|| item(Kind::Ready, "Ready to try".to_string(), None, None, false)),
                 _ => None,
             }
         })
@@ -279,7 +282,7 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
 
 /// Whether a waiting item is one the sheet could hold, before its card is read.
 fn reviewable(source: WaitingSource) -> bool {
-    matches!(source, WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Draft)
+    matches!(source, WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Draft | WaitingSource::ReadyToTry)
 }
 
 /// One owed document and nothing else for the sheet: it opens on its own and the sheet has nothing to
@@ -631,6 +634,11 @@ impl JobView {
     /// Open: the page he is to read, in the reader, with the sheet shut.
     fn review_read(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
+        if item.kind == Kind::Ready && row.verdict.is_none() {
+            self.close_review(window, cx);
+            self.open_ready_tab(&item.job, None, window, cx);
+            return;
+        }
         let Some(page) = page_of_item(&item.id).map(str::to_string).filter(|_| item.read && row.verdict.is_none()) else { return };
         self.close_review(window, cx);
         self.open_document_tab(&page, window, cx);
@@ -641,7 +649,7 @@ impl JobView {
     /// `A`: Approve the chosen item, with its notes.
     fn review_approve(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
-        if row.verdict.is_some() || item.read {
+        if row.verdict.is_some() || item.read || item.kind == Kind::Ready {
             return;
         }
         let body = answer_batch(&[&item], ItemHow::Approve, |one| self.review_notes_text(one, cx));
@@ -675,7 +683,7 @@ impl JobView {
 
     /// `⇧A`: every item still asking, approved in one call, each with its own notes.
     fn review_approve_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let asking = self.review_asking();
+        let asking: Vec<Item> = self.review_asking().into_iter().filter(|item| item.kind != Kind::Ready).collect();
         if asking.is_empty() {
             return;
         }
@@ -846,7 +854,10 @@ impl JobView {
         let current = self.review_current();
         let open = current.as_ref().is_some_and(|(_, row)| row.verdict.is_none());
         let mut stops: Vec<FocusHandle> = vec![focus.list.clone()];
-        if open && current.as_ref().is_some_and(|(item, _)| item.read) {
+        if open && current.as_ref().is_some_and(|(item, _)| item.kind == Kind::Ready) {
+            stops.push(focus.dismiss.clone());
+            stops.push(focus.approve.clone());
+        } else if open && current.as_ref().is_some_and(|(item, _)| item.read) {
             stops.push(focus.approve.clone());
         } else if open {
             stops.push(focus.dismiss.clone());
@@ -900,7 +911,7 @@ impl JobView {
         if review.row(key).verdict.is_some() {
             return;
         }
-        let mut entries = if item.read { vec![Entry::Act { id: "open", label: "Open".into(), icon: Some("scroll-text"), danger: false }] } else { vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }] };
+        let mut entries = if item.read || item.kind == Kind::Ready { vec![Entry::Act { id: "open", label: "Open".into(), icon: Some("scroll-text"), danger: false }] } else { vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }] };
         if item.send_back {
             entries.push(Entry::Act { id: "changes", label: "Ask for changes".into(), icon: Some("pencil"), danger: false });
         }
@@ -1215,6 +1226,17 @@ impl JobView {
         };
         let focus = &self.review_focus;
         let acts = open.then(|| {
+            // A Job's builds to try are answered in the tab: Dismiss, and Open to go there.
+            if item.kind == Kind::Ready {
+                return div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .justify_end()
+                    .gap(look.length(token::SPACE_2))
+                    .child(self.review_button(look, "review-dismiss", "Dismiss", Tone::Ghost, None, false, "D", &focus.dismiss, true, Self::review_dismiss, cx))
+                    .child(self.review_button(look, "review-open", "Open", Tone::Primary, None, false, "\u{21b5}", &focus.approve, true, Self::review_read, cx));
+            }
             // A page he is only to read has Open and nothing to answer.
             if item.read {
                 return div()
@@ -1417,6 +1439,19 @@ impl JobView {
                 "Page",
             )
             .into_any_element(),
+            Kind::Ready => {
+                let rows: Vec<AnyElement> = held
+                    .items
+                    .iter()
+                    .filter_map(|one| match one {
+                        ThreadItem::ReadyToTry(card) if matches!(card.state, ipc::ReadyState::Open | ipc::ReadyState::Later) => Some(
+                            div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(card.about.clone())).into_any_element(),
+                        ),
+                        _ => None,
+                    })
+                    .collect();
+                labelled(div().id(SharedString::from(format!("review-ready:{}", item.key()))).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Builds to try").into_any_element()
+            }
             Kind::Draft => match draft_row(&held.items, item.id.strip_prefix("draft:").unwrap_or(&item.id)) {
                 Some(SessionRow::Draft { id, text, .. }) => div()
                     .w_full()
@@ -1548,13 +1583,18 @@ mod tests {
     }
 
     #[test]
-    fn a_card_to_try_is_left_out_of_the_sheet_so_approve_all_passes_it_by() {
-        let (head, items) = held();
+    fn a_jobs_builds_to_try_stand_on_the_sheet_with_dismiss_and_open_and_no_approve() {
+        let (head, mut items) = held();
+        items.push(crate::job_view::ready_card::tests::thread_card(r#","state":"open""#));
         let mut with_card = owed();
-        with_card.extend(waiting(r#"[{"id":"try:native/chip@aaaa1111","text":"Try: Chip","since":"2026-11-09T14:20:00Z","source":"ready_to_try","artifact":"try:native/chip@aaaa1111"}]"#));
+        with_card.extend(waiting(r#"[{"id":"try:j","text":"Ready to try","since":"2026-11-09T14:20:00Z","source":"ready_to_try","artifact":"try:j"}]"#));
         let built = build("j", &with_card, &head, &items, true);
-        assert!(built.iter().all(|item| !item.id.starts_with("try:")), "no item of the sheet names the card");
-        assert_eq!(built.len(), build("j", &owed(), &head, &items, true).len(), "the card adds nothing to what Approve all sends");
+        let ready: Vec<&Item> = built.iter().filter(|item| item.kind == Kind::Ready).collect();
+        assert_eq!(ready.len(), 1, "the Job's one item stands on the sheet");
+        assert_eq!((ready[0].id.as_str(), ready[0].send_back, ready[0].read), ("try:j", false, false));
+        assert!(reviewable(WaitingSource::ReadyToTry));
+        let none = build("j", &with_card, &head, &held().1, true);
+        assert!(none.iter().all(|item| item.kind != Kind::Ready), "a Job whose thread holds no build has nothing to show");
     }
 
     #[test]
