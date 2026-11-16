@@ -143,6 +143,7 @@ class KeepBuild(unittest.TestCase):
     def fake_build(self, name, lock=LOCK):
         """A kept build of an earlier day: only what `point` reads."""
         self.write(os.path.join(self.builds, name, "build.toml"), f'node_modules = "{lock}"\n')
+        self.write(os.path.join(self.builds, name, "Armada Fleet.app", "Contents", "MacOS", "armada"), f"fleet of {name}\n")
         os.makedirs(os.path.join(self.modules, lock), exist_ok=True)
 
     def set_link(self, name, to):
@@ -477,6 +478,44 @@ class KeepBuild(unittest.TestCase):
         self.point(second)
         self.assertEqual(self.link("current"), os.path.basename(second))
         self.assertEqual(self.link("previous"), os.path.basename(first))
+
+    def test_point_places_fleet_at_one_path_and_names_its_build(self):
+        names = ["2026-01-01T000000Z-abcdef1", "2026-01-02T000000Z-abcdef2"]
+        for name in names:
+            self.fake_build(name)
+        fleet = os.path.join(self.support, "fleet")
+        program = os.path.join(fleet, "Armada Fleet.app", "Contents", "MacOS", "armada")
+        self.point(os.path.join(self.builds, names[0]))
+        self.assertEqual(self.read(program), f"fleet of {names[0]}\n")
+        stale = os.path.join(fleet, "Armada Fleet.app", "Contents", "stale")
+        self.write(stale, "only the first had it\n")
+        with open(program) as running:
+            self.point(os.path.join(self.builds, names[1]))
+            self.assertEqual(running.read(), f"fleet of {names[0]}\n", "a running Fleet keeps its inode")
+        self.assertEqual(self.read(program), f"fleet of {names[1]}\n")
+        self.assertFalse(os.path.islink(program))
+        self.assertFalse(os.path.exists(stale))
+        self.assertEqual(self.read(os.path.join(fleet, "build")), f"{names[1]}\n")
+        self.assertEqual(sorted(os.listdir(fleet)), ["Armada Fleet.app", "build"])
+
+    @SIGNS
+    def test_the_placed_fleet_keeps_its_signature_as_dev_armada_fleet(self):
+        self.armada = self.native_binary("armada-built")
+        self.point(self.make())
+        placed = os.path.join(self.support, "fleet", "Armada Fleet.app")
+        verified = subprocess.run(["codesign", "--verify", "--strict", placed], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
+        shown = subprocess.run(["codesign", "-dv", placed], capture_output=True, text=True)
+        self.assertIn("Identifier=dev.armada.fleet", shown.stderr)
+
+    def test_point_refuses_a_build_with_no_fleet_bundle_and_moves_no_link(self):
+        name = "2026-01-01T000000Z-abcdef1"
+        self.fake_build(name)
+        shutil.rmtree(os.path.join(self.builds, name, "Armada Fleet.app"))
+        done = self.run_keep("point", os.path.join(self.builds, name))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("keeps no Armada Fleet.app", done.stderr)
+        self.assertIsNone(self.link("current"))
 
     def test_point_refuses_a_folder_outside_the_builds(self):
         os.makedirs(self.builds)
