@@ -1002,7 +1002,7 @@ impl JobView {
     /// The panel as the body of its tab: the manifest as its first line, with the way back where it was opened from an
     /// issue; then the body and comment box, and the file list beside them on Files where the pane has the room.
     /// The plates stand inside the body at every width, where Classic stands them off the leading edge.
-    pub(super) fn render_pull_panel(&self, width: Pixels, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_pull_panel(&self, width: Pixels, cx: &Context<Self>) -> Option<AnyElement> {
         let (focus, panel) = self.pull_panel_focus()?;
         let look = cx.look();
         let look = &look;
@@ -1049,11 +1049,20 @@ impl JobView {
         let first = (back.is_some() || manifest.is_some()).then(|| first.children(back).children(manifest));
         let margin = look.length(token::SPACE_4);
         let wide = look.length(token::W_DIALOG_WIDE);
-        let high = crate::room::of(window, cx).size.height;
         let aside_w = px(336.);
         let files_beside = panel.tab == PullTab::Files && panel.files_page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
-        let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, width, look, cx);
+        let (head, body) = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, width, look, cx);
         let foot = self.pull_composer(panel, look, cx);
+        // Files' list stands under the head at the left, and it and the files each scroll on their own.
+        let beside: Option<AnyElement> = if files_beside { panel.files_page().map(|page| self.pull_file_list(panel, page, aside_w, look, cx)) } else { None };
+        let under = div()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .items_stretch()
+            .gap(look.length(token::SPACE_3))
+            .children(beside.map(|list| div().flex_none().min_h_0().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list)))
+            .child(div().flex_1().min_w_0().min_h_0().flex().flex_col().child(body).child(foot));
         let sheet = labelled(
             div()
                 .id("pull-panel")
@@ -1069,13 +1078,12 @@ impl JobView {
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
                 .children(first)
-                .child(body)
-                .child(foot),
+                .child(head)
+                .child(under),
             Role::Region,
             title,
         );
-        let beside: Option<AnyElement> = if files_beside { panel.files_page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
-        Some(div().size_full().flex().items_stretch().gap(look.length(token::SPACE_3)).children(beside.map(|list| div().flex_none().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list))).child(sheet).into_any_element())
+        Some(div().size_full().flex().child(sheet).into_any_element())
     }
 
     /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, the merge line and the
@@ -1378,10 +1386,11 @@ impl JobView {
 }
 
 impl JobView {
-    /// The body: what Fleet refused, the title, its meta row, its acts, then the plates and the tabs, with
+    /// The head, which stays put on every tab: what Fleet refused, the title, its meta row, its acts and the
+    /// tab strip, a hairline under it. Then the body that scrolls under it: the plates and the tab shown, with
     /// Reviewers beside them on a pane `width` wide enough.
     #[allow(clippy::too_many_arguments)]
-    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, width: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, width: Pixels, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
         let page = panel.page();
         let number = pull.number;
         let refused = self
@@ -1445,10 +1454,10 @@ impl JobView {
         let (main, side) = plates_at(width, look.length(token::LAYOUT_BREAKPOINT_DESKTOP));
         let plates = plates_inside.then(|| self.pull_plates(panel, pull, &main, look, cx));
         let side = if plates_inside && side.contains(&Plate::Reviewers) { self.pull_reviewers(panel, look, cx) } else { None };
-        let tabs = match &panel.page {
-            None => labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element(),
-            Some(Err(said)) => labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element(),
-            Some(Ok(page)) => self.pull_tabs(panel, pull, page, tree_inside, look, cx),
+        let (strip, tabs) = match &panel.page {
+            None => (None, Some(labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element())),
+            Some(Err(said)) => (None, Some(labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element())),
+            Some(Ok(page)) => (Some(self.pull_strip(panel, page, look, cx)), self.pull_shown(panel, pull, page, tree_inside, look, cx)),
         };
         let column = div()
             .flex()
@@ -1458,7 +1467,7 @@ impl JobView {
             .children(plates)
             .children(self.notes_bar(panel, pull, look, cx))
             .children(self.notes_resolved_toggle(panel, look, cx))
-            .child(tabs);
+            .children(tabs);
         // Wide enough, Reviewers stands in a column of its own at the right, as on the forge's page.
         let lower = match side {
             Some(side) => div()
@@ -1471,7 +1480,23 @@ impl JobView {
                 .into_any_element(),
             None => column.into_any_element(),
         };
-        div()
+        let head = div()
+            .id("pull-head")
+            .flex_none()
+            .px(look.length(token::SPACE_6))
+            .pt(look.length(token::SPACE_4))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .children(refused)
+            .child(div().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(pull.title.clone())))
+            .child(meta)
+            .child(acts)
+            .children(strip)
+            .into_any_element();
+        let body = div()
             .id("pull-body")
             .track_scroll(&panel.scroll)
             .flex_1()
@@ -1479,15 +1504,9 @@ impl JobView {
             .overflow_y_scroll()
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .children(refused)
-            .child(div().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(pull.title.clone())))
-            .child(meta)
-            .child(acts)
             .child(lower)
-            .into_any_element()
+            .into_any_element();
+        (head, body)
     }
 
     /// The acts row (`PullRequestActs`), then Copy link and Open in browser at its end.
@@ -1541,12 +1560,12 @@ impl JobView {
         labelled(div().id("pull-acts").flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(act).child(div().flex_1()).children(copy).children(open), Role::Group, "Acts").into_any_element()
     }
 
-    /// The tab strip and the tab shown (`PullRequestTabs`).
-    fn pull_tabs(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The tab strip (`PullRequestTabs`), at the foot of the head: the head's hairline is its edge.
+    fn pull_strip(&self, panel: &PullPanel, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> AnyElement {
         let accent = look.color(token::ACCENT);
         let strong = look.color(token::FG_DEFAULT);
         let comments = comment_count(page);
-        let strip = div().id("pull-tabs").flex().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(PullTab::ALL.into_iter().map(|one| {
+        let strip = div().id("pull-tabs").flex().children(PullTab::ALL.into_iter().map(|one| {
             let front = one == panel.tab;
             // Comments says how many it holds, as the forge's tab does.
             let count = (one == PullTab::Comments).then(|| {
@@ -1585,6 +1604,11 @@ impl JobView {
                 name,
             )
         }));
+        labelled(strip, Role::TabList, "Pull request").into_any_element()
+    }
+
+    /// The tab shown, under the head. Nothing to show, nothing drawn.
+    fn pull_shown(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let shown: Option<AnyElement> = match panel.tab {
             PullTab::Overview => self.pull_overview(panel, pull, page, look, cx),
             PullTab::Comments => self.pull_comments(panel, pull, page, look, cx),
@@ -1592,13 +1616,7 @@ impl JobView {
             PullTab::Files => self.pull_files_shown(panel, page, tree_inside, look, cx),
             PullTab::Commits => pull_commits(page, look, cx),
         };
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .child(labelled(strip, Role::TabList, "Pull request"))
-            .children(shown.map(|shown| labelled(div().id("pull-tab-panel").child(shown), Role::TabPanel, panel.tab.word())))
-            .into_any_element()
+        shown.map(|shown| labelled(div().id("pull-tab-panel").child(shown), Role::TabPanel, panel.tab.word()).into_any_element())
     }
 
     /// Overview: the description, or the draft of a new one in its place. Neither, nothing drawn. One a
@@ -2007,6 +2025,29 @@ fn pull_commits(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[gpui::test]
+    fn the_head_stays_put_while_a_tab_scrolls_and_the_file_list_stands_under_it(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(800.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+            view.pull_tab(PullTab::Files, window, cx);
+        });
+        redraw(cx);
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        };
+        let tabs = at(cx, Role::TabList, "Pull request");
+        let list = at(cx, Role::Complementary, "Files");
+        assert!(list.origin.y >= tabs.bottom(), "the file list starts under the head: it starts at {:?}, the tabs end at {:?}", list.origin.y, tabs.bottom());
+        let file = at(cx, Role::Group, "apps/desktop/src/main/forge.ts");
+        view.update(cx, |view, _| view.pull_panel().expect("the panel is open").scroll.set_offset(point(px(0.), px(-200.))));
+        redraw(cx);
+        assert!(at(cx, Role::Group, "apps/desktop/src/main/forge.ts").origin.y < file.origin.y, "the files scrolled");
+        assert_eq!(at(cx, Role::TabList, "Pull request"), tabs, "the head stays where it was");
+    }
 
     #[test]
     fn a_check_ran_for_reads_as_electrons() {

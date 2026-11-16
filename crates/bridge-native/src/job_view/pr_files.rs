@@ -538,7 +538,7 @@ impl JobView {
     }
 
     /// The file list, floating beside the panel while Files is in front (`PullRequestFileList`).
-    pub(super) fn pull_file_list(&self, panel: &PullPanel, page: &PullRequestPage, wide: Pixels, high: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn pull_file_list(&self, panel: &PullPanel, page: &PullRequestPage, wide: Pixels, look: &Look, cx: &Context<Self>) -> AnyElement {
         let paths: Vec<&str> = page.files.iter().map(|file| file.path.as_str()).collect();
         let mut rows: Vec<AnyElement> = Vec::new();
         self.file_rows(panel, page, &tree_of(&paths), 0, "", look, cx, &mut rows);
@@ -548,7 +548,7 @@ impl JobView {
                 .occlude()
                 .flex_none()
                 .w(wide)
-                .max_h(high)
+                .max_h(gpui::relative(1.))
                 .flex()
                 .flex_col()
                 .overflow_hidden()
