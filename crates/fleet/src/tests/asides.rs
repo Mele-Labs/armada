@@ -48,6 +48,10 @@ echo '{{}}' > "$HOME/{projects}/-somewhere/$sid.jsonl"
 echo "$sid" > "{log}/wrote"
 echo '{{"type":"system","subtype":"init"}}'
 echo '{{"type":"system","subtype":"status","status":"requesting"}}'
+root=$(/bin/cat "{log}/root" 2>/dev/null)
+echo '{{"type":"assistant","message":{{"content":[{{"type":"text","text":"Let me look."}},{{"type":"tool_use","name":"Read","input":{{"file_path":"'"$root"'/crates/store/migrations"}}}}]}}}}'
+echo '{{"type":"assistant","message":{{"content":[{{"type":"tool_use","name":"Grep","input":{{"pattern":"keep_aside","path":"'"$root"'/crates"}}}}]}}}}'
+echo '{{"type":"assistant","message":{{"content":[{{"type":"tool_use","name":"Glob","input":{{"pattern":"**/*.sql"}}}}]}}}}'
 echo '{{"type":"stream_event","event":{{"delta":{{"type":"text_delta","text":"Because "}}}}}}'
 /bin/sleep 0.3
 echo '{{"type":"stream_event","event":{{"delta":{{"type":"text_delta","text":"two tasks share it."}}}}}}'
@@ -90,6 +94,24 @@ impl Asked {
     async fn ended(&self, id: &SessionId) -> Aside {
         eventually(|| async { self.asides(id).await.first().is_some_and(|one| one.state != AsideState::Asking) }).await;
         self.asides(id).await.remove(0)
+    }
+
+    /// The Job's asides once `n` of them have ended.
+    async fn ended_all(&self, id: &SessionId, n: usize) -> Vec<Aside> {
+        eventually(|| async {
+            let held = self.asides(id).await;
+            held.len() == n && held.iter().all(|one| one.state != AsideState::Asking)
+        })
+        .await;
+        self.asides(id).await
+    }
+
+    /// Tell the script where the Job's directory is, so the reads it prints are under it.
+    fn root_is_known(&self) {
+        let root = self.rig.fleet.repositories().first().expect("a repository").root().to_string();
+        let log = self.tools.path().join("log");
+        std::fs::create_dir_all(&log).expect("the log directory");
+        std::fs::write(log.join("root"), root).expect("the root");
     }
 
     fn job_file(&self, id: &SessionId) -> PathBuf {
@@ -232,6 +254,7 @@ async fn an_aside_still_asking_or_failed_is_not_told() {
         asked_at: "2026-11-15T10:00:00.000Z".into(),
         answered_at: None,
         told_at: None,
+        reads: Vec::new(),
     };
     {
         let mut store = asked.rig.fleet.store().lock().await;
@@ -261,4 +284,111 @@ async fn a_blank_question_an_unknown_job_and_a_job_with_no_finished_turn_are_ref
     assert_eq!(code(asked.ask(&quiet, QUESTION).await.expect_err("nothing to copy")), "fleet.fork_point_unwritten");
     assert!(asked.asides(&id).await.is_empty() && asked.asides(&quiet).await.is_empty());
     assert!(asked.logged("args").is_empty(), "no call was made");
+}
+
+/// An answered aside, as the store keeps it, for a side chat the test starts partway through.
+fn answered(id: &SessionId, aside_id: &str, at: &str, question: &str, answer: &str) -> KeptAside {
+    KeptAside {
+        aside_id: aside_id.into(),
+        session_id: id.as_str().into(),
+        question: question.into(),
+        quote: None,
+        answer: answer.into(),
+        state: aside_state::ANSWERED.into(),
+        failed: None,
+        asked_at: at.into(),
+        answered_at: Some(at.into()),
+        told_at: None,
+        reads: Vec::new(),
+    }
+}
+
+#[tokio::test]
+async fn a_follow_up_is_shown_the_side_chat_so_far_and_the_first_aside_is_shown_none() {
+    let asked = rig();
+    let (id, _) = asked.rig.an_agent_that_has_spoken().await;
+    asked.ask(&id, QUESTION).await.expect("asked");
+    asked.ended_all(&id, 1).await;
+    assert!(!asked.logged("stdin").contains("Earlier in this side chat"), "the first aside has no side chat behind it");
+
+    asked.ask(&id, "does that hold for forks too?").await.expect("asked");
+    asked.ended_all(&id, 2).await;
+    let said = asked.logged("stdin");
+    for shown in ["Earlier in this side chat", QUESTION, ANSWER, QUOTE, "does that hold for forks too?"] {
+        assert!(said.contains(shown), "{shown}: {said}");
+    }
+    assert!(said.find(ANSWER) < said.find("does that hold for forks too?"), "earlier first, the new question last: {said}");
+}
+
+#[tokio::test]
+async fn a_failed_or_still_asking_aside_is_not_carried_into_the_side_chat() {
+    let asked = rig();
+    let (id, _) = asked.rig.an_agent_that_has_spoken().await;
+    {
+        let mut store = asked.rig.fleet.store().lock().await;
+        store.keep_aside(&answered(&id, "a1", "2026-11-15T10:00:01.000Z", "an answered question", "an answered answer")).unwrap();
+        let mut broken = answered(&id, "a2", "2026-11-15T10:00:02.000Z", "a failed question", "half an answer");
+        broken.state = aside_state::FAILED.into();
+        broken.failed = Some("the call timed out".into());
+        store.keep_aside(&broken).unwrap();
+        let mut going = answered(&id, "a3", "2026-11-15T10:00:03.000Z", "a going question", "a going answer");
+        going.state = aside_state::ASKING.into();
+        store.keep_aside(&going).unwrap();
+    }
+    asked.ask(&id, "and now?").await.expect("asked");
+    asked.ended_all(&id, 4).await;
+    let said = asked.logged("stdin");
+    assert!(said.contains("an answered question") && said.contains("an answered answer"), "{said}");
+    for left in ["a failed question", "half an answer", "a going question", "a going answer"] {
+        assert!(!said.contains(left), "{left}: {said}");
+    }
+}
+
+#[tokio::test]
+async fn the_side_chat_a_new_aside_is_shown_is_bounded_and_drops_the_oldest_first() {
+    let asked = rig();
+    let (id, _) = asked.rig.an_agent_that_has_spoken().await;
+    {
+        let mut store = asked.rig.fleet.store().lock().await;
+        for (n, name) in ["OLDEST", "MIDDLE", "NEWEST"].iter().enumerate() {
+            let answer = format!("{name} {}", "x".repeat(10_000));
+            store.keep_aside(&answered(&id, name, &format!("2026-11-15T10:00:0{n}.000Z"), &format!("{name} question"), &answer)).unwrap();
+        }
+    }
+    asked.ask(&id, "and now?").await.expect("asked");
+    asked.ended_all(&id, 4).await;
+    let said = asked.logged("stdin");
+    assert!(said.contains("MIDDLE question") && said.contains("NEWEST question"), "the most recent that fit are shown");
+    assert!(!said.contains("OLDEST"), "the oldest went first");
+    assert!(said.contains("One earlier exchange is left out"), "and the prompt says so");
+    assert!(said.find("MIDDLE question") < said.find("NEWEST question"), "oldest first");
+}
+
+#[tokio::test]
+async fn what_the_copy_reads_shows_as_it_happens_and_stays_on_the_aside() {
+    let asked = rig();
+    asked.root_is_known();
+    let (id, _) = asked.rig.an_agent_that_has_spoken().await;
+    let mut watching = asked.rig.fleet.events().subscribe();
+    asked.ask(&id, QUESTION).await.expect("asked");
+    let reads = ["Read crates/store/migrations", "Grep keep_aside in crates", "Glob **/*.sql"];
+
+    // Going out before the answer is whole.
+    let mut seen_while_asking = false;
+    loop {
+        match tokio::time::timeout(Duration::from_secs(5), watching.next()).await.expect("an event") {
+            Some(Next::Send(delivered)) => {
+                if let Event::SessionAside(one) = delivered.event {
+                    seen_while_asking |= one.state == AsideState::Asking && one.reads == reads;
+                    if one.state == AsideState::Answered {
+                        assert_eq!(one.reads, reads);
+                        break;
+                    }
+                }
+            }
+            other => panic!("the stream ended: {}", other.is_some()),
+        }
+    }
+    assert!(seen_while_asking, "the reads were sent while the copy was still asking");
+    assert_eq!(asked.ended(&id).await.reads, reads, "and they are listed after the turn");
 }
