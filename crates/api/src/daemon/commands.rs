@@ -377,6 +377,19 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::RestoreKitPiece,
     ) -> impl Future<Output = Result<ipc::KitInventory, Refusal>> + Send;
 
+    /// `save_kit_file` — a corrected file of an inventory piece, written where the disk still holds
+    /// what the edit read. [`Refusal::IllegalMove`] for a file that moved, [`Refusal::Unacceptable`]
+    /// for a piece not named once, without a file or brought by a plugin.
+    fn save_kit_file(&self, asked: ipc::SaveKitFile) -> impl Future<Output = Result<ipc::KitFile, Refusal>> + Send;
+
+    /// `open_kit_piece` — a piece in the person's editor or in Finder. [`Refusal::Unacceptable`]
+    /// for a piece not named once, one without a file, a plugin sent to the editor or an editor that
+    /// is not there.
+    fn open_kit_piece(
+        &self,
+        asked: ipc::OpenKitPiece,
+    ) -> impl Future<Output = Result<ipc::KitPieceOpened, Refusal>> + Send;
+
     /// `save_flight_controls` — write the Cockpit's flight controls to Kit, whole.
     /// Answers with the file read again. [`Refusal::Unacceptable`] naming the field for a
     /// file that breaks a rule; [`Refusal::Fault`] where it cannot be written.

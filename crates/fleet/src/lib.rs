@@ -142,6 +142,9 @@ pub mod language_model;
 pub mod kit_allowlist;
 /// Kit's Add and Remove for a plugin or a skill, across the seam.
 pub mod kit_pieces;
+/// A Kit piece's file, read, saved and opened elsewhere, across the seam.
+mod kit_files;
+mod kit_open;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
@@ -316,6 +319,8 @@ pub mod lifecycles;
 pub mod gate_keeping;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
+/// What the owner said in a Job, sorted by kind, the asks that came of it, and a Job's story.
+mod story;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
 /// Links already on a Studio, read as what their addresses name — `#1394`.
