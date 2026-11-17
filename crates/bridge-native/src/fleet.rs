@@ -788,6 +788,23 @@ fn changing(report: &FleetBuildReport) -> bool {
 }
 
 impl FleetConnection {
+    /// A build change Fleet said yes to from a press outside `build_act`, marked restarting at once as `build_act` marks it,
+    /// so every Refresh preview reads the rebuild until Fleet's report says it ended.
+    pub fn restarting(&mut self, build: ipc::BuildSource, cx: &mut Context<Self>) {
+        if let Some(report) = self.held.build.as_mut() {
+            report.failed = None;
+            report.restarting = Some(build);
+            cx.notify();
+        }
+    }
+
+    /// The build report as Fleet would say it, for a test.
+    #[cfg(test)]
+    pub fn build_said(&mut self, report: FleetBuildReport, cx: &mut Context<Self>) {
+        self.held.build = Some(report);
+        cx.notify();
+    }
+
     /// What Fleet has said, folded. Read it in an `observe` handler; it moves once per batch.
     pub fn held(&self) -> &Held {
         &self.held

@@ -44,6 +44,7 @@ use gpui::{
 use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
 pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
+pub use face::stage_word;
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
