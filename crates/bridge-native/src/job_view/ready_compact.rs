@@ -122,8 +122,8 @@ impl Page {
 }
 
 impl JobView {
-    /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened is drawn whole under
-    /// the rows, in place.
+    /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened unfolds whole under
+    /// its own row.
     pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let listed: Vec<&Build> = all.iter().filter(|build| build.standing.asks()).collect();
         let standing = if listed.iter().any(|build| build.standing == Standing::Open) { Standing::Open } else { Standing::Later };
@@ -133,11 +133,14 @@ impl JobView {
         let waits = standing == Standing::Open && !listed.iter().any(|build| build.standing == Standing::Open && build.card.in_build);
         let word: SharedString = if waits { NOT_IN_PREVIEW.into() } else { standing.word().into() };
         let head = newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, waits, listed.iter().any(|build| !build.card.in_build), now, look, cx));
+        let picked = page.cards.ready_pick.as_deref();
+        let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
         let rows: Vec<AnyElement> = listed
             .iter()
             .enumerate()
             .map(|(at, build)| {
                 let card = build.card;
+                let open = picked == Some(card.id.as_str());
                 let spot = page.keys.spot(&format!("ready-row:{}", card.id), cx);
                 let waits = pending(build.standing, card);
                 let ink = look.color(if waits { token::STATUS_AWAITING_REVIEW } else { build.standing.ink() });
@@ -162,6 +165,7 @@ impl JobView {
                     .border_color(gpui::transparent_black())
                     .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
                     .cursor_pointer()
+                    .when(open, |row| row.bg(look.color(token::SURFACE_ROW_SELECTED)))
                     .hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
                     .child(dot)
                     .child(
@@ -185,6 +189,7 @@ impl JobView {
                             .text_color(if build.standing == Standing::Open { ink } else { look.color(token::FG_MUTED) })
                             .child(SharedString::from(word)),
                     )
+                    .child(glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)))
                     .on_click(cx.listener(move |this, _, _, cx| this.ready_open(&opened, &pressed, cx)))
                     .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                         if event.keystroke.modifiers.modified() {
@@ -211,21 +216,18 @@ impl JobView {
                             _ => {}
                         }
                     }));
-                labelled(row, Role::Button, said).into_any_element()
+                // The build he opened reads right under its own row, as the row unfolding, not at the card's foot.
+                let detail = open.then(|| self.ready_detail_inside(card, ix, wide, page, now, look, cx));
+                div().flex().flex_col().child(labelled(row, Role::Button, said)).children(detail).into_any_element()
             })
             .collect();
         let ink = look.color(standing.ink());
-        let open = page.cards.ready_pick.as_deref().and_then(|id| listed.iter().find(|build| build.card.id == id));
-        let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
-        // The open build reads under the rows inside the one card; a second card with its own head said the same head twice.
-        let detail = open.map(|build| self.ready_detail_inside(build.card, ix, wide, page, now, look, cx));
         let group = labelled(
             frame(look, false)
                 .id("ready-compact")
                 .border_color(ink.opacity(0.45))
                 .children(head)
-                .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows))
-                .children(detail),
+                .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows)),
             Role::Group,
             "Ready to try",
         );

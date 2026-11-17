@@ -435,13 +435,18 @@ impl JobView {
         let foot_row = (asking && card.in_build).then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
         let name = format!("Ready to try: {}", card.about);
         if !framed {
+            // Unfolded under its row, which already names it: no title of its own, and a well that reads as the row's inside.
             let body = div()
                 .id(SharedString::from(format!("ready:{key}")))
                 .flex()
                 .flex_col()
-                .border_t(look.length(token::BORDER_WIDTH))
+                .mx(look.length(token::SPACE_2))
+                .mb(look.length(token::SPACE_2))
+                .pb(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(look.color(token::SURFACE_WELL))
+                .border_l(look.length(token::BORDER_WIDTH) * 2.)
                 .border_color(ink.opacity(0.45))
-                .child(title)
                 .children(pictures)
                 .children(words)
                 .children(changed)
