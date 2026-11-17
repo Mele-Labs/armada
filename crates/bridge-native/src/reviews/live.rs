@@ -249,6 +249,24 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// A pull request asked of him that the inbox has not listed yet: held as its row would be, so its page reads.
+    pub(super) fn live_hold_asked(&mut self, asked: &ipc::ReviewAsked) {
+        let Some(live) = self.live.as_mut() else { return };
+        live.pulls.entry(asked.number).or_insert_with(|| Pull {
+            row: Row {
+                manifest: asked.manifest_id.as_str().to_string(),
+                repository: asked.repository.clone(),
+                title: asked.title.clone(),
+                branch: String::new(),
+                author: asked.author.clone(),
+                holder: None,
+            },
+            facts: map::Facts::default(),
+            notes: Vec::new(),
+            finds: map::Finds::default(),
+        });
+    }
+
     // ---- A page ------------------------------------------------------------------------------------
 
     /// The page, its patches, the change since he looked, the runs kept for it, his notes and the
@@ -725,5 +743,36 @@ fn land_run(runs: &mut Vec<ReviewRun>, run: ReviewRun) {
     match runs.iter_mut().find(|held| held.kind == run.kind && held.name == run.name && held.head == run.head && held.since == run.since) {
         Some(held) => *held = run,
         None => runs.push(run),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{AppContext as _, TestAppContext};
+
+    use super::*;
+
+    #[gpui::test]
+    fn a_pull_request_asked_of_him_opens_before_the_inbox_lists_it(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let fleet = cx.update(|cx| cx.new(FleetConnection::idle));
+        let (reviews, cx) = cx.add_window_view(|window, cx| ReviewsScreen::live(&fleet, window, cx));
+        let asked = ipc::ReviewAsked {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number: 2231,
+            title: "Say which stage of an invoice failed".into(),
+            author: "mira".into(),
+            address: "https://example.com/harbor/ledger-api/pull/2231".into(),
+        };
+        cx.update(|window, cx| reviews.update(cx, |reviews, cx| reviews.open_asked(&asked, window, cx)));
+        reviews.read_with(cx, |reviews, _| {
+            let row = reviews.live.as_ref().and_then(|live| live.pulls.get(&2231)).map(|pull| (pull.row.manifest.clone(), pull.row.title.clone()));
+            assert_eq!(row, Some(("ledger-api".to_string(), "Say which stage of an invoice failed".to_string())), "its page is read in the repository the request names");
+            assert_eq!(reviews.showing(), Some(2231), "and it opens once read");
+        });
     }
 }
