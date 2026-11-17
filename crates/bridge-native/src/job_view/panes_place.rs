@@ -621,6 +621,8 @@ impl JobView {
                 let toward = [Toward::Left, Toward::Up, Toward::Right, Toward::Down][usize::from(act.slot).min(3)];
                 self.move_to_pane(toward, window, cx);
             }
+            // Back, Forward and Reload are the Job browser's where the pane the keys are in has its tab in front.
+            "history" | "browser_reload" => return self.browser_act(act, window, cx),
             _ => return false,
         }
         true

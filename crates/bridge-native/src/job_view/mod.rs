@@ -123,6 +123,9 @@ mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
+// The Job browser's files sit beside the Job view's, as a child of it, so they read its panes and send its messages.
+#[path = "../job_browser/mod.rs"]
+mod job_browser;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
@@ -442,6 +445,8 @@ pub struct JobView {
     side_chats: HashMap<String, Entity<side_chat::SideChat>>,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
+    /// Each Job's Job browser pages, and the acts running on them.
+    browsers: job_browser::Browsers,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
     /// The room the review panel leaves its detail, as last drawn: what a picture and a row of takes are sized to.
@@ -583,6 +588,7 @@ impl JobView {
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
+            subscriptions.push(job_browser::follow(fleet, window, cx));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -675,6 +681,7 @@ impl JobView {
             view_tabs: Default::default(),
             side_chats: HashMap::new(),
             row_tabs: HashMap::new(),
+            browsers: Default::default(),
             row_focus: cx.focus_handle(),
             sheet: std::cell::Cell::new(gpui::Size::default()),
             body_scroll: gpui::ScrollHandle::new(),
@@ -838,6 +845,7 @@ impl JobView {
         for id in self.list.update(cx, |list, _| list.take_gone()) {
             self.pages.remove(&id);
             self.row_tabs.remove(&id);
+            self.forget_browsers(&id);
             self.mock.remove(id.as_ref());
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);
@@ -1270,6 +1278,7 @@ impl Render for JobView {
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
+        self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
         self.tend_parts(&id, window, cx);
