@@ -195,7 +195,23 @@ impl ReviewsScreen {
                 body.push(self.inbox_row(row, at > 0, look, cx));
             }
         }
-        if rows.is_empty() {
+        // Live, the forge's lists read behind a skeleton, and a list or page that could not be read says why.
+        let said = self.live_inbox_said();
+        let reading = said.is_some() && !self.refreshed && rows.is_empty();
+        if let Some(said) = said.filter(|_| !reading) {
+            body.insert(
+                0,
+                labelled(
+                    div().id("inbox-refused").p(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::RUN_FAILED)).child(SharedString::from(said.clone())),
+                    Role::Status,
+                    said,
+                )
+                .into_any_element(),
+            );
+        }
+        if reading {
+            body.push(super::panes::grey("inbox-reading", "Reading your pull requests", &[0.8, 0.6, 0.9, 0.5], token::BG_SUNKEN, look));
+        } else if rows.is_empty() {
             body.push(
                 labelled(
                     div().id("inbox-none").p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_SM)).text_color(muted).child("No pull request matches"),

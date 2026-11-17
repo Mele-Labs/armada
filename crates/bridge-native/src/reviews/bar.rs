@@ -169,9 +169,12 @@ impl ReviewsScreen {
                 "Summary",
             )
         });
+        // While the review goes, its buttons wait; a refusal says why in the forge's words beside them.
+        let (refused, writing) = self.live_write(page.number);
+        let refused = refused.map(str::to_string);
         let send = |id: &'static str, said: &'static str, icon: &'static str, weight: Weight, verdict: Verdict, cx: &mut Context<Self>| {
             labelled(
-                Btn::new(id, said, weight).icon(icon).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.submit(verdict, window, cx))),
+                Btn::new(id, said, weight).icon(icon).disabled(writing).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.submit(verdict, window, cx))),
                 Role::Button,
                 said,
             )
@@ -218,7 +221,22 @@ impl ReviewsScreen {
                         .border_t(look.length(token::BORDER_WIDTH))
                         .border_color(look.color(token::BORDER_SUBTLE))
                         .child(cancel)
-                        .child(div().flex_1())
+                        .child(match refused {
+                            Some(why) => labelled(
+                                div()
+                                    .id("sheet-refused")
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .line_height(look.length(token::LEADING_XS))
+                                    .text_color(look.color(token::RUN_FAILED))
+                                    .child(SharedString::from(format!("Not sent: {why}"))),
+                                Role::Status,
+                                format!("Not sent: {why}"),
+                            )
+                            .into_any_element(),
+                            None => div().flex_1().into_any_element(),
+                        })
                         .child(comment)
                         .child(changes)
                         .child(approve),
