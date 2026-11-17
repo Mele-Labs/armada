@@ -114,6 +114,12 @@ pub(super) fn key_of(job: &str, id: &str) -> String {
     format!("{job}\u{1f}{id}")
 }
 
+/// The key of the item that stands for artifact `artifact` of Job `job` in `groups`. A waiting row naming the artifact is
+/// listed in its place, so a press on the artifact's card picks that row.
+fn standing_for(groups: &[Group], job: &str, artifact: &str) -> Option<String> {
+    groups.iter().filter(|group| group.job == job).flat_map(|group| group.items.iter()).find(|item| super::reader_sheet::artifact_in(item) == Some(artifact)).map(Item::key)
+}
+
 /// The items of one Job, under its name and state.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Group {
@@ -649,7 +655,8 @@ impl JobView {
                 review.opened = artifact.map(str::to_string).or(review.opened.take());
             }
             self.review_sync(window, cx);
-            if let Some(key) = artifact.map(|artifact| self.opened_key(&id, artifact, cx)).or_else(|| pick.map(|pick| key_of(&id, pick))) {
+            let standing = artifact.and_then(|artifact| self.review().and_then(|review| standing_for(&review.groups, &id, artifact)));
+            if let Some(key) = standing.or_else(|| artifact.map(|artifact| self.opened_key(&id, artifact, cx))).or_else(|| pick.map(|pick| key_of(&id, pick))) {
                 self.review_choose(&key, window, cx);
             }
             return;
@@ -681,7 +688,7 @@ impl JobView {
             self.pages.entry(SharedString::from(group.job.clone())).or_insert_with(Page::new);
         }
         let first = match (artifact, pick) {
-            (Some(artifact), _) => Some(self.opened_key(&id, artifact, cx)),
+            (Some(artifact), _) => Some(standing_for(&groups, &id, artifact).unwrap_or_else(|| self.opened_key(&id, artifact, cx))),
             (None, Some(pick)) => Some(key_of(&id, pick)),
             (None, None) => groups.first().and_then(|group| group.items.first()).map(Item::key),
         };
