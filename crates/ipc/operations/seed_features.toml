@@ -1,0 +1,16 @@
+[operations.seed_features]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Keep a project's first feature areas and features from the seed Fleet carries for Armada's own repository. Give the project's id. Refused where the project already holds features or none of its repositories is Armada's"
+notes = """
+`POST /features/seed`, body `SeedFeatures`: `project`. Answered with `FeaturesSeeded`: `created` (the slugs kept), `areas` and `dropped`.
+
+**The seed is a data file in Fleet**, `crates/fleet/src/feature_library/seed/armada.toml`: the areas and features the owner approved on 16 Nov 2026, each with its path prefixes and entry points. Fleet applies it through the same keeping as `upsert_features`, so the first sighting of a feature stays its `added_at` and a Job started before it is never held for it. **Once per project:** a project that holds any feature is refused with 409 `fleet.feature_seeded`, and one whose repositories do not hold the seed's marker paths with 422 `fleet.seed_not_for_project`. Nothing is kept on a refusal.
+
+**Fleet checks each path prefix and entry point against the project's repositories** and leaves out one none of them holds. `dropped` names each, as `<slug>: <path>`; the Operator says so in the feed.
+
+**Fleet tells the Operator** once, as an arrival, when a project holds Armada's repository and no feature. **Only the Operator's own session may call it**, placed by its connection: any other caller is refused 422 `fleet.not_the_operator`.
+
+The library lives on this Mac. Sharing it with teammates is not built.
+"""

@@ -119,6 +119,9 @@ pub struct Note {
     pub text: String,
     pub screen: Option<String>,
     pub component: Option<String>,
+    /// The features the library points to from where the note was left, one project to a line. Empty where no project holds a
+    /// library.
+    pub features: String,
 }
 
 impl Note {
@@ -130,7 +133,7 @@ impl Note {
             session_id: String::new(),
             manifest_id: self.manifest_id.clone(),
             subject: subject_of(&self.text),
-            words: format!("{}\n\n{}", self.text.trim(), self.left()),
+            words: format!("{}\n\n{}{}", self.text.trim(), self.left(), self.features),
         }
     }
 

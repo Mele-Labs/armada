@@ -24,23 +24,75 @@ pub(super) struct Loaded {
     pub(super) project: String,
     pub(super) areas: Vec<store::KeptArea>,
     pub(super) map: FeatureMap,
+    /// The slugs features were known by, each with the slug it is now.
+    pub(super) aliases: BTreeMap<String, String>,
 }
 
 impl Loaded {
     pub(super) fn read(store: &Store, project: &str) -> Result<Loaded, WriteError> {
         let features = store.features_in(project)?;
         let filed = store.feature_filed_paths(project)?;
-        Ok(Loaded { project: project.to_string(), areas: store.feature_areas(project)?, map: FeatureMap::new(features, filed) })
+        let aliases = store.feature_aliases(project)?.into_iter().collect();
+        Ok(Loaded { project: project.to_string(), areas: store.feature_areas(project)?, map: FeatureMap::new(features, filed), aliases })
     }
 
     pub(super) fn feature(&self, slug: &str) -> Option<&KeptFeature> {
         self.map.features().iter().find(|feature| feature.slug == slug)
     }
+
+    /// The feature `slug` names, or the one it was known as before a rename or merge. **What a Job or the Operator says goes
+    /// through here**, and a keeper of the library's own rows through [`Loaded::feature`].
+    pub(super) fn feature_named(&self, slug: &str) -> Option<&KeptFeature> {
+        self.feature(slug).or_else(|| self.aliases.get(slug).and_then(|now| self.feature(now)))
+    }
+}
+
+/// The slug `slug` names in `project`, as the library keeps it: `None` for one the project does not hold.
+pub(crate) fn slug_held(store: &Store, project: &str, slug: &str) -> Result<Option<String>, WriteError> {
+    Ok(Loaded::read(store, project)?.feature_named(slug.trim()).map(|feature| feature.slug.clone()))
+}
+
+/// A name with its case and separators taken off, so `JobCard` and `job_card` read alike.
+fn plain(name: &str) -> String {
+    name.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// The stem of the last segment of a path or entry point, plain.
+fn stem(path: &str) -> String {
+    let path = path.split(':').next().unwrap_or(path).trim_end_matches('/');
+    let last = path.rsplit('/').next().unwrap_or(path);
+    plain(last.split('.').next().unwrap_or(last))
+}
+
+/// The slugs of the features a note on a screen points to in `project`: those that own a file the note's element was drawn from,
+/// and where it names none, those with an entry point or a prefix whose file is named for the component. **Read off the paths the
+/// library keeps, never guessed.** Empty where the note names neither.
+pub(crate) fn features_of_note(store: &Store, project: &str, manifest: &str, files: &[String], component: Option<&str>) -> Result<Vec<String>, WriteError> {
+    let loaded = Loaded::read(store, project)?;
+    let mut found: Vec<String> = Vec::new();
+    for file in files {
+        for owner in loaded.map.owners(Some(manifest), file) {
+            if !found.contains(&owner.feature.slug) {
+                found.push(owner.feature.slug.clone());
+            }
+        }
+    }
+    let named = component.map(plain).filter(|name| !name.is_empty());
+    if let (true, Some(name)) = (found.is_empty(), named) {
+        for feature in loaded.map.features() {
+            let reads = feature.entry_points.iter().chain(feature.paths.iter()).any(|path| stem(path) == name);
+            if reads && !found.contains(&feature.slug) {
+                found.push(feature.slug.clone());
+            }
+        }
+    }
+    Ok(found)
 }
 
 fn state_of(kept: &str) -> FeatureState {
     match kept {
         store::feature_state::CONFIRMED => FeatureState::Confirmed,
+        store::feature_state::PENDING => FeatureState::Pending,
         _ => FeatureState::Seeded,
     }
 }
@@ -117,7 +169,7 @@ where
         self.ledger_fault(why)
     }
 
-    pub(super) fn feature_unknown(&self, slug: &str) -> Refusal {
+    pub(crate) fn feature_unknown(&self, slug: &str) -> Refusal {
         Refusal::NotFound(ipc::WireError::raised(UNKNOWN, format!("no feature `{slug}` in this project"), self.run_id()))
     }
 
@@ -175,7 +227,7 @@ where
     fn feature_in(&self, store: &Store, projects: &[String], slug: &str) -> Result<(Loaded, KeptFeature), Refusal> {
         for project in projects {
             let loaded = Loaded::read(store, project).map_err(|why| self.feature_fault(why))?;
-            if let Some(feature) = loaded.feature(slug.trim()).cloned() {
+            if let Some(feature) = loaded.feature_named(slug.trim()).cloned() {
                 return Ok((loaded, feature));
             }
         }

@@ -236,3 +236,9 @@ A call from a process Fleet does not host is denied at once.
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.
 The wire is `../practices/protocol/the-operators-page-fleet-keeps.md`, and `../journeys/talk-to-the-operator.md` is how it is used.
+
+## The feature catalog
+
+Fleet tells the Operator what the project's feature library needs from it: a project that holds Armada's repository and no feature, a feature a Job named that the library lacks, an area that grew, and his words and notes that are asks.
+Each is kept and carried out with the Operator's own tools, and every decision is a card.
+[Feature catalog](feature-catalog.md) says what each holds and what the Operator does with it.

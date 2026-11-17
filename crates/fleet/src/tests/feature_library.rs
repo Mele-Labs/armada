@@ -571,7 +571,7 @@ fn made(form: &str, slugs: &str) -> std::collections::BTreeMap<String, String> {
 }
 
 #[tokio::test]
-async fn an_artifact_is_linked_to_each_feature_it_names_that_the_project_holds_and_the_rest_are_kept_for_the_operator() {
+async fn an_artifact_is_linked_to_each_feature_it_names_and_a_name_the_project_does_not_hold_is_a_pending_feature() {
     let rig = rig(None);
     let project = a_project(&rig).await;
     rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
@@ -595,8 +595,9 @@ async fn an_artifact_is_linked_to_each_feature_it_names_that_the_project_holds_a
     }
     assert_eq!(kinds_of(&store, "page-actions"), [("sketch".to_string(), "sketch:Vote results".to_string(), "Vote results".to_string())]);
 
-    let proposed = store.feature_proposals(&project).expect("read");
-    assert_eq!(proposed.iter().map(|one| (one.slug.as_str(), one.kind.as_str(), one.target.as_str(), one.job.as_str())).collect::<Vec<_>>(), [("brand-new", "sketch", "sketch:Vote results", id.as_str())]);
+    let pending = store.feature_named(&project, "brand-new").expect("read").expect("a pending feature for the Operator to confirm");
+    assert_eq!(pending.state, store::feature_state::PENDING);
+    assert_eq!(kinds_of(&store, "brand-new"), [("sketch".to_string(), "sketch:Vote results".to_string(), "Vote results".to_string())]);
 }
 
 #[tokio::test]
@@ -607,7 +608,7 @@ async fn a_name_in_a_project_with_no_library_is_not_kept_for_the_operator() {
     let now = rig.fleet.now().as_str().to_string();
     let mut store = rig.fleet.store().lock().await;
     rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes"), &now);
-    assert!(store.feature_proposals(&project).expect("read").is_empty());
+    assert!(store.feature_named(&project, "voting-on-takes").expect("read").is_none());
 }
 
 #[tokio::test]

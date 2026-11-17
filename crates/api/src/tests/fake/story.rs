@@ -1,7 +1,7 @@
 //! The words, asks and story as the fake answers them: nothing is sorted and no ask is kept. What is sorted, opened and
 //! moved is `fleet`'s.
 
-use ipc::{Ask, ChangeAsk, FeatureAsks, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind, SortedBy, Instant};
+use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind, SortedBy, Instant};
 
 use super::FakeDaemon;
 use crate::{Refusal, Story};
@@ -38,5 +38,9 @@ impl Story for FakeDaemon {
 
     async fn list_feature_asks(&self, project: String, feature: Option<String>) -> Result<FeatureAsks, Refusal> {
         Ok(FeatureAsks { project, feature, asks: Vec::new() })
+    }
+
+    async fn file_ask(&self, _caller: Option<crate::Caller>, file: FileAsk) -> Result<Ask, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.feature_project", format!("no project is named {}", file.project), crate::tests::shapes::run_id())))
     }
 }

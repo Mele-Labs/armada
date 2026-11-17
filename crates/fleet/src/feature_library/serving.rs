@@ -3,8 +3,8 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Features, Refusal};
 use ipc::{
-    FeatureBrief, FeatureLibrary, FeatureOfPath, FeaturePage, FeatureSectionsWritten, FeaturesOfPath, FeaturesUpserted, FirstEditSearches, PathHow,
-    UpsertFeatures, WriteFeatureSections,
+    ChangeFeature, FeatureBrief, FeatureChanged, FeatureLibrary, FeatureOfPath, FeaturePage, FeatureSectionsWritten, FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches,
+    PathHow, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
 use super::mapping::How;
@@ -92,6 +92,14 @@ where
 
     async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         self.features_upserted(upsert).await
+    }
+
+    async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
+        self.features_seeded(caller, seed).await
+    }
+
+    async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
+        self.feature_changed(caller, change).await
     }
 
     async fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> Result<ipc::FeaturesHandedOver, Refusal> {

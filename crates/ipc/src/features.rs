@@ -7,12 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ids::Instant, SessionId};
 
-/// Whether a feature was named by seeding or confirmed since.
+/// Whether a feature was named by seeding, confirmed since, or is waiting on his word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FeatureState {
     Seeded,
     Confirmed,
+    /// Named by a Job and not in the catalog: the Operator brings it to the owner on a card.
+    Pending,
 }
 
 /// The four sections a Job writes, in the order a page shows them.
@@ -296,6 +298,55 @@ pub struct FeaturesUpserted {
     pub updated: Vec<String>,
     /// How many areas were kept.
     pub areas: u32,
+}
+
+/// `seed_features`: Fleet keeps a project's first areas and features from the seed it carries, on the Operator's word.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeedFeatures {
+    /// A project's id.
+    pub project: String,
+}
+
+/// What `seed_features` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesSeeded {
+    /// The slugs of the features kept.
+    pub created: Vec<String>,
+    /// How many areas were kept.
+    pub areas: u32,
+    /// A prefix or entry point the project's repositories do not hold, left out, as `<slug>: <path>`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dropped: Vec<String>,
+}
+
+/// `change_feature`: the Operator merges a feature into another, or renames it, or moves it to another area. Give `into`, or any of
+/// `slug`, `title` and `area`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeFeature {
+    pub project: String,
+    /// The slug of the feature to change, or one it was known by.
+    pub feature: String,
+    /// Fold it into the feature of this slug: what it holds moves there and its slug becomes an alias of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub into: Option<String>,
+    /// Its new slug. The old one becomes an alias.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// The slug of an area the project keeps: it moves there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+}
+
+/// What `change_feature` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureChanged {
+    /// The slug the feature has now: the target's after a merge.
+    pub feature: String,
+    /// Where it was merged, where it was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub merged_into: Option<String>,
 }
 
 /// How a path came to belong to a feature.

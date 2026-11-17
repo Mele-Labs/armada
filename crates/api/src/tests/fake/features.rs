@@ -2,8 +2,9 @@
 //! what arrived. What Fleet keeps and works out is `fleet::feature_library`'s, against a real store.
 
 use ipc::{
-    FeatureAreaRow, FeatureBrief, CheckCommitFeature, CommitFeatureChecked, FeaturesHandedOver, HandOverFeatures, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
-    FeaturesOfPath, FeaturesUpserted, FirstEditSearches, UpsertFeatures, WriteFeatureSections,
+    ChangeFeature, CheckCommitFeature, CommitFeatureChecked, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureLibrary, FeaturePage, FeatureRow,
+    FeatureSectionKind, FeatureSectionsWritten, FeatureState, FeaturesHandedOver, FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches,
+    HandOverFeatures, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
 use super::FakeDaemon;
@@ -63,6 +64,14 @@ impl Features for FakeDaemon {
 
     async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
+        Ok(FeaturesSeeded { created: Vec::new(), areas: 0, dropped: Vec::new() })
+    }
+
+    async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
+        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
     }
 
     async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {

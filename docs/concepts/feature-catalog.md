@@ -45,7 +45,7 @@ Fleet does not read the code graph, so a file is mapped by three things it can s
 > Why: a file that serves two features is in both pages, and a wide prefix must not take a file a narrow one claims.
 
 A `Feature:` trailer is one or more lines in a commit's last paragraph, each naming one slug or several separated by commas.
-A trailer naming a slug the project does not hold files nothing.
+A trailer naming a slug the project does not hold files under a pending feature, in a project that has a library; see [A feature a Job names that does not exist](#a-feature-a-job-names-that-does-not-exist).
 
 ## Which feature a commit serves
 
@@ -71,7 +71,7 @@ Fleet links the artifact to each feature the project holds, as a link of kind `s
 > **Rule.** A slug the project holds no feature of is kept, not refused.
 > Why: the Job may be making the first thing for a feature the Operator has not seeded yet, and the Operator confirms it.
 
-Fleet keeps such a name as a proposal of the project, once per slug, artifact and Job, and only where the project has features at all.
+Fleet makes such a name a pending feature of the first project of the Job that holds features, and links the artifact to it, as it does a trailer's unknown slug.
 
 ## Stale
 
@@ -118,6 +118,54 @@ A Job that started before a feature entered the catalog is never held for it, be
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
 
+## A feature a Job names that does not exist
+
+A Job names features in a `Feature:` trailer and in the `feature` of a sketch, page, walk or draft.
+A slug the library does not hold is filed under a **pending** feature, made at once, so nothing the Job did is lost.
+A pending feature is listed under the area `pending`, with no prefix and no line.
+
+> **Rule.** A pending feature is made only in a library that has a feature already.
+> Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
+
+Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
+The Operator brings him one card, with three options.
+
+| Option | What the Operator does |
+|---|---|
+| Confirm | `upsert_features` with state `confirmed`, an area, a title and a line. The feature keeps what was filed under it |
+| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections and asks move to the target, which keeps its id, its state and its `added_at` |
+| Rename | `change_feature` with `slug` and `title` |
+
+> **Rule.** A merged or renamed slug stays as an alias of the feature it became.
+> Why: a trailer already in git names the old slug, and Fleet reads it again each time, so without the alias it would make the pending feature again.
+
+The Operator may also merge two seeded features that are one, and tells him on a card that carries what was absorbed, with an Undo that keeps it again through `upsert_features`.
+That keeps the feature and its prefixes and entry points, and takes the alias away, but the links, files and asks that moved stay with the target.
+
+## Seeding
+
+Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
+Fleet tells the Operator once when a project holds Armada's repository and no feature, and the Operator calls `seed_features`.
+
+> **Rule.** A seed is kept once per project, and only where a repository of the project holds the seed's marker paths.
+> Why: a second seed would rewrite what Jobs and the Operator have since confirmed, merged and renamed.
+
+Fleet leaves out a prefix or entry point none of the project's repositories holds, and the call names each.
+A feature's `added_at` is the moment it was kept and is never rewritten, so the earliest across a project is when its library was seeded.
+
+## An area that grows
+
+An area that holds more than eight features is told to the Operator, who reads it with `list_features` and raises one card that proposes a split: the new areas and the features that go to each, with keeping the area as an option.
+Pending features are not counted.
+Nothing changes until he answers.
+After he picks, the Operator keeps each new area with `upsert_features` and moves each feature with `change_feature` and `area`, which must be an area the project keeps.
+A move changes the feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
+
+> **Rule.** An area is told again only when it has grown by another eight.
+> Why: a card he answered by keeping the area would otherwise come back on every tick.
+
+The seed's largest area holds eight, so seeding raises none.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -137,6 +185,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
+| `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
+| `change_feature` | The Operator merges a feature into another, renames it, or moves it to another area |
+| `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
 ## Where it lives
@@ -149,7 +200,5 @@ What the library would hold in the clear there is in [Central store](../contract
 
 ## Not built
 
-- The Operator confirming a name an act kept, and a feature named by a trailer that does not exist yet.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
-- Your own asks sorted onto features.
-- Seeding the 18 areas and their features.
+- Asks said in a Job sorted onto features.

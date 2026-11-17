@@ -10,7 +10,7 @@ use std::sync::{Mutex, OnceLock};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::ManifestId;
-use store::{feature_link_kind, KeptFeatureLink, KeptFeatureMerge, KeptFeatureProposal, Store, WriteError};
+use store::{feature_link_kind, KeptFeatureLink, KeptFeature, KeptFeatureMerge, Store, WriteError};
 
 use super::mapping::FeatureMap;
 use super::reading::Loaded;
@@ -180,17 +180,23 @@ where
         }
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
-        for project in self.projects_of_job_in(&store, job) {
-            let Ok(loaded) = Loaded::read(&store, &project) else {
+        self.commits_filed_in(&mut store, job, &named, &now);
+    }
+
+    /// `named`, the commits of `job` that name features, filed. **A slug the library lacks files under a pending feature**,
+    /// made now for the Operator to bring to the owner.
+    pub(crate) fn commits_filed_in(&self, store: &mut Store, job: &str, named: &[adapters::feature_commits::NamingCommit], now: &str) {
+        for project in self.projects_of_job_in(store, job) {
+            let Ok(loaded) = Loaded::read(store, &project) else {
                 continue;
             };
-            for commit in &named {
+            for commit in named {
                 for slug in &commit.features {
-                    let Some(feature) = loaded.feature(slug).cloned() else {
+                    let Some(feature) = self.feature_or_pending(store, &loaded, slug, now) else {
                         continue;
                     };
                     for path in &commit.files {
-                        let _ = store.keep_feature_write(&feature.id, job, path, &now);
+                        let _ = store.keep_feature_write(&feature.id, job, path, now);
                     }
                     for (kind, target) in [(feature_link_kind::COMMIT, commit.sha.as_str()), (feature_link_kind::JOB, job)] {
                         let _ = store.put_feature_link(&KeptFeatureLink {
@@ -201,7 +207,7 @@ where
                             title: String::new(),
                             state: String::new(),
                             via: "trailer".to_string(),
-                            at: now.clone(),
+                            at: now.to_string(),
                         });
                     }
                 }
@@ -233,37 +239,42 @@ where
                 let Ok(loaded) = Loaded::read(store, project) else {
                     continue;
                 };
-                let Some(feature) = loaded.feature(&slug) else {
+                let Some(feature) = loaded.feature_named(&slug).cloned() else {
                     continue;
                 };
                 held = true;
-                let _ = store.put_feature_link(&KeptFeatureLink {
-                    feature_id: feature.id.clone(),
-                    kind: kind.to_string(),
-                    target: target.to_string(),
-                    job: job.to_string(),
-                    title: title.clone(),
-                    state: String::new(),
-                    via: "artifact".to_string(),
-                    at: now.to_string(),
-                });
+                self.artifact_linked(store, &feature, kind, job, target, &title, now);
             }
             if held {
                 continue;
             }
-            // Named where no project holds it: the first project that keeps a library is asked to confirm it.
-            if let Some(project) = projects.iter().find(|project| store.project_has_features(project).unwrap_or(false)) {
-                let _ = store.keep_feature_proposal(&KeptFeatureProposal {
-                    project: project.clone(),
-                    slug,
-                    kind: kind.to_string(),
-                    target: target.to_string(),
-                    job: job.to_string(),
-                    title: title.clone(),
-                    at: now.to_string(),
-                });
+            // Named where no project holds it: a pending feature in the first project that keeps a library, for the
+            // Operator to bring the owner on a card, as a trailer's unknown slug is.
+            for project in &projects {
+                let Ok(loaded) = Loaded::read(store, project) else {
+                    continue;
+                };
+                if let Some(feature) = self.feature_or_pending(store, &loaded, &slug, now) {
+                    self.artifact_linked(store, &feature, kind, job, target, &title, now);
+                    break;
+                }
             }
         }
+    }
+
+    /// One artifact linked to one feature it named.
+    #[allow(clippy::too_many_arguments)]
+    fn artifact_linked(&self, store: &mut Store, feature: &KeptFeature, kind: &str, job: &str, target: &str, title: &str, now: &str) {
+        let _ = store.put_feature_link(&KeptFeatureLink {
+            feature_id: feature.id.clone(),
+            kind: kind.to_string(),
+            target: target.to_string(),
+            job: job.to_string(),
+            title: title.to_string(),
+            state: String::new(),
+            via: "artifact".to_string(),
+            at: now.to_string(),
+        });
     }
 }
 

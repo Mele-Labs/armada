@@ -105,6 +105,18 @@ pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>
     }
 }
 
+/// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
+pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {
+        Ok(seed) => seed,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().seed_features(crate::acting::asking(), seed).await {
+        Ok(seeded) => answer(StatusCode::OK, &seeded, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
 /// not on the agent's connection.
 pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
@@ -114,6 +126,18 @@ pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<
     };
     match served.daemon().hand_over_features(hand).await {
         Ok(handed) => answer(StatusCode::OK, &handed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Operator merges or renames a feature. **Placed by its connection**, as `raise_card` is.
+pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let change: ipc::ChangeFeature = match ipc::decode_body("a change to a feature", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().change_feature(crate::acting::asking(), change).await {
+        Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

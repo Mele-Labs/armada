@@ -37,6 +37,16 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/features/upsert",
     },
+    Route {
+        operation: "seed_features",
+        method: "POST",
+        path: "/features/seed",
+    },
+    Route {
+        operation: "change_feature",
+        method: "POST",
+        path: "/features/change",
+    },
     // The mod's hook asks as a Job is about to read, so it spells itself beside the two acts.
     Route {
         operation: "hand_over_features",

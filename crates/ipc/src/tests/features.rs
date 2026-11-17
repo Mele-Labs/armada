@@ -1,6 +1,6 @@
 //! The feature library's bodies, as they are written on the wire.
 
-use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, HandOverFeatures, UpsertFeatures, WriteFeatureSections};
+use crate::{decode, shape, ChangeFeature, FeatureChanged, FeatureSectionKind, FeaturesOfPath, FeaturesSeeded, FileAsk, HandOverFeatures, SeedFeatures, UpsertFeatures, WriteFeatureSections};
 
 #[test]
 fn the_two_bodies_say_their_shape() {
@@ -11,8 +11,28 @@ fn the_two_bodies_say_their_shape() {
     assert_eq!(
         shape::of::<UpsertFeatures>(),
         "{project: string, areas?: [{slug: string, title: string}], features?: [{slug: string, area: string, title: string, summary: string, \
-         state?: seeded|confirmed, paths?: [string], entry_points?: [string], manifest_id?: string}]}"
+         state?: seeded|confirmed|pending, paths?: [string], entry_points?: [string], manifest_id?: string}]}"
     );
+}
+
+#[test]
+fn the_seed_names_a_project_and_answers_what_it_kept_and_left_out() {
+    assert_eq!(shape::of::<SeedFeatures>(), "{project: string}");
+    assert_eq!(shape::of::<FeaturesSeeded>(), "{created: [string], areas: number, dropped?: [string]}");
+}
+
+#[test]
+fn an_ask_filed_outside_a_job_says_its_shape() {
+    assert_eq!(
+        shape::of::<FileAsk>(),
+        "{project: string, kind: bug|change_request|idea|fix, words: string, title?: string, features?: [string], note?: string}"
+    );
+}
+
+#[test]
+fn a_feature_is_merged_or_renamed_and_says_where_it_went() {
+    assert_eq!(shape::of::<ChangeFeature>(), "{project: string, feature: string, into?: string, slug?: string, title?: string, area?: string}");
+    assert_eq!(shape::of::<FeatureChanged>(), "{feature: string, merged_into?: string}");
 }
 
 #[test]

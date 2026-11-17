@@ -61,6 +61,17 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.feature_blank`), with nothing kept.
     fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
+    /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
+    /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
+    /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that
+    /// holds features (`fleet.feature_seeded`).
+    fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
+
+    /// `change_feature` — the Operator merges a feature into another or renames it. [`Refusal::Unacceptable`]
+    /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
+    /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
+    fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;
+
     /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
     /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.
     fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> impl Future<Output = Result<ipc::FeaturesHandedOver, Refusal>> + Send;

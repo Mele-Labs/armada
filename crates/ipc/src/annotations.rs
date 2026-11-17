@@ -119,6 +119,12 @@ pub struct NoteRead {
     pub text: String,
     #[serde(default)]
     pub component: Option<String>,
+    /// Where the JSX that drew the element is, where the build stamped it.
+    #[serde(default)]
+    pub source: Option<NoteReadFile>,
+    /// The innermost component with stories, and its file.
+    #[serde(default)]
+    pub definition: Option<NoteReadFile>,
     pub element: NoteReadElement,
     #[serde(default)]
     pub screen: Option<String>,
@@ -138,6 +144,12 @@ pub struct NoteSentTo {
     /// When it was sent, RFC 3339.
     #[serde(default)]
     pub at: Option<String>,
+}
+
+/// A file a note names, from the repository root.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct NoteReadFile {
+    pub file: String,
 }
 
 /// The element a note points at, of which Fleet reads the tag.
@@ -362,11 +374,22 @@ mod tests {
                 sent: Some(NoteSentTo { session_id: ME.to_string(), title: None, at: Some(WRITTEN.to_string()) }),
                 text: "Too tight".to_string(),
                 component: Some("Rail".to_string()),
+                source: None,
+                definition: None,
                 element: NoteReadElement { tag: "li".to_string() },
                 screen: Some("usage".to_string()),
                 screenshot: Some("mfz1-abc.png".to_string()),
             }
         );
+    }
+
+    #[test]
+    fn note_read_reads_the_files_a_note_names() {
+        let named = br#"{"id": "n-1", "status": "open", "text": "x", "element": {"tag": "p"}, "component": "Rail",
+            "source": {"file": "apps/desktop/src/Rail.tsx", "line": 12}, "definition": {"component": "Rail", "file": "packages/Rail.tsx"}}"#;
+        let read = note_read(named).unwrap();
+        assert_eq!(read.source.map(|one| one.file), Some("apps/desktop/src/Rail.tsx".to_string()));
+        assert_eq!(read.definition.map(|one| one.file), Some("packages/Rail.tsx".to_string()));
     }
 
     #[test]

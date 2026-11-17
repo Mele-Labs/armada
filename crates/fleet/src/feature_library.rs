@@ -8,15 +8,21 @@
 //! this Mac; nothing here is shared with teammates.
 
 pub(crate) mod brief;
+mod changing;
 pub(crate) mod committing;
 mod filing;
 mod handoff;
 mod holding;
 pub(crate) mod mapping;
 mod measuring;
+mod pending;
 mod reading;
+mod seeding;
 mod serving;
 pub(crate) mod staleness;
 mod writing;
 
 pub(crate) use holding::{sections_owed_text, OWED};
+pub(crate) use reading::{features_of_note, slug_held};
+pub(crate) use pending::pending_facts;
+pub(crate) use seeding::{Seed, PROJECT as PROJECT_UNKNOWN};

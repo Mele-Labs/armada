@@ -16,6 +16,7 @@
 mod arriving;
 mod briefing;
 mod cards;
+mod cataloging;
 mod desk;
 mod disking;
 mod dispatching;
