@@ -498,14 +498,20 @@ impl JobView {
     /// The pull requests known in `manifest`, by number and address: a `pr` row any Job holds, then those on
     /// the merge line of its repository. A `#N` in words is a link only to one of these.
     pub(super) fn known_pulls(&self, manifest: &str, cx: &gpui::App) -> Vec<(u64, String)> {
+        // Read straight off the rows `pull_of` would take, without drawing up each: the list holds hundreds of Jobs.
         let mut known: Vec<(u64, String)> = self
             .list
             .read(cx)
             .records()
             .iter()
-            .flat_map(|record| record.attachments.iter().filter_map(|one| pull_of(record, one, None)))
-            .filter(|pull| pull.manifest.as_deref() == Some(manifest) && !pull.address.is_empty())
-            .map(|pull| (pull.number, pull.address))
+            .filter(|record| record.manifest_id.as_ref().is_some_and(|id| id.as_str() == manifest))
+            .flat_map(|record| &record.attachments)
+            .filter(|one| matches!(one.kind.as_str(), "pr" | "pull_request") && one.state != AttachmentState::GivenBack)
+            .filter_map(|one| {
+                let number: u64 = one.target.trim_start_matches('#').parse().ok()?;
+                let address = one.detail.get("address").filter(|address| !address.is_empty())?;
+                Some((number, address.clone()))
+            })
             .collect();
         let mut line = |served: &[ipc::RepositorySummary], lines: &[ipc::MergeLineView]| {
             let roots: Vec<&str> = served.iter().filter(|one| one.manifest.as_ref().is_some_and(|held| held.id.as_str() == manifest)).map(|one| one.root.as_str()).collect();
