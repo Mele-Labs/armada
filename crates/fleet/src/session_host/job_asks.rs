@@ -8,10 +8,10 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, PullRequestStanding as Forge, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    AskHeld, ConflictRaised, ForgeChecks, HeldAsked, HeldChecks, Instant, ManifestId, Notice, RaiseConflict, WaitingAct,
-    WaitingActKind, WaitingItem, WaitingOption, WaitingSource,
+    AskHeld, ConflictRaised, ForgeChecks, HeldAsked, HeldChecks, HeldWithdrawn, Instant, ManifestId, Notice, RaiseConflict, WaitingAct,
+    WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WithdrawHeld,
 };
-use store::{job_ask_kind as kind, JobAskPut, KeptJobAsk};
+use store::{job_ask_kind as kind, job_ask_standing as standing, JobAskPut, KeptJobAsk};
 
 use super::address_of;
 use super::message_reach::Unreachable;
@@ -83,12 +83,15 @@ fn job_ask_item(ask: &KeptJobAsk) -> Option<WaitingItem> {
             (WaitingSource::JobConflict, ask.breaks.clone(), vec![option(format!("Tell {mine} to change")), option(format!("Tell {theirs}")), option(String::from("Hold both"))])
         }
         kind::HELD => {
-            let what = match (ask.pull, &ask.branch) {
-                (Some(pull), _) => format!("#{pull}"),
-                (None, Some(branch)) => branch.clone(),
-                (None, None) => return None,
+            // Said in words: the pull request's title where one was kept, and the Job that asked.
+            let what = match (ask.pull, ask.title.as_deref().map(str::trim).filter(|title| !title.is_empty()), &ask.branch) {
+                (Some(pull), Some(title), _) => format!("\"{title}\" (#{pull})"),
+                (Some(pull), None, _) => format!("#{pull}"),
+                (None, _, Some(branch)) => branch.clone(),
+                (None, _, None) => return None,
             };
-            (WaitingSource::JobHeld, format!("Should {what} land?"), vec![option(String::from("Land it")), option(String::from("Hold it"))])
+            let asked_by = title_or_address(&ask.job_title, &ask.session_id);
+            (WaitingSource::JobHeld, format!("Should {what} land? Asked by {asked_by}"), vec![option(String::from("Land it")), option(String::from("Hold it"))])
         }
         _ => return None,
     };
@@ -189,13 +192,33 @@ fn conflict_told(ask: &KeptJobAsk, to_sender: bool, said: Said) -> String {
     )
 }
 
-fn held_told(ask: &KeptJobAsk, said: Said) -> String {
-    let what = match (ask.pull, &ask.branch) {
+/// The pull request's number or the branch's name, as a landing question names what it is about.
+fn held_what(ask: &KeptJobAsk) -> String {
+    match (ask.pull, &ask.branch) {
         (Some(pull), _) => format!("#{pull}"),
         (None, branch) => branch.clone().unwrap_or_default(),
-    };
+    }
+}
+
+fn held_told(ask: &KeptJobAsk, said: Said) -> String {
     let verdict = if said == Said::Land { "land it" } else { "hold it" };
-    format!("held? {what}: He says {verdict}.")
+    format!("held? {}: He says {verdict}.", held_what(ask))
+}
+
+/// What the Job that asked is sent where he dismisses its landing question.
+fn held_dismissed_told(ask: &KeptJobAsk) -> String {
+    format!("held? {}: He dismissed it with no answer.", held_what(ask))
+}
+
+/// The one of `pull` and `branch` a call names, or what is wrong with how it names them.
+fn held_named(pull: Option<u64>, branch: Option<&str>) -> Result<(Option<u64>, Option<String>), &'static str> {
+    let branch = branch.map(str::trim).filter(|branch| !branch.is_empty());
+    match (pull, branch) {
+        (Some(pull), None) => Ok((Some(pull), None)),
+        (None, Some(branch)) => Ok((None, Some(branch.to_string()))),
+        (None, None) => Err("neither `pull` nor `branch` is given. Name the pull request or the branch"),
+        (Some(_), Some(_)) => Err("both `pull` and `branch` are given. Name one"),
+    }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -312,13 +335,7 @@ where
     pub(crate) async fn held_asked(self: &Arc<Self>, caller: Option<api::Caller>, asked: AskHeld) -> Result<HeldAsked, Refusal> {
         let (session, title, manifest) = self.asking_job(caller, asked.session_id.as_ref(), HELD_REFUSED).await?;
         let refuse = |why: &str| self.hosted_refusal(HELD_REFUSED, why);
-        let branch = asked.branch.as_deref().map(str::trim).filter(|branch| !branch.is_empty());
-        let (pull, branch) = match (asked.pull, branch) {
-            (Some(pull), None) => (Some(pull), None),
-            (None, Some(branch)) => (None, Some(branch.to_string())),
-            (None, None) => return Err(refuse("neither `pull` nor `branch` is given. Name the pull request or the branch")),
-            (Some(_), Some(_)) => return Err(refuse("both `pull` and `branch` are given. Name one")),
-        };
+        let (pull, branch) = held_named(asked.pull, asked.branch.as_deref()).map_err(refuse)?;
         let manifest_id = ManifestId::carried(manifest.clone());
         let served = self.served_named(Some(&manifest_id)).map_err(|_| refuse(&format!("{manifest} is no repository Fleet serves")))?;
         let root = served.root().to_string();
@@ -385,6 +402,45 @@ where
         let put = self.store().lock().await.put_job_ask(&ask, &also).map_err(|why| self.ledger_fault(why))?;
         self.job_ask_put(&session, put, ask.raised).await;
         Ok(HeldAsked { id, answer: None })
+    }
+
+    /// `withdraw_held`: the Job takes back its own open landing question, and the row goes. **Nothing is sent to the
+    /// Job**, it did this. Refused where it holds no open question about that pull request or branch.
+    pub(crate) async fn held_withdrawn(self: &Arc<Self>, caller: Option<api::Caller>, withdrawn: WithdrawHeld) -> Result<HeldWithdrawn, Refusal> {
+        let (session, _, manifest) = self.asking_job(caller, withdrawn.session_id.as_ref(), HELD_REFUSED).await?;
+        let refuse = |why: &str| self.hosted_refusal(HELD_REFUSED, why);
+        let (pull, branch) = held_named(withdrawn.pull, withdrawn.branch.as_deref()).map_err(refuse)?;
+        let what = pull.map_or_else(|| branch.clone().unwrap_or_default(), |pull| pull.to_string());
+        let id = format!("{HELD}{manifest}:{what}");
+        let ask = self.store().lock().await.open_job_ask(&id).map_err(|why| self.ledger_fault(why))?;
+        let named = pull.map_or_else(|| what.clone(), |pull| format!("#{pull}"));
+        let ask = ask.filter(|ask| ask.session_id == session).ok_or_else(|| refuse(&format!("this Job holds no open question about whether {named} lands")))?;
+        self.job_ask_closed(&ask, standing::WITHDRAWN).await.map_err(|_| refuse("that question was settled already"))?;
+        Ok(HeldWithdrawn { id })
+    }
+
+    /// His Dismiss on a `job_held` item: the ask is settled with no answer, and the Job that asked is told so.
+    pub(crate) async fn job_held_dismissed(self: &Arc<Self>, session: &str, item: &str) -> Result<ipc::SessionRecord, Refusal> {
+        let ask = self.store().lock().await.open_job_ask(item).map_err(|why| self.ledger_fault(why))?;
+        // The item must be this Job's: an id from another Job's list settles nothing here.
+        let ask = ask.filter(|ask| ask.session_id == session && ask.kind == kind::HELD).ok_or_else(|| self.settled_already())?;
+        self.job_ask_closed(&ask, standing::DISMISSED).await.map_err(|_| self.settled_already())?;
+        // A Job that has ended, or that muted the notice, is told nothing: the dismissal stands.
+        let _ = self.told_by_fleet(session, &held_dismissed_told(&ask), Notice::Operator).await;
+        self.published_hosted(session).await
+    }
+
+    /// The open ask settled with no answer, `how` being [`standing::DISMISSED`] or [`standing::WITHDRAWN`], and its
+    /// row taken off the Job's Needs you. **The first settling wins**: `Err` where it was settled already.
+    async fn job_ask_closed(&self, ask: &KeptJobAsk, how: &str) -> Result<(), String> {
+        let at = self.now().as_str().to_string();
+        let moved = self.store().lock().await.settle_job_ask(&ask.id, how, &at).map_err(|why| why.to_string())?;
+        if !moved {
+            return Err("it was settled already".to_string());
+        }
+        let _ = self.published_hosted(&ask.session_id).await;
+        self.events().publish(ipc::Event::OperatorPageChanged(ipc::operator_page::OperatorPageChanged {}));
+        Ok(())
     }
 
     /// Fleet's own answer to a landing question: the Job is sent it, and it is the call's answer too. Nothing is kept.

@@ -35,6 +35,7 @@ fn view_of(line: &MergeLine, repositories: &[RepositorySummary], holders: &[Hold
             checkout: None,
             read_at: None,
             quiet_since: None,
+            quiet_reason: None,
         };
     };
     MergeLineView {
@@ -46,6 +47,7 @@ fn view_of(line: &MergeLine, repositories: &[RepositorySummary], holders: &[Hold
         checkout: hub.checkout.clone(),
         read_at: hub.forge_read_at.clone(),
         quiet_since: hub.quiet_since.clone(),
+        quiet_reason: hub.quiet_reason.clone(),
     }
 }
 

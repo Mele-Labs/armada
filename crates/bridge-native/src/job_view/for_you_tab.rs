@@ -278,6 +278,10 @@ impl JobView {
                 match item.opens {
                     ForYouOpens::Artifact { id } => self.open_artifact(job, &id, window, cx),
                     ForYouOpens::Walk { url } => self.press_walk(&url, window, cx),
+                    // A Job's builds to try go to its card in the thread, as the Needs you row does.
+                    ForYouOpens::Waiting { id } if super::ready_card::is_card(&id) => {
+                        self.go_to_ready(job, &id, window, cx);
+                    }
                     ForYouOpens::Waiting { id } => self.set_needs(true, Some(format!("item:{id}")), window, cx),
                     ForYouOpens::Plan => self.add_tab("plan", window, cx),
                 }

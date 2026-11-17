@@ -112,8 +112,8 @@ impl Answer {
     }
 }
 
-/// What GitHub said about its rate limit on a 403 or 429. No sleeping or retry
-/// is done here: the caller decides whether to wait.
+/// What GitHub said about its rate limit on a 403 or 429. No call sleeps or retries here:
+/// the client holds every call for the wait it reads from this (`hold_for`), and a held call fails at once.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RateLimit {
     /// Calls left in the window: `x-ratelimit-remaining`.
@@ -137,6 +137,8 @@ pub enum ApiFailure {
     GraphQl(Vec<String>),
     /// A body that could not be read, or written.
     Malformed(String),
+    /// Not asked: GitHub refused for its rate limit, and every call waits out the hold.
+    HeldBack { seconds: u64 },
 }
 
 impl fmt::Display for ApiFailure {
@@ -156,6 +158,9 @@ impl fmt::Display for ApiFailure {
             }
             ApiFailure::GraphQl(messages) => write!(out, "GitHub refused the query: {}", messages.join("; ")),
             ApiFailure::Malformed(why) => write!(out, "{why}"),
+            ApiFailure::HeldBack { seconds } => {
+                write!(out, "Not asked: GitHub is rate-limiting us, held for {seconds} s more")
+            }
         }
     }
 }
@@ -193,6 +198,9 @@ impl ApiFailure {
             ApiFailure::Malformed(_) => {
                 "GitHub's answer could not be read. Open it again; if it stays, update Armada.".to_string()
             }
+            ApiFailure::HeldBack { seconds } => {
+                format!("GitHub is rate-limiting us. Open it again in {} minutes.", seconds.div_ceil(60))
+            }
         }
     }
 }
@@ -210,6 +218,8 @@ struct Inner {
     client: OnceLock<Client>,
     /// Read once, and again only on a 401.
     token: Mutex<Option<Secret<String>>>,
+    /// Until when every call is held after a rate-limit refusal.
+    hold: Mutex<Hold>,
     read_token: Box<ReadToken>,
 }
 
@@ -251,6 +261,7 @@ impl GitHubApi {
                 base: base.trim_end_matches('/').to_string(),
                 client: OnceLock::new(),
                 token: Mutex::new(None),
+                hold: Mutex::new(Hold::default()),
                 read_token: Box::new(read_token),
             }),
         }
@@ -258,14 +269,14 @@ impl GitHubApi {
 
     #[track_caller]
     pub fn get(&self, path: &str) -> Result<Answer, ApiFailure> {
-        counted(Location::caller(), Api::Rest, self.call(Method::GET, &self.url(path), None))
+        self.counted(Location::caller(), Api::Rest, self.call(Method::GET, &self.url(path), None))
     }
 
     /// `path` asked for in another media type, as a diff is: `application/vnd.github.v3.diff`.
     #[track_caller]
     pub fn get_as(&self, path: &str, accept: &'static str) -> Result<Answer, ApiFailure> {
         let answer = apart(|| answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?));
-        counted(Location::caller(), Api::Rest, answer)
+        self.counted(Location::caller(), Api::Rest, answer)
     }
 
     /// Where `path` sends the caller on, as a log's download is: the `Location` of its redirect,
@@ -273,7 +284,7 @@ impl GitHubApi {
     /// at, a short-lived address on GitHub's storage, is read with [`GitHubApi::download`].
     #[track_caller]
     pub fn get_redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
-        counted(Location::caller(), Api::Rest, self.redirect_target(path))
+        self.counted(Location::caller(), Api::Rest, self.redirect_target(path))
     }
 
     fn redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
@@ -318,7 +329,7 @@ impl GitHubApi {
         let mut url = self.url(path);
         let mut pages = Vec::new();
         while pages.len() < most_pages {
-            let page = counted(at, Api::Rest, self.call(Method::GET, &url, None))?;
+            let page = self.counted(at, Api::Rest, self.call(Method::GET, &url, None))?;
             let next = page.next.clone().filter(|next| next.starts_with(&within));
             pages.push(page);
             match next {
@@ -334,7 +345,7 @@ impl GitHubApi {
     /// [`ApiFailure::GraphQl`], since GitHub sends them with a 200.
     #[track_caller]
     pub fn graphql<T: DeserializeOwned, V: Serialize>(&self, query: &str, variables: &V) -> Result<T, ApiFailure> {
-        counted(Location::caller(), Api::GraphQl, self.graphql_read(query, variables))
+        self.counted(Location::caller(), Api::GraphQl, self.graphql_read(query, variables))
     }
 
     fn graphql_read<T: DeserializeOwned, V: Serialize>(&self, query: &str, variables: &V) -> Result<T, ApiFailure> {
@@ -351,31 +362,31 @@ impl GitHubApi {
     #[track_caller]
     pub fn post<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
         let at = Location::caller();
-        counted(at, Api::Rest, self.call(Method::POST, &self.url(path), Some(&encoded(body)?)))
+        self.counted(at, Api::Rest, self.call(Method::POST, &self.url(path), Some(&encoded(body)?)))
     }
 
     #[track_caller]
     pub fn patch<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
         let at = Location::caller();
-        counted(at, Api::Rest, self.call(Method::PATCH, &self.url(path), Some(&encoded(body)?)))
+        self.counted(at, Api::Rest, self.call(Method::PATCH, &self.url(path), Some(&encoded(body)?)))
     }
 
     #[track_caller]
     pub fn put<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
         let at = Location::caller();
-        counted(at, Api::Rest, self.call(Method::PUT, &self.url(path), Some(&encoded(body)?)))
+        self.counted(at, Api::Rest, self.call(Method::PUT, &self.url(path), Some(&encoded(body)?)))
     }
 
     #[track_caller]
     pub fn delete(&self, path: &str) -> Result<Answer, ApiFailure> {
-        counted(Location::caller(), Api::Rest, self.call(Method::DELETE, &self.url(path), None))
+        self.counted(Location::caller(), Api::Rest, self.call(Method::DELETE, &self.url(path), None))
     }
 
     /// A `DELETE` that names what to remove in its body, as removing a label or a reviewer does.
     #[track_caller]
     pub fn delete_with<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
         let at = Location::caller();
-        counted(at, Api::Rest, self.call(Method::DELETE, &self.url(path), Some(&encoded(body)?)))
+        self.counted(at, Api::Rest, self.call(Method::DELETE, &self.url(path), Some(&encoded(body)?)))
     }
 
     fn url(&self, path: &str) -> String {
@@ -395,6 +406,9 @@ impl GitHubApi {
         body: Option<&[u8]>,
         accept: Option<&'static str>,
     ) -> Result<Response, ApiFailure> {
+        if let Some(seconds) = self.held_for() {
+            return Err(ApiFailure::HeldBack { seconds });
+        }
         let client = self.client()?;
         let first = self.send(client, method, url, body, accept, false)?;
         if first.status().as_u16() != 401 {
@@ -437,6 +451,55 @@ impl GitHubApi {
         let mut header = header.map_err(|_| ApiFailure::NoToken("gh gave a token no header can carry.".to_string()))?;
         header.set_sensitive(true);
         Ok(header)
+    }
+
+    /// Seconds left of a hold, where one is on.
+    fn held_for(&self) -> Option<u64> {
+        let hold = self.inner.hold.lock().unwrap_or_else(PoisonError::into_inner);
+        let left = hold.until?.checked_duration_since(std::time::Instant::now())?;
+        Some(left.as_secs().max(1))
+    }
+
+    /// `answer`, counted as one call from `at`, and a rate-limit refusal turned into a hold every call
+    /// of this client waits out. **Rate-limited** is a 429, a 403 that names a wait or an empty
+    /// window, or any refusal whose words name the rate limit: a secondary limit's 403 may carry no
+    /// headers, and GraphQL's comes as an error beside a 200.
+    fn counted<T>(&self, at: &'static Location<'static>, api: Api, answer: Result<T, ApiFailure>) -> Result<T, ApiFailure> {
+        let names_the_limit = |said: &str| said.to_ascii_lowercase().contains("rate limit");
+        match &answer {
+            Ok(_) => {
+                self.inner.hold.lock().unwrap_or_else(PoisonError::into_inner).streak = 0;
+                forge_tally::counted(at, api, Outcome::Answered, None);
+            }
+            Err(ApiFailure::NoToken(_) | ApiFailure::HeldBack { .. }) => {}
+            Err(ApiFailure::Refused { status, said, limit })
+                if *status == 429
+                    || limit.is_some_and(|it| it.retry_after.is_some() || it.remaining == Some(0))
+                    || names_the_limit(said) =>
+            {
+                self.held(*limit);
+                forge_tally::counted(at, api, Outcome::RateLimited, Some((said.clone(), *limit)));
+            }
+            Err(ApiFailure::GraphQl(messages)) if messages.iter().any(|it| names_the_limit(it)) => {
+                self.held(None);
+                forge_tally::counted(at, api, Outcome::RateLimited, Some((messages.join("; "), None)));
+            }
+            Err(_) => forge_tally::counted(at, api, Outcome::Failed, None),
+        }
+        answer
+    }
+
+    /// Every call held for as long as GitHub said, or a few minutes where it named no time.
+    fn held(&self, limit: Option<RateLimit>) {
+        let now = std::time::Instant::now();
+        let epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |it| it.as_secs());
+        let mut hold = self.inner.hold.lock().unwrap_or_else(PoisonError::into_inner);
+        // A refusal soon after a hold ended means the hold was too short: the next one doubles.
+        let again = hold.until.is_some_and(|until| now < until + AGAIN_WITHIN);
+        let streak = if again { hold.streak.saturating_add(1) } else { 0 };
+        let until = now + hold_for(limit, streak, epoch, jitter_seed());
+        hold.until = Some(hold.until.map_or(until, |was| was.max(until)));
+        hold.streak = streak;
     }
 
     /// The one client, built by the first call on whichever blocking thread makes it.
@@ -501,27 +564,41 @@ struct GraphQlError {
     message: String,
 }
 
-/// `answer`, counted as one call from `at`. **Rate-limited** is a 429, a 403 that names a wait or an
-/// empty window, or any refusal whose words name the rate limit: a secondary limit's 403 may carry
-/// no headers, and GraphQL's comes as an error beside a 200.
-fn counted<T>(at: &'static Location<'static>, api: Api, answer: Result<T, ApiFailure>) -> Result<T, ApiFailure> {
-    let names_the_limit = |said: &str| said.to_ascii_lowercase().contains("rate limit");
-    match &answer {
-        Ok(_) => forge_tally::counted(at, api, Outcome::Answered, None),
-        Err(ApiFailure::NoToken(_)) => {}
-        Err(ApiFailure::Refused { status, said, limit })
-            if *status == 429
-                || limit.is_some_and(|it| it.retry_after.is_some() || it.remaining == Some(0))
-                || names_the_limit(said) =>
-        {
-            forge_tally::counted(at, api, Outcome::RateLimited, Some((said.clone(), *limit)));
-        }
-        Err(ApiFailure::GraphQl(messages)) if messages.iter().any(|it| names_the_limit(it)) => {
-            forge_tally::counted(at, api, Outcome::RateLimited, Some((messages.join("; "), None)));
-        }
-        Err(_) => forge_tally::counted(at, api, Outcome::Failed, None),
-    }
-    answer
+/// A hold after a rate-limit refusal: until when, and how many refusals came back to back.
+#[derive(Debug, Default)]
+struct Hold {
+    until: Option<std::time::Instant>,
+    streak: u32,
+}
+
+/// The wait where GitHub named none, as a secondary limit's refusal may not; it doubles for each
+/// refusal that follows a hold, up to [`LONGEST_UNNAMED`]. GitHub asks for at least a minute.
+const UNNAMED_WAIT: Duration = Duration::from_secs(180);
+const LONGEST_UNNAMED: Duration = Duration::from_secs(900);
+/// No hold longer than this, whatever a header says.
+const LONGEST_HOLD: Duration = Duration::from_secs(3600);
+/// A refusal this soon after a hold ended counts as the same spell.
+const AGAIN_WITHIN: Duration = Duration::from_secs(600);
+
+/// How long to hold: `retry-after`, else a spent window's reset, else [`UNNAMED_WAIT`] doubled per
+/// `streak`. **Jitter of up to a quarter, at most a minute, is added**, so the callers a hold released
+/// do not all ask in the same second. `now` is seconds since the epoch, for the reset.
+pub(crate) fn hold_for(limit: Option<RateLimit>, streak: u32, now: u64, seed: u64) -> Duration {
+    let named = match limit {
+        Some(RateLimit { retry_after: Some(seconds), .. }) => Some(Duration::from_secs(seconds)),
+        Some(RateLimit { remaining: Some(0), reset_at: Some(at), .. }) => Some(Duration::from_secs(at.saturating_sub(now))),
+        _ => None,
+    };
+    let base = named
+        .unwrap_or_else(|| (UNNAMED_WAIT * 2u32.saturating_pow(streak.min(8))).min(LONGEST_UNNAMED))
+        .clamp(Duration::from_secs(1), LONGEST_HOLD);
+    let spread = (base.as_secs() / 4).min(60);
+    base + Duration::from_secs(seed % (spread + 1))
+}
+
+/// A number that differs from call to call, for jitter: the clock's nanoseconds.
+fn jitter_seed() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |it| u64::from(it.subsec_nanos()))
 }
 
 /// GitHub's own words on a refusal: `{"message": ..., "errors": [{"message": ...}]}`. A 422's

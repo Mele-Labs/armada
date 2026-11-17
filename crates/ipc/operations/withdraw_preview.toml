@@ -6,9 +6,9 @@ description = "Take a branch back off the owner's preview list"
 notes = """
 `POST /sessions/withdraw_preview`, body `WithdrawPreview`: optionally `branch` and `session_id`. Answered `PreviewWithdrawn`: the `branch` withdrawn. **`branch` is the branch of the slot the Job holds** when it is left out.
 
-Fleet deletes the Job's offer of that branch and checks the set again without it, so an offer that failed on top of it may now be ready. The Job is told nothing: it asked.
+Fleet deletes the Job's offer of that branch and checks the set again without it, so an offer that failed on top of it may now be ready. The Job is told nothing: it asked. **Its Ready to try cards of that branch that no answer has settled are withdrawn too**, offer or no offer: a branch whose offer already left the list, by a merge or by being dropped, can still be taken back this way. Fleet withdraws such a card itself once its offer is gone, so a Job need not.
 
-Refused 404 `fleet.preview_not_offered` where the Job has no offer of that branch; 422 `fleet.preview_no_branch` where the Job holds no branch and names none, and where the call places no Job.
+Refused 404 `fleet.preview_not_offered` where the Job has neither an offer of that branch nor an open card of it; 422 `fleet.preview_no_branch` where the Job holds no branch and names none, and where the call places no Job.
 
 `agent_access` is `Yes`: the Job takes back its own offer.
 """

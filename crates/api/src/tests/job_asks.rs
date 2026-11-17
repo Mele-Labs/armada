@@ -52,6 +52,13 @@ async fn a_landing_question_is_asked_over_the_router_and_its_id_comes_back() {
 }
 
 #[tokio::test]
+async fn a_landing_question_is_taken_back_over_the_router_and_its_id_comes_back() {
+    let (status, said) = call(&app(), "POST", "/sessions/withdraw_held", r#"{"pull":12}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"id":"held:repo:1"}"#);
+}
+
+#[tokio::test]
 async fn a_landing_question_with_a_pull_that_is_no_number_is_undecodable() {
     let (status, said) = call(&app(), "POST", "/sessions/ask_held", r#"{"pull":"twelve"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{said}");

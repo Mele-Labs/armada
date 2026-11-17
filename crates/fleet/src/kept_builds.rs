@@ -455,6 +455,8 @@ pub trait Services {
     /// A Fleet other than `old` named by the runtime file in `support` answers `/health`, within
     /// [`HEALTHY_WITHIN`].
     fn fleet_came_up(&self, support: &Path, old: Option<u32>) -> Result<(), String>;
+    /// Launch Services told that `current`'s app is the one to open: [`launch_services_pointed`].
+    fn launch_services_pointed(&self, support: &Path);
 }
 
 /// launchd and `sqlite3`, as `scripts/restart` drives them.
@@ -524,6 +526,60 @@ impl Services for OnThisMac {
                 ));
             }
             std::thread::sleep(Duration::from_millis(250));
+        }
+    }
+
+    fn launch_services_pointed(&self, support: &Path) {
+        launch_services_pointed(support);
+    }
+}
+
+const LSREGISTER: &str = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+/// The native Bridge's bundle in a build.
+const NATIVE_APP: &str = "Armada.app";
+
+/// Every path an `lsregister -dump` lists under `within`, but those at or inside a `keep` bundle, each once.
+pub fn stale_registrations(dump: &str, within: &Path, keep: &[PathBuf]) -> Vec<PathBuf> {
+    let paths = dump.lines().filter_map(|line| {
+        let rest = line.strip_prefix("path:")?.trim_start();
+        let (path, id) = rest.rsplit_once(" (0x")?;
+        id.ends_with(')').then(|| PathBuf::from(path))
+    });
+    paths
+        .filter(|path| path.starts_with(within) && path != within && !keep.iter().any(|bundle| path.starts_with(bundle)))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// The `Armada.app` the running native Bridge was started from, named by its `bridge-native.lock` record
+/// (pid, then executable), where that pid still runs.
+fn holders_bundle(support: &Path) -> Option<PathBuf> {
+    let record = std::fs::read_to_string(support.join("bridge-native.lock")).ok()?;
+    let mut lines = record.lines();
+    let (pid, exe) = (lines.next()?, lines.next()?);
+    let alive = std::process::Command::new("ps").args(["-p", pid]).output().is_ok_and(|out| out.status.success());
+    alive.then(|| Path::new(exe).ancestors().nth(3)?.canonicalize().ok()).flatten()
+}
+
+/// Launch Services keeps every bundle it was told of, after its folder is gone too, and a notification press or
+/// `open -b` can open any one with the id. So every path it lists under `builds/` is unregistered but `current`'s
+/// `Armada.app` and the running native Bridge's, then `current`'s app and the placed Fleet are registered.
+/// Kept in step with `scripts/keep-build`, `point`.
+pub fn launch_services_pointed(support: &Path) {
+    let Ok(builds) = support.join(BUILDS).canonicalize() else { return };
+    let Ok(current) = builds.join(CURRENT).canonicalize().map(|folder| folder.join(NATIVE_APP)) else { return };
+    let lsregister = |flag: &str, bundle: &Path| {
+        let _ = std::process::Command::new(LSREGISTER).arg(flag).arg(bundle).output();
+    };
+    let Ok(dump) = std::process::Command::new(LSREGISTER).arg("-dump").output() else { return };
+    let keep: Vec<PathBuf> = std::iter::once(current.clone()).chain(holders_bundle(support)).collect();
+    for stale in stale_registrations(&String::from_utf8_lossy(&dump.stdout), &builds, &keep) {
+        lsregister("-u", &stale);
+    }
+    for bundle in [current, support.join(FLEET).join(APP)] {
+        if bundle.is_dir() {
+            lsregister("-f", &bundle);
         }
     }
 }
@@ -645,6 +701,7 @@ fn swap(support: &Path, label: &str, stamp: &str, services: &dyn Services, bridg
     let bridge_reopened = bridge && bridged(support, label, services, &from, &to)?;
     let native_reopened = bridge && native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
+    services.launch_services_pointed(support);
     Ok(Reverted { from, to, bridge_reopened, native_reopened, store_copy })
 }
 
@@ -667,6 +724,7 @@ pub fn swap_onto(support: &Path, label: &str, stamp: &str, services: &dyn Servic
     bridged(support, label, services, &from, &to)?;
     native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
+    services.launch_services_pointed(support);
     Ok(Settled::Healthy)
 }
 

@@ -1,0 +1,16 @@
+[operations.withdraw_held]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take back a landing question this job asked with ask_held and nobody has answered. Give exactly one of pull (the number) or branch, the same one you asked about. The question leaves the person's list and nothing is sent to you. Use it where the work no longer needs a ruling, such as a pull request you closed or a branch you dropped"
+notes = """
+`POST /sessions/withdraw_held`, body `WithdrawHeld`: `pull` or `branch`, and an optional `session_id`. Answered with `HeldWithdrawn`: `id`, `held:<repository>:<pull or branch>`.
+
+**The job is the one whose process holds the connection**, as `ask_held`'s is. Only a job Fleet hosts is served, and an ended one is refused.
+
+**Fleet refuses, with `fleet.held_refused` and a sentence naming the part,** where neither or both of `pull` and `branch` are given, and where this job holds no open question about it: it was never asked, was answered or dismissed already, or was withdrawn already.
+
+**The question is settled with no answer**, as the person's Dismiss settles it, whether or not it was raised to his Needs you yet. The row goes. Nothing is sent to the job: it took the question back itself. Fleet writes nothing to a forge.
+
+`agent_access` is `Yes`: the agent is the one that asked.
+"""

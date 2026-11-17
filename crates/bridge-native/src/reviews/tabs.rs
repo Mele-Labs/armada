@@ -6,6 +6,7 @@ use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRe
 
 use gpui_component::input::{Input, Textarea};
 
+use super::live::Find;
 use super::model::{named, on_day, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
 use super::{AskingReview, ReviewsScreen, HUNKS_AT};
@@ -336,17 +337,23 @@ impl ReviewsScreen {
                 .border_color(look.color(token::ACCENT))
                 .child(heading)
                 .child(muted("review-ask-range", format!("Reads {range}. Its suggestions come to Review comments.")))
-                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-what", "What to look for")).child(tools))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_1))
-                        .child(caption("review-ask-effort", "Effort"))
-                        .child(labelled(efforts, Role::RadioGroup, "Effort"))
-                        .child(muted("review-ask-costs", picked.costs().to_string())),
-                )
-                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-focus-label", "Anything to focus on?")).child(focus))
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-what", "What to look for")).child(tools).when(self.review_tools.is_empty(), |list| {
+                    list.child(muted("review-ask-no-tools", "No review tool is set up for this repository".to_string()))
+                }))
+                // Fleet's review runs take no effort and no focus, so the live sheet does not ask for them.
+                .when(!self.is_live(), |sheet| {
+                    sheet
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap(look.length(token::SPACE_1))
+                                .child(caption("review-ask-effort", "Effort"))
+                                .child(labelled(efforts, Role::RadioGroup, "Effort"))
+                                .child(muted("review-ask-costs", picked.costs().to_string())),
+                        )
+                        .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-focus-label", "Anything to focus on?")).child(focus))
+                })
                 .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(cancel).child(start)),
             Role::Dialog,
             open.title,
@@ -533,10 +540,10 @@ impl ReviewsScreen {
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(tick_ink)
                 .aria_toggled(if viewed { Toggled::True } else { Toggled::False })
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .on_click(cx.listener(move |this, _, window, cx| {
                     // The row under it opens and shuts the file; the box only marks it viewed.
                     cx.stop_propagation();
-                    this.toggle_viewed(&path, cx);
+                    this.toggle_viewed(&path, window, cx);
                 }))
                 .child(glyph(if viewed { "check" } else { "square" }, look.length(token::SPACE_4), tick_ink))
                 .child("Viewed"),
@@ -634,7 +641,7 @@ impl ReviewsScreen {
                 status("notes-sent", format!("Sent to {holder}"), glyph("check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look)
             } else {
                 labelled(
-                    Btn::new("notes-send", "Send to job", Weight::Secondary).icon("send").draw(look, cx).on_click(cx.listener(|this, _, _, cx| this.send_notes(cx))),
+                    Btn::new("notes-send", "Send to job", Weight::Secondary).icon("send").draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.send_notes(window, cx))),
                     Role::Button,
                     "Send to job",
                 )
@@ -699,11 +706,21 @@ impl ReviewsScreen {
         let muted = look.color(token::FG_MUTED);
         // What he asked the review to look for and how hard, under its status or its heading.
         let asked = |asked: &ReviewAsk| {
-            let said = asked.said(&self.review_tools);
+            // Fleet's runs take no effort, so a live ask says only what it looked for.
+            let said = if self.is_live() { asked.what(&self.review_tools) } else { asked.said(&self.review_tools) };
             let said = if asked.focus.is_empty() { said } else { format!("{said}. Focus: {}", asked.focus) };
             labelled(div().id("findings-asked").text_size(look.length(token::TEXT_XS)).text_color(muted).child(SharedString::from(said.clone())), Role::Label, said)
         };
-        match &page.critique {
+        // A tool's run that failed or was refused says so above whatever the others found.
+        let failed: Vec<AnyElement> = self
+            .live_finds(page.number)
+            .map(|finds| finds.critique_failed.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .enumerate()
+            .map(|(n, said)| status(format!("findings-failed-{n}"), said, glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
+            .collect();
+        let part = match &page.critique {
             Critique::None => div()
                 .flex()
                 .flex_col()
@@ -784,7 +801,81 @@ impl ReviewsScreen {
                 }
                 column.into_any_element()
             }
+        };
+        if failed.is_empty() {
+            return part;
         }
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).children(failed).child(part).into_any_element()
+    }
+
+    /// Where Check practices stands on a live change set, while its results are not in. None once
+    /// they are in, and on the mock.
+    fn practices_state(&self, page: &Page, set: &str, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let finds = self.live_finds(page.number)?;
+        let find = finds.practices.get(set).cloned().unwrap_or_default();
+        let press = |id: &'static str, name: &'static str, cx: &mut Context<Self>| {
+            let set = set.to_string();
+            labelled(
+                Btn::new(id, name, Weight::Secondary).icon("list-checks").draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.check_practices(set.clone(), window, cx))),
+                Role::Button,
+                name,
+            )
+            .into_any_element()
+        };
+        let element = match find {
+            Find::Done => return None,
+            Find::Running => status("change-set-practices-running", "Checking practices".into(), spinner("change-set-practices-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look),
+            Find::Failed(why) => div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(status("change-set-practices-failed", format!("Check practices failed: {why}"), glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
+                .child(div().flex().child(press("change-set-practices-again", "Try again", cx)))
+                .into_any_element(),
+            Find::NotRun => div().flex().child(press("change-set-practices-check", "Check practices", cx)).into_any_element(),
+        };
+        Some(element)
+    }
+
+    /// Where Find problems stands on the live page, while its findings are not in: not run, running or
+    /// failed, with the press that starts it. None once they are in, and on the mock.
+    fn find_problems_state(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let finds = self.live_finds(page.number)?;
+        if finds.flags == Find::Done {
+            return None;
+        }
+        let press = |id: &'static str, name: &'static str, cx: &mut Context<Self>| {
+            labelled(
+                Btn::new(id, name, Weight::Secondary).icon("bot").draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.find_problems(window, cx))),
+                Role::Button,
+                name,
+            )
+            .into_any_element()
+        };
+        let failed = match (&finds.sets, &finds.flags) {
+            (Find::Failed(why), _) | (_, Find::Failed(why)) => Some(why.clone()),
+            _ => None,
+        };
+        let element = if finds.sets == Find::Running || finds.flags == Find::Running {
+            status("overview-flags-running", "Finding problems".into(), spinner("overview-flags-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look)
+        } else if let Some(why) = failed {
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(status("overview-flags-failed", format!("Find problems failed: {why}"), glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
+                .child(div().flex().child(press("overview-find-again", "Try again", cx)))
+                .into_any_element()
+        } else {
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(words("overview-flags-not-run", "Find problems has not read this commit".into(), look))
+                .child(div().flex().child(press("overview-find", "Find problems", cx)))
+                .into_any_element()
+        };
+        Some(element)
     }
 
     /// What went with an earlier review, one folded line for each day it went.
@@ -857,12 +948,19 @@ impl ReviewsScreen {
             .flex_col()
             .gap(look.length(token::SPACE_3))
             .child(heading("overview-why-head", format!("Why, from {}", named(&page.author)), look))
-            .child(words("overview-why", page.overview.why.clone(), look))
+            // The author writes markdown: headings, tables and links are drawn, not shown as their marks.
+            .child(labelled(
+                div().id("overview-why").text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name("overview-why-text".into()), page.overview.why.clone()).selectable(true)),
+                Role::Article,
+                page.overview.why.clone(),
+            ))
             .child(div().pt(look.length(token::SPACE_2)).child(heading("overview-flags-head", "Blockers, risks and possible bugs".into(), look)));
         if page.kept {
             column = column.child(
                 frame(look).p(look.length(token::SPACE_3)).child(grey("overview-flags-wait", "Finding problems in the commits since you looked", &[0.5, 0.9, 0.7], token::BG_SUNKEN, look)),
             );
+        } else if let Some(state) = self.find_problems_state(page, look, cx) {
+            column = column.child(state);
         } else {
             let open: Vec<&Flag> = page.overview.flags.iter().filter(|flag| !self.dismissed.contains(&(page.number, flag.id.clone()))).collect();
             if page.overview.flags.is_empty() {
@@ -880,8 +978,13 @@ impl ReviewsScreen {
             let mark = self.set_mark_of(page, &set.id);
             table = table.child(self.set_row(set, &mark, look, cx));
         }
+        let sets = self.live_finds(page.number).map(|finds| finds.sets.clone());
         if page.kept {
             table = table.child(waiting("overview-sets-wait", "Writing the change sets of the commits since you looked", &[0.4, 0.8], look));
+        } else if sets == Some(Find::Running) {
+            table = table.child(waiting("overview-sets-wait", "Writing the change sets", &[0.4, 0.8], look));
+        } else if sets.as_ref().is_some_and(|sets| *sets != Find::Done) {
+            table = table.child(div().p(look.length(token::SPACE_3)).child(words("overview-sets-not-run", "Find problems writes the change sets".into(), look)));
         } else if page.overview.sets.is_empty() {
             table = table.child(div().p(look.length(token::SPACE_3)).child(words("overview-sets-none", "No change sets".into(), look)));
         }
@@ -1167,9 +1270,15 @@ impl ReviewsScreen {
             Role::Label,
             set.kept_note.clone(),
         );
+        let live = self.is_live();
         let mut practices = div().flex().flex_col().gap(look.length(token::SPACE_1));
         let mut aside = Vec::new();
         for (n, practice) in set.practices.iter().enumerate() {
+            // Fleet keeps no correction of a practice's result, so the live set offers no Wrong.
+            if live {
+                practices = practices.child(self.practice_row(n, practice, practice.kept, None, None, look));
+                continue;
+            }
             let at: PracticeAt = (page.number, set.id.clone(), n);
             let fixed = self.corrections.get(&at);
             let reason_field = self.correcting.as_ref().filter(|open| open.at == at).map(|open| self.reason_field(open, look, cx));
@@ -1226,7 +1335,11 @@ impl ReviewsScreen {
             .into_any_element(),
             words("change-set-purpose", set.purpose.clone(), look),
             div().pt(look.length(token::SPACE_2)).child(heading("change-set-practices", format!("Practices for {} in {short}", set.kind), look)).into_any_element(),
-            note.into_any_element(),
+            // Until the practices are checked on the live set, its note and list are where they stand.
+            match self.practices_state(page, &set.id, look, cx) {
+                Some(state) => state,
+                None => note.into_any_element(),
+            },
             labelled(practices.id("change-set-practice-list"), Role::Table, "Practices").into_any_element(),
             div().pt(look.length(token::SPACE_2)).child(heading("change-set-change", "The change, in the order it runs".into(), look)).into_any_element(),
         ];
@@ -1308,8 +1421,8 @@ impl ReviewsScreen {
             .pt(look.length(token::SPACE_3))
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .child(explain(Explain::HowItWorks, cx))
-            .child(explain(Explain::HowToTest, cx))
+            // Fleet cannot yet explain one change set, so the live set has no How it works or How to test.
+            .when(!live, |foot| foot.child(explain(Explain::HowItWorks, cx)).child(explain(Explain::HowToTest, cx)))
             .child(div().flex_1())
             // Next: and its set wrap as one, never apart.
             .children(next.map(|next| {

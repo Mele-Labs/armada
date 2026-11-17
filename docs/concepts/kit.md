@@ -216,6 +216,15 @@ The models list is not in this read: it is asked of the agent itself and served 
 An allowlist file that is there and will not read is `not_read` with the reason, never an empty list.
 A plugin's skills, sub agents and commands are read from where it is installed, beside the person's own, and each row carries `plugin`, the plugin's name without its marketplace.
 
+**The servers are read from four places, and a server configured in two is two rows.**
+The person's own user file lists their servers with no mark.
+That file's local scope for a project lists a project's servers, each carrying `server` with `from` `project` and the project's folder.
+Each served repository's `.mcp.json` at its checkout root lists the repository's, each carrying `server` with `from` `repository` and its root.
+Each installed plugin's `.mcp.json` lists the plugin's, read at the version the plugin list names and never at every version the cache keeps, each carrying `plugin` as the plugin list spells it, `name@marketplace`.
+A plugin's file may list its servers at the top or under `mcpServers`.
+A server a plugin names inside its own manifest is not read.
+Every row is redacted the same way: the program's file name or the host, and nothing after either.
+
 **Reading is not granting, and no part of it is a control.** What is read carries a name, the thing's own words for itself and where it came from.
 A server a person connected carries **the program's own file name, or the host it is at** — the owner's decision, 18 Sep: enough to tell two servers apart and to spot one pointing somewhere wrong.
 What follows either is where a key sits and is never carried: no argument list, no query string, no userinfo, no environment.

@@ -113,6 +113,8 @@ An issue body reaches it as quoted words and never as an instruction.
 **A Job may send the Operator two typed things.**
 `raise_conflict` says two Jobs' work cannot both stand: `with`, the other Job's address, `files` and `wire` (at least one), `mine`, `theirs` and `breaks`, one sentence each.
 `ask_held` asks whether a pull request or a branch should land: exactly one of `pull` and `branch`.
+`withdraw_held` takes the question back, with the same one of `pull` and `branch`: the row goes and the Job is sent nothing.
+He may dismiss a landing question instead, and the Job is sent that he dismissed it with no answer.
 Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held_refused`, in a sentence that names the part.
 
 **Both arrive in the Operator's session.**

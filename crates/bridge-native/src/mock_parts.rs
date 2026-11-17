@@ -120,6 +120,73 @@ pub fn artifact(answered: bool) -> JobArtifact {
     }
 }
 
+/// The id and title of the Asides artifact: words for the owner, and two takes that are each a mock of several screens.
+pub const ASIDES_ID: &str = "sketch:Asides";
+pub const ASIDES_TITLE: &str = "Asides";
+
+/// One screen of a take, as the HTML a `mock` node holds: a title bar, a list of rows and one action.
+fn screen(id: &str, x: f64, y: f64, title: &str, rows: &[&str], action: &str) -> String {
+    let rows: String = rows.iter().map(|row| format!("<li>{row}</li>")).collect();
+    let html = format!("<div class=\\\"bar\\\">{title}</div><ul>{rows}</ul><div class=\\\"go\\\">{action}</div>");
+    let css = "body{margin:0;font:14px sans-serif;background:#f4f1ea;color:#1c1b19}.bar{padding:14px 16px;font-weight:600;background:#e6e0d2}ul{list-style:none;margin:0;padding:8px 16px}li{padding:12px 0;border-bottom:1px solid #d8d1c0}.go{margin:16px;padding:10px;border-radius:8px;background:#2f6f5e;color:#fff;text-align:center}";
+    format!(r#"{{"id":"{id}","kind":"mock","x":{x},"y":{y},"w":300,"title":"{title}","html":"{html}","css":"{css}"}}"#)
+}
+
+/// Take A: the thread, an aside opened from a message, and the aside kept beside it.
+fn asides_beside() -> String {
+    let nodes = [
+        screen("a1", 0., 0., "Thread", &["The rail reads better", "Where does the aside go?", "Keep it short"], "Open an aside"),
+        screen("a2", 380., 0., "Aside", &["Opened from the second message", "Its own short thread"], "Send"),
+        screen("a3", 760., 0., "Kept", &["Aside on the second message", "Two replies"], "Back to the thread"),
+    ];
+    format!(r#"{{"nodes":[{}],"edges":[{{"id":"e1","from":"a1","to":"a2"}},{{"id":"e2","from":"a2","to":"a3"}}]}}"#, nodes.join(","))
+}
+
+/// Take B: the aside as a sheet over the thread, then folded to a line under the message.
+fn asides_sheet() -> String {
+    let nodes = [
+        screen("b1", 0., 0., "Thread", &["The rail reads better", "Where does the aside go?", "Keep it short"], "Open an aside"),
+        screen("b2", 380., 0., "Aside sheet", &["Opened over the thread", "Esc puts it away"], "Send"),
+        screen("b3", 760., 0., "Folded", &["Where does the aside go?", "Aside: two replies"], "Open the aside"),
+    ];
+    format!(r#"{{"nodes":[{}],"edges":[{{"id":"e1","from":"b1","to":"b2"}},{{"id":"e2","from":"b2","to":"b3"}}]}}"#, nodes.join(","))
+}
+
+/// The Asides artifact: words that ask, and a vote between two takes.
+pub fn asides() -> JobArtifact {
+    let parts = vec![
+        part("intro", PartContent::Words { text: "An aside is a short thread opened from one message. Two ways to draw it: beside the thread, or as a sheet over it.".into() }, true, 0),
+        part(
+            "way",
+            PartContent::Takes {
+                question: Some("Where does an aside open?".into()),
+                form: VoteForm::Pick,
+                takes: vec![take("beside", "A \u{b7} Beside the thread", asides_beside()), take("sheet", "B \u{b7} Sheet over the thread (Job's pick)", asides_sheet())],
+                parts: Vec::new(),
+            },
+            true,
+            1,
+        ),
+    ];
+    let kept = |number| ArtifactRevision { number, at: at(number), by: ArtifactBy::Agent, form: ArtifactForm::Draft };
+    JobArtifact {
+        id: ASIDES_ID.into(),
+        title: ASIDES_TITLE.into(),
+        form: ArtifactForm::Draft,
+        revisions: vec![kept(1)],
+        state: ArtifactState::Asking,
+        words: None,
+        item: Some(ASIDES_ID.into()),
+        in_plan: None,
+        archived: None,
+        for_line: Some(ArtifactFor { text: Some("picks where an aside opens, and the PR text that ships it.".into()), links: Vec::new() }),
+        presses: Vec::new(),
+        votes: Vec::new(),
+        seen: None,
+        parts,
+    }
+}
+
 /// What the artifact of parts reads as once its asks are in: asking while any is open, then sent back where any part
 /// was, else approved. Fleet's own rule, which the mock repeats for the artifact it keeps.
 pub fn state_of(parts: &[ArtifactPart]) -> ArtifactState {
@@ -274,6 +341,9 @@ pub fn folds() -> bool {
 
 /// The artifacts the scenario's Job holds when it opens.
 pub fn initial() -> Option<Vec<JobArtifact>> {
+    if crate::mock::scenario_is("artifact-asides") {
+        return Some(vec![asides()]);
+    }
     match scenario() {
         Some(answered) => Some(vec![artifact(answered)]),
         None if folds() => Some(folded()),

@@ -84,6 +84,16 @@ impl JobView {
         cx.notify();
     }
 
+    /// Esc in the edit: the boxes close and his words stay kept, so the next Edit opens them as he left them.
+    pub(super) fn reader_edit_leave(&mut self, id: &SharedString, name: &str, cx: &mut Context<Self>) {
+        if let Some(held) = self.reader_mut(id, name) {
+            held.edit = None;
+            held.saving = false;
+            held.said = None;
+        }
+        cx.notify();
+    }
+
     fn reader_edit_stop(&mut self, id: &SharedString, name: &str, subject: &Subject, cx: &mut Context<Self>) {
         if let Some(held) = self.reader_mut(id, name) {
             held.edit = None;

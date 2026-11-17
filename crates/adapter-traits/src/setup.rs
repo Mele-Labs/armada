@@ -114,12 +114,43 @@ pub struct SetupItem {
     pub source: String,
     /// What only an output style has. `None` on every other kind.
     pub style: Option<StyleFacts>,
-    /// The plugin that brought it, by name without its marketplace. `None` for
+    /// The plugin that brought it, by name without its marketplace, except a connected server's,
+    /// which is the full `name@marketplace` the plugin list holds. `None` for
     /// the person's own and on every kind a plugin does not bring.
     pub plugin: Option<String>,
     /// The command that takes it off this machine, as the harness spells it. On an installed
     /// plugin alone.
     pub uninstall: Option<String>,
+    /// Where a connected server is configured, where that is not the person's own file. `None` on
+    /// every other kind and on a server of the person's own.
+    pub server: Option<ServerFacts>,
+}
+
+/// Where a connected server was configured, other than in a person's own user file. A plugin's
+/// is `SetupItem::plugin`, so it has no place here.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerFacts {
+    pub from: ServerFrom,
+    /// The repository's root, or the project's folder.
+    pub folder: String,
+}
+
+/// Which file beside the person's own a server was configured in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ServerFrom {
+    /// The repository's own file at its checkout root, shared by everyone who clones it.
+    Repository,
+    /// The person's local scope for one project folder, kept in their own user file.
+    Project,
+}
+
+impl ServerFrom {
+    pub fn as_wire(&self) -> &'static str {
+        match self {
+            ServerFrom::Repository => "repository",
+            ServerFrom::Project => "project",
+        }
+    }
 }
 
 /// Where an output style came from, as Armada spells it.

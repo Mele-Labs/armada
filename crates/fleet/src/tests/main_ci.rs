@@ -45,3 +45,46 @@ pub(super) fn pull(number: u64, ci: Option<CiState>, failing: &[&str]) -> OpenPu
     }
 }
 
+
+// -- why the forge is quiet
+
+mod quiet_reason {
+    use adapters::forge_tally::Failed;
+    use core_model::Timestamp;
+    use ipc::{Instant, QuietReason};
+
+    use crate::main_hub::quiet_reason;
+
+    fn now() -> Timestamp {
+        Timestamp::from_rfc3339("2026-11-16T17:53:30.000Z")
+    }
+
+    fn limited(retry_after: Option<u64>, spent_until: Option<u64>) -> Option<Failed> {
+        Some(Failed { rate_limited: true, retry_after, spent_until, at: "2026-11-16T17:53:02.000Z".into() })
+    }
+
+    #[test]
+    fn a_retry_after_counts_from_when_github_refused() {
+        let until = Some(Instant::carried("2026-11-16T17:54:02.000Z"));
+        assert_eq!(quiet_reason(limited(Some(60), Some(1_795_369_200)), &now()), QuietReason::RateLimited { until });
+    }
+
+    #[test]
+    fn a_spent_window_waits_for_its_reset() {
+        // 1_795_369_200 s is 2026-11-22T17:40:00Z.
+        let until = Some(Instant::carried("2026-11-22T17:40:00.000Z"));
+        assert_eq!(quiet_reason(limited(None, Some(1_795_369_200)), &now()), QuietReason::RateLimited { until });
+    }
+
+    #[test]
+    fn a_limit_that_named_no_time_is_rate_limited_with_no_until() {
+        assert_eq!(quiet_reason(limited(None, None), &now()), QuietReason::RateLimited { until: None });
+    }
+
+    #[test]
+    fn any_other_failure_or_none_counted_is_not_answering() {
+        let network = Some(Failed { rate_limited: false, ..Default::default() });
+        assert_eq!(quiet_reason(network, &now()), QuietReason::NotAnswering);
+        assert_eq!(quiet_reason(None, &now()), QuietReason::NotAnswering);
+    }
+}

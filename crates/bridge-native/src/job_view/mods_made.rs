@@ -135,6 +135,7 @@ impl JobView {
             }),
             Rc::new(move |id: &str, cx: &App| names.upgrade().and_then(|view| view.read(cx).record(id, cx).and_then(|job| job.title.clone()))),
         ));
+        super::review::offer_open_over(cx);
         let view = cx.entity().downgrade();
         cx.set_global(OpenMod(Rc::new(move |name: &str, window, cx| {
             let name = name.to_string();
