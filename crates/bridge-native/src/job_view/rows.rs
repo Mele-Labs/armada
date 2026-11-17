@@ -60,6 +60,15 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
 pub(super) struct Linked {
     refs: super::refs::Refs,
     said: std::collections::HashMap<String, String>,
+    /// The list or Fleet moved since the table was read: it is read again before the next use, and
+    /// what was linked is kept where the table came out the same (a restart's catch-up moves both often).
+    stale: bool,
+}
+
+impl Linked {
+    pub(super) fn stale(&mut self) {
+        self.stale = true;
+    }
 }
 
 /// A lone line break kept as a break, as Electron's Prose draws it (`remark-breaks`): each line that
@@ -567,11 +576,16 @@ impl JobView {
     fn prose_source_in(&self, text: &str, manifest: Option<&str>, cx: &App) -> String {
         let shown = || self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|record| record.manifest_id.as_ref()).map(|id| id.as_str());
         let manifest = manifest.or_else(shown);
+        let refs = || super::refs::Refs::of(self.list.read(cx).records()).with_pulls(manifest.map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default());
         let mut linked = self.linked.borrow_mut();
-        let held = linked.entry(manifest.unwrap_or_default().to_string()).or_insert_with(|| {
-            let pulls = manifest.map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default();
-            Linked { refs: super::refs::Refs::of(self.list.read(cx).records()).with_pulls(pulls), said: std::collections::HashMap::new() }
-        });
+        let held = linked.entry(manifest.unwrap_or_default().to_string()).or_insert_with(|| Linked { refs: refs(), said: std::collections::HashMap::new(), stale: false });
+        if held.stale {
+            let now = refs();
+            if now != held.refs {
+                *held = Linked { refs: now, said: std::collections::HashMap::new(), stale: false };
+            }
+            held.stale = false;
+        }
         if let Some(said) = held.said.get(text) {
             return said.clone();
         }

@@ -525,7 +525,7 @@ pub struct JobView {
     /// A walk's Jobs as its scenes have changed them, standing in for the records Fleet would send.
     mock_records: Option<Vec<SessionRecord>>,
     /// Prose as linked, by Manifest then by its words: every frame of a pulse draws the thread again, and
-    /// scanning each row against every Job and pull request held a core. Emptied when the list or Fleet moves.
+    /// scanning each row against every Job and pull request held a core. Read again when the list or Fleet moves.
     linked: RefCell<HashMap<String, rows::Linked>>,
     /// One more each time this view is drawn whole, so a frame drawn from its cache is told apart (`labels::kept`).
     drawn: Rc<std::cell::Cell<u64>>,
@@ -836,7 +836,7 @@ impl JobView {
 
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.linked.get_mut().clear();
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let (opened, picks) = {
             let list = self.list.read(cx);
@@ -942,7 +942,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
-        self.linked.get_mut().clear();
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
