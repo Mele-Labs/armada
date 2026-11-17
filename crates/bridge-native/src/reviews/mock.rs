@@ -9,7 +9,7 @@ use ipc::{
 
 use super::model::{
     self,
-    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Group, Hunk, Inbox, InboxRow, Kept, Mine, Overview, Page, PageFile, Practice, Reply, Rewrite, Seen, Span,
+    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Hunk, Inbox, InboxRow, Kept, Mine, Overview, Page, PageFile, Practice, Reply, Rewrite, Seen, Span,
     Summary, Verdict, Viewed,
 };
 
@@ -17,14 +17,14 @@ use super::model::{
 pub const LAST_OPEN: u64 = 2190;
 
 #[allow(clippy::too_many_arguments)]
-fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, group: Group, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks, mine: Verdict) -> InboxRow {
+fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, changed: bool, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks, mine: Verdict) -> InboxRow {
     InboxRow {
         number,
         repository: repository.into(),
         title: title.into(),
         author: author.into(),
         age: age.into(),
-        group,
+        changed,
         new_commits,
         lists: lists.to_vec(),
         checks,
@@ -48,23 +48,23 @@ pub fn asked() -> ipc::StandingCalls {
 pub fn inbox() -> Inbox {
     use PullReviewList::*;
     let rows = vec![
-        row(2231, "harbor/ledger-api", "Say which stage of an invoice failed", "mira", "30m", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", Group::FirstLook, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
-        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", Group::Changed, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
-        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", Group::Changed, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
-        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", Group::Waiting, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
-        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", Group::Waiting, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", Group::Done, None, &[Requested], PullReviewChecks::Passed, Verdict::Approved),
-        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", Group::Done, None, &[Team], PullReviewChecks::Passed, Verdict::Approved),
+        row(2231, "harbor/ledger-api", "Say which stage of an invoice failed", "mira", "30m", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", true, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
+        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", false, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
+        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", true, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
+        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", false, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", false, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
+        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
+        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
     ];
     Inbox { rows, refreshing: true }
 }
 
-/// What the refresh reads: Split the invoice job got a commit, so it moves to Changed.
+/// What the refresh reads: Split the invoice job got a commit, it stays under review requested.
 pub fn refreshed(mut inbox: Inbox) -> Inbox {
     if let Some(row) = inbox.rows.iter_mut().find(|row| row.number == 2190) {
-        row.group = Group::Changed;
+        row.changed = true;
         row.new_commits = Some(1);
         row.age = "just now".into();
         // Its test check started on the new commit.
@@ -271,6 +271,7 @@ fn retry_page() -> Page {
         threads: vec![
             thread("t1", "src/webhooks/retry.rs", 9, &[("you", "Add jitter, or every client retries at once."), ("tobias", "Done. The wait doubles and adds up to 250 ms of jitter.")]),
             thread("t2", "src/webhooks/queue.rs", 13, &[("you", "What happens when the queue is full?"), ("tobias", "Kept it. The queue drops its oldest once it is full.")]),
+            thread("t3", "src/webhooks/retry.rs", 21, &[("reviewbot", "<!-- reviewbot: finding 41 -->\n### Unbounded retry\n\nThe loop has **no cap** on attempts. See `max_attempts`.\n\n<details><summary>Trace</summary>\nretry::run -> queue::push -> retry::run\n</details>\n\n<div><a href=\"https://example.com/acme/billing/fix/41\"><picture><source srcset=\"https://example.com/badge.png\"><img alt=\"Fix in editor\" src=\"https://example.com/badge.png\"></picture></a></div>")]),
         ],
         critique: Critique::None,
         summary: Summary::None,

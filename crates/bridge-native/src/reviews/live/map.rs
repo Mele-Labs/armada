@@ -9,7 +9,7 @@ use ipc::{
 };
 
 use super::Row;
-use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Seen, Summary, Verdict, Viewed};
+use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Seen, Summary, Verdict, Viewed};
 
 /// Where one of Fleet's runs stands for the head in front.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -133,19 +133,14 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                 }
                 continue;
             }
-            let group = match row.inbox {
-                PullInbox::NeedsFirstLook => Group::FirstLook,
-                PullInbox::ChangedSinceYouLooked => Group::Changed,
-                PullInbox::WaitingOnAuthor => Group::Waiting,
-                PullInbox::Done => Group::Done,
-            };
+            let changed = row.inbox == PullInbox::ChangedSinceYouLooked;
             rows.push(InboxRow {
                 number: row.number,
                 repository: row.repository.clone(),
                 title: row.title.clone(),
                 author: row.author.clone(),
                 age: age(&row.updated_at),
-                group,
+                changed,
                 new_commits: None,
                 lists: vec![list],
                 checks: row.checks,
@@ -560,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn each_inbox_state_of_fleet_lands_in_its_group() {
+    fn fleets_changed_state_and_his_review_reach_the_row() {
         let (rows, _) = inbox_of(&lists(
             vec![
                 pull(1, PullInbox::NeedsFirstLook, None),
@@ -570,11 +565,10 @@ mod tests {
             ],
             Vec::new(),
         ));
-        let groups: Vec<(u64, Group, Verdict)> = rows.iter().map(|row| (row.number, row.group, row.mine)).collect();
-        assert_eq!(
-            groups,
-            [(1, Group::FirstLook, Verdict::NotReviewed), (2, Group::Changed, Verdict::Commented), (3, Group::Waiting, Verdict::ChangesRequested), (4, Group::Done, Verdict::Approved)]
-        );
+        let says: Vec<(u64, bool, Verdict)> = rows.iter().map(|row| (row.number, row.changed, row.mine)).collect();
+        assert_eq!(says, [(1, false, Verdict::NotReviewed), (2, true, Verdict::Commented), (3, false, Verdict::ChangesRequested), (4, false, Verdict::Approved)]);
+        // Each is on his requested list, so each lands in the first group.
+        assert!(rows.iter().all(|row| row.group() == model::Group::Requested));
     }
 
     #[test]

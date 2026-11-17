@@ -257,7 +257,7 @@ impl ReviewsScreen {
             within: cx.focus_handle(),
             rows: cx.focus_handle().tab_stop(true),
             inbox: mock::inbox(),
-            folded: HashSet::from([Group::Done]),
+            folded: Group::ALL.into_iter().filter(|group| group.starts_folded()).collect(),
             lists: None,
             search,
             focused: None,

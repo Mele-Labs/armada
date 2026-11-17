@@ -1,7 +1,6 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
 use gpui::{anchored, deferred, div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
-use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
 use gpui_component::input::{Input, Textarea};
@@ -1703,7 +1702,7 @@ fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
         format!("{} wants {} into {}", page.author, page.branch, page.base),
         look,
     ));
-    column = column.child(div().text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name("conversation-body".into()), page.body.clone())));
+    column = column.child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body("conversation-body", &page.body, look)));
     for entry in &page.conversation {
         let (id, author, at, body, verdict) = match entry {
             PullRequestEntry::Comment { id, author, at, body, .. } => (id, author, at, body, None),
@@ -1723,7 +1722,7 @@ fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
                 .gap(look.length(token::SPACE_1))
                 .p(look.length(token::SPACE_3))
                 .child(div().flex().gap(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(said.clone()))).child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(at.clone()))))
-                .child(div().text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name(format!("entry-body-{id}").into()), body.clone()))),
+                .child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body(format!("entry-body-{id}"), body, look))),
             Role::Article,
             format!("Comment by {said}"),
         ));
@@ -1781,7 +1780,7 @@ fn comments_tab(page: &Page, look: &Look) -> AnyElement {
                     .border_t(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(comment.author.clone())))
-                    .child(div().text_size(look.length(token::TEXT_SM)).child(SharedString::from(comment.body.clone()))),
+                    .child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body(format!("comment-body-{}", comment.id), &comment.body, look))),
             );
         }
         column = column.child(labelled(card, Role::Article, format!("Thread on {place}")));

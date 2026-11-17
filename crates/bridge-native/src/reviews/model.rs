@@ -6,34 +6,58 @@
 
 use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullRequestReviewer, PullRequestReviewerKind, PullReviewChecks, PullReviewList, PullReviewThread};
 
-/// The four inbox groups, in the order they are drawn. Fleet's inbox state of a pull request.
+/// The inbox groups, in the order they are drawn. A row lands in the first that takes it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Group {
-    FirstLook,
-    Changed,
-    Waiting,
+    Requested,
+    LookAgain,
+    Yours,
+    Team,
     Done,
 }
 
 impl Group {
-    pub const ALL: [Group; 4] = [Group::FirstLook, Group::Changed, Group::Waiting, Group::Done];
+    pub const ALL: [Group; 5] = [Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done];
 
     pub fn said(self) -> &'static str {
         match self {
-            Group::FirstLook => "Needs first look",
-            Group::Changed => "Changed since you looked",
-            Group::Waiting => "Waiting on author",
+            Group::Requested => "Review requested from you",
+            Group::LookAgain => "You reviewed, look again",
+            Group::Yours => "Yours",
+            Group::Team => "Asked of your team",
             Group::Done => "Done",
         }
     }
 
     pub fn glyph(self) -> &'static str {
         match self {
-            Group::FirstLook => "eye",
-            Group::Changed => "git-commit-horizontal",
-            Group::Waiting => "hourglass",
+            Group::Requested => "eye",
+            Group::LookAgain => "git-commit-horizontal",
+            Group::Yours => "user",
+            Group::Team => "users",
             Group::Done => "circle-check",
         }
+    }
+
+    /// The groups drawn folded until he opens them.
+    pub fn starts_folded(self) -> bool {
+        matches!(self, Group::Team | Group::Done)
+    }
+}
+
+/// The group a pull request lands in: the first that takes it. `changed` is Fleet's inbox state
+/// "changed since you looked".
+pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool) -> Group {
+    if lists.contains(&PullReviewList::Requested) {
+        Group::Requested
+    } else if mine != Verdict::NotReviewed && changed {
+        Group::LookAgain
+    } else if lists.contains(&PullReviewList::Mine) {
+        Group::Yours
+    } else if lists.contains(&PullReviewList::Team) {
+        Group::Team
+    } else {
+        Group::Done
     }
 }
 
@@ -47,7 +71,8 @@ pub struct InboxRow {
     pub author: String,
     /// How long since it was updated, as the row says it. Fleet sends RFC 3339.
     pub age: String,
-    pub group: Group,
+    /// Fleet's inbox state is changed since he looked.
+    pub changed: bool,
     /// Commits pushed since he looked: the chip on a changed row.
     pub new_commits: Option<u32>,
     /// The forge lists it is on, which the filter picks between.
@@ -58,6 +83,10 @@ pub struct InboxRow {
 }
 
 impl InboxRow {
+    pub fn group(&self) -> Group {
+        group_of(&self.lists, self.mine, self.changed)
+    }
+
     /// The repository's own name, without its owner.
     pub fn short_repository(&self) -> &str {
         self.repository.rsplit('/').next().unwrap_or(&self.repository)
@@ -921,5 +950,40 @@ mod tests {
                 ("src/jobs".to_string(), vec!["src/jobs/invoice.rs", "src/jobs/retry.rs"]),
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod group_tests {
+    use super::*;
+    use PullReviewList::*;
+
+    #[test]
+    fn requested_comes_first_even_when_he_reviewed_and_it_changed() {
+        assert_eq!(group_of(&[Requested, Mine], Verdict::Approved, true), Group::Requested);
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false), Group::Requested);
+    }
+
+    #[test]
+    fn reviewed_and_changed_is_look_again_unless_requested() {
+        assert_eq!(group_of(&[Assigned], Verdict::ChangesRequested, true), Group::LookAgain);
+        assert_eq!(group_of(&[Mine, Team], Verdict::Commented, true), Group::LookAgain);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, true), Group::Done);
+        assert_eq!(group_of(&[Assigned], Verdict::Approved, false), Group::Done);
+    }
+
+    #[test]
+    fn mine_then_team_then_done() {
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false), Group::Yours);
+        assert_eq!(group_of(&[Team, Mine], Verdict::NotReviewed, false), Group::Yours);
+        assert_eq!(group_of(&[Team], Verdict::NotReviewed, false), Group::Team);
+        assert_eq!(group_of(&[Team, Assigned], Verdict::Approved, false), Group::Team);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, false), Group::Done);
+    }
+
+    #[test]
+    fn team_and_done_start_folded() {
+        let folded: Vec<Group> = Group::ALL.into_iter().filter(|group| group.starts_folded()).collect();
+        assert_eq!(folded, [Group::Team, Group::Done]);
     }
 }

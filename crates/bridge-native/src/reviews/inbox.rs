@@ -1,4 +1,4 @@
-//! The inbox column: Search or ask, the Lists filter, and the pull requests in their four groups.
+//! The inbox column: Search or ask, the Lists filter, and the pull requests in their groups.
 //! A refresh keeps the last inbox drawn under a Refreshing mark.
 
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Transformation, Window};
@@ -15,9 +15,10 @@ use crate::titlebar::parts::{glyph, icon_button, small, spinner, tip};
 /// A group's hue, on its header band and the glyph of each row's state.
 pub(super) fn hue(group: Group) -> crate::look::Token {
     match group {
-        Group::FirstLook => token::STATUS_AWAITING_REVIEW,
-        Group::Changed => token::STATUS_HANDED_IN,
-        Group::Waiting => token::STATUS_NOT_STARTED,
+        Group::Requested => token::STATUS_AWAITING_REVIEW,
+        Group::LookAgain => token::STATUS_HANDED_IN,
+        Group::Yours => token::STATUS_RUNNING,
+        Group::Team => token::STATUS_NOT_STARTED,
         Group::Done => token::STATUS_COMPLETED_SUCCESS,
     }
 }
@@ -48,7 +49,7 @@ impl ReviewsScreen {
         let query = self.search.read(cx).value().trim().to_lowercase();
         Group::ALL
             .iter()
-            .flat_map(|group| self.inbox.rows.iter().filter(move |row| row.group == *group))
+            .flat_map(|group| self.inbox.rows.iter().filter(move |row| row.group() == *group))
             .filter(|row| self.lists.is_none_or(|list| row.lists.contains(&list)))
             .filter(|row| {
                 query.is_empty()
@@ -62,7 +63,7 @@ impl ReviewsScreen {
 
     /// The rows the arrows move through: those of groups that are not folded.
     fn reachable(&self, cx: &gpui::App) -> Vec<u64> {
-        self.shown_rows(cx).into_iter().filter(|row| !self.folded.contains(&row.group)).map(|row| row.number).collect()
+        self.shown_rows(cx).into_iter().filter(|row| !self.folded.contains(&row.group())).map(|row| row.number).collect()
     }
 
     pub(super) fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
@@ -182,8 +183,8 @@ impl ReviewsScreen {
         let rows = self.shown_rows(cx).into_iter().cloned().collect::<Vec<_>>();
         let mut body: Vec<AnyElement> = Vec::new();
         for group in Group::ALL {
-            let mine: Vec<&InboxRow> = rows.iter().filter(|row| row.group == group).collect();
-            if mine.is_empty() && group != Group::Done {
+            let mine: Vec<&InboxRow> = rows.iter().filter(|row| row.group() == group).collect();
+            if mine.is_empty() {
                 continue;
             }
             let folded = self.folded.contains(&group);
@@ -289,7 +290,7 @@ impl ReviewsScreen {
         let number = row.number;
         let open = self.open == Some(number) || self.waiting == Some(number);
         let focused = self.focused == Some(number);
-        let lamp = look.color(hue(row.group));
+        let lamp = look.color(hue(row.group()));
         let mut meta = format!("#{number} · {}", row.short_repository());
         if let Some(count) = row.new_commits {
             meta.push_str(&if count == 1 { " · 1 new commit".to_string() } else { format!(" · {count} new commits") });
