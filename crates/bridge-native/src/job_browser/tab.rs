@@ -20,6 +20,7 @@ use super::acts::is_web;
 use super::asks::{self, decide, AskSlot, Rules};
 use super::choices::{host_of, Answer, Choice, Permission, Settings, Store, NO_REPOSITORY};
 use super::rules::{self, rules_json};
+use super::site_panel::{self, press_of, stepped, Press, Scope, SiteState};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -30,6 +31,7 @@ actions!(job_browser, [DismissAsk]);
 /// The strip's own key. Classic hears Esc on the window while its strip is up (`AskStrip`); here it is the strip's, where focus is.
 pub fn bind(cx: &mut App) {
     cx.bind_keys([KeyBinding::new("escape", DismissAsk, Some(ASK_CONTEXT))]);
+    site_panel::bind(cx);
 }
 
 const ASK_CONTEXT: &str = "job-browser-ask";
@@ -87,6 +89,8 @@ pub struct BrowserTab {
     strip: [FocusHandle; 3],
     /// Where the focus was before the strip took it, which it goes back to.
     before: Option<FocusHandle>,
+    /// The lock's popover, and the confirmation Allow on Local network waits on.
+    pub(super) site: SiteState,
     /// The content rule list the page was last given, which is none (`Some(None)`) where nothing is refused; `None` before the first.
     rules_seen: Option<Option<String>>,
     _subscriptions: Vec<Subscription>,
@@ -141,6 +145,7 @@ impl BrowserTab {
             strip: [cx.focus_handle(), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)],
             before: None,
             rules_seen: None,
+            site: SiteState::new(cx),
             _subscriptions: vec![loaded, entered],
             _changes: changes,
             _asked: asked,
@@ -156,6 +161,144 @@ impl BrowserTab {
     pub fn attach(&mut self, tab: String, cx: &mut Context<Self>) {
         self.tab = tab;
         self.raise_to_fleet(cx);
+    }
+
+    pub(super) fn site(&self) -> &SiteState {
+        &self.site
+    }
+
+    /// The address the page last told, or none while it has none.
+    pub(super) fn address_now(&self) -> &str {
+        &self.url
+    }
+
+    /// The choice a row shows: this site's, or the default for every site.
+    pub(super) fn site_value(&self, permission: Permission) -> Choice {
+        match (self.site.scope, host_of(&self.url)) {
+            (Scope::Site, Some(host)) => self.site.settings.effective(&self.repository, &host, permission),
+            _ => self.site.settings.default_of(permission),
+        }
+    }
+
+    /// The lock pressed: Site settings opens, or closes.
+    pub(super) fn toggle_site(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.site.open {
+            self.close_site(window, cx);
+            return;
+        }
+        self.site.open = true;
+        self.site.scope = Scope::Site;
+        // The keys are Bridge's while it is up, and the first group has them.
+        self.page.update(cx, |page, _| page.release_keys());
+        let first = self.site.scopes.clone();
+        window.defer(cx, move |window, cx| window.focus(&first, cx));
+        // What Classic wrote since the file was last read is shown.
+        let store = self.store.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let settings = match store {
+                Some(store) => cx.background_executor().spawn(async move { store.read() }).await,
+                None => Settings::default(),
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.site.settings = settings;
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Esc, a press outside or the lock again: the popover goes and the keys go back to the lock.
+    pub(super) fn close_site(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.site.open {
+            return;
+        }
+        self.site.open = false;
+        window.focus(&self.site.lock, cx);
+        cx.notify();
+    }
+
+    pub(super) fn set_scope(&mut self, scope: Scope, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.site.scope != scope {
+            self.site.scope = scope;
+            cx.notify();
+        }
+    }
+
+    pub(super) fn step_scope(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let at = Scope::ALL.iter().position(|one| *one == self.site.scope).unwrap_or(0) as isize;
+        let next = Scope::ALL[(at + by).rem_euclid(Scope::ALL.len() as isize) as usize];
+        self.set_scope(next, window, cx);
+    }
+
+    /// An arrow in a row's group of segments.
+    pub(super) fn step_choice(&mut self, permission: Permission, by: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let next = stepped(self.site_value(permission), by);
+        self.press_choice(permission, next, window, cx);
+    }
+
+    /// A segment chosen in a row. Allow on Local network is asked about first, with the popover put away meanwhile.
+    pub(super) fn press_choice(&mut self, permission: Permission, choice: Choice, window: &mut Window, cx: &mut Context<Self>) {
+        let now = self.site_value(permission);
+        if choice == now {
+            return;
+        }
+        match press_of(permission, now, choice) {
+            Press::Set => self.apply_choice(permission, choice, self.site.scope, window, cx),
+            Press::Confirm => {
+                self.site.confirm = Some(self.site.scope);
+                self.site.open = false;
+                let allow = self.site.confirm_allow.clone();
+                window.defer(cx, move |window, cx| window.focus(&allow, cx));
+                cx.notify();
+            }
+        }
+    }
+
+    pub(super) fn confirm_local_network(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(scope) = self.site.confirm.take() {
+            self.apply_choice(Permission::LocalNetwork, Choice::Allow, scope, window, cx);
+        }
+        window.focus(&self.site.lock, cx);
+        cx.notify();
+    }
+
+    pub(super) fn cancel_local_network(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.site.confirm = None;
+        window.focus(&self.site.lock, cx);
+        cx.notify();
+    }
+
+    /// A choice kept: shown at once, written to Classic's file off the main thread, and given to the page's rule list.
+    fn apply_choice(&mut self, permission: Permission, choice: Choice, scope: Scope, window: &mut Window, cx: &mut Context<Self>) {
+        let (store, repository) = (self.store.clone(), self.repository.clone());
+        let host = host_of(&self.url);
+        let settings = std::mem::take(&mut self.site.settings);
+        self.site.settings = match (scope, &host) {
+            (Scope::Site, Some(host)) => settings.with_choice(&repository, host, permission, choice),
+            _ => settings.with_default(permission, choice),
+        };
+        cx.notify();
+        let Some(store) = store else { return };
+        cx.spawn_in(window, async move |this, cx| {
+            let written = cx
+                .background_executor()
+                .spawn(async move {
+                    match (scope, host) {
+                        (Scope::Site, Some(host)) => store.choose(&repository, &host, permission, choice),
+                        _ => store.set_default(permission, choice),
+                    }
+                })
+                .await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                if let Ok(written) = written {
+                    this.site.settings = written;
+                }
+                this.refresh_rules(window, cx);
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// The repository whose choices answer this page.
@@ -595,9 +738,11 @@ impl BrowserTab {
 }
 
 impl Render for BrowserTab {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let strip = self.strip(&look, cx);
+        let lock = self.site_lock(&look, cx);
+        let layers = self.site_layers(&look, window, cx);
         let [back_key, forward_key, reload_key] = self.keys.clone();
         let acts = div()
             .flex_none()
@@ -634,6 +779,7 @@ impl Render for BrowserTab {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .child(self.mark(&look))
                 .child(acts)
+                .children(lock)
                 .child(address),
             Role::Toolbar,
             "Job browser",
@@ -645,7 +791,7 @@ impl Render for BrowserTab {
             "Page",
         );
         labelled(
-            div().id("job-browser").key_context("job-browser").size_full().flex().flex_col().min_w_0().bg(look.color(token::BG_SUNKEN)).child(head).children(strip).child(page),
+            div().id("job-browser").key_context("job-browser").size_full().flex().flex_col().min_w_0().bg(look.color(token::BG_SUNKEN)).child(head).children(strip).child(page).children(layers),
             Role::Group,
             "Job browser",
         )
@@ -668,6 +814,14 @@ mod tests {
         }
     }
 
+    /// A file of choices of the test's own, so no test reads or writes the owner's.
+    fn scratch_store() -> Store {
+        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let folder = std::env::temp_dir().join(format!("armada-tab-test-{}-{}", std::process::id(), COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+        std::fs::create_dir_all(&folder).unwrap();
+        Store::at(folder.join("site-permissions.json"))
+    }
+
     fn drawn(cx: &mut gpui::TestAppContext) -> (Entity<BrowserTab>, &mut gpui::VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
@@ -676,6 +830,7 @@ mod tests {
         let last: LastShown = Rc::default();
         let (root, cx) = cx.add_window_view(|window, cx| Rooted(cx.new(|cx| BrowserTab::new("mock-01".into(), "t1".into(), last, window, cx))));
         let tab = root.read_with(cx, |root, _| root.0.clone());
+        tab.update(cx, |tab, _| tab.store = Some(scratch_store()));
         (tab, cx)
     }
 
@@ -811,11 +966,119 @@ mod tests {
         let last: LastShown = Rc::default();
         let (root, cx) = cx.add_window_view(|window, cx| Rooted(cx.new(|cx| BrowserTab::new("mock-01".into(), super::super::UNATTACHED.into(), last, window, cx))));
         let tab = root.read_with(cx, |root, _| root.0.clone());
+        tab.update(cx, |tab, _| tab.store = Some(scratch_store()));
         let seen = told(&tab, cx);
         let _answer = ask(&tab, Permission::Camera, cx);
         assert!(seen.borrow().is_empty(), "Fleet knows no tab by that id");
         tab.update(cx, |tab, cx| tab.attach("t9".into(), cx));
         assert_eq!(*seen.borrow(), ["raised t9: Allow Camera for meet.example.com? [Allow, Block]"]);
+    }
+
+    /// A tab whose page has told a web address, so its lock is drawn.
+    fn on_a_site(cx: &mut gpui::TestAppContext) -> (Entity<BrowserTab>, &mut gpui::VisualTestContext) {
+        let (tab, cx) = drawn(cx);
+        cx.update(|_, app| bind(app));
+        tab.update(cx, |tab, cx| {
+            tab.url = "https://example.com/a".into();
+            cx.notify();
+        });
+        cx.run_until_parked();
+        (tab, cx)
+    }
+
+    fn value(tab: &Entity<BrowserTab>, permission: Permission, cx: &mut gpui::VisualTestContext) -> Choice {
+        tab.read_with(cx, |tab, _| tab.site_value(permission))
+    }
+
+    #[gpui::test]
+    fn a_page_with_no_web_address_has_no_lock_and_one_with_a_host_has_it_named_site_settings(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        assert!(!names(cx, Role::Button).contains(&"Site settings".to_string()));
+        tab.update(cx, |tab, cx| {
+            tab.url = "https://example.com/a".into();
+            cx.notify();
+        });
+        cx.run_until_parked();
+        assert_eq!(names(cx, Role::Button), ["Back", "Forward", "Reload", "Site settings"]);
+        assert!(names(cx, Role::Dialog).is_empty(), "the popover is closed until the lock is pressed");
+    }
+
+    #[gpui::test]
+    fn the_lock_opens_a_popover_with_the_site_and_nine_rows_of_ask_allow_block(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = on_a_site(cx);
+        tab.update_in(cx, |tab, window, cx| tab.toggle_site(window, cx));
+        cx.run_until_parked();
+        assert_eq!(names(cx, Role::Dialog), ["Site settings"]);
+        let groups = names(cx, Role::RadioGroup);
+        assert_eq!(groups.len(), 1 + Permission::ALL.len(), "the scope, then a row for each permission");
+        assert_eq!(groups[0], "Settings for");
+        assert_eq!(&groups[1..], Permission::ALL.map(Permission::label));
+        assert_eq!(names(cx, Role::RadioButton).len(), 2 + 3 * Permission::ALL.len());
+        assert_eq!(value(&tab, Permission::Camera, cx), Choice::Ask);
+        assert_eq!(value(&tab, Permission::Popups, cx), Choice::Allow, "the shipped default shows");
+    }
+
+    #[gpui::test]
+    fn arrows_step_a_row_esc_closes_and_the_lock_has_the_focus_again(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = on_a_site(cx);
+        tab.update_in(cx, |tab, window, cx| tab.toggle_site(window, cx));
+        cx.run_until_parked();
+        tab.update_in(cx, |tab, window, cx| {
+            let row = tab.site.rows[Permission::ALL.iter().position(|one| *one == Permission::Camera).unwrap()].clone();
+            window.focus(&row, cx);
+        });
+        cx.simulate_keystrokes("right");
+        assert_eq!(value(&tab, Permission::Camera, cx), Choice::Allow, "Ask, then Allow");
+        cx.simulate_keystrokes("right");
+        assert_eq!(value(&tab, Permission::Camera, cx), Choice::Block);
+        cx.simulate_keystrokes("left");
+        assert_eq!(value(&tab, Permission::Camera, cx), Choice::Allow);
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(names(cx, Role::Dialog).is_empty());
+        let lock = tab.read_with(cx, |tab, _| tab.site.lock.clone());
+        assert!(cx.update(|window, _| lock.is_focused(window)), "Esc gives the keys back to the lock");
+    }
+
+    #[gpui::test]
+    fn all_sites_sets_the_default_and_this_site_sets_the_host(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = on_a_site(cx);
+        tab.update_in(cx, |tab, window, cx| {
+            tab.toggle_site(window, cx);
+            tab.press_choice(Permission::Notifications, Choice::Block, window, cx);
+        });
+        assert_eq!(value(&tab, Permission::Notifications, cx), Choice::Block);
+        tab.update_in(cx, |tab, window, cx| tab.set_scope(Scope::All, window, cx));
+        assert_eq!(value(&tab, Permission::Notifications, cx), Choice::Ask, "the default is its own");
+        tab.update_in(cx, |tab, window, cx| tab.press_choice(Permission::Clipboard, Choice::Allow, window, cx));
+        assert_eq!(value(&tab, Permission::Clipboard, cx), Choice::Allow);
+        tab.update_in(cx, |tab, window, cx| tab.set_scope(Scope::Site, window, cx));
+        assert_eq!(value(&tab, Permission::Clipboard, cx), Choice::Allow, "a site without its own takes the default");
+    }
+
+    #[gpui::test]
+    fn allow_on_local_network_asks_first_and_cancel_keeps_the_choice(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = on_a_site(cx);
+        tab.update_in(cx, |tab, window, cx| {
+            tab.toggle_site(window, cx);
+            tab.press_choice(Permission::LocalNetwork, Choice::Allow, window, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Ask, "nothing is set before the confirm");
+        assert_eq!(names(cx, Role::Dialog), ["Allow local network for example.com?"]);
+        assert_eq!(names(cx, Role::Button).iter().filter(|one| *one == "Cancel" || *one == "Allow").count(), 2);
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(names(cx, Role::Dialog).is_empty());
+        assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Ask);
+        tab.update_in(cx, |tab, window, cx| {
+            tab.toggle_site(window, cx);
+            tab.press_choice(Permission::LocalNetwork, Choice::Allow, window, cx);
+            tab.confirm_local_network(window, cx);
+        });
+        assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Allow);
+        tab.update_in(cx, |tab, window, cx| tab.press_choice(Permission::LocalNetwork, Choice::Block, window, cx));
+        assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Block, "Block and Ask take no confirm");
     }
 
     #[gpui::test]

@@ -67,10 +67,6 @@ impl Permission {
         }
     }
 
-    pub fn from_key(key: &str) -> Option<Permission> {
-        Permission::ALL.into_iter().find(|one| one.key() == key)
-    }
-
     /// What the person reads.
     pub fn label(self) -> &'static str {
         match self {
@@ -209,6 +205,18 @@ impl Settings {
     /// What a host is given for a permission: its own choice, else the default (`effectiveChoice`).
     pub fn effective(&self, repository: &str, host: &str, permission: Permission) -> Choice {
         self.own(repository, host, permission).unwrap_or_else(|| self.default_of(permission))
+    }
+
+    /// These choices with the host's own choice for a permission set, as the file will hold it once written.
+    pub fn with_choice(mut self, repository: &str, host: &str, permission: Permission, choice: Choice) -> Settings {
+        self.sites.entry(repository.to_string()).or_default().entry(host.to_string()).or_default().insert(permission, choice);
+        self
+    }
+
+    /// These choices with the Mac-wide default for a permission set.
+    pub fn with_default(mut self, permission: Permission, choice: Choice) -> Settings {
+        self.saved.insert(permission, choice);
+        self
     }
 
     /// The hosts of a repository that chose `choice` for `permission` for themselves, in order.
@@ -425,6 +433,17 @@ mod tests {
         assert_eq!(kept.default_of(Permission::Popups), Choice::Block, "the default Classic wrote since is kept");
         assert_eq!(store.read(), kept);
         let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn a_choice_set_in_memory_reads_as_the_file_will_once_it_is_written() {
+        let set = Settings::default().with_choice("armada", "a.com", Permission::Camera, Choice::Allow).with_default(Permission::Popups, Choice::Block);
+        assert_eq!(set.effective("armada", "a.com", Permission::Camera), Choice::Allow);
+        assert_eq!(set.effective("armada", "b.com", Permission::Camera), Choice::Ask);
+        assert_eq!(set.effective("armada", "b.com", Permission::Popups), Choice::Block);
+        assert_eq!(set.effective("armada", "a.com", Permission::Popups), Choice::Block, "the default is every site's without a choice");
+        let written = Settings::default().with_choice("armada", "a.com", Permission::Camera, Choice::Allow).with_choice("armada", "a.com", Permission::Camera, Choice::Block);
+        assert_eq!(written.effective("armada", "a.com", Permission::Camera), Choice::Block, "the last choice stands");
     }
 
     #[test]

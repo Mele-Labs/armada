@@ -20,6 +20,7 @@ mod live;
 mod reminder;
 mod rules;
 mod scripts;
+mod site_panel;
 mod tab;
 
 use std::borrow::Cow;
