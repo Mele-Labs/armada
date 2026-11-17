@@ -652,6 +652,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/ask_held",
     },
     Route {
+        operation: "withdraw_held",
+        method: "POST",
+        path: "/sessions/withdraw_held",
+    },
+    Route {
         operation: "list_bug_reports",
         method: "GET",
         path: "/bug_reports",

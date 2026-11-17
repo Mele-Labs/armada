@@ -151,7 +151,10 @@ where
             if let Some(offered) = &offered {
                 store.keep_build_note_withdrawn(&branch, &offered.tip, &at).map_err(|why| self.ledger_fault(why))?;
             }
-            store.remove_preview_offered(&id, &branch).map_err(|why| self.ledger_fault(why))?
+            let removed = store.remove_preview_offered(&id, &branch).map_err(|why| self.ledger_fault(why))?;
+            // A branch whose offer already left the list still holds its open cards: they are taken back too.
+            let noted = store.keep_build_notes_withdrawn_of(&id, &branch, &at).map_err(|why| self.ledger_fault(why))?;
+            removed || noted > 0
         };
         if !removed {
             return Err(Refusal::NotFound(WireError::raised(NOT_OFFERED, format!("{branch} is not on the preview list from this job"), self.run_id())));

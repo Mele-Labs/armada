@@ -161,7 +161,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" | "sketch-shapes" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -634,6 +634,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
         // Edit the merge line putting two sketches to him: Crossing arrows, whose arrows cross, and Arrow kinds, pinned, with every line, head and path.
         "sketch-lines" => include_bytes!("../fixtures/sketch-lines-threads.json"),
+        // Edit the merge line putting one sketch to him: Version checks, a start over a row of three over a row of two, with arrows fanning between the rows.
+        "sketch-shapes" => include_bytes!("../fixtures/sketch-shapes-threads.json"),
         // The same, with Edit the merge line drawing the store clock twice: Pinned clock read against Store clock reads, which has two revisions.
         "sketch-changes" => include_bytes!("../fixtures/sketch-changes-threads.json"),
         // The tool-rows threads, with Brief a reviewer handing work to a reviewer that finished and an explorer still running.
@@ -721,6 +723,28 @@ fn ready_tip(id: &str) -> String {
     format!("{:0<40}", format!("{}c1e9a2", id.len()))
 }
 
+/// What the Job said after it offered its builds, so the builds stand far up its thread: the card of them is at its end all the same.
+fn after_the_builds() -> Result<Vec<ipc::ThreadItem>, String> {
+    let said = [
+        "The three builds are offered above. While you look, I am reading the reviewer's brief again.",
+        "The brief names its files, but not in the order the reviewer opens them. I will put the files first.",
+        "The Jobs list search now matches a branch as well as a title. I checked it against forty branches, and none was missed.",
+        "The sketch boxes take their strip from the box's own kind. A box with no kind keeps the plain header.",
+        "I will leave the preview as it is and wait for what you find. Nothing else is open on this branch.",
+        "One more thing I noticed while reading: the strip says START on a box that has no step number. I left it.",
+        "The chip colour you answered earlier is in the preview already, and the rest of the branch builds clean.",
+        "If a build needs rework, say what should change in the box on its card and I will pick it up from there.",
+        "I am idle until you answer. The card at the foot of this thread lists each build still to try.",
+    ];
+    said.iter()
+        .enumerate()
+        .map(|(n, text)| {
+            let wire = format!(r#"{{"kind":"row","row":{{"kind":"message","id":"m-after-{n}","at":"2026-11-15T14:{:02}:00Z","from":{{"kind":"agent"}},"text":"{text}"}}}}"#, 30 + n);
+            ipc::decode::<ipc::ThreadItem>("after the builds", wire.as_bytes()).map_err(|why| why.to_string())
+        })
+        .collect()
+}
+
 /// The cards of the `ready-to-try` scenario, put at the foot of two Jobs' threads.
 fn ready_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
     let card = |id: &str, at: &str, about: &str, rest: &str| -> Result<ipc::ThreadItem, String> {
@@ -766,7 +790,10 @@ fn ready_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
                 r#""state":"open","pictures":["/work/shots/queue-search.png"],"look":"Type a branch name in the search box of the Jobs list.","steps":[{"say":"Press the search box"}]"#,
             )?),
             card("reviewer-brief", "2026-11-15T14:20:00Z", "The reviewer's brief names its files", r#""state":"open""#)?,
-        ],
+        ]
+        .into_iter()
+        .chain(after_the_builds()?)
+        .collect(),
     );
     put(
         "tool-done",
@@ -1518,7 +1545,7 @@ fn mock_place(item: &WaitingItem, act: &NeedsYouAct) -> (NeedsYouSectionKind, Ne
         WaitingSource::WordsAddress | WaitingSource::FleetCall | WaitingSource::WatchNotOurs | WaitingSource::BrowserAsk => (Section::Questions, Dismiss::Plain),
         WaitingSource::RuleAct | WaitingSource::OperatorSuggestion => (Section::Questions, Dismiss::Skip),
         WaitingSource::OperatorUndone => (by_act(), Dismiss::Plain),
-        WaitingSource::Handoff => (Section::Questions, Dismiss::Plain),
+        WaitingSource::Handoff | WaitingSource::JobHeld => (Section::Questions, Dismiss::Plain),
         _ => (Section::Questions, Dismiss::None),
     }
 }

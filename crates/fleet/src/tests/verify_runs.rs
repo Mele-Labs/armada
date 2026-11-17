@@ -49,6 +49,24 @@ setup:
   requires: [bootstrap]
 "#;
 
+/// Setup, then Checks that each wait for a file named after themselves in
+/// `GATES`, so none can end before the reader has let it go.
+const GATED: &str = r#"version: 1
+id: 01FIXTUREMANIFEST
+checks:
+  lint:
+    run: "/bin/sh -c 'until [ -e GATES/lint ]; do sleep 0.01; done; echo linted'"
+  broken:
+    run: "/bin/sh -c 'until [ -e GATES/broken ]; do sleep 0.01; done; echo breaking; exit 3'"
+  after:
+    run: "/bin/sh -c 'until [ -e GATES/after ]; do sleep 0.01; done; echo after'"
+commands:
+  bootstrap:
+    run: /usr/bin/true
+setup:
+  requires: [bootstrap]
+"#;
+
 /// A Check that outlives the assertions around it, then one after it.
 const SLOW: &str = r#"version: 1
 id: 01FIXTUREMANIFEST
@@ -186,12 +204,16 @@ async fn each_step_runs_once_in_order_one_after_another() {
 ///
 /// The reader is a thread of its own, reading the instant each finish is
 /// published — as Bridge does — so nothing waits on the runtime to schedule it
-/// after the next step has already started.
+/// after the next step has already started. Each Check waits for the reader to
+/// let it go, so a quick one cannot end between the publish and the read.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_steps_finish_is_published_after_the_next_step_is_out() {
     let home = TempDir::new();
+    let gates = TempDir::new();
+    let manifest = GATED.replace("GATES", &gates.path().display().to_string());
     let events = api::Broadcaster::new();
-    let fleet = a_fleet(&home, MANIFEST, &events);
+    let fleet = a_fleet(&home, &manifest, &events);
+    let gate = gates.path().to_path_buf();
     let mut watching = events.subscribe();
     let handle = tokio::runtime::Handle::current();
     let reader = Arc::clone(&fleet);
@@ -204,10 +226,16 @@ async fn a_steps_finish_is_published_after_the_next_step_is_out() {
                         let sheet = handle
                             .block_on(reader.checkout_run_sheet(reader.first()))
                             .expect("a sheet");
-                        read.push((
-                            record.name,
-                            sheet.verify.expect("the Verify is on the sheet"),
-                        ));
+                        let verify = sheet.verify.expect("the Verify is on the sheet");
+                        let next = verify
+                            .steps
+                            .iter()
+                            .skip_while(|step| step.name != record.name)
+                            .nth(1);
+                        if let Some(next) = next {
+                            std::fs::write(gate.join(&next.name), "").expect("the gate opens");
+                        }
+                        read.push((record.name, verify));
                     }
                 }
                 Some(_) => continue,

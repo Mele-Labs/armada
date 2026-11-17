@@ -1,10 +1,12 @@
 //! The one compact card a Job holds in its thread for the builds to try.
 //!
-//! **A Job's builds to try are one thing, not one card each** (the owner's take B, 16 Nov 2026). The thread draws one compact card
-//! at the newest open build's place: the green band, and a row for each build still to answer, with a state dot, what it is about
-//! on one line and a word on the right. The older thread items of those builds draw nothing; a build he answered, or the Job
-//! withdrew or replaced, stays one line at its own time. A press on a row, or Enter, opens that build whole under the rows, in
-//! place, and the thread scrolls to it. The review overlay will host the same detail (`ready_detail`).
+//! **A Job's builds to try are one thing, not one card each** (the owner's take B, 16 Nov 2026). While any build is open or put
+//! off the thread draws one compact card pinned at its end, after the items, as the card of what waits for the Job's Mac is: the
+//! green band, and a row for each build still to answer, with a state dot, what it is about on one line and a word on the right.
+//! The thread items of those builds draw nothing; a build he answered, or the Job withdrew or replaced, stays one line at its own
+//! time, and once no build is left to answer every one reads where it happened. A press on a row, or Enter, opens that build whole
+//! under the rows, in place, and the thread follows its tail to the end, never up into the history. The review overlay will host
+//! the same detail (`ready_detail`).
 
 use std::collections::HashMap;
 
@@ -47,11 +49,6 @@ pub(super) fn builds<'a>(items: &'a [ThreadItem], answers: &HashMap<String, Answ
     all
 }
 
-/// The thread item the compact card stands at: the newest open build's, else the newest put off.
-pub(super) fn place(all: &[Build]) -> Option<usize> {
-    let newest = |standing: Standing| all.iter().filter(|build| build.standing == standing).map(|build| build.at).max();
-    newest(Standing::Open).or_else(|| newest(Standing::Later))
-}
 
 /// The open build after `from` in the list's order, else the first open one that is not `from`.
 pub(super) fn next_open(all: &[Build], from: &str) -> Option<String> {
@@ -68,14 +65,31 @@ pub(super) fn until(card: &ThreadReadyToTry, answers: &HashMap<String, Answer>) 
     }
 }
 
-/// What Fleet says of each build, so the thread measures again where one changed.
-pub(super) fn signature(items: &[ThreadItem]) -> Vec<(String, ReadyState)> {
-    items.iter().filter_map(|item| if let ThreadItem::ReadyToTry(card) = item { Some((card.id.clone(), card.state)) } else { None }).collect()
+/// What Fleet says of each build and where its item stands, so the thread measures again where one changed.
+pub(super) fn signature(items: &[ThreadItem]) -> Vec<(usize, String, ReadyState)> {
+    items.iter().enumerate().filter_map(|(at, item)| if let ThreadItem::ReadyToTry(card) = item { Some((at, card.id.clone(), card.state)) } else { None }).collect()
 }
 
-/// The thread item the compact card stands at, as Fleet's states alone say.
-pub(super) fn place_in(items: &[ThreadItem]) -> Option<usize> {
-    place(&builds(items, &HashMap::new()))
+/// The first thread item whose build differs between two signatures.
+pub(super) fn first_change(was: &[(usize, String, ReadyState)], now: &[(usize, String, ReadyState)]) -> Option<usize> {
+    let apart = |one: &&(usize, String, ReadyState), other: &[(usize, String, ReadyState)]| !other.contains(one);
+    was.iter().filter(|one| apart(one, now)).chain(now.iter().filter(|one| apart(one, was))).map(|(at, ..)| *at).min()
+}
+
+/// Whether a build stands open or put off, as Fleet's states alone say: the compact card is drawn then.
+pub(super) fn asks(items: &[ThreadItem]) -> bool {
+    items.iter().any(|item| matches!(item, ThreadItem::ReadyToTry(card) if matches!(card.state, ReadyState::Open | ReadyState::Later)))
+}
+
+/// The first picture of each build still listed on the card, read from the Job's own tree as a `Read` call's are.
+pub(super) fn shots(items: &[ThreadItem]) -> Vec<ipc::SentFile> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            ThreadItem::ReadyToTry(card) if matches!(card.state, ReadyState::Open | ReadyState::Later) => card.pictures.first().and_then(|path| super::pictures::read_picture(path)),
+            _ => None,
+        })
+        .collect()
 }
 
 /// The word at the right of a build's row.
@@ -96,6 +110,13 @@ fn dot_of(standing: Standing) -> &'static str {
         Standing::Rework => "pencil",
         Standing::Withdrawn => "x",
         Standing::Replaced => "refresh-cw",
+    }
+}
+
+impl Page {
+    /// The element the compact card is drawn at, after the thread's items, while a build is open or put off.
+    pub(super) fn ready_at(&self) -> Option<usize> {
+        self.extras.iter().position(|extra| matches!(extra, super::Extra::Ready)).map(|at| self.items + at)
     }
 }
 
@@ -204,16 +225,16 @@ impl JobView {
         div().id("ready-column").flex().flex_col().gap(look.length(token::SPACE_3)).child(group).children(detail).into_any_element()
     }
 
-    /// A press on a build's row: it opens in place under the rows and the thread scrolls to the card; a press on the open one shuts
-    /// it again.
+    /// A press on a build's row: it opens in place under the rows and the thread follows its tail to the card at its end; a press
+    /// on the open one shuts it again.
     pub(super) fn ready_open(&mut self, job: &str, id: &str, cx: &mut Context<Self>) {
-        let Some(at) = self.thread(job, cx).and_then(|held| place_in(&held.items)) else { return };
         let Some(page) = self.pages.get_mut(job) else { return };
+        let Some(at) = page.ready_at() else { return };
         let shut = page.cards.ready_pick.as_deref() == Some(id);
         page.cards.ready_pick = (!shut).then(|| id.to_string());
         page.remeasure(at);
         if !shut {
-            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: gpui::px(0.) });
+            page.list.set_follow_mode(gpui::FollowMode::Tail);
         }
         cx.notify();
     }
@@ -225,8 +246,8 @@ impl JobView {
 
     /// Esc on a row shuts the build opened under the rows.
     fn ready_close(&mut self, job: &str, cx: &mut Context<Self>) {
-        let Some(at) = self.thread(job, cx).and_then(|held| place_in(&held.items)) else { return };
         let Some(page) = self.pages.get_mut(job) else { return };
+        let Some(at) = page.ready_at() else { return };
         page.cards.ready_pick = None;
         page.remeasure(at);
         cx.notify();
@@ -244,7 +265,7 @@ impl JobView {
             let Some(pick) = page.cards.ready_pick.as_deref() else { return };
             let all = builds(&held.items, &page.cards.answers);
             let noting = page.cards.modes.contains_key(pick);
-            all.iter().find(|build| build.card.id == pick).filter(|build| build.standing.asks() && !noting).and_then(|build| place(&all).map(|at| (build.card.clone(), at)))
+            all.iter().find(|build| build.card.id == pick).filter(|build| build.standing.asks() && !noting).and_then(|build| page.ready_at().map(|at| (build.card.clone(), at)))
         };
         let Some((card, at)) = found else { return };
         cx.stop_propagation();
@@ -287,13 +308,12 @@ mod tests {
     }
 
     #[test]
-    fn the_compact_card_stands_at_the_newest_open_build_else_the_newest_put_off() {
+    fn the_compact_card_is_drawn_while_a_build_is_open_or_put_off() {
         let held = mixed();
-        assert_eq!(place_in(&held), Some(3), "the second open build");
-        let only_later = vec![held[0].clone(), held[2].clone(), held[4].clone()];
-        assert_eq!(place_in(&only_later), Some(1));
-        assert_eq!(place_in(&[held[0].clone(), held[4].clone()]), None, "settled builds list nothing");
-        assert_eq!(place_in(&[]), None);
+        assert!(asks(&held));
+        assert!(asks(&[held[0].clone(), held[2].clone(), held[4].clone()]), "a build put off keeps the card");
+        assert!(!asks(&[held[0].clone(), held[4].clone()]), "settled builds list nothing");
+        assert!(!asks(&[]));
     }
 
     #[test]
@@ -313,13 +333,30 @@ mod tests {
         let pressed = HashMap::from([("try:b".to_string(), Answer::Approved)]);
         let all = builds(&held, &pressed);
         assert_eq!(ids(&all), ["Second open", "Put off", "Withdrawn one", "First open", "Old answer"]);
-        assert_eq!(place_in(&held), Some(3));
-        assert_eq!(place(&all), Some(3));
+        assert!(asks(&held), "Fleet's states alone still say a build is open");
+    }
+
+    #[test]
+    fn a_change_of_a_build_names_the_first_item_to_measure_again() {
+        let held = mixed();
+        let was = signature(&held);
+        assert_eq!(first_change(&was, &was), None);
+        let mut later = held.clone();
+        if let ThreadItem::ReadyToTry(card) = &mut later[3] {
+            card.state = ReadyState::Answered;
+        }
+        assert_eq!(first_change(&was, &signature(&later)), Some(3));
+        assert_eq!(first_change(&was, &signature(&held[..3])), Some(3), "the builds the thread no longer holds");
     }
 
     // ---- drawn, on the mock Fleet's `ready-to-try` scenario ---------------------------------------
 
     fn on_screen<'a>(cx: &'a mut gpui::TestAppContext, job: &str, wide: f32) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        on_screen_high(cx, job, wide, 6000.)
+    }
+
+    /// The Job open in a window `high` tall: short enough, the thread scrolls.
+    fn on_screen_high<'a>(cx: &'a mut gpui::TestAppContext, job: &str, wide: f32, high: f32) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
@@ -331,7 +368,7 @@ mod tests {
             let list = list.clone();
             move |window, cx| JobView::new(list, Some(threads), window, cx)
         });
-        cx.simulate_resize(gpui::size(gpui::px(wide), gpui::px(6000.)));
+        cx.simulate_resize(gpui::size(gpui::px(wide), gpui::px(high)));
         let job = job.to_string();
         list.update(cx, |list, cx| list.open(job.into(), cx));
         redraw(cx);
@@ -384,14 +421,92 @@ mod tests {
         assert!(drawn(cx, Role::ListItem, "Ready to try: Chip takes the stale colour, Looks good"), "the answered build stays one line");
     }
 
-    #[gpui::test]
-    fn the_compact_card_stands_where_the_newest_open_build_does(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
-        view.read_with(cx, |view, cx| {
-            let held = view.thread("tool-edit", cx).expect("a thread");
-            let at = place_in(&held.items).expect("a place");
-            assert!(matches!(&held.items[at], ThreadItem::ReadyToTry(card) if card.about == BARE));
+    /// Whether the thread shows its end: the last element's foot is in view.
+    fn at_its_end(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> bool {
+        view.read_with(cx, |view, _| {
+            let page = view.pages.get("tool-edit").expect("a page");
+            let last = page.list.bounds_for_item(page.count - 1);
+            page.list.is_following_tail() || last.is_some_and(|bounds| bounds.bottom() <= page.list.viewport_bounds().bottom())
+        })
+    }
+
+    fn to_the_top(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) {
+        view.update(cx, |view, _| {
+            let page = view.pages.get("tool-edit").expect("a page");
+            page.list.set_follow_mode(gpui::FollowMode::Normal);
+            page.list.scroll_to(gpui::ListOffset { item_ix: 0, offset_in_item: gpui::px(0.) });
         });
+        redraw(cx);
+        assert!(!at_its_end(view, cx), "the thread is read from its head");
+    }
+
+    #[gpui::test]
+    fn the_open_card_is_an_extra_after_every_item_and_the_builds_items_draw_nothing(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen_high(cx, "tool-edit", 1400., 700.);
+        view.read_with(cx, |view, cx| {
+            let page = view.pages.get("tool-edit").expect("a page");
+            let held = view.thread("tool-edit", cx).expect("a thread");
+            let first_build = held.items.iter().position(|item| matches!(item, ThreadItem::ReadyToTry(_))).expect("builds");
+            assert!(page.items - first_build >= 10, "the Job went on talking after its builds: {} items after the first", page.items - first_build);
+            let ready = page.extras.iter().position(|extra| *extra == crate::job_view::Extra::Ready).expect("the card is an extra");
+            assert!(
+                page.extras[ready + 1..].iter().all(|extra| matches!(extra, crate::job_view::Extra::Working | crate::job_view::Extra::Subagents | crate::job_view::Extra::Pending(_) | crate::job_view::Extra::Refreshing)),
+                "only what the Job does now stands after it: {:?}",
+                page.extras
+            );
+            assert_eq!(page.ready_at(), Some(page.items + ready));
+        });
+    }
+
+    #[gpui::test]
+    fn a_press_on_a_row_in_a_long_thread_leaves_the_list_at_its_end_and_never_goes_up(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen_high(cx, "tool-edit", 1400., 700.);
+        to_the_top(&view, cx);
+        let shot = id_of(&view, SHOT, cx);
+        view.update(cx, |view, cx| view.ready_open("tool-edit", &shot, cx));
+        redraw(cx);
+        assert_eq!(pick_of(&view, cx), Some(shot));
+        assert!(at_its_end(&view, cx), "the thread follows its tail to the card");
+        assert!(drawn(cx, Role::Group, "Ready to try"), "the card is in sight");
+        assert!(drawn(cx, Role::Article, &format!("Ready to try: {SHOT}")), "and the build opened under its rows");
+    }
+
+    #[gpui::test]
+    fn a_needs_you_row_and_a_try_id_open_the_build_at_the_end_not_up_in_the_history(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen_high(cx, "tool-edit", 1400., 700.);
+        to_the_top(&view, cx);
+        view.update_in(cx, |view, window, cx| view.open_artifact("tool-edit", "try:tool-edit", window, cx));
+        redraw(cx);
+        assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)));
+        assert!(at_its_end(&view, cx));
+        assert!(drawn(cx, Role::Article, &format!("Ready to try: {BARE}")));
+        to_the_top(&view, cx);
+        let shot = id_of(&view, SHOT, cx);
+        assert!(view.update_in(cx, |view, window, cx| view.open_named(&shot, window, cx)));
+        redraw(cx);
+        assert!(at_its_end(&view, cx), "a build's own id too");
+    }
+
+    #[gpui::test]
+    fn a_build_put_off_keeps_the_card_at_the_end(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen_high(cx, "tool-done", 1400., 700.);
+        view.read_with(cx, |view, _| assert!(view.pages.get("tool-done").expect("a page").ready_at().is_some()));
+    }
+
+    #[gpui::test]
+    fn once_no_build_is_open_the_card_leaves_the_end_and_every_build_reads_where_it_happened(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        let full = id_of(&view, FULL, cx);
+        view.update(cx, |view, cx| view.ready_open("tool-edit", &full, cx));
+        redraw(cx);
+        for _ in 0..3 {
+            view.update_in(cx, |view, window, cx| view.ready_digit("tool-edit", "1", window, cx));
+            redraw(cx);
+        }
+        view.read_with(cx, |view, _| assert_eq!(view.pages.get("tool-edit").expect("a page").ready_at(), None));
+        for about in ["Chip takes the stale colour", FULL, SHOT, BARE] {
+            assert!(!drawn_like(cx, Role::ListItem, &format!("Ready to try: {about}")).is_empty(), "{about} is a line where it happened");
+        }
     }
 
     #[gpui::test]
@@ -447,7 +562,7 @@ mod tests {
         one(&view, cx);
         view.read_with(cx, |view, cx| {
             let held = view.thread("tool-edit", cx).expect("a thread");
-            assert_eq!(place_in(&held.items), None, "no build is left for the compact card");
+            assert!(!asks(&held.items), "no build is left for the compact card");
         });
     }
 
@@ -494,7 +609,7 @@ mod tests {
                 ThreadItem::ReadyToTry(card) if card.about == FULL => Some(card.clone()),
                 _ => None,
             });
-            (card.expect("the card"), place_in(&held.items).expect("a place"))
+            (card.expect("the card"), view.pages.get("tool-edit").and_then(|page| page.ready_at()).expect("a place"))
         });
         let past = Instant::carried((Local::now() - chrono::Duration::hours(1)).to_rfc3339());
         view.update_in(cx, |view, window, cx| view.answer_ready(at, &held, ReadyAnswer::Remind { until: past }, window, cx));
