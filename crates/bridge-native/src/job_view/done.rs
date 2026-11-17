@@ -736,8 +736,6 @@ pub(super) fn task_track(group: &str, tasks: &[ipc::SessionPlanTask], look: &Loo
 
 /// The lines a done card leads with, one an ask of the Job with its state's glyph in its hue, open ones first, over the Job's
 /// own summary. Bones while the story is read; nothing where Fleet leads with none. `job` is the Job the card is of.
-// Nothing calls it until the done card in `bands.rs` does; the card is not this file's.
-#[allow(dead_code)]
 pub(super) fn lead_lines(job: &str, look: &Look, cx: &gpui::App) -> Option<AnyElement> {
     use super::story::lead::{lines, Lines};
     let at = |name: String, inner: Vec<AnyElement>| labelled(div().id(SharedString::from(name)).flex().flex_col().gap(look.length(token::SPACE_1)).children(inner), Role::Group, "What he asked for");

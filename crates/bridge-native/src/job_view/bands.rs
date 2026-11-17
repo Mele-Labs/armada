@@ -499,6 +499,7 @@ impl JobView {
                         cx.notify();
                     }))
                     .children(lead)
+                    .children(super::done::lead_lines(id, look, cx))
                     .child(head)
                     .children(result)
                     .children(summary.map(|text| div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(text))))
