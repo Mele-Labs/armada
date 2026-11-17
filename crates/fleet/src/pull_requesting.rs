@@ -193,12 +193,23 @@ impl PullRequestAsk {
     }
 }
 
+/// A base's merge queue, asked of the forge once however many pull requests one reading reads.
+#[derive(Default)]
+struct QueueOnce(Option<Option<adapter_traits::MergeQueue>>);
+
+impl QueueOnce {
+    fn of<V: TheForge>(&mut self, vcs: &V, root: &str, base: &str) -> Option<&adapter_traits::MergeQueue> {
+        self.0.get_or_insert_with(|| vcs.merge_queue(root, base)).as_ref()
+    }
+}
+
 /// The pull request as the forge shows it. **Two asks, and either one silent is silent**: a
 /// state with no checks would let a merge be pressed on a guess.
 fn read_from_forge<V: TheForge>(
     vcs: &V,
     run: &ipc::RunId,
     ask: &PullRequestAsk,
+    queue: &mut QueueOnce,
 ) -> Result<PullRequestState, Refusal> {
     let PullRequestAsk { manifest_id, root, number, gate, base } = ask;
     let number = *number;
@@ -217,7 +228,7 @@ fn read_from_forge<V: TheForge>(
     let queued = facts.standing == Forge::Open
         && base
             .as_deref()
-            .and_then(|base| vcs.merge_queue(root, base))
+            .and_then(|base| queue.of(vcs, root, base))
             .is_some_and(|queue| queue.iter().any(|entry| entry.number == number));
     Ok(PullRequestState {
         manifest_id: manifest_id.clone(),
@@ -280,12 +291,19 @@ where
         root: &str,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
+        self.pull_request_read_in(manifest_id, root, number, &mut QueueOnce::default())
+    }
+
+    /// [`pull_request_read`](Self::pull_request_read) in a reading of many, which shares `queue`.
+    fn pull_request_read_in(
+        &self,
+        manifest_id: &ManifestId,
+        root: &str,
+        number: u64,
+        queue: &mut QueueOnce,
+    ) -> Result<PullRequestState, Refusal> {
         let served = self.served_named(Some(manifest_id))?;
-        read_from_forge(
-            &**self.vcs(),
-            &self.run_id(),
-            &PullRequestAsk::of(manifest_id, root, number, &served),
-        )
+        read_from_forge(&**self.vcs(), &self.run_id(), &PullRequestAsk::of(manifest_id, root, number, &served), queue)
     }
 
     /// [`pull_request_read`](Self::pull_request_read), asked of the forge off the runtime's
@@ -299,7 +317,7 @@ where
         let served = self.served_named(Some(manifest_id))?;
         let ask = PullRequestAsk::of(manifest_id, root, number, &served);
         let (vcs, run) = (std::sync::Arc::clone(self.vcs()), self.run_id());
-        tokio::task::spawn_blocking(move || read_from_forge(&*vcs, &run, &ask))
+        tokio::task::spawn_blocking(move || read_from_forge(&*vcs, &run, &ask, &mut QueueOnce::default()))
             .await
             .expect("the forge process panicked")
     }
@@ -394,8 +412,10 @@ where
         numbers.extend(self.lifecycle_pulls_in_flight(manifest_id.as_str()).await);
         numbers.sort_unstable();
         numbers.dedup();
+        // **One queue for the whole reading**: it is the base's, the same for every pull request.
+        let mut queue = QueueOnce::default();
         for number in numbers {
-            if let Err(refused) = self.pull_request_followed(manifest_id, root, number).await {
+            if let Err(refused) = self.pull_request_followed_in(manifest_id, root, number, &mut queue).await {
                 let why = format!("pull request {number}: {}", refused.error().message);
                 self.pull_reading_warned("a pull request a Job holds was not read", manifest_id.as_str(), why);
             }
@@ -421,7 +441,17 @@ where
         root: &str,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
-        let state = self.pull_request_read(manifest_id, root, number)?;
+        self.pull_request_followed_in(manifest_id, root, number, &mut QueueOnce::default()).await
+    }
+
+    async fn pull_request_followed_in(
+        &self,
+        manifest_id: &ManifestId,
+        root: &str,
+        number: u64,
+        queue: &mut QueueOnce,
+    ) -> Result<PullRequestState, Refusal> {
+        let state = self.pull_request_read_in(manifest_id, root, number, queue)?;
         self.ledger_follows(&state).await;
         self.lifecycle_pull_seen(manifest_id, root, &state).await;
         Ok(state)

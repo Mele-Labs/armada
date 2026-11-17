@@ -133,7 +133,18 @@ impl OperatorScreen {
         let me = cx.entity().downgrade();
         cx.set_global(Here(me.clone(), handle));
         let behind = cx.try_global::<AskedSink>().cloned();
+        let drawn = reviews.as_ref().map(|reviews| reviews.downgrade());
         cx.set_global(AskedSink(Rc::new(move |asked: &Asked, cx: &mut App| {
+            // A project or a repository picked: the inbox draws only its pull requests, so it draws again once the bar has taken the pick.
+            if matches!(asked, Asked::Project(_) | Asked::Repository(_)) {
+                if let Some(reviews) = drawn.clone() {
+                    cx.defer(move |cx| {
+                        if let Some(reviews) = reviews.upgrade() {
+                            reviews.update(cx, |_, cx| cx.notify());
+                        }
+                    });
+                }
+            }
             // The palette's Kit: a kind brings Kit to the front on that kind.
             if let Asked::KitAt(kind) = asked {
                 let (me, kind) = (me.clone(), *kind);

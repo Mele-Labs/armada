@@ -271,7 +271,7 @@ pub(super) fn read(
     number: u64,
 ) -> Result<Option<PullRequestPageFacts>, ApiFailure> {
     let (page, threads) = std::thread::scope(|scope| {
-        let threads = scope.spawn(|| threads_of(api, repository, number));
+        let threads = scope.spawn(crate::forge_tally::carried(|| threads_of(api, repository, number)));
         (page_of(api, repository, number), joined(threads))
     });
     let Some(mut page) = page? else { return Ok(None) };
@@ -300,10 +300,10 @@ fn people_of(
     let owner = owner.split('/').next().unwrap_or_default().to_string();
     std::thread::scope(|scope| {
         let profiles: Vec<_> =
-            people.iter().map(|login| (*login, scope.spawn(move || profile_of(api, login)))).collect();
+            people.iter().map(|login| (*login, scope.spawn(crate::forge_tally::carried(move || profile_of(api, login))))).collect();
         let owner = &owner;
         let members: Vec<_> =
-            teams.iter().map(|slug| (*slug, scope.spawn(move || members_of(api, owner, slug)))).collect();
+            teams.iter().map(|slug| (*slug, scope.spawn(crate::forge_tally::carried(move || members_of(api, owner, slug))))).collect();
         (
             profiles.into_iter().map(|(login, read)| (login.to_string(), joined(read))).collect(),
             members.into_iter().map(|(slug, read)| (slug.to_string(), joined(read))).collect(),
