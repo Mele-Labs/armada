@@ -128,6 +128,8 @@ struct Row {
     moving_to: Option<SharedString>,
     /// The Job went to the other Mac and ended here: its row there stands in for this one.
     moved: bool,
+    /// A reply answers a question of his he has not read (`answer_unread`): a dot in his hue.
+    answer: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -597,6 +599,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 mac: None,
                 moving_to: None,
                 moved: false,
+                answer: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -633,6 +636,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             mac: job.mac.clone().map(Into::into),
             moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
             moved: crate::move_to_mac::moved(job),
+            answer: job.answer_unread,
         };
         fn under<'a>(
             parent: &str,
@@ -2695,6 +2699,10 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
+                    .children(row.answer.then(|| {
+                        let said = "An answer to your question is waiting";
+                        labelled(div().id(SharedString::from(format!("answer-{}", row.id))).flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::YOU)).tooltip(tip(said.into())), Role::Image, said)
+                    }))
                     .children(on_its_way)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.

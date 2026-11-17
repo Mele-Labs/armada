@@ -63,6 +63,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
+⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
