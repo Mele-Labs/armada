@@ -495,6 +495,18 @@ impl JobView {
                 // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
                 let mut seen = std::collections::HashSet::new();
                 items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
+                // A sketch, page or draft card and the artifact of parts it is are one entry too: the card stands for
+                // it, unless he opened that artifact, which then stands for the card.
+                let twins: Vec<String> = items
+                    .iter()
+                    .filter_map(|item| {
+                        let artifact = super::reader_sheet::artifact_in(item)?;
+                        let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.as_deref());
+                        let card = items.iter().find(|other| other.kind != Kind::Artifact && (other.id == artifact || Some(other.id.as_str()) == answered_by))?;
+                        Some(if opened == Some(artifact) { card.id.clone() } else { item.id.clone() })
+                    })
+                    .collect();
+                items.retain(|item| !twins.contains(&item.id));
                 items.sort_by_key(|item| instant(&item.since));
                 Group { job: job.to_string(), title: record.title.clone().unwrap_or_else(|| "New Job".into()), state: record.mark.map(|mark| mark.state), items }
             })

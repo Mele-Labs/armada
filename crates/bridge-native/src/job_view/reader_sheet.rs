@@ -400,6 +400,49 @@ mod tests {
         });
     }
 
+    /// The Job with a sketch card in its thread and a waiting row for it, the sketch being its artifact of parts too.
+    fn with_sketch_card(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
+        let row = format!(r#"[{{"id":"{ID}","text":"{TITLE}","since":"2026-11-14T10:01:00Z","source":"sketch"}}]"#);
+        let card = format!(r#"{{"kind":"sketch","id":"sk-bar","at":"2026-11-14T10:01:00Z","sketch":"{ID}","title":"{TITLE}","drawing":{{}},"asked":true}}"#);
+        super::super::parts_fold::rooted_job_with(
+            cx,
+            "artifact-parts",
+            JOB,
+            size(px(1400.), px(900.)),
+            |jobs| {
+                let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+                jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the job").waiting_for.extend(held);
+            },
+            |threads| threads.get_mut(JOB).expect("the thread").items.push(ipc::decode::<ipc::ThreadItem>("a card", card.as_bytes()).expect("a sketch card")),
+        )
+    }
+
+    /// Every item of the panel that stands for the artifact, by its card's id or by the artifact it reads.
+    fn standing_for_it(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Vec<(String, Kind)> {
+        view.read_with(cx, |view, _| {
+            let review = view.review().expect("review");
+            review.groups.iter().flat_map(|group| group.items.iter()).filter(|item| item.id == ID || artifact_in(item) == Some(ID)).map(|item| (item.id.clone(), item.kind)).collect()
+        })
+    }
+
+    #[gpui::test]
+    fn a_sketch_card_and_the_artifact_of_parts_it_is_are_listed_once_and_the_card_stands(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = with_sketch_card(cx);
+        view.update_in(cx, |view, window, cx| view.open_review_on(ID, window, cx));
+        redraw(cx);
+        let listed = standing_for_it(&view, cx);
+        assert_eq!(listed, [(ID.to_string(), Kind::Sketch)], "one entry, the card his Needs you row names");
+    }
+
+    #[gpui::test]
+    fn an_artifact_he_opened_stands_for_its_sketch_card_in_the_panel(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = with_sketch_card(cx);
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        let listed = standing_for_it(&view, cx);
+        assert_eq!(listed.iter().map(|(_, kind)| *kind).collect::<Vec<_>>(), [Kind::Artifact], "one entry, the artifact he opened: {listed:?}");
+    }
+
     #[gpui::test]
     fn a_pick_sent_from_the_panels_foot_carries_the_take_and_his_words(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
