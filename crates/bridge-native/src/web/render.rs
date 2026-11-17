@@ -114,9 +114,11 @@ pub fn pdf_of(html: String, width: f32, cx: &mut App) -> Task<Result<Vec<u8>, St
     };
     native.load_html(&html);
     cx.spawn(async move |_| {
+        // Any end but Finished is no PDF; named this way it holds whatever other ends a load may gain.
         match arrivals.recv().await {
-            Ok(Nav::Finished) => {}
             Ok(Nav::Failed(why)) => return Err(why),
+            Ok(arrived) if !matches!(arrived, Nav::Finished) => return Err("the page did not load".into()),
+            Ok(_) => {}
             Err(_) => return Err("the page was dropped".into()),
         }
         let height = content_height(&native).await.max(1.);
