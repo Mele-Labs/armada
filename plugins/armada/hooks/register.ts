@@ -1240,6 +1240,13 @@ async function logbookFor($: Dollar, prompt: string): Promise<string> {
 let handoffQuietUntil = 0
 
 /**
+ * Subagents that were handed pages in their prompt, by agent id, to the id the spawn call had when Fleet recorded
+ * them: the agent's own id is not known until it has started. Its later reads ask under that id, so a feature its
+ * brief named is not handed to it again.
+ */
+const spawnedAs = new Map<string, string>()
+
+/**
  * The pages of the features a read or a brief reaches, which Fleet hands over once per feature and per subagent: the
  * condensed text, or an empty string. **Quiet**: a Fleet that is out, slow, older or refuses hands over nothing, and a
  * slow one is not asked again for a while, so no read waits on it twice.
@@ -1277,7 +1284,7 @@ async function featurePagesFor($: Dollar, tool: string, e: SearchAsked, agentId:
   const root = await $.session.root().catch(() => undefined)
   const place = root === undefined ? undefined : placeOfCall(tool, e, root)
   if (place === undefined) return ''
-  return handedOver($, { paths: [place], ...(agentId === undefined ? {} : { agent_id: agentId }) })
+  return handedOver($, { paths: [place], ...(agentId === undefined ? {} : { agent_id: spawnedAs.get(agentId) ?? agentId }) })
 }
 
 /** Whether a prompt could name a feature, by a `Feature:` line or a backticked slug. Any other prompt stays here. */
@@ -1601,13 +1608,18 @@ export const register: Register = on => {
     })
   }
 
-  // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
-  // tell which paths the subagent works under.
+  // The Logbook and the pages of the features the brief names go in the prompt: Claude Code's own SubagentStart hook carries
+  // no prompt, so it could not tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
     // The parent's permission mode is on the spawn: the one place left to read it where the settings hooks are not run.
     if (!classicHeard && e.parentAgentId === undefined) void seen($, e.permissionMode, undefined)
     const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
-    const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
+    // The features its brief names, as the Job's own brief does: counted under the spawn call, since the agent has no id yet.
+    const call = e.tool_use_id ?? 'spawn'
+    const pages = mayNameFeatures(e.prompt) ? await handedOver($, { brief: e.prompt, agent_id: call }) : ''
+    const added = [told, pages].filter(one => one !== '')
+    const out = await next(added.length === 0 ? e : { ...e, prompt: `${e.prompt}\n\n${added.join('\n\n')}` })
+    if (out.deny === undefined && pages !== '' && out.agentId !== undefined) spawnedAs.set(out.agentId, call)
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description, e.tool_use_id, planGroupIn(e.prompt)).catch(() => undefined)

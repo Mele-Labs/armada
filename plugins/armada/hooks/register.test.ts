@@ -265,7 +265,7 @@ test('a subagent is attached by its agent id and names the call that started it'
 
 // What the subagent runs with is what the hook beneath the mod is handed.
 async function spawnedWith(on: On, $: any, prompt: string, options: Parameters<typeof world>[1]) {
-  const { posts, clock, logbookAsks } = world(on, options)
+  const { posts, clock, logbookAsks, handoffAsks } = world(on, options)
   const prompts: string[] = []
   on('agent.spawn', (_$, e) => {
     prompts.push(e.prompt)
@@ -277,7 +277,7 @@ async function spawnedWith(on: On, $: any, prompt: string, options: Parameters<t
   await clock.advance(2000)
   const out = await spawning
   await clock.settle()
-  return { prompts, posts, out, logbookAsks }
+  return { prompts, posts, out, logbookAsks, handoffAsks }
 }
 
 test('a subagent is given the Logbook lines Fleet has for the paths its prompt names', async ($, on) => {
@@ -2437,3 +2437,38 @@ test('a prompt that names a feature by a Feature line or a backticked slug carri
   ])
   expect(contexts).toEqual([[PAGE], [PAGE], undefined])
 })
+
+test('a subagent is handed the pages of the features its prompt names, after the Logbook, and asks under its spawn call', async ($, on) => {
+  const { prompts, handoffAsks, logbookAsks } = await spawnedWith(on, $, 'Add rank votes.\nFeature: voting-on-takes', { handoff: PAGE, logbook: 'How the owner works:\n- Short.' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([{ session_id: 'S1', brief: 'Add rank votes.\nFeature: voting-on-takes', agent_id: 'toolu_1' }])
+  expect(logbookAsks).toHaveLength(1)
+  expect(prompts).toEqual([`Add rank votes.\nFeature: voting-on-takes\n\nHow the owner works:\n- Short.\n\n${PAGE}`])
+})
+
+test('a subagent whose brief named a feature reads under its spawn call, and another subagent under its own id', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a4c6' }))
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.agent.spawn({ prompt: 'Fix `voting-on-takes`', description: 'Votes', subagentType: 'bridge-engineer', tool_use_id: 'toolu_1' } as never)
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs', agentId: 'a4c6' })
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs', agentId: 'other' })
+
+  expect(handoffAsks.map(one => one.body.agent_id)).toEqual(['toolu_1', 'toolu_1', 'other'])
+})
+
+test('a subagent prompt that names no feature asks Fleet for no pages, and a Fleet that answers nothing leaves it as it was', async ($, on) => {
+  const plain = await spawnedWith(on, $, 'Fix apps/desktop/src/main.ts', { handoff: PAGE })
+  expect(plain.handoffAsks).toEqual([])
+  expect(plain.prompts).toEqual(['Fix apps/desktop/src/main.ts'])
+})
+
+for (const handoff of ['down', 'slow', 'refused', '']) {
+  test(`a Fleet that answers ${handoff === '' ? 'nothing' : handoff} to a subagent's brief gives it its prompt as it was`, async ($, on) => {
+    const { prompts, out } = await spawnedWith(on, $, 'Fix `voting-on-takes`', { handoff })
+
+    expect(prompts).toEqual(['Fix `voting-on-takes`'])
+    expect(out.agentId).toBe('a4c6')
+  })
+}

@@ -63,11 +63,12 @@ When it is over the cap the last of these go first, and the head always stays.
 
 ## Handing a Job its pages
 
-The mod's hooks hand a Job the page of a feature at two moments, and Fleet decides each time whether that page was handed before.
+The mod's hooks hand a Job the page of a feature at three moments, and Fleet decides each time whether that page was handed before.
 
 | Moment | Which pages |
 |---|---|
 | A prompt names features | Each feature it names, by a `Feature: <slug>` line or by its slug between backticks |
+| A subagent starts | Each feature its prompt names, in the same two ways, added to the prompt |
 | The Job reads or searches a file | Each feature that owns the file or the folder, at most three a call and the rest at the next read |
 
 > **Rule.** A feature's page is handed to a Job once.
@@ -75,7 +76,8 @@ The mod's hooks hand a Job the page of a feature at two moments, and Fleet decid
 
 The page rides on the result of the call that reached it, so the agent reads it before it digs.
 A read or search that was turned away hands nothing, and neither does a search of the whole repository or a file outside the Job's checkout.
-Fleet keeps the record per Job and feature, so it holds across turns and a restart.
+Fleet keeps the record per Job, holder and feature, so it holds across turns and a restart.
+A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
 A Fleet that is out or slow hands nothing and the read goes on.
 
 ## Holding a Job's end
