@@ -57,6 +57,7 @@ mod perm;
 mod picture_view;
 mod pictures;
 mod pinned;
+mod thread_rail;
 mod place;
 mod plan;
 mod plan_edit;
@@ -1352,7 +1353,7 @@ impl Render for JobView {
                 .flex_col()
                 .children(origin)
                 .children(find)
-                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)).children(self.render_thread_rail(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()

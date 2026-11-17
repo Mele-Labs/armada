@@ -2050,6 +2050,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "thread_rail",
+    kind: "Action",
+    tier: "Global",
+    verb: "Open the asks of this thread",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥T",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**
