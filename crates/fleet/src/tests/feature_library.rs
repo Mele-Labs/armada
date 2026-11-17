@@ -397,3 +397,89 @@ async fn a_feature_in_an_area_nobody_kept_is_refused_with_nothing_kept_and_a_re_
     assert_eq!((again.created.len(), again.updated.len()), (0, 2));
     assert_eq!(id_of(&rig.fleet.list_features(None, Some(project)).await.expect("listed")), before);
 }
+
+// What follows hands a Job the pages of the features it works in.
+
+fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
+    ipc::HandOverFeatures {
+        session_id: id.clone(),
+        agent_id: agent.map(str::to_string),
+        paths: paths.iter().map(|one| one.to_string()).collect(),
+        brief: brief.map(str::to_string),
+    }
+}
+
+#[tokio::test]
+async fn a_feature_page_is_handed_once_per_job_and_once_per_subagent_and_the_record_outlives_the_call() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let voting = "crates/pages/voting/ranks.rs";
+
+    let first = rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked");
+    assert_eq!(first.features, [VOTING]);
+    assert!(first.text.starts_with("Feature pages from Armada's library"), "{}", first.text);
+    assert!(first.text.contains("voting-on-takes (Takes)") && first.text.contains("Full sections:"), "the condensed page: {}", first.text);
+
+    let again = rig.fleet.hand_over_features(hand(&id, None, &[voting, "crates/pages/voting"], None)).await.expect("asked");
+    assert!(again.features.is_empty() && again.text.is_empty(), "the second read of the feature hands nothing: {}", again.text);
+
+    let other = rig.fleet.hand_over_features(hand(&id, Some("agent-1"), &[voting], None)).await.expect("asked");
+    assert_eq!(other.features, [VOTING], "a subagent has a context of its own");
+    assert!(rig.fleet.hand_over_features(hand(&id, Some("agent-1"), &[voting], None)).await.expect("asked").features.is_empty());
+
+    let store = rig.fleet.store().lock().await;
+    assert_eq!(store.feature_handoffs(id.as_str(), "").expect("read").len(), 1);
+    assert_eq!(store.feature_handoffs(id.as_str(), "agent-1").expect("read").len(), 1);
+}
+
+#[tokio::test]
+async fn a_brief_hands_over_the_features_it_names_and_a_later_read_of_their_files_hands_nothing() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let brief = "Add rank votes.\n\nFeature: no-such-feature, voting-on-takes\nSee also `page-actions` and `cargo test`.";
+
+    let named = rig.fleet.hand_over_features(hand(&id, None, &[], Some(brief))).await.expect("asked");
+    assert_eq!(named.features, [VOTING, "page-actions"], "a slug the project does not hold names nothing");
+    let read = rig.fleet.hand_over_features(hand(&id, None, &["crates/pages/actions/a.rs"], None)).await.expect("asked");
+    assert!(read.features.is_empty(), "the brief already handed it over");
+    let told_again = rig.fleet.hand_over_features(hand(&id, None, &[], Some(brief))).await.expect("asked");
+    assert!(told_again.text.is_empty());
+}
+
+#[tokio::test]
+async fn a_file_several_features_own_hands_over_three_pages_and_the_rest_at_the_next_read() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        for (n, slug) in ["one", "two", "three", "four"].into_iter().enumerate() {
+            store.put_feature(&store::KeptFeature { project: project.clone(), ..feature(&format!("f-{n}"), slug, &["crates/wide"]) }).expect("kept");
+        }
+    }
+    let path = ["crates/wide/a.rs"];
+    let first = rig.fleet.hand_over_features(hand(&id, None, &path, None)).await.expect("asked");
+    assert_eq!(first.features.len(), 3);
+    let second = rig.fleet.hand_over_features(hand(&id, None, &path, None)).await.expect("asked");
+    assert_eq!(second.features.len(), 1);
+    assert!(!first.features.contains(&second.features[0]));
+}
+
+#[tokio::test]
+async fn nothing_is_handed_to_a_job_fleet_does_not_know_a_project_with_no_library_or_a_file_no_feature_owns() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    let voting = "crates/pages/voting/ranks.rs";
+    assert!(rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked").text.is_empty(), "no library yet");
+
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let stranger = SessionId::carried("s-unknown");
+    assert!(rig.fleet.hand_over_features(hand(&stranger, None, &[voting], None)).await.expect("asked").text.is_empty());
+    assert!(rig.fleet.hand_over_features(hand(&id, None, &["docs/elsewhere.md"], None)).await.expect("asked").text.is_empty());
+    assert!(rig.fleet.store().lock().await.feature_handoffs(id.as_str(), "").expect("read").is_empty(), "nothing was handed, so nothing is kept");
+}

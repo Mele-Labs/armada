@@ -94,6 +94,10 @@ where
         self.features_upserted(upsert).await
     }
 
+    async fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> Result<ipc::FeaturesHandedOver, Refusal> {
+        self.features_handed_over(hand).await
+    }
+
     async fn get_first_edit_searches(&self, weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {
         self.first_edit_searches_read(weeks).await
     }

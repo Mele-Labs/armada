@@ -61,6 +61,23 @@ A condensed page is text for an agent, about 1,000 tokens, counted as characters
 It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section.
 When it is over the cap the last of these go first, and the head always stays.
 
+## Handing a Job its pages
+
+The mod's hooks hand a Job the page of a feature at two moments, and Fleet decides each time whether that page was handed before.
+
+| Moment | Which pages |
+|---|---|
+| A prompt names features | Each feature it names, by a `Feature: <slug>` line or by its slug between backticks |
+| The Job reads or searches a file | Each feature that owns the file or the folder, at most three a call and the rest at the next read |
+
+> **Rule.** A feature's page is handed to a Job once.
+> Why: the page costs about a thousand tokens and says the same thing the second time.
+
+The page rides on the result of the call that reached it, so the agent reads it before it digs.
+A read or search that was turned away hands nothing, and neither does a search of the whole repository or a file outside the Job's checkout.
+Fleet keeps the record per Job and feature, so it holds across turns and a restart.
+A Fleet that is out or slow hands nothing and the read goes on.
+
 ## Holding a Job's end
 
 > **Rule.** `all_done` is refused while the Job's merged or pushed work changed files of a feature whose four sections it has not written since it started.
@@ -88,6 +105,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_feature_page` | One feature whole |
 | `get_feature_brief` | One feature condensed |
 | `get_features_of_path` | The features a file belongs to |
+| `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
 | `get_first_edit_searches` | The weekly figure above |

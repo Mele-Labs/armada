@@ -13,16 +13,18 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; handoff?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0, reports: 0, listed: [] as string[] }
   const processes: { argv: string[] }[] = []
   const submitted: { text: string; asUser?: boolean }[] = []
+  const contexts: (readonly string[] | undefined)[] = []
   const usages: unknown[] = []
   const asked: unknown[] = []
   const logbookAsks: Posted[] = []
+  const handoffAsks: Posted[] = []
   const prePrAsks: Posted[] = []
   const questions: any[] = []
   const reached: { to?: string }[] = []
@@ -89,6 +91,14 @@ function world(
       if (options.logbook === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
       return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ text: options.logbook ?? '' }) } }
     }
+    // The feature pages a Job is owed: their text, a Fleet that fails, one too slow to wait for, or one without the route.
+    if (e.url.endsWith('/features/hand_over')) {
+      handoffAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
+      if (options.handoff === 'down') throw new Error('connection refused')
+      if (options.handoff === 'slow') return new Promise(() => undefined)
+      if (options.handoff === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ features: [], text: options.handoff ?? '' }) } }
+    }
     // The Checks a pull request waits on: passed, failed with a log tail, or a Fleet that is down, slow or without the route.
     if (e.url.endsWith('/sessions/pre_pr')) {
       prePrAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
@@ -133,6 +143,7 @@ function world(
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('prompt.submit', (_$, e) => {
     submitted.push({ text: e.text, asUser: e.origin?.asUser })
+    contexts.push(e.context)
     order.push(`submit ${e.text}`)
     return { text: e.text }
   })
@@ -155,7 +166,7 @@ function world(
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, prePrAsks, reached }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, handoffAsks, contexts, prePrAsks, reached }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -2334,4 +2345,95 @@ test('a message is sent when Fleet is out of reach', async ($, on) => {
   const out = await $.tool.call({ tool: 'SendMessage', to: 's-1234abcd', message: 'done' })
 
   expect(out.result).toBe('sent')
+})
+
+// The pages of the features a read or a brief reaches, which Fleet hands over once; the mod only asks and carries the answer.
+const PAGE = 'Feature pages from Armada\'s library, handed once per feature:\n\nVoting on takes (Takes)\nFull sections: get_feature_page feature=voting-on-takes.'
+
+test('the first read of a file asks Fleet which pages it is owed and the page rides on the call\'s result', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  const out = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([{ session_id: 'S1', paths: ['crates/pages/voting/a.rs'] }])
+  expect(out.context).toEqual([PAGE])
+  expect(out.result).toBe('file text')
+})
+
+test('a Grep and a Glob ask for the folder they search, and a subagent asks as itself', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Grep' }, () => ({ result: 'hits' }))
+  on('tool.call', { tool: 'Glob' }, () => ({ result: 'files' }))
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: '/repos/armada/crates/pages', glob: 'voting/**/*.rs' })
+  await $.tool.call({ tool: 'Glob', pattern: 'crates/pages/**/*.rs' })
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: 'crates/pages/voting', agentId: 'sub1' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([
+    { session_id: 'S1', paths: ['crates/pages/voting'] },
+    { session_id: 'S1', paths: ['crates/pages'] },
+    { session_id: 'S1', paths: ['crates/pages/voting'], agent_id: 'sub1' },
+  ])
+})
+
+test('a search of the whole repository, a file outside it and a call that was turned away ask Fleet nothing', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Grep' }, () => ({ result: 'hits' }))
+  on('tool.call', { tool: 'Read' }, (_$, e) => (e.file_path.endsWith('big.md') ? { deny: 'Not read' } : { result: 'text' }))
+  await $.tool.call({ tool: 'Grep', pattern: 'vote' })
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: '/repos/armada' })
+  await $.tool.call({ tool: 'Read', file_path: '/etc/hosts' })
+  const turned = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/docs/big.md' })
+
+  expect(handoffAsks).toEqual([])
+  expect(turned.context).toBeUndefined()
+})
+
+for (const handoff of ['down', 'refused', '']) {
+  test(`a Fleet that answers ${handoff === '' ? 'nothing' : handoff} leaves the read as it was, and no error`, async ($, on) => {
+    world(on, { handoff })
+    on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+    const out = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs' })
+
+    expect(out.result).toBe('file text')
+    expect(out.context ?? []).toEqual([])
+  })
+}
+
+test('a Fleet too slow to answer is waited on once and then left alone for a while', async ($, on) => {
+  const { handoffAsks, clock } = world(on, { handoff: 'slow' })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  const first = $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  await clock.advance(2000)
+  expect((await first).result).toBe('file text')
+  const second = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/two.rs' })
+
+  expect(second.result).toBe('file text')
+  expect(handoffAsks).toHaveLength(1)
+})
+
+test('a Fleet that is not running, and a Drone, are not asked for pages', async ($, on) => {
+  const down = world(on, { running: () => false, handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  expect(down.handoffAsks).toEqual([])
+})
+
+test('a Drone is not handed feature pages', async ($, on) => {
+  const { handoffAsks } = world(on, { env: { ARMADA_DRONE: '1' }, handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  expect(handoffAsks).toEqual([])
+})
+
+test('a prompt that names a feature by a Feature line or a backticked slug carries its page, and any other prompt asks nothing', async ($, on) => {
+  const { handoffAsks, contexts } = world(on, { handoff: PAGE })
+  await $.prompt.submit({ text: 'Add rank votes.\n\nFeature: voting-on-takes', wait: false, origin: {} } as never)
+  await $.prompt.submit({ text: 'Fix `voting-on-takes`', wait: false, origin: {} } as never)
+  await $.prompt.submit({ text: 'Run the tests', wait: false, origin: {} } as never)
+
+  expect(handoffAsks.map(one => one.body)).toEqual([
+    { session_id: 'S1', brief: 'Add rank votes.\n\nFeature: voting-on-takes' },
+    { session_id: 'S1', brief: 'Fix `voting-on-takes`' },
+  ])
+  expect(contexts).toEqual([[PAGE], [PAGE], undefined])
 })

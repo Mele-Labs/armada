@@ -2,7 +2,7 @@
 //! what arrived. What Fleet keeps and works out is `fleet::feature_library`'s, against a real store.
 
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
+    FeatureAreaRow, FeatureBrief, FeaturesHandedOver, HandOverFeatures, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
     FeaturesOfPath, FeaturesUpserted, FirstEditSearches, UpsertFeatures, WriteFeatureSections,
 };
 
@@ -63,6 +63,10 @@ impl Features for FakeDaemon {
 
     async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {
+        Ok(FeaturesHandedOver { features: hand.paths, text: String::new() })
     }
 
     async fn get_first_edit_searches(&self, _weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

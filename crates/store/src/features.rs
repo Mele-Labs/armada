@@ -400,6 +400,29 @@ impl Store {
             .map_err(failed("reading whether a merge is kept"))
     }
 
+    /// Keep that `feature_id`'s page was handed to `holder` of `session`: the Job's own thread where `holder` is empty,
+    /// else a subagent's id. **Whether this is the first time**, so two calls at once hand it over once.
+    pub fn keep_feature_handoff(&mut self, session: &str, holder: &str, feature_id: &str, via: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO feature_handoffs (session_id, holder, feature_id, via, handed_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![session, holder, feature_id, via, at],
+            )
+            .map(|added| added > 0)
+            .map_err(failed("keeping that a feature's page was handed over"))
+    }
+
+    /// The ids of the features whose page was handed to `holder` of `session`.
+    pub fn feature_handoffs(&self, session: &str, holder: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading which feature pages a Job was handed";
+        let mut statement = self
+            .conn
+            .prepare("SELECT feature_id FROM feature_handoffs WHERE session_id = ?1 AND holder = ?2 ORDER BY handed_at, feature_id")
+            .map_err(failed(doing))?;
+        let rows = statement.query_map(params![session, holder], |row| row.get(0)).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
     /// Whether any feature is kept for the project.
     pub fn project_has_features(&self, project: &str) -> Result<bool, WriteError> {
         self.conn

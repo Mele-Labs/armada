@@ -95,6 +95,19 @@ pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>
     }
 }
 
+/// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
+/// not on the agent's connection.
+pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let hand: ipc::HandOverFeatures = match ipc::decode_body("feature pages to hand over", &body) {
+        Ok(hand) => hand,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().hand_over_features(hand).await {
+        Ok(handed) => answer(StatusCode::OK, &handed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_first_edit_searches<D: Features>(State(served): State<Served<D>>, Query(asked): Query<Weeks>) -> Response {
     match served.daemon().get_first_edit_searches(asked.weeks).await {
         Ok(figure) => answer(StatusCode::OK, &figure, served.run_id()),

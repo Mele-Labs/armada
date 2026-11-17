@@ -210,8 +210,13 @@ where
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
         let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
-        let on = self.jobs_on_features(&store, &loaded.project)?;
-        let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
+        self.feature_brief_of(&store, &loaded, &feature)
+    }
+
+    /// One feature's page condensed, read from `store` with the library `loaded` holds it in.
+    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature) -> Result<FeatureBrief, Refusal> {
+        let on = self.jobs_on_features(store, &loaded.project)?;
+        let marked = sections_marked(store, loaded, feature).map_err(|why| self.feature_fault(why))?;
         let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
         let files = store.feature_top_files(&feature.id, 5).map_err(|why| self.feature_fault(why))?;
         let newest = store.feature_merge_newest(&feature.manifest_id).map_err(|why| self.feature_fault(why))?;
@@ -241,7 +246,7 @@ where
             debt: text_of(store::feature_section::DEBT),
         };
         let text = condensed(&facts);
-        Ok(FeatureBrief { feature: feature.slug, tokens: tokens_of(&text), text })
+        Ok(FeatureBrief { feature: feature.slug.clone(), tokens: tokens_of(&text), text })
     }
 }
 

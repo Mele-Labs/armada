@@ -9,7 +9,7 @@
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, the lines a stop is sent back with, and each line a reply named as owed that the session left out of
-// `waiting_for` after it was sent back.** A message is reported as who it went to
+// `waiting_for` after it was sent back. The one other thing asked of Fleet is which feature pages a read or a brief is owed (`handedOver`): the path of a Read, Grep or Glob under the session's directory, and a prompt that has a `Feature:` line or a backticked slug in it, go to Fleet on this machine and the pages come back.** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 // The Loadout is reported the same way: each skill, subagent, MCP server and tool, memory file, output style,
@@ -77,6 +77,8 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
+import { placeOfCall } from './handoff'
+import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
@@ -88,6 +90,8 @@ const WAIT_MS = 1500
 const PRE_PR_WAIT_MS = 5 * 60_000
 // What a subagent's start waits for the Logbook: past it, the subagent starts with its prompt as it was.
 const LOGBOOK_WAIT_MS = 800
+// How long Fleet is given to say which feature pages a Job is owed: past it the agent is handed nothing, and Fleet is not asked again for SILENT_MS.
+const HANDOFF_WAIT_MS = 1500
 // The tick that starts an ask when none is open, so also how soon one is retried after it failed.
 const ASK_EVERY_MS = 2000
 // How long Fleet may hold an ask, and how long the mod waits on one before it asks again.
@@ -1233,6 +1237,54 @@ async function logbookFor($: Dollar, prompt: string): Promise<string> {
   }
 }
 
+let handoffQuietUntil = 0
+
+/**
+ * The pages of the features a read or a brief reaches, which Fleet hands over once per feature and per subagent: the
+ * condensed text, or an empty string. **Quiet**: a Fleet that is out, slow, older or refuses hands over nothing, and a
+ * slow one is not asked again for a while, so no read waits on it twice.
+ */
+async function handedOver($: Dollar, body: { paths?: string[]; brief?: string; agent_id?: string }): Promise<string> {
+  try {
+    if (await $.env.get('ARMADA_DRONE')) return ''
+    const now = await $.clock.now()
+    if (now < handoffQuietUntil) return ''
+    const port = await portOf($)
+    if (port === undefined) return ''
+    const session_id = await $.session.id()
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/features/hand_over`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id, ...body }),
+      }),
+      $.clock.sleep(HANDOFF_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined) {
+      handoffQuietUntil = now + SILENT_MS
+      return ''
+    }
+    if (!asked.ok) return ''
+    const text = (JSON.parse(asked.text) as { text?: unknown }).text
+    return typeof text === 'string' ? text.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
+/** The page of the feature a Read, Grep or Glob reaches, for the agent that made the call. */
+async function featurePagesFor($: Dollar, tool: string, e: SearchAsked, agentId: string | undefined): Promise<string> {
+  const root = await $.session.root().catch(() => undefined)
+  const place = root === undefined ? undefined : placeOfCall(tool, e, root)
+  if (place === undefined) return ''
+  return handedOver($, { paths: [place], ...(agentId === undefined ? {} : { agent_id: agentId }) })
+}
+
+/** Whether a prompt could name a feature, by a `Feature:` line or a backticked slug. Any other prompt stays here. */
+function mayNameFeatures(text: string): boolean {
+  return /feature\s*:/i.test(text) || /`[a-z0-9._/-]+`/.test(text)
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -1282,7 +1334,9 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    const out = await next(e)
+    // The features a brief names reach the agent with it, the first time and no other.
+    const named = mayNameFeatures(e.text) ? await handedOver($, { brief: e.text }) : ''
+    const out = await next(named === '' ? e : { ...e, context: [...(e.context ?? []), named] })
     const one = known.get(await $.session.id())
     if (one !== undefined) one.turn = freshTurn()
     void titled($, e.text).catch(() => undefined)
@@ -1318,6 +1372,17 @@ export const register: Register = on => {
     }
     return remindOutside($, ran, cmuxBrowserIn(e.command))
   })
+
+  // The page of the feature a file belongs to reaches the agent the first time it reads or searches that file. Told with the
+  // call's own result, and only once the call ran: a read that was turned away has not shown the agent anything yet.
+  for (const tool of ['Read', 'Grep', 'Glob']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError === true) return ran
+      const pages = await featurePagesFor($, tool, e as SearchAsked, e.agentId)
+      return pages === '' ? ran : { ...ran, context: [...(ran.context ?? []), pages] }
+    })
+  }
 
   // A whole read of a large file is turned away once, with its outline, so the agent reads a range.
   on('tool.call', { tool: 'Read' }, async ($, e, next) => {

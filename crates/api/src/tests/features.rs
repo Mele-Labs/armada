@@ -78,3 +78,12 @@ async fn the_weekly_figure_is_read_with_or_without_the_number_of_weeks() {
     let (status, _) = call(&app(), "GET", "/usage/first_edit_searches?weeks=4", "").await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn the_mods_hook_asks_for_the_pages_a_job_is_owed_over_post() {
+    let (status, said) = call(&app(), "POST", "/features/hand_over", r#"{"session_id":"s-1","paths":["crates/a.rs"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"features":["crates/a.rs"],"text":""}"#);
+    let (status, _) = call(&app(), "POST", "/features/hand_over", r#"{"paths":["a"]}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the Job is named");
+}

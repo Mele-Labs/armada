@@ -38,3 +38,14 @@ fn a_base_git_does_not_know_is_not_checked() {
     let repo = TempRepo::with_a_commit();
     assert!(commits_naming(repo.root(), "nowhere").is_err());
 }
+
+#[test]
+fn a_feature_line_in_a_shell_command_or_a_brief_names_features_at_a_line_start_or_after_a_quote() {
+    use crate::feature_commits::{backticked_slugs_in, feature_lines_in};
+    assert_eq!(feature_lines_in(r#"git commit -m "Add votes" -m "Feature: voting-on-takes, page-actions""#), ["voting-on-takes", "page-actions"]);
+    assert_eq!(feature_lines_in("git commit -m \"$(cat <<'EOF'\nAdd votes\n\nFeature: voting-on-takes\nCo-Authored-By: X\nEOF\n)\""), ["voting-on-takes"]);
+    assert_eq!(feature_lines_in("Build it.\n  feature: a-b\nFeature: a-b, c"), ["a-b", "c"], "any case, any indent, each once");
+    assert!(feature_lines_in("Add the Feature: line to a commit").is_empty(), "a sentence is prose");
+    assert!(feature_lines_in("git commit -m \"Feature: Not A Slug\"").is_empty());
+    assert_eq!(backticked_slugs_in("Use `voting-on-takes` and `cargo test`, then `page-actions`."), ["voting-on-takes", "page-actions"]);
+}

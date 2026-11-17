@@ -1,6 +1,6 @@
 //! The feature library's bodies, as they are written on the wire.
 
-use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, UpsertFeatures, WriteFeatureSections};
+use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, HandOverFeatures, UpsertFeatures, WriteFeatureSections};
 
 #[test]
 fn the_two_bodies_say_their_shape() {
@@ -32,4 +32,9 @@ fn a_path_answers_each_feature_with_how_it_belongs() {
     .expect("decoded");
     assert_eq!(found.features.len(), 2);
     assert!(found.features[1].prefix.is_none());
+}
+
+#[test]
+fn the_hand_over_body_says_its_shape() {
+    assert_eq!(shape::of::<HandOverFeatures>(), "{session_id: string, agent_id?: string, paths?: [string], brief?: string}");
 }

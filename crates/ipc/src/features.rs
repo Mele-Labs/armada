@@ -349,3 +349,32 @@ pub struct FirstEditSearches {
     /// Jobs in those weeks whose turns were read before searches were counted, so they are in no week.
     pub unmeasured: u32,
 }
+
+/// `hand_over_features`: the mod's hook asks which feature pages a Job is owed for what it is about to read, search or
+/// be told. **Fleet answers once per feature per holder**, and keeps the record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandOverFeatures {
+    /// The Job.
+    pub session_id: SessionId,
+    /// The subagent the read is the turn of, or the spawn call's id where the subagent is being told its brief. Absent for
+    /// the Job's own thread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    /// The file or folder a Read, Grep or Glob is about to open, as the call spelled it. Absolute paths under the Job's
+    /// checkout are read as relative to it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    /// A brief or a prompt: the features it names are handed over. A feature is named by a `Feature: <slug>` line, as a
+    /// commit names one, or by its slug between backticks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
+}
+
+/// What `hand_over_features` hands over.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesHandedOver {
+    /// The slugs handed over now, in the order of their pages. Empty where every feature asked about was handed over before.
+    pub features: Vec<String>,
+    /// Their condensed pages as plain text for the agent, empty where none.
+    pub text: String,
+}

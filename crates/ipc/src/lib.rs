@@ -376,6 +376,7 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, UpsertFeatures, WriteFeatureSections,
 };
+pub use features::{FeaturesHandedOver, HandOverFeatures};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};

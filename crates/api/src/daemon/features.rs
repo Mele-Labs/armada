@@ -59,6 +59,10 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.feature_blank`), with nothing kept.
     fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
+    /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
+    /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.
+    fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> impl Future<Output = Result<ipc::FeaturesHandedOver, Refusal>> + Send;
+
     /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
     fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;
 }
