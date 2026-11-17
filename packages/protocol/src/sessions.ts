@@ -1232,6 +1232,8 @@ export type ShowSketch = {
   /** What it is for and what his answer changes: one sentence, at most 200 characters. */
   for?: string;
   links?: ForLink[];
+  /** `false` for a sketch that only explains: it never waits on him and has no Approve. Left out, it asks. */
+  asks?: boolean;
 };
 
 /**

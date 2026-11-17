@@ -26,12 +26,14 @@
 
 mod accounts;
 mod asides;
+mod story;
 mod admitting;
 mod judge;
 mod app_runs;
 mod authoring;
 mod clashing;
 mod commands;
+mod features;
 mod conversing;
 mod hosted_sessions;
 mod lifecycles;
@@ -55,10 +57,12 @@ mod watches;
 
 pub use accounts::Accounts;
 pub use asides::Asides;
+pub use story::Story;
 pub use admitting::{offerable, operator_rows, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
 pub use commands::Commands;
+pub use features::Features;
 pub use conversing::Conversations;
 pub use hosted_sessions::{HostedSessions, SealedPage, StoredFile};
 pub use sessions::ShownFile;
@@ -145,11 +149,13 @@ pub trait Daemon:
     + SharedHome
     + JudgeReadings
     + Asides
+    + Story
     + Requests
     + Watches
     + AppRuns
     + Lifecycles
     + OtherMacs
+    + Features
 {
 }
 
@@ -178,11 +184,13 @@ impl<
             + SharedHome
             + JudgeReadings
             + Asides
+            + Story
             + Requests
             + Watches
             + AppRuns
             + Lifecycles
-            + OtherMacs,
+            + OtherMacs
+            + Features,
     > Daemon for D
 {
 }

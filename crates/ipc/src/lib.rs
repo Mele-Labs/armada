@@ -46,6 +46,8 @@ mod disputes;
 mod bug_reports;
 /// `raise_conflict`, `ask_held` and `withdraw_held`, the things a Job may send the Operator and take back.
 mod job_asks;
+/// A project's feature library: areas, features, their sections and links.
+mod features;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -146,6 +148,8 @@ mod values;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
+/// A Kit piece's file read, saved and opened elsewhere. `docs/concepts/kit.md`.
+mod kit_files;
 /// Fleet's three changeable limits. **A value out of range does not decode.**
 mod limits;
 /// The merge line of each served repository, as Fleet serves it.
@@ -221,6 +225,8 @@ mod request_runs;
 mod judge;
 /// A side question put to a Job, answered on a thrown-away copy of its conversation.
 mod asides;
+/// What the owner said in a Job, sorted by kind, the asks that came of it, and the Job's story.
+mod story;
 /// What an agent says about one pull request, and the review tools it is asked with.
 mod review_runs;
 /// A pull request's change sets, its overview, and its sets held to the repository's practices.
@@ -365,6 +371,11 @@ pub use annotations::{
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+pub use features::{
+    AreaSeed, FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed,
+    FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
+    FeaturesOfPath, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, UpsertFeatures, WriteFeatureSections,
+};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
@@ -387,7 +398,7 @@ pub use amending::{
     PolicyWords, PortDraft,
 };
 pub use building::{
-    BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
+    BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, CheckoutBlocked, ClearBlocked, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
     HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
 };
@@ -495,7 +506,7 @@ pub use job_lanes::{
 pub use repository_file::RepositoryFile;
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
-pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, StandingCall, StandingCallKind, StandingCalls};
+pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, ReviewAsked, StandingCall, StandingCallKind, StandingCalls};
 pub use job_thread::{
     against_of_detail, file_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
     SketchCall, CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead,
@@ -549,6 +560,9 @@ pub use kit::{
     RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };
+pub use kit_files::{
+    GetKitFile, KitFile, KitFileKind, KitOpenKind, KitPieceOpened, KitPlace, OpenKitPiece, SaveKitFile,
+};
 pub use limits::{
     ChecksAtOnce, DiskFloorGib, DronesAtOnce, FleetLimits, LimitValues, MemorySparePercent,
     SaveLimits, Within,
@@ -592,7 +606,7 @@ pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
     PullRequestDraft, PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
     PullRequestFilePatches,
-    PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
+    PullRequestFileStatus, PullRequestMergeState, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
     PullRequestReviewerKind,
     PullRequestStanding, PullRequestState, PullRequestVerdict, PullRequestWriteKind,
     WritePullRequest,
@@ -660,6 +674,10 @@ pub use session_import::{
     RunFactKind,
 };
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
+pub use story::{
+    Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, JobAsks, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
+    StoryBuilt, StoryChanged, StoryHanded, StoryShown,
+};
 pub use judge::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
     JudgeState, MarkJudgeRead, SendJudgeNote,

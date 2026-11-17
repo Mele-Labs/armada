@@ -76,7 +76,8 @@ It waits again, with its `since` at that instant, only when the job shows it aga
 It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk.
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
-**Every sketch a job shows waits until the person answers it.** One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
+**Every sketch a job shows waits until the person answers it, except one shown with `asks: false`, which waits on no one** ([Drawing a sketch](drawing-a-sketch.md)).
+One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
 Its text is the title for a lone sketch, else the title and the parts still open, never a count ([Artifact](../artifact.md), *Parts*).
 His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
 `answer_waiting` on it is refused: the card answers it.
@@ -124,6 +125,7 @@ Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a
 Only an item the agent stated is done: a page is approved, a call dismissed.
 `fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
 `review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
+The native Bridge names a lone plan, sketch or draft in the band all the same, since its card can sit far up a long thread.
 An open Ready to try card is always in the band, alone or not: `fold` and `review_in_band` are true, and `glyphs` carries its mark, `Ready to try`.
 A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, steps or none, except the preview's Refresh, which Bridge draws from `get_preview_offers` and is no item here.
 `dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
@@ -257,6 +259,7 @@ A line with a fenced command right after it is kept whatever its shape.
 Each remaining sentence is read alone by two heads of the local language model, one for what asks the person and one for what the agent keeps for itself.
 The sentence the asks rules find is always the first ask, so nothing the rules caught is lost.
 Every ask is the item `replied:<turn ended>:<n>`, with `n` its place among the reply's asks, its text the sentence, and its `since` the instant the reply ended.
+None is raised when the agent listed its own `waiting_for` items that turn, or when `features.readRepliesForNeeds` is off.
 `dismiss_waiting` drops one ask by its id and leaves the others.
 
 An ask's act is read from its words:

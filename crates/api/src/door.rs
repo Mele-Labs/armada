@@ -197,6 +197,10 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "raise_conflict",
     "ask_held",
     "withdraw_held",
+    // The feature library a Job reads before it searches and writes into before it ends.
+    "get_features_of_path",
+    "get_feature_brief",
+    "write_feature_sections",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
     // The Jobs it started are read and commanded the same way.

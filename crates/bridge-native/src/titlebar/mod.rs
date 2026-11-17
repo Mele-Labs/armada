@@ -39,7 +39,7 @@ use gpui::{
     EventEmitter, FocusHandle, FontWeight, Focusable, Global, MouseButton, PathBuilder, Pixels, Point, Role, SharedString,
     Subscription, Task, WeakEntity, Window,
 };
-use ipc::{BuildSource, ModelDownshift};
+use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
 pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
@@ -77,7 +77,8 @@ pub enum Asked {
     NewProject,
     /// The switcher's In this build row: the sheet of the build's notes opens.
     BuildNotes,
-    ChangeBuild { build: BuildSource },
+    /// Restart onto `build`; `clear` first moves the untracked files that stop main updating.
+    ChangeBuild { build: BuildSource, clear: Option<ClearBlocked> },
     Revert,
     Keep,
     Swap,
@@ -515,13 +516,15 @@ impl TitleBar {
     /// scoped to by its id, and goes back to All where Fleet no longer lists it.
     pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
         let listed = face::projects_of(served, read);
+        let unread = face::unread_of(read);
         let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
         let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
-        if listed == self.face.projects && scoped == self.face.scoped {
+        if listed == self.face.projects && scoped == self.face.scoped && unread == self.face.unread {
             return;
         }
         self.face.projects = listed;
         self.face.scoped = scoped;
+        self.face.unread = unread;
         cx.notify();
     }
 
@@ -760,8 +763,8 @@ impl TitleBar {
             (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
             (MenuKind::Account, "new-project") => self.leave_with(Asked::NewProject, window, cx),
             (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
-            (MenuKind::Build, "main") => self.change_build(BuildSource::Main, window, cx),
-            (MenuKind::Build, "preview") => self.change_build(BuildSource::Preview, window, cx),
+            (MenuKind::Build, "main") => self.change_build(BuildSource::Main, None, window, cx),
+            (MenuKind::Build, "preview") => self.change_build(BuildSource::Preview, None, window, cx),
             (MenuKind::Account, "account") => self.leave_with(Asked::Account, window, cx),
             (MenuKind::Account, "settings") => self.leave_with(Asked::Settings, window, cx),
             (MenuKind::Account, "doctor") => self.leave_with(Asked::Doctor, window, cx),
@@ -800,12 +803,12 @@ impl TitleBar {
     // -- the presses ---------------------------------------------------------------------------
 
     /// Restart onto `build`, at once: hosted Jobs carry across a restart, so nothing asks first.
-    fn change_build(&mut self, build: BuildSource, _window: &mut Window, cx: &mut Context<Self>) {
-        self.restart_onto(build, cx);
+    fn change_build(&mut self, build: BuildSource, clear: Option<ClearBlocked>, _window: &mut Window, cx: &mut Context<Self>) {
+        self.restart_onto(build, clear, cx);
     }
 
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
-    fn restart_onto(&mut self, build: BuildSource, cx: &mut Context<Self>) {
+    fn restart_onto(&mut self, build: BuildSource, clear: Option<ClearBlocked>, cx: &mut Context<Self>) {
         self.answer(
             |face| {
                 if let Some(held) = face.build.as_mut() {
@@ -816,7 +819,7 @@ impl TitleBar {
             },
             cx,
         );
-        cx.emit(Asked::ChangeBuild { build });
+        cx.emit(Asked::ChangeBuild { build, clear });
     }
 
 
@@ -1080,6 +1083,9 @@ impl TitleBar {
         entries.push(Entry::Row(Row::new("all", "All").icon("globe").ticked(face.chosen.is_none() && face.scoped.is_none())));
         for (p, project) in face.projects.iter().enumerate() {
             entries.push(Entry::Row(Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p))));
+        }
+        for (u, one) in face.unread.iter().enumerate() {
+            entries.push(Entry::Row(Row::new(id_of(format!("unread-{}", u + 1)), one.name.clone()).icon("layers").under(one.said.clone()).off(one.said.clone())));
         }
         for at in face.lone().into_iter().take(REPO.len()) {
             let one = &face.repositories[at];

@@ -18,7 +18,7 @@ The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and 
 | `calls.changed` | Fleet writes, Bridge reads | `CallsChanged { calls, arrived }`: the calls whole, and the news since the last publish |
 | `open_call` (`POST /calls/open`, `agent_access = "No"`) | Bridge writes | `OpenStandingCall { key }`, answered with `StandingCalls` |
 | `StandingCall` | | `{ key, owner, kind, session_id?, title, text, since, tone, opened }` |
-| `CallArrival` | | `{ session_id, title, text, tone, kind, key? }`, `kind` being `needs`, `stopped` or `mac_pairing`; `key` the call's key, set on `mac_pairing` |
+| `CallArrival` | | `{ session_id, title, text, tone, kind, key? }`, `kind` being `needs`, `stopped`, `mac_pairing` or `review_requested`; `key` the call's key, set on `mac_pairing` and `review_requested` |
 
 ## What moved, and from where
 
@@ -70,6 +70,7 @@ A call that has been answered or dismissed for good is a window's own memory and
 | `pull`, failing | `pull:<number>` | `#<number> <branch>`, and `checks failed` or `unmergeable` | a pull request of his failed or cannot merge, and its Job is not on it |
 | `pull`, by hand | `pull:<number>` | `armada.yml edit #<number>`, and `Needs merging by hand` | the forge would not auto-merge an `armada.yml` edit, and its Job is not on it |
 | `mac_pairing` | `mac:<id>` | `Confirm <Mac> pairing`, and what Settings › Macs says of it | another Mac pasted this Mac's link or asked from its Settings, and waits for his Confirm here |
+| `review_requested` | `review:<owner/name>#<number>` | the pull request's title, and `Review requested on <owner/name>#<number>, opened by <author>` | somebody asked him by name to review a pull request in a served repository, and he is still asked |
 
 **A Job that needs him stays a call after he has seen its item**: the item leaves the list, and the row's own call takes its place.
 It is opened once he has been in the Job since its last turn ended, unless the Job asks him.
@@ -98,6 +99,49 @@ It hands them in on loopback, as it does another Mac's rows, one list at a time 
 A link's claim has no time limit, and stands until he confirms or declines it.
 Fleet drops them all when the Gateway is turned off or starts afresh, and a restart of Fleet forgets them with the Gateway's own.
 `hold_mac_claims` is in `api::callers::THE_PERSONS_OWN`, so a Job cannot plant one.
+
+## A review asked of him: `review_requested`
+
+Since 16 Nov 2026.
+**Two enum values, one type and one field on `StandingCall`**: no new operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
+The Rust half is `crates/fleet/src/review_requests.rs`; Bridge's half is `review_requested` and `ReviewAsked` in `packages/protocol/src/standing-calls.ts`.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `StandingCallKind` | Fleet writes, Bridge reads | Gains `review_requested`: key and owner `review:<owner/name>#<number>`, the repository lowercase, no `session_id`, title the pull request's, text `Review requested on <owner/name>#<number>, opened by <author>`, tone `waiting`, `since` when Fleet first told it |
+| `StandingCall.review?` | Fleet writes, Bridge reads | `ReviewAsked { manifest_id, repository, number, title, author, address }` on a `review_requested` call, absent on every other kind |
+| `CallArrivalKind` | Fleet writes, Bridge reads | Gains `review_requested`, told once a request. Its `key` is the call's key, and its `session_id` carries the same key and names no Job. The call of that key carries the pull request |
+| `StandingCalls::reviews_unopened` | Bridge reads | The reviews' count: `review_requested` calls not `opened`. A Rust helper, no field; a TypeScript reader counts the same |
+| `get_pull_request_detail` | Bridge reads | No new field. A page answered to a caller no Job holds opens a `review_requested` call on the pull request |
+
+**Fleet asks the forge every five minutes**, for the one list that asks him by name, `user-review-requested:<login>` over every served repository, as `get_review_lists` reads its `requested` list.
+A request asked of a team he is on is not his by name, and does not call.
+A tick where nobody is signed in to the forge, no served repository has a remote, or the forge does not answer is skipped: what stood stands, nothing is told, and Fleet's log says why once, until the reason moves.
+
+**A request is told once, and Fleet keeps which in its store** (`review_requests_told`), so a restart does not tell it again.
+A request is the pull request and his latest submitted review before it, or none.
+The forge drops him from a pull request's requests when he reviews it, so a pull request listed again after a review of his was asked of him again, and is told again.
+A review he submitted less than five minutes before the tick waits for the next, since the forge's search can list him for a while after he reviewed.
+What stood the first time a Fleet ever looks is told, so the first tick tells every request waiting, in one banner where the client collects them.
+A tick that reads the list forgets every kept request the list no longer holds, since one taken back, reviewed or closed leaves it.
+A pull request listed again after that is a new request, and is told again.
+
+**A call stands while he is asked**, and is `opened` once he has opened the pull request since he was asked.
+Bridge reads `get_pull_request_detail` when he opens a pull request's page, and Fleet keeps that instant in `pull_requests_opened` and opens the call at once.
+A read from inside a Job opens nothing, since a Job reading the pull request it reviews says nothing of whether he has.
+A read counts for a request when it is later than his review before the request, and any read counts for a first request.
+A first request is opened too when its row in `get_review_lists` has a `seen` head, or an `inbox` other than `needs_first_look`.
+A request made again after his review is not, since his review and his visits were before it: it waits for a read of its page.
+Bridge sends `mark_pull_request_seen` when he leaves the pull request, and Fleet opens the call then as well.
+A read already counted sends no `calls.changed`, so a page read again while it is open tells nothing.
+The tick that forgets a request forgets the reads of pull requests it no longer lists.
+`open_call` does not open it.
+**It is on the Dock count until he opens it**: `StandingCalls::unopened` holds it, one owner a request, and `StandingCalls::reviews_unopened` counts it apart as well.
+
+**The banner's press names no Job.**
+`session_id` carries the key for readers that do not read `key` yet, so a client that opens the Job a banner names finds none and opens nothing.
+A client reads `review:` as a call's key, as it reads `mac:`, and opens the pull request its call's `review` names.
 
 ## Where Fleet's reading differs from Electron's
 

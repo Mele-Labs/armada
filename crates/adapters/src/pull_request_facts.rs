@@ -4,7 +4,7 @@
 //! **`--jq` and not a parse**, for [`crate::delivery::asked`]'s reason: the
 //! forge does the reading and bytes enter as one line of text.
 
-use adapter_traits::{PullRequestFacts, PullRequestStanding};
+use adapter_traits::{MergeState, PullRequestFacts, PullRequestStanding};
 
 use crate::delivery::{asked, run_in, said, FORGE};
 
@@ -19,8 +19,8 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestFacts
     let said = asked(
         in_repo,
         pull_request,
-        "state,isDraft,autoMergeRequest,headRefName,baseRefName,url,title,body,closingIssuesReferences",
-        "[.state, (.isDraft | tostring), ((.autoMergeRequest != null) | tostring), \
+        "state,isDraft,autoMergeRequest,mergeStateStatus,headRefName,baseRefName,url,title,body,closingIssuesReferences",
+        "[.state, (.isDraft | tostring), ((.autoMergeRequest != null) | tostring), (.mergeStateStatus // \"\"), \
          .headRefName, .baseRefName, .url, ([.closingIssuesReferences[]?.number | tostring] | join(\",\")), \
          (.body // \"\"), (.title | gsub(\"\\t\"; \" \"))] | @tsv",
     )?;
@@ -29,15 +29,16 @@ pub(crate) fn read(in_repo: &str, pull_request: &str) -> Option<PullRequestFacts
 
 /// One line as [`read`] asks for it.
 pub(crate) fn parsed(said: &str) -> Option<PullRequestFacts> {
-    let [state, draft, auto, branch, base, url, closes, body, title]: [&str; 9] =
+    let [state, draft, auto, merge_state, branch, base, url, closes, body, title]: [&str; 10] =
         said.split('\t').collect::<Vec<&str>>().try_into().ok()?;
-    let [state, draft, auto, branch, base, url, title] =
-        [state, draft, auto, branch, base, url, title].map(str::trim);
+    let [state, draft, auto, merge_state, branch, base, url, title] =
+        [state, draft, auto, merge_state, branch, base, url, title].map(str::trim);
     let closes: Vec<u64> = closes.split(',').filter_map(|one| one.trim().parse().ok()).collect();
     facts_of(FactsRead {
         state,
         draft: draft == "true",
         auto_merge: auto == "true",
+        merge_state: merge_state_word(merge_state),
         branch,
         base,
         url,
@@ -52,6 +53,7 @@ pub(crate) struct FactsRead<'a> {
     pub(crate) state: &'a str,
     pub(crate) draft: bool,
     pub(crate) auto_merge: bool,
+    pub(crate) merge_state: MergeState,
     pub(crate) branch: &'a str,
     pub(crate) base: &'a str,
     pub(crate) url: &'a str,
@@ -64,7 +66,7 @@ pub(crate) struct FactsRead<'a> {
 /// is empty (**the base is not one**: a blank one is `""`), or its state is a word this build has no meaning for. **The closing references are
 /// listed in ascending order, whatever order the forge gave**; a repeated one is listed once.
 pub(crate) fn facts_of(read: FactsRead<'_>) -> Option<PullRequestFacts> {
-    let FactsRead { state, draft, auto_merge, branch, base, url, title, body, mut closes } = read;
+    let FactsRead { state, draft, auto_merge, merge_state, branch, base, url, title, body, mut closes } = read;
     if [state, branch, url, title].iter().any(|field| field.is_empty()) {
         return None;
     }
@@ -88,7 +90,23 @@ pub(crate) fn facts_of(read: FactsRead<'_>) -> Option<PullRequestFacts> {
         url: url.to_string(),
         body: (!body.trim().is_empty()).then_some(body),
         closes,
+        merge_state,
     })
+}
+
+/// The forge's `mergeStateStatus` word. **A word with no name here is `Unknown`**, which offers
+/// no merge: guessing `Clean` would offer one the forge refuses.
+pub(crate) fn merge_state_word(word: &str) -> MergeState {
+    match word {
+        "CLEAN" => MergeState::Clean,
+        "BLOCKED" => MergeState::Blocked,
+        "BEHIND" => MergeState::Behind,
+        "DIRTY" => MergeState::Dirty,
+        "UNSTABLE" => MergeState::Unstable,
+        "HAS_HOOKS" => MergeState::HasHooks,
+        "DRAFT" => MergeState::Draft,
+        _ => MergeState::Unknown,
+    }
 }
 
 /// A `@tsv` field with its escapes taken back out: `\n`, `\t`, `\r` and `\\`.

@@ -34,6 +34,10 @@ const TURNS: NonZeroU8 = NonZeroU8::new(8).expect("eight is not zero");
 /// The most often the answer so far goes out: about five a second.
 const BETWEEN_SENDS: Duration = Duration::from_millis(200);
 
+/// How much earlier side chat a new aside is shown, in characters of question, quote and answer. About: a pair
+/// is kept or left out whole.
+const EARLIER_CHARACTERS: usize = 24_000;
+
 /// What an aside that no turn of this Fleet holds says: Fleet ended while it was asking.
 const DIED: &str = "Fleet restarted before this was answered";
 
@@ -67,21 +71,75 @@ fn wire(kept: &KeptAside) -> Aside {
         asked_at: stamped(&kept.asked_at),
         answered_at: kept.answered_at.as_deref().map(stamped),
         told_at: kept.told_at.as_deref().map(stamped),
+        reads: kept.reads.clone(),
     }
 }
 
-/// What the copy is told. **One line says it is a side question**, answered read-only, and not to act.
-fn brief(question: &str, quote: Option<&str>) -> String {
+/// The earlier asides of the Job's side chat the next one is shown: **answered ones only**, the most recent that fit
+/// [`EARLIER_CHARACTERS`], oldest first. Returns how many answered ones were left out. A failed or still-asking aside
+/// has no answer to carry.
+fn earlier_of(kept: &[KeptAside]) -> (Vec<&KeptAside>, usize) {
+    let mut answered: Vec<&KeptAside> = kept.iter().filter(|one| one.state == aside_state::ANSWERED && !one.answer.trim().is_empty()).collect();
+    let mut used = 0;
+    let mut taken = 0;
+    for one in answered.iter().rev() {
+        used += [one.question.as_str(), one.quote.as_deref().unwrap_or(""), one.answer.as_str()].iter().map(|text| text.chars().count()).sum::<usize>();
+        if used > EARLIER_CHARACTERS {
+            break;
+        }
+        taken += 1;
+    }
+    let left_out = answered.len() - taken;
+    (answered.split_off(left_out), left_out)
+}
+
+/// What the copy is told. **One line says it is a side question**, answered read-only, and not to act. The side
+/// chat so far comes before the question, so a follow-up makes sense.
+fn brief(question: &str, quote: Option<&str>, earlier: &[KeptAside]) -> String {
     let quoted = quote.map(|text| format!("The owner had selected this in the thread:\n\n{}\n\n", blockquote(text))).unwrap_or_default();
+    let (shown, left_out) = earlier_of(earlier);
+    let chat = match shown.is_empty() && left_out == 0 {
+        true => String::new(),
+        false => {
+            let omitted = match left_out {
+                0 => String::new(),
+                1 => " One earlier exchange is left out to keep this short.".to_string(),
+                many => format!(" {many} earlier exchanges are left out to keep this short."),
+            };
+            let pairs = shown
+                .iter()
+                .map(|one| {
+                    let on = one.quote.as_deref().map(|text| format!("On this text from the thread:\n\n{}\n\n", blockquote(text))).unwrap_or_default();
+                    format!("{on}Q: {}\n\nA: {}", one.question.trim(), one.answer.trim())
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            format!("Earlier in this side chat, oldest first:{omitted}\n\n{pairs}\n\n")
+        }
+    };
     format!(
         "This is a side question from the owner, put to a read-only copy of this conversation. Answer it from \
          what you know and, where it helps, by reading files with Read, Grep and Glob. Do not act: change \
-         nothing, run nothing and do not carry on the work.\n\n{quoted}Question:\n\n{question}"
+         nothing, run nothing and do not carry on the work.\n\n{chat}{quoted}Question:\n\n{question}"
     )
 }
 
 fn blockquote(text: &str) -> String {
     text.trim().lines().map(|line| format!("> {line}")).collect::<Vec<_>>().join("\n")
+}
+
+/// What an aside going holds between sends.
+struct Going {
+    answer: String,
+    reads: Vec<String>,
+    sent_at: Instant,
+}
+
+/// One read as the wire says it, `<Tool> <target>`, with the Job's own directory taken off the front of any path
+/// inside it.
+fn read_line(tool: &str, target: &str, root: &str) -> String {
+    let inside = format!("{}/", root.trim_end_matches('/'));
+    format!("{tool} {}", target.replace(&inside, ""))
 }
 
 /// What the owner's message to the Job says: the aside, with the words it was asked in.
@@ -125,6 +183,8 @@ where
         let reviewing = self.reviewing().map_err(|why| self.hosted_fault("fleet.aside_no_agent", &format!("no agent could be asked: {why:?}")))?;
         let model = hosting.model.clone().filter(|model| !model.trim().is_empty()).unwrap_or_else(|| self.session_model());
         let model = Model::named(&model).map_err(|why| self.hosted_refusal(ASIDE_BLANK, &format!("the Job's model is not one: {why:?}")))?;
+        // Read before this aside is kept, so it is not in its own side chat.
+        let earlier = self.store().lock().await.asides_of(&id).map_err(|why| self.ledger_fault(why))?;
         let copy = super::rows::new_id();
         let refused = || self.hosted_refusal(super::fork_point::FORK_POINT_UNWRITTEN, "this conversation cannot be copied for a side question");
         // A Job that moved slots keeps its conversation where it last ran; `--resume` looks beside `directory`.
@@ -133,7 +193,7 @@ where
             .map_err(|_| refused())?;
         let reading = Reading::checkout(&directory, TURNS).map_err(|_| refused())?;
         let reading = reading.forking(Fork::copy_of(&session.id, &cut, &copy).ok_or_else(refused)?);
-        let ask = Ask::put(model, &brief(&question, quote.as_deref()), reviewing.environment.clone())
+        let ask = Ask::put(model, &brief(&question, quote.as_deref(), &earlier), reviewing.environment.clone())
             .map(|ask| ask.reading(reading))
             .map_err(|why| self.hosted_refusal(ASIDE_BLANK, &format!("the question could not be put: {why:?}")))?;
 
@@ -148,12 +208,14 @@ where
             asked_at: self.now().as_str().to_string(),
             answered_at: None,
             told_at: None,
+            reads: Vec::new(),
         };
+        let root = directory.clone();
         self.store().lock().await.keep_aside(&kept).map_err(|why| self.ledger_fault(why))?;
         self.review_going().lock().await.insert(going_key(&kept.aside_id));
         let answer = wire(&kept);
         self.publish(Event::SessionAside(answer.clone()));
-        tokio::spawn(async move { self.aside_driven(kept, ask, reviewing.client, reviewing.budget, copy).await });
+        tokio::spawn(async move { self.aside_driven(kept, ask, reviewing.client, reviewing.budget, copy, root).await });
         Ok(answer)
     }
 
@@ -166,8 +228,9 @@ where
         client: Arc<dyn adapter_traits::ModelClient + Send + Sync>,
         budget: crate::judging::JudgeBudget,
         copy: String,
+        root: String,
     ) {
-        let sent: Arc<StdMutex<(String, Instant)>> = Arc::new(StdMutex::new((String::new(), Instant::now())));
+        let sent: Arc<StdMutex<Going>> = Arc::new(StdMutex::new(Going { answer: String::new(), reads: Vec::new(), sent_at: Instant::now() }));
         let telling = {
             let (fleet, sent, base) = (Arc::clone(&self), Arc::clone(&sent), kept.clone());
             move |progress: CallProgress| {
@@ -175,22 +238,26 @@ where
                 match progress {
                     // A new request is a new turn, whose words replace the last one's: a turn that read a file
                     // first said "let me look" before its answer.
-                    CallProgress::Requesting => held.0.clear(),
-                    CallProgress::Answering { text, .. } => held.0.push_str(&text),
+                    CallProgress::Requesting => held.answer.clear(),
+                    CallProgress::Answering { text, .. } => held.answer.push_str(&text),
+                    // A read is a reason to send as much as a word is, within the same coalescing.
+                    CallProgress::Reading { tool, target } => held.reads.push(read_line(&tool, &target, &root)),
                     _ => return,
                 }
-                if held.1.elapsed() < BETWEEN_SENDS || held.0.is_empty() {
+                if held.sent_at.elapsed() < BETWEEN_SENDS || (held.answer.is_empty() && held.reads.is_empty()) {
                     return;
                 }
-                held.1 = Instant::now();
+                held.sent_at = Instant::now();
                 // Sent and not kept: the store holds the answer once it ends, and a late write of a part
                 // could land after the whole.
                 let mut so_far = base.clone();
-                so_far.answer = held.0.clone();
+                so_far.answer = held.answer.clone();
+                so_far.reads = held.reads.clone();
                 fleet.publish(Event::SessionAside(wire(&so_far)));
             }
         };
         let answered = watched(client.as_ref(), &ask, budget, &telling, std::future::pending::<()>()).await;
+        kept.reads = sent.lock().expect("not poisoned").reads.clone();
         match answered {
             Ok(said) => {
                 kept.state = aside_state::ANSWERED.to_string();
@@ -259,7 +326,7 @@ where
         };
         let terminal = self.terminal_session(&id).await?;
         self.visit_kept(&id).await;
-        Arc::clone(&self).mod_message_sent(terminal, sent, None).await?;
+        Arc::clone(&self).send_known_told(terminal, sent, kept.aside_id.clone()).await?;
         let at = self.now().as_str().to_string();
         let held = {
             let mut store = self.store().lock().await;

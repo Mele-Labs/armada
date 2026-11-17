@@ -66,6 +66,7 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 
 - Landing Manifest
 - Notification routing: `features.notifications`, on or off for every job that needs you
+- Read replies for needs: `features.readRepliesForNeeds`, whether Fleet raises a Needs you item from the close of an agent's reply; on ships
 - Interface sounds: `features.uiSounds`
 - Reduce motion: `features.reduceMotion`, whether Bridge's windows hold still with the Mac's own setting left alone; off ships
 - Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge

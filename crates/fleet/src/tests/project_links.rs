@@ -157,6 +157,7 @@ async fn a_job_nobody_knows_or_one_that_ended_is_refused_and_so_is_an_issue_row_
 
 fn facts(standing: PullRequestStanding, title: &str) -> PullRequestFacts {
     PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing,
         branch: "armada/5".into(),
         base: "main".into(),

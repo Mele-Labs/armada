@@ -455,6 +455,18 @@ impl JobView {
     /// [`Self::prose_in`] with `tags` drawn where his words wrote them (`placeTags`): each an `InlineTag` chip held
     /// in the line as one object, so the words around it stay selectable and a selection copies `@title`.
     pub(super) fn prose_tagged(&self, key: String, text: &str, colour: crate::look::Token, tags: &[SessionTag], look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.prose_drawn(key, text, colour, tags, None, look, cx)
+    }
+
+    /// A pull request's words in the PR tab: its `#N` read in the Manifest of the pull request open there.
+    pub(super) fn pull_prose(&self, key: String, text: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let manifest = self.pull_panel().and_then(|panel| panel.pull.manifest.clone());
+        self.prose_drawn(key, text, token::FG_DEFAULT, &[], manifest.as_deref(), look, cx)
+    }
+
+    /// Prose whose `#N` is read in `manifest`, or the shown Job's where None.
+    #[allow(clippy::too_many_arguments)]
+    fn prose_drawn(&self, key: String, text: &str, colour: crate::look::Token, tags: &[SessionTag], manifest: Option<&str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         let view = cx.weak_entity();
         let size = match self.composer.quick.thread().text_size {
@@ -463,7 +475,7 @@ impl JobView {
             TextSize::Base => token::TEXT_BASE,
             TextSize::Lg => token::TEXT_LG,
         };
-        let source = self.prose_source(text, cx);
+        let source = self.prose_source_in(text, manifest, cx);
         // While the find bar has a match in these words they are drawn through its view, which paints the marks.
         let found = if tags.is_empty() { self.found_prose(&key, &source) } else { None };
         // A block that runs takes Run beside Copy, and its words stop short of both.
@@ -495,14 +507,19 @@ impl JobView {
             })
             .code_block_actions(code_copy(look, job.to_string(), key.clone(), base))
             .when(!tags.is_empty(), |words| words.markdown_extensions(tag_extensions(tags, look)))
-            // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
+            // No surface navigates (design-system.md, hard rule 2): a Job opens here, a forge pull request in the
+            // PR tab, any other address in the browser.
             .on_link_click({
                 let view = view.clone();
-                move |address, _, _, cx| match super::refs::Refs::job_of(address) {
+                move |address, _, window, cx| match super::refs::Refs::job_of(address) {
                     Some(id) => {
                         view.update(cx, |this, cx| this.open_job(id, cx)).ok();
                     }
-                    None => cx.open_url(address),
+                    None => {
+                        if !view.update(cx, |this, cx| this.open_pull_address(address, window, cx)).unwrap_or(false) {
+                            cx.open_url(address);
+                        }
+                    }
                 }
             });
         // A run a block of these words started is drawn right under that block (`InlineTerminal`): the words part there.
@@ -527,7 +544,15 @@ impl JobView {
     /// The markdown a prose's words are drawn from: a Job they name as a link to it, as Electron's
     /// `SessionRefs` draws a thread's words, and each lone line break kept.
     pub(super) fn prose_source(&self, text: &str, cx: &App) -> String {
-        with_breaks(&super::refs::Refs::of(self.list.read(cx).records()).linked(text))
+        self.prose_source_in(text, None, cx)
+    }
+
+    /// [`Self::prose_source`] with `#N` linked where it is a pull request known in `manifest`, or in the
+    /// shown Job's Manifest where None.
+    fn prose_source_in(&self, text: &str, manifest: Option<&str>, cx: &App) -> String {
+        let shown = || self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|record| record.manifest_id.as_ref()).map(|id| id.as_str());
+        let pulls = manifest.or_else(shown).map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default();
+        with_breaks(&super::refs::Refs::of(self.list.read(cx).records()).with_pulls(pulls).linked(text))
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The

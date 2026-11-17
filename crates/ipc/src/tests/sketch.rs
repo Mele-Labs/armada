@@ -864,3 +864,13 @@ fn a_mocks_html_and_css_count_in_the_scene_bytes() {
     let said = refused(with_mock(mock));
     assert!(said.contains("a sketch holds at most 32768"), "{said}");
 }
+
+#[test]
+fn a_sketch_asks_unless_the_call_says_it_does_not() {
+    let scene = || json!({ "nodes": [{ "id": "a", "kind": "box", "x": 0, "y": 0 }], "edges": [] });
+    assert!(sent("Flow", scene()).asks, "left out, it asks");
+    let quiet: ShowSketch = crate::decode("a sketch to show", json!({ "title": "Flow", "scene": scene(), "asks": false }).to_string().as_bytes()).unwrap();
+    assert!(!quiet.asks);
+    assert!(crate::encode(&quiet).unwrap().contains(r#""asks":false"#));
+    assert!(!crate::encode(&sent("Flow", scene())).unwrap().contains("asks"), "left out while true");
+}

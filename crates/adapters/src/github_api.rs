@@ -20,6 +20,7 @@
 
 use std::fmt;
 use std::io::Read;
+use std::panic::Location;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
@@ -33,6 +34,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::forge_address::{remote_of, ForgeAddress};
+use crate::forge_tally::{self, Api, Outcome};
 
 /// The one host this adapter answers for.
 pub const GITHUB_HOST: &str = "github.com";
@@ -254,19 +256,27 @@ impl GitHubApi {
         }
     }
 
+    #[track_caller]
     pub fn get(&self, path: &str) -> Result<Answer, ApiFailure> {
-        self.call(Method::GET, &self.url(path), None)
+        counted(Location::caller(), Api::Rest, self.call(Method::GET, &self.url(path), None))
     }
 
     /// `path` asked for in another media type, as a diff is: `application/vnd.github.v3.diff`.
+    #[track_caller]
     pub fn get_as(&self, path: &str, accept: &'static str) -> Result<Answer, ApiFailure> {
-        apart(|| answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?))
+        let answer = apart(|| answer_of(self.respond(&Method::GET, &self.url(path), None, Some(accept))?));
+        counted(Location::caller(), Api::Rest, answer)
     }
 
     /// Where `path` sends the caller on, as a log's download is: the `Location` of its redirect,
     /// which is not followed. The redirect is the API's own and carries the token; what it points
     /// at, a short-lived address on GitHub's storage, is read with [`GitHubApi::download`].
+    #[track_caller]
     pub fn get_redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
+        counted(Location::caller(), Api::Rest, self.redirect_target(path))
+    }
+
+    fn redirect_target(&self, path: &str) -> Result<String, ApiFailure> {
         let response = apart(|| self.respond(&Method::GET, &self.url(path), None, None))?;
         if !response.status().is_redirection() {
             answer_of(response)?;
@@ -301,12 +311,14 @@ impl GitHubApi {
     /// The pages of a list, following `Link: rel="next"`, at most `most_pages` of them; a list
     /// with more says it was [`cut`](Paged::cut). A next link off this API's address is not
     /// followed: it would carry the token there.
+    #[track_caller]
     pub fn get_paged(&self, path: &str, most_pages: usize) -> Result<Paged, ApiFailure> {
+        let at = Location::caller();
         let within = format!("{}/", self.inner.base);
         let mut url = self.url(path);
         let mut pages = Vec::new();
         while pages.len() < most_pages {
-            let page = self.call(Method::GET, &url, None)?;
+            let page = counted(at, Api::Rest, self.call(Method::GET, &url, None))?;
             let next = page.next.clone().filter(|next| next.starts_with(&within));
             pages.push(page);
             match next {
@@ -320,8 +332,13 @@ impl GitHubApi {
 
     /// `POST /graphql`, returning `data`. An answer carrying `errors` is
     /// [`ApiFailure::GraphQl`], since GitHub sends them with a 200.
+    #[track_caller]
     pub fn graphql<T: DeserializeOwned, V: Serialize>(&self, query: &str, variables: &V) -> Result<T, ApiFailure> {
-        let answer = self.post("/graphql", &GraphQlRequest { query, variables })?;
+        counted(Location::caller(), Api::GraphQl, self.graphql_read(query, variables))
+    }
+
+    fn graphql_read<T: DeserializeOwned, V: Serialize>(&self, query: &str, variables: &V) -> Result<T, ApiFailure> {
+        let answer = self.call(Method::POST, &self.url("/graphql"), Some(&encoded(&GraphQlRequest { query, variables })?))?;
         // Errors first: `data` beside them may hold nulls `T` cannot be read from.
         let errors: GraphQlErrors = answer.decode("a GraphQL answer")?;
         if let Some(errors) = errors.errors.filter(|errors| !errors.is_empty()) {
@@ -331,25 +348,34 @@ impl GitHubApi {
         reply.data.ok_or_else(|| ApiFailure::Malformed("A GraphQL answer carried no data.".to_string()))
     }
 
+    #[track_caller]
     pub fn post<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
-        self.call(Method::POST, &self.url(path), Some(&encoded(body)?))
+        let at = Location::caller();
+        counted(at, Api::Rest, self.call(Method::POST, &self.url(path), Some(&encoded(body)?)))
     }
 
+    #[track_caller]
     pub fn patch<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
-        self.call(Method::PATCH, &self.url(path), Some(&encoded(body)?))
+        let at = Location::caller();
+        counted(at, Api::Rest, self.call(Method::PATCH, &self.url(path), Some(&encoded(body)?)))
     }
 
+    #[track_caller]
     pub fn put<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
-        self.call(Method::PUT, &self.url(path), Some(&encoded(body)?))
+        let at = Location::caller();
+        counted(at, Api::Rest, self.call(Method::PUT, &self.url(path), Some(&encoded(body)?)))
     }
 
+    #[track_caller]
     pub fn delete(&self, path: &str) -> Result<Answer, ApiFailure> {
-        self.call(Method::DELETE, &self.url(path), None)
+        counted(Location::caller(), Api::Rest, self.call(Method::DELETE, &self.url(path), None))
     }
 
     /// A `DELETE` that names what to remove in its body, as removing a label or a reviewer does.
+    #[track_caller]
     pub fn delete_with<B: Serialize>(&self, path: &str, body: &B) -> Result<Answer, ApiFailure> {
-        self.call(Method::DELETE, &self.url(path), Some(&encoded(body)?))
+        let at = Location::caller();
+        counted(at, Api::Rest, self.call(Method::DELETE, &self.url(path), Some(&encoded(body)?)))
     }
 
     fn url(&self, path: &str) -> String {
@@ -475,6 +501,29 @@ struct GraphQlError {
     message: String,
 }
 
+/// `answer`, counted as one call from `at`. **Rate-limited** is a 429, a 403 that names a wait or an
+/// empty window, or any refusal whose words name the rate limit: a secondary limit's 403 may carry
+/// no headers, and GraphQL's comes as an error beside a 200.
+fn counted<T>(at: &'static Location<'static>, api: Api, answer: Result<T, ApiFailure>) -> Result<T, ApiFailure> {
+    let names_the_limit = |said: &str| said.to_ascii_lowercase().contains("rate limit");
+    match &answer {
+        Ok(_) => forge_tally::counted(at, api, Outcome::Answered, None),
+        Err(ApiFailure::NoToken(_)) => {}
+        Err(ApiFailure::Refused { status, said, limit })
+            if *status == 429
+                || limit.is_some_and(|it| it.retry_after.is_some() || it.remaining == Some(0))
+                || names_the_limit(said) =>
+        {
+            forge_tally::counted(at, api, Outcome::RateLimited, Some((said.clone(), *limit)));
+        }
+        Err(ApiFailure::GraphQl(messages)) if messages.iter().any(|it| names_the_limit(it)) => {
+            forge_tally::counted(at, api, Outcome::RateLimited, Some((messages.join("; "), None)));
+        }
+        Err(_) => forge_tally::counted(at, api, Outcome::Failed, None),
+    }
+    answer
+}
+
 /// GitHub's own words on a refusal: `{"message": ..., "errors": [{"message": ...}]}`. A 422's
 /// message is only "Validation Failed"; what was wrong is in the errors.
 #[derive(Deserialize)]
@@ -495,6 +544,12 @@ fn encoded<B: Serialize>(body: &B) -> Result<Vec<u8>, ApiFailure> {
 
 fn answer_of(response: Response) -> Result<Answer, ApiFailure> {
     let status = response.status().as_u16();
+    let header = |name: &str| response.headers().get(name).and_then(|it| it.to_str().ok()).map(str::trim);
+    if let (Some(resource), Some(Ok(remaining))) =
+        (header("x-ratelimit-resource"), header("x-ratelimit-remaining").map(str::parse::<u64>))
+    {
+        forge_tally::left(resource, remaining);
+    }
     let next = response.headers().get(LINK).and_then(|link| link.to_str().ok()).and_then(next_link);
     let limit = matches!(status, 403 | 429).then(|| rate_limit_of(response.headers()));
     let body = response

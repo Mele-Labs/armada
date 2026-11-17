@@ -78,6 +78,7 @@ pub mod rail_following;
 /// Telling sessions the build Fleet and Bridge now run, once per build.
 mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
+mod build_start;
 mod building;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
@@ -141,6 +142,9 @@ pub mod language_model;
 pub mod kit_allowlist;
 /// Kit's Add and Remove for a plugin or a skill, across the seam.
 pub mod kit_pieces;
+/// A Kit piece's file, read, saved and opened elsewhere, across the seam.
+mod kit_files;
+mod kit_open;
 /// A Job's worktree is the pool slot it leased.
 mod leasing;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
@@ -164,6 +168,8 @@ mod lane_keeping;
 mod merge_line_view;
 /// What calls the person and which of it he has not opened, read once for every client: `get_calls`, `calls.changed`.
 pub mod standing_calls;
+/// A review asked of him by name, looked for every five minutes and told once a request as a call.
+pub mod review_requests;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;
@@ -244,6 +250,7 @@ mod pull_waits;
 /// A pull request nobody reported, attached to the Session that worked its branch.
 mod claiming;
 mod pull_attaching;
+mod feature_library;
 /// Whose pull requests Fleet watches: the signed-in account's and the forge command line's.
 mod my_pulls;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
@@ -313,6 +320,8 @@ pub mod lifecycles;
 pub mod gate_keeping;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
+/// What the owner said in a Job, sorted by kind, the asks that came of it, and a Job's story.
+mod story;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.
 mod reading_in;
 /// Links already on a Studio, read as what their addresses name — `#1394`.

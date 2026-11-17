@@ -1512,8 +1512,8 @@ pub struct SessionRecord {
     /// and the session ending. Absent on a session that is not held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held_until: Option<Instant>,
-    /// The person snoozed this Job until this instant. It keeps working, and what it raises stays on
-    /// it with no push, card, banner or sound until then. Cleared when the time comes and by
+    /// The person snoozed this Job until this instant. The snooze paused it, and what it raised stays
+    /// on it with no push, card, banner or sound until then, when it is resumed. Cleared when the time comes and by
     /// `snooze_session` with no `until`; kept through ending, pausing and a repair. Absent on a Job
     /// that is not snoozed.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -171,6 +171,7 @@ impl BuildNotesSheet {
         let Some(note) = self.note() else { return div().id("build-note-pane").flex_1().into_any_element() };
         let ended = note.job_ended;
         let good = verdict(note, &self.marked) == Some(NoteVerdict::Good);
+        let needs_work_marked = verdict(note, &self.marked) == Some(NoteVerdict::NeedsWork);
         let title: SharedString = note.title.clone().into();
         let heading = div()
             .flex()
@@ -288,14 +289,24 @@ impl BuildNotesSheet {
             .when(self.good_focus.is_focused(window), |button| button.border_color(ring))
             .when(!good, |button| button.on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::Good, window, cx))))
             .child(kbd(keymap::shown("build_note_looked"), look));
-        // Never off: on a note already marked so, it still puts the keys in the box.
+        // Never off: on a note already marked so it still sends his words, and it wears the mark's hue so the press
+        // that set it shows.
         let needs_work = Btn::new("build-note-needs-work", "Needs work", Weight::Secondary)
             .icon("circle-alert")
             .draw(look, cx)
+            .when(needs_work_marked, |button| button.border_color(look.color(token::STATUS_ESCALATED)).text_color(look.color(token::STATUS_ESCALATED)))
             .track_focus(&self.needs_work_focus)
             .when(self.needs_work_focus.is_focused(window), |button| button.border_color(ring))
             .on_click(cx.listener(|this, _, window, cx| this.judge(NoteVerdict::NeedsWork, window, cx)))
             .child(kbd(keymap::shown("build_note_needs_work"), look));
+        let open_job = Btn::new("build-note-open-job", "Open Job", Weight::Secondary)
+            .icon("message-square")
+            .draw(look, cx)
+            .tooltip(tip(format!("Opens the Job's thread  {}", keymap::shown("build_note_open_job"))))
+            .track_focus(&self.open_job_focus)
+            .when(self.open_job_focus.is_focused(window), |button| button.border_color(ring))
+            .on_click(cx.listener(|this, _, window, cx| this.open_job(window, cx)))
+            .child(kbd(keymap::shown("build_note_open_job"), look));
         let refusal = self
             .refused
             .clone()
@@ -319,7 +330,7 @@ impl BuildNotesSheet {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Good")).child(labelled(needs_work, Role::Button, "Needs work")))
+                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(send, Role::Button, label)).child(labelled(marked, Role::Button, "Good")).child(labelled(needs_work, Role::Button, "Needs work")).child(labelled(open_job, Role::Button, "Open Job")))
                     .children(ended.then(|| subtle(STARTS_WITH)))
                     .children(refusal),
             )
@@ -346,6 +357,7 @@ impl BuildNotesSheet {
             .child(one(keymap::shown("send_message"), "Send"))
             .child(one(keymap::shown("build_note_looked"), "Good"))
             .child(one(keymap::shown("build_note_needs_work"), "Needs work"))
+            .child(one(keymap::shown("build_note_open_job"), "Open Job"))
             .child(one("Esc".into(), "Close"))
     }
 }

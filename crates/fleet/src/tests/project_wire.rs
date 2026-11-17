@@ -11,7 +11,7 @@ use testkit::{FakeTracker, FakeWorkProduct};
 use crate::tests::daemon::a_fleet;
 use crate::tests::project_holds::start;
 use crate::tests::projects::{a_fleet as a_fleet_with_tracker, code_of, manifest, new_issue, new_task};
-use crate::tests::projects_kept::file;
+use crate::tests::projects_kept::{file, text};
 use crate::tests::pull_notices::a_rig;
 use crate::tests::tmp::TempDir;
 
@@ -260,6 +260,8 @@ async fn a_job_started_for_a_project_keeps_it_and_serves_it() {
     assert_eq!(kept.project.as_deref(), Some(id.as_str()), "and on the hosting row, so a restart keeps it");
     let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed");
     assert!(listed.sessions.iter().any(|one| one.hosted.as_ref().is_some_and(|hosted| hosted.project.as_deref() == Some(id.as_str()))), "list_sessions carries it");
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.fleet.add_project(named("Yard", Some(vec![ProjectMember { manifest_id: at.clone(), folder: None }]), None)).await.expect("added");
     let plain = rig.fleet.start_session(start(&rig, "None", Vec::new())).await.expect("started");
     assert!(plain.hosted.expect("hosted").project.is_none(), "a Job started for none says none");
 }
@@ -437,4 +439,38 @@ async fn one_refusal_writes_nothing() {
     let refused = rig.fleet.set_session_project(move_into(&[&other.id], Some(&shop))).await.expect_err("refused");
     assert_eq!(code_of(refused), (422, "fleet.project_unreadable".to_string()));
     assert_eq!(project_of(&rig, &other.id).await, None);
+}
+
+#[tokio::test]
+async fn a_project_asked_for_before_the_first_read_is_read_then_and_not_sent_as_unread() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let at = file(&home, "shop");
+    std::fs::create_dir_all(at.parent().expect("a folder")).expect("its folder");
+    std::fs::write(&at, text("shop", "Shop", &["web"])).expect("its file");
+    fleet.store().lock().await.add_project("shop", "Shop", "2026-11-16T00:00:00Z").expect("kept");
+    assert!(fleet.projects_held().files().is_empty(), "nothing is read yet, as before reconcile");
+
+    let read = fleet.list_projects().await.expect("listed");
+    let shop = read.projects.iter().find(|one| one.id == "shop").expect("listed");
+    assert_eq!(shop.unread, None, "read on the ask, not sent as unread");
+    assert_eq!(members_of(shop), [("web".to_string(), None)]);
+}
+
+#[tokio::test]
+async fn a_read_that_moves_what_is_held_publishes_projects_changed_with_the_projects_read() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let id = fleet.add_project(named("Shop", Some(vec![whole("web")]), None)).await.expect("added").projects[0].id.clone();
+    std::fs::write(file(&home, &id), text(&id, "Market", &["web"])).expect("renamed in its file");
+    let mut watching = fleet.events().subscribe();
+
+    fleet.projects_reload().await;
+    let (_, projects) = published(&mut watching).await;
+    let names: Vec<Vec<String>> = projects.iter().map(|one| one.projects.iter().map(|project| project.name.clone()).collect()).collect();
+    assert_eq!(names, [["Market".to_string()]], "one projects.changed, with the name the file says");
+
+    fleet.projects_reload().await;
+    let (_, projects) = published(&mut watching).await;
+    assert!(projects.is_empty(), "a read that moved nothing publishes nothing");
 }

@@ -115,6 +115,7 @@ mod pr_notes;
 mod pr_panel;
 mod report_brief;
 mod side;
+mod side_chat;
 mod spine;
 mod spoken;
 mod start_card;
@@ -182,7 +183,7 @@ pub(crate) enum Extra {
     Sketch(String),
     Pending(usize),
     Working,
-    /// The card of the subagents running now.
+    /// The card of the subagents and background tasks running now.
     Subagents,
     /// The agent's last word: what it made and the two ways on (`DoneBody`).
     End,
@@ -431,6 +432,8 @@ pub struct JobView {
     tabs_menu: Option<tabs::AddMenu>,
     /// Tabs another part of the app opened on a Job, each drawing its own view.
     view_tabs: view_tabs::ViewTabs,
+    /// Each Job's side chat, kept as long as the app runs so what was asked stays when its tab is put away.
+    side_chats: HashMap<String, Entity<side_chat::SideChat>>,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
@@ -565,6 +568,7 @@ impl JobView {
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
+            subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -655,6 +659,7 @@ impl JobView {
             arranged: panes_place::Arranged::default(),
             tabs_menu: None,
             view_tabs: Default::default(),
+            side_chats: HashMap::new(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             body_scroll: gpui::ScrollHandle::new(),
@@ -805,6 +810,7 @@ impl JobView {
         } else {
             self.synced(cx);
             self.review_sync(window, cx);
+            self.pull_row_sync(window, cx);
         }
         if picks != self.picked {
             self.picked = picks;
@@ -967,6 +973,10 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // A background task Fleet lists is a row of the running card, so the card stands while one runs.
+        if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
+            extras.push(Extra::Subagents);
+        }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
         extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));

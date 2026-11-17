@@ -301,6 +301,7 @@ where
         self.red_offered(&changed).await;
         self.pulls_told_when_due().await;
         self.builds_told_when_due().await;
+        self.build_asks_settled().await;
         self.previews_watched().await;
         Ok(())
     }
@@ -332,16 +333,30 @@ where
         naming.into_iter().nth(at)
     }
 
-    /// One forge ask, off the runtime's own thread.
-    pub(crate) async fn forge_asked<T: Send + 'static>(
+    /// One forge ask, off the runtime's own thread. **Its calls to GitHub are counted as asked from
+    /// the line that called this**, so the tally names `notice_merged`'s line, not only the adapter's.
+    #[track_caller]
+    pub(crate) fn forge_asked<T: Send + 'static>(
         &self,
         root: &str,
         ask: impl FnOnce(&V, &str) -> T + Send + 'static,
-    ) -> T {
+    ) -> impl std::future::Future<Output = T> {
+        let from = std::panic::Location::caller();
         let (vcs, root) = (Arc::clone(self.vcs()), root.to_string());
-        tokio::task::spawn_blocking(move || ask(&vcs, &root))
-            .await
-            .expect("the forge process panicked")
+        async move {
+            tokio::task::spawn_blocking(move || adapters::forge_tally::asked_from(from, || ask(&vcs, &root)))
+                .await
+                .expect("the forge process panicked")
+        }
+    }
+
+    /// The minute's calls to GitHub, logged once it is over, and the first rate-limit refusal, once.
+    pub(crate) fn forge_calls_logged(&self) {
+        let now = self.now();
+        let Some(millis) = now.epoch_millis() else { return };
+        for line in adapters::forge_tally::tick(millis.div_euclid(60_000), now.as_str()) {
+            eprintln!("{line}");
+        }
     }
 
     /// Each failed job as the forge names it, a Check where the Manifest maps

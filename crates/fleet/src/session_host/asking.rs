@@ -343,15 +343,18 @@ where
             id: format!("{ask}{SAID}"),
             at: self.instant(),
             from: ipc::SessionVoice::You,
-            text,
+            text: text.clone(),
             files: Vec::new(),
             tags: Vec::new(),
             notice: None,
             queued: false,
             edited_at: None,
+            aside: None,
             sketches: Vec::new(),
         };
+        let row_id = row.id().to_string();
         self.row_put(id, row).await;
+        self.message_arrived(id, &row_id, &text).await;
     }
 
     /// A terminal session's `AskUserQuestion`, put to Bridge while its own

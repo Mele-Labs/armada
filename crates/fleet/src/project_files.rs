@@ -17,6 +17,7 @@ mod built_in;
 mod migrating;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -44,9 +45,9 @@ pub(crate) const MALFORMED: &str = "fleet.project_malformed";
 pub(crate) const PLACE_REFUSED: &str = "fleet.project_place_refused";
 pub(crate) use crate::projects::NO_SUCH_PROJECT as NO_SUCH;
 
-/// The projects as last read. A `std` lock, never held across an `.await`.
+/// The projects as last read, and whether a read has finished. A `std` lock, never held across an `.await`.
 #[derive(Default)]
-pub(crate) struct Held(RwLock<Arc<Projects>>);
+pub(crate) struct Held(RwLock<Arc<Projects>>, AtomicBool);
 
 /// Whether `id` may name a file: no separator, and not a dot-file.
 pub(crate) fn file_safe(id: &str) -> bool {
@@ -80,6 +81,15 @@ where
         Arc::clone(&self.project_files().0.read().unwrap_or_else(std::sync::PoisonError::into_inner))
     }
 
+    /// [`Fleet::projects_held`], read first where no read has finished, so an ask that comes before
+    /// `reconcile` reads them is not answered with every project unread.
+    pub(crate) async fn projects_held_read(&self) -> Arc<Projects> {
+        if self.project_files().1.load(Ordering::Acquire) {
+            return self.projects_held();
+        }
+        self.projects_read().await.0
+    }
+
     fn project_unwritable(&self, named: &str, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(self.project_refusal(UNWRITABLE, format!("{named} could not be written: {why}")))
     }
@@ -94,8 +104,19 @@ where
     /// Every project Fleet can see, read again and held: one for each row of his order, from the
     /// place chosen for it, and the files in Kit's folder that no row names. **Never refuses**:
     /// a file that will not read is set aside with the reason. The names the store last saw are
-    /// brought level with the files'.
+    /// brought level with the files'. Where what is held moved, published as `projects.changed`, so a
+    /// Bridge that was answered before the read is told.
     pub async fn projects_reload(&self) -> Arc<Projects> {
+        let (projects, moved) = self.projects_read().await;
+        if moved {
+            self.projects_published().await;
+        }
+        projects
+    }
+
+    /// [`Fleet::projects_reload`] told to nobody, and whether what is held moved. **For a caller that
+    /// publishes itself**, and for the wire answer, which `projects_reload` would otherwise call back into.
+    pub(crate) async fn projects_read(&self) -> (Arc<Projects>, bool) {
         let rows: Vec<(String, String, Option<KeptPlace>)> = {
             let store = self.store().lock().await;
             let kept = store.projects().map(|kept| kept.projects).unwrap_or_default();
@@ -159,6 +180,8 @@ where
         }
         let before = self.projects_held();
         *self.project_files().0.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::clone(&projects);
+        self.project_files().1.store(true, Ordering::Release);
+        let moved = before.files() != projects.files() || before.left_out() != projects.left_out();
         // A repository whose projects changed runs a different set of workflows: the copies each project keeps are
         // read for the projects that hold it. **Only those whose projects moved**, so a read that moved nothing
         // does not read every repository's folders again.
@@ -168,7 +191,7 @@ where
                 self.project_copies_read_again(&served);
             }
         }
-        projects
+        (projects, moved)
     }
 
     /// Write `project` as the file its place keeps. **The staged write**, over a temporary file.
@@ -242,6 +265,27 @@ where
                 UNREADABLE,
                 format!("The file of project {id} did not read, so Fleet cannot say that `{repository}` is a member"),
             ))),
+        }
+    }
+
+    /// `start`, with the one project that holds its repository where it names none, is not rooted and has a
+    /// repository. A fork, a handoff and a Job an agent starts keep their own rules and do not come here.
+    pub(crate) fn start_in_its_only_project(&self, mut start: ipc::StartSession) -> ipc::StartSession {
+        let named = start.project.as_deref().is_some_and(|one| !one.trim().is_empty());
+        if !named && start.root.is_none() && start.fork.is_none() {
+            let served = self.served_named(Some(&start.manifest_id)).ok();
+            start.project = served.and_then(|served| self.only_project_holding(served.manifest().id().as_str()));
+        }
+        start
+    }
+
+    /// The project a Job in `repository` is in when its start names none: the one project that holds it,
+    /// or `None` where none does or more than one.
+    pub(crate) fn only_project_holding(&self, repository: &str) -> Option<String> {
+        let held = self.projects_held();
+        match held.holding(&Repository::carried(Ulid::carried(repository))).as_slice() {
+            [only] => Some(only.id().as_str().to_string()),
+            _ => None,
         }
     }
 

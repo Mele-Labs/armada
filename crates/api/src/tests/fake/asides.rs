@@ -26,6 +26,7 @@ impl Asides for FakeDaemon {
             asked_at: at(),
             answered_at: None,
             told_at: None,
+            reads: Vec::new(),
         })
     }
 
@@ -45,6 +46,7 @@ impl Asides for FakeDaemon {
             asked_at: at(),
             answered_at: Some(at()),
             told_at: Some(at()),
+            reads: Vec::new(),
         })
     }
 }

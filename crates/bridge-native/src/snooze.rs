@@ -120,9 +120,9 @@ pub fn when(at: DateTime<Local>, now: DateTime<Local>, format: TimeFormat) -> St
     crate::settings::time::stamp_of(at, TimeFormat { seconds: false, ..format }, now)
 }
 
-/// The tooltip of a snoozed Job's quiet glyph.
+/// The tooltip of a snoozed Job's quiet glyph: Fleet pauses a Job it snoozes, and resumes it at this time.
 pub fn quiet_until(at: DateTime<Local>, now: DateTime<Local>, format: TimeFormat) -> String {
-    format!("Quiet until {}", when(at, now, format))
+    format!("Paused until {}", when(at, now, format))
 }
 
 /// The wire's instant as a local one; `None` where it is no time.
@@ -591,10 +591,10 @@ mod tests {
     fn the_tooltip_says_the_time_alone_today_and_the_day_with_it_after() {
         let now = local(13, 14, 2);
         let format = TimeFormat { hour12: false, seconds: true, date: false };
-        assert_eq!(quiet_until(local(13, 16, 30), now, format), "Quiet until 16:30", "seconds are left out");
-        assert_eq!(quiet_until(local(14, 9, 0), now, format), "Quiet until Nov 14 09:00");
-        assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { date: true, ..format }), "Quiet until Nov 13 16:30");
-        assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { hour12: true, ..format }), "Quiet until 4:30 PM");
+        assert_eq!(quiet_until(local(13, 16, 30), now, format), "Paused until 16:30", "seconds are left out");
+        assert_eq!(quiet_until(local(14, 9, 0), now, format), "Paused until Nov 14 09:00");
+        assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { date: true, ..format }), "Paused until Nov 13 16:30");
+        assert_eq!(quiet_until(local(13, 16, 30), now, TimeFormat { hour12: true, ..format }), "Paused until 4:30 PM");
     }
 
     #[test]

@@ -112,6 +112,9 @@ where
             fleet.sign_in_wakes_owed().await;
             // A turn that went quiet is stuck by time passing, which no event says: published when it does.
             fleet.standing_checked().await;
+            // His new words, sorted by a small model off this loop, and the asks whose pull request merged.
+            fleet.messages_sorting().await;
+            fleet.asks_built_checked().await;
             // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
             if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {
                 stops_swept = Some(tokio::time::Instant::now());
@@ -128,10 +131,14 @@ where
             fleet.claims_kept().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // The files each Job wrote, filed under the features that own them.
+            fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.
             fleet.clashes_published().await;
             // What main's moves made stale in the test map, read again where that costs nothing.
             fleet.test_map_moves_fed();
+            // The minute's calls to GitHub, logged once it is over.
+            fleet.forge_calls_logged();
             // A Session that ended or handed on, distilled into the Logbook one at a time.
             fleet.logbook_distils_run();
             // The open lessons that are repository facts, moved into the Logbook once per store.

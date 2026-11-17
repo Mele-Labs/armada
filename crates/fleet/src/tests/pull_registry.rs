@@ -92,6 +92,7 @@ async fn an_open_pull_request_the_pull_reading_did_not_list_is_claimed_by_its_nu
     open(&a, &[30]);
     a_session(&a, "s-a").await;
     let facts = |standing| adapter_traits::PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing,
         branch: "nm/older-draft".into(),
         base: "main".into(),

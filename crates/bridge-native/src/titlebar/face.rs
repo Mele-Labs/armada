@@ -251,6 +251,11 @@ pub fn behind_said(count: u32) -> String {
     format!("{} behind main", commits(count))
 }
 
+/// The line over the untracked files that stop the checkout's main fast-forwarding.
+pub fn blocked_said(behind: u32) -> String {
+    format!("Main is {} behind origin. These untracked files block its update:", commits(behind))
+}
+
 /// The restart button as the section draws it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Restart {
@@ -740,11 +745,12 @@ fn place_of(place: &ProjectPlace) -> RunsPlace {
 
 /// The projects the switcher lists, in the order Fleet keeps them. A project whose file would not read
 /// has no members to draw and is left out, as the Workspaces page leaves it. A member Fleet serves no
-/// repository for is left out of its project.
+/// repository for is left out of its project. **A copy of another Mac's project is left out**: Fleet answers a
+/// project-scoped read only for a project it keeps itself, so scoping the window to a copy ends in `fleet.no_such_project`.
 pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
     read.projects
         .iter()
-        .filter(|one| one.unread.is_none())
+        .filter(|one| one.unread.is_none() && one.mac.is_none())
         .map(|one| Project {
             id: one.id.clone().into(),
             name: one.name.clone().into(),
@@ -760,6 +766,24 @@ pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project
             kept: Some(place_of(&one.place)),
             look: None,
         })
+        .collect()
+}
+
+/// A project of this Mac's whose file Fleet could not read: listed dimmed with Fleet's reason, and never a pick.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Unread {
+    pub id: SharedString,
+    pub name: SharedString,
+    /// Fleet's own sentence for why the file did not read.
+    pub said: SharedString,
+}
+
+/// This Mac's own projects [`projects_of`] leaves out because their file did not read, in Fleet's order.
+pub fn unread_of(read: &Projects) -> Vec<Unread> {
+    read.projects
+        .iter()
+        .filter(|one| one.mac.is_none())
+        .filter_map(|one| Some(Unread { id: one.id.clone().into(), name: one.name.clone().into(), said: one.unread.clone()?.into() }))
         .collect()
 }
 
@@ -805,6 +829,8 @@ pub struct Face {
     /// The projects, and the one the window is scoped to, if any.
     pub projects: Vec<Project>,
     pub scoped: Option<usize>,
+    /// This Mac's projects whose file Fleet could not read, drawn dimmed under the projects.
+    pub unread: Vec<Unread>,
     /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
     pub signed_in: bool,
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
@@ -831,6 +857,7 @@ impl Face {
             chosen: None,
             projects: Vec::new(),
             scoped: None,
+            unread: Vec::new(),
             signed_in: false,
             downshift: None,
             places: Vec::new(),

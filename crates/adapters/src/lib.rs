@@ -54,10 +54,12 @@ mod basing;
 mod beads_tracker;
 pub mod browser_shell;
 mod build_standing;
+mod main_blocked;
 pub mod check_blame;
 mod checkout_send;
 mod ci_workflows;
 pub mod clash;
+pub mod feature_commits;
 mod cloning;
 mod commit;
 mod concurrently;
@@ -71,6 +73,8 @@ mod fetching_the_base;
 mod filing;
 /// Where a repository lives on its forge, and what a request's links name.
 mod forge_address;
+/// Every call to GitHub's API, counted by caller, API and answer, for Fleet's log and debug report.
+pub mod forge_tally;
 mod gh_forge;
 /// Claude Code's folder, as the shared home writes into it.
 mod harness_home;
@@ -189,6 +193,7 @@ pub use annotations::annotation_places;
 pub use build_standing::{
     branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade,
 };
+pub use main_blocked::{delete_files, main_blocked, pull_main, stash_files, MainBlocked};
 pub use ci_workflows::ActionsWorkflows;
 pub use concurrently::concurrently;
 pub use conversing::{

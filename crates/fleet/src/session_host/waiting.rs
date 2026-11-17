@@ -647,6 +647,8 @@ where
             };
             running
         };
+        let agent_listed = items.iter().any(|one| one.source == WaitingSource::Agent);
+        let reads_replies = self.reads_replies_on();
         // Nothing until the model is loaded and has read the reply, which publishes the Session again.
         let refused = |said: &str| {
             let model = self.language_model().model()?;
@@ -656,7 +658,7 @@ where
         // Each sentence of the close, the same way: nothing until the model has read the reply.
         let extracted = |said: &str| {
             // A turn that put a question card to him asked through it: what it said around the card asks nothing more.
-            if carded {
+            if carded || agent_listed || !reads_replies {
                 return None;
             }
             let model = self.language_model().model()?;
@@ -675,7 +677,8 @@ where
             done: done.as_deref(),
             dismissed: &dismissed,
             asks: &|said| {
-                if carded {
+                // A card, or items the agent listed itself, already say what the turn waits on: its reply restates them.
+                if carded || agent_listed || !reads_replies {
                     return None;
                 }
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
@@ -1008,7 +1011,7 @@ where
     }
 
     /// The session a call is about: the hosted one holding the connection, else the named one.
-    pub(super) fn waiting_session(
+    pub(crate) fn waiting_session(
         &self,
         caller: Option<api::Caller>,
         named: Option<&ipc::SessionId>,
@@ -1103,13 +1106,15 @@ where
         let later = self.later_open_text(store, id)?;
         let unshown = self.picture_owed_text(store, id)?;
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
-        let code = match (&later, &unshown, &flying) {
-            (None, None, None) => return Ok(()),
-            (_, _, Some(_)) => crate::lifecycles::ending::IN_FLIGHT,
-            (Some(_), _, None) => super::later::LATER_OPEN,
-            (None, Some(_), None) => super::ways_checking::PICTURE_OWED,
+        let owed = crate::feature_library::sections_owed_text(store, id).map_err(|why| self.ledger_fault(why))?;
+        let code = match (&later, &unshown, &flying, &owed) {
+            (None, None, None, None) => return Ok(()),
+            (_, _, Some(_), _) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None, _) => super::later::LATER_OPEN,
+            (None, Some(_), None, _) => super::ways_checking::PICTURE_OWED,
+            (None, None, None, Some(_)) => crate::feature_library::OWED,
         };
-        let reasons: Vec<String> = [later, unshown, flying].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying, owed].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }

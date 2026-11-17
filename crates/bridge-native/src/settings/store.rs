@@ -1,7 +1,8 @@
 //! Settings › Claims store: the store a project's Jobs send their claims to, drawn as split rows (the approved take
 //! "Rows", 14 Nov 2026). The store the project names with its team, whether this Mac has joined it and when it was
 //! deployed; the Macs signed in to it; Deploy, which asks for a Cloudflare token in place where Cloudflare refused
-//! every sign-in this Mac has; and Join by address. **Every sentence a refusal carries is Fleet's**
+//! every sign-in this Mac has, and reads Update the store once this Mac has deployed it (a store it only joined has no
+//! such row); and Join by address. **Every sentence a refusal carries is Fleet's**
 //! (`crates/ipc/operations/set_project_store.toml`, `deploy_project_store.toml`).
 //!
 //! **A token is never written anywhere.** It is held in a masked field in memory, sent in the deploy's body and
@@ -9,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, Role, SharedString, Subscription, Task, Window};
+use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontWeight, Hsla, Keystroke, Role, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{DeployProjectStore, JoinStore, ProjectStoreState, StoreDeployed};
 
@@ -40,6 +41,16 @@ impl Act {
     }
 }
 
+/// What the token ask says first: our words, over Cloudflare's own under it.
+const ASK_HEADLINE: &str = "Cloudflare needs a token that can make Workers on your account.";
+
+/// How to make that token on Cloudflare's page, which opens filled in with the two rights a deploy needs.
+const ASK_STEPS: [&str; 3] = [
+    "Open Cloudflare's token page. It opens filled in with the two rights a deploy needs: Workers Scripts Edit and Account Settings Read.",
+    "Press Continue to summary, then Create Token.",
+    "Copy the token Cloudflare shows once and paste it here. Not the Global API Key, and not the test command under it.",
+];
+
 /// Cloudflare refused every sign-in this Mac has: its sentence, and the page that makes a token.
 struct TokenAsk {
     said: String,
@@ -58,16 +69,22 @@ pub struct StorePage {
     pub(super) refused: BTreeMap<&'static str, String>,
     /// Why this Mac could not join the store a deploy made, as the deploy said it.
     join_said: Option<String>,
+    /// The address was copied a moment ago, so its press reads Copied.
+    copied: bool,
     pub(super) token: Entity<InputState>,
     pub(super) address: Entity<InputState>,
     pub(super) team: Entity<InputState>,
     keys: BTreeMap<&'static str, FocusHandle>,
     _read: Option<Task<()>>,
     _act: Option<Task<()>>,
+    _copied: Option<Task<()>>,
     _fields: Vec<Subscription>,
 }
 
-const PRESSES: [&str; 6] = ["pick", "use-none", "deploy", "open-page", "deploy-again", "join"];
+const PRESSES: [&str; 7] = ["pick", "copy", "use-none", "deploy", "open-page", "deploy-again", "join"];
+
+/// How long the address's press reads Copied.
+const COPIED_FOR: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl StorePage {
     pub fn new(window: &mut Window, cx: &mut Context<SettingsOverlay>) -> StorePage {
@@ -85,7 +102,7 @@ impl StorePage {
             cx.subscribe_in(&address, window, |this, _, event: &InputEvent, window, cx| this.field_event("address", event, window, cx)),
             cx.subscribe_in(&team, window, |this, _, event: &InputEvent, window, cx| this.field_event("team", event, window, cx)),
         ];
-        StorePage { project: None, state: None, ask: None, out: None, refused: BTreeMap::new(), join_said: None, token, address, team, keys: BTreeMap::new(), _read: None, _act: None, _fields: fields }
+        StorePage { project: None, state: None, ask: None, out: None, refused: BTreeMap::new(), join_said: None, copied: false, token, address, team, keys: BTreeMap::new(), _read: None, _act: None, _copied: None, _fields: fields }
     }
 
     /// Settings opened again: the store is read again the next time the page is drawn.
@@ -103,6 +120,35 @@ impl StorePage {
 fn deployed_on(stamp: &str) -> Option<String> {
     let at = chrono::DateTime::parse_from_rfc3339(stamp).ok()?;
     Some(at.with_timezone(&chrono::Local).format("%-d %b").to_string())
+}
+
+/// What the Deploy row is for a project's store: Deploy where it names none, Update where this Mac deployed it, and no
+/// row where it was only joined by its address.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Deploys {
+    Deploy,
+    Update,
+    Neither,
+}
+
+fn deploys(state: &ProjectStoreState) -> Deploys {
+    match &state.store {
+        None => Deploys::Deploy,
+        Some(store) if store.deployed.is_some() => Deploys::Update,
+        Some(_) => Deploys::Neither,
+    }
+}
+
+/// How many characters of an address a sentence carries before it is cut.
+const ADDRESS_SHOWN: usize = 56;
+
+/// The address as a sentence carries it, and the whole of it for a tooltip where it was cut.
+fn trimmed(address: &str) -> (String, Option<String>) {
+    if address.chars().count() <= ADDRESS_SHOWN {
+        return (address.to_string(), None);
+    }
+    let head: String = address.chars().take(ADDRESS_SHOWN - 1).collect();
+    (format!("{head}\u{2026}"), Some(address.to_string()))
 }
 
 fn draft_key(project: &str, field: &str) -> String {
@@ -183,13 +229,14 @@ impl SettingsOverlay {
         }
         let Some(state) = page.state() else { return stops };
         if state.store.is_some() {
+            stops.extend(key("copy"));
             stops.extend(key("use-none"));
         }
         if page.ask.is_some() {
             stops.extend(key("open-page"));
             stops.push(page.token.read(cx).focus_handle(cx));
             stops.extend(key("deploy-again"));
-        } else {
+        } else if deploys(state) != Deploys::Neither {
             stops.extend(key("deploy"));
         }
         stops.push(page.address.read(cx).focus_handle(cx));
@@ -239,11 +286,27 @@ impl SettingsOverlay {
                 }
             }
             "join" => self.join_store(window, cx),
+            "copy" => self.copy_address(window, cx),
             _ => {}
         }
     }
 
     // ---- acts -----------------------------------------------------------------------------------
+
+    /// Writes the store's address to the clipboard, and reads Copied for a moment.
+    fn copy_address(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(address) = self.store.state().and_then(|state| state.store.as_ref()).map(|store| store.address.clone()) else { return };
+        cx.write_to_clipboard(ClipboardItem::new_string(address));
+        self.store.copied = true;
+        self.store._copied = Some(cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(COPIED_FOR).await;
+            let _ = this.update(cx, |this, cx| {
+                this.store.copied = false;
+                cx.notify();
+            });
+        }));
+        cx.notify();
+    }
 
     /// Takes the act as the one out, clearing what it last said; `false` while another is out.
     fn begin_store(&mut self, act: Act) -> Option<String> {
@@ -309,6 +372,7 @@ impl SettingsOverlay {
         let typed = if self.store.ask.is_some() { self.store.token.read(cx).value().trim().to_string() } else { String::new() };
         let team = self.store.state().and_then(|state| state.store.as_ref()).and_then(|store| store.team.clone());
         let Some(project) = self.begin_store(Act::Deploy) else { return };
+        let sent_token = !typed.is_empty();
         let deploy = DeployProjectStore { team, cloudflare_token: (!typed.is_empty()).then_some(typed) };
         let press = self.wire.deploy_project_store(&project, deploy, cx);
         self.store._act = Some(cx.spawn_in(window, async move |this, cx| {
@@ -332,6 +396,10 @@ impl SettingsOverlay {
                         }
                     }
                     Some(StoreDeployed::NeedsToken { page, said }) => {
+                        // A token Cloudflare turned down is no use to edit: the field is emptied for the next paste.
+                        if sent_token {
+                            this.store.token.update(cx, |state, cx| state.set_value("", window, cx));
+                        }
                         this.store.ask = Some(TokenAsk { said, page });
                         let token = this.store.token.read(cx).focus_handle(cx);
                         window.defer(cx, move |window, cx| window.focus(&token, cx));
@@ -409,8 +477,13 @@ impl SettingsOverlay {
         let busy = page.out;
         let asking = page.ask.is_some();
         let mut rows: Vec<AnyElement> = Vec::new();
-        let mut row = |look: &Look, id: &'static str, title: &'static str, says_words: String, glyph: &'static str, edge: Option<Hsla>, control: AnyElement| {
-            let row = Row { id: id.into(), title: title.into(), tip: None, chips: Vec::new(), says: vec![says(look, says_words).into_any_element()], changed: false, glyph: Some((glyph, hue)), control };
+        let mut row = |look: &Look, id: &'static str, title: &'static str, says_words: String, says_tip: Option<String>, glyph: &'static str, edge: Option<Hsla>, control: AnyElement| {
+            let said = says(look, says_words);
+            let said = match says_tip {
+                Some(full) => said.id(SharedString::from(format!("{id}-says"))).tooltip(tip(full)).into_any_element(),
+                None => said.into_any_element(),
+            };
+            let row = Row { id: id.into(), title: title.into(), tip: None, chips: Vec::new(), says: vec![said], changed: false, glyph: Some((glyph, hue)), control };
             let drawn = split_row(look, spread, row, rows.is_empty()).when_some(edge, |row, edge| row.child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::BORDER_WIDTH) * 3.).bg(edge)));
             rows.push(labelled(drawn, Role::Row, title).into_any_element());
         };
@@ -428,6 +501,7 @@ impl SettingsOverlay {
                     Role::Label,
                     "Store address",
                 );
+                let address = div().flex().items_center().gap(look.length(token::SPACE_2)).w_full().child(div().min_w_0().child(address)).child(self.copy_press(look, window, cx));
                 control = control.w_full().child(address);
                 if let Some(team) = &store.team {
                     line = line.child(pill(look, "store-team", None, team, look.color(token::ACCENT_HOVER), look.color(token::ACCENT_MUTED), Some("The team this store admits")));
@@ -448,7 +522,7 @@ impl SettingsOverlay {
             control = control.child(self.press(look, "use-none", "Use none", None, Weight::Quiet, busy == Some(Act::UseNone), false, window, cx));
         }
         control = control.children(page.refused.get(Act::UseNone.key()).map(|said| refused_line(look, "store-none-refused", said)));
-        row(look, "store-row-store", "Claims store", format!("Where {project}'s Jobs send their claims. With none, its Jobs send nothing."), "database", None, control.into_any_element());
+        row(look, "store-row-store", "Claims store", format!("Where {project}'s Jobs send their claims. With none, its Jobs send nothing."), None, "database", None, control.into_any_element());
 
         // Macs signed in, only with a store
         if state.store.is_some() {
@@ -470,21 +544,30 @@ impl SettingsOverlay {
                 });
                 labelled(div().id("store-macs").w_full().flex().flex_col().children(items), Role::List, "Macs signed in").into_any_element()
             };
-            row(look, "store-row-macs", "Macs signed in", "Oldest first, as the store answered.".into(), "laptop", None, div().w_full().child(body).into_any_element());
+            row(look, "store-row-macs", "Macs signed in", "Oldest first, as the store answered.".into(), None, "laptop", None, div().w_full().child(body).into_any_element());
         }
 
-        // Deploy
-        let mut control = div().w_full().flex().flex_col().items_start().gap(look.length(token::SPACE_3));
-        match &page.ask {
-            None => control = control.child(self.press(look, "deploy", "Deploy", Some("upload"), Weight::Primary, busy == Some(Act::Deploy), false, window, cx)),
-            Some(ask) => control = control.child(self.token_ask(ask, look, window, cx)),
+        // Deploy, or Update where this Mac deployed the store; a store it only joined has neither
+        let updating = deploys(state) == Deploys::Update;
+        if deploys(state) != Deploys::Neither {
+            let mut control = div().w_full().flex().flex_col().items_start().gap(look.length(token::SPACE_3));
+            match &page.ask {
+                None => control = control.child(self.press(look, "deploy", if updating { "Update" } else { "Deploy" }, Some("upload"), Weight::Primary, busy == Some(Act::Deploy), false, window, cx)),
+                Some(ask) => control = control.child(self.token_ask(ask, updating, look, window, cx)),
+            }
+            if !asking {
+                control = control.children(page.refused.get(Act::Deploy.key()).map(|said| refused_line(look, "store-deploy-refused", said)));
+            }
+            control = control.children(page.join_said.as_ref().map(|said| noted_line(look, "store-join-said", said)));
+            let edge = if asking { Some(look.color(token::STATUS_AWAITING_REVIEW)) } else { page.refused.get(Act::Deploy.key()).map(|_| look.color(token::STATUS_COMPLETED_FAILED)) };
+            match state.store.as_ref().filter(|_| updating) {
+                Some(store) => {
+                    let (shown, full) = trimmed(&store.address);
+                    row(look, "store-row-deploy", "Update the store", format!("Puts Armada's newest store on {shown}. Claims and joined Macs stay."), full, "upload", edge, control.into_any_element());
+                }
+                None => row(look, "store-row-deploy", "Deploy", "Puts a store on your Cloudflare account and joins this Mac to it.".into(), None, "upload", edge, control.into_any_element()),
+            }
         }
-        if !asking {
-            control = control.children(page.refused.get(Act::Deploy.key()).map(|said| refused_line(look, "store-deploy-refused", said)));
-        }
-        control = control.children(page.join_said.as_ref().map(|said| noted_line(look, "store-join-said", said)));
-        let edge = if asking { Some(look.color(token::STATUS_AWAITING_REVIEW)) } else { page.refused.get(Act::Deploy.key()).map(|_| look.color(token::STATUS_COMPLETED_FAILED)) };
-        row(look, "store-row-deploy", "Deploy", "Puts a store on your Cloudflare account and joins this Mac to it.".into(), "upload", edge, control.into_any_element());
 
         // Join a store
         let off = page.address.read(cx).value().trim().is_empty();
@@ -510,27 +593,53 @@ impl SettingsOverlay {
         };
         let control = div().w_full().flex().flex_col().gap(look.length(token::SPACE_3)).child(form).children(page.refused.get(Act::Join.key()).map(|said| refused_line(look, "store-join-refused", said)));
         let edge = page.refused.get(Act::Join.key()).map(|_| look.color(token::STATUS_COMPLETED_FAILED));
-        row(look, "store-row-join", "Join a store", "Join one by its address. A team's store takes the team, as org or org/team.".into(), "link", edge, control.into_any_element());
+        row(look, "store-row-join", "Join a store", "Join one by its address. Fill Team only for a store a GitHub organisation shares, as org or org/team; leave it empty for your own.".into(), None, "link", edge, control.into_any_element());
 
         rows_card(look, "store-rows", rows).into_any_element()
     }
 
-    /// The ask that opens under Deploy: Fleet's sentence, Cloudflare's page, a masked field and Deploy again.
-    fn token_ask(&self, ask: &TokenAsk, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    /// The ask that opens under Deploy: our headline over Cloudflare's own sentence, Cloudflare's page with the steps to
+    /// make a token on it, a masked field and Deploy again.
+    fn token_ask(&self, ask: &TokenAsk, updating: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let ink = look.color(token::STATUS_AWAITING_REVIEW);
+        let muted = |id: &'static str, said: &str| {
+            labelled(div().id(id).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.to_string())), Role::Status, said.to_string())
+        };
         let said = div()
             .flex()
             .items_start()
             .gap(look.length(token::SPACE_2))
             .child(svg().flex_none().mt(look.length(token::SPACE_1) / 2.).path(icon_path("triangle-alert")).size(look.length(token::SPACE_4)).text_color(ink))
-            .child(labelled(div().id("store-ask-said").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(ask.said.clone())), Role::Status, ask.said.clone()));
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(labelled(div().id("store-ask-headline").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(ASK_HEADLINE), Role::Status, ASK_HEADLINE))
+                    .children((!ask.said.is_empty()).then(|| muted("store-ask-said", &ask.said))),
+            );
+        let steps = div().id("store-ask-steps").w_full().flex().flex_col().gap(look.length(token::SPACE_1)).children(ASK_STEPS.iter().enumerate().map(|(at, step)| {
+            let item = div()
+                .id(SharedString::from(format!("store-ask-step-{}", at + 1)))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .child(div().flex_none().w(look.length(token::SPACE_4)).child(SharedString::from(format!("{}.", at + 1))))
+                .child(div().flex_1().min_w_0().child(*step));
+            labelled(item, Role::ListItem, *step)
+        }));
         let deploying = self.store.out == Some(Act::Deploy);
         let line = div()
             .flex()
             .items_end()
             .gap(look.length(token::SPACE_3))
             .child(div().flex_1().min_w_0().child(field(look, "store-token-field", "Cloudflare token", &self.store.token)))
-            .child(self.press(look, "deploy-again", "Deploy again", Some("upload"), Weight::Primary, deploying, false, window, cx));
+            .child(self.press(look, "deploy-again", if updating { "Update again" } else { "Deploy again" }, Some("upload"), Weight::Primary, deploying, false, window, cx));
         div()
             .id("store-ask")
             .w_full()
@@ -544,9 +653,42 @@ impl SettingsOverlay {
             .bg(look.color(token::BG_SUNKEN).blend(ink.opacity(0.08)))
             .child(said)
             .child(div().flex().child(self.press(look, "open-page", "Open Cloudflare's token page", Some("external-link"), Weight::Plain, false, false, window, cx)))
+            .child(labelled(steps, Role::List, "Steps to make the token"))
             .child(line)
             .children(self.store.refused.get(Act::Deploy.key()).map(|said| refused_line(look, "store-deploy-refused", said)))
             .into_any_element()
+    }
+
+    /// The address's own press: an icon with a tooltip, a check and Copied for a moment once pressed.
+    fn copy_press(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let Some(focus) = self.store.keys.get("copy").cloned() else { return div().into_any_element() };
+        let copied = self.store.copied;
+        let said = if copied { "Copied" } else { "Copy the address" };
+        let ink = if copied { look.color(token::STATUS_COMPLETED_SUCCESS) } else { look.color(token::FG_SUBTLE) };
+        let button = div()
+            .id("store-copy")
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .gap(look.length(token::SPACE_1))
+            .h(look.length(token::H_CONTROL_SM))
+            .min_w(look.length(token::H_CONTROL_SM))
+            .when(copied, |button| button.px(look.length(token::SPACE_2)))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(gpui::transparent_black())
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(ink)
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .tooltip(tip(said))
+            .on_click(cx.listener(|this, _, window, cx| this.press_store("copy", window, cx)))
+            .child(svg().flex_none().path(icon_path(if copied { "check" } else { "copy" })).size(look.length(token::SPACE_4)).text_color(ink))
+            .children(copied.then_some("Copied"));
+        let button = ringed(look, button, &focus, window).track_focus(&focus);
+        labelled(button, Role::Button, said).into_any_element()
     }
 
     /// One press: its words and glyph, busy with a turning mark and its own word while its act is out.
@@ -559,7 +701,9 @@ impl SettingsOverlay {
             Weight::Plain => (look.color(token::FG_DEFAULT), look.color(token::BG_OVERLAY), look.color(token::BORDER_STRONG)),
             Weight::Quiet => (look.color(token::FG_MUTED), gpui::transparent_black(), look.color(token::BORDER_DEFAULT)),
         };
+        let updating = self.store.state().is_some_and(|state| deploys(state) == Deploys::Update);
         let shown = match (busy, name) {
+            (true, "deploy" | "deploy-again") if updating => "Updating",
             (true, "deploy" | "deploy-again") => "Deploying",
             (true, "join") => "Joining",
             (true, _) => "Working",
@@ -771,6 +915,28 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_token_cloudflare_cannot_read_asks_again_with_its_sentence_and_an_empty_field(cx: &mut TestAppContext) {
+        let said = "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token.";
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        press(&overlay, "deploy", cx);
+        assert!(on_page(&overlay, Role::Status, ASK_HEADLINE, cx), "our headline leads the ask");
+        assert!(on_page(&overlay, Role::Status, "Cloudflare refused every sign-in this Mac has.", cx), "Cloudflare's own sentence stands under it");
+        for step in ASK_STEPS {
+            assert!(on_page(&overlay, Role::ListItem, step, cx), "{step}");
+        }
+        type_into(&overlay, "token", "curl https://api.cloudflare.com/client/v4/user/tokens/verify", cx);
+        press(&overlay, "deploy-again", cx);
+        overlay.read_with(cx, |this, cx| {
+            assert!(this.store.ask.is_some(), "the ask stays open");
+            assert!(this.store.token.read(cx).value().is_empty(), "the paste Cloudflare could not read is dropped");
+        });
+        assert!(on_page(&overlay, Role::Status, said, cx), "and says why");
+        type_into(&overlay, "token", "cfut_typed", cx);
+        press(&overlay, "deploy-again", cx);
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_none()), "a token it can read deploys");
+    }
+
+    #[gpui::test]
     fn a_refusal_shows_fleets_sentence_and_gives_the_press_back(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
         type_into(&overlay, "address", "https://armada-store-acme-platform.mele.workers.dev", cx);
@@ -812,6 +978,75 @@ mod tests {
         assert!(!on_page(&overlay, Role::Button, "Deploy", cx), "no store acts without a project");
         assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), 1, "the press is the page's one stop");
         assert!(calls(&overlay, cx).is_empty(), "nothing is read or sent for every project");
+    }
+
+    #[gpui::test]
+    fn a_store_this_mac_deployed_reads_update_where_none_reads_deploy(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        assert!(on_page(&overlay, Role::Row, "Deploy", cx) && on_page(&overlay, Role::Button, "Deploy", cx), "with no store, Deploy as before");
+        assert!(!on_page(&overlay, Role::Row, "Update the store", cx));
+        press(&overlay, "deploy", cx);
+        type_into(&overlay, "token", "cfut_typed", cx);
+        press(&overlay, "deploy-again", cx);
+        assert!(on_page(&overlay, Role::Row, "Update the store", cx), "the store it put up is the one to update");
+        assert!(on_page(&overlay, Role::Button, "Update", cx));
+        // The page's labels are not cleared between frames here, so what is gone is read from the state the rows are drawn from.
+        assert_eq!(overlay.read_with(cx, |this, _| this.store.state().map(deploys)), Some(Deploys::Update), "nothing reads as if there were no store");
+        // Updating sends the store's own team, and a kept sign-in needs no token.
+        press(&overlay, "deploy", cx);
+        let sent = calls(&overlay, cx).into_iter().filter(|call| matches!(call, StoreCall::Deploy { .. })).count();
+        assert_eq!(sent, 3, "two presses to deploy, one to update");
+        assert!(overlay.read_with(cx, |this, _| this.store.ask.is_none() && this.store.state().is_some_and(|state| state.store.is_some())));
+    }
+
+    #[gpui::test]
+    fn armada_names_a_store_it_deployed_so_its_row_reads_update(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        assert!(on_page(&overlay, Role::Row, "Update the store", cx));
+        assert!(on_page(&overlay, Role::Button, "Update", cx));
+        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), 6, "Copy, Use none, Update, the two fields and Join");
+    }
+
+    #[gpui::test]
+    fn a_store_joined_by_address_has_no_deploy_row(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("storefront", "Storefront")));
+        let before = overlay.read_with(cx, |this, cx| this.store_stops(cx).len());
+        type_into(&overlay, "address", "https://someone-elses.example.com", cx);
+        press(&overlay, "join", cx);
+        assert!(overlay.read_with(cx, |this, _| this.store.state().is_some_and(|state| state.store.as_ref().is_some_and(|store| store.deployed.is_none()))));
+        assert_eq!(overlay.read_with(cx, |this, _| this.store.state().map(deploys)), Some(Deploys::Neither), "neither row is drawn");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), before + 1, "Copy joins the stops, and Use none stands where Deploy did");
+    }
+
+    #[gpui::test]
+    fn copy_writes_the_address_and_reads_copied_for_a_moment(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        assert!(on_page(&overlay, Role::Button, "Copy the address", cx));
+        let address = overlay.read_with(cx, |this, _| this.store.state().and_then(|state| state.store.as_ref()).map(|store| store.address.clone())).expect("a store");
+        assert!(overlay.read_with(cx, |this, cx| this.store_stops(cx).first() == this.store.keys.get("copy")), "the press is the page's first stop");
+        // Enter on the focused press is the press.
+        cx.update(|window, cx| {
+            let focus = overlay.read(cx).store.keys.get("copy").cloned().expect("a key");
+            window.focus(&focus, cx);
+        });
+        let taken = cx.update(|window, cx| overlay.update(cx, |this, cx| this.store_key(&Keystroke::parse("enter").expect("a key"), window, cx)));
+        assert!(taken, "Enter presses the focused Copy");
+        cx.run_until_parked();
+        assert_eq!(cx.read_from_clipboard().and_then(|item| item.text()), Some(address));
+        assert!(on_page(&overlay, Role::Button, "Copied", cx));
+        cx.executor().advance_clock(COPIED_FOR + std::time::Duration::from_millis(100));
+        cx.run_until_parked();
+        assert!(on_page(&overlay, Role::Button, "Copy the address", cx), "it reads Copy the address again");
+    }
+
+    #[test]
+    fn a_long_address_is_cut_for_the_sentence_and_whole_in_the_tooltip() {
+        let own = "https://armada-store.mele-labs.workers.dev";
+        assert_eq!(trimmed(own), (own.to_string(), None), "his own store's address is read whole");
+        let team = "https://armada-store-mele-labs-platform-team.mele-labs.workers.dev";
+        let (shown, full) = trimmed(team);
+        assert!(shown.ends_with('\u{2026}') && shown.chars().count() == ADDRESS_SHOWN);
+        assert_eq!(full.as_deref(), Some(team));
     }
 
     #[gpui::test]

@@ -312,7 +312,7 @@ where
         // The Operator's successor is the Operator's: no repository to start in, and the mark carried.
         let made = match hosting.operator {
             true => self.started_hosted(begun, super::Marked::Operator).await,
-            false => self.start_session(begun).await,
+            false => self.started_hosted(begun, super::Marked::Plain).await,
         }
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;
         let new = made.id.as_str().to_string();

@@ -15,6 +15,7 @@ use std::rc::Rc;
 
 use gpui::{anchored, canvas, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::InputEvent;
+use gpui_component::text::TextView;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
     AnswerWaiting, ReachesTo, SessionId, ThreadAsk, WaitingSource,
@@ -321,10 +322,21 @@ impl JobView {
         groups
     }
 
-    /// The things the panel lists, and the pages the band names for review: the To review rows, only where Fleet
-    /// says the band offers the sheet.
+    /// Whether the band offers the review sheet: where Fleet says so, and wherever a page waits on him at all. Fleet keeps a
+    /// lone plan, sketch or draft on its thread card, which can sit far up a long thread; he looks for it here (16 Nov).
+    pub(super) fn band_reviews(&self, id: &str, cx: &gpui::App) -> bool {
+        self.needs_of(id, cx).is_some_and(|view| {
+            view.review_in_band
+                || view.sections.iter().any(|section| {
+                    section.kind == NeedsYouSectionKind::ToReview && section.rows.iter().any(|row| row.source != ipc::WaitingSource::ReadyToTry)
+                })
+        })
+    }
+
+    /// The things the panel lists, and the pages the band names for review: the To review rows, wherever the band
+    /// offers the sheet.
     pub(super) fn things<'a>(&'a self, id: &str, cx: &'a gpui::App) -> (Vec<Thing<'a>>, Vec<&'a NeedsYouRow>) {
-        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
+        let in_band = self.band_reviews(id, cx);
         let mut things = Vec::new();
         let mut review = Vec::new();
         for group in self.groups(id, cx) {
@@ -482,6 +494,16 @@ impl JobView {
                 Thing::Row(_) => None,
             })
             .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            // Fleet leaves a lone page's mark off its glyphs; the band names it all the same.
+            .chain(
+                view.filter(|view| !view.review_in_band)
+                    .into_iter()
+                    .flat_map(|view| view.sections.iter())
+                    .filter(|section| section.kind == NeedsYouSectionKind::ToReview)
+                    .flat_map(|section| section.rows.iter())
+                    .filter(|row| row.source != ipc::WaitingSource::ReadyToTry)
+                    .map(|row| (icon_of(row.glyph.kind), row.glyph.said.clone())),
+            )
             .collect();
         if marks.is_empty() && restarts.is_empty() {
             if let Some(page) = self.pages.get(id) {
@@ -679,7 +701,7 @@ impl JobView {
     /// (`sessions-wired.tsx` `switching`). Fleet answering that it began is the pass.
     fn restart(&mut self, command: String, build: BuildSource, adopt: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt }).map_err(|why| format!("{why:?}"));
+        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"));
         self.mark_run(&job, &command, Some(RunMark::Running), cx);
         let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
             self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
@@ -893,7 +915,7 @@ impl JobView {
 
     /// The list: Fleet's sections in its order, each under its label, each row as Fleet gave it.
     fn render_list(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let in_band = self.needs_of(id, cx).is_some_and(|view| view.review_in_band);
+        let in_band = self.band_reviews(id, cx);
         div()
             .flex()
             .flex_col()
@@ -997,7 +1019,7 @@ impl JobView {
             }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
-                let sheet = self.shown.clone().and_then(|id| self.needs_of(&id, cx).map(|view| view.review_in_band)).unwrap_or(false);
+                let sheet = self.shown.clone().is_some_and(|id| self.band_reviews(&id, cx));
                 if sheet {
                     self.review_press(window, cx);
                 } else if let NeedsYouAct::OpenDraft { row } = act {
@@ -1079,6 +1101,12 @@ impl JobView {
         });
         let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
             Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
+            // A To do row's words are selectable, so he can copy what he is asked to do.
+            None if done.is_some() => div()
+                .flex_1()
+                .min_w_0()
+                .child(TextView::markdown(gpui::ElementId::Name(format!("needs-words:{key}").into()), text).w_full().selectable(true))
+                .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
@@ -1148,18 +1176,19 @@ impl JobView {
 
     /// The procedure a To do row carries, one numbered line each, under the row.
     fn step_lines(&self, key: &str, steps: &[String], look: &Look) -> AnyElement {
+        // Markdown, so the words can be selected and copied, and a command in backticks reads as code.
+        let source = steps.iter().enumerate().map(|(at, step)| format!("{}. {step}", at + 1)).collect::<Vec<_>>().join("\n");
         div()
             .id(SharedString::from(format!("needs-steps:{key}")))
-            .flex()
-            .flex_col()
             .px(look.length(token::SPACE_3))
-            .children(steps.iter().enumerate().map(|(at, step)| {
-                div()
+            .child(
+                TextView::markdown(gpui::ElementId::Name(format!("needs-steps-words:{key}").into()), source)
+                    .w_full()
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_SM))
                     .text_color(look.color(token::FG_MUTED))
-                    .child(SharedString::from(format!("{}. {step}", at + 1)))
-            }))
+                    .selectable(true),
+            )
             .into_any_element()
     }
 

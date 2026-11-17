@@ -76,12 +76,15 @@ pub(crate) struct FirstTurn {
     /// edit finds the turn by it. A held Job's first turn has none yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub row: Option<String>,
+    /// The side question these words tell the answer of, which their row is marked with.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aside: Option<String>,
 }
 
 impl FirstTurn {
     /// Words sent as `from`, as the agent will read them.
     pub(crate) fn said(from: SessionVoice, text: &str) -> FirstTurn {
-        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), sketches: Vec::new(), instead: None, ahead: None, row: None }
+        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), sketches: Vec::new(), instead: None, ahead: None, row: None, aside: None }
     }
 
     /// A turn already on the thread, kept for a Resume. Its row is written, so `from` is not read again.
@@ -95,6 +98,7 @@ impl FirstTurn {
             instead: held.instead.clone(),
             ahead: held.ahead.clone(),
             row: held.row.clone(),
+            aside: None,
         }
     }
 
@@ -401,7 +405,7 @@ where
 
     /// A kept turn written to the thread as Start sends it, and the turn the agent is sent of it.
     async fn first_turn_written(&self, id: &str, first: FirstTurn) -> Result<Held, Refusal> {
-        let FirstTurn { from, text, files, tags, sketches, instead, ahead, .. } = first;
+        let FirstTurn { from, text, files, tags, sketches, instead, ahead, aside, .. } = first;
         let his = from == SessionVoice::You;
         let row = SessionRow::Message {
             id: self.row_id(id),
@@ -413,6 +417,7 @@ where
             notice: None,
             queued: false,
             edited_at: None,
+            aside: aside.clone(),
             sketches: sketches.clone(),
         };
         let row_id = row.id().to_string();
@@ -421,12 +426,13 @@ where
         }
         self.row_put(id, row).await;
         if his {
+            self.message_arrived(id, &row_id, &text).await;
             // The artifacts drawn from here on follow it, as they follow any message of his.
             if let Err(why) = self.store().lock().await.keep_session_message(id, &row_id) {
                 self.session_warned(id, "a job's latest message was not kept", format!("{why:?}"));
             }
         }
-        self.held_again(id, FirstTurn { from, text, files, tags, sketches, instead, ahead, row: Some(row_id) }).await
+        self.held_again(id, FirstTurn { from, text, files, tags, sketches, instead, ahead, row: Some(row_id), aside }).await
     }
 
     /// A kept turn as the agent is sent it, its row not written again.

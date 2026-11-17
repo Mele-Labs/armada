@@ -35,6 +35,13 @@ where
     /// **What a forge's capped list cannot be trusted to show**, read by number so their owners
     /// are still told.
     pub(crate) async fn held_beyond(&self, served: &Served, listed: &[u64]) -> Vec<u64> {
+        let mut held = self.held_pulls(served).await;
+        held.retain(|number| !listed.contains(number));
+        held
+    }
+
+    /// The pull requests a Session's standing `pr` row holds in `served`, each once.
+    pub(crate) async fn held_pulls(&self, served: &Served) -> Vec<u64> {
         let manifest = served.manifest().id().as_str().to_string();
         let store = self.store().lock().await;
         let mut held: Vec<u64> = store
@@ -43,7 +50,6 @@ where
             .into_iter()
             .filter_map(|row| row.target.parse().ok())
             .collect();
-        held.retain(|number| !listed.contains(number));
         held.sort_unstable();
         held.dedup();
         held

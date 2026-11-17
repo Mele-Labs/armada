@@ -162,11 +162,13 @@ where
         // The Job is for its starter's project, which takes the repository in as a whole member where it is not one.
         let starters = self.session_and_hosting(&me).await.ok().and_then(|(_, hosting)| hosting.project);
         let project = self.started_project(&me, starters, manifest.as_str()).await;
+        // A starter in none starts it in the one project that holds its repository, where exactly one does.
+        let project = project.or_else(|| self.only_project_holding(manifest.as_str()));
         // The project's word, as the caller was started for it: held on its start card only where it says `ask_me`.
         // A Job that waits follows it too, once its wait is met, so the word is read whether or not there is a wait.
         let held_by_word = self.agent_start_held(project.as_deref(), manifest.as_str()).await;
         let made = self
-            .start_session(StartSession {
+            .started_hosted(StartSession {
                 project,
                 manifest_id: manifest,
                 title: Some(words.title.clone()),
@@ -181,7 +183,7 @@ where
                 held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
-            })
+            }, super::Marked::Plain)
             .await?;
         let brief = words.message.clone();
         // The agent's title, a plan group's too, is a hint the proposer names the Job over.
@@ -195,6 +197,10 @@ where
             self.held_with(&new, &brief).await?;
         }
         let mut held = self.held_for_person(&me, made, words, false, group.as_deref()).await?;
+        // A brief held for the person, or for a wait, is not sent as a message, so the hand is read here.
+        if held_by_word || after.is_some() {
+            self.handing_begun(&me, &new, &brief);
+        }
         // Otherwise it begins now, the brief its first turn from the caller; where that is not sent, it is held.
         if after.is_none() && !held_by_word {
             held.held = !self.agent_start_begun(&me, &new, &brief).await;

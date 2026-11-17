@@ -9,12 +9,14 @@ pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
 /// The build switcher on Fleet's report: each scene is Fleet's JSON read as the live bar reads it.
-pub static BUILD_LIVE: [Step; 10] = [
+pub static BUILD_LIVE: [Step; 12] = [
     scene("Fleet's report on Main, level with main: the restart is off and says so", "build-live-main", "button", "Fleet — Running"),
     step("The panel opens under the dot", Verb::Press, "button", "Fleet — Running"),
     scene("On Preview, as Fleet counts it: five ahead, two behind, and the branches left out say why", "build-live-preview", "list", "Left out of the preview"),
     press_on("Refresh is under way in the same frame, and holds until Fleet's report moves", "button", "Refresh", "button", "Refreshing"),
     scene("A restart Fleet refused says Fleet's words where a failed restart is said", "build-live-refused", "alert", "no served repository holds scripts/restart-build"),
+    scene("Main is four commits behind origin and three untracked files stop it updating: Stash and refresh, or Delete and refresh", "build-live-blocked", "button", "Stash and refresh"),
+    press_on("Stash and refresh starts the restart in the same frame, and the files and their buttons go", "button", "Stash and refresh", "button", "Refreshing"),
     scene("Update to main: Fleet carries two working Jobs across the restart", "build-live-carried", "button", "Update to main"),
     press_on("Nothing asks first, since those Jobs keep running: the restart is under way in the same frame", "button", "Update to main", "button", "Updating to main"),
     step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),

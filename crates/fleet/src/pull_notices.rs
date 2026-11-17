@@ -176,23 +176,56 @@ where
         self.slot_rows_followed(served).await;
         let gate = served.manifest().ci_gate().to_string();
         let list_gate = gate.clone();
-        let Some(mut followed) = self
+        let listed = self
             .forge_asked(&root, move |vcs: &V, root: &str| {
-                vcs.pull_reading(root, &list_gate)
+                vcs.pull_list(root, &list_gate)
             })
-            .await
-        else {
-            return;
+            .await;
+        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
+        let mut followed = match listed {
+            Ok(followed) => followed,
+            Err(why) => {
+                // **The rows a Job holds are still read, one by one**: a list the forge times out on
+                // would otherwise hold every row at its last reading, a red one through a push that
+                // fixed it.
+                let why = why.unwrap_or_else(|| "the forge did not answer".to_string());
+                self.pull_reading_warned("the open pull requests were not listed", manifest_id.as_str(), why);
+                self.pull_ledger_kept_current(&manifest_id, &root).await;
+                return;
+            }
         };
+        // **The list carries no checks**, which a repository with hundreds open timed the forge out
+        // on. The person's own by a known login, and those a Job holds, are read by number, checks
+        // and all; the rest are told nothing that needs a check.
+        let mine = self.mine_in(&root).await;
+        let held = self.held_pulls(served).await;
+        let mut read = Vec::new();
+        for pull in followed.iter_mut() {
+            let author = pull.author.as_ref().map(|it| it.as_written());
+            if !held.contains(&pull.number) && !mine.knows(author) {
+                continue;
+            }
+            let (gate, number) = (gate.clone(), pull.number);
+            let one = self
+                .forge_asked(&root, move |vcs: &V, root: &str| {
+                    vcs.followed_pull(root, &gate, number)
+                })
+                .await;
+            if let Some(one) = one {
+                *pull = one;
+                read.push(number);
+            }
+        }
         // The list stops at 100: a pull request someone holds that it left out is read by number.
         let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
-        for number in self.held_beyond(served, &listed).await {
+        for number in held.into_iter().filter(|number| !listed.contains(number)) {
             let gate = gate.clone();
             let one = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
                     vcs.followed_pull(root, &gate, number)
                 })
                 .await;
+            read.extend(one.as_ref().map(|pull| pull.number));
             followed.extend(one);
         }
         let reading = self.pulls_reading(&root).await;
@@ -203,13 +236,18 @@ where
             .pulls_seen_queued(&root)
             .unwrap_or_default();
         // **Only the person's own**: another author's pull request is nobody here's to tell.
-        let mine = self.mine_in(&root).await;
         let mut queued = Vec::new();
         for pull in followed
             .iter()
             .filter(|pull| mine.owns(pull.author.as_ref().map(|it| it.as_written())))
         {
-            if self.followed_told(served, &base, &before, pull).await {
+            // Unread, it has no checks to tell of, and the queue last seen keeps it as it was.
+            let stays = if read.contains(&pull.number) {
+                self.followed_told(served, &base, &before, pull).await
+            } else {
+                before.contains(&pull.number)
+            };
+            if stays {
                 queued.push(pull.number);
             }
             if pull.queue != PullQueue::Outside {
@@ -221,7 +259,6 @@ where
         self.merges_told(served, &base, &mine).await;
         self.pulls_attached(served, &followed).await;
         drop(reading);
-        let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
         self.sweeping().lock().await.pulls_read.insert(manifest_id.as_str().to_string(), began);
         // **The merge line agrees with the rows just written**: its own visit comes round one
@@ -530,6 +567,8 @@ where
             let at = core_model::Timestamp::from_rfc3339(one.pull.merged_at.as_written());
             // A task a person linked this to is asked about, whoever opened the pull request.
             self.tasks_asked_by_linked_pull(served.manifest().id().as_str(), one.pull.number, one.pull.title.as_written()).await;
+            // Whoever opened it, a merge is kept with its files: it is what makes a written section of the library stale.
+            self.feature_pull_filed(served, one.pull.number, Some((one.pull.merged_at.as_written(), one.pull.commit.as_ref().map(|it| it.as_written())))).await;
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }

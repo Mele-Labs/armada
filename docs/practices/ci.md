@@ -30,7 +30,9 @@ gpui builds on no Linux runner, so no other job runs them.
 `plan.py` reads the native workspace's `test` key from `armada covers` into its `native` output, which `native` waits on, and `ci` needs `native`.
 The three it reads are added in the workflow, not the crate's manifest, so a local pre-PR run still builds gpui only for a change to the crate. #3443 renamed a wire field and merged with the native tests not compiling.
 The job is skipped for any other change and `ci` reads a skipped job as a pass, so only a change to the crate waits on it.
-A pull request runs it as well as the queue, because a native test that fails in the queue takes the entries behind it.
+A pull request runs it only for a change to one of the three, because a native test that fails in the queue takes the entries behind it.
+A pull request whose change is inside the crate skips it: the local pre-PR Check ran the native tests, and the queue runs them again on the commit that lands.
+Decided by the owner, 16 Nov 2026, when each run held a `macos-15` runner for 9 to 15 minutes, 12 of them compiling the crate, and the organisation's Mac runners were what PR runs queued behind.
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
 
 **A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.

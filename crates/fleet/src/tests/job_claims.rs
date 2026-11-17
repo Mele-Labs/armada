@@ -195,6 +195,36 @@ async fn two_jobs_writing_one_file_are_both_told_and_both_carry_on() {
     }
 }
 
+/// Confirmed 16 Nov 2026: each Fleet restart told every Job again of every file another Job writes,
+/// and of every item it waits on.
+#[tokio::test]
+async fn a_restart_tells_a_job_nothing_it_was_told_before() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let (home, work) = (mac("home", &shared, &remote).await, mac("work", &shared, &remote).await);
+    let item = home.copy.create("Fix the flaky queue test");
+    home.copy.sync("/").expect("pushed");
+    work.copy.sync("/").expect("pulled");
+    let first = home.job("Tidy the log").await;
+    let second = work.job("Quiet the log").await;
+    home.works(&first, &item).await;
+    work.works(&second, &item).await;
+    home.writes(&first, "src/log.rs");
+    work.writes(&second, "src/log.rs");
+    home.pass(1).await;
+    work.pass(1).await;
+    let before = work.told(&second).await;
+    assert_eq!(before.len(), 1, "the wait and the shared file go as one notice: {before:?}");
+    assert!(before[0].contains("is claimed by") && before[0].contains("also writes `src/log.rs`"), "{before:?}");
+
+    // A restart forgets what Fleet holds in memory of each Job's claims.
+    work.rig.fleet.job_claims().with(|kept| *kept = crate::job_claims::Kept::default());
+    work.pass(60).await;
+    work.pass(300).await;
+
+    assert_eq!(work.told(&second).await, before, "nothing told again");
+    assert_eq!(work.record(&second).await.claim_waits.len(), 1, "the wait is still drawn");
+}
+
 #[tokio::test]
 async fn a_job_keeps_working_with_the_store_down_and_its_claims_go_out_when_it_answers() {
     let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
