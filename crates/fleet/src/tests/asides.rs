@@ -221,13 +221,18 @@ async fn telling_an_answered_aside_sends_the_job_one_message_of_his_and_a_second
     let told = Arc::clone(&asked.rig.fleet).tell_aside(tell()).await.expect("told");
     assert!(told.told_at.is_some());
     let rows = asked.rig.rows(&id).await;
-    let message = rows
+    let (message, marked) = rows
         .iter()
         .find_map(|row| match row {
-            SessionRow::Message { from: SessionVoice::You, text, .. } if text.contains("Aside, answered") => Some(text.clone()),
+            SessionRow::Message { from: SessionVoice::You, text, aside, .. } if text.contains("Aside, answered") => Some((text.clone(), aside.clone())),
             _ => None,
         })
         .expect("his message is in the thread");
+    assert_eq!(marked.as_deref(), Some(aside.aside_id.as_str()), "marked as from the side chat");
+    assert!(
+        rows.iter().all(|row| !matches!(row, SessionRow::Message { aside: Some(_), text, .. } if !text.contains("Aside, answered"))),
+        "no other message is marked"
+    );
     for shown in [QUESTION, ANSWER, QUOTE, "read-only copy of this Job"] {
         assert!(message.contains(shown), "{shown}: {message}");
     }

@@ -116,6 +116,7 @@ mod pr_notes;
 mod pr_panel;
 mod report_brief;
 mod side;
+mod side_chat;
 mod spine;
 mod spoken;
 mod start_card;
@@ -436,6 +437,8 @@ pub struct JobView {
     tabs_menu: Option<tabs::AddMenu>,
     /// Tabs another part of the app opened on a Job, each drawing its own view.
     view_tabs: view_tabs::ViewTabs,
+    /// Each Job's side chat, kept as long as the app runs so what was asked stays when its tab is put away.
+    side_chats: HashMap<String, Entity<side_chat::SideChat>>,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
@@ -570,6 +573,7 @@ impl JobView {
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
+            subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -660,6 +664,7 @@ impl JobView {
             arranged: panes_place::Arranged::default(),
             tabs_menu: None,
             view_tabs: Default::default(),
+            side_chats: HashMap::new(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
             body_scroll: gpui::ScrollHandle::new(),
@@ -810,6 +815,7 @@ impl JobView {
         } else {
             self.synced(cx);
             self.review_sync(window, cx);
+            self.pull_row_sync(window, cx);
         }
         if picks != self.picked {
             self.picked = picks;

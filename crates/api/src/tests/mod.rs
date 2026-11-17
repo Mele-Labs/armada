@@ -17,6 +17,7 @@ mod door_scope;
 mod door_sessions;
 mod door_without_manifest;
 mod fake;
+mod features;
 mod following;
 mod issue_reading;
 mod issue_queries;

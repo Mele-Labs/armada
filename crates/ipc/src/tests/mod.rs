@@ -12,6 +12,7 @@ mod absent;
 mod page_messages;
 mod bug_reports;
 mod debug_report;
+mod features;
 mod handoffs;
 mod lifecycles;
 mod piece_saving;
@@ -68,6 +69,8 @@ mod settings;
 mod protocol_id;
 /// A thing said on a pull request: its id, and an edit and a bot only where there is one.
 mod pull_request_entries;
+/// The forge's verdict on a merge, and `unknown` from a Fleet that never sent it.
+mod pull_request_merge_state;
 /// A given-back worktree, and the absent halves Bridge reads as absent.
 /// A person's run: the two kinds it streams under, and the record it leaves.
 mod rehearsal;

@@ -74,3 +74,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 28 Oct 2026 for the walk `workspaces-lanes`. A decision that it will not run, which is the circle and diagonal. Tooltips `Skipped` and `Off`; a rule that is off keeps its edge, dotted."
+
+[[icons.ban.usage]]
+  means = "A pull request the forge will not merge, a rule of its base branch stopping it"
+  group = "PR tab"
+  size = "20px"
+  status = "Proposed"
+  notes = "Proposed 16 Nov 2026 for the native PR tab's status plate, `Merging is blocked`, in the failed hue. The forge's own refusal, which is the circle and diagonal. A muted line under it says what stands in the way."

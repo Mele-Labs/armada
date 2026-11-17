@@ -1,0 +1,16 @@
+[operations.upsert_features]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Keep a project's feature areas and features, matched by slug. A feature already kept keeps its id, its written sections and its links, and takes the new title, summary, prefixes and entry points"
+notes = """
+`POST /features/upsert`, body `UpsertFeatures`: `project`, `areas` (`{slug, title}` in the order they should show) and `features` (`FeatureSeed`: `slug`, `area`, `title`, `summary`, optional `state`, `paths`, `entry_points`, optional `manifest_id`). Answered with `FeaturesUpserted`: `created`, `updated` and `areas`.
+
+**A feature names an area by slug, in this call or already kept.** One that names neither is refused with 422 `fleet.feature_area_unknown`, and nothing of the call is kept. A blank slug, title or summary is refused with 422 `fleet.feature_blank`.
+
+**`paths` replaces the feature's prefixes whole**, as written, relative to the repository. Several features may own one prefix. `state` stays what it was for a feature already kept unless the call names one.
+
+**Only the Operator reaches it.** A Job writes sections, never the shape of the library.
+
+The library lives on this Mac. Sharing it with teammates is not built.
+"""

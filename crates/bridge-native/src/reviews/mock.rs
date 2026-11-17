@@ -8,7 +8,8 @@ use ipc::{
 };
 
 use super::model::{
-    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Group, Hunk, Inbox, InboxRow, Kept, Mark, Mine, Overview, Page, PageFile, Practice, Reply, Seen, Span,
+    self,
+    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Group, Hunk, Inbox, InboxRow, Kept, Mine, Overview, Page, PageFile, Practice, Reply, Seen, Span,
     Summary, Verdict, Viewed,
 };
 
@@ -252,6 +253,19 @@ fn retry_page() -> Page {
     }
 }
 
+/// The review tools that make findings, which a review can be asked to look for: Fleet's review tools
+/// later.
+pub fn review_tools() -> Vec<model::ReviewTool> {
+    let tool = |id: &str, name: &str, said: &str, first: bool| model::ReviewTool { id: id.into(), name: name.into(), said: said.into(), first };
+    vec![
+        tool("bugs", "Possible bugs", "possible bugs", true),
+        tool("risks", "Risks", "risks", true),
+        tool("api-breaking-changes", "API breaking changes", "API breaking changes", false),
+        tool("user-impact", "User impact", "user impact", false),
+        tool("practices", "This repo's practices", "this repo's practices", false),
+    ]
+}
+
 /// What the critique of Retry failed webhooks finds, once it has run.
 pub fn retry_findings() -> Vec<Finding> {
     vec![
@@ -361,6 +375,8 @@ fn limits_page() -> Page {
     }
 }
 
+const STAGE_LOGS: &str = "-        run(stage).await?;\n+        run(stage).instrument(info_span!(\"stage\", name = stage.name())).await\n+            .map_err(|error| error.context(format!(\"invoice {} failed\", self.id)))?;\n";
+
 fn invoice_page() -> Page {
     use PullRequestFileStatus::*;
     Page {
@@ -378,12 +394,12 @@ fn invoice_page() -> Page {
         files: vec![file(
             "src/jobs/invoice.rs",
             Modified,
-            1,
+            2,
             1,
             Viewed::Yes,
             true,
-            "@@ -40,3 +40,3 @@\n-    run(stage).await\n+    run(stage).instrument(info_span!(\"stage\", name = stage.name())).await\n",
-            Some("@@ -40,3 +40,3 @@\n-    run(stage).await\n+    run(stage).instrument(info_span!(\"stage\", name = stage.name())).await\n"),
+            &format!("@@ -38,4 +38,5 @@\n pub async fn run_stages(&mut self) -> Result<()> {{\n     for stage in self.stages_left() {{\n{STAGE_LOGS}     }}\n"),
+            Some(&format!("@@ -38,4 +38,5 @@\n pub async fn run_stages(&mut self) -> Result<()> {{\n     for stage in self.stages_left() {{\n{STAGE_LOGS}     }}\n")),
         )],
         replies: Vec::new(),
         checks: vec![
@@ -408,6 +424,7 @@ fn invoice_page() -> Page {
                 line: 28,
                 comment: "A slow first stage uses up the retries the later ones need. Give each stage its own.".into(),
             }],
+            asked: model::ReviewAsk::first(&review_tools()),
         },
         summary: Summary::None,
         overview: invoice_overview(),
@@ -506,6 +523,7 @@ pub fn drafts() -> Vec<DraftOf> {
         line: 41,
         body: "The error says which invoice failed but not which stage. Add the stage name to the error.".into(),
         finding: Some("g1".into()),
+        excerpt: model::excerpt(&invoice_page().files, "src/jobs/invoice.rs", 41),
     }]
 }
 
@@ -518,8 +536,8 @@ fn practices(kept: &[(Kept, &str)]) -> Vec<Practice> {
     kept.iter().map(|(kept, said)| Practice { said: (*said).into(), kept: *kept }).collect()
 }
 
-fn hunk(path: &str, patch: &str, hot: Option<usize>, flag: Option<&str>) -> Hunk {
-    Hunk { path: path.into(), patch: patch.into(), hot, flag: flag.map(str::to_string) }
+fn hunk(path: &str, caption: &str, patch: &str, hot: Option<usize>, flag: Option<&str>) -> Hunk {
+    Hunk { path: path.into(), caption: caption.into(), patch: patch.into(), hot, flag: flag.map(str::to_string) }
 }
 
 /// The note Armada keeps over a set's practices: the folder it covers, and the doc it read them from.
@@ -528,8 +546,8 @@ fn kept_note(folder: &str, doc: &str, day: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn set(id: &str, title: &str, purpose: &str, files: u32, mark: Mark, kind: &str, note: String, kept: &[(Kept, &str)], hunks: Vec<Hunk>) -> ChangeSet {
-    ChangeSet { id: id.into(), title: title.into(), purpose: purpose.into(), files, mark, kind: kind.into(), kept_note: note, practices: practices(kept), hunks }
+fn set(id: &str, title: &str, purpose: &str, files: u32, kind: &str, note: String, kept: &[(Kept, &str)], hunks: Vec<Hunk>) -> ChangeSet {
+    ChangeSet { id: id.into(), title: title.into(), purpose: purpose.into(), files, kind: kind.into(), kept_note: note, practices: practices(kept), hunks }
 }
 
 const MIGRATION_UP: &str = "+ALTER TABLE invoices ADD COLUMN stage text;\n+\n+UPDATE invoices SET stage = log.stage FROM job_log log WHERE log.invoice_id = invoices.id;\n";
@@ -553,38 +571,38 @@ fn stage_overview() -> Overview {
             flag("x3", FlagKind::PossibleBug, "logic", "A crash can retry forever", "The failed stage is saved before the retry count goes up.", "src/jobs/invoice.rs", 88, "Count the retry first", "A crash between these lines saves the stage but never counts the retry. Count the retry before you save the stage."),
         ],
         sets: vec![
-            set("migration", "Database migration", "Adds a stage column to invoices and fills it from the job log.", 2, Mark::Blocked, "migrations", kept_note("migrations/", "docs/migrations.md", "Tuesday"), &[
+            set("migration", "Database migration", "Adds a stage column to invoices and fills it from the job log.", 2, "migrations", kept_note("migrations/", "docs/migrations.md", "Tuesday"), &[
                 (Met, "Has a down migration"),
                 (Met, "New column is nullable"),
                 (Missed, "Backfill runs in batches. It runs as one statement."),
                 (DoesNotApply, "Index built concurrently. No index added."),
             ], vec![
-                hunk("migrations/0042_invoice_stage.sql", MIGRATION_UP, Some(2), Some("x1")),
-                hunk("migrations/0042_invoice_stage.down.sql", MIGRATION_DOWN, None, None),
+                hunk("migrations/0042_invoice_stage.sql", "Adds the stage column and fills it from the job log, first, because everything after it reads that column.", MIGRATION_UP, Some(2), Some("x1")),
+                hunk("migrations/0042_invoice_stage.down.sql", "Drops the column again, so the migration can be undone before anything relies on it.", MIGRATION_DOWN, None, None),
             ]),
-            set("data", "Data layer", "Reads and writes the stage with each invoice.", 2, Mark::Risky, "the data layer", kept_note("src/db/", "docs/database.md", "Monday"), &[
+            set("data", "Data layer", "Reads and writes the stage with each invoice.", 2, "the data layer", kept_note("src/db/", "docs/database.md", "Monday"), &[
                 (Met, "Reads go through the invoice repository"),
                 (Met, "Writes run in the invoice's transaction"),
                 (Missed, "A new column has a test that reads it back. No test reads the stage."),
             ], vec![
-                hunk("src/db/schema.rs", STAGE_SCHEMA, None, None),
-                hunk("src/db/invoices.rs", STAGE_DB, None, None),
+                hunk("src/db/schema.rs", "Tells the code the new column exists, right after the migration that adds it.", STAGE_SCHEMA, None, None),
+                hunk("src/db/invoices.rs", "Carries the stage on each invoice row, once the schema knows the column.", STAGE_DB, None, None),
             ]),
-            set("logic", "Business logic", "The invoice job records the stage it failed in.", 3, Mark::Clear, "jobs", kept_note("src/jobs/", "docs/jobs.md", "Tuesday"), &[
+            set("logic", "Business logic", "The invoice job records the stage it failed in.", 3, "jobs", kept_note("src/jobs/", "docs/jobs.md", "Tuesday"), &[
                 (Met, "A failure is logged with its invoice"),
                 (Met, "Each stage can run again on its own"),
                 (DoesNotApply, "Slow work runs off the request. No request changed."),
             ], vec![
-                hunk("src/jobs/stage.rs", STAGE_KIND, None, None),
-                hunk("src/jobs/invoice.rs", STAGE_JOB, Some(1), Some("x3")),
-                hunk("src/jobs/retry.rs", STAGE_RETRY, None, None),
+                hunk("src/jobs/stage.rs", "Names the three stages, before the job code that records them.", STAGE_KIND, None, None),
+                hunk("src/jobs/invoice.rs", "Saves the stage a job failed in, now that the invoice row can hold it.", STAGE_JOB, Some(1), Some("x3")),
+                hunk("src/jobs/retry.rs", "Starts a retry from the saved stage, after the job has saved it.", STAGE_RETRY, None, None),
             ]),
-            set("api", "API change", "Returns the stage on GET /invoices.", 2, Mark::Risky, "the API", kept_note("src/api/", "docs/api.md", "Tuesday"), &[
+            set("api", "API change", "Returns the stage on GET /invoices.", 2, "the API", kept_note("src/api/", "docs/api.md", "Tuesday"), &[
                 (Met, "The new field is in the API docs"),
                 (Missed, "A new field waits for a version. Every client gets it."),
             ], vec![
-                hunk("src/api/invoices.rs", STAGE_API, Some(1), Some("x2")),
-                hunk("docs/api/invoices.md", STAGE_DOCS, None, None),
+                hunk("src/api/invoices.rs", "Sends each invoice's stage to clients, once the job records it.", STAGE_API, Some(1), Some("x2")),
+                hunk("docs/api/invoices.md", "Says what the new field means, last, after the change it describes.", STAGE_DOCS, None, None),
             ]),
         ],
     }
@@ -646,18 +664,18 @@ fn retry_overview() -> Overview {
             flag("y2", FlagKind::PossibleBug, "wait", "A high attempt number panics", "The power overflows once the attempt reaches 64, before the cap applies.", "src/webhooks/retry.rs", 6, "Clamp the attempt", "2u64.pow(attempt) overflows once attempt reaches 64, and the cap comes too late to stop it. Clamp the attempt before the power."),
         ],
         sets: vec![
-            set("wait", "Retry wait", "Works out how long a failed webhook waits before its next try.", 2, Mark::Clear, "webhooks", note(), &[
+            set("wait", "Retry wait", "Works out how long a failed webhook waits before its next try.", 2, "webhooks", note(), &[
                 (Met, "Every wait has a cap"),
                 (Met, "Clients that failed together retry apart"),
-            ], vec![hunk("src/webhooks/retry.rs", BACKOFF, Some(1), Some("y2")), hunk("src/webhooks/mod.rs", BACKOFF_EXPORT, None, None)]),
-            set("queue", "Retry queue", "Keeps retries in order and drops the oldest once it is full.", 1, Mark::Risky, "webhooks", note(), &[
+            ], vec![hunk("src/webhooks/retry.rs", "Works out each wait, doubling up to a cap with a little jitter, first because the rest uses it.", BACKOFF, Some(1), Some("y2")), hunk("src/webhooks/mod.rs", "Lets the rest of the code call the new wait, right after it is written.", BACKOFF_EXPORT, None, None)]),
+            set("queue", "Retry queue", "Keeps retries in order and drops the oldest once it is full.", 1, "webhooks", note(), &[
                 (Met, "Every retry is logged"),
                 (Missed, "A dropped delivery is logged at warn. It drops with no log line."),
-            ], vec![hunk("src/webhooks/queue.rs", DROP_OLDEST, Some(1), Some("y1"))]),
-            set("tests", "Tests and docs", "Tests the first wait, and says how retries back off.", 2, Mark::Clear, "webhooks", note(), &[
+            ], vec![hunk("src/webhooks/queue.rs", "Drops the oldest retry when the queue is full, once each retry knows its wait.", DROP_OLDEST, Some(1), Some("y1"))]),
+            set("tests", "Tests and docs", "Tests the first wait, and says how retries back off.", 2, "webhooks", note(), &[
                 (Met, "The docs say how often a delivery is tried"),
                 (DoesNotApply, "A test for each new error. No error added."),
-            ], vec![hunk("tests/webhooks_retry.rs", FIRST_WAIT, None, None), hunk("docs/webhooks.md", "-A failed delivery is tried again three times.\n+A failed delivery is tried again up to five times.\n", None, None)]),
+            ], vec![hunk("tests/webhooks_retry.rs", "Proves the first retry waits half a second, after the wait it tests is in place.", FIRST_WAIT, None, None), hunk("docs/webhooks.md", "Tells readers a delivery is now tried up to five times, last, once the change it describes is done.", "-A failed delivery is tried again three times.\n+A failed delivery is tried again up to five times.\n", None, None)]),
         ],
     }
 }
@@ -669,13 +687,14 @@ fn invoice_overview() -> Overview {
         why: "A failed invoice job ran again from the start. In stages, only the stage that failed runs again.".into(),
         flags: vec![flag("z1", FlagKind::PossibleBug, "stages", "A stage with no name logs an empty field", "The setup stage has no name, so its log line has an empty field.", "src/jobs/invoice.rs", 40, "Name the setup stage", "stage.name() is empty for the setup stage. Give it a name, or log its index.")],
         sets: vec![
-            set("stages", "Job stages", "Splits the invoice job into stages that each retry alone.", 1, Mark::Risky, "jobs", note(), &[
+            set("stages", "Job stages", "Splits the invoice job into stages that each retry alone.", 1, "jobs", note(), &[
                 (Met, "A failure is logged with its invoice"),
                 (Missed, "Each stage has its own retries. They share one budget."),
-            ], vec![hunk("src/jobs/invoice.rs", "-    for stage in STAGES {\n-        run(stage).await?;\n+    for stage in self.stages_left() {\n+        run(stage).await?;\n", None, None)]),
-            set("logs", "Stage logs", "Names each stage in the job's log.", 1, Mark::Risky, "jobs", note(), &[(Met, "Each stage logs when it starts and ends")], vec![hunk(
+            ], vec![hunk("src/jobs/invoice.rs", "Runs only the stages still left, first, because the log lines in the next set sit inside this loop.", "-    for stage in STAGES {\n-        run(stage).await?;\n+    for stage in self.stages_left() {\n+        run(stage).await?;\n", None, None)]),
+            set("logs", "Stage logs", "Names each stage in the job's log.", 1, "jobs", note(), &[(Met, "Each stage logs when it starts and ends")], vec![hunk(
                 "src/jobs/invoice.rs",
-                "-    run(stage).await\n+    run(stage).instrument(info_span!(\"stage\", name = stage.name())).await\n",
+                "Names each stage in the log and in its error, inside the loop the last set changed.",
+                STAGE_LOGS,
                 Some(1),
                 Some("z1"),
             )]),

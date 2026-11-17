@@ -403,6 +403,113 @@ fn a_server_named_for_its_own_program_does_not_say_it_twice() {
     assert_eq!(read[0].says, None);
 }
 
+// Where a server is configured: the person's file, a project's local scope, a repository, a plugin.
+
+fn servers(files: &[(&str, &str)], repository: &[(&str, &str)]) -> Vec<SetupItem> {
+    let repository: Vec<(String, String)> =
+        repository.iter().map(|(path, text)| (path.to_string(), text.to_string())).collect();
+    let read = ExistingSetup::over(Held::of(files), "/home/user")
+        .in_repositories(move |_| {
+            let held: Vec<(&str, &str)> =
+                repository.iter().map(|(path, text)| (path.as_str(), text.as_str())).collect();
+            Box::new(Held::of(&held))
+        })
+        .read_across(&["/work/armada/".to_string()]);
+    match read.kind(SetupKind::McpServers).cloned() {
+        Some(WhatWasRead::Read { items, .. }) => items,
+        other => panic!("servers were {other:?}"),
+    }
+}
+
+fn named<'a>(items: &'a [SetupItem], name: &str) -> &'a SetupItem {
+    items.iter().find(|item| item.name == name).unwrap_or_else(|| panic!("no server {name} in {items:?}"))
+}
+
+#[test]
+fn a_repositorys_servers_are_listed_marked_with_its_root_and_redacted_like_the_rest() {
+    let items = servers(
+        &[],
+        &[(
+            ".mcp.json",
+            r#"{"mcpServers":{
+                "armada-fleet":{"type":"http","url":"http://127.0.0.1:8931/mcp?token=SECRET"},
+                "context7":{"command":"npx","args":["-y","@upstash/context7-mcp","--key=SECRET"],"env":{"K":"SECRET"}}}}"#,
+        )],
+    );
+    assert_eq!(items.len(), 2);
+    let fleet = named(&items, "armada-fleet");
+    assert_eq!(fleet.says.as_deref(), Some("127.0.0.1"));
+    assert_eq!(fleet.source, "/work/armada/.mcp.json");
+    assert_eq!(fleet.plugin, None);
+    let facts = fleet.server.as_ref().expect("a repository's row says so");
+    assert_eq!((facts.from, facts.folder.as_str()), (adapter_traits::ServerFrom::Repository, "/work/armada"));
+    assert_eq!(named(&items, "context7").says.as_deref(), Some("npx"));
+    assert!(!format!("{items:?}").contains("SECRET"));
+}
+
+#[test]
+fn an_installed_plugins_servers_carry_its_full_name_and_are_read_at_the_installed_path_alone() {
+    let items = servers(
+        &[
+            (
+                ".claude/plugins/installed_plugins.json",
+                r#"{"plugins":{"playwright@claude-plugins-official":[{"version":"2","installPath":"/home/user/.claude/plugins/cache/official/playwright/2"}]}}"#,
+            ),
+            // Flat, as a plugin writes it.
+            (
+                ".claude/plugins/cache/official/playwright/2/.mcp.json",
+                r#"{"playwright":{"command":"npx","args":["@playwright/mcp@latest","--token=SECRET"]}}"#,
+            ),
+            // An older version the cache still holds.
+            (
+                ".claude/plugins/cache/official/playwright/1/.mcp.json",
+                r#"{"playwright-old":{"command":"npx"}}"#,
+            ),
+        ],
+        &[],
+    );
+    assert_eq!(items.len(), 1);
+    let row = &items[0];
+    assert_eq!(row.name, "playwright");
+    assert_eq!(row.plugin.as_deref(), Some("playwright@claude-plugins-official"));
+    assert_eq!(row.says.as_deref(), Some("npx"));
+    assert_eq!(row.source, "/home/user/.claude/plugins/cache/official/playwright/2/.mcp.json");
+    assert_eq!(row.server, None);
+    assert!(!format!("{items:?}").contains("SECRET"));
+}
+
+#[test]
+fn a_projects_local_servers_are_marked_with_its_folder_and_the_rest_of_it_is_dropped() {
+    let items = servers(
+        &[(
+            ".claude.json",
+            r#"{"mcpServers":{"mine":{"command":"mine"}},
+                "projects":{
+                  "/work/armada":{"mcpServers":{"local-one":{"command":"/opt/bin/local-server","env":{"K":"SECRET"}}},"history":["SECRET"]},
+                  "/work/other":{"mcpServers":{}}}}"#,
+        )],
+        &[],
+    );
+    assert_eq!(items.len(), 2);
+    assert_eq!(named(&items, "mine").server, None);
+    let local = named(&items, "local-one");
+    assert_eq!(local.says.as_deref(), Some("local-server"));
+    assert_eq!(local.source, "/home/user/.claude.json");
+    let facts = local.server.as_ref().expect("a project's row says so");
+    assert_eq!((facts.from, facts.folder.as_str()), (adapter_traits::ServerFrom::Project, "/work/armada"));
+    assert!(!format!("{items:?}").contains("SECRET"));
+}
+
+#[test]
+fn a_server_configured_in_two_places_is_listed_once_for_each() {
+    let items = servers(
+        &[(".claude.json", r#"{"mcpServers":{"gitnexus":{"command":"gitnexus"}}}"#)],
+        &[(".mcp.json", r#"{"mcpServers":{"gitnexus":{"command":"gitnexus"}}}"#)],
+    );
+    let places: Vec<&str> = items.iter().map(|item| item.source.as_str()).collect();
+    assert_eq!(places, ["/home/user/.claude.json", "/work/armada/.mcp.json"]);
+}
+
 // Output styles.
 
 const USER_STYLE: &str = "---\nname: bluf\ndescription: Bottom line first\n---\n\nSECRET BODY the person wrote.\n";

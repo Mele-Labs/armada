@@ -255,6 +255,7 @@ where
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
+        let start = self.start_in_its_only_project(start);
         let record = self.started_hosted(start, super::Marked::Plain).await?;
         let id = record.id.as_str().to_string();
         let fleet = Arc::clone(&self);

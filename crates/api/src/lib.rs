@@ -93,6 +93,8 @@ mod placed;
 mod preferring;
 /// A repository's projects: tasks a person wrote and issues he linked.
 mod projects;
+/// A project's feature library over the wire.
+mod features;
 mod pull_request_panel;
 mod pull_requests;
 mod queries;
@@ -157,7 +159,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, MAC, MA
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Asides, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing, OtherMacs,
-    Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
+    Features, Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
     SealedPage, ShownFile, StoredFile, Story, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};

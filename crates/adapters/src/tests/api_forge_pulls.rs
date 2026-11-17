@@ -47,6 +47,7 @@ fn a_pull_requests_facts_over_the_api_are_the_facts_gh_reads() {
     assert_eq!(facts.closes, [2099, 2101]);
     assert_eq!(facts.base, "main");
     assert!(facts.auto_merge);
+    assert_eq!(facts.merge_state, adapter_traits::MergeState::Blocked);
     assert_eq!(facts.title, "Read the forge over the API", "a tab in a title is a space");
     // The address of the pull request is the number it ends in, within this repository only.
     assert_eq!(forge.pull_request_facts(&root, ADDRESS), Some(facts));

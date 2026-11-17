@@ -21,6 +21,7 @@ fn ticket(status: &str) -> ReadIssue {
 
 fn pull_request(standing: PullRequestStanding) -> PullRequestFacts {
     PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing,
         branch: "armada/take-the-order".into(),
         base: "main".into(),
@@ -42,6 +43,7 @@ fn page(review: ReviewStanding, asked: &[&str]) -> PullRequestPageFacts {
         team: None,
     };
     PullRequestPageFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("author".into()),
