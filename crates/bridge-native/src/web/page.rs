@@ -359,6 +359,10 @@ impl WebPage {
     /// part are asked of gpui's hit test, as of the frame just drawn.
     fn covered(&self, window: &Window) -> bool {
         let (Some(hitbox), Some(visible)) = (&self.hitbox, self.visible) else { return false };
+        // A view cannot be clipped as gpui clips what it draws: a page a scrolling parent cuts stands as its picture.
+        if self.bounds.is_some_and(|bounds| clipped(bounds, visible)) {
+            return true;
+        }
         if visible.size.width <= px(2.) || visible.size.height <= px(2.) {
             return false;
         }
@@ -372,6 +376,11 @@ impl WebPage {
         }
         false
     }
+}
+
+/// Whether a clip takes more than a point off the element's bounds.
+fn clipped(bounds: Bounds<Pixels>, visible: Bounds<Pixels>) -> bool {
+    bounds.size.width - visible.size.width > px(1.) || bounds.size.height - visible.size.height > px(1.)
 }
 
 fn frame_of(bounds: Bounds<Pixels>) -> Frame {
@@ -433,4 +442,20 @@ pub fn web_pane(page: &Entity<WebPage>) -> impl IntoElement + Styled {
             }
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{bounds, point, px, size};
+
+    use super::clipped;
+
+    #[test]
+    fn a_page_a_scrolling_parent_cuts_is_clipped_and_one_it_shows_whole_is_not() {
+        let whole = bounds(point(px(24.), px(300.)), size(px(900.), px(500.)));
+        assert!(!clipped(whole, whole), "shown whole");
+        assert!(!clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(499.5)))), "half a point off is rounding");
+        assert!(clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(320.)))), "its foot is under the panel's");
+        assert!(clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(0.)))), "scrolled out entirely");
+    }
 }

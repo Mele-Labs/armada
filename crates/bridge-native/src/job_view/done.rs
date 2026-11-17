@@ -204,7 +204,7 @@ impl JobView {
             }
             let mut line = artifact_line(one, "doc");
             if thread.is_some_and(|held| super::review::document_card(&held.items, &page).is_some()) {
-                line.opens = Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_document_tab(&page, window, cx)));
+                line.opens = Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_document(&page, window, cx)));
             }
             let shape = if is_report(one) { Shape::Report(line) } else { Shape::Row(line) };
             out.push(Made { bucket: Bucket::Document, group: None, shape, time: None });

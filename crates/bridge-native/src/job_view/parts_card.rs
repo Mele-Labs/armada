@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, Context, Entity, FontWeight, Focusable, KeyDownEvent, Role, SharedString, Window};
+use gpui::{canvas, div, prelude::*, px, AnyElement, ClickEvent, Context, Entity, FontWeight, Focusable, KeyDownEvent, MouseButton, Role, SharedString, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use gpui_component::text::TextView;
 use ipc::{AnswerPart, ArtifactPart, ArtifactState, DismissWaiting, JobArtifact, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake, PressDid, PressPageAction, SessionId, VoteForm};
@@ -58,7 +58,12 @@ pub(super) fn part_key(artifact: &str, part: &str) -> String {
     format!("{artifact}{JOIN}{part}")
 }
 
-fn split_key(key: &str) -> Option<(&str, &str)> {
+/// `element`, whose presses are its own: they do not reach the card under it, so a press on a control never also opens the card.
+fn held_press(element: AnyElement) -> AnyElement {
+    div().on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()).child(element).into_any_element()
+}
+
+pub(super) fn split_key(key: &str) -> Option<(&str, &str)> {
     key.split_once(JOIN)
 }
 
@@ -416,6 +421,8 @@ impl JobView {
                 page.cards.parts.typing.insert(key, typing);
             }
         }
+        // The panel's page parts are pages, which are live entities too.
+        self.sync_panel_pages(window, cx);
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
@@ -728,12 +735,26 @@ impl JobView {
                 .children(blocks);
             return Some(labelled(column, Role::Region, named).into_any_element());
         }
-        let footer = Some(self.parts_footer(ix, id, &parts, asking, page, look, cx));
+        let footer = Some(held_press(self.parts_footer(ix, id, &parts, asking, page, look, cx)));
+        // A press anywhere on the card that is not on one of its controls, and did not travel, grows it out over the app.
+        let (opened, kept, store) = (id.to_string(), id.to_string(), self.pictures.cards.clone());
         let card = frame(look, self.band_narrow(look))
             .id(SharedString::from(format!("artifact:{id}")))
+            .relative()
             .track_focus(&spot.focus)
             .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .cursor_pointer()
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                if let ClickEvent::Mouse(press) = event {
+                    let travel = press.up.position - press.down.position;
+                    if travel.x.abs() > px(4.) || travel.y.abs() > px(4.) {
+                        return;
+                    }
+                }
+                this.open_card(&opened, window, cx);
+            }))
+            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept.clone(), bounds); }, |_, _, _, _| {}).absolute().size_full())
             .child(head)
             .children(blocks)
             .children(footer);
@@ -817,8 +838,9 @@ impl JobView {
             _ => None,
         };
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
-        // Words, buttons and a page stand at the measure in the sheet; takes and a drawing take its width.
-        let body = if matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
+        // Words, buttons and a still of a page stand at the measure in the sheet; takes, a drawing and a live page take its width.
+        let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(&c.job, path, part.revision, cx).is_some());
+        let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
         labelled(
             div()
                 .id(SharedString::from(format!("part:{key}")))
@@ -829,8 +851,8 @@ impl JobView {
                 .when(c.sheet && !first, |block| block.pt(look.length(token::SPACE_4)))
                 .when(!first, |block| block.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                 .child(self.measured(c, self.caption(c, &key, mark, name, part, cx)))
-                .child(body)
-                .children(answer.map(|answer| self.measured(c, answer)))
+                .child(if matches!(part.content, PartContent::Words { .. } | PartContent::Drawing { .. }) { body } else { held_press(body) })
+                .children(answer.map(|answer| held_press(self.measured(c, answer))))
                 .children(said.map(|said| self.measured(c, said))),
             Role::Group,
             name,
@@ -1434,6 +1456,7 @@ impl JobView {
         }
         let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), look, c.sheet) else { return div().into_any_element() };
         let (artifact, press) = (c.id.to_string(), key.to_string());
+        let grows = !c.sheet && !c.tab;
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
             div()
@@ -1472,7 +1495,15 @@ impl JobView {
                 .cursor_pointer()
                 .child(drawn)
                 .child(eye)
-                .on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    // In the thread the drawing grows out of its card, as a press anywhere on the card does.
+                    cx.stop_propagation();
+                    if grows {
+                        this.grow_drawing(&press, window, cx);
+                    } else {
+                        this.open_drawing(&press, window, cx);
+                    }
+                })),
             Role::Button,
             "Drawing",
         )
@@ -1590,9 +1621,20 @@ impl JobView {
         div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element()
     }
 
-    /// A page: its first screen in a well, which a press opens in its own tab.
+    /// A page: in the review panel the live page itself, the detail's width and as tall as a picture stands there, which scrolls
+    /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
     fn page_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, path: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
+        if let Some(live) = c.sheet.then(|| self.panel_page(&c.job, path, part.revision, cx)).flatten() {
+            return div()
+                .id(SharedString::from(format!("page:{key}")))
+                .w_full()
+                .h(self.tall_most(c))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(live)
+                .into_any_element();
+        }
         let width = self.first_screen_width(look);
         let want = PictureKey { job: c.job.to_string(), page: path.to_string(), revision: part.revision, width, dark: look.tone() == crate::look::Tone::Dark };
         let screen = match self.picture_of(&want) {
@@ -1605,7 +1647,7 @@ impl JobView {
         };
         let page = path.to_string();
         labelled(
-            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document_tab(&page, window, cx))),
+            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document(&page, window, cx))),
             Role::Button,
             format!("Open page {path}"),
         )

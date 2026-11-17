@@ -721,7 +721,7 @@ impl JobView {
             return;
         }
         match one.form {
-            ArtifactForm::Page => self.open_document_tab(&one.id, window, cx),
+            ArtifactForm::Page => self.open_document(&one.id, window, cx),
             ArtifactForm::Draft => {
                 let row = self.thread(job, cx).and_then(|held| {
                     held.items.iter().rev().find_map(|item| match item {
