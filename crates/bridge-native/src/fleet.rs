@@ -1362,6 +1362,13 @@ impl FleetConnection {
     pub fn hold_calls(&mut self, calls: StandingCalls) {
         self.held.calls = Some(calls);
     }
+
+    /// Threads as a read of each would hold them: a view over a connection draws these, never the mock's.
+    pub fn hold_threads(&mut self, threads: impl IntoIterator<Item = JobThread>) {
+        for read in threads {
+            self.held.thread_read(read);
+        }
+    }
 }
 
 #[cfg(test)]

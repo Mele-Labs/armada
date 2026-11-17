@@ -418,10 +418,13 @@ mod tests {
         let jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
         let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
         let fleet = cx.new(crate::fleet::FleetConnection::idle);
+        // Over a connection the view draws what Fleet holds, not the mock's threads, so Fleet holds them.
+        fleet.update(cx, |fleet, _| fleet.hold_threads(threads.values().cloned()));
         let list = cx.new(|cx| crate::jobs::JobsList::mock_over(&jobs, fleet.clone(), cx));
-        let (_view, cx) = cx.add_window_view({
+        // Under the label root, as the app draws it, so the book holds only the last frame and a test can ask that a button is gone.
+        let (_root, cx) = cx.add_window_view({
             let list = list.clone();
-            move |window, cx| JobView::new(list, Some(threads), window, cx)
+            move |window, cx| super::super::parts_fold::Rooted::of(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
         });
         cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
         let job = job.to_string();
