@@ -137,8 +137,8 @@ export type TrailOpened = {
 export type ThreadItem =
   /**
    * A row drawn as it came. **Never a `tool`, `check`, `ask` or `window_ask` row**, which fold; a `plan` row, whose card is the
-   * `plan` item; a `delivery` row, a `linked` row that `replaces`, or a `browser_reminder`. **A Fleet notice is a row only where it
-   * is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person (its `asked`, or the head's `plan` or `sketch`).
+   * `plan` item; a `delivery` row or a `linked` row that `replaces`. A `browser_reminder` is a row, where it was written, for the
+   * Bridge whose thread draws it as a line. **A Fleet notice is a row only where it is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person (its `asked`, or the head's `plan` or `sketch`).
    */
   | {
       kind: "row";

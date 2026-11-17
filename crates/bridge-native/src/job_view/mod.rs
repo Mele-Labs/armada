@@ -114,6 +114,7 @@ mod bays;
 mod pr_files;
 mod pr_notes;
 mod pr_panel;
+mod pr_review;
 mod report_brief;
 mod side;
 mod side_chat;
@@ -123,6 +124,9 @@ mod start_card;
 mod workflow;
 mod tabs;
 mod view_tabs;
+// The Job browser's files sit beside the Job view's, as a child of it, so they read its panes and send its messages.
+#[path = "../job_browser/mod.rs"]
+mod job_browser;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
@@ -442,6 +446,8 @@ pub struct JobView {
     side_chats: HashMap<String, Entity<side_chat::SideChat>>,
     /// The tabs beside each Job's thread: a draft, a document or a walk.
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
+    /// Each Job's Job browser pages, and the acts running on them.
+    browsers: job_browser::Browsers,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
     /// The room the review panel leaves its detail, as last drawn: what a picture and a row of takes are sized to.
@@ -523,6 +529,11 @@ pub struct JobView {
     heard: crate::listen::Seen,
     /// A walk's Jobs as its scenes have changed them, standing in for the records Fleet would send.
     mock_records: Option<Vec<SessionRecord>>,
+    /// Prose as linked, by Manifest then by its words: every frame of a pulse draws the thread again, and
+    /// scanning each row against every Job and pull request held a core. Read again when the list or Fleet moves.
+    linked: RefCell<HashMap<String, rows::Linked>>,
+    /// One more each time this view is drawn whole, so a frame drawn from its cache is told apart (`labels::kept`).
+    drawn: Rc<std::cell::Cell<u64>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -561,7 +572,11 @@ impl JobView {
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
             composer.catalog.scripts = catalogue.talk;
         }
-        subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
+        // Each draws this view again: it is drawn from a cache (`JobsScreen::render`).
+        subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| {
+            this.followed(window, cx);
+            cx.notify();
+        }));
         let speaker = if mock.is_some() && fleet.is_none() { crate::listen::Speaker::Mock(crate::listen::scenes::begin()) } else { crate::listen::Speaker::Helper };
         let listen = cx.new(|_| crate::listen::engine::Listener::new(speaker));
         subscriptions.push(cx.observe(&listen, |_, _, cx| cx.notify()));
@@ -579,10 +594,12 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
+            subscriptions.push(job_browser::follow(fleet, window, cx));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             // Back from Settings, the card that sent him there goes.
@@ -675,6 +692,7 @@ impl JobView {
             view_tabs: Default::default(),
             side_chats: HashMap::new(),
             row_tabs: HashMap::new(),
+            browsers: Default::default(),
             row_focus: cx.focus_handle(),
             sheet: std::cell::Cell::new(gpui::Size::default()),
             body_scroll: gpui::ScrollHandle::new(),
@@ -719,6 +737,8 @@ impl JobView {
             heard: crate::listen::Seen::default(),
             mock_records: None,
             find: None,
+            linked: Default::default(),
+            drawn: Rc::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -816,8 +836,14 @@ impl JobView {
         })
     }
 
+    /// The count `render` adds one to, for the screen that draws this view from a cache.
+    pub(crate) fn drawn(&self) -> Rc<std::cell::Cell<u64>> {
+        self.drawn.clone()
+    }
+
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let (opened, picks) = {
             let list = self.list.read(cx);
@@ -838,6 +864,7 @@ impl JobView {
         for id in self.list.update(cx, |list, _| list.take_gone()) {
             self.pages.remove(&id);
             self.row_tabs.remove(&id);
+            self.forget_browsers(&id);
             self.mock.remove(id.as_ref());
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);
@@ -923,6 +950,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
@@ -1243,6 +1271,7 @@ impl JobView {
 
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.drawn.set(self.drawn.get() + 1);
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
@@ -1270,6 +1299,7 @@ impl Render for JobView {
         self.sync_walk_tabs(&id, cx);
         self.sync_web_walks(&id, window, cx);
         self.sync_page_tabs(&id, window, cx);
+        self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
         self.tend_parts(&id, window, cx);

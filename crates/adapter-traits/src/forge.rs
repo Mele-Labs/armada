@@ -250,6 +250,20 @@ pub trait Forge {
         pull_request: &str,
     ) -> Option<crate::PullRequestFacts>;
 
+    /// A pull request's [facts](Forge::pull_request_facts) and the checks on its last commit,
+    /// totalled for `gate` as [`under_review`](Forge::under_review) totals them. **One read where
+    /// the forge can**: a reading of every pull request Jobs hold takes this each minute, and has
+    /// no use for the comments and reviews `under_review` reads. `None` is either one silent.
+    fn pull_request_standing(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        gate: &str,
+    ) -> Option<(crate::PullRequestFacts, crate::WhatTheForgeRan)> {
+        let facts = self.pull_request_facts(in_repo, pull_request)?;
+        Some((facts, self.under_review(in_repo, pull_request, gate).checks))
+    }
+
     /// Take a draft pull request out of draft.
     ///
     /// **A write to the forge, taken only from a person's ask**, like

@@ -159,6 +159,9 @@ pub struct Held {
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
     shells: Vec<ShellNews>,
+    /// The acts an agent asked of a Job's browser (`browser.request`), and the page asks the owner answered in Needs you
+    /// (`browser.ask_answered`), since the last take, oldest first. Told once: Fleet replays neither.
+    browser: BrowserNews,
     /// What the Operator did with dispatches, folded since the last take, oldest first.
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
     /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
@@ -226,6 +229,7 @@ impl Held {
             asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
+            browser: BrowserNews::default(),
             dispatched: Vec::new(),
             removed: Vec::new(),
             review_runs: Vec::new(),
@@ -385,6 +389,11 @@ impl Held {
     /// The shells' news folded since the last take, oldest first.
     pub fn take_shells(&mut self) -> Vec<ShellNews> {
         std::mem::take(&mut self.shells)
+    }
+
+    /// The Job browser's news folded since the last take, oldest first.
+    pub fn take_browser(&mut self) -> BrowserNews {
+        std::mem::take(&mut self.browser)
     }
 
     /// What the Operator did with dispatches, folded since the last take, oldest first.
@@ -596,6 +605,8 @@ impl Held {
                         Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
                         Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
                         Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
+                        Event::BrowserRequest(request) => self.browser.requests.push(request),
+                        Event::BrowserAskAnswered(answered) => self.browser.answered.push(answered),
                         _ => {}
                     }
                 }
@@ -704,6 +715,16 @@ pub enum ShellNews {
     /// The agent asked for it in front (`show_terminal`).
     Shown(ipc::JobTerminal),
 }
+
+/// What happened in the Jobs' browsers in one folded batch: the acts agents asked for, which Bridge answers, and the page asks the
+/// owner answered in Needs you.
+#[derive(Default)]
+pub struct BrowserNews {
+    pub requests: Vec<ipc::BrowserRequest>,
+    pub answered: Vec<ipc::BrowserAskAnswered>,
+}
+
+impl EventEmitter<BrowserNews> for FleetConnection {}
 
 /// The Jobs `session.removed` took away in one folded batch, for the list and the open Job to let go of.
 pub struct Removed(pub Vec<String>);
@@ -1263,6 +1284,7 @@ impl FleetConnection {
                     let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
+                    let browser = this.held.take_browser();
                     let dispatched = this.held.take_dispatched();
                     let removed = this.held.take_removed();
                     let (review_runs, review_runs_lost) = this.held.take_review_runs();
@@ -1278,6 +1300,9 @@ impl FleetConnection {
                     }
                     if !shells.is_empty() {
                         cx.emit(Shells(shells));
+                    }
+                    if !browser.requests.is_empty() || !browser.answered.is_empty() {
+                        cx.emit(browser);
                     }
                     if !dispatched.is_empty() {
                         cx.emit(Dispatched(dispatched));
@@ -1664,6 +1689,25 @@ mod tests {
         assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
         assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
         assert!(held.take_shells().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn an_agents_browser_acts_and_the_owners_answers_to_a_pages_asks_are_handed_over_once_in_the_order_they_came() {
+        let event = |body: &str| Signal::Stream(crate::frames::decode(&format!(r#"{{"message":"event","cursor":1,"event":{body}}}"#)).expect("an event"));
+        let mut held = Held::new();
+        held.fold(vec![
+            event(r#"{"kind":"browser.request","session_id":"s0","request_id":"browser-1","act":{"kind":"snapshot"}}"#),
+            event(r#"{"kind":"browser.ask_answered","session_id":"s0","ask_id":"tab-7","choice":null}"#),
+            event(r#"{"kind":"browser.request","session_id":"s1","request_id":"browser-2","act":{"kind":"open","url":"https://example.com/"}}"#),
+        ]);
+        let news = held.take_browser();
+        let asked: Vec<(&str, &str)> = news.requests.iter().map(|one| (one.session_id.as_str(), one.request_id.as_str())).collect();
+        assert_eq!(asked, [("s0", "browser-1"), ("s1", "browser-2")]);
+        assert_eq!(news.requests[1].act, ipc::BrowserAct::Open { url: "https://example.com/".into() });
+        assert_eq!(news.answered.len(), 1);
+        assert_eq!(news.answered[0].choice, None, "null is a dismissal");
+        let again = held.take_browser();
+        assert!(again.requests.is_empty() && again.answered.is_empty(), "news is told once");
     }
 
     #[test]

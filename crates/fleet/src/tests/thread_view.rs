@@ -288,8 +288,7 @@ fn a_show_file_the_ledger_holds_is_a_file_opened_by_the_ledgers_own_path() {
 }
 
 #[test]
-fn a_waiting_ask_a_reminder_a_plan_row_a_delivery_row_and_a_handed_off_link_are_no_items() {
-    let reminder = SessionRow::BrowserReminder { id: "b1".into(), at: at(1), tool: "Chrome".into(), address: None };
+fn a_waiting_ask_a_plan_row_a_delivery_row_and_a_handed_off_link_are_no_items() {
     let plan = SessionRow::Plan { id: "p1".into(), at: at(2), version: 1 };
     let row = |text: String| -> SessionRow { ipc::decode("a row", text.as_bytes()).expect("a row") };
     let delivery = row(format!(r#"{{"kind":"delivery","id":"d1","at":"{}"}}"#, at(3).as_str()));
@@ -297,7 +296,6 @@ fn a_waiting_ask_a_reminder_a_plan_row_a_delivery_row_and_a_handed_off_link_are_
         row(format!(r#"{{"kind":"linked","id":"{id}","at":"{}","session":{{"id":"s2","title":"Next"}},"event":"done"{replaces}}}"#, at(4).as_str()))
     };
     let found = items(vec![
-        reminder,
         ask("a1", SessionAskState::Waiting, &["Which?"]),
         plan,
         delivery,
@@ -306,6 +304,14 @@ fn a_waiting_ask_a_reminder_a_plan_row_a_delivery_row_and_a_handed_off_link_are_
     ]);
     assert_eq!(ids(&found), ["l2"]);
     assert_eq!(kinds(&found), ["row"]);
+}
+
+#[test]
+fn a_reminder_of_a_browser_outside_bridge_is_a_row_item_where_it_was_written() {
+    let reminder = SessionRow::BrowserReminder { id: "b1".into(), at: at(2), tool: "Chrome".into(), address: Some("http://localhost:5173/".into()) };
+    let found = items(vec![tool("t1", 1, "Bash ls"), reminder, tool("t2", 3, "Bash pwd")]);
+    assert_eq!(ids(&found), ["t1", "b1", "t2"]);
+    assert_eq!(kinds(&found), ["calls", "row", "calls"]);
 }
 
 #[test]

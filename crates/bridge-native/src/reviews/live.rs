@@ -33,6 +33,9 @@ pub(super) struct Row {
     pub branch: String,
     pub author: String,
     pub holder: Option<PullReviewHolder>,
+    /// Where it is on the forge.
+    pub address: String,
+    pub draft: bool,
 }
 
 /// One pull request as Fleet last answered for it.
@@ -209,6 +212,7 @@ impl ReviewsScreen {
             this.refreshed = true;
             match answer {
                 Ok(lists) => {
+                    this.me = lists.me.clone();
                     let (rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
@@ -260,6 +264,8 @@ impl ReviewsScreen {
                 branch: String::new(),
                 author: asked.author.clone(),
                 holder: None,
+                address: asked.address.clone(),
+                draft: false,
             },
             facts: map::Facts::default(),
             notes: Vec::new(),
@@ -357,6 +363,14 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// The review tools of the repository a pull request is in, as Fleet last read them, for Review this
+    /// pull request. A page opens once its read lands, after `apply`, so opening it takes them too.
+    pub(super) fn live_tools(&mut self, number: u64) {
+        if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
+            self.review_tools = tools.clone();
+        }
+    }
+
     /// What the runs come to lands on the page: the summary, the change sets and findings, the critique.
     fn apply(&mut self, number: u64, mapped: map::Mapped, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.pages.get_mut(&number) else { return };
@@ -372,6 +386,9 @@ impl ReviewsScreen {
         if let Some(pull) = self.live.as_mut().and_then(|live| live.pulls.get_mut(&number)) {
             pull.finds = mapped.finds;
         }
+        for (rewrite, answer) in mapped.answers {
+            self.rewritten.insert((number, rewrite), answer);
+        }
         let chained = self.live.as_ref().is_some_and(|live| live.chained.contains(&number));
         if chained && (sets_done || sets_failed) {
             if let Some(live) = self.live.as_mut() {
@@ -383,9 +400,7 @@ impl ReviewsScreen {
             }
         }
         if self.open == Some(number) {
-            if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
-                self.review_tools = tools.clone();
-            }
+            self.live_tools(number);
         }
         self.suggestion_boxes(number, window, cx);
         self.colour(number, cx);
@@ -486,6 +501,10 @@ impl ReviewsScreen {
 
     /// Find problems: the change sets, then the findings over them.
     pub(super) fn find_problems(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.is_live() {
+            self.mock_find_problems(window, cx);
+            return;
+        }
         let Some(number) = self.open else { return };
         let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
         let (finds, facts) = (pull.finds.clone(), &pull.facts);
@@ -504,6 +523,20 @@ impl ReviewsScreen {
             self.start_run(number, ReviewRunKind::ChangeSets, "change_sets".into(), None, sets_again, window, cx);
         }
         cx.notify();
+    }
+
+    /// Summarize, Explain or Simplify on Fleet: an Ask run named by its question, at the head. One
+    /// written or being written stands; one that failed or was refused is asked again.
+    pub(super) fn live_rewrite(&mut self, number: u64, rewrite: model::Rewrite, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let question = rewrite.question();
+        let answer = map::answer_of(&pull.facts, question);
+        if matches!(answer, Some(model::Answer::Writing | model::Answer::Written(_))) {
+            return;
+        }
+        let again = matches!(answer, Some(model::Answer::Failed(_))) || pull.facts.kept_elsewhere(ReviewRunKind::Ask, question);
+        self.rewritten.insert((number, rewrite), model::Answer::Writing);
+        self.start_run(number, ReviewRunKind::Ask, question.into(), None, again, window, cx);
     }
 
     /// Check practices on one change set.
@@ -773,6 +806,39 @@ mod tests {
             let row = reviews.live.as_ref().and_then(|live| live.pulls.get(&2231)).map(|pull| (pull.row.manifest.clone(), pull.row.title.clone()));
             assert_eq!(row, Some(("ledger-api".to_string(), "Say which stage of an invoice failed".to_string())), "its page is read in the repository the request names");
             assert_eq!(reviews.showing(), Some(2231), "and it opens once read");
+        });
+    }
+
+    #[gpui::test]
+    fn a_page_opened_once_read_offers_its_repositorys_review_tools(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let fleet = cx.update(|cx| cx.new(FleetConnection::idle));
+        let (reviews, cx) = cx.add_window_view(|window, cx| ReviewsScreen::live(&fleet, window, cx));
+        let asked = ipc::ReviewAsked {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number: 2231,
+            title: "Say which stage of an invoice failed".into(),
+            author: "mira".into(),
+            address: "https://example.com/harbor/ledger-api/pull/2231".into(),
+        };
+        cx.update(|window, cx| reviews.update(cx, |reviews, cx| reviews.open_asked(&asked, window, cx)));
+        // The read lands: its page and the repository's tools are held, and the page he waited for opens.
+        cx.update(|window, cx| {
+            reviews.update(cx, |reviews, cx| {
+                let page = crate::reviews::mock::page(2231).expect("a mock page");
+                reviews.pages.insert(2231, page);
+                if let Some(live) = reviews.live.as_mut() {
+                    live.tools.insert("ledger-api".into(), crate::reviews::mock::review_tools());
+                }
+                reviews.show(2231, window, cx);
+            })
+        });
+        reviews.read_with(cx, |reviews, _| {
+            assert!(!reviews.review_tools.is_empty(), "Review this pull request offers the tools Fleet read for its repository");
         });
     }
 }
