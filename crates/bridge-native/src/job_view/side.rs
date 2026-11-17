@@ -44,7 +44,7 @@ pub(super) enum Zone {
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 20] = [
+    pub(super) const ALL: [Zone; 21] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
