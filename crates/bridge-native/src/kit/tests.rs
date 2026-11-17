@@ -105,23 +105,33 @@ fn the_keys_are_the_registrys_kit_acts_and_a_key_the_person_rebound_moves_with_i
 }
 
 #[gpui::test]
-fn a_bare_key_is_typing_in_the_filter_and_a_plugins_question_takes_enter_before_open(cx: &mut TestAppContext) {
+fn a_bare_key_is_typing_in_the_filter_and_does_not_fire_an_act(cx: &mut TestAppContext) {
     let (screen, cx) = open(cx);
     cx.simulate_keystrokes("/");
     cx.simulate_keystrokes("a");
     assert!(screen.read_with(cx, |screen, _| screen.adding.is_none()), "A typed in the filter does not open the add box");
     cx.simulate_keystrokes("escape");
-    cx.simulate_keystrokes("shift-tab shift-tab");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.pane), Pane::List, "Esc gives the keys back to the list");
+}
+
+#[gpui::test]
+fn a_plugins_question_takes_enter_before_open_and_holds_the_other_keys(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("shift-tab");
     cx.simulate_keystrokes("j");
     assert_eq!(screen.read_with(cx, |screen, _| screen.kind), Kind::Plugins);
     cx.simulate_keystrokes("tab");
+    cx.run_until_parked();
+    cx.simulate_keystrokes("j");
     cx.simulate_keystrokes("backspace");
     cx.run_until_parked();
     assert!(screen.read_with(cx, |screen, _| screen.confirming.is_some()), "a plugin asks first");
-    cx.simulate_keystrokes("j");
-    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_some()), "the question holds the keys");
-    cx.simulate_keystrokes("escape");
-    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_none()), "Esc closes the question");
+    cx.simulate_keystrokes("j e");
+    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_some() && screen.editing.is_none()), "the question holds the keys");
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_none()), "Enter answers the question and does not open the editor");
+    assert!(!screen.read_with(cx, |screen, _| screen.names()).contains(&"design-kit".to_string()), "the plugin is removed");
 }
 
 #[gpui::test]
@@ -212,6 +222,8 @@ fn the_read_pane_scrolls_on_a_page_key_and_goes_back_to_the_top_for_another_piec
     assert_eq!(end.0, -end.1, "End goes to the bottom");
     cx.simulate_keystrokes("home");
     assert_eq!(screen.read_with(cx, |screen, _| screen.file_scroll.offset().y), gpui::px(0.));
+    cx.simulate_keystrokes("alt-down");
+    assert!(screen.read_with(cx, |screen, _| screen.file_scroll.offset().y) < gpui::px(0.), "⌥↓ is a page down too");
     cx.simulate_keystrokes("pagedown");
     cx.update(|_, cx| screen.update(cx, |screen, cx| screen.pick("skills:/work/armada/.claude/skills/deploy-check:deploy-check".to_string(), cx)));
     assert_eq!(screen.read_with(cx, |screen, _| screen.file_scroll.offset().y), gpui::px(0.), "another piece reads from its top");
