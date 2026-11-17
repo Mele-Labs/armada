@@ -1705,7 +1705,9 @@ pub static WALKS: &[Walk] = &[
             step("E turns Edit on: the band fills with his colour, with Save and Discard", Verb::Key("e"), "button", "Save"),
             step("His words are typed into the first block", Verb::Typed(" Rows keep their time."), "button", "Save"),
             step("Save keeps them as the next revision, his", Verb::Open("button", "Save"), "label", "Your edit"),
-            step("Ask for changes sends the notes with the verdict", Verb::Open("button", "Ask for changes"), "status", "Sent back"),
+            step("Ask for changes opens a box under the words, with the caret in it and the notes he left above it", Verb::Open("button", "Ask for changes"), "textbox", "What should change?"),
+            step("What should change is typed", Verb::Typed("Keep it to three lines."), "textbox", "What should change?"),
+            step("Send back sends his words with the notes", Verb::Open("button", "Send back"), "status", "Sent back"),
         ],
     },
     Walk {

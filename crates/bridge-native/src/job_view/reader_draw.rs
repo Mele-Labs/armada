@@ -125,6 +125,7 @@ impl JobView {
             .children(rail)
             .child(div().flex_1().min_w_0().flex().flex_col().children(strip).child(words))
             .child(measure);
+        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier).map(|(area, _)| self.reader_ask_box(id, &name, held, area, look, cx));
         let said = held.said.clone().map(|why| div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)).child(super::acts::refusal(look, "reader", why)));
         labelled(
             div()
@@ -159,6 +160,7 @@ impl JobView {
                 }))
                 .child(head)
                 .child(body)
+                .children(ask)
                 .children(said)
                 .children(foot)
                 .when(editing, |root| root),
@@ -186,7 +188,8 @@ impl JobView {
         let picker = self.reader_picker(id, name, shown, look, cx);
         let switch = (!subject.closed && !earlier && subject.form == ArtifactForm::Draft).then(|| self.reader_switch(id, name, editing, look, cx));
         let (words, discard, save) = if editing { self.reader_edit_acts(id, name, held, look, cx) } else { (None, None, None) };
-        let asking = subject.asking && !earlier && !editing;
+        // While Ask for changes is open under the words, its box holds the answer and the header holds none.
+        let asking = subject.asking && !earlier && !editing && held.ask.is_none();
         let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind| -> AnyElement {
             let (job, name_c) = (id.clone(), name.to_string());
             labelled(
@@ -792,6 +795,93 @@ impl JobView {
                 )),
             Role::Group,
             format!("Note {said}"),
+        )
+        .into_any_element()
+    }
+
+    /// Ask for changes, open under the words: the notes already on the words, then what should change, Cancel and Send back.
+    fn reader_ask_box(&self, id: &SharedString, name: &str, held: &super::reader::Reader, area: &gpui::Entity<gpui_component::input::TextareaState>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let warn = look.color(token::STATUS_AWAITING_REVIEW);
+        let noted: Vec<AnyElement> = held
+            .kept_notes(cx)
+            .into_iter()
+            .filter(|note| !note.text.trim().is_empty())
+            .enumerate()
+            .map(|(at, note)| {
+                let said = format!("{} \u{b7} {}", at + 1, note.text.trim());
+                div()
+                    .id(SharedString::from(format!("reader-ask-note:{name}:{at}")))
+                    .max_w(px(320.))
+                    .truncate()
+                    .px(look.length(token::SPACE_2))
+                    .rounded_full()
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_RAISED))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .tooltip(tip(said.clone()))
+                    .child(SharedString::from(said))
+                    .into_any_element()
+            })
+            .collect();
+        let (job, job2, job3, job4) = (id.clone(), id.clone(), id.clone(), id.clone());
+        let (name_a, name_b, name_c, name_d) = (name.to_string(), name.to_string(), name.to_string(), name.to_string());
+        let cancel = labelled(
+            act(look, format!("reader-ask-cancel:{name}"), "Cancel", Kind::Ghost, "Esc", true)
+                .tooltip(tip("Close the box; your notes on the words stay"))
+                .on_click(cx.listener(move |this, _, window, cx| this.reader_ask_cancel(&job, &name_a, window, cx))),
+            Role::Button,
+            "Cancel",
+        );
+        let send = labelled(
+            act(look, format!("reader-ask-send:{name}"), "Send back", Kind::Secondary, "\u{2318}\u{21a9}", true)
+                .tooltip(tip("Send it back with these words and your notes"))
+                .on_click(cx.listener(move |this, _, window, cx| this.reader_key(&job2, &name_b, RKey::Act(RAct::Ask), window, cx))),
+            Role::Button,
+            "Send back",
+        );
+        labelled(
+            div()
+                .id(SharedString::from(format!("reader-ask:{name}")))
+                .flex_none()
+                .mx(look.length(token::SPACE_4))
+                .my(look.length(token::SPACE_3))
+                .p(look.length(token::SPACE_3))
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_LG))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(warn.opacity(0.6))
+                .bg(look.color(token::BG_SUNKEN))
+                .capture_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                        cx.stop_propagation();
+                        this.reader_ask_cancel(&job3, &name_c, window, cx);
+                    }
+                }))
+                .capture_action(cx.listener(move |this, action: &Enter, window, cx| {
+                    if action.secondary {
+                        cx.stop_propagation();
+                        this.reader_key(&job4, &name_d, RKey::Act(RAct::Ask), window, cx);
+                    }
+                }))
+                .when(!noted.is_empty(), |box_| box_.child(div().flex().flex_wrap().gap(look.length(token::SPACE_1)).children(noted)))
+                .child(labelled(
+                    div()
+                        .id(SharedString::from(format!("reader-ask-box:{name}")))
+                        .key_context(crate::keymap::TEXT_BOX)
+                        .text_size(look.length(token::TEXT_SM))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .child(Textarea::new(area).appearance(false).aria_label("What should change?")),
+                    Role::TextInput,
+                    "What should change?",
+                ))
+                .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(cancel).child(send)),
+            Role::Group,
+            "Ask for changes",
         )
         .into_any_element()
     }
