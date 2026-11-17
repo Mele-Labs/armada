@@ -33,7 +33,7 @@
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
 #                 logbook | issues | report | plan | thread | dispatch |
-#                 review sheet | kit
+#                 review sheet | kit | features
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1757,3 +1757,40 @@ scope = "kit"
 destructive = false
 confirms = false
 notes = "Scrolls Kit's read pane by a page or to either end, while the keys are on that pane and nowhere else. The first four go down and up by a page and the last two to the top and the bottom. Native only, 16 Nov 2026."
+
+# ---------------------------------------------------------------- features
+
+[actions.features_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between features"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Moves the row in the Features list to the next or the previous feature, skipping the area heads. Its own row because the Features tab is not a list of Jobs, and `move_focus`'s scope is. Native only, 17 Nov 2026."
+
+[actions.features_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the feature"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Selects the feature the row is on and opens its page beside the list. Native only, 17 Nov 2026."
+
+[actions.features_filter]
+kind = "Action"
+tier = "Contextual"
+verb = "Filter"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Puts the caret in the box above the Features list, which narrows the features as he types. Esc gives the keys back to the list. Native only, 17 Nov 2026."

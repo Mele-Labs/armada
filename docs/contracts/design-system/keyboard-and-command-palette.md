@@ -208,6 +208,9 @@ Enter          open in editor   (kit only)
 /              filter   (kit only)
 a              add from a link   (kit only)
 PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
+j / k / ↓ / ↑  move between features   (features only)
+Enter          open the feature   (features only)
+/              filter   (features only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -268,6 +271,10 @@ field and while a dialog is up.
 `⌘Z` is the `pane_undo` act, which restores the skill removed last.
 The bare keys stand down in the filter, the add box and the file's text box, which take them as typing.
 What stays in Kit's own screen, since it is a state of the screen and not a key: `Esc` and `Enter` on the question before a plugin is removed, `Esc` and `Enter` in the add box, `Esc` and `⌘S` while a file is edited, and `Esc` out of the filter.
+
+**The Features tab has a scope of its own, `features`, in the native Bridge.**
+`j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
+The bare keys stand down in the filter, which takes them as typing, and `Esc` gives the keys back to the list.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in

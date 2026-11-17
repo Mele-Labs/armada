@@ -43,6 +43,7 @@ export type ActionScope =
   | "dashboard"
   | "deck"
   | "dispatch"
+  | "features"
   | "issues"
   | "kit"
   | "list"
@@ -1954,6 +1955,45 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End",
     scope: "kit",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "features_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move between features",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "j / k / ↓ / ↑",
+    scope: "features",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "features_open",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Open the feature",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "Enter",
+    scope: "features",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "features_filter",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Filter",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "/",
+    scope: "features",
     destructive: false,
     confirms: false,
     unbuilt: null,
