@@ -12,7 +12,8 @@ use ipc::{
 };
 
 use super::session_host::{eventually, rig_placing, Rig};
-use super::session_plan::{group, plan, read, recorded, running, told};
+use super::session_plan::{group, plan, read, recorded, running, task, tasks, told};
+use ipc::ReportedTaskStatus::{Completed, InProgress};
 use crate::gate_checks::Ended;
 
 const SHA: &str = "1b500c4e9a7d3f20c8b1a64d5e7f0392a1c4b8de";
@@ -157,6 +158,46 @@ async fn a_gate_only_he_can_close_is_asked_when_nothing_runs() {
     assert_eq!(item.text, "\"Draw it\" waits on your approval of a sketch");
     assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Approve", "Skip this group"]);
     assert_eq!(item.act.as_ref().map(|act| act.target.as_str()), Some(id.as_str()));
+}
+
+#[tokio::test]
+async fn a_merged_group_with_a_task_still_open_refuses_all_done_by_name_and_asks_him_nothing() {
+    let rig = rig_placing(None);
+    let id = with_gates(&rig, &[("Deliver", PlanGate::Merged)]).await;
+    tasks(&rig, &id, vec![task("Do Deliver", InProgress)]).await;
+    pull(&rig, &id, "3360", "merged").await;
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "a task still open keeps the gate shut");
+
+    let refused = rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap_err();
+    assert_eq!(refused.error().code, crate::gate_holding::TASKS_OPEN);
+    let said = refused.error().message.clone();
+    assert!(said.starts_with("all_done refused. ") && said.contains("- \"Deliver\": Do Deliver"), "{said}");
+    let record = read(&rig, &id).await;
+    assert!(record.plan.expect("a plan").held.is_none(), "refused, not held");
+    assert!(record.waiting_for.iter().all(|one| one.source != WaitingSource::Gate), "nothing reaches him");
+
+    // Marked done, the merge closes the gate and the call is taken.
+    tasks(&rig, &id, vec![task("Do Deliver", Completed)]).await;
+    assert_eq!(rig.fleet.gates_kept(id.as_str()).await.len(), 1);
+    assert!(done(&rig, &id).await.done_since.is_some());
+}
+
+#[tokio::test]
+async fn a_merge_gate_with_no_pull_request_says_so_and_what_each_choice_does() {
+    let rig = rig_placing(None);
+    let id = with_gates(&rig, &[("Deliver", PlanGate::Merged)]).await;
+    done(&rig, &id).await;
+    let record = read(&rig, &id).await;
+    let item = gate_item(&record).expect("nothing in the Job can close it");
+    assert_eq!(item.text, "\"Deliver\" has no open pull request to merge");
+    let said: Vec<_> = item.options.iter().map(|one| (one.label.as_str(), one.description.as_deref())).collect();
+    assert_eq!(
+        said,
+        [
+            ("Approve", Some("Count this group as done. The Job ends if nothing else is open.")),
+            ("Skip this group", Some("Close this group as skipped. The Job ends if nothing else is open.")),
+        ]
+    );
 }
 
 #[tokio::test]

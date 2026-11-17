@@ -497,7 +497,11 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
     let snoozed = |job: &SessionRecord| job.snoozed_until.is_some();
     // A Job that went to the other Mac stands among the live ones until its row there takes its place.
     let live = |job: &&SessionRecord| job.state == SessionState::Live || crate::move_to_mac::moved(job);
-    let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
+    let mut at: HashMap<&str, usize> = HashMap::new();
+    for (place, id) in order.iter().enumerate() {
+        at.entry(id.as_str()).or_insert(place);
+    }
+    let placed = |job: &&SessionRecord| (at.get(job.id.as_str()).copied().unwrap_or(usize::MAX), standing_of(job));
     let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).filter(of_project).collect();
     lives.sort_by_key(placed);
     let mut ended: Vec<&SessionRecord> = jobs.iter().filter(|job| job.state == SessionState::Ended && !crate::move_to_mac::moved(job)).filter(of_project).collect();
@@ -974,10 +978,17 @@ impl JobsList {
             this.follow_scope(cx);
             let held = fleet.read(cx).held();
             let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-            // The Operator's own session is never a Job in the list: its page is the Operator's.
-            let mut jobs: Vec<SessionRecord> = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
-            this.hold_asked_titles(&mut jobs);
-            if jobs != this.jobs || names != this.names {
+            // The Operator's own session is never a Job in the list: its page is the Operator's. Compared before it is
+            // cloned: Fleet moves several times a second and the list holds hundreds of Jobs.
+            let unmoved = names == this.names && this.holds_already(held.jobs.iter().filter(|job| !job.operator));
+            let mut jobs: Vec<SessionRecord> = if unmoved { Vec::new() } else { held.jobs.iter().filter(|job| !job.operator).cloned().collect() };
+            if unmoved {
+                // A rename Fleet now serves is let go, as the hold below lets it go.
+                this.asked.retain(|id, (was, _)| held.jobs.iter().any(|job| job.id.as_str() == id && job.title == *was));
+            } else {
+                this.hold_asked_titles(&mut jobs);
+            }
+            if !unmoved && (jobs != this.jobs || names != this.names) {
                 this.jobs = jobs;
                 this.names = names;
                 this.place_new();
@@ -1126,6 +1137,12 @@ impl JobsList {
     /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
     /// so no later change of state moves it (`store.ts`, a new one is added at the end).
     fn place_new(&mut self) {
+        // Most moves bring no new Job: each live one already has its place, and the lines need not be drawn up.
+        let placed: std::collections::HashSet<&str> = self.order.iter().map(String::as_str).collect();
+        let live = |job: &&SessionRecord| job.state == SessionState::Live || crate::move_to_mac::moved(job);
+        if self.jobs.iter().filter(live).filter(|job| spent(job, "replaced_by").is_none()).all(|job| placed.contains(job.id.as_str())) {
+            return;
+        }
         let fresh: Vec<String> = lines_of(&self.jobs, &[], Scope::All, "", &self.order, &self.names)
             .into_iter()
             .filter_map(|line| match line {
@@ -1232,6 +1249,23 @@ impl JobsList {
     }
 
     /// Put the titles still waiting on Fleet over the records it sent, and let go of those it has answered.
+    /// Whether `served` is the list held, as [`Self::hold_asked_titles`] would leave it: a title a rename was asked
+    /// for reads as asked while Fleet still serves the one it replaced.
+    fn holds_already<'a>(&self, served: impl Iterator<Item = &'a SessionRecord>) -> bool {
+        let mut held = self.jobs.iter();
+        for one in served {
+            let Some(mine) = held.next() else { return false };
+            if one == mine {
+                continue;
+            }
+            let asked = self.asked.get(one.id.as_str()).filter(|(was, asked)| one.title == *was && mine.title.as_deref() == Some(asked.as_str()));
+            if asked.is_none() || (SessionRecord { title: mine.title.clone(), ..one.clone() }) != *mine {
+                return false;
+            }
+        }
+        held.next().is_none()
+    }
+
     fn hold_asked_titles(&mut self, jobs: &mut [SessionRecord]) {
         self.asked.retain(|id, (was, asked)| match jobs.iter_mut().find(|job| job.id.as_str() == id) {
             Some(job) if job.title == *was => {
@@ -3083,6 +3117,10 @@ pub struct JobsScreen {
     remember: bool,
     /// The command palette, over the whole screen.
     palette: Entity<crate::palette::Palette>,
+    /// The open Job is drawn from gpui's cache (`job_area`): what it wrote when last drawn whole, and its count of draws.
+    kept: Rc<RefCell<crate::labels::KeptView>>,
+    drawn: Rc<std::cell::Cell<u64>>,
+    _drawn_with: Subscription,
 }
 
 impl JobsScreen {
@@ -3207,16 +3245,29 @@ impl JobsScreen {
                 }
             });
         })));
+        let drawn = view.read(cx).drawn();
+        // What moves this screen moves the open Job, which is otherwise drawn from its cache.
+        let drawn_with = cx.observe_self(|this, cx| this.view.update(cx, |_, cx| cx.notify()));
         JobsScreen {
             list,
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
         &self.within
+    }
+
+    /// The open Job, drawn from gpui's cache so a pulse on a list row does not draw it again each frame.
+    /// While an overlay stands it is drawn whole, since the cache cannot put an overlay's labels back.
+    fn job_area(&self, window: &Window, cx: &App) -> gpui::AnyElement {
+        let overlaid = cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.overlaid(window.window_handle().window_id()));
+        if overlaid {
+            return self.view.clone().into_any_element();
+        }
+        crate::labels::kept(self.view.clone().cached(gpui::StyleRefinement::default().size_full()), self.kept.clone(), self.drawn.clone()).into_any_element()
     }
 
     /// The palette, for the screen this one sits in to draw while another place is in front.
@@ -3548,7 +3599,7 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(self.view.clone()),
+                                .child(self.job_area(window, cx)),
                         ),
                 )
                 // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
