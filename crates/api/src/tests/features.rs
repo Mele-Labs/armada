@@ -41,6 +41,8 @@ async fn a_page_and_its_brief_are_read_by_the_feature_slug() {
     let (status, said) = call(&app(), "GET", "/features/page?feature=voting-on-takes", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");
     assert!(said.contains(r#""slug":"voting-on-takes""#), "{said}");
+    let (status, said) = call(&app(), "GET", "/features/page?feature=voting-on-takes&section=debt", "").await;
+    assert_eq!(status, StatusCode::OK, "a page may ask for one section: {said}");
     let (status, said) = call(&app(), "GET", "/features/brief?feature=voting-on-takes", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");
     assert!(said.starts_with(r#"{"feature":"voting-on-takes","text""#), "{said}");
@@ -77,4 +79,22 @@ async fn the_weekly_figure_is_read_with_or_without_the_number_of_weeks() {
     assert_eq!(said, r#"{"weeks":[],"unmeasured":0}"#);
     let (status, _) = call(&app(), "GET", "/usage/first_edit_searches?weeks=4", "").await;
     assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn the_mods_hook_asks_for_the_pages_a_job_is_owed_over_post() {
+    let (status, said) = call(&app(), "POST", "/features/hand_over", r#"{"session_id":"s-1","paths":["crates/a.rs"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"features":["crates/a.rs"],"text":""}"#);
+    let (status, _) = call(&app(), "POST", "/features/hand_over", r#"{"paths":["a"]}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the Job is named");
+}
+
+#[tokio::test]
+async fn the_mods_hook_asks_before_a_commit_runs_over_post() {
+    let (status, said) = call(&app(), "POST", "/features/commit_check", r#"{"session_id":"s-1","command":"git commit -m \"x\"","files":["a.rs"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"allowed":false,"says":"Add a Feature: line."}"#);
+    let (status, _) = call(&app(), "POST", "/features/commit_check", r#"{"command":"git commit"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the Job is named");
 }

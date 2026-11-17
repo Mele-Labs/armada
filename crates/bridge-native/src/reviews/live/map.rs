@@ -464,4 +464,118 @@ mod tests {
         assert_eq!(cut(patch, 1, 1).as_deref(), Some("@@ -1,2 +1,3 @@\n a\n+b\n c"));
         assert_eq!(cut(patch, 5, 5), None);
     }
+
+    #[test]
+    fn a_hunk_header_it_cannot_read_matches_no_hunk() {
+        assert_eq!(hunk_head("@@ -12,4 +12,6 @@ fn x()"), Some((12, 12)));
+        assert_eq!(hunk_head("@@ -7 +9 @@"), Some((7, 9)));
+        assert_eq!(hunk_head("@@ -x,4 +12,6 @@"), None);
+        assert_eq!(hunk_head("@@ -12,4 @@"), None);
+        assert_eq!(hunk_head("not a header"), None);
+        let patch = "@@ -x,1 +1,1 @@\n a\n@@ -3,1 +3,1 @@\n b";
+        assert_eq!(cut(patch, 3, 3).as_deref(), Some("@@ -3,1 +3,1 @@\n b"));
+        assert_eq!(cut(patch, 1, 1), None);
+    }
+
+    #[test]
+    fn a_cut_hunk_stops_before_the_next_header() {
+        let patch = "@@ -1,1 +1,1 @@\n a\n@@ -5,1 +5,1 @@\n b";
+        assert_eq!(cut(patch, 1, 1).as_deref(), Some("@@ -1,1 +1,1 @@\n a"));
+    }
+
+    #[test]
+    fn his_review_says_what_he_said_and_nothing_where_he_has_none() {
+        assert_eq!(verdict_of(Some(MyReviewSaid::Approved)), Verdict::Approved);
+        assert_eq!(verdict_of(Some(MyReviewSaid::ChangesRequested)), Verdict::ChangesRequested);
+        assert_eq!(verdict_of(Some(MyReviewSaid::Commented)), Verdict::Commented);
+        assert_eq!(verdict_of(None), Verdict::NotReviewed);
+    }
+
+    #[test]
+    fn a_time_that_cannot_be_read_shows_no_age_and_its_own_words_for_a_stamp() {
+        assert_eq!(age("yesterday-ish"), "");
+        assert_eq!(stamp("yesterday-ish"), "yesterday-ish");
+        assert_eq!(when("yesterday-ish"), None);
+    }
+
+    #[test]
+    fn an_age_is_said_in_its_largest_unit() {
+        let ago = |minutes: i64| (chrono::Utc::now() - chrono::Duration::minutes(minutes) - chrono::Duration::seconds(5)).to_rfc3339();
+        assert_eq!(age(&ago(0)), "just now");
+        assert_eq!(age(&ago(5)), "5m");
+        assert_eq!(age(&ago(180)), "3h");
+        assert_eq!(age(&ago(3 * 1440)), "3d");
+    }
+
+    fn pull(number: u64, inbox: PullInbox, said: Option<MyReviewSaid>) -> ipc::PullReviewRow {
+        ipc::PullReviewRow {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number,
+            title: format!("Pull {number}"),
+            branch: "mira/fix".into(),
+            address: String::new(),
+            draft: false,
+            checks: ipc::PullReviewChecks::Passed,
+            review: ipc::PullRequestReviewState::None,
+            head: "abc1234".into(),
+            author: "mira".into(),
+            updated_at: "not a time".into(),
+            team: None,
+            holder: None,
+            seen: None,
+            my_review: said.map(|said| ipc::PullMyReview { said, commit: None, submitted_at: None }),
+            inbox,
+        }
+    }
+
+    fn lists(requested: Vec<ipc::PullReviewRow>, mine: Vec<ipc::PullReviewRow>) -> PullReviewLists {
+        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, silent: Vec::new() }
+    }
+
+    #[test]
+    fn each_inbox_state_of_fleet_lands_in_its_group() {
+        let (rows, _) = inbox_of(&lists(
+            vec![
+                pull(1, PullInbox::NeedsFirstLook, None),
+                pull(2, PullInbox::ChangedSinceYouLooked, Some(MyReviewSaid::Commented)),
+                pull(3, PullInbox::WaitingOnAuthor, Some(MyReviewSaid::ChangesRequested)),
+                pull(4, PullInbox::Done, Some(MyReviewSaid::Approved)),
+            ],
+            Vec::new(),
+        ));
+        let groups: Vec<(u64, Group, Verdict)> = rows.iter().map(|row| (row.number, row.group, row.mine)).collect();
+        assert_eq!(
+            groups,
+            [(1, Group::FirstLook, Verdict::NotReviewed), (2, Group::Changed, Verdict::Commented), (3, Group::Waiting, Verdict::ChangesRequested), (4, Group::Done, Verdict::Approved)]
+        );
+    }
+
+    #[test]
+    fn a_pull_request_on_two_lists_is_one_row_that_names_both() {
+        let (rows, kept) = inbox_of(&lists(vec![pull(7, PullInbox::NeedsFirstLook, None)], vec![pull(7, PullInbox::NeedsFirstLook, None)]));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].lists, [PullReviewList::Requested, PullReviewList::Mine]);
+        assert_eq!(kept.len(), 1);
+    }
+
+    fn page_with(viewed: Vec<ipc::PullViewedFile>) -> Page {
+        let detail = PullRequestPage {
+            head: Some("abcdef1234567".into()),
+            files: ["a.rs", "b.rs", "c.rs"].map(|path| ipc::PullRequestFile { path: path.into(), additions: 1, deletions: 0, status: ipc::PullRequestFileStatus::Modified }).to_vec(),
+            viewed,
+            ..PullRequestPage::default()
+        };
+        let row = Row { manifest: "ledger-api".into(), repository: "harbor/ledger-api".into(), title: "t".into(), branch: "b".into(), author: "mira".into(), holder: None };
+        page_of(1, &row, &detail, &[], None, &[])
+    }
+
+    #[test]
+    fn a_file_viewed_at_an_older_head_is_unviewed_once_its_blob_changes() {
+        let viewed = |path: &str, still: bool| ipc::PullViewedFile { path: path.into(), commit: "old1234".into(), viewed_at: "2026-11-01T10:00:00Z".into(), still };
+        let page = page_with(vec![viewed("a.rs", true), viewed("b.rs", false)]);
+        let says: Vec<(&str, Viewed)> = page.files.iter().map(|file| (file.path.as_str(), file.viewed)).collect();
+        // Fleet's `still: false` clears the box; the file he never viewed is plain not viewed.
+        assert_eq!(says, [("a.rs", Viewed::Yes), ("b.rs", Viewed::ChangedAfter), ("c.rs", Viewed::No)]);
+    }
 }

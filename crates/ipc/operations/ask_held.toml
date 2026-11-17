@@ -12,7 +12,7 @@ notes = """
 
 **Fleet answers without the Operator where the pull request merged or closed**, as the forge shows it. The Job is sent `held? #N: merged at HH:MM.` or `held? #N: closed.` as a Fleet message, the same words are `answer`, and nothing is kept. A branch has no such fact, so a branch always goes on.
 
-**Otherwise the Operator reads it** and either tells the asking Job or raises it to Your turn, as `OperatorTurnItem::held`, or while it is off it is a `job_held` item in the asking Job's Needs you with `Land it` and `Hold it`. The asking Job is sent his answer as a Fleet message. Fleet writes nothing to a forge. The same question asked again while one is open is folded into it.
+**Otherwise the Operator reads it** and either tells the asking Job or raises it to Your turn, as `OperatorTurnItem::held`, or while it is off it is a `job_held` item in the asking Job's Needs you with `Land it` and `Hold it`. The asking Job is sent his answer as a Fleet message. **He may dismiss it instead**, which settles it with no answer and sends the asking Job `held? #N: He dismissed it with no answer.`; the Job may take it back with `withdraw_held`. The row reads the pull request's title and the Job that asked, or the branch's name. Fleet writes nothing to a forge. The same question asked again while one is open is folded into it.
 
 `agent_access` is `Yes`: the agent is the one holding work it is unsure it should land.
 """

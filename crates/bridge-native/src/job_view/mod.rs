@@ -14,7 +14,7 @@ mod aa;
 mod acts;
 mod artifacts_tab;
 mod for_you_tab;
-mod fold;
+mod reader_sheet;
 mod band_card;
 mod bands;
 mod bar;
@@ -25,7 +25,6 @@ mod choose;
 mod claim_waits;
 mod moving;
 mod slot_wait;
-pub(crate) use fold::{presses, rail, rail_said, shuts, Side};
 pub(crate) use moving::{moving_said, name_of};
 mod cards;
 pub(crate) mod composer;
@@ -66,6 +65,7 @@ mod plan_sketches;
 mod pop;
 mod quick;
 mod ready_card;
+mod todo_strip;
 mod ready_compact;
 mod teach;
 mod records;
@@ -126,6 +126,7 @@ mod view_tabs;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
+pub use review::{open_over, OperatorRead};
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
 mod runs;
@@ -204,6 +205,8 @@ pub(crate) enum Extra {
     SlotWait,
     /// A card of what Listen said, by its id, and whether it could not be spoken: the card is taller then.
     Spoken(u64, bool),
+    /// The Job's one compact card of builds to try, pinned at the thread's end while any build is open or put off (`ready_compact`).
+    Ready,
     /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
     Parts(String, u32),
 }
@@ -270,8 +273,8 @@ struct Page {
     side: side::SideState,
     /// The whole Job's Judge pane, while it is open.
     judge: Option<judge_tab::JudgePane>,
-    /// What Fleet last said of each build to try, so the thread measures again where one changed.
-    ready: (Vec<(String, ipc::ReadyState)>, Option<usize>),
+    /// What Fleet last said of each build to try, and where its item stands, so the thread measures again where one changed.
+    ready: Vec<(usize, String, ipc::ReadyState)>,
     /// His bubble open for new words.
     editing: Option<edit::Editing>,
     /// New words saved on his messages, by row id, drawn until Fleet's row reads them.
@@ -287,7 +290,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: (Vec::new(), None), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: Vec::new(), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -441,6 +444,8 @@ pub struct JobView {
     row_tabs: HashMap<SharedString, row_tabs::RowTabs>,
     /// The body of the tab beside the thread in front, which takes the keys when it opens.
     row_focus: FocusHandle,
+    /// The room the review panel leaves its detail, as last drawn: what a picture and a row of takes are sized to.
+    sheet: std::cell::Cell<gpui::Size<gpui::Pixels>>,
     /// The scroll of an artifact's tab body: its parts and the note under one are read by scrolling it.
     body_scroll: gpui::ScrollHandle,
     /// Where he left off, kept between runs.
@@ -491,6 +496,12 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
+    /// The zoom of the drawing the review panel's detail holds in place, and the scene key it draws under.
+    detail_zoom: Option<reader_sheet::DetailZoom>,
+    /// Where the keys were when a press asked to read an artifact, before anything it does moved them: the panel gives them back.
+    review_from: Option<FocusHandle>,
+    /// What the Operator read of an item the panel was opened for, by the item's key: drawn above its notes, never an answer.
+    operator_reads: HashMap<String, review::OperatorRead>,
     /// His notes on a sketch's parts, held until he sends them, by the sketch they are on (`sketch:<job>:<card>`).
     sketch_notes: HashMap<String, Vec<sketch_notes::Held>>,
     /// The last subagent threads read, newest last.
@@ -665,6 +676,7 @@ impl JobView {
             side_chats: HashMap::new(),
             row_tabs: HashMap::new(),
             row_focus: cx.focus_handle(),
+            sheet: std::cell::Cell::new(gpui::Size::default()),
             body_scroll: gpui::ScrollHandle::new(),
             place: place::Place::begin(remember, cx),
             focus: cx.focus_handle(),
@@ -692,6 +704,9 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
+            detail_zoom: None,
+            review_from: None,
+            operator_reads: HashMap::new(),
             sketch_notes: HashMap::new(),
             subagents_read: Vec::new(),
             subagents_opened: HashMap::new(),
@@ -975,7 +990,11 @@ impl JobView {
         // Each revision of an artifact that holds parts has a card where it was kept: under the item before later ones, else before what the Job is doing now. The sketch, page and draft that joined it are its parts and draw no card of their own.
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
-        let cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        let mut cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
+        if ready_compact::asks(&held.items) {
+            cards.push(Extra::Ready);
+        }
         // A background task Fleet lists is a row of the running card, so the card stands while one runs.
         if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
             extras.push(Extra::Subagents);
@@ -1008,8 +1027,8 @@ impl JobView {
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
-        // The builds to try are one compact card at the newest open one's place: where a build changed, it and the place measure again.
-        let ready = (ready_compact::signature(&held.items), ready_compact::place_in(&held.items));
+        // Where a build changed, its item measures again: it draws a line when settled and nothing while it is listed on the card.
+        let ready = ready_compact::signature(&held.items);
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
@@ -1018,7 +1037,7 @@ impl JobView {
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
-        let from = if page.ready == ready { from } else { [page.ready.1, ready.1].into_iter().flatten().fold(from, usize::min) };
+        let from = ready_compact::first_change(&page.ready, &ready).map_or(from, |at| from.min(at));
         // A card kept under an item that is not new changes that item's element, so the list measures from there.
         let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };

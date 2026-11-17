@@ -36,7 +36,7 @@ const JOIN: char = '\u{1f}';
 const ACROSS: usize = 3;
 /// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
 const SIDE_BY_SIDE: f32 = 520.;
-/// How tall a picture may stand in the reading column, against the pane it is read in.
+/// How tall a picture may stand in the reading column, against the pane it is read in. In the review panel it is `reader_sheet::TALL_SHARE`.
 const TALL_SHARE: f32 = 0.6;
 
 /// How many takes one row holds in a body `room` points wide with `gap` between: as many as would each be `SIDE_BY_SIDE` wide, and
@@ -85,6 +85,11 @@ fn effective(part: &ArtifactPart, key: &str, state: &PartsState) -> ArtifactPart
         Some((drawn, now, answer)) if part.state == PartState::Open && *drawn == part.drawn => ArtifactPart { state: *now, answer: Some(answer.clone()), ..part.clone() },
         _ => part.clone(),
     }
+}
+
+/// The part as the card reads it, for the review panel's list: which artifacts still ask.
+pub(super) fn effective_part(part: &ArtifactPart, key: &str, page: &Page) -> ArtifactPart {
+    effective(part, key, &page.cards.parts)
 }
 
 /// Where the artifact stands as its card reads it: Asking while any part still asks, then Fleet's state, or the one his
@@ -232,9 +237,23 @@ struct Ctx<'a> {
     look: &'a Look,
     /// Drawn in the artifact's own tab, where a drawing is large and nothing folds.
     tab: bool,
+    /// Drawn in the review panel's detail: prose keeps its measure, pictures take the sheet's width, and no frame is round it.
+    sheet: bool,
     /// The part the keys A and C answer, and the takes part 1 to 6 and Cmd-Enter answer: the first of each still asking.
     words: Option<String>,
     takes: Option<String>,
+}
+
+impl PartsState {
+    /// The words box of a takes part, where it has been made.
+    pub(super) fn notes(&self, key: &str) -> Option<Entity<InputState>> {
+        self.notes.get(key).cloned()
+    }
+
+    /// What he answered a part, as it was sent and not yet read back from Fleet.
+    pub(super) fn answer_sent(&self, key: &str) -> Option<&PartAnswer> {
+        self.sent.get(key).map(|(_, _, answer)| answer)
+    }
 }
 
 impl Ctx<'_> {
@@ -311,6 +330,7 @@ impl JobView {
             page,
             look,
             tab: true,
+            sheet: false,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
         };
@@ -398,6 +418,17 @@ impl JobView {
         page.cards.parts.notes.iter().any(|(key, input)| key.starts_with(&prefix) && input.read(cx).focus_handle(cx).is_focused(window)) || page.cards.modes.keys().any(|key| key.starts_with(&prefix))
     }
 
+    /// Esc in a part's box: an open Ask for changes box closes, its words kept as drafts, and the card has the keys again.
+    pub(super) fn close_parts_boxes(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let prefix = format!("{artifact}{JOIN}");
+        let open: Vec<String> = self.shown.as_ref().and_then(|job| self.pages.get(job)).map(|page| page.cards.modes.keys().filter(|key| key.starts_with(&prefix)).cloned().collect()).unwrap_or_default();
+        // Parts read in the review panel stand on its own place, not a card's in the thread.
+        for key in &open {
+            self.close_box_kept(super::acts::SHEET, key, cx);
+        }
+        self.focus_card(artifact, window, cx);
+    }
+
     // ---- what he does ------------------------------------------------------------------------------------------
 
     /// Answer a part: it reads the answer in this frame and Fleet is told. A refusal takes the answer back, and the part's
@@ -450,6 +481,21 @@ impl JobView {
         }
     }
 
+    /// D on the artifact in the review panel: Dismiss while it asks, Archive once it does not.
+    pub(super) fn dismiss_artifact(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some(held) = self.artifact_of(&job, artifact).cloned() else { return };
+        let asking = self.pages.get(&job).is_some_and(|page| {
+            let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).collect();
+            page.cards.answers.get(artifact) != Some(&Answer::Withdrawn) && stand_of(&parts, held.state) == Stand::Asking
+        });
+        if asking {
+            self.dismiss_parts(super::acts::SHEET, artifact, window, cx);
+        } else {
+            self.archive_card(super::acts::SHEET, artifact, artifact, window, cx);
+        }
+    }
+
     /// Dismiss the artifact: it reads Dismissed in this frame and Fleet is told. A refusal takes it back (`undo`).
     fn dismiss_parts(&mut self, ix: usize, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
@@ -464,7 +510,7 @@ impl JobView {
     }
 
     /// Send the pick: the take he chose, and the words in the note beside it.
-    fn send_pick(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn send_pick(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some((artifact, part)) = split_key(key) else { return };
         let (artifact, part) = (artifact.to_string(), part.to_string());
         let Some(job) = self.shown.clone() else { return };
@@ -520,13 +566,13 @@ impl JobView {
     }
 
     /// Ask for changes on a part: its note box opens under it.
-    fn part_ask_for_changes(&mut self, artifact: &str, part: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(ix) = self.parts_ix(artifact) else { return };
+    pub(super) fn part_ask_for_changes(&mut self, artifact: &str, part: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(ix) = self.review_open().then_some(super::acts::SHEET).or_else(|| self.parts_ix(artifact)) else { return };
         self.ask_for_changes(ix, &part_key(artifact, part), window, cx);
     }
 
     /// The keys go back to the card, once its box has shut: the card in the thread, or the reader's own in a tab.
-    fn focus_card(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn focus_card(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("reader:{artifact}")).or_else(|| page.keys.spot_of(&format!("card:{artifact}"))));
         if let Some(spot) = spot {
             window.focus(&spot.focus, cx);
@@ -624,7 +670,7 @@ impl JobView {
 
     /// The card of revision `revision` of artifact `id`: one line for an older revision, or for the newest once nothing is left to
     /// ask of him, else its band, its parts and its footer. In the artifact's own tab (`tab`) it is never folded.
-    pub(super) fn parts_card(&self, ix: usize, id: &str, revision: u32, tab: bool, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn parts_card(&self, ix: usize, id: &str, revision: u32, tab: bool, sheet: bool, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.shown.clone()?;
         let artifact = self.artifact_of(&job, id)?;
         let last = artifact.revisions.last();
@@ -654,13 +700,28 @@ impl JobView {
             page,
             look,
             tab,
+            sheet,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
-        let footer = (!(tab && self.arranged.focus_now)).then(|| self.parts_footer(ix, id, &parts, asking, page, look, cx));
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
         let artifact_id = id.to_string();
+        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
+        // In the sheet the parts stand on its own ground: the head, the foot and the frame are the sheet's.
+        if sheet {
+            let column = div()
+                .id(SharedString::from(format!("artifact:{id}")))
+                .track_focus(&spot.focus)
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_4))
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+                .children(blocks);
+            return Some(labelled(column, Role::Region, named).into_any_element());
+        }
+        let footer = Some(self.parts_footer(ix, id, &parts, asking, page, look, cx));
         let card = frame(look, self.band_narrow(look))
             .id(SharedString::from(format!("artifact:{id}")))
             .track_focus(&spot.focus)
@@ -669,17 +730,26 @@ impl JobView {
             .child(head)
             .children(blocks)
             .children(footer);
-        let named = format!("{}: {}, Revision {}", if tab { "Reader" } else { "Artifact" }, artifact.title, last.map_or(1, |last| last.number));
         Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
     }
 
-    /// The footer of the artifact's own tab in the focus view, read as the card would read it.
+    /// The footer of the artifact in the review panel, pinned under its parts and read as the card would read it.
     pub(super) fn parts_pinned_footer(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let artifact = self.artifact_of(self.shown.as_ref()?, id)?;
         let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
-        Some(self.parts_footer(ix, id, &parts, asking, page, look, cx))
+        let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
+        let pick = parts.iter().find(|part| is_pick(part)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        Some(match pick {
+            Some(pick) => div()
+                .flex()
+                .flex_col()
+                .child(div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(pick))
+                .child(footer)
+                .into_any_element(),
+            None => footer,
+        })
     }
 
     /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
@@ -740,23 +810,34 @@ impl JobView {
             _ => None,
         };
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
+        // Words, buttons and a page stand at the measure in the sheet; takes and a drawing take its width.
+        let body = if matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
         labelled(
             div()
                 .id(SharedString::from(format!("part:{key}")))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
-                .px(look.length(token::SPACE_4))
-                .py(look.length(token::SPACE_4))
+                .when(!c.sheet, |block| block.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)))
+                .when(c.sheet && !first, |block| block.pt(look.length(token::SPACE_4)))
                 .when(!first, |block| block.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
-                .child(self.caption(c, &key, mark, name, part))
+                .child(self.measured(c, self.caption(c, &key, mark, name, part)))
                 .child(body)
-                .children(answer)
-                .children(said),
+                .children(answer.map(|answer| self.measured(c, answer)))
+                .children(said.map(|said| self.measured(c, said))),
             Role::Group,
             name,
         )
         .into_any_element()
+    }
+
+    /// Prose in the sheet stands at its measure, at the left, where a picture beside it takes the width; elsewhere it is as it was.
+    fn measured(&self, c: &Ctx, element: AnyElement) -> AnyElement {
+        if c.sheet {
+            div().w_full().max_w(super::reader_sheet::measure(c.look)).child(element).into_any_element()
+        } else {
+            element
+        }
     }
 
     /// The small caps caption with the kind's glyph, and the tag at the right.
@@ -938,9 +1019,18 @@ impl JobView {
                 div().flex().flex_col().gap(look.length(token::SPACE_3)).children(rows).into_any_element()
             }
         };
-        let send = open.then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
+        // In the review panel the words box and Send pick stand in its foot beside the answers, so the pick is never off screen.
+        let send = (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
         let answered = (!part.is_open_ask() && part.asks).then(|| self.answered_line(c, key, part));
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).children(question).child(shown).children(send).children(answered).into_any_element()
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .children(question.map(|question| self.measured(c, question.into_any_element())))
+            .child(shown)
+            .children(send.map(|send| self.measured(c, send)))
+            .children(answered.map(|answered| self.measured(c, answered)))
+            .into_any_element()
     }
 
     /// One take: its radio and title, the way to see it larger, and its picture. A press chooses it.
@@ -996,18 +1086,19 @@ impl JobView {
                     .id(SharedString::from(format!("take-title:{key}:{at}")))
                     .flex_1()
                     .min_w_0()
-                    .truncate()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
                     .text_color(look.color(token::FG_DEFAULT))
                     .tooltip(tip(SharedString::from(take.title.clone())))
-                    .child(SharedString::from(title.to_string()))
-                    .when(marked, |line| line.child(div().text_color(look.color(token::FG_MUTED)).child(" (Job's pick)"))),
+                    .child(div().min_w_0().truncate().child(SharedString::from(title.to_string())))
+                    .when(marked, |line| line.child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("(Job's pick)"))),
             )
             .child(expand);
-        let thumb = self
-            .take_flat(c, key, at, take, cx)
-            .map(|picture| div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture));
+        // In the sheet the picture fills its tile edge to edge; in a card it stands in the tile's own padding.
+        let thumb = self.take_flat(c, key, at, take, cx).map(|picture| if c.sheet { div().child(picture) } else { div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_3)).child(picture) });
         let (press_key, key_key) = (key.to_string(), key.to_string());
         let tile = div()
             .id(SharedString::from(format!("take:{key}:{at}")))
@@ -1042,13 +1133,20 @@ impl JobView {
     /// What a part's body has to stand in, in the reader or a thread card: the card's width less the part's own padding.
     fn part_room(&self, c: &Ctx) -> gpui::Pixels {
         let look = c.look;
+        if c.sheet {
+            return (self.sheet.get().width - look.length(token::SPACE_6) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.));
+        }
         let held = if c.tab { self.body_scroll.bounds().size.width } else { self.pane.unwrap_or(px(0.)) };
         let card = if held > px(0.) { (held - look.length(token::SPACE_4) * 2.).min(self.column(look)) } else { self.column(look) };
         (card - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.))
     }
 
     /// The tallest a picture stands in the reading column: three fifths of the pane it is read in.
-    fn tall_most(&self, tab: bool) -> gpui::Pixels {
+    fn tall_most(&self, c: &Ctx) -> gpui::Pixels {
+        if c.sheet {
+            return self.sheet.get().height * super::reader_sheet::TALL_SHARE;
+        }
+        let tab = c.tab;
         let pane = if tab { self.body_scroll.bounds().size.height } else { px(0.) };
         let pane = if pane > px(0.) { pane } else { self.pane_height.unwrap_or(px(600.)) };
         pane * TALL_SHARE
@@ -1059,7 +1157,7 @@ impl JobView {
     fn take_flat(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, cx: &Context<Self>) -> Option<AnyElement> {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
-        let picture = self.scene_column(&held, text, self.tall_most(c.tab), c.look)?;
+        let picture = self.scene_column(&held, text, self.tall_most(c), c.look, c.sheet)?;
         Some(self.take_press(key, at, take, picture, cx))
     }
 
@@ -1084,7 +1182,7 @@ impl JobView {
 
     /// A scene's JSON drawn to fill its width: it stands as tall as its canvas's own shape asks, up to `tall`, and is centred
     /// where that leaves room at the sides.
-    fn scene_column(&self, key: &str, text: &str, tall: gpui::Pixels, look: &Look) -> Option<AnyElement> {
+    fn scene_column(&self, key: &str, text: &str, tall: gpui::Pixels, look: &Look, flat: bool) -> Option<AnyElement> {
         let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
         let scene = crate::scene::read(key, &raw)?;
         // The canvas's shape is known once it has been drawn; the frame before that draws at a plain 16 to 10 and draws again.
@@ -1101,7 +1199,7 @@ impl JobView {
                         .max_w(tall * ratio)
                         .aspect_ratio(ratio)
                         .overflow_hidden()
-                        .rounded(look.length(token::RADIUS_MD))
+                        .when(!flat, |picture| picture.rounded(look.length(token::RADIUS_MD)))
                         .child(crate::scene::view(SharedString::from(key.to_string()), scene, Fit::Column, Clock::default(), Lens::default())),
                 )
                 .into_any_element(),
@@ -1245,7 +1343,7 @@ impl JobView {
         if c.tab {
             return self.drawing_large(c, key, &held, scene, cx);
         }
-        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c.tab), look) else { return div().into_any_element() };
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), look, c.sheet) else { return div().into_any_element() };
         let (artifact, press) = (c.id.to_string(), key.to_string());
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
@@ -1294,7 +1392,13 @@ impl JobView {
 
     /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
-        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c.tab), c.look) else { return div().into_any_element() };
+        // In the review panel the artifact's first drawing zooms where it stands; a later one opens over the app on a press.
+        if c.sheet && self.in_place_drawing(&c.job, c.id).as_deref() == Some(key) {
+            if let Some(drawn) = self.drawing_in_place(key, &format!("{held}:column"), scene, self.part_room(c), self.tall_most(c), c.look, cx) {
+                return drawn;
+            }
+        }
+        let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), c.look, c.sheet) else { return div().into_any_element() };
         let press = key.to_string();
         labelled(
             div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),

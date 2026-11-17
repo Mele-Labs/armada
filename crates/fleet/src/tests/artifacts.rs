@@ -493,3 +493,55 @@ async fn an_edit_of_a_sketch_is_refused() {
 
     assert_eq!((refused.code.as_str(), refused.message.as_str()), ("fleet.edit_not_words", "a sketch takes notes, not edits"));
 }
+
+// And for the feature an artifact is made for: **a sketch, a walk, a draft and a page each name the feature they serve, as
+// one slug or a list, and Fleet keeps it with the artifact.**
+
+async fn featured(rig: &Rig, id: &SessionId, target: &str) -> Option<String> {
+    let held = rig.fleet.store().lock().await.attachments_of(&Holder::session(id.as_str())).unwrap();
+    held.into_iter().find(|one| one.kind == "artifact" && one.target == target).and_then(|one| one.detail.get("feature").cloned())
+}
+
+#[tokio::test]
+async fn a_sketch_a_walk_and_a_draft_keep_the_features_they_name_as_one_slug_or_a_list() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let body = format!(r#"{{"title":"Flow","session_id":"{}","feature":[" Voting-On-Takes","page-actions, voting-on-takes"],"scene":{SCENE}}}"#, id.as_str());
+    rig.fleet.show_sketch(None, ipc::decode("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
+    let walk = ipc::ShowWindow {
+        url: "http://localhost:5173/".into(),
+        session_id: Some(id.clone()),
+        feature: Some(ipc::FeatureNames::One("voting-on-takes".into())),
+        ..Default::default()
+    };
+    rig.fleet.show_window(None, walk).await.unwrap();
+    let draft = ProposeDraft { feature: Some(ipc::FeatureNames::Many(vec!["page-actions".into()])), ..proposed(&id, "Description", "Words.") };
+    rig.fleet.propose_draft(None, draft).await.unwrap();
+    rig.fleet.propose_draft(None, proposed(&id, "Other", "Words.")).await.unwrap();
+
+    assert_eq!(featured(&rig, &id, "sketch:Flow").await.as_deref(), Some("voting-on-takes,page-actions"), "trimmed, lower case, each once");
+    assert_eq!(featured(&rig, &id, "http://localhost:5173/").await.as_deref(), Some("voting-on-takes"));
+    assert_eq!(featured(&rig, &id, "draft:Description").await.as_deref(), Some("page-actions"));
+    assert_eq!(featured(&rig, &id, "draft:Other").await, None, "an act that names none keeps none");
+}
+
+#[tokio::test]
+async fn a_page_names_its_features_in_its_head() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let file = std::path::Path::new(&rig.root).join(".armada/documents/votes.html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let head = r#"<title>Votes</title><meta name="armada-feature" content="voting-on-takes, page-actions"><META CONTENT="Page-Actions,one-more" NAME="armada-feature">"#;
+    std::fs::write(&file, format!("<html><head>{head}</head><body><p>Findings.</p></body></html>")).unwrap();
+    let path = file.to_string_lossy().into_owned();
+    rig.stand_in.says(
+        at,
+        vec![
+            DroneEvent::Called { tool: "Write".into(), call: "toolu_1".into(), detail: CallDetail::of(&format!("{path} +1")) },
+            DroneEvent::Answered { call: "toolu_1".into(), failed: false },
+        ],
+    );
+    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.form == ArtifactForm::Page) }).await;
+
+    assert_eq!(featured(&rig, &id, &path).await.as_deref(), Some("voting-on-takes,page-actions,one-more"));
+}

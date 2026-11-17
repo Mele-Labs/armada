@@ -240,6 +240,7 @@ pub fn rest() -> Face {
         downshift: None,
         places: vec![Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true }],
         here: Some("jobs"),
+        figures: Vec::new(),
         dropped: Dropped { missed: 0, noted: 0 },
     }
 }

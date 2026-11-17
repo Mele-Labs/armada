@@ -235,6 +235,10 @@ Nothing is kept.
 A page is never refused, so Fleet keeps the first 200 characters and the first 5 `http(s)` links.
 Each link it drops is named to the Job in the notice that names a sketch that will not draw.
 
+**Rule.** An artifact may name the features it serves: `show_sketch`, `show_window` and `propose_draft` take an optional `feature`, a slug or a list of slugs, and a page says it in its head with `<meta name="armada-feature" content="slug, another">`.
+Fleet files the artifact under each of those features the project holds (`docs/concepts/feature-catalog.md`).
+A slug it does not hold is never refused: it is kept for the Operator to confirm.
+
 **Rule.** When a revision is kept, Fleet adds the links it knows after the agent's own, never one the agent already gave:
 the plan task the Job has in progress (`task`), that task's plan group (`plan_step`), and each open pull request the Job holds (`pull_request`, `#<n> <title>`).
 A pull request the agent linked by its address is not linked again.

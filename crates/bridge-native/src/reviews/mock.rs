@@ -32,6 +32,18 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, grou
     }
 }
 
+/// Fleet's calls for the reviews asked of him by name, as it would send them: two first looks, neither opened.
+pub fn asked() -> ipc::StandingCalls {
+    let call = |number: u64, title: &str, author: &str, minutes: u32| {
+        let key = format!("review:harbor/ledger-api#{number}");
+        format!(
+            r#"{{"key":"{key}","owner":"{key}","kind":"review_requested","title":"{title}","text":"Review requested on harbor/ledger-api#{number}, opened by {author}","since":"2026-11-16T09:{minutes:02}:00.000Z","tone":"waiting","opened":false,"review":{{"manifest_id":"ledger-api","repository":"harbor/ledger-api","number":{number},"title":"{title}","author":"{author}","address":"https://example.com/harbor/ledger-api/pull/{number}"}}}}"#
+        )
+    };
+    let calls = [call(2214, "Add rate limits to the export endpoint", "mira", 0), call(2231, "Say which stage of an invoice failed", "mira", 30)];
+    ipc::decode("StandingCalls", format!(r#"{{"calls":[{}]}}"#, calls.join(",")).as_bytes()).unwrap_or_else(|why| panic!("the asked reviews do not decode: {why}"))
+}
+
 /// The inbox as the last read left it, drawn while the refresh runs.
 pub fn inbox() -> Inbox {
     use PullReviewList::*;

@@ -299,6 +299,18 @@ Fleet keeps the notes in its store on his Mac and never posts one to the forge, 
 Bridge sends the unsent notes to the Job as one numbered message, and the Job a note was sent to resolves it with `resolve_pull_request_note`.
 The wire is [the owner's notes on a pull request's lines](../practices/protocol/the-owners-notes-on-a-pull-requests-lines.md).
 
+## Native Reviews
+
+**Native redesigns Reviews and does not port this tab.** The row for Reviews in [Native Bridge](native-bridge.md), under Where native departs from Armada Classic, owns what the screen draws.
+It reads the routes Fleet already serves for the lists, the page, the seen heads and the review, and adds two things on top.
+
+| Native adds | What it does |
+|---|---|
+| The review-requested call | A toast in Armada, or a Mac banner when Armada is not in front. A press opens the pull request in Reviews |
+| The figure on Reviews in the places strip | Counts the requests made to him by name that he has not opened. The Dock badge counts the same ones |
+
+**A request made again after his review counts as unopened until he opens the pull request's page again.**
+
 ## Where it lives
 
 

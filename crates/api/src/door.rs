@@ -196,6 +196,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The two things a Job may send the Operator.
     "raise_conflict",
     "ask_held",
+    "withdraw_held",
     // The feature library a Job reads before it searches and writes into before it ends.
     "get_features_of_path",
     "get_feature_brief",

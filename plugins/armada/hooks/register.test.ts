@@ -13,16 +13,19 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; handoff?: 'down' | 'slow' | 'refused' | string; commit?: 'down' | 'slow' | 'refused' | string; staged?: string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
   const attempts = { fetches: 0, reads: 0, reports: 0, listed: [] as string[] }
   const processes: { argv: string[] }[] = []
   const submitted: { text: string; asUser?: boolean }[] = []
+  const contexts: (readonly string[] | undefined)[] = []
   const usages: unknown[] = []
   const asked: unknown[] = []
   const logbookAsks: Posted[] = []
+  const handoffAsks: Posted[] = []
+  const commitAsks: Posted[] = []
   const prePrAsks: Posted[] = []
   const questions: any[] = []
   const reached: { to?: string }[] = []
@@ -89,6 +92,23 @@ function world(
       if (options.logbook === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
       return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ text: options.logbook ?? '' }) } }
     }
+    // The feature pages a Job is owed: their text, a Fleet that fails, one too slow to wait for, or one without the route.
+    if (e.url.endsWith('/features/hand_over')) {
+      handoffAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
+      if (options.handoff === 'down') throw new Error('connection refused')
+      if (options.handoff === 'slow') return new Promise(() => undefined)
+      if (options.handoff === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ features: [], text: options.handoff ?? '' }) } }
+    }
+    // Whether a commit names its feature: the refusal's words, `allowed` for a Fleet that lets it run, or a Fleet that fails, is too slow or lacks the route.
+    if (e.url.endsWith('/features/commit_check')) {
+      commitAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
+      if (options.commit === 'down') throw new Error('connection refused')
+      if (options.commit === 'slow') return new Promise(() => undefined)
+      if (options.commit === 'refused') return { value: { status: 404, ok: false, headers: {}, text: '{}' } }
+      const allowed = options.commit === undefined || options.commit === 'allowed'
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ allowed, says: allowed ? '' : options.commit }) } }
+    }
     // The Checks a pull request waits on: passed, failed with a log tail, or a Fleet that is down, slow or without the route.
     if (e.url.endsWith('/sessions/pre_pr')) {
       prePrAsks.push({ url: e.url, body: JSON.parse(e.init?.body ?? '{}') })
@@ -112,6 +132,10 @@ function world(
   })
   on('process.run', (_$, e) => {
     processes.push(e)
+    if (e.argv[0] === 'git' && (e.argv[1] === 'diff' || e.argv[1] === 'ls-files')) {
+      // What a commit is about to take: the staged files, and the changed and new ones where the line stages more.
+      return { value: { exitCode: options.staged === undefined ? 1 : 0, stdout: e.argv.includes('--cached') ? (options.staged ?? '') : e.argv[1] === 'diff' ? 'b/changed.rs\0' : 'c/new.rs\0', stderr: '' } }
+    }
     if (e.argv[0] === 'git') {
       return { value: { exitCode: 0, stdout: 'fleet/session-ledger\n', stderr: '' } }
     }
@@ -133,6 +157,7 @@ function world(
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('prompt.submit', (_$, e) => {
     submitted.push({ text: e.text, asUser: e.origin?.asUser })
+    contexts.push(e.context)
     order.push(`submit ${e.text}`)
     return { text: e.text }
   })
@@ -155,7 +180,7 @@ function world(
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, prePrAsks, reached }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, handoffAsks, commitAsks, contexts, prePrAsks, reached }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -254,7 +279,7 @@ test('a subagent is attached by its agent id and names the call that started it'
 
 // What the subagent runs with is what the hook beneath the mod is handed.
 async function spawnedWith(on: On, $: any, prompt: string, options: Parameters<typeof world>[1]) {
-  const { posts, clock, logbookAsks } = world(on, options)
+  const { posts, clock, logbookAsks, handoffAsks } = world(on, options)
   const prompts: string[] = []
   on('agent.spawn', (_$, e) => {
     prompts.push(e.prompt)
@@ -266,7 +291,7 @@ async function spawnedWith(on: On, $: any, prompt: string, options: Parameters<t
   await clock.advance(2000)
   const out = await spawning
   await clock.settle()
-  return { prompts, posts, out, logbookAsks }
+  return { prompts, posts, out, logbookAsks, handoffAsks }
 }
 
 test('a subagent is given the Logbook lines Fleet has for the paths its prompt names', async ($, on) => {
@@ -2334,4 +2359,197 @@ test('a message is sent when Fleet is out of reach', async ($, on) => {
   const out = await $.tool.call({ tool: 'SendMessage', to: 's-1234abcd', message: 'done' })
 
   expect(out.result).toBe('sent')
+})
+
+// The pages of the features a read or a brief reaches, which Fleet hands over once; the mod only asks and carries the answer.
+const PAGE = 'Feature pages from Armada\'s library, handed once per feature:\n\nVoting on takes (Takes)\nOne full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>.'
+
+test('the first read of a file asks Fleet which pages it is owed and the page rides on the call\'s result', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  const out = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([{ session_id: 'S1', paths: ['crates/pages/voting/a.rs'] }])
+  expect(out.context).toEqual([PAGE])
+  expect(out.result).toBe('file text')
+})
+
+test('a Grep and a Glob ask for the folder they search, and a subagent asks as itself', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Grep' }, () => ({ result: 'hits' }))
+  on('tool.call', { tool: 'Glob' }, () => ({ result: 'files' }))
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: '/repos/armada/crates/pages', glob: 'voting/**/*.rs' })
+  await $.tool.call({ tool: 'Glob', pattern: 'crates/pages/**/*.rs' })
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: 'crates/pages/voting', agentId: 'sub1' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([
+    { session_id: 'S1', paths: ['crates/pages/voting'] },
+    { session_id: 'S1', paths: ['crates/pages'] },
+    { session_id: 'S1', paths: ['crates/pages/voting'], agent_id: 'sub1' },
+  ])
+})
+
+test('a search of the whole repository, a file outside it and a call that was turned away ask Fleet nothing', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('tool.call', { tool: 'Grep' }, () => ({ result: 'hits' }))
+  on('tool.call', { tool: 'Read' }, (_$, e) => (e.file_path.endsWith('big.md') ? { deny: 'Not read' } : { result: 'text' }))
+  await $.tool.call({ tool: 'Grep', pattern: 'vote' })
+  await $.tool.call({ tool: 'Grep', pattern: 'vote', path: '/repos/armada' })
+  await $.tool.call({ tool: 'Read', file_path: '/etc/hosts' })
+  const turned = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/docs/big.md' })
+
+  expect(handoffAsks).toEqual([])
+  expect(turned.context).toBeUndefined()
+})
+
+for (const handoff of ['down', 'refused', '']) {
+  test(`a Fleet that answers ${handoff === '' ? 'nothing' : handoff} leaves the read as it was, and no error`, async ($, on) => {
+    world(on, { handoff })
+    on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+    const out = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs' })
+
+    expect(out.result).toBe('file text')
+    expect(out.context ?? []).toEqual([])
+  })
+}
+
+test('a Fleet too slow to answer is waited on once and then left alone for a while', async ($, on) => {
+  const { handoffAsks, clock } = world(on, { handoff: 'slow' })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  const first = $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  await clock.advance(2000)
+  expect((await first).result).toBe('file text')
+  const second = await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/two.rs' })
+
+  expect(second.result).toBe('file text')
+  expect(handoffAsks).toHaveLength(1)
+})
+
+test('a Fleet that is not running, and a Drone, are not asked for pages', async ($, on) => {
+  const down = world(on, { running: () => false, handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  expect(down.handoffAsks).toEqual([])
+})
+
+test('a Drone is not handed feature pages', async ($, on) => {
+  const { handoffAsks } = world(on, { env: { ARMADA_DRONE: '1' }, handoff: PAGE })
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/a/one.rs' })
+  expect(handoffAsks).toEqual([])
+})
+
+test('a prompt that names a feature by a Feature line or a backticked slug carries its page, and any other prompt asks nothing', async ($, on) => {
+  const { handoffAsks, contexts } = world(on, { handoff: PAGE })
+  await $.prompt.submit({ text: 'Add rank votes.\n\nFeature: voting-on-takes', wait: false, origin: {} } as never)
+  await $.prompt.submit({ text: 'Fix `voting-on-takes`', wait: false, origin: {} } as never)
+  await $.prompt.submit({ text: 'Run the tests', wait: false, origin: {} } as never)
+
+  expect(handoffAsks.map(one => one.body)).toEqual([
+    { session_id: 'S1', brief: 'Add rank votes.\n\nFeature: voting-on-takes' },
+    { session_id: 'S1', brief: 'Fix `voting-on-takes`' },
+  ])
+  expect(contexts).toEqual([[PAGE], [PAGE], undefined])
+})
+
+test('a subagent is handed the pages of the features its prompt names, after the Logbook, and asks under its spawn call', async ($, on) => {
+  const { prompts, handoffAsks, logbookAsks } = await spawnedWith(on, $, 'Add rank votes.\nFeature: voting-on-takes', { handoff: PAGE, logbook: 'How the owner works:\n- Short.' })
+
+  expect(handoffAsks.map(one => one.body)).toEqual([{ session_id: 'S1', brief: 'Add rank votes.\nFeature: voting-on-takes', agent_id: 'toolu_1' }])
+  expect(logbookAsks).toHaveLength(1)
+  expect(prompts).toEqual([`Add rank votes.\nFeature: voting-on-takes\n\nHow the owner works:\n- Short.\n\n${PAGE}`])
+})
+
+test('a subagent whose brief named a feature reads under its spawn call, and another subagent under its own id', async ($, on) => {
+  const { handoffAsks } = world(on, { handoff: PAGE })
+  on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a4c6' }))
+  on('tool.call', { tool: 'Read' }, () => ({ result: 'file text' }))
+  await $.session.start({ cwd: '/repos/armada', surface: null, isInteractive: false })
+  await $.agent.spawn({ prompt: 'Fix `voting-on-takes`', description: 'Votes', subagentType: 'bridge-engineer', tool_use_id: 'toolu_1' } as never)
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs', agentId: 'a4c6' })
+  await $.tool.call({ tool: 'Read', file_path: '/repos/armada/crates/pages/voting/a.rs', agentId: 'other' })
+
+  expect(handoffAsks.map(one => one.body.agent_id)).toEqual(['toolu_1', 'toolu_1', 'other'])
+})
+
+test('a subagent prompt that names no feature asks Fleet for no pages, and a Fleet that answers nothing leaves it as it was', async ($, on) => {
+  const plain = await spawnedWith(on, $, 'Fix apps/desktop/src/main.ts', { handoff: PAGE })
+  expect(plain.handoffAsks).toEqual([])
+  expect(plain.prompts).toEqual(['Fix apps/desktop/src/main.ts'])
+})
+
+for (const handoff of ['down', 'slow', 'refused', '']) {
+  test(`a Fleet that answers ${handoff === '' ? 'nothing' : handoff} to a subagent's brief gives it its prompt as it was`, async ($, on) => {
+    const { prompts, out } = await spawnedWith(on, $, 'Fix `voting-on-takes`', { handoff })
+
+    expect(prompts).toEqual(['Fix `voting-on-takes`'])
+    expect(out.agentId).toBe('a4c6')
+  })
+}
+
+// A commit that names no feature is turned away with the features its files belong to, for the Jobs Fleet holds to it.
+const NO_FEATURE = 'No Feature: line in this commit.\nFeature: voting-on-takes\nAdd the line you mean and commit again.'
+const COMMIT = 'git commit -m "Add rank votes"'
+
+test('a commit Fleet says names no feature is denied with its words, and its files are asked about as git lists them', async ($, on) => {
+  const { commitAsks } = world(on, { commit: NO_FEATURE, staged: 'a/one.rs\0a/two.rs\0' })
+  let ran = false
+  on('tool.call', { tool: 'Bash' }, () => {
+    ran = true
+    return { result: { stdout: '', stderr: '', interrupted: false }, text: '' }
+  })
+  const out = await $.tool.call({ tool: 'Bash', command: COMMIT })
+
+  expect(out.deny).toBe(NO_FEATURE)
+  expect(ran).toBe(false)
+  expect(commitAsks.map(one => one.body)).toEqual([{ session_id: 'S1', command: COMMIT, files: ['a/one.rs', 'a/two.rs'] }])
+})
+
+test('a commit Fleet allows runs, and a line that stages more asks about what it would stage', async ($, on) => {
+  const { commitAsks, processes } = world(on, { commit: 'allowed', staged: 'a/one.rs\0' })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
+  const out = await $.tool.call({ tool: 'Bash', command: COMMIT })
+  expect(out.deny).toBeUndefined()
+  expect(processes.map(one => one.argv.slice(1, 3))).toEqual([['diff', '--cached']])
+
+  await $.tool.call({ tool: 'Bash', command: 'git add -A && git commit -m "Add rank votes"' })
+  expect(commitAsks.at(-1)?.body.files).toEqual(['a/one.rs', 'b/changed.rs', 'c/new.rs'])
+})
+
+test('a line that is not a commit asks Fleet nothing, and git that will not say asks with no files', async ($, on) => {
+  const { commitAsks } = world(on, { commit: 'allowed' })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
+  await $.tool.call({ tool: 'Bash', command: 'git status' })
+  await $.tool.call({ tool: 'Bash', command: 'git log --oneline' })
+  expect(commitAsks).toEqual([])
+
+  await $.tool.call({ tool: 'Bash', command: COMMIT })
+  expect(commitAsks.map(one => one.body.files)).toEqual([[]])
+})
+
+for (const commit of ['down', 'slow', 'refused']) {
+  test(`a Fleet that answers ${commit} to a commit lets it run`, async ($, on) => {
+    const { clock } = world(on, { commit, staged: 'a/one.rs\0' })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'done', stderr: '', interrupted: false }, text: 'done' }))
+    const running = $.tool.call({ tool: 'Bash', command: COMMIT })
+    await clock.advance(4000)
+    const out = await running
+
+    expect(out.deny).toBeUndefined()
+    expect(out.text).toBe('done')
+  })
+}
+
+test('a Fleet that is not running, and a Drone, are not asked whether a commit names its feature', async ($, on) => {
+  const down = world(on, { running: () => false, commit: NO_FEATURE })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
+  expect((await $.tool.call({ tool: 'Bash', command: COMMIT })).deny).toBeUndefined()
+  expect(down.commitAsks).toEqual([])
+})
+
+test('a Drone is never asked whether a commit names its feature', async ($, on) => {
+  const { commitAsks } = world(on, { env: { ARMADA_DRONE: '1' }, commit: NO_FEATURE })
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
+  expect((await $.tool.call({ tool: 'Bash', command: COMMIT })).deny).toBeUndefined()
+  expect(commitAsks).toEqual([])
 })

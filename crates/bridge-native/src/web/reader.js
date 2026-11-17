@@ -1,6 +1,7 @@
 // What the reader asks of a page it shows: where its headings are, what he selected, and a scroll to a block or to words
 // he marked. Evaluated in the finder's content world, which shares the page's DOM and nothing else, so the page's scripts see
-// no global of this. It reads text and moves one thing, the page's scroll. A block is named by its place among the page's
+// no global of this. It reads text and moves one thing, the page's scroll; the one thing it changes is a leading h1 that says
+// the title the head already says, which it hides. A block is named by its place among the page's
 // block elements, `b0`, `b1`, in document order.
 (function () {
   if (typeof globalThis.ArmadaReader === "object") return;
@@ -13,10 +14,15 @@
   };
   const reader = {
     // The headings in the order the page holds them, each with the block it is.
-    words() {
+    words(title) {
       const heads = [];
-      blocks().forEach((el, at) => {
-        if (/^H[1-6]$/.test(el.tagName)) heads.push({ level: Number(el.tagName[1]), text: flat(el.textContent), block: "b" + at });
+      const all = blocks();
+      const want = flat(title).toLowerCase();
+      // The page's first block is its own title where an h1 says what the head says: drawn once, in the head.
+      const first = all.find((el) => flat(el.textContent) !== "");
+      if (want && first && first.tagName === "H1" && flat(first.textContent).toLowerCase() === want) first.style.setProperty("display", "none");
+      all.forEach((el, at) => {
+        if (/^H[1-6]$/.test(el.tagName) && el.style.display !== "none") heads.push({ level: Number(el.tagName[1]), text: flat(el.textContent), block: "b" + at });
       });
       return JSON.stringify({ heads });
     },

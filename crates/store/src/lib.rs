@@ -267,6 +267,7 @@ pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
 };
+pub use features::KeptFeatureProposal;
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};

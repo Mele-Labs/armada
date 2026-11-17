@@ -243,6 +243,7 @@ where
         detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         let for_line = self.for_line(&id, said).await;
         with_for(&mut detail, for_line.as_ref());
+        ipc::feature_in_detail(&mut detail, draft.feature.as_ref());
         let artifact = AttachmentReport { kind: String::from("artifact"), target: format!("{DRAFT_PREFIX}{title}"), detail };
         self.row_put(
             &id,

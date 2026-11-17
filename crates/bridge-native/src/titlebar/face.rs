@@ -804,6 +804,15 @@ pub struct Place {
     pub hideable: bool,
 }
 
+/// What a place's figure counts, as VoiceOver and its tooltip say it.
+pub fn figure_said(id: &str, count: usize) -> String {
+    match (id, count) {
+        ("reviews", 1) => "1 review asked of you, not opened".into(),
+        ("reviews", _) => format!("{count} reviews asked of you, not opened"),
+        _ => count.to_string(),
+    }
+}
+
 /// Events Fleet dropped before Bridge saw them, and how many of them the person has said they have seen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Dropped {
@@ -840,6 +849,8 @@ pub struct Face {
     /// the centre is the search trigger alone, at its full width.
     pub places: Vec<Place>,
     pub here: Option<&'static str>,
+    /// The figure beside a place's name, by its id: Reviews counts the pull requests asked of him he has not opened.
+    pub figures: Vec<(&'static str, usize)>,
     /// Events Fleet dropped before Bridge saw them (`Standing.tsx`): the alert stands until `noted` catches up.
     pub dropped: Dropped,
 }
@@ -862,6 +873,7 @@ impl Face {
             downshift: None,
             places: Vec::new(),
             here: None,
+            figures: Vec::new(),
             dropped: Dropped { missed: 0, noted: 0 },
         }
     }
@@ -869,6 +881,11 @@ impl Face {
     /// The places the strip draws now, in order: the ones the layout has not hidden.
     pub fn drawn_places(&self) -> impl Iterator<Item = &Place> {
         self.places.iter().filter(|place| place.shown)
+    }
+
+    /// The figure beside a place's name: none at zero.
+    pub fn figure_of(&self, id: &str) -> Option<usize> {
+        self.figures.iter().find(|(one, _)| *one == id).map(|(_, count)| *count).filter(|count| *count > 0)
     }
 
     /// Whether the layout may hide this place now: not a fixed one, and not the last one drawn, since

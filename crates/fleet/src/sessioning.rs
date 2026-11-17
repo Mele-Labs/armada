@@ -728,6 +728,7 @@ where
                         .chain((!steps.is_empty()).then(|| ("steps".to_string(), ipc::WalkStep::as_detail(&steps))))
                         .chain((!origins.is_empty()).then(|| ("origins".to_string(), ipc::origins_as_detail(&origins))))
                         .chain(brief.clone().map(|text| ("brief".to_string(), text)))
+                        .chain(show.feature.as_ref().and_then(ipc::FeatureNames::as_detail).map(|slugs| (ipc::ARTIFACT_FEATURE.to_string(), slugs)))
                         .collect(),
                     },
                 },
@@ -1115,6 +1116,14 @@ where
         asked: ipc::AskHeld,
     ) -> Result<ipc::HeldAsked, Refusal> {
         self.held_asked(caller, asked).await
+    }
+
+    async fn withdraw_held(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        withdrawn: ipc::WithdrawHeld,
+    ) -> Result<ipc::HeldWithdrawn, Refusal> {
+        self.held_withdrawn(caller, withdrawn).await
     }
 
     async fn report_bug(

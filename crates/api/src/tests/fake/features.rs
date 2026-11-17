@@ -2,7 +2,7 @@
 //! what arrived. What Fleet keeps and works out is `fleet::feature_library`'s, against a real store.
 
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
+    FeatureAreaRow, FeatureBrief, CheckCommitFeature, CommitFeatureChecked, FeaturesHandedOver, HandOverFeatures, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
     FeaturesOfPath, FeaturesUpserted, FirstEditSearches, UpsertFeatures, WriteFeatureSections,
 };
 
@@ -30,7 +30,7 @@ impl Features for FakeDaemon {
         })
     }
 
-    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String) -> Result<FeaturePage, Refusal> {
+    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String, _section: Option<String>) -> Result<FeaturePage, Refusal> {
         Ok(FeaturePage {
             project: project.unwrap_or_else(|| String::from("p1")),
             feature: row(&feature),
@@ -63,6 +63,15 @@ impl Features for FakeDaemon {
 
     async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {
+        Ok(FeaturesHandedOver { features: hand.paths, text: String::new() })
+    }
+
+    async fn check_commit_feature(&self, check: CheckCommitFeature) -> Result<CommitFeatureChecked, Refusal> {
+        let allowed = check.command.contains("Feature:");
+        Ok(CommitFeatureChecked { allowed, says: if allowed { String::new() } else { String::from("Add a Feature: line.") }, features: Vec::new() })
     }
 
     async fn get_first_edit_searches(&self, _weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

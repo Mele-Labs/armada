@@ -38,14 +38,22 @@ pub fn told_of(batch: &[CallArrival]) -> Option<Told> {
     let title = if first.title.is_empty() { "Job".to_string() } else { first.title.clone() };
     let body = if others == 0 { first.text.clone() } else { format!("{}\nand {others} more", first.text) };
     let tone = if batch.iter().any(|one| one.tone == CallTone::Blocked) { CallTone::Blocked } else { CallTone::Waiting };
-    // A Mac waiting to pair names its call by its key; `session_id` carries the same for readers without it.
-    let tag = first.key.clone().filter(|_| first.kind == ipc::CallArrivalKind::MacPairing).unwrap_or_else(|| first.session_id.as_str().to_string());
+    // A Mac waiting to pair and a review asked of him name their call by its key; `session_id` carries the same for
+    // readers without it.
+    let by_key = matches!(first.kind, ipc::CallArrivalKind::MacPairing | ipc::CallArrivalKind::ReviewRequested);
+    let tag = first.key.clone().filter(|_| by_key).unwrap_or_else(|| first.session_id.as_str().to_string());
     Some(Told { session_id: tag, title, body, tone })
 }
 
-/// A banner's tag that is a call's key, `mac:<id>`, rather than a Job's id: `CallArrivalKind::MacPairing`.
+/// A banner's tag that is a call's key rather than a Job's id: `mac:<id>` for `CallArrivalKind::MacPairing`, or
+/// a review asked of him.
 pub fn is_call_key(tag: &str) -> bool {
-    tag.starts_with("mac:")
+    tag.starts_with("mac:") || is_review_key(tag)
+}
+
+/// A review asked of him, `review:<owner/name>#<number>`: `CallArrivalKind::ReviewRequested`.
+pub fn is_review_key(tag: &str) -> bool {
+    tag.starts_with("review:")
 }
 
 /// The sound file a tone carries, in the bundle's Resources: `apps/desktop/sounds`, copied in by
@@ -164,10 +172,17 @@ impl Notifier {
     }
 
     /// A press on a banner: the app comes forward and the Job opens. A Mac waiting to pair names no Job: its
-    /// banner opens the Operator's page with that Mac's card in front.
+    /// banner opens the Operator's page with that Mac's card in front. A review asked of him opens the pull request in
+    /// Reviews.
     fn pressed(&mut self, session_id: &str, cx: &mut Context<Self>) {
         cx.activate(true);
         let _ = self.window.update(cx, |_view, window, _cx| window.activate_window());
+        if is_review_key(session_id) {
+            let asked = self.fleet.read(cx).held().review_asked(session_id).cloned();
+            Note::info("a banner was pressed").field("call", session_id).field("opened", asked.is_some()).emit();
+            crate::operator::screen::open_asked(asked, cx);
+            return;
+        }
         if is_call_key(session_id) {
             crate::operator::screen::open_call(session_id.to_string(), cx);
             Note::info("a banner was pressed").field("call", session_id).emit();
@@ -244,6 +259,22 @@ mod tests {
         assert_eq!(told.title, "Confirm Work pairing");
         assert!(is_call_key(&told.session_id));
         assert!(!is_call_key("s-20b4e00a"), "a Job's id opens the Job");
+    }
+
+    #[test]
+    fn a_review_asked_of_him_is_told_under_its_calls_key_and_opens_no_job() {
+        let key = "review:harbor/ledger-api#2231";
+        let mut asked = arrival(key, "Say which stage of an invoice failed", "Review requested on harbor/ledger-api#2231, opened by mira", CallTone::Waiting);
+        asked.kind = CallArrivalKind::ReviewRequested;
+        asked.key = Some(key.into());
+        // A reader that carries the key apart from `session_id` is told it all the same.
+        asked.session_id = SessionId::carried("review");
+        let told = told_of(&[asked]).expect("a banner");
+        assert_eq!(told.session_id, key);
+        assert_eq!(told.title, "Say which stage of an invoice failed");
+        assert!(is_call_key(&told.session_id), "a review's banner opens the pull request, never a Job");
+        assert!(is_review_key(&told.session_id));
+        assert!(!is_review_key("mac:0a0b"));
     }
 
     #[test]

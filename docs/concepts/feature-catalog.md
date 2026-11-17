@@ -20,7 +20,7 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Entry points, as `path` or `path:line` | Seeded by the Operator |
 | Jobs on it, now and before | Detected from the files each Job wrote |
 | Pull requests and merges | Detected from the pull requests Fleet attached and the forge's merges |
-| Sketches, pages, walks and drafts | The act that made them names the feature |
+| Sketches, pages, walks and drafts | The act that made them names the feature: `feature` on `show_sketch`, `show_window` and `propose_draft`, `armada-feature` in a page's head |
 | Commits | Detected from `Feature:` trailer lines in git |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
@@ -47,6 +47,32 @@ Fleet does not read the code graph, so a file is mapped by three things it can s
 A `Feature:` trailer is one or more lines in a commit's last paragraph, each naming one slug or several separated by commas.
 A trailer naming a slug the project does not hold files nothing.
 
+## Which feature a commit serves
+
+> **Rule.** A commit names the feature it serves in a `Feature:` line, and the mod's hook refuses a `git commit` that gives its message in the line and has none.
+> Why: the Job says which feature each change serves, and a commit that does not say is filed under whatever the code owns.
+
+The refusal names the features the files about to be committed belong to, the most files first, each as the line to copy.
+Where no feature owns them it says so, and asks for the feature the commit serves or one that does not exist yet.
+
+> **Rule.** Only a Job started after its project's catalog was seeded is refused.
+> Why: approving a plan is not consent to change a Job already running.
+
+The catalog was seeded when its first feature entered it, the earliest time any feature of the project was added.
+A project with no feature, and a Job that started before that time, are never refused.
+A commit that takes its message from a file, another commit or an editor is not read, and a commit with no files is not refused.
+A Fleet that is out or slow lets the commit run.
+
+## Which feature an act serves
+
+An act that makes a sketch, a walk or a draft takes an optional `feature`, one slug or a list, and a page names its features in its head.
+Fleet links the artifact to each feature the project holds, as a link of kind `sketch`, `walk`, `draft` or `page`.
+
+> **Rule.** A slug the project holds no feature of is kept, not refused.
+> Why: the Job may be making the first thing for a feature the Operator has not seeded yet, and the Operator confirms it.
+
+Fleet keeps such a name as a proposal of the project, once per slug, artifact and Job, and only where the project has features at all.
+
 ## Stale
 
 > **Rule.** A written section is stale when a merge after it changed a file mapped to its feature, and it reads `stale since #<pr>`, the first such merge.
@@ -58,8 +84,27 @@ A merge is kept with the files it changed, so the mapping is read again when a p
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
-It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section.
-When it is over the cap the last of these go first, and the head always stays.
+It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
+When it is over the cap the last of these go first, and the head and that line always stay.
+
+## Handing a Job its pages
+
+The mod's hooks hand a Job the page of a feature at three moments, and Fleet decides each time whether that page was handed before.
+
+| Moment | Which pages |
+|---|---|
+| A prompt names features | Each feature it names, by a `Feature: <slug>` line or by its slug between backticks |
+| A subagent starts | Each feature its prompt names, in the same two ways, added to the prompt |
+| The Job reads or searches a file | Each feature that owns the file or the folder, at most three a call and the rest at the next read |
+
+> **Rule.** A feature's page is handed to a Job once.
+> Why: the page costs about a thousand tokens and says the same thing the second time.
+
+The page rides on the result of the call that reached it, so the agent reads it before it digs.
+A read or search that was turned away hands nothing, and neither does a search of the whole repository or a file outside the Job's checkout.
+Fleet keeps the record per Job, holder and feature, so it holds across turns and a restart.
+A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
+A Fleet that is out or slow hands nothing and the read goes on.
 
 ## Holding a Job's end
 
@@ -85,9 +130,11 @@ A Job whose turns were read before searches were counted is in no week until its
 | Operation | Does |
 |---|---|
 | `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
-| `get_feature_page` | One feature whole |
+| `get_feature_page` | One feature whole, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_features_of_path` | The features a file belongs to |
+| `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
+| `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
 | `get_first_edit_searches` | The weekly figure above |
@@ -102,8 +149,7 @@ What the library would hold in the clear there is in [Central store](../contract
 
 ## Not built
 
-- A commit hook that refuses a commit without a `Feature:` trailer.
-- A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
+- The Operator confirming a name an act kept, and a feature named by a trailer that does not exist yet.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Your own asks sorted onto features.
 - Seeding the 18 areas and their features.

@@ -115,6 +115,11 @@ fn is_ready(thing: &Thing) -> bool {
     matches!(thing, Thing::Row(row) if row.source == ipc::WaitingSource::ReadyToTry)
 }
 
+/// Whether a row is a To do: something he does, then presses Done on.
+pub(super) fn is_todo(row: &NeedsYouRow) -> bool {
+    matches!(row.act, NeedsYouAct::Done { .. })
+}
+
 /// One thing the panel lists.
 pub(super) enum Thing<'a> {
     Ask(&'a ThreadAsk),
@@ -293,6 +298,8 @@ impl JobView {
                 .rows
                 .iter()
                 .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
+                // A To do stands in its own strip over the box (`todo_strip.rs`).
+                .filter(|row| !is_todo(row))
                 .filter_map(|row| match asked {
                     Some(ask) if carries(row) => (!std::mem::replace(&mut carried, true)).then_some(Thing::Ask(ask)),
                     _ => Some(Thing::Row(row)),
@@ -493,7 +500,7 @@ impl JobView {
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
                 Thing::Row(_) => None,
             })
-            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().filter(|glyph| glyph.kind != NeedsYouGlyphKind::Todo).map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
             // Fleet leaves a lone page's mark off its glyphs; the band names it all the same.
             .chain(
                 view.filter(|view| !view.review_in_band)
@@ -974,7 +981,7 @@ impl JobView {
     }
 
     /// One thing of the list as a row.
-    fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = Self::thing_key(thing);
         match thing {
             Thing::Ask(ask) => {
@@ -1021,7 +1028,7 @@ impl JobView {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
                 let sheet = self.shown.clone().is_some_and(|id| self.band_reviews(&id, cx));
                 if sheet {
-                    self.review_press(window, cx);
+                    self.review_press_item(Some(item), window, cx);
                 } else if let NeedsYouAct::OpenDraft { row } = act {
                     // A draft opens its card as a tab of the Job (`openDraftCard`).
                     self.set_needs(false, None, window, cx);
@@ -1101,16 +1108,24 @@ impl JobView {
         });
         let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
             Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
-            // A To do row's words are selectable, so he can copy what he is asked to do.
+            // A To do row's words are selectable, so he can copy what he is asked to do. A press on them only
+            // selects: the row's press would open the note box, whose field then takes ⌘C and copies nothing.
             None if done.is_some() => div()
+                .id(SharedString::from(format!("needs-words:{key}")))
                 .flex_1()
                 .min_w_0()
+                .cursor_text()
+                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(|_, _, cx| cx.stop_propagation())
                 .child(TextView::markdown(gpui::ElementId::Name(format!("needs-words:{key}").into()), text).w_full().selectable(true))
                 .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };
+        let mark = div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said.clone()));
+        // A To do's words only select, so its mark is where a press opens the note box: named as its tooltip reads.
+        let mark = if done.is_some() { labelled(mark, Role::Image, said).into_any_element() } else { mark.into_any_element() };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
-            .child(div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
+            .child(mark)
             .child(words)
             .children(thumbs)
             .children(done)
@@ -1336,10 +1351,19 @@ impl JobView {
     }
 
     /// Esc: the box goes, nothing is sent, and the keys are the panel's again.
-    fn close_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn close_row_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.drop_row_box();
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
         cx.notify();
+    }
+
+    /// Where the keys go once a row's box is done with: the panel while it is up, else the message box, as a
+    /// To do's strip is drawn only with the panel down.
+    fn row_home(&self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.shown.as_ref() {
+            Some(id) if !self.needs_up(id, cx) && !self.closed(id, cx) => self.composer.input.update(cx, |input, cx| input.focus(window, cx)),
+            _ => window.focus(&self.dock_focus, cx),
+        }
     }
 
     /// Enter in the box: the reason removes the row, the note is done.
@@ -1352,7 +1376,7 @@ impl JobView {
             RowBoxFor::Note => self.done_row(&row, Some(words), window, cx),
             RowBoxFor::Words => self.answer_row_words(&row, words, window, cx),
         }
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
     }
 
     /// Put a row away. It leaves the list at once; Fleet's refusal puts it back with its words.
@@ -1397,7 +1421,7 @@ impl JobView {
             window,
             cx,
         );
-        window.focus(&self.dock_focus, cx);
+        self.row_home(window, cx);
         cx.notify();
     }
 

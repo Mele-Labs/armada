@@ -113,6 +113,10 @@ pub struct ShowSketch {
     /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<crate::ForLink>,
+    /// The feature, or features, it is made for: a slug or a list of slugs. Fleet files it under them as a link. **A slug the
+    /// project does not hold is kept for the Operator to confirm, and never refused.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
     /// Whether it is put to the person to approve or send back. **`false` for a sketch that only explains**: it never
     /// waits on him and has no Approve, and his note on it reaches the Job as a message. Left out while `true`.
     #[serde(default = "asks", skip_serializing_if = "is_asking")]

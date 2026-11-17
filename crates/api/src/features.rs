@@ -20,6 +20,16 @@ pub(crate) struct OfFeature {
     feature: String,
 }
 
+/// `?project=&feature=&section=` on `get_feature_page`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfFeaturePage {
+    #[serde(default)]
+    project: Option<String>,
+    feature: String,
+    #[serde(default)]
+    section: Option<String>,
+}
+
 /// `?project=` on `list_features`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfProject {
@@ -51,8 +61,8 @@ pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
-pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeature>) -> Response {
-    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature).await {
+pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeaturePage>) -> Response {
+    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature, asked.section).await {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -91,6 +101,31 @@ pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>
     };
     match served.daemon().upsert_features(upsert).await {
         Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
+/// not on the agent's connection.
+pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let hand: ipc::HandOverFeatures = match ipc::decode_body("feature pages to hand over", &body) {
+        Ok(hand) => hand,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().hand_over_features(hand).await {
+        Ok(handed) => answer(StatusCode::OK, &handed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The mod's hook asks before a `git commit` runs. **The Job is named in the body**, as `hand_over_features`'s is.
+pub(crate) async fn check_commit_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let check: ipc::CheckCommitFeature = match ipc::decode_body("a commit about to run", &body) {
+        Ok(check) => check,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().check_commit_feature(check).await {
+        Ok(checked) => answer(StatusCode::OK, &checked, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
