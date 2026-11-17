@@ -27,6 +27,10 @@ pub(super) enum Picture {
 pub(super) struct Pictures {
     held: HashMap<String, Picture>,
     pub(super) viewing: Option<super::picture_view::Viewing>,
+    /// Where each artifact card stood when last drawn, by artifact id: a press on one grows the view out of it.
+    pub(super) cards: std::rc::Rc<std::cell::RefCell<HashMap<String, gpui::Bounds<gpui::Pixels>>>>,
+    /// How many views have opened: each open grows afresh.
+    pub(super) opens: usize,
 }
 
 fn key(job: &str, file: &str) -> String {

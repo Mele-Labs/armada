@@ -189,6 +189,12 @@ impl JobView {
         self.artifacts.read.get(job)?.rows.as_ref()?.iter().find(|one| one.id == id)
     }
 
+    /// A held artifact to change in place, for a test that needs one unlike the mock's.
+    #[cfg(test)]
+    pub(super) fn artifact_mut(&mut self, job: &str, id: &str) -> Option<&mut JobArtifact> {
+        self.artifacts.read.get_mut(job)?.rows.as_mut()?.iter_mut().find(|one| one.id == id)
+    }
+
     /// The artifact a waiting item of Job `job` names, from the item as Fleet kept it: the id of one of the Job's artifacts.
     pub(super) fn row_artifact(&self, job: &str, item: &str, cx: &gpui::App) -> Option<String> {
         self.record(job, cx)?.waiting_for.iter().find(|one| one.id == item)?.artifact.clone()
@@ -715,7 +721,7 @@ impl JobView {
             return;
         }
         match one.form {
-            ArtifactForm::Page => self.open_document_tab(&one.id, window, cx),
+            ArtifactForm::Page => self.open_document(&one.id, window, cx),
             ArtifactForm::Draft => {
                 let row = self.thread(job, cx).and_then(|held| {
                     held.items.iter().rev().find_map(|item| match item {
