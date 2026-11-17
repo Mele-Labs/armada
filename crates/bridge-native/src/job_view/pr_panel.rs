@@ -1,6 +1,6 @@
 //! A pull request's side panel, opened from its row (`PullRequestPanel`, `shared-panel/pull-request.tsx`):
 //! the head, its title, what it is and where it is going, the act that moves it on, the plates beside it,
-//! the tabs Conversation, Checks, Files and Commits, and the comment box at its foot. The Review tab comes
+//! the tabs Overview, Comments, Checks, Files and Commits, and the comment box at its foot. The Review tab comes
 //! with the Reviews screen.
 
 use std::collections::HashSet;
@@ -15,7 +15,7 @@ use ipc::{
     PullReviewThread,
 };
 
-use super::pulls::{Pull, PullAct, PullChecks, PullState};
+use super::pulls::{gate_of, Gate, Pull, PullAct, PullChecks, PullState};
 use super::rows::{age, glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -24,27 +24,33 @@ use crate::labels::labelled;
 mod pr_draft;
 use crate::look::{token, ActiveLook, Look, Token};
 
-/// The panel's tabs, in Electron's order (`TABS`). Review joins them with the Reviews screen.
+/// The panel's tabs. Electron's Conversation (`TABS`) is split here: Overview holds the description, and
+/// Comments what was said and the threads. Review joins them with the Reviews screen.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum PullTab {
-    Conversation,
+    Overview,
+    Comments,
     Checks,
     Files,
     Commits,
 }
 
 impl PullTab {
-    const ALL: [PullTab; 4] = [PullTab::Conversation, PullTab::Checks, PullTab::Files, PullTab::Commits];
+    const ALL: [PullTab; 5] = [PullTab::Overview, PullTab::Comments, PullTab::Checks, PullTab::Files, PullTab::Commits];
 
     fn word(self) -> &'static str {
         match self {
-            PullTab::Conversation => "Conversation",
+            PullTab::Overview => "Overview",
+            PullTab::Comments => "Comments",
             PullTab::Checks => "Checks",
             PullTab::Files => "Files",
             PullTab::Commits => "Commits",
         }
     }
 }
+
+/// How long an open panel waits before it asks for its page again.
+const REREAD: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// The open panel's own state.
 pub(super) struct PullPanel {
@@ -53,6 +59,11 @@ pub(super) struct PullPanel {
     pub tab: PullTab,
     /// `GET /pull_request_details`: the tabs and the facts the row does not hold.
     pub page: Option<Result<PullRequestPage, String>>,
+    /// The held row as it stood when the page was last asked for: a row that moves since asks again.
+    pub read_as: Option<Pull>,
+    /// The page asked for again now and then while the panel is open, for what the forge changes
+    /// without the row moving, such as a reviewer asked by hand.
+    _rereading: Option<Task<()>>,
     /// The comment box, its words kept under `pull-request:panel:{repository}#{number}`.
     pub say: Entity<TextareaState>,
     pub write: PullRequestWriteKind,
@@ -85,13 +96,31 @@ pub(super) struct PullPanel {
     pub notes_resolved: bool,
     /// A description the Job proposed, drawn in the description's place (`pr_draft`).
     pub draft: pr_draft::DraftPane,
+    /// Note for the Job: the box open under the description's head, its words kept under `note_key`.
+    pub note: Option<Entity<TextareaState>>,
+    _noting: Option<Subscription>,
+    /// The note on the description reached the Job.
+    pub noted: bool,
+    /// The commit Files shows alone, pressed in Commits. None shows every file.
+    pub commit: Option<CommitShown>,
     _typing: Subscription,
     _copied: Option<Task<()>>,
+}
+
+/// A commit Files shows alone, and the page narrowed to the files it changed once its patches are read.
+pub(super) struct CommitShown {
+    pub sha: String,
+    pub headline: String,
+    pub files: Option<PullRequestPage>,
 }
 
 impl PullPanel {
     fn kept_key(pull: &Pull) -> String {
         format!("pull-request:panel:{}#{}", pull.manifest.as_deref().unwrap_or(""), pull.number)
+    }
+
+    fn note_key(pull: &Pull) -> String {
+        format!("pull-request:description-note:{}#{}", pull.manifest.as_deref().unwrap_or(""), pull.number)
     }
 
     pub(super) fn page(&self) -> Option<&PullRequestPage> {
@@ -101,6 +130,20 @@ impl PullPanel {
     /// The key Fleet's patches are kept under, as the Changes pane keeps them.
     pub(super) fn patches_key(&self) -> Option<String> {
         self.pull.manifest.as_ref().map(|manifest| format!("{manifest}#{}", self.pull.number))
+    }
+
+    /// The key of the patches Files draws: the commit's alone where one is pressed, else the pull request's.
+    pub(super) fn shown_patches_key(&self) -> Option<String> {
+        let whole = self.patches_key()?;
+        Some(self.commit.as_ref().map_or_else(|| whole.clone(), |commit| format!("{whole}@{}", commit.sha)))
+    }
+
+    /// The page Files draws: narrowed to the commit's files where one is pressed, None until they are read.
+    pub(super) fn files_page(&self) -> Option<&PullRequestPage> {
+        match &self.commit {
+            Some(commit) => commit.files.as_ref(),
+            None => self.page(),
+        }
     }
 }
 
@@ -136,8 +179,9 @@ fn ordinal(place: u32) -> String {
     format!("{place}{suffix}")
 }
 
-/// What the status plate says, its glyph and its hue (`standing`). `at` is its place in the merge queue.
-fn standing(pull: &Pull, at: Option<u32>) -> (SharedString, &'static str, Tone) {
+/// What the status plate says, its glyph and its hue (`standing`). `at` is its place in the merge queue;
+/// `review` what the page says the reviews came to, once it is read.
+fn standing(pull: &Pull, at: Option<u32>, review: Option<PullRequestReviewState>) -> (SharedString, &'static str, Tone) {
     let (what, icon, tone): (&'static str, &'static str, Tone) = if pull.state == PullState::Merged {
         ("Merged", "git-merge", Tone::Success)
     } else if pull.state == PullState::Closed {
@@ -148,13 +192,50 @@ fn standing(pull: &Pull, at: Option<u32>) -> (SharedString, &'static str, Tone) 
     } else if pull.state == PullState::Draft {
         ("Draft", "git-pull-request", Tone::Neutral)
     } else {
-        match pull.checks {
-            PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
-            PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
-            PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+        match gate_of(pull.merge) {
+            Gate::Merges => ("Ready to merge", "git-merge", Tone::Success),
+            Gate::Blocked if matches!(review, Some(PullRequestReviewState::Required | PullRequestReviewState::ChangesRequested)) => ("Review required", "user-check", Tone::Neutral),
+            Gate::Blocked => ("Merging is blocked", "ban", Tone::Failed),
+            Gate::Behind => ("Branch is behind", "arrow-down", Tone::Neutral),
+            Gate::Conflicts => ("Conflicts", "git-branch", Tone::Failed),
+            // A Fleet before the forge's verdict: the Checks decide.
+            Gate::Checks => match pull.checks {
+                PullChecks::Failed => ("Checks failed", "circle-x", Tone::Failed),
+                PullChecks::Passed => ("Ready to merge", "git-merge", Tone::Success),
+                PullChecks::Running => ("Checks running", "loader-circle", Tone::Running),
+            },
         }
     };
     (what.into(), icon, tone)
+}
+
+/// What stands in the way of a blocked merge, in one muted line under the head: its checks, its
+/// conflicts and its reviews, as far as the page says them.
+fn blocked_facts(pull: &Pull, page: Option<&PullRequestPage>) -> Option<String> {
+    if pull.ended() || gate_of(pull.merge) != Gate::Blocked {
+        return None;
+    }
+    let mut facts = vec![match pull.checks {
+        PullChecks::Passed => "Checks passed",
+        PullChecks::Running => "Checks running",
+        PullChecks::Failed => "Checks failed",
+    }];
+    if let Some(page) = page {
+        match page.mergeable {
+            PullRequestMergeable::Mergeable => facts.push("No conflicts"),
+            PullRequestMergeable::Conflicting => facts.push("Conflicts"),
+            PullRequestMergeable::Unknown => {}
+        }
+        match page.review {
+            // Where the forge names who, Review required from says it in the merge box.
+            PullRequestReviewState::Required if page.reviewers.is_empty() => facts.push("Needs an approving review"),
+            PullRequestReviewState::Required => {}
+            PullRequestReviewState::ChangesRequested => facts.push("Changes requested"),
+            PullRequestReviewState::Approved => facts.push("Approved"),
+            PullRequestReviewState::None => {}
+        }
+    }
+    Some(facts.join(" \u{b7} "))
 }
 
 /// One row of the merge queue a pull request is in (`PlaceRow`).
@@ -324,6 +405,40 @@ pub(super) fn evaluate_message(number: u64, id: &str, author: &str, body: &str, 
     lines.join("\n")
 }
 
+/// The message Note for the Job hands the Job that holds the pull request, so it writes the description again.
+pub(super) fn description_note_message(number: u64, note: &str) -> String {
+    format!("A note on the description of #{number}. Rewrite the description with it.\n\n{}", note.trim())
+}
+
+/// One thing said on Comments: an entry of the conversation, or a thread on the diff.
+pub(super) enum Said<'a> {
+    Entry(&'a PullRequestEntry),
+    Thread(&'a PullReviewThread),
+}
+
+/// Comments: what was said and the threads on the diff, oldest first. The description is Overview's.
+pub(super) fn comments_of(page: &PullRequestPage) -> Vec<Said<'_>> {
+    let time = |at: &str| chrono::DateTime::parse_from_rfc3339(at).map(|at| at.timestamp_millis()).unwrap_or(0);
+    let mut said: Vec<(i64, Said)> = page
+        .conversation
+        .iter()
+        .map(|entry| {
+            let at = match entry {
+                PullRequestEntry::Comment { at, .. } | PullRequestEntry::Review { at, .. } => at,
+            };
+            (time(at), Said::Entry(entry))
+        })
+        .chain(page.threads.iter().filter_map(|thread| thread.comments.first().map(|first| (time(&first.at), Said::Thread(thread)))))
+        .collect();
+    said.sort_by_key(|(at, _)| *at);
+    said.into_iter().map(|(_, one)| one).collect()
+}
+
+/// The comments on Comments, its tab's count: each comment and review, and each comment in a thread.
+pub(super) fn comment_count(page: &PullRequestPage) -> usize {
+    page.conversation.len() + page.threads.iter().map(|thread| thread.comments.len()).sum::<usize>()
+}
+
 /// Whether the box may send: a comment and a request for changes need words, an approval need not (`mayWrite`).
 fn may_write(kind: PullRequestWriteKind, text: &str) -> bool {
     kind == PullRequestWriteKind::Approve || !text.trim().is_empty()
@@ -366,6 +481,40 @@ pub(super) fn small_button(look: &Look, id: impl Into<gpui::ElementId>, said: &s
         styled.cursor_pointer()
     } else {
         styled.opacity(0.5)
+    }
+}
+
+
+/// A secondary small button (`Button variant="secondary" size="sm"`): a hairline frame on a raised fill, its
+/// glyph before its word, lighter under the pointer and sunk while pressed. A small button's height, so it
+/// sits on a card head's line as the primary one does.
+pub(super) fn secondary_button(look: &Look, id: impl Into<gpui::ElementId>, icon: &'static str, said: &str, on: bool) -> gpui::Stateful<gpui::Div> {
+    let ink = look.color(token::FG_DEFAULT);
+    let (lit, sunk, edge) = (ink.opacity(0.14), ink.opacity(0.03), look.color(token::BORDER_STRONG));
+    let button = div()
+        .id(id)
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap(look.length(token::SPACE_1))
+        .h(look.length(token::H_CONTROL_SM))
+        .pl(look.length(token::SPACE_2))
+        .pr(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(ink.opacity(0.08))
+        .text_color(ink)
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+        .child(SharedString::from(said.to_string()));
+    if on {
+        button.cursor_pointer().hover(move |style| style.bg(lit).border_color(edge)).active(move |style| style.bg(sunk))
+    } else {
+        button.opacity(0.5)
     }
 }
 
@@ -496,8 +645,10 @@ impl JobView {
         });
         let panel = PullPanel {
             pull,
-            tab: PullTab::Conversation,
+            tab: PullTab::Overview,
             page: None,
+            read_as: None,
+            _rereading: None,
             say,
             write: PullRequestWriteKind::Comment,
             writing: false,
@@ -517,17 +668,46 @@ impl JobView {
             note_boxes: Vec::new(),
             notes_resolved: false,
             draft: pr_draft::DraftPane::default(),
+            note: None,
+            _noting: None,
+            noted: false,
+            commit: None,
             _typing: typing,
             _copied: None,
         };
         self.open_pull_panel(panel, window, cx);
         self.read_pull_page(window, cx);
+        if self.fleet.is_some() {
+            let again = cx.spawn_in(window, async move |this, cx| loop {
+                cx.background_executor().timer(REREAD).await;
+                if this.update_in(cx, |this, window, cx| this.read_pull_page(window, cx)).is_err() {
+                    break;
+                }
+            });
+            if let Some(panel) = self.pull_panel_mut() {
+                panel._rereading = Some(again);
+            }
+        }
+    }
+
+    /// The held row moved under the open panel, as it does when a draft goes ready for review or the
+    /// forge's verdict changes: the page is asked for again, since the forge changes it too.
+    pub(super) fn pull_row_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel().filter(|panel| panel.pull.held()) else { return };
+        let now = self.held_row(&panel.pull, cx);
+        if panel.read_as.as_ref().is_some_and(|was| super::pulls::row_moved(was, &now)) {
+            self.read_pull_page(window, cx);
+        }
     }
 
     /// `GET /pull_request_details/:repository/:number`, on mock data the scenario's page.
     fn read_pull_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel() else { return };
         let pull = panel.pull.clone();
+        let row = self.held_row(&pull, cx);
+        if let Some(panel) = self.pull_panel_mut() {
+            panel.read_as = Some(row);
+        }
         let Some(manifest) = pull.manifest.clone() else {
             if let Some(panel) = self.pull_panel_mut() {
                 panel.page = Some(Err("This Job has no repository".into()));
@@ -553,7 +733,10 @@ impl JobView {
             Box::new(move |this, answer, window, cx| {
                 let read = answer.and_then(|bytes| ipc::decode::<PullRequestPage>("PullRequestPage", &bytes).map_err(|why| why.to_string()));
                 if let Some(panel) = this.pull_panel_mut().filter(|panel| panel.pull.number == number) {
-                    panel.page = Some(read);
+                    // A read again that fails leaves the page it read before.
+                    if read.is_ok() || !matches!(panel.page, Some(Ok(_))) {
+                        panel.page = Some(read);
+                    }
                 }
                 this.want_pull_patches(window, cx);
                 this.want_pull_reach(window, cx);
@@ -563,18 +746,66 @@ impl JobView {
         );
     }
 
-    /// The pull request as the Job's record holds it now, or as it was pressed where the record lets it go.
-    /// One no Job holds takes its Checks from the forge's read of its page, once read.
+    /// The pull request as the Job's record holds it now, or as it was pressed where the record lets it go,
+    /// with its Checks from the forge's read of its page once read: the ledger's row can be stale.
     fn live_pull(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
+        let page = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page());
+        super::pulls::with_page_read(self.held_row(pressed, cx), page)
+    }
+
+    /// The pull request as the Job's record holds it now, or as it was pressed where none does.
+    fn held_row(&self, pressed: &Pull, cx: &gpui::App) -> Pull {
         if !pressed.held() {
-            let mut pull = pressed.clone();
-            if let Some(Ok(page)) = self.pull_panel().filter(|panel| panel.pull.number == pressed.number).and_then(|panel| panel.page.as_ref()) {
-                (pull.checks, pull.failing) = super::pulls::checks_of_page(page);
-            }
-            return pull;
+            return pressed.clone();
         }
         let job = self.shown.clone().map(|id| id.to_string()).unwrap_or_default();
         self.pulls_of(&job, cx).into_iter().find(|one| one.number == pressed.number && one.job == pressed.job).unwrap_or_else(|| pressed.clone())
+    }
+
+    /// A commit pressed in Commits: Files opens on the files it changed alone, read from Fleet.
+    fn show_commit(&mut self, sha: String, headline: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.commit = Some(CommitShown { sha, headline, files: None });
+        (panel.files_at, panel.current) = (None, None);
+        self.pull_tab(PullTab::Files, window, cx);
+        self.want_pull_patches(window, cx);
+    }
+
+    /// Show all: Files goes back to every file of the pull request.
+    fn show_all_files(&mut self, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.commit = None;
+        (panel.files_at, panel.current) = (None, None);
+        panel.scroll.set_offset(point(px(0.), px(0.)));
+        cx.notify();
+    }
+
+    /// Files, with the commit it is narrowed to and Show all over it where one was pressed in Commits.
+    fn pull_files_shown(&self, panel: &PullPanel, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let Some(commit) = panel.commit.as_ref() else { return self.pull_files(panel, page, tree_inside, look, cx) };
+        let short: String = commit.sha.chars().take(7).collect();
+        let read = panel.shown_patches_key().and_then(|key| self.panes.patches.get(&key));
+        let body: Option<AnyElement> = match (read, commit.files.as_ref()) {
+            (Some(Err(why)), _) => Some(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(why.clone())).into_any_element()),
+            (_, Some(files)) => self.pull_files(panel, files, tree_inside, look, cx),
+            _ => Some(stand_ins(look, "pull-commit-reading", &[0.9, 0.7, 0.8])),
+        };
+        let bar = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_w_0()
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(div().flex_none().child("Files in"))
+            .child(div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(short)))
+            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(commit.headline.clone())))
+            .child(labelled(
+                small_button(look, "pull-files-all", "Show all", false, true).tooltip(tip("Every file the pull request changes")).on_click(cx.listener(|this, _, _, cx| this.show_all_files(cx))),
+                Role::Button,
+                "Show all",
+            ));
+        Some(div().flex().flex_col().gap(look.length(token::SPACE_3)).child(labelled(div().id("pull-files-commit").child(bar), Role::Group, format!("Files in {}", commit.headline))).children(body).into_any_element())
     }
 
     fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
@@ -627,6 +858,75 @@ impl JobView {
             if let Some(panel) = this.pull_panel_mut() {
                 panel.evaluated.insert(id);
             }
+            cx.notify();
+        });
+    }
+
+    /// Note for the Job: a box under the description's head, holding what was typed in it before.
+    fn open_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        if let Some(open) = panel.note.clone() {
+            open.update(cx, |area, cx| area.focus(window, cx));
+            return;
+        }
+        let key = PullPanel::note_key(&panel.pull);
+        let kept = self.draft_words(&key);
+        let state = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
+        state.update(cx, |state, cx| state.set_value(kept, window, cx));
+        let typing = cx.subscribe_in(&state, window, move |this, state, event: &InputEvent, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                let text = state.read(cx).value().to_string();
+                this.keep_words(&key, &text, cx);
+                cx.notify();
+            }
+        });
+        if let Some(panel) = self.pull_panel_mut() {
+            panel.note = Some(state.clone());
+            panel._noting = Some(typing);
+            panel.noted = false;
+        }
+        state.update(cx, |area, cx| area.focus(window, cx));
+        cx.notify();
+    }
+
+    /// Cancel: the box goes, what was typed in it is forgotten, and the keys go back to the panel.
+    fn cancel_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel_mut() else { return };
+        panel.note = None;
+        panel._noting = None;
+        let key = PullPanel::note_key(&panel.pull);
+        self.keep_words(&key, "", cx);
+        self.focus_pull_panel(window, cx);
+        cx.notify();
+    }
+
+    /// The box that held the keys is gone: they go back to the panel, so its tab keys still work.
+    fn focus_pull_panel(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some((focus, _)) = self.pull_panel_focus() {
+            window.focus(&focus, cx);
+        }
+    }
+
+    /// Send to the Job, or ⌘↩ in the box: the note goes to the Job that holds the pull request, which
+    /// writes the description again. Nothing is posted to the forge.
+    fn send_description_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.pull_panel() else { return };
+        let Some(state) = panel.note.clone() else { return };
+        let pull = panel.pull.clone();
+        let typed = state.read(cx).value().to_string();
+        if typed.trim().is_empty() || !pull.held() {
+            return;
+        }
+        let key = PullPanel::note_key(&pull);
+        let number = pull.number;
+        self.send_to_job(pull.job.clone(), description_note_message(number, &typed), format!("ledger:pr:{number}"), window, cx, move |this, window, cx| {
+            if let Some(panel) = this.pull_panel_mut().filter(|panel| panel.pull.number == number) {
+                panel.note = None;
+                panel._noting = None;
+                panel.noted = true;
+                this.focus_pull_panel(window, cx);
+            }
+            this.keep_words(&key, "", cx);
             cx.notify();
         });
     }
@@ -726,7 +1026,7 @@ impl JobView {
     /// The panel as the body of its tab: the manifest as its first line, with the way back where it was opened from an
     /// issue; then the body and comment box, and the file list beside them on Files where the pane has the room.
     /// The plates stand inside the body at every width, where Classic stands them off the leading edge.
-    pub(super) fn render_pull_panel(&self, width: Pixels, window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_pull_panel(&self, width: Pixels, cx: &Context<Self>) -> Option<AnyElement> {
         let (focus, panel) = self.pull_panel_focus()?;
         let look = cx.look();
         let look = &look;
@@ -773,11 +1073,20 @@ impl JobView {
         let first = (back.is_some() || manifest.is_some()).then(|| first.children(back).children(manifest));
         let margin = look.length(token::SPACE_4);
         let wide = look.length(token::W_DIALOG_WIDE);
-        let high = crate::room::of(window, cx).size.height;
         let aside_w = px(336.);
-        let files_beside = panel.tab == PullTab::Files && panel.page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
-        let body = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
+        let files_beside = panel.tab == PullTab::Files && panel.files_page().is_some_and(|page| !page.files.is_empty()) && width >= wide + aside_w + margin;
+        let (head, body) = self.pull_body(panel, &pull, panel.tab != PullTab::Files, !files_beside, look, cx);
         let foot = self.pull_composer(panel, look, cx);
+        // Files' list stands under the head at the left, and it and the files each scroll on their own.
+        let beside: Option<AnyElement> = if files_beside { panel.files_page().map(|page| self.pull_file_list(panel, page, aside_w, look, cx)) } else { None };
+        let under = div()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .items_stretch()
+            .gap(look.length(token::SPACE_3))
+            .children(beside.map(|list| div().flex_none().min_h_0().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list)))
+            .child(div().flex_1().min_w_0().min_h_0().flex().flex_col().child(body).child(foot));
         let sheet = labelled(
             div()
                 .id("pull-panel")
@@ -793,21 +1102,21 @@ impl JobView {
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_DEFAULT))
                 .children(first)
-                .child(body)
-                .child(foot),
+                .child(head)
+                .child(under),
             Role::Region,
             title,
         );
-        let beside: Option<AnyElement> = if files_beside { panel.page().map(|page| self.pull_file_list(panel, page, aside_w, high, look, cx)) } else { None };
-        Some(div().size_full().flex().items_stretch().gap(look.length(token::SPACE_3)).children(beside.map(|list| div().flex_none().flex().py(look.length(token::SPACE_3)).pl(look.length(token::SPACE_3)).child(list))).child(sheet).into_any_element())
+        Some(div().size_full().flex().child(sheet).into_any_element())
     }
 
-    /// The column of plates (`PullRequestPlates`): status with its facts, reviewers, and the failing checks.
+    /// The column of plates (`PullRequestPlates`): the merge box with its facts and its reviewers under them,
+    /// the merge line and the failing checks.
     fn pull_plates(&self, panel: &PullPanel, pull: &Pull, look: &Look, cx: &Context<Self>) -> AnyElement {
         let page = panel.page();
         let place = self.place_of_open(pull, cx);
         let at = place.as_ref().and_then(|rows| rows.iter().find(|row| row.current)).map(|row| row.place);
-        let (what, icon, tone) = standing(pull, at);
+        let (what, icon, tone) = standing(pull, at, page.map(|page| page.review));
         let hue = look.color(tone.hue());
         let failing: Vec<String> = if pull.checks == PullChecks::Failed && !pull.ended() {
             pull.failing.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect()
@@ -824,6 +1133,9 @@ impl JobView {
             .bg(hue.opacity(0.16))
             .child(glyph(look, icon, Size::Large, hue));
         let why = (!failing.is_empty()).then(|| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(failing.join(", "))));
+        // A blocked merge says why in one muted line, so the facts below do not say it again.
+        let blocked = blocked_facts(pull, page);
+        let why = why.or_else(|| blocked.clone().map(|line| div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line))));
         let status = div()
             .flex()
             .items_center()
@@ -850,21 +1162,23 @@ impl JobView {
         let mut facts: Vec<(&'static str, &'static str, &'static str, Option<Tone>)> = Vec::new();
         let (check_icon, check_said, check_tone) = checks_fact(pull);
         let said_already = matches!((what.as_ref(), pull.checks), ("Checks failed", _) | ("Checks running", _) | ("Ready to merge", PullChecks::Passed));
-        if !said_already {
+        if !said_already && blocked.is_none() {
             facts.push(("checks", check_icon, check_said, Some(check_tone)));
         }
         if pull.auto && !pull.ended() {
             facts.push(("auto", "git-merge", "Auto-merge on", None));
         }
-        if let Some(page) = page {
+        if let Some(page) = page.filter(|_| blocked.is_none()) {
             match (page.review, page.approvals) {
                 (PullRequestReviewState::ChangesRequested, _) => facts.push(("review", "ban", "Changes requested", Some(Tone::Failed))),
                 (PullRequestReviewState::Approved, _) | (_, 1..) => facts.push(("review", "check", "Approved", Some(Tone::Success))),
-                (PullRequestReviewState::Required, _) => facts.push(("review", "user-check", "Review required", None)),
+                (PullRequestReviewState::Required, _) if page.reviewers.is_empty() => facts.push(("review", "user-check", "Review required", None)),
+                (PullRequestReviewState::Required, _) => {}
                 (PullRequestReviewState::None, _) => {}
             }
             if !pull.ended() {
                 match page.mergeable {
+                    PullRequestMergeable::Conflicting if gate_of(pull.merge) == Gate::Conflicts => {}
                     PullRequestMergeable::Conflicting => facts.push(("conflicts", "git-branch", "Conflicts", Some(Tone::Failed))),
                     PullRequestMergeable::Mergeable => facts.push(("conflicts", "git-branch", "No conflicts", Some(Tone::Success))),
                     PullRequestMergeable::Unknown => {}
@@ -907,8 +1221,8 @@ impl JobView {
             }
             labelled(div().id("pull-facts").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Facts")
         });
-        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts), Role::Region, "Status");
-        let reviewers = page.map(|page| page.reviewers.as_slice()).filter(|reviewers| !reviewers.is_empty()).map(|reviewers| self.pull_reviewers(reviewers, look, cx));
+        let reviewers = self.pull_reviewers(panel, look, cx);
+        let status = labelled(plate(look, tone).id("pull-status").child(status).children(facts).children(reviewers), Role::Region, "Status").into_any_element();
         let failing_plate = (!failing.is_empty()).then(|| {
             let sent = panel.sent_back;
             let held = pull.clone();
@@ -935,9 +1249,10 @@ impl JobView {
                 Role::Region,
                 "Failing checks",
             )
+            .into_any_element()
         });
         let place = place.map(|rows| self.place_plate(rows, look, cx));
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(reviewers).children(place).children(failing_plate).into_any_element()
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_w_0().child(status).children(place).children(failing_plate).into_any_element()
     }
 
     /// The merge lines the open pull request is read against: the mock's in a walk, else Fleet's.
@@ -1036,57 +1351,61 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Reviewers (`PullRequestReviewers`): a row each, a requested team's people under its row.
-    fn pull_reviewers(&self, reviewers: &[PullRequestReviewer], look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Reviewers (`PullRequestReviewers`) in the merge box, under its facts: a muted label, Review required
+    /// from where the forge waits on a review and Reviewers otherwise, then a row each,
+    /// its review state and a team's mark each in a column of their own at the left, then the name: a
+    /// requested team in bold with its people indented under it. A name wraps rather than clips. Nothing
+    /// where the page names none.
+    fn pull_reviewers(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let page = panel.page()?;
+        let reviewers = page.reviewers.as_slice();
+        if reviewers.is_empty() {
+            return None;
+        }
+        let said = if page.review == PullRequestReviewState::Required { "Review required from" } else { "Reviewers" };
         let teams: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Team).collect();
         let people: Vec<&PullRequestReviewer> = reviewers.iter().filter(|one| one.kind == PullRequestReviewerKind::Person).collect();
-        let row = |one: &PullRequestReviewer| -> AnyElement {
+        let row = |one: &PullRequestReviewer, under: bool| -> AnyElement {
             let (icon, said, tone) = verdict_look(one.verdict);
+            let team = one.kind == PullRequestReviewerKind::Team;
             let login = SharedString::from(one.login.clone());
             let who = div()
                 .id(SharedString::from(format!("reviewer:{}", one.login)))
                 .min_w_0()
-                .truncate()
                 .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(FontWeight(look.number(if team { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
                 .child(login.clone());
             let who = who.when_some(one.name.clone(), |who, name| who.tooltip(tip(name)));
             let who = match one.url.clone() {
                 Some(url) => labelled(who.cursor_pointer().hover(|style| style.underline()).on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))), Role::Link, login.clone()).into_any_element(),
-                None => who.into_any_element(),
+                None => labelled(who, Role::Label, login.clone()).into_any_element(),
             };
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .min_w_0()
-                .child(who)
-                .children((one.kind == PullRequestReviewerKind::Team).then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)))
-                .child(div().flex_1())
-                .child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone))
-                .into_any_element()
+            let state = div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().child(mark(look, format!("reviewer-verdict:{}", one.login), icon, said, tone));
+            let kind = div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().children(team.then(|| mark(look, format!("reviewer-team:{}", one.login), "users", "Team", None)));
+            let name = div().flex_1().min_w_0().when(under, |name| name.pl(look.length(token::SPACE_4))).child(who);
+            labelled(
+                div().id(SharedString::from(format!("reviewer-row:{}", one.login))).flex().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(state).child(kind).child(name),
+                Role::ListItem,
+                login,
+            )
+            .into_any_element()
         };
         let mut out: Vec<AnyElement> = Vec::new();
         for team in &teams {
-            out.push(row(team));
-            let under: Vec<&PullRequestReviewer> = people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).copied().collect();
-            if !under.is_empty() {
-                out.push(div().flex().flex_col().gap(look.length(token::SPACE_2)).pl(look.length(token::SPACE_4)).children(under.into_iter().map(row)).into_any_element());
-            }
+            out.push(row(team, false));
+            out.extend(people.iter().filter(|one| one.team.as_deref() == Some(team.login.as_str())).map(|one| row(one, true)));
         }
-        out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one)));
-        labelled(
-            plate(look, Tone::Neutral).id("pull-reviewers").child(eyebrow(look).child("Reviewers")).child(div().flex().flex_col().gap(look.length(token::SPACE_2)).children(out)),
-            Role::Region,
-            "Reviewers",
-        )
-        .into_any_element()
+        out.extend(people.iter().filter(|one| one.team.as_deref().is_none_or(|team| !teams.iter().any(|it| it.login == team))).map(|one| row(one, false)));
+        Some(labelled(div().id("pull-reviewers").flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().pt(look.length(token::SPACE_1)).child(eyebrow(look).child(said)).children(out), Role::Region, said).into_any_element())
     }
 }
 
 impl JobView {
-    /// The body: what Fleet refused, the title, its meta row, its acts, then the tabs.
-    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The head, which stays put on every tab: what Fleet refused, the title, its meta row, its acts and the
+    /// tab strip, a hairline under it. Then the body that scrolls under it: the plates and the tab shown.
+    #[allow(clippy::too_many_arguments)]
+    fn pull_body(&self, panel: &PullPanel, pull: &Pull, plates_inside: bool, tree_inside: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
         let page = panel.page();
         let number = pull.number;
         let refused = self
@@ -1148,12 +1467,37 @@ impl JobView {
         let meta = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(pill).children(branch).children(author).children(opened).children(size).children(owner);
         let acts = self.pull_acts(panel, pull, look, cx);
         let plates = plates_inside.then(|| self.pull_plates(panel, pull, look, cx));
-        let tabs = match &panel.page {
-            None => labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element(),
-            Some(Err(said)) => labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element(),
-            Some(Ok(page)) => self.pull_tabs(panel, pull, page, tree_inside, look, cx),
+        let (strip, tabs) = match &panel.page {
+            None => (None, Some(labelled(div().id("pull-reading").child(stand_ins(look, "pull-reading", &[1.0, 0.85, 0.6, 0.9, 0.4])), Role::Status, format!("Reading pull request #{number}")).into_any_element())),
+            Some(Err(said)) => (None, Some(labelled(div().id("pull-page-said").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())), Role::Alert, said.clone()).into_any_element())),
+            Some(Ok(page)) => (Some(self.pull_strip(panel, page, look, cx)), self.pull_shown(panel, pull, page, tree_inside, look, cx)),
         };
-        div()
+        let column = div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .min_w_0()
+            .children(plates)
+            .children(self.notes_bar(panel, pull, look, cx))
+            .children(self.notes_resolved_toggle(panel, look, cx))
+            .children(tabs);
+        let head = div()
+            .id("pull-head")
+            .flex_none()
+            .px(look.length(token::SPACE_6))
+            .pt(look.length(token::SPACE_4))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .children(refused)
+            .child(div().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(pull.title.clone())))
+            .child(meta)
+            .child(acts)
+            .children(strip)
+            .into_any_element();
+        let body = div()
             .id("pull-body")
             .track_scroll(&panel.scroll)
             .flex_1()
@@ -1161,18 +1505,9 @@ impl JobView {
             .overflow_y_scroll()
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .children(refused)
-            .child(div().text_size(look.length(token::TEXT_LG)).line_height(look.length(token::LEADING_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(pull.title.clone())))
-            .child(meta)
-            .child(acts)
-            .children(plates)
-            .children(self.notes_bar(panel, pull, look, cx))
-            .children(self.notes_resolved_toggle(panel, look, cx))
-            .child(tabs)
-            .into_any_element()
+            .child(column)
+            .into_any_element();
+        (head, body)
     }
 
     /// The acts row (`PullRequestActs`), then Copy link and Open in browser at its end.
@@ -1185,11 +1520,18 @@ impl JobView {
         } else if pull.state == PullState::Draft {
             Some((Some(PullAct::Ready), "Ready for review", "Marks it ready for review"))
         } else {
-            match pull.checks {
-                PullChecks::Passed => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
-                PullChecks::Running if pull.auto => Some((None, "Auto-merge on", "It merges when every check passes")),
-                PullChecks::Running => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it when every check passes")),
-                PullChecks::Failed => None,
+            match gate_of(pull.merge) {
+                Gate::Merges => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
+                Gate::Blocked if pull.auto => Some((None, "Auto-merge on", "It merges once nothing blocks it")),
+                Gate::Blocked => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it once nothing blocks it")),
+                Gate::Behind | Gate::Conflicts => None,
+                // A Fleet before the forge's verdict: the Checks decide.
+                Gate::Checks => match pull.checks {
+                    PullChecks::Passed => Some((Some(PullAct::Merge), "Merge", "Merges it now")),
+                    PullChecks::Running if pull.auto => Some((None, "Auto-merge on", "It merges when every check passes")),
+                    PullChecks::Running => Some((Some(PullAct::AutoMerge), "Enable auto-merge", "Merges it when every check passes")),
+                    PullChecks::Failed => None,
+                },
             }
         };
         let act = act.map(|(which, word, said)| {
@@ -1219,15 +1561,33 @@ impl JobView {
         labelled(div().id("pull-acts").flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(act).child(div().flex_1()).children(copy).children(open), Role::Group, "Acts").into_any_element()
     }
 
-    /// The tab strip and the tab shown (`PullRequestTabs`).
-    fn pull_tabs(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The tab strip (`PullRequestTabs`), at the foot of the head: the head's hairline is its edge.
+    fn pull_strip(&self, panel: &PullPanel, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> AnyElement {
         let accent = look.color(token::ACCENT);
         let strong = look.color(token::FG_DEFAULT);
-        let strip = div().id("pull-tabs").flex().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).children(PullTab::ALL.into_iter().map(|one| {
+        let comments = comment_count(page);
+        let strip = div().id("pull-tabs").flex().children(PullTab::ALL.into_iter().map(|one| {
             let front = one == panel.tab;
+            // Comments says how many it holds, as the forge's tab does.
+            let count = (one == PullTab::Comments).then(|| {
+                div()
+                    .flex_none()
+                    .px(look.length(token::SPACE_2))
+                    .rounded_full()
+                    .bg(look.color(token::BG_HOVER))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(SharedString::from(comments.to_string()))
+            });
+            let name = if one == PullTab::Comments { format!("Comments {comments}") } else { one.word().to_string() };
             labelled(
                 div()
                     .id(SharedString::from(format!("pull-tab:{}", one.word())))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
                     .px(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_2))
                     .text_size(look.length(token::TEXT_SM))
@@ -1239,59 +1599,54 @@ impl JobView {
                     .hover(move |style| style.text_color(strong))
                     .tooltip(tip(format!("{} \u{b7} [ ]", one.word())))
                     .on_click(cx.listener(move |this, _, window, cx| this.pull_tab(one, window, cx)))
-                    .child(one.word()),
+                    .child(one.word())
+                    .children(count),
                 Role::Tab,
-                one.word(),
+                name,
             )
         }));
-        let shown: Option<AnyElement> = match panel.tab {
-            PullTab::Conversation => self.pull_conversation(panel, pull, page, look, cx),
-            PullTab::Checks => pull_checks(page, look, cx),
-            PullTab::Files => self.pull_files(panel, page, tree_inside, look, cx),
-            PullTab::Commits => pull_commits(page, look),
-        };
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .child(labelled(strip, Role::TabList, "Pull request"))
-            .children(shown.map(|shown| labelled(div().id("pull-tab-panel").child(shown), Role::TabPanel, panel.tab.word())))
-            .into_any_element()
+        labelled(strip, Role::TabList, "Pull request").into_any_element()
     }
 
-    /// Conversation: the description, then what was said and the threads on the diff, in the order
-    /// they were said (`Conversation`). Nothing said, nothing drawn.
-    fn pull_conversation(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        enum Said<'a> {
-            Entry(&'a PullRequestEntry),
-            Thread(&'a PullReviewThread),
-        }
+    /// The tab shown, under the head. Nothing to show, nothing drawn.
+    fn pull_shown(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, tree_inside: bool, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let shown: Option<AnyElement> = match panel.tab {
+            PullTab::Overview => self.pull_overview(panel, pull, page, look, cx),
+            PullTab::Comments => self.pull_comments(panel, pull, page, look, cx),
+            PullTab::Checks => pull_checks(page, look, cx),
+            PullTab::Files => self.pull_files_shown(panel, page, tree_inside, look, cx),
+            PullTab::Commits => pull_commits(page, look, cx),
+        };
+        shown.map(|shown| labelled(div().id("pull-tab-panel").child(shown), Role::TabPanel, panel.tab.word()).into_any_element())
+    }
+
+    /// Overview: the description, or the draft of a new one in its place. Neither, nothing drawn. One a
+    /// Job holds offers Note for the Job on the description's head.
+    fn pull_overview(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let description = strip_comments(page.body.as_deref().unwrap_or(""));
-        let time = |at: &str| chrono::DateTime::parse_from_rfc3339(at).map(|at| at.timestamp_millis()).unwrap_or(0);
-        let mut said: Vec<(i64, Said)> = page
-            .conversation
-            .iter()
-            .map(|entry| {
-                let at = match entry {
-                    PullRequestEntry::Comment { at, .. } | PullRequestEntry::Review { at, .. } => at,
-                };
-                (time(at), Said::Entry(entry))
-            })
-            .chain(page.threads.iter().filter_map(|thread| thread.comments.first().map(|first| (time(&first.at), Said::Thread(thread)))))
-            .collect();
-        said.sort_by_key(|(at, _)| *at);
-        if description.trim().is_empty() && said.is_empty() && page.draft.is_none() {
+        let card = if let Some(draft) = &page.draft {
+            self.pull_draft_card(panel, page, draft, look, cx)
+        } else if !description.trim().is_empty() {
+            let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
+            let act = pull.held().then(|| self.description_note_act(panel, look, cx));
+            let under = panel.note.as_ref().map(|state| self.description_note_box(state, look, cx));
+            self.pull_card_under("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), act, under, &description, "Description".into(), look, Local::now(), cx)
+        } else {
+            return None;
+        };
+        Some(labelled(div().id("pull-overview").flex().flex_col().gap(look.length(token::SPACE_3)).child(card), Role::List, "Overview").into_any_element())
+    }
+
+    /// Comments: what was said and the threads on the diff with their file and line, in the order they
+    /// were said. The threads stay in Files too. Nothing said, nothing drawn.
+    fn pull_comments(&self, panel: &PullPanel, pull: &Pull, page: &PullRequestPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let said = comments_of(page);
+        if said.is_empty() {
             return None;
         }
         let now = Local::now();
         let mut cards: Vec<AnyElement> = Vec::new();
-        if let Some(draft) = &page.draft {
-            cards.push(self.pull_draft_card(panel, page, draft, look, cx));
-        } else if !description.trim().is_empty() {
-            let lead = mark(look, "pull-description-mark".into(), "file-text", "Description", None);
-            cards.push(self.pull_card("pull-description", Some(lead), page.author.clone(), false, page.created_at.as_deref(), None, &description, "Description".into(), look, now, cx));
-        }
-        for (_, one) in said {
+        for one in said {
             match one {
                 Said::Entry(entry) => {
                     let (id, author, bot, at, body, verdict) = match entry {
@@ -1308,7 +1663,7 @@ impl JobView {
                 Said::Thread(thread) => cards.push(self.pull_thread(panel, pull, thread, look, now, cx)),
             }
         }
-        Some(labelled(div().id("pull-conversation").flex().flex_col().gap(look.length(token::SPACE_3)).children(cards), Role::List, "Conversation").into_any_element())
+        Some(labelled(div().id("pull-comments").flex().flex_col().gap(look.length(token::SPACE_3)).children(cards), Role::List, "Comments").into_any_element())
     }
 
     /// Evaluate at the head's end, or the mark that it was sent in the same cell (`Evaluate`).
@@ -1320,7 +1675,7 @@ impl JobView {
         let name = format!("Evaluate: {author}{}", place.as_ref().map(|place| format!(" on {place}")).unwrap_or_default());
         let (held, id, author, body) = (pull.clone(), id.to_string(), author.to_string(), body.to_string());
         labelled(
-            small_button(look, SharedString::from(format!("pull-evaluate:{id}")), "Evaluate", false, true)
+            secondary_button(look, SharedString::from(format!("pull-evaluate:{id}")), "send", "Evaluate", true)
                 .tooltip(tip("Hands this comment to the Job to weigh"))
                 .on_click(cx.listener(move |this, _, window, cx| this.evaluate(&held, id.clone(), author.clone(), body.clone(), place.clone(), window, cx))),
             Role::Button,
@@ -1329,11 +1684,82 @@ impl JobView {
         .into_any_element()
     }
 
+    /// Note for the Job at the description head's end, or, once the note reached the Job, the mark that
+    /// says so in its place, as Evaluate marks a comment.
+    fn description_note_act(&self, panel: &PullPanel, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if panel.noted && panel.note.is_none() {
+            return mark(look, "pull-description-noted".into(), "check", "Sent to the Job", Some(Tone::Success));
+        }
+        let on = panel.note.is_none();
+        labelled(
+            secondary_button(look, "pull-description-note", "message-square-text", "Note for the Job", on)
+                .tooltip(tip("Tells the Job what to change in the description"))
+                .when(on, |button| button.on_click(cx.listener(|this, _, window, cx| this.open_description_note(window, cx)))),
+            Role::Button,
+            "Note for the Job",
+        )
+        .into_any_element()
+    }
+
+    /// The box Note for the Job opens under the description's head, with Cancel and Send to the Job.
+    fn description_note_box(&self, state: &Entity<TextareaState>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let ready = !state.read(cx).value().trim().is_empty();
+        let field = div()
+            .id("pull-description-note-box")
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if action.secondary {
+                    cx.stop_propagation();
+                    this.send_description_note(window, cx);
+                }
+            }))
+            .w_full()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_SUNKEN))
+            .child(Textarea::new(state).appearance(false));
+        let acts = div()
+            .flex()
+            .items_center()
+            .justify_end()
+            .gap(look.length(token::SPACE_2))
+            .child(labelled(
+                small_button(look, "pull-description-note-cancel", "Cancel", false, true).on_click(cx.listener(|this, _, window, cx| this.cancel_description_note(window, cx))),
+                Role::Button,
+                "Cancel",
+            ))
+            .child(labelled(
+                small_button(look, "pull-description-note-send", "Send to the Job", true, ready)
+                    .tooltip(tip("The Job writes the description again with your note \u{b7} \u{2318}\u{21a9}"))
+                    .when(ready, |button| button.on_click(cx.listener(|this, _, window, cx| this.send_description_note(window, cx)))),
+                Role::Button,
+                "Send to the Job",
+            ));
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(labelled(field, Role::TextInput, "Note for the Job"))
+            .child(acts)
+            .into_any_element()
+    }
+
     /// One card: its head band (what, who, when, and the act), then its words (`Entry`).
     #[allow(clippy::too_many_arguments)]
     pub(super) fn pull_card(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        self.pull_card_under(id, lead, who, bot, at, act, None, body, name, look, now, cx)
+    }
+
+    /// A card with something standing between its head and its words: the box Note for the Job opens.
+    #[allow(clippy::too_many_arguments)]
+    fn pull_card_under(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, under: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let head = card_head(look, lead, who, bot, at.and_then(|at| age(at, now)), act);
-        let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.prose(format!("{id}:body"), body, look, cx)));
+        let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.pull_prose(format!("{id}:body"), body, look, cx)));
         labelled(
             div()
                 .id(SharedString::from(id.to_string()))
@@ -1344,6 +1770,7 @@ impl JobView {
                 .rounded(look.length(token::RADIUS_MD))
                 .bg(look.color(token::BG_RAISED))
                 .child(head)
+                .children(under)
                 .children(words),
             Role::Article,
             name,
@@ -1387,7 +1814,7 @@ impl JobView {
                 let act = pull.held().then(|| self.evaluate_act(panel, pull, &one.id, &one.author, &one.body, Some(place.clone()), look, cx));
                 let head = card_head(look, None, Some(one.author.clone()), one.bot, age(&one.at, now), act);
                 let words = (!one.body.trim().is_empty())
-                    .then(|| div().min_w_0().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_1)).pb(look.length(token::SPACE_3)).child(self.prose(format!("pull-thread:{}:{}", thread.id, one.id), &one.body, look, cx)));
+                    .then(|| div().min_w_0().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_1)).pb(look.length(token::SPACE_3)).child(self.pull_prose(format!("pull-thread:{}:{}", thread.id, one.id), &one.body, look, cx)));
                 labelled(
                     div()
                         .id(SharedString::from(format!("pull-thread-comment:{}", one.id)))
@@ -1555,8 +1982,9 @@ fn pull_checks(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Op
     Some(labelled(div().id("pull-checks").flex().flex_col().children(rows), Role::List, "Checks").into_any_element())
 }
 
-/// Commits: each one's short sha, headline and author (`Commits`). None, nothing drawn.
-fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
+/// Commits: each one's short sha, headline and author (`Commits`). A press opens Files on its files alone.
+/// None, nothing drawn.
+fn pull_commits(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Option<AnyElement> {
     if page.commits.is_empty() {
         return None;
     }
@@ -1566,6 +1994,8 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
         .iter()
         .enumerate()
         .map(|(at, commit)| {
+            let (sha, headline) = (commit.sha.clone(), commit.headline.clone());
+            let hover = look.color(token::BG_HOVER);
             labelled(
                 div()
                     .id(SharedString::from(format!("pull-commit-row:{at}")))
@@ -1573,6 +2003,10 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
                     .items_center()
                     .gap(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_2))
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(hover))
+                    .tooltip(tip("Shows the files it changed"))
+                    .on_click(cx.listener(move |this, _, window, cx| this.show_commit(sha.clone(), headline.clone(), window, cx)))
                     .when(at < last, |row| row.border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
@@ -1580,7 +2014,7 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
                     .child(div().id(SharedString::from(format!("pull-commit:{at}"))).flex_none().font_family(mono(look)).tooltip(tip("Commit")).child(SharedString::from(commit.sha.chars().take(7).collect::<String>())))
                     .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(commit.headline.clone())))
                     .children(commit.author.clone().map(|author| div().flex_none().child(SharedString::from(author)))),
-                Role::ListItem,
+                Role::Button,
                 commit.headline.clone(),
             )
             .into_any_element()
@@ -1592,6 +2026,123 @@ fn pull_commits(page: &PullRequestPage, look: &Look) -> Option<AnyElement> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2209's row on mock-01, with its state set as Fleet's ledger would say it.
+    fn row_2209(jobs: &mut [ipc::SessionRecord], state: Option<&str>) {
+        let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("mock-01 is in the fixture");
+        let row = job.attachments.iter_mut().find(|one| one.kind == "pr" && one.target == "2209").expect("mock-01 holds #2209");
+        row.detail.remove("queued");
+        match state {
+            Some(state) => row.detail.insert("state".into(), state.into()),
+            None => row.detail.remove("state"),
+        };
+    }
+
+    #[gpui::test]
+    fn a_reviewer_the_forge_adds_once_a_draft_goes_ready_shows_without_opening_the_tab_again(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |jobs| row_2209(jobs, Some("draft")));
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+        });
+        // The page as the forge gave it while a draft: nobody asked to review yet.
+        view.update(cx, |view, _| {
+            if let Some(Ok(page)) = view.pull_panel_mut().and_then(|panel| panel.page.as_mut()) {
+                page.reviewers.clear();
+            }
+        });
+        redraw(cx);
+        let reviewers = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.pull_panel().and_then(|panel| panel.page()).map_or(0, |page| page.reviewers.len()));
+        assert_eq!(reviewers(&view, cx), 0);
+        // Marked ready on the forge, which asks its reviewers: Fleet's row says open.
+        let list = view.read_with(cx, |view, _| view.list.clone());
+        list.update(cx, |list, cx| {
+            let mut jobs = list.records().to_vec();
+            row_2209(&mut jobs, None);
+            list.replace_records(jobs, cx);
+        });
+        redraw(cx);
+        assert_eq!(reviewers(&view, cx), 3, "the page is read again, and names the reviewers the forge asked");
+    }
+
+    #[gpui::test]
+    fn the_head_stays_put_while_a_tab_scrolls_and_the_file_list_stands_under_it(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(800.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+            view.pull_tab(PullTab::Files, window, cx);
+        });
+        redraw(cx);
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        };
+        let tabs = at(cx, Role::TabList, "Pull request");
+        let list = at(cx, Role::Complementary, "Files");
+        assert!(list.origin.y >= tabs.bottom(), "the file list starts under the head: it starts at {:?}, the tabs end at {:?}", list.origin.y, tabs.bottom());
+        let file = at(cx, Role::Group, "apps/desktop/src/main/forge.ts");
+        view.update(cx, |view, _| view.pull_panel().expect("the panel is open").scroll.set_offset(point(px(0.), px(-200.))));
+        redraw(cx);
+        assert!(at(cx, Role::Group, "apps/desktop/src/main/forge.ts").origin.y < file.origin.y, "the files scrolled");
+        assert_eq!(at(cx, Role::TabList, "Pull request"), tabs, "the head stays where it was");
+    }
+
+    #[gpui::test]
+    fn a_review_required_names_who_from_in_the_merge_box_as_one_fact(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2210).expect("the Job holds #2210");
+            view.open_pull(pull, window, cx);
+        });
+        redraw(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds));
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| find(cx, role, name).unwrap_or_else(|| panic!("{name} was not drawn"));
+        let status = at(cx, Role::Region, "Status");
+        let from = at(cx, Role::Region, "Review required from");
+        assert!(from.origin.y >= status.origin.y && from.bottom() <= status.bottom(), "Review required from stands in the merge box: {from:?}, {status:?}");
+        assert!(find(cx, Role::Region, "Reviewers").is_none(), "one fact: no Reviewers label besides it");
+        let rows: Vec<_> = ["bridge", "omar", "nick"].into_iter().map(|who| at(cx, Role::ListItem, who)).collect();
+        assert!(rows.iter().all(|row| row.origin.y >= from.origin.y && row.bottom() <= from.bottom()), "who it needs stands under it: {rows:?}");
+        assert!(rows.windows(2).all(|two| two[0].origin.y < two[1].origin.y), "the team, its people under it, then the rest: {rows:?}");
+    }
+
+    #[gpui::test]
+    fn reviewers_stand_in_the_merge_box_under_its_facts_whole_on_a_wide_pane_and_not_on_files(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-pulls", "mock-01", gpui::size(px(2400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| {
+            let pull = view.pulls_of("mock-01", cx).into_iter().find(|pull| pull.number == 2209).expect("the Job holds #2209");
+            view.open_pull(pull, window, cx);
+        });
+        redraw(cx);
+        let find = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds));
+        let at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| find(cx, role, name).unwrap_or_else(|| panic!("{name} was not drawn"));
+        let status = at(cx, Role::Region, "Status");
+        let facts = at(cx, Role::List, "Facts");
+        let reviewers = at(cx, Role::Region, "Reviewers");
+        assert!(
+            reviewers.origin.x >= status.origin.x && reviewers.right() <= status.right() && reviewers.bottom() <= status.bottom(),
+            "Reviewers stands inside the merge box: it is at {reviewers:?}, the box at {status:?}"
+        );
+        assert!(reviewers.origin.y >= facts.bottom(), "Reviewers stands under the facts: it starts at {:?}, they end at {:?}", reviewers.origin.y, facts.bottom());
+        let mut verdicts = Vec::new();
+        for (who, state) in [("platform", "Waiting"), ("marta", "Approved"), ("nina", "Commented")] {
+            let row = at(cx, Role::ListItem, who);
+            assert!(row.origin.x >= reviewers.origin.x && row.right() <= reviewers.right(), "{who} stands whole inside Reviewers: it is at {row:?}");
+            let name = find(cx, Role::Link, who).or_else(|| find(cx, Role::Label, who)).unwrap_or_else(|| panic!("{who}'s name was not drawn"));
+            let verdict = at(cx, Role::Image, state);
+            assert!(verdict.origin.y >= row.origin.y && verdict.bottom() <= row.bottom(), "{who}'s review state is on its row: {verdict:?}, {row:?}");
+            assert!(name.origin.x >= verdict.right() && name.right() <= row.right(), "{who}'s name stands whole after its review state: {name:?}, {verdict:?}");
+            verdicts.push(verdict.origin.x);
+        }
+        assert!(verdicts.windows(2).all(|two| two[0] == two[1]), "each review state stands in one column: {verdicts:?}");
+        view.update_in(cx, |view, window, cx| view.pull_tab(PullTab::Files, window, cx));
+        redraw(cx);
+        assert!(find(cx, Role::Region, "Reviewers").is_none(), "Files draws no merge box, so no Reviewers");
+    }
 
     #[test]
     fn a_check_ran_for_reads_as_electrons() {
@@ -1618,5 +2169,86 @@ mod tests {
     #[test]
     fn a_template_comment_leaves_the_description() {
         assert_eq!(strip_comments("Fixes it.<!-- fill in --> Done."), "Fixes it. Done.");
+    }
+
+    #[test]
+    fn the_head_says_what_stops_a_merge_and_a_blocked_one_says_why_under_it() {
+        use ipc::PullRequestMergeState as Merge;
+        use PullRequestReviewState as Review;
+        let head = |merge, checks, review| {
+            let mut pull = super::super::pulls::addressed("m".into(), "", 7, String::new());
+            (pull.merge, pull.checks) = (merge, checks);
+            standing(&pull, None, review).0.to_string()
+        };
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::Required)), "Review required");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::ChangesRequested)), "Review required");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, Some(Review::Approved)), "Merging is blocked");
+        assert_eq!(head(Merge::Blocked, PullChecks::Passed, None), "Merging is blocked");
+        assert_eq!(head(Merge::Behind, PullChecks::Passed, None), "Branch is behind");
+        assert_eq!(head(Merge::Dirty, PullChecks::Passed, None), "Conflicts");
+        assert_eq!(head(Merge::Clean, PullChecks::Passed, None), "Ready to merge");
+        assert_eq!(head(Merge::Unstable, PullChecks::Failed, None), "Ready to merge");
+        assert_eq!(head(Merge::Unknown, PullChecks::Passed, None), "Ready to merge", "an older Fleet: the checks decide");
+        assert_eq!(head(Merge::Unknown, PullChecks::Failed, None), "Checks failed");
+
+        let page: PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "merge_state": "blocked", "review": "required", "approvals": 0,
+                "conversation": [], "files": [], "commits": [], "checks": [],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let mut pull = super::super::pulls::addressed("m".into(), "", 7, String::new());
+        (pull.merge, pull.checks) = (Merge::Blocked, PullChecks::Passed);
+        assert_eq!(blocked_facts(&pull, Some(&page)).as_deref(), Some("Checks passed \u{b7} No conflicts \u{b7} Needs an approving review"), "nobody named, so the line says it");
+        let mut asked = page.clone();
+        asked.reviewers = vec![ipc::decode("PullRequestReviewer", br#"{"login": "omar", "kind": "person"}"#).expect("a reviewer")];
+        assert_eq!(blocked_facts(&pull, Some(&asked)).as_deref(), Some("Checks passed \u{b7} No conflicts"), "Review required from says it, with who under it");
+        pull.merge = Merge::Clean;
+        assert_eq!(blocked_facts(&pull, Some(&page)), None, "only a blocked merge says why");
+    }
+
+    #[test]
+    fn a_note_on_the_description_names_the_pull_request_asks_for_a_rewrite_then_says_the_note() {
+        let said = description_note_message(418, "  Say why the cache moved.\n");
+        assert_eq!(said, "A note on the description of #418. Rewrite the description with it.\n\nSay why the cache moved.");
+    }
+
+    #[test]
+    fn comments_are_what_was_said_and_the_threads_oldest_first() {
+        let page: PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "unknown", "review": "none", "approvals": 0,
+                "body": "The description.",
+                "conversation": [
+                    { "kind": "review", "id": "R2", "author": "bob", "at": "2026-11-08T12:00:00Z", "verdict": "commented", "body": "Later" },
+                    { "kind": "comment", "id": "C1", "author": "alice", "at": "2026-11-08T10:00:00Z", "body": "First" },
+                ],
+                "threads": [
+                    { "id": "T1", "path": "src/a.rs", "line": 4, "side": "right", "resolved": false, "comments": [
+                        { "id": "TC1", "author": "cleo", "at": "2026-11-08T11:00:00Z", "body": "On a line" },
+                        { "id": "TC2", "author": "alice", "at": "2026-11-08T11:30:00Z", "body": "A reply" },
+                    ] },
+                    { "id": "T2", "path": "src/b.rs", "side": "right", "resolved": true, "comments": [] },
+                ],
+                "checks": [], "files": [], "commits": [],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let ids: Vec<&str> = comments_of(&page)
+            .iter()
+            .map(|said| match said {
+                Said::Entry(PullRequestEntry::Comment { id, .. } | PullRequestEntry::Review { id, .. }) => id.as_str(),
+                Said::Thread(thread) => thread.id.as_str(),
+            })
+            .collect();
+        assert_eq!(ids, ["C1", "T1", "R2"], "a thread with no comment is not one");
+        assert_eq!(comment_count(&page), 4, "a reply in a thread is a comment of its own");
     }
 }

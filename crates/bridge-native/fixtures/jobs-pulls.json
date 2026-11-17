@@ -118,7 +118,8 @@
       "title": "Show the merge line in a Session",
       "branch": "feat/session-merge-line",
       "address": "https://github.com/mele-labs/armada/pull/2210",
-      "checks": "passed"
+      "checks": "passed",
+      "merge_state": "blocked"
      }
     },
     {

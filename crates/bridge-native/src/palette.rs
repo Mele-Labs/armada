@@ -269,6 +269,14 @@ pub fn without_of(job: &SessionRecord) -> Vec<&'static str> {
     without
 }
 
+/// The Jobs screen comes to the front if another place is there, as Electron's `openSession`: the last step of
+/// opening a Job from the palette, and from the In this build sheet.
+pub fn show_jobs(cx: &mut App) {
+    if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+        (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
+    }
+}
+
 fn is_paused(job: &SessionRecord) -> bool {
     job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some())
 }
@@ -457,7 +465,8 @@ pub fn job_acts(paused: bool, snoozed: bool, pinned: bool, has_pull: bool, witho
     let apart = |one: RowAct| RowAct { apart: true, ..one };
     let all = [
         Some(act("open", "Open", None, Some("\u{21b5}"))),
-        Some(if paused { act("pause", "Resume", Some("play"), Some("\u{2318}P")) } else { act("pause", "Pause", Some("pause"), Some("\u{2318}P")) }),
+        // Fleet pauses a Job it snoozes and Wake now resumes it, so a snoozed Job offers no Resume of its own.
+        (!snoozed).then(|| if paused { act("pause", "Resume", Some("play"), Some("\u{2318}P")) } else { act("pause", "Pause", Some("pause"), Some("\u{2318}P")) }),
         // ⌥⌘Z: ⌘Z and ⇧⌘Z undo and redo a pane, and the bare Z a row answers is typing in here.
         Some(if snoozed { act("wake", "Wake now", Some("bell"), Some("\u{2325}\u{2318}Z")) } else { act("snooze", "Snooze", Some("bell-off"), Some("\u{2325}\u{2318}Z")) }),
         Some(act("fork", "Fork", Some("git-fork"), Some("\u{2325}\u{2318}F"))),
@@ -1286,9 +1295,7 @@ impl Palette {
     /// A Job opens on the Jobs screen, which comes to the front if another place is there, as Electron's `openSession`.
     fn open_job(&self, job: String, cx: &mut Context<Self>) {
         self.list.update(cx, |list, cx| list.open(job.into(), cx));
-        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
-            (sink.0)(&crate::titlebar::Asked::Place("jobs"), cx);
-        }
+        show_jobs(cx);
     }
 
     fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
@@ -2086,6 +2093,12 @@ mod tests {
         let label = |snoozed: bool| job_acts(false, snoozed, false, false, &[]).into_iter().find(|act| matches!(act.id, "snooze" | "wake")).map(|act| (act.id, act.label, act.chord));
         assert_eq!(label(false), Some(("snooze", "Snooze".to_string(), Some("\u{2325}\u{2318}Z"))));
         assert_eq!(label(true), Some(("wake", "Wake now".to_string(), Some("\u{2325}\u{2318}Z"))));
+    }
+
+    #[test]
+    fn a_snoozed_job_offers_wake_now_and_no_resume() {
+        let ids = |acts: Vec<RowAct>| acts.into_iter().map(|act| act.id).collect::<Vec<_>>();
+        assert_eq!(ids(job_acts(true, true, false, false, &[])), ["open", "wake", "fork", "copy-id", "pin", "stop"]);
     }
 
     #[test]

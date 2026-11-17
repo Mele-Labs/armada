@@ -1,31 +1,34 @@
-//! The Ready to try card, in the Pictures first take the owner picked on 15 Nov 2026: a green head band, the title, what he
-//! approved beside what was built, his words, a fold holding where to look, and a foot of four answers.
+//! What the Ready to try tab and the thread's compact card are made of: a build's standing, its parts and its answer, and the
+//! pieces the tab's detail draws it with. The Pictures first take the owner picked on 15 Nov 2026 stands in the detail: a green
+//! head band, the title, what he approved beside what was built, his words, where to look with the steps, and a foot of four
+//! answers. The thread draws no such card of its own: it holds one compact card per Job (`ready_compact`) that opens a build
+//! whole in place.
 //!
-//! **The card is the build note of its branch at its tip, seen from the Job's thread**, so Fleet carries its state
+//! **A build is the build note of its branch at its tip, seen from the Job's thread**, so Fleet carries its state
 //! (`ThreadReadyToTry`) and the thread moves when he answers. A press answers at once, as every card does (`acts`), and a
-//! refusal takes the answer back and says Fleet's sentence on the card's own row. One he has answered, or the Job has
-//! withdrawn or replaced, is one line that opens on press; one put off is one quiet line with its wake time.
+//! refusal takes the answer back and says Fleet's sentence on the build's row. One he has answered, or the Job has
+//! withdrawn or replaced, is one line in the thread that opens the tab on a press.
 
 use std::rc::Rc;
 
 use chrono::{DateTime, Local};
-use gpui::{canvas, div, prelude::*, px, size, AnyElement, Context, FontWeight, Hsla, KeyDownEvent, Rgba, Role, SharedString, Window};
+use gpui::{canvas, div, prelude::*, px, size, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
 
 use super::acts::{kbd, refusal, Answer, Mode};
 use super::artifacts_tab::{Picture, PictureKey};
-use super::band_card::{foot_box, frame, kind_look, shapes, tile, well, Act, Do, Foot};
+use super::band_card::{foot_box, kind_look, shapes, tile, well, Act, Do, Foot};
 use super::cards::{quote, shown_scene};
-use super::rows::{chevron, glyph, mono, tip, Size};
+use super::rows::{glyph, mono, tip, Size};
 use super::sketch_card::{act, mixed, Kind};
 use super::sketch_read::newest_card;
 use super::{JobView, Page};
 use crate::build_notes::{step_lines, StepLine};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look, Token};
+use crate::look::{token, Look, Token};
 use crate::scene::{Clock, Fit, Lens};
 
-/// Whether an id names a Ready to try card (`try:<branch>@<tip>`) and not an artifact.
+/// Whether an id names a Ready to try card (`try:<branch>@<tip>`) or a Job's one item to try (`try:<session_id>`), and not an artifact.
 pub(super) fn is_card(id: &str) -> bool {
     id.starts_with("try:")
 }
@@ -48,10 +51,10 @@ fn card_named(items: &[ThreadItem], id: &str) -> Option<(usize, String)> {
 /// Where Fleet takes his answer to a card.
 pub(super) const ANSWER_READY: &str = "/sessions/ready_to_try/answer";
 
-/// Each picture is at least this many points across, or the two stand one to a row.
-const PICTURE_LEAST: f32 = 300.;
+/// The tab's two pictures each get at least this many points across, or the two stand one to a row.
+pub(super) const PICTURE_LEAST: f32 = 520.;
 
-/// Where a card stands: the colour of its band and the words on its chip.
+/// Where a build stands: the colour of its band and the words on its chip.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Standing {
     Open,
@@ -91,7 +94,7 @@ impl Standing {
         }
     }
 
-    fn ink(self) -> Token {
+    pub(super) fn ink(self) -> Token {
         match self {
             Standing::Open => token::STATUS_COMPLETED_SUCCESS,
             Standing::Later | Standing::Replaced => token::STATUS_NOT_STARTED,
@@ -101,7 +104,7 @@ impl Standing {
         }
     }
 
-    fn tip(self) -> &'static str {
+    pub(super) fn tip(self) -> &'static str {
         match self {
             Standing::Open => "Waiting on you to try it",
             Standing::Later => "You asked to be reminded",
@@ -112,9 +115,14 @@ impl Standing {
         }
     }
 
-    /// A card with nothing left to ask is one line.
+    /// A build with nothing left to ask is one line in the thread.
     pub(super) fn folds(self) -> bool {
         matches!(self, Standing::Good | Standing::Rework | Standing::Withdrawn | Standing::Replaced)
+    }
+
+    /// A build still to answer: open, or put off until a time.
+    pub(super) fn asks(self) -> bool {
+        !self.folds()
     }
 }
 
@@ -136,7 +144,7 @@ pub(super) enum Pictures {
 pub(super) struct Parts {
     pub pictures: Pictures,
     pub words: bool,
-    /// The fold holds the look sentence, the steps, or both.
+    /// The look sentence, the steps, or both.
     pub fold: bool,
     pub steps: Vec<StepLine>,
 }
@@ -158,15 +166,15 @@ impl Parts {
         }
     }
 
-    /// The act Show me how runs: the first step that has one the registry knows. None where no step has, and it opens the fold.
+    /// The act Show me how runs: the first step that has one the registry knows. None where no step has.
     pub(super) fn first_go(&self) -> Option<&crate::build_notes::Go> {
         self.steps.iter().find_map(|line| line.go.as_ref())
     }
 }
 
-/// Whether the two pictures stand one to a row: each would be under [`PICTURE_LEAST`] points across.
-pub(super) fn stacked(inner: f32, gap: f32) -> bool {
-    (inner - gap) / 2. < PICTURE_LEAST
+/// Whether the two pictures stand one to a row: each would be under `least` points across.
+pub(super) fn stacked(inner: f32, gap: f32, least: f32) -> bool {
+    (inner - gap) / 2. < least
 }
 
 /// The body of his answer, as it goes to Fleet.
@@ -175,7 +183,7 @@ pub(super) fn answer_body(job: &str, card: &ThreadReadyToTry, answer: ReadyAnswe
 }
 
 /// The time a card shows for a stamp: the clock alone today, the day before it on any other.
-fn clock(at: &Instant, now: DateTime<Local>) -> String {
+pub(super) fn clock(at: &Instant, now: DateTime<Local>) -> String {
     let Some(at) = super::acts::at_of(at) else { return String::new() };
     let time = crate::settings::time::time_of(at, ipc::time_format::TimeFormat { seconds: false, ..crate::settings::time::held() });
     if at.date_naive() == now.date_naive() {
@@ -185,16 +193,9 @@ fn clock(at: &Instant, now: DateTime<Local>) -> String {
     }
 }
 
-/// Two colours blended `at` of the way from `from` to `to`.
-fn blend(from: Hsla, to: Hsla, at: f32) -> Hsla {
-    let (a, b) = (Rgba::from(from), Rgba::from(to));
-    let by = |x: f32, y: f32| x + (y - x) * at;
-    Rgba { r: by(a.r, b.r), g: by(a.g, b.g), b: by(a.b, b.b), a: 1. }.into()
-}
-
-/// How tall a picture's box is: four of the card's 48 px steps.
+/// How tall a picture's box is: five of the card's 48 px steps.
 fn picture_height(look: &Look) -> gpui::Pixels {
-    look.length(token::SPACE_12) * 4.
+    look.length(token::SPACE_12) * 5.
 }
 
 /// A quiet 2xs label in a muted ink, for the head of a picture.
@@ -203,106 +204,34 @@ fn small(look: &Look) -> gpui::Div {
 }
 
 impl JobView {
-    /// The card in the thread (`ThreadReadyToTry`).
-    pub(super) fn ready_card(&self, ix: usize, card: &ThreadReadyToTry, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let key = card.id.clone();
-        let standing = Standing::of(card, page.cards.answers.get(&key));
-        let parts = Parts::of(card);
-        let probe = self.go_probe(&key, page, cx);
-        match standing {
-            Standing::Later => {
-                let until = match page.cards.answers.get(&key) {
-                    Some(Answer::Later(until)) => Some(Instant::carried(until.clone())),
-                    _ => card.later_until.clone(),
-                };
-                return self.ready_later(ix, card, until.as_ref(), probe, page, look, now, cx);
-            }
-            Standing::Good | Standing::Rework | Standing::Withdrawn | Standing::Replaced if !self.open_in_card(&format!("{key}:open")) => {
-                return self.ready_folded(ix, card, standing, probe, page, look, now, cx);
-            }
-            _ => {}
+    /// A build in the thread: the one line of a build that is settled, the one compact card where the newest open build stands,
+    /// and nothing where an older one is listed by the compact card already.
+    pub(super) fn ready_card(&self, card: &ThreadReadyToTry, ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.shown.clone()?;
+        let held = self.thread(&job, cx)?;
+        let standing = Standing::of(card, page.cards.answers.get(&card.id));
+        if standing.folds() {
+            return Some(self.ready_folded(card, standing, look, now));
         }
-        let open = standing == Standing::Open;
-        let job = self.shown.clone().unwrap_or_default();
-        let run = self.ready_run(ix, card, parts.clone());
-        let foot = Foot { ix, key: key.clone(), asking: open, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run: run.clone() };
-        let narrow = self.band_narrow(look);
-        let ink = look.color(standing.ink());
-        let spot = page.keys.spot(&format!("card:{key}"), cx);
-        let keys = run;
-        let id = key.clone();
-        let head = self.ready_head(ix, card, standing, now, look, cx);
-        let title = div()
-            .id(SharedString::from(format!("ready-title:{key}")))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .text_size(look.length(token::TEXT_BASE))
-            .line_height(look.length(token::LEADING_BASE))
-            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-            .text_color(look.color(token::FG_DEFAULT))
-            .child(SharedString::from(card.about.clone()));
-        let pictures = self.ready_pictures(&job, card, &parts, narrow, page, look, cx);
-        let words = card.words.as_deref().filter(|words| !words.trim().is_empty()).map(|words| {
-            div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(quote(look, &format!("\u{201c}{}\u{201d}", words.trim())))
-        });
-        let fold = parts.fold.then(|| self.ready_fold(ix, card, &parts, page, look, cx));
-        let foot_row = open.then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
-        let mut frame = frame(look, narrow)
-            .id(SharedString::from(format!("ready:{key}")))
-            .border_color(ink.opacity(0.45))
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .relative()
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.modifiers.modified() || !open {
-                    return;
-                }
-                let noting = this.shown.as_ref().and_then(|job| this.pages.get(job)).is_some_and(|page| page.cards.modes.contains_key(&id));
-                if noting {
-                    return;
-                }
-                let act = match event.keystroke.key.as_str() {
-                    "1" => Act::Approve,
-                    "2" => Act::Ask,
-                    "3" => Act::Open,
-                    _ => return,
-                };
-                cx.stop_propagation();
-                keys(this, act, window, cx);
-            }))
-            .child(head)
-            .child(title)
-            .children(pictures)
-            .children(words)
-            .children(fold)
-            .children(foot_row)
-            .children(probe);
-        // Pulsed once by the press on its Needs you item.
-        let pulse = page.cards.pulse.as_ref().filter(|(pulsed, _)| *pulsed == key).map(|(_, n)| *n);
-        let name = format!("Ready to try: {}", card.about);
-        match pulse {
-            Some(n) => {
-                use gpui::AnimationExt as _;
-                let (base, accent, raised) = (ink.opacity(0.45), look.color(token::ACCENT), look.color(token::BG_RAISED));
-                frame = frame.border_color(base);
-                let pulsing = frame.with_animation(
-                    SharedString::from(format!("ready-pulse:{key}:{n}")),
-                    gpui::Animation::new(look.duration(token::DURATION_PULSE)).with_easing(gpui::ease_out_quint()),
-                    move |frame, at| frame.border_color(blend(base, accent, 1. - at)).bg(blend(raised, accent, 0.14 * (1. - at))),
-                );
-                labelled(div().id(SharedString::from(format!("ready-pulse-wrap:{key}"))).w_full().child(pulsing), Role::Article, name).into_any_element()
-            }
-            None => labelled(frame, Role::Article, name).into_any_element(),
-        }
+        let all = super::ready_compact::builds(&held.items, &page.cards.answers);
+        (super::ready_compact::place(&all) == Some(ix)).then(|| self.ready_compact(&all, ix, page, look, now, cx))
     }
 
-    /// What each press on the card does. Looks good answers, Needs rework opens its box and Send sends it, Show me how runs the
-    /// first step's act or opens the fold.
-    fn ready_run(&self, ix: usize, card: &ThreadReadyToTry, parts: Parts) -> Do {
+    /// What each press on a build's answers does. Looks good answers, Needs rework opens its box and Send sends it, Show me how
+    /// runs the first step's act.
+    pub(super) fn ready_run(&self, ix: usize, card: &ThreadReadyToTry, parts: Parts) -> Do {
         let (key, card) = (card.id.clone(), card.clone());
         Rc::new(move |this, act, window, cx| match act {
             Act::Approve => this.answer_ready(ix, &card, ReadyAnswer::LooksGood, window, cx),
-            Act::Ask => this.ask_for_changes(ix, &key, window, cx),
+            // With his words in the box the press sends them with the mark; with the box empty it puts the keys there.
+            Act::Ask => {
+                let words = this.typed_in(&key, Mode::Note, cx).trim().to_string();
+                if words.is_empty() {
+                    this.ask_for_changes(ix, &key, window, cx);
+                } else {
+                    this.answer_ready(ix, &card, ReadyAnswer::NeedsRework { words }, window, cx);
+                }
+            }
             Act::Send => {
                 let words = this.typed_in(&key, Mode::Note, cx).trim().to_string();
                 if !words.is_empty() {
@@ -310,21 +239,18 @@ impl JobView {
                 }
             }
             Act::Cancel => this.shut_band_note(ix, &key, window, cx),
-            Act::Open => match parts.first_go() {
-                Some(go) => window.dispatch_action(Box::new(crate::keymap::Act { id: go.act, slot: 0, digit: go.digit }), cx),
-                None if parts.fold => {
-                    if !this.open_in_card(&format!("{key}:fold")) {
-                        this.flip_in_card(ix, &format!("{key}:fold"), cx);
-                    }
+            Act::Open => {
+                if let Some(go) = parts.first_go() {
+                    window.dispatch_action(Box::new(crate::keymap::Act { id: go.act, slot: 0, digit: go.digit }), cx);
                 }
-                None => {}
-            },
+            }
             Act::Dismiss | Act::Archive | Act::Edit => {}
         })
     }
 
     /// His answer: the card reads it in this frame, Fleet is told off the main thread, and a refusal takes it back with Fleet's
-    /// sentence on the card.
+    /// sentence on the build. The build opened moves to the next open one. `ix` is the thread item the card is drawn at, or
+    /// `SHEET` where the review overlay hosts it.
     pub(super) fn answer_ready(&mut self, ix: usize, card: &ThreadReadyToTry, answer: ReadyAnswer, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let pressed = match &answer {
@@ -332,13 +258,24 @@ impl JobView {
             ReadyAnswer::NeedsRework { words } => Answer::SentBack(words.clone()),
             ReadyAnswer::Remind { until } => Answer::Later(until.as_str().to_string()),
         };
+        let next = match (self.pages.get(&job), self.thread(&job, cx)) {
+            (Some(page), Some(held)) => super::ready_compact::next_open(&super::ready_compact::builds(&held.items, &page.cards.answers), &card.id),
+            _ => None,
+        };
         let body = answer_body(&job, card, answer);
         self.settle(ix, card.id.clone(), pressed, ANSWER_READY, body, window, cx);
+        // A refusal came back at once, so the build stays open with Fleet's sentence on it; else the next open one opens.
+        if let Some(cards) = self.cards_mut() {
+            if !cards.said.contains_key(&card.id) && cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
+                cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
+            }
+        }
     }
 
-    /// The head band: the state's chip, the Job, and the time at the right in mono. A card he opened again folds on a press here.
-    fn ready_head(&self, ix: usize, card: &ThreadReadyToTry, standing: Standing, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let key = card.id.clone();
+    /// The head band: the state's chip, the Job, and the time at the right in mono. `key` names its parts, so a thread's band and
+    /// a tab's differ.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn ready_head(&self, key: &str, standing: Standing, word: SharedString, at: &Instant, offered: Option<&Instant>, refresh: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let ink = look.color(standing.ink());
         let chip = labelled(
             div()
@@ -356,14 +293,13 @@ impl JobView {
                 .text_color(ink)
                 .tooltip(tip(standing.tip()))
                 .child(gpui::svg().path(crate::assets::icon_path("circle-dot")).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
-                .child(standing.word()),
+                .child(word.clone()),
             Role::Status,
-            standing.word(),
+            word,
         );
         let job = self.shown.as_ref().and_then(|job| self.title_of(job, cx));
-        let again = !matches!(standing, Standing::Open);
-        let open_key = format!("{key}:open");
-        let line = div()
+        let seen = offered.map(|offered| format!("Offered {}", clock(offered, now)));
+        div()
             .id(SharedString::from(format!("ready-head:{key}")))
             .flex()
             .items_center()
@@ -385,8 +321,9 @@ impl JobView {
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
                     .text_color(look.color(token::FG_MUTED))
-                    .when_some(job.clone(), |one, job| one.tooltip(tip(job.clone())).child(job)),
+                    .when_some(job, |one, job| one.tooltip(tip(job.clone())).child(job)),
             )
+            .children(refresh.then(|| self.refresh_preview_button(key, look, cx)))
             .child(
                 div()
                     .id(SharedString::from(format!("ready-time:{key}")))
@@ -395,27 +332,94 @@ impl JobView {
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .text_color(look.color(token::FG_MUTED))
-                    .tooltip(tip(format!("Offered {}", clock(&card.offered_at, now))))
-                    .child(SharedString::from(clock(&card.at, now))),
+                    .when_some(seen, |one, seen| one.tooltip(tip(seen)))
+                    .child(SharedString::from(clock(at, now))),
             )
-            .when(again, |line| line.cursor_pointer().on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &open_key, cx))));
-        line.into_any_element()
+            .into_any_element()
     }
 
-    /// The pictures row: what he approved beside what was built, or the built one across the whole row, or nothing.
-    #[allow(clippy::too_many_arguments)]
-    fn ready_pictures(&self, job: &str, card: &ThreadReadyToTry, parts: &Parts, narrow: bool, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Refresh preview, where a build is not in the running preview yet: the title bar's build switcher's Refresh row, pressed here.
+    fn refresh_preview_button(&self, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        labelled(
+            act(look, format!("refresh-preview:{key}"), "Refresh preview", Kind::Secondary, "", true)
+                .tab_index(0)
+                .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                .tooltip(tip("Merge the offered branches onto latest main and restart Fleet"))
+                .on_click(cx.listener(|this, _, _, cx| this.refresh_preview(cx))),
+            Role::Button,
+            "Refresh preview",
+        )
+        .into_any_element()
+    }
+
+    /// The same act as the Refresh row of the title bar's build switcher: Fleet restarts onto a preview of the offered branches.
+    fn refresh_preview(&mut self, cx: &mut Context<Self>) {
+        if let Some(fleet) = self.fleet.clone() {
+            fleet.update(cx, |fleet, cx| fleet.build_act(crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None }), cx));
+        }
+    }
+
+    /// A build whole, at the width it is given, drawn at thread item `ix` (or `SHEET` in the overlay): head band, title, pictures, his words, where to look with the steps,
+    /// and the foot of four answers while it still asks.
+    pub(super) fn ready_detail(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = card.id.clone();
+        let standing = Standing::of(card, page.cards.answers.get(&key));
+        let parts = Parts::of(card);
+        let asking = standing.asks();
+        let job = self.shown.clone().unwrap_or_default();
+        let run = self.ready_run(ix, card, parts.clone());
+        let foot = Foot { ix, key: key.clone(), asking, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run };
+        let ink = look.color(standing.ink());
+        let word: SharedString = match (standing, super::ready_compact::until(card, &page.cards.answers)) {
+            (Standing::Later, Some(until)) => format!("Later until {}", clock(&until, now)).into(),
+            _ => standing.word().into(),
+        };
+        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), asking && !card.in_build && !matches!(parts.pictures, Pictures::Both | Pictures::Built), now, look, cx);
+        let title = div()
+            .id(SharedString::from(format!("ready-title:{key}")))
+            .px(look.length(token::SPACE_4))
+            .pt(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_BASE))
+            .line_height(look.length(token::LEADING_BASE))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(SharedString::from(card.about.clone()));
+        let inner = wide - f32::from(look.length(token::SPACE_4)) * 2. - f32::from(look.length(token::BORDER_WIDTH)) * 2.;
+        let pictures = self.ready_pictures(&job, card, &parts, inner, look, cx);
+        let words = card.words.as_deref().filter(|words| !words.trim().is_empty()).map(|words| {
+            div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(quote(look, &format!("\u{201c}{}\u{201d}", words.trim())))
+        });
+        let changed = parts.fold.then(|| self.ready_changed(card, &parts, look));
+        let foot_row = asking.then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
+        let name = format!("Ready to try: {}", card.about);
+        labelled(
+            super::band_card::frame(look, false)
+                .id(SharedString::from(format!("ready:{key}")))
+                .border_color(ink.opacity(0.45))
+                .child(head)
+                .child(title)
+                .children(pictures)
+                .children(words)
+                .children(changed)
+                .children(foot_row),
+            Role::Article,
+            name,
+        )
+        .into_any_element()
+    }
+
+    /// The pictures row: what he approved beside what was built, or the built one across the whole row, or nothing. `inner` is the
+    /// card's width less its own insets.
+    fn ready_pictures(&self, job: &str, card: &ThreadReadyToTry, parts: &Parts, inner: f32, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if parts.pictures == Pictures::None {
             return None;
         }
         let gap = look.length(token::SPACE_3);
-        let pane = self.pane.unwrap_or(px(720.));
-        let wide = if narrow { look.length(token::SPACE_4) + look.length(token::SPACE_1) } else { px(0.) };
-        let inner = f32::from(pane - look.length(token::SPACE_4) * 2. + wide * 2. - look.length(token::SPACE_4) * 2. - look.length(token::BORDER_WIDTH) * 2.);
+        let inner = inner - f32::from(look.length(token::SPACE_4)) * 2.;
         let both = parts.pictures == Pictures::Both;
-        let stack = both && stacked(inner, f32::from(gap));
+        let stack = both && stacked(inner, f32::from(gap), PICTURE_LEAST);
         let each = if both && !stack { (inner - f32::from(gap)) / 2. } else { inner };
-        let approved = card.approved.as_ref().filter(|_| matches!(parts.pictures, Pictures::Both | Pictures::Approved)).map(|approved| self.ready_approved(job, card, approved, each, page, look, cx));
+        let approved = card.approved.as_ref().filter(|_| matches!(parts.pictures, Pictures::Both | Pictures::Approved)).map(|approved| self.ready_approved(job, card, approved, each, look, cx));
         let built = card.pictures.first().filter(|_| matches!(parts.pictures, Pictures::Both | Pictures::Built)).map(|path| self.ready_built(card, path, each, look, cx));
         Some(
             div()
@@ -433,7 +437,7 @@ impl JobView {
     }
 
     /// One picture's frame: its label over a sunken box the picture is centred in.
-    fn ready_frame(&self, id: String, label: SharedString, ink: Token, body: AnyElement, look: &Look) -> gpui::Stateful<gpui::Div> {
+    fn ready_frame(&self, id: String, label: SharedString, extra: Option<AnyElement>, ink: Token, body: AnyElement, look: &Look) -> gpui::Stateful<gpui::Div> {
         let ink_color = look.color(ink);
         div()
             .id(SharedString::from(id))
@@ -454,12 +458,17 @@ impl JobView {
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .text_color(ink_color)
-                    .child(label),
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(look.length(token::SPACE_2))
+                    .child(label)
+                    .children(extra),
             )
             .child(div().flex().items_center().justify_center().h(picture_height(look)).p(look.length(token::SPACE_2)).child(body))
     }
 
-    /// The picture the Job built, which a press opens large over the window.
+    /// The picture the Job built, which a press opens in the view that fills the app.
     fn ready_built(&self, card: &ThreadReadyToTry, path: &str, each: f32, look: &Look, cx: &Context<Self>) -> AnyElement {
         let file = super::pictures::read_picture(path).unwrap_or_else(|| SentFile { id: path.to_string(), name: path.rsplit('/').next().unwrap_or(path).to_string(), media_type: String::new() });
         let room = size((each - f32::from(look.length(token::SPACE_2)) * 2. - f32::from(look.length(token::BORDER_WIDTH)) * 2.).max(120.), f32::from(picture_height(look) - look.length(token::SPACE_2) * 2.));
@@ -467,13 +476,13 @@ impl JobView {
             div().text_size(look.length(token::TEXT_XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.name.clone())).into_any_element()
         });
         let label = if card.in_build { "Built \u{b7} in the preview" } else { "Built" };
-        self.ready_frame(format!("ready-built:{}", card.id), label.into(), token::STATUS_COMPLETED_SUCCESS, body, look).into_any_element()
+        // A build the running preview does not hold yet offers the title bar's Refresh preview beside its chip.
+        let refresh = (!card.in_build).then(|| self.refresh_preview_button(&format!("built:{}", card.id), look, cx));
+        self.ready_frame(format!("ready-built:{}", card.id), label.into(), refresh, token::STATUS_COMPLETED_SUCCESS, body, look).into_any_element()
     }
 
     /// What he approved, at the revision he approved, drawn as the card of its kind draws it. A press reads it large in its own tab.
-    #[allow(clippy::too_many_arguments)]
-    fn ready_approved(&self, job: &str, card: &ThreadReadyToTry, approved: &ReadyApproved, each: f32, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let _ = page;
+    fn ready_approved(&self, job: &str, card: &ThreadReadyToTry, approved: &ReadyApproved, each: f32, look: &Look, cx: &Context<Self>) -> AnyElement {
         let height = picture_height(look) - look.length(token::SPACE_2) * 2.;
         let width = (each - f32::from(look.length(token::SPACE_2)) * 2. - f32::from(look.length(token::BORDER_WIDTH)) * 2.).max(120.);
         let drawn: Option<AnyElement> = match approved.form {
@@ -518,7 +527,7 @@ impl JobView {
         };
         let (artifact, named) = (approved.artifact.clone(), format!("{}, {}", kind_look(approved.form).2, approved.title));
         labelled(
-            self.ready_frame(format!("ready-approved:{}", card.id), label.into(), token::YOU, body, look)
+            self.ready_frame(format!("ready-approved:{}", card.id), label.into(), None, token::YOU, body, look)
                 .cursor_pointer()
                 .tooltip(tip(format!("Read {} larger", approved.title)))
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -530,30 +539,17 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The fold: where to look and the steps, shut until he opens it.
-    fn ready_fold(&self, ix: usize, card: &ThreadReadyToTry, parts: &Parts, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let _ = page;
-        let held = format!("{}:fold", card.id);
-        let open = self.open_in_card(&held);
-        let toggled = held.clone();
+    /// What changed and where to look: the look sentence, then the steps, each with its key where it has an act.
+    fn ready_changed(&self, card: &ThreadReadyToTry, parts: &Parts, look: &Look) -> AnyElement {
         let head = labelled(
             div()
-                .id(SharedString::from(format!("ready-fold:{}", card.id)))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_SM))
-                .cursor_pointer()
-                .tab_index(0)
-                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                .id(SharedString::from(format!("ready-changed:{}", card.id)))
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_MUTED))
-                .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
-                .child(chevron(look, open))
-                .child("What changed and where to look")
-                .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &toggled, cx))),
-            Role::Button,
+                .child("What changed and where to look"),
+            Role::Heading,
             "What changed and where to look",
         );
         let look_line = card.look.as_deref().map(str::trim).filter(|words| !words.is_empty()).map(|words| {
@@ -593,15 +589,12 @@ impl JobView {
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
             .child(head)
-            .when(open, |fold| {
-                fold.children(look_line).children((!steps.is_empty()).then(|| {
-                    labelled(div().id(SharedString::from(format!("ready-steps:{}", card.id))).flex().flex_col().gap(look.length(token::SPACE_2)).children(steps), Role::List, "Steps")
-                }))
-            })
+            .children(look_line)
+            .children((!steps.is_empty()).then(|| labelled(div().id(SharedString::from(format!("ready-steps:{}", card.id))).flex().flex_col().gap(look.length(token::SPACE_2)).children(steps), Role::List, "Steps")))
             .into_any_element()
     }
 
-    /// The foot: Looks good, Needs rework and Show me how, a spacer, then Remind me. Needs rework opens its box in their place.
+    /// The foot: Looks good, Needs rework and Show me how, a spacer, then Remind me. Needs rework opens its box under them.
     fn ready_footer(&self, foot: &Foot, card: &ThreadReadyToTry, parts: &Parts, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = foot.key.as_str();
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2));
@@ -611,15 +604,12 @@ impl JobView {
         if let Some(why) = page.cards.said.get(key) {
             column = column.child(refusal(look, key, why.clone()));
         }
-        if page.cards.modes.get(key) == Some(&Mode::Note) {
-            return column.child(self.band_note(foot, page, look, cx)).into_any_element();
-        }
         let (good, rework, how) = (foot.run.clone(), foot.run.clone(), foot.run.clone());
         let button = |id: &str, said: &'static str, kind: Kind, cap: &str, on: bool| act(look, format!("{id}:{key}"), said, kind, cap, on).tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT)));
         let remind = page.keys.spot(&format!("remind:{key}"), cx);
         let drawn = remind.bounds.clone();
         let (ix, held) = (foot.ix, card.clone());
-        let shows = parts.fold || parts.first_go().is_some();
+        let shows = parts.first_go().is_some();
         let row = div()
             .id(SharedString::from(format!("answers:{key}")))
             .flex()
@@ -647,15 +637,21 @@ impl JobView {
                     .relative()
                     .child(glyph(look, "chevron-down", Size::Small, look.color(token::FG_MUTED)))
                     .child(canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-                    .tooltip(tip("Bring this card back later"))
+                    .tooltip(tip("Bring this build back later"))
                     .on_click(cx.listener(move |this, _, window, cx| this.open_remind(ix, &held, window, cx))),
                 Role::Button,
                 "Remind me",
             ));
-        column.child(super::acts::gated(row, self.off_shown_to(ANSWER_READY, cx))).into_any_element()
+        let column = column.child(super::acts::gated(row, self.off_shown_to(ANSWER_READY, cx)));
+        // The box for what should change stands under the answers, and Needs rework stays among them: pressed with words in the
+        // box it sends them with the mark, and with the box empty it puts the keys there.
+        if page.cards.modes.get(key) == Some(&Mode::Note) {
+            return column.child(self.band_note(foot, page, look, cx)).into_any_element();
+        }
+        column.into_any_element()
     }
 
-    /// Remind me's menu under its button: each choice of the Later ladder with the time it brings the card back.
+    /// Remind me's menu under its button: each choice of the Later ladder with the time it brings the build back.
     fn open_remind(&mut self, ix: usize, card: &ThreadReadyToTry, window: &mut Window, cx: &mut Context<Self>) {
         use crate::dropdown::{Dropdown, Entry, Picked, Row};
         let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) else { return };
@@ -690,9 +686,8 @@ impl JobView {
         cx.notify();
     }
 
-    /// A card he answered, or the Job withdrew or replaced, in one line: where it stands, its title and the time. A press opens it.
-    #[allow(clippy::too_many_arguments)]
-    fn ready_folded(&self, ix: usize, card: &ThreadReadyToTry, standing: Standing, probe: Option<AnyElement>, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    /// A build he answered, or the Job withdrew or replaced, in one line at its own time: where it stands, its title and the time.
+    fn ready_folded(&self, card: &ThreadReadyToTry, standing: Standing, look: &Look, now: DateTime<Local>) -> AnyElement {
         let key = card.id.clone();
         let ink = look.color(standing.ink());
         let chip = labelled(
@@ -734,115 +729,40 @@ impl JobView {
             .text_color(look.color(token::FG_MUTED))
             .child(SharedString::from(clock(&card.at, now)))
             .into_any_element();
-        let spot = page.keys.spot(&format!("card:{key}"), cx);
-        let held = format!("{key}:open");
-        let keyed = held.clone();
-        let line = self
-            .quiet_base(&format!("ready:{key}"), "circle-dot", vec![chip, about, time], look)
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .relative()
-            .cursor_pointer()
-            .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
-                if event.keystroke.modifiers.modified() || !matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                    return;
-                }
-                cx.stop_propagation();
-                this.flip_in_card(ix, &keyed, cx);
-            }))
-            .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, &held, cx)))
-            .children(probe);
-        labelled(line, Role::Article, format!("Ready to try: {}, {}", card.about, standing.word())).into_any_element()
+        let line = self.quiet_base(&format!("ready:{key}"), "circle-dot", vec![chip, about, time], look);
+        labelled(line, Role::ListItem, format!("Ready to try: {}, {}", card.about, standing.word())).into_any_element()
     }
 
-    /// A card put off: its title and when it comes back, on one quiet line.
-    #[allow(clippy::too_many_arguments)]
-    fn ready_later(&self, _ix: usize, card: &ThreadReadyToTry, until: Option<&Instant>, probe: Option<AnyElement>, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
-        let key = card.id.clone();
-        let back = until
-            .and_then(super::acts::at_of)
-            .map(|at| format!("Back {}", crate::operator::face::back_at(at, now)))
-            .unwrap_or_else(|| "Back later".to_string());
-        let parts = vec![
-            div().id(SharedString::from(format!("ready-about:{key}"))).flex_1().min_w_0().truncate().text_color(look.color(token::FG_MUTED)).child(SharedString::from(card.about.clone())).into_any_element(),
-            div()
-                .id(SharedString::from(format!("ready-back:{key}")))
-                .flex_none()
-                .font_family(mono(look))
-                .text_size(look.length(token::TEXT_2XS))
-                .text_color(look.color(token::FG_MUTED))
-                .tooltip(tip(Standing::Later.tip()))
-                .child(SharedString::from(back.clone()))
-                .into_any_element(),
-        ];
-        let spot = page.keys.spot(&format!("card:{key}"), cx);
-        let line = self.quiet_base(&format!("ready-later:{key}"), "clock", parts, look).track_focus(&spot.focus).in_focus(|style| style.border_color(look.color(token::ACCENT))).relative().children(probe);
-        labelled(line, Role::Article, format!("Ready to try: {}, {back}", card.about)).into_any_element()
+    /// The Job's newest open build whole, for the band's focus view of its one Ready to try row: the same detail, with Looks good,
+    /// Needs rework, Show me how, Remind me and Refresh preview, and never the generic question deck with its Answer button.
+    pub(super) fn ready_in_band(&self, job: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let drawn = (|| {
+            let (page, held) = (self.pages.get(job)?, self.thread(job, cx)?);
+            let (at, _) = card_named(&held.items, &format!("try:{job}"))?;
+            let ThreadItem::ReadyToTry(card) = held.items.get(at)? else { return None };
+            let wide = f32::from(self.pane.unwrap_or(px(720.)) - look.length(token::SPACE_4) * 2.);
+            Some(self.ready_detail(card, super::acts::SHEET, wide, page, Local::now(), look, cx))
+        })();
+        drawn.unwrap_or_else(|| div().into_any_element())
     }
 
-    // ---- going to a card from Needs you -----------------------------------------------------------
-
-    /// The card an item in Needs you names: scrolled to, given the keys, and pulsed once as its draw reaches it. A Job whose thread
-    /// holds no such card opens nothing.
+    /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card, and the thread
+    /// scrolled to it. A build already settled is one line, and the thread scrolls to that line. A Job whose thread holds no such
+    /// build opens nothing.
     pub(super) fn go_to_ready(&mut self, job: &str, id: &str, _window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some((at, id)) = self.thread(job, cx).and_then(|held| card_named(&held.items, id)) else { return false };
+        let Some((id, to)) = self.thread(job, cx).and_then(|held| {
+            let (at, id) = card_named(&held.items, id)?;
+            let asks = matches!(held.items.get(at), Some(ThreadItem::ReadyToTry(card)) if matches!(card.state, ReadyState::Open | ReadyState::Later));
+            Some((id, if asks { super::ready_compact::place_in(&held.items).unwrap_or(at) } else { at }))
+        }) else {
+            return false;
+        };
         let Some(page) = self.pages.get_mut(job) else { return false };
-        *page.cards.go.borrow_mut() = Some(id);
-        page.list.scroll_to_reveal_item(page.entry(at));
+        page.cards.ready_pick = Some(id);
+        page.remeasure(to);
+        page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(to), offset_in_item: gpui::px(0.) });
         cx.notify();
         true
-    }
-
-    /// Where the card draws, once, as its draw reaches it: a canvas that notices the request and defers its answer off the draw.
-    fn go_probe(&self, key: &str, page: &Page, cx: &Context<Self>) -> Option<AnyElement> {
-        if page.cards.go.borrow().as_deref() != Some(key) {
-            return None;
-        }
-        let (me, key) = (cx.entity().downgrade(), key.to_string());
-        Some(
-            canvas(
-                move |_, window, cx| {
-                    let (me, key) = (me.clone(), key.clone());
-                    window.defer(cx, move |window, cx| {
-                        let _ = me.update(cx, |this, cx| this.arrived_at_ready(&key, window, cx));
-                    });
-                },
-                |_, _, _, _| {},
-            )
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full()
-            .into_any_element(),
-        )
-    }
-
-    fn arrived_at_ready(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        let Some(page) = self.pages.get_mut(&job) else { return };
-        if page.cards.go.borrow_mut().take().as_deref() != Some(key) {
-            return;
-        }
-        let focus = page.keys.spot(&format!("card:{key}"), cx).focus;
-        page.cards.pulses += 1;
-        let n = page.cards.pulses;
-        page.cards.pulse = Some((key.to_string(), n));
-        window.focus(&focus, cx);
-        let (held, wait) = (key.to_string(), cx.look().duration(token::DURATION_PULSE));
-        cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(wait + std::time::Duration::from_millis(100)).await;
-            let _ = this.update(cx, |this, cx| {
-                if let Some(page) = this.pages.get_mut(&job) {
-                    if page.cards.pulse == Some((held, n)) {
-                        page.cards.pulse = None;
-                    }
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-        cx.notify();
     }
 
     /// Mock data: Fleet takes his answer as it does, and refuses it in its own words (`answer_ready_to_try`).
@@ -888,25 +808,17 @@ impl JobView {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
 
-    pub(super) fn card(wire: &str) -> ThreadReadyToTry {
+    pub(in crate::job_view) fn card(wire: &str) -> ThreadReadyToTry {
         let base = r#""id":"try:native/chip@aaaa1111","at":"2026-11-15T14:02:00Z","offered_at":"2026-11-15T14:00:00Z","branch":"native/chip","tip":"aaaa1111","about":"Sketch boxes drawn as cards","in_build":true"#;
         let wire = format!("{{{base}{wire}}}");
         ipc::decode::<ThreadReadyToTry>("card", wire.as_bytes()).expect("a card decodes")
     }
 
-    #[test]
-    fn a_card_with_an_approved_artifact_and_a_shot_draws_both_pictures_and_without_the_artifact_the_shot_alone() {
-        let both = card(r#","state":"open","approved":{"artifact":"sketch:Chip","title":"Chip","form":"sketch","revision":2},"pictures":["/work/shots/chip.png"]"#);
-        assert_eq!(Parts::of(&both).pictures, Pictures::Both);
-        let alone = card(r#","state":"open","pictures":["/work/shots/chip.png"]"#);
-        assert_eq!(Parts::of(&alone).pictures, Pictures::Built, "with nothing approved the built picture takes the row");
-        let none = card(r#","state":"open""#);
-        assert_eq!(Parts::of(&none).pictures, Pictures::None);
-        let drawn_only = card(r#","state":"open","approved":{"artifact":"sketch:Chip","title":"Chip","form":"sketch","revision":1}"#);
-        assert_eq!(Parts::of(&drawn_only).pictures, Pictures::Approved);
+    pub(in crate::job_view) fn thread_card(wire: &str) -> ThreadItem {
+        ThreadItem::ReadyToTry(card(wire))
     }
 
     #[test]
@@ -933,7 +845,19 @@ mod tests {
     }
 
     #[test]
-    fn his_words_and_the_fold_stand_only_where_the_card_has_them() {
+    fn a_card_with_an_approved_artifact_and_a_shot_draws_both_pictures_and_without_the_artifact_the_shot_alone() {
+        let both = card(r#","state":"open","approved":{"artifact":"sketch:Chip","title":"Chip","form":"sketch","revision":2},"pictures":["/work/shots/chip.png"]"#);
+        assert_eq!(Parts::of(&both).pictures, Pictures::Both);
+        let alone = card(r#","state":"open","pictures":["/work/shots/chip.png"]"#);
+        assert_eq!(Parts::of(&alone).pictures, Pictures::Built, "with nothing approved the built picture takes the row");
+        let none = card(r#","state":"open""#);
+        assert_eq!(Parts::of(&none).pictures, Pictures::None);
+        let drawn_only = card(r#","state":"open","approved":{"artifact":"sketch:Chip","title":"Chip","form":"sketch","revision":1}"#);
+        assert_eq!(Parts::of(&drawn_only).pictures, Pictures::Approved);
+    }
+
+    #[test]
+    fn his_words_and_where_to_look_stand_only_where_the_card_has_them() {
         let bare = card(r#","state":"open""#);
         let parts = Parts::of(&bare);
         assert!(!parts.words && !parts.fold && parts.steps.is_empty());
@@ -947,7 +871,7 @@ mod tests {
     }
 
     #[test]
-    fn show_me_how_runs_the_first_act_the_registry_knows_and_otherwise_opens_the_fold() {
+    fn show_me_how_runs_the_first_act_the_registry_knows() {
         let acts = crate::generated::actions::ACTIONS.first().map(|row| row.id).expect("the registry holds acts");
         let with = card(&format!(r#","state":"open","steps":[{{"say":"Nowhere"}},{{"say":"Go","act":"{acts}"}},{{"say":"Never","act":"not_an_act"}}]"#));
         assert_eq!(Parts::of(&with).first_go().map(|go| go.act), Some(acts));
@@ -956,7 +880,7 @@ mod tests {
     }
 
     #[test]
-    fn each_state_reads_as_the_one_line_it_folds_to() {
+    fn each_state_reads_as_the_standing_it_folds_to() {
         let words = |state: &str, extra: &str| Standing::of(&card(&format!(r#","state":"{state}"{extra}"#)), None);
         assert_eq!(words("open", ""), Standing::Open);
         assert_eq!(words("later", r#","later_until":"2026-11-16T09:00:00Z""#), Standing::Later);
@@ -967,7 +891,7 @@ mod tests {
         let said: Vec<&str> = [Standing::Good, Standing::Rework, Standing::Withdrawn, Standing::Replaced].iter().map(|one| one.word()).collect();
         assert_eq!(said, ["Looks good", "Needs rework", "Withdrawn", "Replaced by a newer build"]);
         assert!([Standing::Good, Standing::Rework, Standing::Withdrawn, Standing::Replaced].iter().all(|one| one.folds()));
-        assert!(!Standing::Open.folds() && !Standing::Later.folds());
+        assert!(Standing::Open.asks() && Standing::Later.asks());
     }
 
     #[test]
@@ -979,9 +903,9 @@ mod tests {
     }
 
     #[test]
-    fn two_pictures_stand_one_to_a_row_when_each_would_be_under_300_points() {
-        assert!(!stacked(640., 12.), "314 across each");
-        assert!(stacked(600., 12.), "294 across each");
+    fn two_pictures_stand_one_to_a_row_when_each_would_be_under_520_points() {
+        assert!(!stacked(1060., 12., PICTURE_LEAST), "524 across each");
+        assert!(stacked(1040., 12., PICTURE_LEAST), "514 across each");
     }
 
     #[test]
@@ -997,195 +921,5 @@ mod tests {
         assert_eq!(good["answer"], serde_json::json!({"kind": "looks_good"}));
         let remind: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::Remind { until: Instant::carried("2026-11-16T09:00:00+00:00") }).expect("it encodes")).expect("json");
         assert_eq!(remind["answer"], serde_json::json!({"kind": "remind", "until": "2026-11-16T09:00:00+00:00"}));
-    }
-
-    // ---- drawn, on the mock Fleet's `ready-to-try` scenario ---------------------------------------
-
-    use super::super::parts_fold::{drawn, drawn_like, redraw};
-    use gpui::Role;
-
-    /// The scenario's thread for `job` on screen in a window tall enough to draw all of it.
-    fn on_screen<'a>(cx: &'a mut gpui::TestAppContext, job: &str) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
-        cx.update(|cx| {
-            gpui_component::init(cx);
-            crate::look::init(cx);
-        });
-        let jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
-        let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
-        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
-        let (view, cx) = cx.add_window_view({
-            let list = list.clone();
-            move |window, cx| JobView::new(list, Some(threads), window, cx)
-        });
-        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
-        let job = job.to_string();
-        list.update(cx, |list, cx| list.open(job.into(), cx));
-        redraw(cx);
-        (view, cx)
-    }
-
-    /// Where a card with this title stands in the shown Job's thread, and the card.
-    fn card_titled(view: &gpui::Entity<JobView>, about: &str, cx: &mut gpui::VisualTestContext) -> (usize, ThreadReadyToTry) {
-        view.read_with(cx, |view, cx| {
-            let job = view.shown.clone().expect("a Job is shown");
-            let held = view.thread(&job, cx).expect("it holds a thread");
-            held.items
-                .iter()
-                .enumerate()
-                .find_map(|(ix, item)| match item {
-                    ThreadItem::ReadyToTry(card) if card.about == about => Some((ix, card.clone())),
-                    _ => None,
-                })
-                .unwrap_or_else(|| panic!("the thread holds a card titled {about}"))
-        })
-    }
-
-    const FULL: &str = "Sketch boxes drawn as cards";
-
-    #[gpui::test]
-    fn a_card_draws_its_title_pictures_words_fold_and_the_four_answers(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let _ = view;
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {FULL}")));
-        assert!(drawn(cx, Role::Button, "You approved: Sketch, Merge line flow"), "what he approved, under its label");
-        assert!(drawn(cx, Role::Button, "sketch-cards.png"), "what was built");
-        assert!(drawn(cx, Role::Button, "What changed and where to look"));
-        for name in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
-            assert!(drawn(cx, Role::Button, name), "{name} is on the card");
-        }
-    }
-
-    #[gpui::test]
-    fn a_card_with_no_approved_artifact_gives_its_one_picture_the_whole_row(cx: &mut gpui::TestAppContext) {
-        let (_view, cx) = on_screen(cx, "tool-search");
-        assert!(drawn(cx, Role::Article, "Ready to try: Search finds a Job by its branch"));
-        assert!(drawn(cx, Role::Button, "queue-search.png"));
-        assert!(drawn_like(cx, Role::Button, "You approved").is_empty(), "nothing approved, so no second picture");
-    }
-
-    #[gpui::test]
-    fn a_card_with_no_picture_draws_no_pictures(cx: &mut gpui::TestAppContext) {
-        let (_view, cx) = on_screen(cx, "tool-agent");
-        assert!(drawn(cx, Role::Article, "Ready to try: The reviewer's brief names its files"));
-        assert!(drawn_like(cx, Role::Button, "You approved").is_empty());
-        assert!(!drawn(cx, Role::Button, "queue-search.png"));
-    }
-
-    #[gpui::test]
-    fn a_card_answered_withdrawn_replaced_or_put_off_folds_to_one_line_each(cx: &mut gpui::TestAppContext) {
-        let (_view, cx) = on_screen(cx, "tool-done");
-        for line in [
-            "Ready to try: Chip takes the stale colour, Looks good",
-            "Ready to try: Clock sits under the chip, Needs rework",
-            "Ready to try: Arrows with words, Withdrawn",
-            "Ready to try: Rail layout for the Jobs list, Replaced by a newer build",
-        ] {
-            assert!(drawn(cx, Role::Article, line), "{line} stands as a line");
-        }
-        assert!(!drawn_like(cx, Role::Article, "Ready to try: Toast pile drawn as a stack, Back ").is_empty(), "a card put off says when it comes back");
-        for gone in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
-            assert!(!drawn(cx, Role::Button, gone), "a settled card has no {gone} button");
-        }
-    }
-
-    #[gpui::test]
-    fn a_line_opens_on_a_press_to_the_whole_card(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-done");
-        let (ix, card) = card_titled(&view, "Chip takes the stale colour", cx);
-        view.update(cx, |view, cx| view.flip_in_card(ix, &format!("{}:open", card.id), cx));
-        redraw(cx);
-        assert!(drawn(cx, Role::Article, "Ready to try: Chip takes the stale colour"), "the opened card carries no state word in its name");
-    }
-
-    #[gpui::test]
-    fn looks_good_posts_the_branch_and_tip_and_the_card_folds_at_once(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let (ix, card) = card_titled(&view, FULL, cx);
-        view.update_in(cx, |view, window, cx| view.answer_ready(ix, &card, ReadyAnswer::LooksGood, window, cx));
-        redraw(cx);
-        view.read_with(cx, |view, _| {
-            let sent = view.mock_ready.last().expect("an answer went to Fleet");
-            assert_eq!((sent.branch.as_str(), sent.tip.as_str()), (card.branch.as_str(), card.tip.as_str()));
-            assert!(matches!(sent.answer, ReadyAnswer::LooksGood));
-        });
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {FULL}, Looks good")));
-    }
-
-    #[gpui::test]
-    fn needs_rework_posts_his_words_and_folds_the_card(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-search");
-        let (ix, card) = card_titled(&view, "Search finds a Job by its branch", cx);
-        view.update_in(cx, |view, window, cx| view.answer_ready(ix, &card, ReadyAnswer::NeedsRework { words: "Match the tip too".into() }, window, cx));
-        redraw(cx);
-        view.read_with(cx, |view, _| match &view.mock_ready.last().expect("an answer went to Fleet").answer {
-            ReadyAnswer::NeedsRework { words } => assert_eq!(words, "Match the tip too"),
-            other => panic!("expected needs_rework, sent {other:?}"),
-        });
-        assert!(drawn(cx, Role::Article, "Ready to try: Search finds a Job by its branch, Needs rework"));
-    }
-
-    #[gpui::test]
-    fn remind_me_posts_the_time_he_chose_and_the_card_says_when_it_returns(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let (ix, card) = card_titled(&view, FULL, cx);
-        let until = Instant::carried((Local::now() + chrono::Duration::hours(3)).to_rfc3339());
-        view.update_in(cx, |view, window, cx| view.answer_ready(ix, &card, ReadyAnswer::Remind { until: until.clone() }, window, cx));
-        redraw(cx);
-        view.read_with(cx, |view, _| match &view.mock_ready.last().expect("an answer went to Fleet").answer {
-            ReadyAnswer::Remind { until: sent } => assert_eq!(sent.as_str(), until.as_str()),
-            other => panic!("expected remind, sent {other:?}"),
-        });
-        assert!(!drawn_like(cx, Role::Article, &format!("Ready to try: {FULL}, Back ")).is_empty());
-    }
-
-    #[gpui::test]
-    fn a_refused_answer_takes_the_card_back_and_shows_fleets_sentence_on_it(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let (ix, card) = card_titled(&view, FULL, cx);
-        let past = Instant::carried((Local::now() - chrono::Duration::hours(1)).to_rfc3339());
-        view.update_in(cx, |view, window, cx| view.answer_ready(ix, &card, ReadyAnswer::Remind { until: past }, window, cx));
-        redraw(cx);
-        let said = view.read_with(cx, |view, _| {
-            let page = view.pages.get(view.shown.as_ref().expect("shown")).expect("its page");
-            page.cards.said.get(&card.id).map(|why| why.to_string())
-        });
-        assert_eq!(said.as_deref(), Some("a time to remind him at that has not passed"));
-        assert!(drawn(cx, Role::Status, "Refused"), "the sentence stands on the card's own row");
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {FULL}")), "the card stays open");
-        assert!(drawn(cx, Role::Button, "Looks good"));
-    }
-
-    #[gpui::test]
-    fn a_press_in_needs_you_goes_to_the_card_gives_it_the_keys_and_pulses_it_once(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let (_, card) = card_titled(&view, FULL, cx);
-        let held = view.update_in(cx, |view, window, cx| view.open_named(&card.id, window, cx));
-        assert!(held, "the Job holds the card its item names");
-        redraw(cx);
-        let (pulsed, focused) = view.update_in(cx, |view, window, _| {
-            let page = view.pages.get(view.shown.as_ref().expect("shown")).expect("its page");
-            let spot = page.keys.spot_of(&format!("card:{}", card.id)).expect("the card holds a spot");
-            (page.cards.pulse.as_ref().map(|(id, _)| id.clone()), spot.focus.is_focused(window))
-        });
-        assert_eq!(pulsed.as_deref(), Some(card.id.as_str()));
-        assert!(focused, "the card has the keys");
-        view.read_with(cx, |view, _| assert!(view.artifacts_of("tool-edit").iter().all(|one| one.id != card.id), "no reader opened for it"));
-    }
-
-    #[gpui::test]
-    fn the_for_you_tab_reaches_the_card_the_same_way(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-search");
-        let (_, card) = card_titled(&view, "Search finds a Job by its branch", cx);
-        view.update_in(cx, |view, window, cx| view.open_artifact("tool-search", &card.id, window, cx));
-        redraw(cx);
-        let pulsed = view.read_with(cx, |view, _| view.pages.get(view.shown.as_ref().expect("shown")).and_then(|page| page.cards.pulse.as_ref().map(|(id, _)| id.clone())));
-        assert_eq!(pulsed.as_deref(), Some(card.id.as_str()));
-    }
-
-    #[gpui::test]
-    fn a_card_the_thread_no_longer_holds_opens_nothing(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit");
-        let held = view.update_in(cx, |view, window, cx| view.open_named("try:native/gone@0000", window, cx));
-        assert!(!held);
     }
 }

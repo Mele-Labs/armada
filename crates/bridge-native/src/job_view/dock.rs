@@ -15,6 +15,7 @@ use std::rc::Rc;
 
 use gpui::{anchored, canvas, deferred, div, point, prelude::*, Anchor, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Pixels, Role, SharedString, Subscription, Window};
 use gpui_component::input::InputEvent;
+use gpui_component::text::TextView;
 use ipc::{
     BuildSource, ConfirmWaiting, DismissWaiting, DoneWaiting, Lapsed, NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSectionKind,
     AnswerWaiting, ReachesTo, SessionId, ThreadAsk, WaitingSource,
@@ -1100,6 +1101,12 @@ impl JobView {
         });
         let words = match artifact.as_ref().filter(|_| own && !gone && !card) {
             Some(named) => self.artifact_words(id, named, text, buttons.is_none(), look, cx),
+            // A To do row's words are selectable, so he can copy what he is asked to do.
+            None if done.is_some() => div()
+                .flex_1()
+                .min_w_0()
+                .child(TextView::markdown(gpui::ElementId::Name(format!("needs-words:{key}").into()), text).w_full().selectable(true))
+                .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
@@ -1169,18 +1176,19 @@ impl JobView {
 
     /// The procedure a To do row carries, one numbered line each, under the row.
     fn step_lines(&self, key: &str, steps: &[String], look: &Look) -> AnyElement {
+        // Markdown, so the words can be selected and copied, and a command in backticks reads as code.
+        let source = steps.iter().enumerate().map(|(at, step)| format!("{}. {step}", at + 1)).collect::<Vec<_>>().join("\n");
         div()
             .id(SharedString::from(format!("needs-steps:{key}")))
-            .flex()
-            .flex_col()
             .px(look.length(token::SPACE_3))
-            .children(steps.iter().enumerate().map(|(at, step)| {
-                div()
+            .child(
+                TextView::markdown(gpui::ElementId::Name(format!("needs-steps-words:{key}").into()), source)
+                    .w_full()
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_SM))
                     .text_color(look.color(token::FG_MUTED))
-                    .child(SharedString::from(format!("{}. {step}", at + 1)))
-            }))
+                    .selectable(true),
+            )
             .into_any_element()
     }
 
@@ -1673,6 +1681,8 @@ impl JobView {
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
+            // A Job's builds to try are never a question: its newest open build is drawn whole, with its own answers.
+            Thing::Row(row) if row.source == WaitingSource::ReadyToTry => Pinned::body(self.ready_in_band(id, look, cx)),
             Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
                 let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
                 let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));

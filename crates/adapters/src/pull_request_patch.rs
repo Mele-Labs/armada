@@ -58,6 +58,22 @@ pub(crate) fn read_compared(in_repo: &str, base: &str, head: &str) -> Option<Com
     Some(ComparedPatches::Patches(listed(&lines)))
 }
 
+/// The files one commit changed. The commit endpoint lists them under `files` as a compare does,
+/// so [`COMPARED`] reads them.
+pub(crate) fn read_commit(in_repo: &str, commit: &str) -> Option<Vec<PatchedFile>> {
+    let commit = crate::api_forge::commit_named(commit)?;
+    let endpoint = format!("repos/{{owner}}/{{repo}}/commits/{commit}?per_page=100");
+    let run = run_in(in_repo, "gh", &["api", "--paginate", &endpoint, "--jq", COMPARED]).ok()?;
+    if !run.status.success() {
+        return None;
+    }
+    let lines: Vec<String> = String::from_utf8_lossy(&run.stdout)
+        .lines()
+        .map(str::to_string)
+        .collect();
+    Some(listed(&lines))
+}
+
 /// One file's patch, out of [`read_every`]'s one read.
 pub(crate) fn read(in_repo: &str, pull_request: &str, path: &str) -> Option<FilePatch> {
     read_every(in_repo, pull_request).map(|files| folded(files, path))

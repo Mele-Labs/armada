@@ -1,5 +1,5 @@
-//! `get_pull_request_detail`, `get_pull_request_file`, `get_pull_request_patches` and
-//! `write_pull_request`. Since 23.83; the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
+//! `get_pull_request_detail`, `get_pull_request_file`, `get_pull_request_patches`,
+//! `get_pull_request_commit_patches` and `write_pull_request`. Since 23.83; the file read since 23.87. `get_review_lists` and `resolve_review_thread` beside them.
 
 use std::net::SocketAddr;
 
@@ -55,6 +55,20 @@ pub(crate) async fn get_pull_request_patches<D: PullRequestPanel>(
     match served
         .daemon()
         .get_pull_request_patches(ManifestId::carried(repository), number)
+        .await
+    {
+        Ok(files) => answer(StatusCode::OK, &files, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_pull_request_commit_patches<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path((repository, number, commit)): Path<(String, u64, String)>,
+) -> Response {
+    match served
+        .daemon()
+        .get_pull_request_commit_patches(ManifestId::carried(repository), number, commit)
         .await
     {
         Ok(files) => answer(StatusCode::OK, &files, served.run_id()),

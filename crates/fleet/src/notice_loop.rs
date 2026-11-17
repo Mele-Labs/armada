@@ -131,6 +131,8 @@ where
             fleet.claims_kept().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // The files each Job wrote, filed under the features that own them.
+            fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.
             fleet.clashes_published().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

@@ -297,6 +297,14 @@ fn authored_by(ask: impl Fn(&[&str]) -> Option<String>, gate: &str, author: &str
 /// `gh pr list` of the open pull requests `only` narrows it to, at each of [`LISTED`]'s sizes
 /// until one answers.
 fn listing(ask: impl Fn(&[&str]) -> Option<String>, gate: &str, only: &[&str]) -> Option<OpenPulls> {
+    // **Every open one is listed without its review decision**, which times the forge out as
+    // `crate::api_forge`'s list says; one author's carry it.
+    let fields = match only.is_empty() {
+        true => "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest,\
+                 createdAt,updatedAt,isDraft,mergeable,additions,deletions",
+        false => "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest,\
+                  createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,deletions",
+    };
     let said = LISTED.iter().find_map(|limit| {
         let mut args = vec!["pr", "list", "--state", "open"];
         args.extend_from_slice(only);
@@ -304,8 +312,7 @@ fn listing(ask: impl Fn(&[&str]) -> Option<String>, gate: &str, only: &[&str]) -
             "--limit",
             limit,
             "--json",
-            "number,title,headRefName,url,author,statusCheckRollup,headRefOid,autoMergeRequest,\
-             createdAt,updatedAt,isDraft,mergeable,reviewDecision,additions,deletions",
+            fields,
             "--jq",
             OPEN_PULLS,
         ]);
@@ -584,6 +591,26 @@ mod tests {
         assert_eq!(*asked.borrow(), ["100", "25"]);
         assert_eq!(listed.iter().map(|pull| pull.number).collect::<Vec<_>>(), [12]);
         assert!(open_pulls_by(|_| None, "ci").is_none());
+    }
+
+    /// **The listing of every open one asks no review decision**, which a repository with hundreds
+    /// open times the forge out on. One author's asks it, so the person's own still carry it.
+    #[test]
+    fn only_one_authors_listing_asks_the_review_decision() {
+        let fields = |only: &[&str]| {
+            let asked = std::cell::RefCell::new(String::new());
+            listing(
+                |args| {
+                    *asked.borrow_mut() = args[args.iter().position(|it| *it == "--json").unwrap() + 1].to_string();
+                    None
+                },
+                "ci",
+                only,
+            );
+            asked.into_inner()
+        };
+        assert!(!fields(&[]).contains("reviewDecision"), "{}", fields(&[]));
+        assert!(fields(&["--author", "octocat"]).contains("reviewDecision"));
     }
 
     /// The person's own listing is the open listing narrowed to their login, and asked again for

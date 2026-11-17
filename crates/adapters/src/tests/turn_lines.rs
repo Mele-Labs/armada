@@ -244,3 +244,27 @@ fn a_turns_input_is_shared_by_what_its_context_carried_and_a_compaction_is_backg
     assert_eq!(tail.background, whole.background);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A search is a Grep, a Glob or a shell command that greps or finds, and it counts only until the message's first edit.
+#[test]
+fn a_message_counts_its_code_searches_up_to_its_first_edit() {
+    let call = |name: &str, input: &str| format!(r#"{{"type":"tool_use","name":"{name}","input":{input}}}"#);
+    let blocks = [
+        call("Grep", r#"{"pattern":"x"}"#),
+        call("Glob", r#"{"pattern":"**/*.rs"}"#),
+        call("Bash", r#"{"command":"cd /a && rg foo"}"#),
+        call("Bash", r#"{"command":"cargo build"}"#),
+        call("Read", r#"{"file_path":"/x"}"#),
+        call("Edit", r#"{"file_path":"/x"}"#),
+        call("Grep", r#"{"pattern":"after"}"#),
+    ]
+    .join(",");
+    let dir = std::env::temp_dir().join(format!("turn_searches_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("s.jsonl");
+    std::fs::write(&file, format!("{}\n{}\n", line("a", 5, &blocks), line("b", 5, &call("Grep", r#"{"pattern":"y"}"#)))).unwrap();
+    let done = read_turns(&file, 0, false, u64::MAX, None, Carry::default()).unwrap();
+    let counted: Vec<(&str, u32)> = done.searches.iter().map(|one| (one.message_id.as_str(), one.searches)).collect();
+    assert_eq!(counted, [("a", 3), ("b", 1)], "the Grep after the Edit is not before it");
+    std::fs::remove_dir_all(&dir).ok();
+}

@@ -1638,3 +1638,15 @@ scope = "review sheet"
 destructive = false
 confirms = false
 notes = "Marks the chosen note of the In this build sheet looked at and needing work, through `mark_build_note_looked_at` with the verdict `needs_work`, and puts the keys in the note's box. Fleet tells the note's Job to wait for his words, which Send carries. Shift on Good's chord. Native only, 15 Nov 2026."
+
+[actions.build_note_open_job]
+kind = "Action"
+tier = "Contextual"
+verb = "Open Job"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥⌘O"
+scope = "review sheet"
+destructive = false
+confirms = false
+notes = "Closes the In this build sheet and opens the thread of the chosen note's Job on the Jobs screen, as a Job from the command palette opens, ended or not. ⌥⌘O, since ⌘O is Open a file's and a bare O is typing in the note's box. Native only, 16 Nov 2026."

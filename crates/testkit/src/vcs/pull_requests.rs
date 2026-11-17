@@ -64,6 +64,8 @@ pub(super) struct PullRequests {
     pub(super) compared: Vec<((String, String), ComparedPatches)>,
     /// Every compare asked, as base and head.
     pub(super) compares_asked: Vec<(String, String)>,
+    /// What the forge answers for one commit's files, by the commit as asked. One not here is silent.
+    pub(super) commit_patches: Vec<(String, Vec<PatchedFile>)>,
     /// The forge's reply to a write on a pull request.
     pub(super) written: Result<(), String>,
     /// What the forge answers for each review list. A list with no entry is silent.
@@ -96,6 +98,7 @@ impl Default for PullRequests {
             patches: None,
             compared: Vec::new(),
             compares_asked: Vec::new(),
+            commit_patches: Vec::new(),
             written: Ok(()),
             review_lists: Vec::new(),
             review_lists_together: None,
@@ -421,6 +424,19 @@ impl FakeVcs {
         let mut held = self.pull_requests.lock().expect("not poisoned");
         held.compared.retain(|((from, to), _)| !(from == base && to == head));
         held.compared.push(((base.to_string(), head.to_string()), answer));
+    }
+
+    /// `Forge::commit_patches`: answered as scripted for that commit, else silent.
+    pub(super) fn commit_patches_read(&self, commit: &str) -> Option<Vec<PatchedFile>> {
+        let held = self.pull_requests.lock().expect("not poisoned");
+        held.commit_patches.iter().find(|(named, _)| named == commit).map(|(_, files)| files.clone())
+    }
+
+    /// Say what the forge answers for one commit's files.
+    pub fn now_commit_patches(&self, commit: &str, files: Vec<PatchedFile>) {
+        let mut held = self.pull_requests.lock().expect("not poisoned");
+        held.commit_patches.retain(|(named, _)| named != commit);
+        held.commit_patches.push((commit.to_string(), files));
     }
 
     /// Every compare asked of the forge, as base and head.

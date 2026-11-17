@@ -1,0 +1,12 @@
+[operations.get_first_edit_searches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read how many code searches Jobs ran before their first edit, a week at a time: Grep, Glob and shell grep, rg and find"
+notes = """
+`GET /usage/first_edit_searches?weeks=`, answered with `FirstEditSearches`: `weeks`, oldest first, each `SearchWeek` holding `starts` (the Monday, UTC), `jobs`, `searches` and `per_job`, and `unmeasured`. `weeks` is how many to read back from this one, 8 where absent and at most 52.
+
+**A Job is counted in the week of its first Edit or Write**, and its figure is the searches in its own turns and its subagents' up to that call. A Job that never edited is in no week. A Job whose turns were read before searches were counted is in `unmeasured` and in no week, until its transcript is read again.
+
+This is the figure the feature library is judged by: a week before it and a week after.
+"""

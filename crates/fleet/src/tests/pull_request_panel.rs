@@ -9,7 +9,7 @@ use adapter_traits::{
     PageFile, PatchedFile, PullRequestPageFacts, PullRequestStanding, PullRequestWrite, ReviewComment, ReviewSaid,
     ReviewStanding, ReviewThreadFacts, Said, ThreadSaid,
 };
-use api::PullRequestPanel;
+use api::{PullRequestPanel, Refusal};
 use ipc::{
     DiffSide, ManifestId, PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestMergeable,
     PullRequestReviewState, PullRequestVerdict, PullRequestWriteKind, PullReviewComment, ResolvePullThread,
@@ -22,6 +22,7 @@ use super::pull_requesting::{
 
 pub(super) fn a_page() -> PullRequestPageFacts {
     PullRequestPageFacts {
+        merge_state: adapter_traits::MergeState::Dirty,
         latest_reviews: Default::default(),
         base: "main".into(),
         author: Some("NickMele".into()),
@@ -136,6 +137,7 @@ async fn the_page_is_the_forges_in_the_wires_words() {
     fleet.vcs().now_pull_request_page(Some(a_page()));
     let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
     assert_eq!(page.mergeable, PullRequestMergeable::Conflicting);
+    assert_eq!(page.merge_state, ipc::PullRequestMergeState::Dirty);
     assert_eq!(page.review, PullRequestReviewState::ChangesRequested);
     assert_eq!(page.checks[0].state, PullRequestCheckState::Running);
     assert_eq!(page.files[0].status, PullRequestFileStatus::Renamed);
@@ -268,6 +270,45 @@ async fn a_forge_that_will_not_say_what_changed_on_a_pull_request_is_a_fault() {
     let refused = fleet.get_pull_request_patches(id, 12).await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.pull_request_unreadable");
+}
+
+/// One commit's files in the shape the whole pull request's take, so the Files tab draws either.
+#[tokio::test]
+async fn one_commits_files_are_each_its_patch_or_the_sentence_in_the_forges_order() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_commit_patches(
+        "b42a108",
+        vec![
+            PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()), blob: Some("b1".into()) },
+            PatchedFile { path: "logo.png".into(), patch: None, blob: None },
+        ],
+    );
+
+    let patches = fleet.get_pull_request_commit_patches(id.clone(), 12, "b42a108".into()).await.expect("read");
+
+    let read: Vec<(&str, Option<&str>, bool)> =
+        patches.files.iter().map(|it| (it.path.as_str(), it.patch.as_deref(), it.said.is_some())).collect();
+    assert_eq!(read, [("z.rs", Some("@@ -1 +1 @@\n-a\n+b"), false), ("logo.png", None, true)]);
+    assert_eq!((patches.files[0].number, patches.files[0].blob.as_deref()), (12, Some("b1")));
+}
+
+#[tokio::test]
+async fn a_commit_the_forge_will_not_read_is_a_fault_and_a_name_that_is_no_commit_is_refused() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+
+    let silent = fleet.get_pull_request_commit_patches(id.clone(), 12, "b42a108".into()).await.unwrap_err();
+    assert!(matches!(silent, Refusal::Fault(_)), "{silent:?}");
+    assert_eq!(code(&silent), "fleet.pull_request_unreadable");
+
+    for named in ["main", "b42a", "../../x"] {
+        let refused = fleet.get_pull_request_commit_patches(id.clone(), 12, named.into()).await.unwrap_err();
+        assert!(matches!(refused, Refusal::Unacceptable(_)), "{named}: {refused:?}");
+        assert_eq!(code(&refused), "fleet.pull_request_commit_invalid", "{named}");
+    }
 }
 
 #[tokio::test]
