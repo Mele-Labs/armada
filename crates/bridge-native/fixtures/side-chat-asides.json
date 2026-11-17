@@ -1,0 +1,46 @@
+{
+  "session_id": "mock-02",
+  "asides": [
+    {
+      "aside_id": "mock-aside-1",
+      "session_id": "mock-02",
+      "question": "why did it skip the store migration?",
+      "answer": "The migration was already on main (20261114T0500Z). It only adds a column the Job never reads.",
+      "state": "answered",
+      "asked_at": "2026-11-16T09:41:00Z",
+      "answered_at": "2026-11-16T09:41:09Z",
+      "told_at": "2026-11-16T09:42:30Z",
+      "reads": ["Read crates/store/migrations"]
+    },
+    {
+      "aside_id": "mock-aside-2",
+      "session_id": "mock-02",
+      "question": "does that hold for forks too?",
+      "answer": "Yes. A fork reads the same table, so nothing changes for it.",
+      "state": "answered",
+      "asked_at": "2026-11-16T09:43:00Z",
+      "answered_at": "2026-11-16T09:43:07Z",
+      "reads": ["Grep fork in crates/store"]
+    },
+    {
+      "aside_id": "mock-aside-3",
+      "session_id": "mock-02",
+      "question": "what did the last check say?",
+      "quote": "write-clash probe",
+      "answer": "",
+      "state": "failed",
+      "failed": "Fleet restarted before this was answered",
+      "asked_at": "2026-11-16T09:45:00Z",
+      "reads": []
+    },
+    {
+      "aside_id": "mock-aside-4",
+      "session_id": "mock-02",
+      "question": "which tests cover the retry path?",
+      "answer": "The retry path is covered by two",
+      "state": "asking",
+      "asked_at": "2026-11-16T09:47:00Z",
+      "reads": ["Grep retry in crates/api/src", "Read crates/api/src/webhook.rs"]
+    }
+  ]
+}

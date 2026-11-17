@@ -305,6 +305,7 @@ impl JobView {
                     base: None,
                     root_base: None,
                     stacked_on: None,
+                    merge: ipc::PullRequestMergeState::Unknown,
                 });
                 self.open_pull(pull, window, cx);
             }

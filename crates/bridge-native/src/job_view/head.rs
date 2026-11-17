@@ -130,7 +130,7 @@ pub(super) fn act_button(look: &Look, id: &'static str, icon: &'static str, act:
     icon_frame(look, id, icon, lit, off).tooltip(keyed_tip(act, tip_said))
 }
 
-fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
+pub(super) fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
     let ink = if lit { look.color(token::FG_DEFAULT) } else { look.color(token::FG_SUBTLE) };
     div()
         .id(id)
@@ -1417,7 +1417,14 @@ impl JobView {
             });
             // While a move waits, the ring and the target Mac stand in for the held Mac's chip: the bar has no room for both at the narrowest width.
             let moving = crate::move_to_mac::moving_to(job).is_some();
-            let mac_mark = crate::pairing::chip(job.mac.as_deref(), cx).filter(|_| !moving).map(|chip| crate::pairing::pill(look, "mark-mac".into(), &chip));
+            // A Job on this Mac wears no mark; one on another Mac a muted laptop glyph, as its Jobs list row does.
+            let mac_mark = job.mac.as_deref().filter(|_| !moving).and_then(|mac| crate::pairing::chip(Some(mac), cx)).map(|chip| {
+                labelled(
+                    div().id("mark-mac").flex_none().child(svg().path(icon_path("laptop")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
+                    Role::Image,
+                    SharedString::from(format!("On {}", chip.name)),
+                )
+            });
             // A move that waits for the turn to end: a turning ring, then the Mac the Job is going to.
             let moving_mark = crate::move_to_mac::moving_to(job).and_then(|to| crate::pairing::chip(Some(to), cx)).map(|chip| {
                 let said: SharedString = format!("Moving to {}", chip.name).into();
@@ -1522,6 +1529,10 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return false };
         if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
             return false;
+        }
+        // ⌘W shuts the side chat's split, from its own box too.
+        if self.side_chat_key(event, window, cx) {
+            return true;
         }
         if self.zoom_key(event, window, cx) {
             return true;

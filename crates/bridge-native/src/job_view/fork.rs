@@ -206,11 +206,19 @@ impl JobView {
             entries.push(Entry::Act { id: "reply", label: "Reply".into(), icon: Some("reply"), danger: false });
         }
         entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
+        entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
         let back = self.focus.clone();
         self.open_pop("Selection", entries, at, from_keys, Some(back), |this, id, window, cx| this.fork_act(id, window, cx), window, cx);
     }
 
-    /// One of the three acts on the selected words.
+    /// The words selected in the thread, taken for the side chat to quote: the bar and the selection go.
+    pub(super) fn take_picked_words(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<String> {
+        let picked = self.fork.shown.take()?;
+        TextSelection::clear(window, cx);
+        Some(picked.words)
+    }
+
+    /// One of the acts on the selected words.
     fn fork_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(picked) = self.fork.shown.take() else { return };
         TextSelection::clear(window, cx);
@@ -218,6 +226,7 @@ impl JobView {
             "reply" => self.quote(&picked.words, window, cx),
             "teach" => self.teach_open(Teach { kind: "words", text: picked.words.clone(), at: None, ids: Vec::new() }, window, cx),
             "fork" => self.fork_from(picked.row, picked.words, window, cx),
+            "ask" => self.open_side_chat(Some(picked.words.clone()), window, cx),
             _ => {}
         }
         cx.notify();
@@ -281,7 +290,37 @@ impl JobView {
         .detach();
     }
 
-    /// The bar over the selected words: Reply, Fork from here, Teach. Drawn from the words' own block, so it
+    /// Ask, the bar's act that puts the selected words to the side chat, with ⌘J, the key that opens it, in its tooltip.
+    fn selection_ask(&self, look: &crate::look::Look, cx: &Context<Self>) -> AnyElement {
+        let key = super::side_chat::open_key();
+        labelled(
+            div()
+                .id("selection-ask")
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL_SM))
+                .rounded(look.length(token::RADIUS_MD))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new("Ask").key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+                .child(glyph(look, "eye", Size::Mark, look.color(token::TOOL_LOOK)))
+                .on_mouse_down(MouseButton::Left, |_, window, cx| {
+                    window.prevent_default();
+                    cx.stop_propagation();
+                })
+                .on_click(cx.listener(|this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.fork_act("ask", window, cx);
+                })),
+            Role::Button,
+            "Ask",
+        )
+        .into_any_element()
+    }
+
+    /// The bar over the selected words: Reply, Fork from here, Teach, Ask. Drawn from the words' own block, so it
     /// travels with them as the thread scrolls and goes with them when they scroll away, as Classic places it
     /// again on every scroll (`ForkFromSelection.tsx`).
     fn render_fork_bar(&self, row: &str, cx: &Context<Self>) -> Option<AnyElement> {
@@ -338,7 +377,8 @@ impl JobView {
                 .occlude()
                 .children(live.then(|| act("reply", "Reply", "reply")))
                 .child(act("fork", "Fork from here", "git-fork"))
-                .child(act("teach", "Teach", "graduation-cap")),
+                .child(act("teach", "Teach", "graduation-cap"))
+                .child(self.selection_ask(look, cx)),
             Role::Toolbar,
             "Selection",
         );

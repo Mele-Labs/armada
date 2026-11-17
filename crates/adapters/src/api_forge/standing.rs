@@ -9,11 +9,11 @@ use super::Nodes;
 use super::page::InRepository;
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
 use crate::landing::{landing_of, unknown, LandingRead};
-use crate::pull_request_facts::{facts_of, FactsRead};
+use crate::pull_request_facts::{facts_of, merge_state_word, FactsRead};
 
 /// The closing references are read a hundred at a time, as `gh` reads them.
 const FACTS: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
-    pullRequest(number:$number){state isDraft autoMergeRequest{enabledAt} headRefName baseRefName url title body \
+    pullRequest(number:$number){state isDraft autoMergeRequest{enabledAt} mergeStateStatus headRefName baseRefName url title body \
     closingIssuesReferences(first:100){nodes{number}}}}}";
 
 const LANDING: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
@@ -25,6 +25,7 @@ pub(crate) struct Facts {
     state: Option<String>,
     is_draft: Option<bool>,
     auto_merge_request: Option<serde::de::IgnoredAny>,
+    merge_state_status: Option<String>,
     head_ref_name: Option<String>,
     base_ref_name: Option<String>,
     url: Option<String>,
@@ -57,6 +58,7 @@ pub(crate) fn facts_from(pull: Facts) -> Option<PullRequestFacts> {
         state: &trimmed(pull.state),
         draft: pull.is_draft?,
         auto_merge: pull.auto_merge_request.is_some(),
+        merge_state: merge_state_word(pull.merge_state_status.as_deref().unwrap_or_default().trim()),
         branch: &trimmed(pull.head_ref_name),
         base: &trimmed(pull.base_ref_name),
         url: &trimmed(pull.url),

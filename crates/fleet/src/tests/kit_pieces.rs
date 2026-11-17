@@ -73,6 +73,7 @@ fn row(name: &str, source: &Path, plugin: Option<&str>) -> SetupItem {
         style: None,
         plugin: plugin.map(str::to_string),
         uninstall: None,
+        server: None,
     }
 }
 

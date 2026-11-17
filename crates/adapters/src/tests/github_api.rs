@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use adapter_traits::Secret;
 use serde::{Deserialize, Serialize};
 
-use crate::github_api::{next_link, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, RateLimit};
+use crate::github_api::{hold_for, next_link, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, RateLimit};
 use crate::ForgeAddress;
 
 #[derive(Clone, Debug)]
@@ -313,4 +313,65 @@ fn threads_sharing_one_client_reuse_its_connections() {
     // opens one more: a client per call would open one for every request.
     assert!(connections <= 2 * THREADS, "{connections} connections for {} requests", THREADS * EACH);
     assert_eq!(reads.load(Ordering::SeqCst), 1, "the token is read once for every thread");
+}
+
+// -- holding every call after a rate-limit refusal
+
+#[test]
+fn after_a_rate_limit_refusal_the_next_call_is_held_without_reaching_github() {
+    let server = serve(|_| Reply {
+        status: 403,
+        headers: vec![("retry-after", "60".to_string())],
+        body: r#"{"message":"You have exceeded a secondary rate limit"}"#.to_string(),
+    });
+    let (api, _) = api(&server.url, &["t"]);
+    assert!(matches!(api.get("/repos/o/r"), Err(ApiFailure::Refused { status: 403, .. })));
+    match api.graphql::<Viewer, _>("query { viewer }", &Number { number: 7 }) {
+        Err(ApiFailure::HeldBack { seconds }) => assert!((59..=75).contains(&seconds), "{seconds}"),
+        other => panic!("held, not {other:?}"),
+    }
+    assert_eq!(server.seen().len(), 1, "the held call never left");
+}
+
+#[test]
+fn a_rate_limit_named_only_in_a_graphql_error_holds_too() {
+    let server = serve(|_| ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#));
+    let (api, _) = api(&server.url, &["t"]);
+    let first = api.graphql::<Viewer, _>("query { viewer }", &Number { number: 7 });
+    assert!(matches!(first, Err(ApiFailure::GraphQl(_))), "{first:?}");
+    assert!(matches!(api.get("/repos/o/r"), Err(ApiFailure::HeldBack { .. })));
+    assert_eq!(server.seen().len(), 1);
+}
+
+#[test]
+fn another_failure_holds_nothing() {
+    let server = serve(|_| Reply { status: 502, headers: Vec::new(), body: "bad gateway".to_string() });
+    let (api, _) = api(&server.url, &["t"]);
+    assert!(api.get("/repos/o/r").is_err());
+    assert!(api.get("/repos/o/r").is_err());
+    assert_eq!(server.seen().len(), 2, "a 502 is not the rate limit");
+}
+
+#[test]
+fn the_hold_is_retry_after_else_a_spent_windows_reset_else_minutes_that_double() {
+    let secs = |limit, streak| hold_for(limit, streak, 1_000, 0).as_secs();
+    let retry = RateLimit { remaining: Some(0), reset_at: Some(5_000), retry_after: Some(60) };
+    assert_eq!(secs(Some(retry), 0), 60, "Retry-After wins");
+    let spent = RateLimit { remaining: Some(0), reset_at: Some(1_900), retry_after: None };
+    assert_eq!(secs(Some(spent), 0), 900, "a spent window waits for its reset");
+    let named_nothing = RateLimit { remaining: Some(3_594), reset_at: Some(1_900), retry_after: None };
+    assert_eq!(secs(Some(named_nothing), 0), 180, "a reset with calls left is not the wait");
+    assert_eq!((secs(None, 0), secs(None, 1), secs(None, 2), secs(None, 5)), (180, 360, 720, 900));
+    let long = RateLimit { remaining: Some(0), reset_at: Some(1_000_000), retry_after: None };
+    assert_eq!(secs(Some(long), 0), 3_600, "never more than an hour");
+}
+
+#[test]
+fn jitter_spreads_a_hold_by_up_to_a_quarter_and_never_more_than_a_minute() {
+    let limit = |seconds| Some(RateLimit { retry_after: Some(seconds), ..Default::default() });
+    let spread = |seconds, seed| hold_for(limit(seconds), 0, 0, seed).as_secs();
+    assert_eq!(spread(60, 15), 75);
+    assert_eq!(spread(60, 16), 60, "the seed wraps within the spread");
+    assert_eq!(spread(900, 60), 960);
+    assert_eq!(spread(900, 61), 900);
 }

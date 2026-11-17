@@ -18,6 +18,7 @@ mod story;
 mod authoring;
 mod autopilot;
 mod events;
+mod features;
 mod hosted_sessions;
 mod other_macs;
 mod outside;
@@ -66,6 +67,7 @@ pub const SERVED: &[Route] = &joined::<
             + judge::ROUTES.len()
             + story::ROUTES.len()
             + other_macs::ROUTES.len()
+            + features::ROUTES.len()
     },
 >([
     ROUTES,
@@ -83,10 +85,11 @@ pub const SERVED: &[Route] = &joined::<
     judge::ROUTES,
     story::ROUTES,
     other_macs::ROUTES,
+    features::ROUTES,
 ]);
 
 /// The fifteen tables as one, in order. A count that disagrees with `N` fails the build.
-const fn joined<const N: usize>(tables: [&[Route]; 15]) -> [Route; N] {
+const fn joined<const N: usize>(tables: [&[Route]; 16]) -> [Route; N] {
     // Filled from the first row: a literal `Route` here would read as a row to the gate rule.
     let mut out = [tables[0][0]; N];
     let (mut table, mut at) = (0, 0);

@@ -13,3 +13,11 @@
     status = "Proposed"
     reserved = "A locked Logbook entry, and the Lock act on it. Never a permission, a security state or a locked file."
     notes = "Proposed 22 Oct 2026 for the walk `logbook-changes`, in place of `pin`, which stays the canvas rail's alone. Tooltip `Locked: Armada never rewrites it or lets it fade.`"
+
+  [[icons.lock.usage]]
+    means = "The band under the side chat's tab: the copy it asks is read-only and the Job does not see the exchange"
+    group = "Job tools"
+    size = "14px"
+    status = "Proposed"
+    reserved = "That band alone. Still never a permission, a security or auth state, or a locked file."
+    notes = "Proposed 16 Nov 2026 for the walk `native-side-chat`, as the owner's approved sketch draws it. It says the copy cannot write, which is a property of the copy and grants or refuses nobody access. The words beside it are `Read-only copy. The Job doesn't see this.`"

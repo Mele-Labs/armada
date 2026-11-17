@@ -76,6 +76,7 @@ where
                 notice: notice.map(|notice| notice.word().to_string()),
                 queued: false,
                 edited_at: None,
+                aside: None,
                 sketches: Vec::new(),
             },
         )
