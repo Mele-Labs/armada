@@ -291,9 +291,9 @@ impl JobView {
         held
     }
 
-    /// Whether a sketch, draft or page the thread holds a card for is a part of an artifact, which its card draws.
+    /// Whether a sketch, draft or page the thread holds a card for is an artifact of parts or one of its parts, which its card draws.
     pub(super) fn is_part(&self, job: &str, id: &str) -> bool {
-        self.parts_artifacts(job).iter().any(|one| one.parts.iter().any(|part| part.id == id))
+        self.parts_artifacts(job).iter().any(|one| one.id == id || one.parts.iter().any(|part| part.id == id))
     }
 
     /// A part by its key, as he reads it, with the id of the artifact it belongs to.

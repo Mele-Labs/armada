@@ -445,6 +445,34 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_sketch_redrawn_under_a_new_title_draws_its_artifact_card_and_no_pinned_card_beside_it(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("artifact-folds").expect("the fixture decodes");
+        let mut threads = crate::mock::threads("artifact-folds").expect("the threads decode");
+        // Fleet pins the newest card of the sketch: its ledger id is the first title's, its title the new one.
+        let wire = r#"{"id":"sk-2","at":"2026-11-14T10:46:00Z","sketch":"sketch:Step flow","title":"Step flow, with the gate","drawing":{"nodes":[],"edges":[]},"asked":true}"#;
+        threads.get_mut(JOB).expect("the Job's thread").head.sketch = Some(ipc::decode::<ipc::ThreadSketch>("a pin", wire.as_bytes()).expect("a pin decodes"));
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (root, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| Rooted(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
+        });
+        let view = root.read_with(cx, |root, _| root.0.clone());
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
+        list.update(cx, |list, cx| list.open(JOB.into(), cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let page = view.pages.get(JOB).expect("the Job's page is held");
+            assert!(!page.extras.iter().any(|extra| matches!(extra, Extra::Sketch(_))), "no pinned card: the artifact's card draws the sketch");
+            let placed = page.anchors.iter().any(|one| one.artifact == "sketch:Step flow") || page.extras.iter().any(|extra| matches!(extra, Extra::Parts(id, _) if id == "sketch:Step flow"));
+            assert!(placed, "the artifact's card stands");
+        });
+    }
+
+    #[gpui::test]
     fn open_reads_a_parts_artifact_whole_in_the_review_panel_one_with_no_drawing_too(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |_| {});
         for id in ["sketch:Rollout order", "sketch:Step flow", "draft:Merge line wording"] {
