@@ -2115,3 +2115,22 @@ Electron reads none of it. The native strip says GitHub is rate-limiting us, unt
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
 **The event stream.** Both events carry their type whole, so they carry the field; no new event.
+
+## When he was asked to review: `PullReviewRow.asked_at`
+
+Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
+**Additive only**: one optional field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/pull-reviews.ts`, written by hand, field for field.
+Electron reads none of it. The native inbox puts the longest wait first under Review requested from you.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PullReviewRow` (`get_review_lists`) | Fleet writes, Bridge reads | Gains `asked_at`, absent when unknown: an instant, when he was last asked to review it |
+
+On the `requested` list it is the forge's latest review request naming him, else when Fleet first told him of the request; on the `team` list the forge's latest naming a team he is on.
+The other two lists leave it out.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's row has no field, which a newer Bridge reads as a wait it does not know and draws after those it does.
+**The event stream.** No new event.
