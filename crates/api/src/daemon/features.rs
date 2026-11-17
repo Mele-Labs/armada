@@ -63,6 +63,11 @@ pub trait Features: Send + Sync + 'static {
     /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.
     fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> impl Future<Output = Result<ipc::FeaturesHandedOver, Refusal>> + Send;
 
+    /// `check_commit_feature` — whether the Job's `git commit` names the feature it serves. **Only a Job started after its
+    /// project's catalog was seeded is refused.** Allowed where the Job is unknown, the project has no feature, the commit
+    /// gives no message in its line or names a feature, or there is nothing to commit.
+    fn check_commit_feature(&self, check: ipc::CheckCommitFeature) -> impl Future<Output = Result<ipc::CommitFeatureChecked, Refusal>> + Send;
+
     /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
     fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;
 }

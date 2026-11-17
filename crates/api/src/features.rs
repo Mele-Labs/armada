@@ -108,6 +108,18 @@ pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<
     }
 }
 
+/// The mod's hook asks before a `git commit` runs. **The Job is named in the body**, as `hand_over_features`'s is.
+pub(crate) async fn check_commit_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let check: ipc::CheckCommitFeature = match ipc::decode_body("a commit about to run", &body) {
+        Ok(check) => check,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().check_commit_feature(check).await {
+        Ok(checked) => answer(StatusCode::OK, &checked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_first_edit_searches<D: Features>(State(served): State<Served<D>>, Query(asked): Query<Weeks>) -> Response {
     match served.daemon().get_first_edit_searches(asked.weeks).await {
         Ok(figure) => answer(StatusCode::OK, &figure, served.run_id()),

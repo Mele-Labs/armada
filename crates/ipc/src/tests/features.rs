@@ -38,3 +38,8 @@ fn a_path_answers_each_feature_with_how_it_belongs() {
 fn the_hand_over_body_says_its_shape() {
     assert_eq!(shape::of::<HandOverFeatures>(), "{session_id: string, agent_id?: string, paths?: [string], brief?: string}");
 }
+
+#[test]
+fn the_commit_check_body_says_its_shape() {
+    assert_eq!(shape::of::<crate::CheckCommitFeature>(), "{session_id: string, command: string, files?: [string]}");
+}

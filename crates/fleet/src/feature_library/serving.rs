@@ -98,6 +98,10 @@ where
         self.features_handed_over(hand).await
     }
 
+    async fn check_commit_feature(&self, check: ipc::CheckCommitFeature) -> Result<ipc::CommitFeatureChecked, Refusal> {
+        self.commit_feature_checked(check).await
+    }
+
     async fn get_first_edit_searches(&self, weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {
         self.first_edit_searches_read(weeks).await
     }

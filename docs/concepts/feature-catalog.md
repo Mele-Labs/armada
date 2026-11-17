@@ -47,6 +47,22 @@ Fleet does not read the code graph, so a file is mapped by three things it can s
 A `Feature:` trailer is one or more lines in a commit's last paragraph, each naming one slug or several separated by commas.
 A trailer naming a slug the project does not hold files nothing.
 
+## Which feature a commit serves
+
+> **Rule.** A commit names the feature it serves in a `Feature:` line, and the mod's hook refuses a `git commit` that gives its message in the line and has none.
+> Why: the Job says which feature each change serves, and a commit that does not say is filed under whatever the code owns.
+
+The refusal names the features the files about to be committed belong to, the most files first, each as the line to copy.
+Where no feature owns them it says so, and asks for the feature the commit serves or one that does not exist yet.
+
+> **Rule.** Only a Job started after its project's catalog was seeded is refused.
+> Why: approving a plan is not consent to change a Job already running.
+
+The catalog was seeded when its first feature entered it, the earliest time any feature of the project was added.
+A project with no feature, and a Job that started before that time, are never refused.
+A commit that takes its message from a file, another commit or an editor is not read, and a commit with no files is not refused.
+A Fleet that is out or slow lets the commit run.
+
 ## Stale
 
 > **Rule.** A written section is stale when a merge after it changed a file mapped to its feature, and it reads `stale since #<pr>`, the first such merge.
@@ -107,6 +123,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_feature_page` | One feature whole |
 | `get_feature_brief` | One feature condensed |
 | `get_features_of_path` | The features a file belongs to |
+| `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
@@ -122,7 +139,6 @@ What the library would hold in the clear there is in [Central store](../contract
 
 ## Not built
 
-- A commit hook that refuses a commit without a `Feature:` trailer.
 - A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Your own asks sorted onto features.

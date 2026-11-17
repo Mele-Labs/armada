@@ -378,3 +378,30 @@ pub struct FeaturesHandedOver {
     /// Their condensed pages as plain text for the agent, empty where none.
     pub text: String,
 }
+
+/// `check_commit_feature`: the mod's hook asks, before an agent's `git commit` runs, whether the commit names the
+/// feature it serves.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckCommitFeature {
+    /// The Job.
+    pub session_id: SessionId,
+    /// The shell line, whole, with the message in it.
+    pub command: String,
+    /// The files the commit is about to take, relative to the repository: what is staged, and what a `git add` or `-a` in
+    /// the same line would stage. Empty where the hook could not say.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
+}
+
+/// What `check_commit_feature` says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitFeatureChecked {
+    /// Whether the commit may run.
+    pub allowed: bool,
+    /// What the agent is told where it may not: the features its files belong to, each as the line to copy. Empty where allowed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub says: String,
+    /// The slugs of the features the files belong to, the most files first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
+}

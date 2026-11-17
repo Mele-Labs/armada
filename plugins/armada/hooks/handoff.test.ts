@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { placeOfCall, staticPrefix } from './handoff'
+import { commitStaging, placeOfCall, staticPrefix } from './handoff'
 
 const ROOT = '/repos/armada'
 
@@ -34,4 +34,15 @@ test('a Grep or Glob reaches the folder it searches, narrowed by the folder in f
   expect(placeOfCall('Glob', { pattern: '**/*.rs', path: `${ROOT}/crates/api` }, ROOT)).toBe('crates/api')
   expect(placeOfCall('Glob', { pattern: `${ROOT}/crates/api/**/*.rs` }, ROOT)).toBe('crates/api')
   expect(placeOfCall('Bash', { path: 'crates' }, ROOT)).toBeUndefined()
+})
+
+test('a shell line is a commit where it runs git commit, and stages more where a git add or -a comes with it', () => {
+  expect(commitStaging('git commit -m "x"')).toEqual({ all: false })
+  expect(commitStaging('git add -A && git commit -m "x"')).toEqual({ all: true })
+  expect(commitStaging('git commit -am "x"')).toEqual({ all: true })
+  expect(commitStaging('git commit --all -m "x"')).toEqual({ all: true })
+  expect(commitStaging('git -C sub commit -m "x"')).toEqual({ all: false })
+  expect(commitStaging('git commit --amend -m "add it"')).toEqual({ all: false })
+  expect(commitStaging('git status')).toBeUndefined()
+  expect(commitStaging('echo commit')).toBeUndefined()
 })

@@ -483,3 +483,82 @@ async fn nothing_is_handed_to_a_job_fleet_does_not_know_a_project_with_no_librar
     assert!(rig.fleet.hand_over_features(hand(&id, None, &["docs/elsewhere.md"], None)).await.expect("asked").text.is_empty());
     assert!(rig.fleet.store().lock().await.feature_handoffs(id.as_str(), "").expect("read").is_empty(), "nothing was handed, so nothing is kept");
 }
+
+// What follows holds a commit to naming its feature, for the Jobs started after the catalog was seeded.
+
+fn commit_of(id: &SessionId, command: &str, files: &[&str]) -> ipc::CheckCommitFeature {
+    ipc::CheckCommitFeature { session_id: id.clone(), command: command.to_string(), files: files.iter().map(|one| one.to_string()).collect() }
+}
+
+#[test]
+fn only_a_commit_that_gives_its_message_in_the_line_is_read() {
+    use crate::feature_library::committing::gives_message;
+    for line in [
+        r#"git commit -m "Add votes""#,
+        r#"git add -A && git commit -am "Add votes""#,
+        "git commit --message=\"Add votes\"",
+        "git -C sub commit -sm\"Add votes\"",
+        "git commit -m \"$(cat <<'EOF'\nAdd votes\nEOF\n)\"",
+    ] {
+        assert!(gives_message(line), "{line}");
+    }
+    for line in ["git commit --amend --no-edit", "git commit -F message.txt", "git commit -C HEAD", "git log -m", "echo commit -m x", "git status"] {
+        assert!(!gives_message(line), "{line}");
+    }
+}
+
+#[tokio::test]
+async fn a_job_started_after_the_catalog_was_seeded_is_refused_a_commit_with_no_feature_line_and_told_which_to_copy() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let files = ["crates/pages/voting/a.rs", "crates/pages/voting/b.rs", "crates/pages/actions/c.rs", "docs/elsewhere.md"];
+
+    let refused = rig.fleet.check_commit_feature(commit_of(&id, r#"git commit -m "Add rank votes""#, &files)).await.expect("asked");
+    assert!(!refused.allowed);
+    assert_eq!(refused.features, [VOTING, "page-actions"], "the most files first");
+    assert!(refused.says.contains("Feature: voting-on-takes\nFeature: page-actions\n"), "a line to copy for each: {}", refused.says);
+
+    let named = rig.fleet.check_commit_feature(commit_of(&id, "git commit -m \"Add rank votes\" -m \"Feature: voting-on-takes\"", &files)).await.expect("asked");
+    assert!(named.allowed && named.says.is_empty());
+}
+
+#[tokio::test]
+async fn files_no_feature_owns_are_refused_without_a_feature_to_copy() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+
+    let refused = rig.fleet.check_commit_feature(commit_of(&id, r#"git commit -m "Fix a typo""#, &["docs/elsewhere.md"])).await.expect("asked");
+    assert!(!refused.allowed && refused.features.is_empty());
+    assert!(refused.says.contains("No feature owns the files you are committing"), "{}", refused.says);
+}
+
+#[tokio::test]
+async fn a_job_older_than_the_catalog_a_project_with_no_feature_and_a_commit_nothing_reads_are_never_refused() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let files = ["crates/pages/voting/a.rs"];
+    let line = r#"git commit -m "Add rank votes""#;
+    let id = an_agent_for(&rig, &project).await;
+    assert!(rig.fleet.check_commit_feature(commit_of(&id, line, &files)).await.expect("asked").allowed, "the project has no feature");
+
+    // The catalog is seeded after the Job started, so the Job was never asked for a feature.
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .put_feature(&store::KeptFeature { project: project.clone(), added_at: "2999-01-01T00:00:00.000Z".to_string(), ..feature("f-late", VOTING, &[SOMEWHERE]) })
+        .expect("kept");
+    assert!(rig.fleet.check_commit_feature(commit_of(&id, line, &files)).await.expect("asked").allowed, "the Job started before the catalog did");
+
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let later = an_agent_for(&rig, &project).await;
+    let ask = |command: &str, files: &[&str]| commit_of(&later, command, files);
+    assert!(!rig.fleet.check_commit_feature(ask(line, &files)).await.expect("asked").allowed, "a Job started after is held to it");
+    assert!(rig.fleet.check_commit_feature(ask("git commit --amend --no-edit", &files)).await.expect("asked").allowed, "no message is given");
+    assert!(rig.fleet.check_commit_feature(ask(line, &[])).await.expect("asked").allowed, "nothing to commit");
+    assert!(rig.fleet.check_commit_feature(commit_of(&SessionId::carried("s-unknown"), line, &files)).await.expect("asked").allowed, "a Job Fleet does not know");
+}

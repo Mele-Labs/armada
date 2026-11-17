@@ -4,12 +4,12 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). Two things are told to the model: its own session id, so
-// `show_window` can name it, and the lines a stop is sent back with. Four hooks change what a session does: an `open` of a page, a whole read of a large file
+// `show_window` can name it, and the lines a stop is sent back with. Five hooks change what a session does: a `git commit` that names no feature (`commitRefusal`), an `open` of a page, a whole read of a large file
 // (turned away once with its outline, `reading.ts`), an `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, the lines a stop is sent back with, and each line a reply named as owed that the session left out of
-// `waiting_for` after it was sent back. The one other thing asked of Fleet is which feature pages a read or a brief is owed (`handedOver`): the path of a Read, Grep or Glob under the session's directory, and a prompt that has a `Feature:` line or a backticked slug in it, go to Fleet on this machine and the pages come back.** A message is reported as who it went to
+// `waiting_for` after it was sent back. The one other thing asked of Fleet is which feature pages a read or a brief is owed (`handedOver`): the path of a Read, Grep or Glob under the session's directory, and a prompt that has a `Feature:` line or a backticked slug in it, go to Fleet on this machine and the pages come back. So does the line of a `git commit`, with the files it takes, for Fleet to say whether it names its feature (`commitRefusal`).** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 // The Loadout is reported the same way: each skill, subagent, MCP server and tool, memory file, output style,
@@ -77,7 +77,7 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
-import { placeOfCall } from './handoff'
+import { commitStaging, placeOfCall } from './handoff'
 import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
@@ -1237,6 +1237,53 @@ async function logbookFor($: Dollar, prompt: string): Promise<string> {
   }
 }
 
+// How long Fleet is given to say whether a commit names its feature: past it the commit runs.
+const COMMIT_WAIT_MS = 3000
+
+/** The files a `git commit` is about to take, from git in the session's directory, repository relative. Empty where git will not say. */
+async function filesToCommit($: Dollar, all: boolean): Promise<string[]> {
+  const cwd = await $.session.cwd()
+  const listings = [['diff', '--cached', '--name-only', '--no-renames', '-z']]
+  // What a `git add` or `-a` in the same line stages too: the changed and the new.
+  if (all) listings.push(['diff', '--name-only', '--no-renames', '-z'], ['ls-files', '--others', '--exclude-standard', '--full-name', '-z'])
+  const files = new Set<string>()
+  for (const args of listings) {
+    const ran = await $.process.run(['git', ...args], { cwd, timeoutMs: 3000 })
+    if (ran.exitCode !== 0) continue
+    for (const name of ran.stdout.split('\0')) if (name !== '') files.add(name)
+  }
+  return [...files]
+}
+
+/**
+ * What Fleet says stands in the way of a `git commit`: no `Feature:` line, with the features the files belong to. **Only
+ * a Job started after its project's catalog was seeded is refused**, which Fleet decides. A Fleet that is out, slow, older
+ * or refuses lets the commit run, since a gate that fails shut stops every Job the day Fleet restarts.
+ */
+async function commitRefusal($: Dollar, command: string): Promise<string | undefined> {
+  const staging = commitStaging(command)
+  if (staging === undefined) return undefined
+  try {
+    const port = await portOf($)
+    if (port === undefined) return undefined
+    const session_id = await $.session.id()
+    const files = await filesToCommit($, staging.all).catch(() => [])
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/features/commit_check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id, command, files }),
+      }),
+      $.clock.sleep(COMMIT_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined || !asked.ok) return undefined
+    const read = JSON.parse(asked.text) as { allowed?: unknown; says?: unknown }
+    return read.allowed === false && typeof read.says === 'string' && read.says !== '' ? read.says : undefined
+  } catch {
+    return undefined
+  }
+}
+
 let handoffQuietUntil = 0
 
 /**
@@ -1370,6 +1417,10 @@ export const register: Register = on => {
     if (ghAct(e.command)?.act === 'create' && !(await $.env.get('ARMADA_DRONE'))) {
       const refused = await prePrRefusal($)
       if (refused !== undefined) return { deny: refused }
+    }
+    if (commitStaging(e.command) !== undefined && !(await $.env.get('ARMADA_DRONE'))) {
+      const unnamed = await commitRefusal($, e.command)
+      if (unnamed !== undefined) return { deny: unnamed }
     }
     const ran = await next(e)
     if (ran.deny === undefined) void used($, 'ran', e as Record<string, unknown>).catch(() => undefined)

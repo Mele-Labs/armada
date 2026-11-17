@@ -87,3 +87,12 @@ async fn the_mods_hook_asks_for_the_pages_a_job_is_owed_over_post() {
     let (status, _) = call(&app(), "POST", "/features/hand_over", r#"{"paths":["a"]}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "the Job is named");
 }
+
+#[tokio::test]
+async fn the_mods_hook_asks_before_a_commit_runs_over_post() {
+    let (status, said) = call(&app(), "POST", "/features/commit_check", r#"{"session_id":"s-1","command":"git commit -m \"x\"","files":["a.rs"]}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"allowed":false,"says":"Add a Feature: line."}"#);
+    let (status, _) = call(&app(), "POST", "/features/commit_check", r#"{"command":"git commit"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the Job is named");
+}

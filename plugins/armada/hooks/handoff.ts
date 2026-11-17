@@ -41,3 +41,13 @@ export function placeOfCall(tool: string, e: SearchAsked, root: string): string 
   const joined = prefix.startsWith('/') || folder === undefined ? prefix : prefix === '' ? folder : `${folder.replace(/\/+$/, '')}/${prefix}`
   return joined === '' ? undefined : under(root, joined)
 }
+
+/**
+ * What a shell line does to the commit it makes, or undefined where it makes none. `all` says the same line stages more
+ * than is staged now: a `git add` before the commit, or `-a` on it.
+ */
+export function commitStaging(command: string): { all: boolean } | undefined {
+  if (!/\bgit\s[^|;&\n]*\bcommit\b/.test(command)) return undefined
+  const all = /\bgit\s+add\b/.test(command) || /\bcommit\b[^|;&\n]*\s(--all|-[a-zA-Z]*a[a-zA-Z]*)(\s|$)/.test(command)
+  return { all }
+}
