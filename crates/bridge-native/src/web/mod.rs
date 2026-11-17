@@ -28,4 +28,5 @@ mod wk;
 pub use page::{after_frame, paint_again, painted_mark, painted_since, web_pane, Mode, Painted, Source, Status, WebPage, WebPageEvent};
 pub use render::{render_html, Appearance, PagePart};
 pub use acts::Way;
-pub use wk::{in_use, pending, pump, Act, Policy, Reply, Request, Said};
+pub use wk::{in_use, pending, pump};
+pub use wk::{Act, Policy, Reply, Request, Said};
