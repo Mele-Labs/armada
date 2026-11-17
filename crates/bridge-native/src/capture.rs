@@ -227,6 +227,8 @@ pub enum CaptureEvent {
     Noted(Noted),
     /// Esc, or Cancel: the person put it away.
     Closed,
+    /// Esc with nothing held or being drawn: the key is not Capture's, and goes on to what had the keys before.
+    Passed,
 }
 
 impl EventEmitter<CaptureEvent> for Capture {}
@@ -452,7 +454,11 @@ impl gpui::Render for Capture {
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
                     cx.stop_propagation();
-                    this.close(cx);
+                    if this.held.is_none() && this.from.is_none() {
+                        cx.emit(CaptureEvent::Passed);
+                    } else {
+                        this.close(cx);
+                    }
                 }
             }))
             .absolute()

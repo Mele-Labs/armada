@@ -460,6 +460,7 @@ impl Layer {
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
             CaptureEvent::Closed => this.arm(window, cx),
+            CaptureEvent::Passed => this.pass_escape(window, cx),
         });
         let focus = capture.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&focus, cx));
@@ -771,6 +772,19 @@ impl Layer {
             (point(from.origin.x, from.origin.y - gap), Anchor::BottomLeft)
         };
         self.open_menu(ids, at, corner, window, cx);
+    }
+
+    /// Esc with nothing held is the screen's, not the layer's: it goes to what had the keys when annotating began, so
+    /// one Esc still closes the panel he is on. Annotating stays on, and the keys come back to the capture after.
+    fn pass_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(keys) = self.keys_were.clone() {
+            window.focus(&keys, cx);
+            if let Ok(escape) = gpui::Keystroke::parse("escape") {
+                window.dispatch_keystroke(escape, cx);
+            }
+            self.keys_were = window.focused(cx);
+        }
+        self.refocus(window, cx);
     }
 
     /// The keys go back to the capture after a menu or a card.

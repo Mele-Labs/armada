@@ -426,12 +426,13 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_sketch_card_and_the_artifact_of_parts_it_is_are_listed_once_and_the_card_stands(cx: &mut gpui::TestAppContext) {
+    fn a_sketch_card_and_the_artifact_of_parts_it_is_are_listed_once_and_the_artifact_stands_with_its_takes(cx: &mut gpui::TestAppContext) {
         let (view, cx) = with_sketch_card(cx);
         view.update_in(cx, |view, window, cx| view.open_review_on(ID, window, cx));
         redraw(cx);
         let listed = standing_for_it(&view, cx);
-        assert_eq!(listed, [(ID.to_string(), Kind::Sketch)], "one entry, the card his Needs you row names");
+        assert_eq!(listed.iter().map(|(_, kind)| *kind).collect::<Vec<_>>(), [Kind::Artifact], "one entry, the artifact, which holds every part: {listed:?}");
+        assert!(drawn(cx, Role::RadioButton, "Pick B \u{b7} Rail (Job's pick)"), "its takes are drawn, so a pick can be made");
     }
 
     #[gpui::test]
@@ -508,6 +509,23 @@ mod tests {
         cx.simulate_keystrokes("escape");
         redraw(cx);
         assert!(cx.update(|window, _| from.is_focused(window)), "and Esc gives them back");
+    }
+
+    #[gpui::test]
+    fn escape_closes_the_panel_after_a_press_on_a_take_and_on_its_picture(cx: &mut gpui::TestAppContext) {
+        for name in [format!("Pick {}", TAKES[0]), format!("Picture: {}", TAKES[0])] {
+            let (view, cx) = opened(cx, 1400., 900.);
+            let at = bounds_of(cx, if name.starts_with("Pick") { Role::RadioButton } else { Role::Button }, &name).center();
+            cx.simulate_click(at, Modifiers::none());
+            redraw(cx);
+            cx.simulate_keystrokes("escape");
+            redraw(cx);
+            if view.read_with(cx, |view, _| view.review_open()) {
+                cx.simulate_keystrokes("escape");
+                redraw(cx);
+            }
+            assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc closes the panel after a press on {name}");
+        }
     }
 
     #[gpui::test]
