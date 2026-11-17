@@ -511,20 +511,20 @@ where
                 Waiting::Project(act) => {
                     let merging = matches!(act, ProjectAct::Absorb { .. }).then(|| act.clone());
                     match self.send_project_act(&mac, &ProjectActFromMac { act, at: Some(next.at) }).await {
-                    Ok(Sent::Answered(answer)) => {
-                        last = Some(answer.projects);
-                        // This Mac's own part of a merge, once the other Mac has the tasks. Behind the acts queued now.
-                        if let Some(act) = merging {
-                            self.merge_finished(&mac, &act).await;
+                        Ok(Sent::Answered(answer)) => {
+                            last = Some(answer.projects);
+                            // This Mac's own part of a merge, once the other Mac has the tasks. Behind the acts queued now.
+                            if let Some(act) = merging {
+                                self.merge_finished(&mac, &act).await;
+                            }
                         }
-                    }
-                    Ok(Sent::Refused(refusal)) => {
-                        let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
-                            .with_field("mac", FieldValue::Str(mac.clone()))
-                            .with_field("why", FieldValue::Str(refusal.error().message.clone()));
-                        crate::transcript::note_aloud(&said);
-                    }
-                    Ok(Sent::Unreachable) | Err(_) => break,
+                        Ok(Sent::Refused(refusal)) => {
+                            let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
+                                .with_field("mac", FieldValue::Str(mac.clone()))
+                                .with_field("why", FieldValue::Str(refusal.error().message.clone()));
+                            crate::transcript::note_aloud(&said);
+                        }
+                        Ok(Sent::Unreachable) | Err(_) => break,
                     }
                 }
                 Waiting::Job { id, act } => {
