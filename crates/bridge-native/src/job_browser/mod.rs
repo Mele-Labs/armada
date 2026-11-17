@@ -14,6 +14,8 @@
 //! | `reminder.rs` | The thread's line for a browser the agent reached for outside Bridge |
 
 mod acts;
+mod asks;
+mod choices;
 mod live;
 mod reminder;
 mod scripts;
