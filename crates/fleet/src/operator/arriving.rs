@@ -41,6 +41,8 @@ pub enum Arrived {
     Seed,
     /// A Job named a feature the project's library does not hold.
     Feature,
+    /// An area of a project's feature library passed about eight features.
+    Area,
 }
 
 impl Arrived {
@@ -65,6 +67,7 @@ impl Arrived {
             Arrived::Held => "held",
             Arrived::Seed => "seed",
             Arrived::Feature => "feature",
+            Arrived::Area => "area",
         }
     }
 
@@ -90,6 +93,7 @@ impl Arrived {
             Arrived::Held => "A Job asked whether work should land",
             Arrived::Seed => "A project holds Armada's repository and no feature library",
             Arrived::Feature => "A Job named a feature the library does not hold",
+            Arrived::Area => "An area of the feature library grew past eight features",
         }
     }
 }

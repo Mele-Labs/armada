@@ -272,6 +272,25 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// How many features each area of each project holds, pending ones left out, the biggest first.
+    pub fn feature_counts(&self) -> Result<Vec<(String, String, u32)>, WriteError> {
+        let doing = "counting the features of each area";
+        let mut statement = self
+            .conn
+            .prepare("SELECT project, area, COUNT(*) AS n FROM features WHERE state != ?1 GROUP BY project, area ORDER BY n DESC, project, area")
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([feature_state::PENDING], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Put the feature `slug` of `project` in the area `area`. **The caller checks the area is kept.**
+    pub fn set_feature_area(&mut self, project: &str, slug: &str, area: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE features SET area = ?3 WHERE project = ?1 AND slug = ?2", params![project, slug, area])
+            .map(drop)
+            .map_err(failed("moving a feature to an area"))
+    }
+
     /// The slugs `project`'s features were known by, each with the slug it is now.
     pub fn feature_aliases(&self, project: &str) -> Result<Vec<(String, String)>, WriteError> {
         let doing = "reading a project's feature aliases";

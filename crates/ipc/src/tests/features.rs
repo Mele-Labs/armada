@@ -31,7 +31,7 @@ fn an_ask_filed_outside_a_job_says_its_shape() {
 
 #[test]
 fn a_feature_is_merged_or_renamed_and_says_where_it_went() {
-    assert_eq!(shape::of::<ChangeFeature>(), "{project: string, feature: string, into?: string, slug?: string, title?: string}");
+    assert_eq!(shape::of::<ChangeFeature>(), "{project: string, feature: string, into?: string, slug?: string, title?: string, area?: string}");
     assert_eq!(shape::of::<FeatureChanged>(), "{feature: string, merged_into?: string}");
 }
 

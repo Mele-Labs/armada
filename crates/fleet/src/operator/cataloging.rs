@@ -1,7 +1,7 @@
 //! What Fleet tells the Operator about a project's feature library, once each. `docs/concepts/feature-catalog.md`.
 //!
 //! **Fleet detects, the Operator decides.** A project that holds Armada's repository and no feature is told as a seed to
-//! apply with `seed_features`. Nothing here keeps a feature or a card.
+//! apply with `seed_features`; a pending feature and an area past eight features are told as well. Nothing here keeps a feature or a card.
 
 use std::sync::Arc;
 
@@ -10,6 +10,10 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use super::{held, Arrival, Arrived, Source};
 use crate::daemon::Fleet;
 use crate::feature_library::{features_of_note, pending_facts, Seed};
+use store::feature_state;
+
+/// An area holds this many features and no more before the Operator proposes a split.
+const AREA_FEATURES: u32 = 8;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -27,7 +31,7 @@ where
         if !self.operator_on() {
             return;
         }
-        for arrival in self.seeds_offered().await.into_iter().chain(self.pending_offered().await) {
+        for arrival in self.seeds_offered().await.into_iter().chain(self.pending_offered().await).chain(self.areas_offered().await) {
             self.hand_once(arrival).await;
         }
     }
@@ -85,6 +89,41 @@ where
                      an area, a title and a line), merge with `change_feature` and `into`, or rename with `change_feature` and `slug`.",
                     slug = feature.slug,
                     id = feature.project,
+                ),
+            });
+        }
+        offered
+    }
+
+    /// The areas that hold more than eight features, each as an arrival that names the features it holds and the project's other areas.
+    /// **The Operator proposes a split on one card and changes nothing until he answers.** An area is told again only when it
+    /// has grown by another eight.
+    async fn areas_offered(&self) -> Vec<Arrival> {
+        let store = self.store().lock().await;
+        let mut offered = Vec::new();
+        for (project, area, count) in store.feature_counts().unwrap_or_default() {
+            if count <= AREA_FEATURES {
+                continue;
+            }
+            let name = self.projects_held().running().find(|one| one.id().as_str() == project).map(|one| one.name().as_str().to_string()).unwrap_or_default();
+            let kept = store.feature_areas(&project).unwrap_or_default();
+            let title = kept.iter().find(|one| one.slug == area).map(|one| one.title.clone()).unwrap_or_else(|| area.clone());
+            let features = store.features_in(&project).unwrap_or_default();
+            let held: Vec<String> =
+                features.iter().filter(|one| one.area == area && one.state != feature_state::PENDING).map(|one| format!("`{}` ({})", one.slug, one.title)).collect();
+            let others = kept.iter().filter(|one| one.slug != area).map(|one| format!("`{}`", one.slug)).collect::<Vec<_>>().join(", ");
+            offered.push(Arrival {
+                id: format!("split:{project}:{area}:{}", (count - 1) / AREA_FEATURES),
+                arrived: Arrived::Area,
+                source: Source::Fleet,
+                session_id: String::new(),
+                manifest_id: String::new(),
+                subject: format!("{title} in {name} holds more than eight features"),
+                words: format!(
+                    "Area `{area}` ({title}) in project {name} (id {project}) holds {}. Other areas the project keeps: {others}. Bring him one card \
+                     that proposes a split: the new areas, each with the features that go there. Nothing changes until he answers. After he \
+                     does, keep each new area with `upsert_features`, then move each feature with `change_feature` and `area`.",
+                    held.join(", "),
                 ),
             });
         }

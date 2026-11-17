@@ -319,7 +319,8 @@ pub struct FeaturesSeeded {
     pub dropped: Vec<String>,
 }
 
-/// `change_feature`: the Operator merges a feature into another or renames it. Give `into`, or `slug` and `title`.
+/// `change_feature`: the Operator merges a feature into another, or renames it, or moves it to another area. Give `into`, or any of
+/// `slug`, `title` and `area`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeFeature {
     pub project: String,
@@ -333,6 +334,9 @@ pub struct ChangeFeature {
     pub slug: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// The slug of an area the project keeps: it moves there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
 }
 
 /// What `change_feature` did.

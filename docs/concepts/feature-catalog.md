@@ -108,6 +108,19 @@ Fleet tells the Operator once when a project holds Armada's repository and no fe
 Fleet leaves out a prefix or entry point none of the project's repositories holds, and the call names each.
 A feature's `added_at` is the moment it was kept and is never rewritten, so the earliest across a project is when its library was seeded.
 
+## An area that grows
+
+An area that holds more than eight features is told to the Operator, who reads it with `list_features` and raises one card that proposes a split: the new areas and the features that go to each, with keeping the area as an option.
+Pending features are not counted.
+Nothing changes until he answers.
+After he picks, the Operator keeps each new area with `upsert_features` and moves each feature with `change_feature` and `area`, which must be an area the project keeps.
+A move changes the feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
+
+> **Rule.** An area is told again only when it has grown by another eight.
+> Why: a card he answered by keeping the area would otherwise come back on every tick.
+
+The seed's largest area holds eight, so seeding raises none.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -126,7 +139,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
-| `change_feature` | The Operator merges a feature into another or renames it |
+| `change_feature` | The Operator merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
