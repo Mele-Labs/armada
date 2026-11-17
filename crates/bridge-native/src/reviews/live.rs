@@ -240,9 +240,27 @@ impl ReviewsScreen {
                     }
                 }
             }
+            this.read_again_when_limit_lifts(window, cx);
             cx.notify();
         });
         cx.notify();
+    }
+
+    /// While GitHub is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
+    fn read_again_when_limit_lifts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(live) = self.live.as_ref() else { return };
+        let limited = live.inbox_banner.is_some() || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));
+        if !limited {
+            return;
+        }
+        let wait = self.wait(super::LIMIT_REREAD, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.live_refresh(window, cx));
+        });
+        if let Some(live) = self.live.as_mut() {
+            live.tasks.insert("limit-again".into(), task);
+        }
     }
 
     /// A row pressed: its page as last read at once, read again behind it; never read, a skeleton until it lands.
