@@ -659,6 +659,7 @@ async fn a_listed_pull_request_names_the_session_that_holds_it() {
         review: ReviewStanding::None,
         team: None,
         my_latest: None,
+        asked_at: None,
     };
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
         fleet.vcs().now_review_list(list, Vec::new());

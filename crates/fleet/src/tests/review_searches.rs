@@ -39,6 +39,7 @@ fn open_pull(number: u64, title: &str) -> ListedPull {
         review: ReviewStanding::None,
         team: None,
         my_latest: None,
+        asked_at: None,
     }
 }
 
