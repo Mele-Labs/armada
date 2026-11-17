@@ -365,6 +365,7 @@ impl JobView {
         match tab.kind.as_str() {
             "thread" => "Thread".into(),
             "now" => "Now".into(),
+            "browser" => "Browser".into(),
             "terminal" => self.view_title(job, tab).unwrap_or_else(|| "Terminal".into()),
             kind => match (row_kind_of(kind), tab.row.as_deref()) {
                 (Some(row), Some(key)) => self.row_tab_of(job, row, key).map_or_else(|| tab.label.clone().unwrap_or_default().into(), |held| held.title.clone().into()),
@@ -399,6 +400,11 @@ impl JobView {
             "now" => {
                 let body = self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx);
                 Some(scrolled(format!("pane-body:{}", tab.id), Some(body)))
+            }
+            // The Job's page, over its head: a plain body, never a scrolling one, where the page is laid over.
+            "browser" => {
+                let page = self.browser_body(&id, tab)?;
+                Some(plain(format!("pane-body:{}", tab.id), Some(div().size_full().child(page).into_any_element())))
             }
             "terminal" => {
                 let view = self.view_id_of(&id, tab).and_then(|view| self.view_tabs.by_job.get(&id)?.iter().find(|one| one.id == view).map(|one| one.view.clone()))?;
@@ -542,6 +548,7 @@ impl JobView {
         let row = tab_of.row.as_deref().zip(row_kind_of(&tab_of.kind));
         let (icon, name): (&'static str, String) = match tab_of.kind.as_str() {
             "now" => ("activity", "Job column: Now".into()),
+            "browser" => ("globe", format!("Job column: {word}")),
             "terminal" => (self.view_glyph(job, tab_of), format!("Job column: {word}")),
             _ => match row {
                 Some((_, _)) => (row_kind_of(&tab_of.kind).map_or("file", |kind| kind.look().0), format!("Job tab: {word}")),

@@ -21,8 +21,8 @@ use objc2_app_kit::{
     NSEventType, NSImage, NSResponder, NSView, NSWindow,
 };
 use objc2_foundation::{
-    NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
-    NSURL, NSURLRequest, NSUUID,
+    NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSKeyValueObservingOptions, NSObjectNSKeyValueObserverRegistration, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop,
+    NSSize, NSString, NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
     WKContentWorld, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
@@ -62,6 +62,8 @@ const KIT_HANDLER: &str = "armada";
 pub enum Nav {
     Finished,
     Failed(String),
+    /// A load a redirect or the next load replaced (NSURLErrorCancelled): not an end, since the load that replaced it ends.
+    Cancelled,
 }
 
 /// How a page is made.
@@ -133,13 +135,13 @@ define_class!(
         #[unsafe(method(webView:didFailNavigation:withError:))]
         fn did_fail(&self, _: &WKWebView, _: Option<&WKNavigation>, error: &NSError) {
             pending_down();
-            let _ = self.ivars().events.try_send(Nav::Failed(error.localizedDescription().to_string()));
+            let _ = self.ivars().events.try_send(failure(error));
         }
 
         #[unsafe(method(webView:didFailProvisionalNavigation:withError:))]
         fn did_fail_first(&self, _: &WKWebView, _: Option<&WKNavigation>, error: &NSError) {
             pending_down();
-            let _ = self.ivars().events.try_send(Nav::Failed(error.localizedDescription().to_string()));
+            let _ = self.ivars().events.try_send(failure(error));
         }
 
         #[unsafe(method(webView:decidePolicyForNavigationAction:decisionHandler:))]
@@ -155,6 +157,17 @@ define_class!(
         }
     }
 );
+
+/// NSURLErrorCancelled, in NSURLErrorDomain.
+const URL_CANCELLED: isize = -999;
+
+fn failure(error: &NSError) -> Nav {
+    if error.code() == URL_CANCELLED && error.domain().to_string() == "NSURLErrorDomain" {
+        Nav::Cancelled
+    } else {
+        Nav::Failed(error.localizedDescription().to_string())
+    }
+}
 
 impl Navigation {
     fn new(events: async_channel::Sender<Nav>, sealed: bool, mtm: MainThreadMarker) -> Retained<Self> {
@@ -201,6 +214,35 @@ impl KitPosts {
 }
 
 define_class!(
+    // SAFETY: NSObject has no subclassing requirements, and `Watching` implements no `Drop`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = async_channel::Sender<()>]
+    struct Watching;
+
+    unsafe impl NSObjectProtocol for Watching {}
+
+    impl Watching {
+        // Key-value observing: the page's address, title or history moved, including by a navigation inside the page.
+        #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
+        fn observe(&self, _key: Option<&NSString>, _object: Option<&AnyObject>, _change: Option<&NSDictionary<NSString, AnyObject>>, _context: *mut std::ffi::c_void) {
+            let _ = self.ivars().try_send(());
+        }
+    }
+);
+
+impl Watching {
+    fn new(told: async_channel::Sender<()>, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(told);
+        // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+/// What a page's key-value observer watches: its address, title and whether it can go back or forward.
+const WATCHED: [&str; 4] = ["URL", "title", "canGoBack", "canGoForward"];
+
+define_class!(
     // SAFETY: NSView's `hitTest:` and `drawRect:` may be overridden, and `RingView` implements no `Drop`.
     #[unsafe(super(NSView))]
     #[thread_kind = MainThreadOnly]
@@ -237,6 +279,8 @@ pub struct Native {
     _navigation: Retained<Navigation>,
     /// The kit's handler, which the page's content controller holds until `Drop` takes it off.
     kit: Option<Retained<KitPosts>>,
+    /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
+    watching: RefCell<Option<Retained<Watching>>>,
     mtm: MainThreadMarker,
 }
 
@@ -314,7 +358,7 @@ impl Native {
         let ring: Retained<RingView> = unsafe { msg_send![super(ring), initWithFrame: rect(Frame::new(0., 0., 0., 0.))] };
         ring.setHidden(true);
         LIVE.with(|live| live.set(live.get() + 1));
-        Some(Native { view, ring, _navigation: navigation, kit, mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, watching: RefCell::new(None), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -479,11 +523,143 @@ impl Native {
             self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
         }
     }
+
+    // ---- the Job browser's page --------------------------------------------------------------------------------
+
+    /// The page's address as WebKit holds it, or none while it has none.
+    pub fn url(&self) -> Option<String> {
+        // SAFETY: a property read on the main thread.
+        unsafe { self.view.URL() }.and_then(|url| url.absoluteString()).map(|text| text.to_string())
+    }
+
+    pub fn title(&self) -> String {
+        // SAFETY: a property read on the main thread.
+        unsafe { self.view.title() }.map(|title| title.to_string()).unwrap_or_default()
+    }
+
+    pub fn can_go_back(&self) -> bool {
+        // SAFETY: a property read on the main thread.
+        unsafe { self.view.canGoBack() }
+    }
+
+    pub fn can_go_forward(&self) -> bool {
+        // SAFETY: a property read on the main thread.
+        unsafe { self.view.canGoForward() }
+    }
+
+    /// One step back in the page's history, where it has one.
+    pub fn go_back(&self) {
+        // SAFETY: a navigation on the main thread; none is made where there is no item to go to.
+        if unsafe { self.view.goBack() }.is_some() {
+            pending_up();
+        }
+    }
+
+    pub fn go_forward(&self) {
+        // SAFETY: a navigation on the main thread; none is made where there is no item to go to.
+        if unsafe { self.view.goForward() }.is_some() {
+            pending_up();
+        }
+    }
+
+    /// The view's size in points.
+    pub fn size(&self) -> (f64, f64) {
+        let size = self.view.frame().size;
+        (size.width, size.height)
+    }
+
+    /// Tells `told` each time the page's address, title or history moves, a navigation inside the page too. Asking twice
+    /// replaces the first.
+    pub fn watch(&self, told: async_channel::Sender<()>) {
+        self.unwatch();
+        let watcher = Watching::new(told, self.mtm);
+        // SAFETY: key-value observing on the live view with an observer of Bridge's own, on the main thread; `Drop` takes it off.
+        unsafe {
+            for key in WATCHED {
+                self.view.addObserver_forKeyPath_options_context(&watcher, &NSString::from_str(key), NSKeyValueObservingOptions::New, std::ptr::null_mut());
+            }
+        }
+        *self.watching.borrow_mut() = Some(watcher);
+    }
+
+    fn unwatch(&self) {
+        if let Some(watcher) = self.watching.borrow_mut().take() {
+            // SAFETY: the observer added by `watch`, taken off the same view for the same keys, on the main thread.
+            unsafe {
+                for key in WATCHED {
+                    self.view.removeObserver_forKeyPath(&watcher, &NSString::from_str(key));
+                }
+            }
+        }
+    }
+
+    /// Runs `script` in the content world named `world`, which shares the page's DOM and nothing else, and answers its string
+    /// result (`None`: it threw or answered no string).
+    pub fn evaluate_in(&self, world: &str, script: &str, done: impl FnOnce(Option<String>) + 'static) {
+        pending_up();
+        let done = RefCell::new(Some(done));
+        let block = RcBlock::new(move |result: *mut AnyObject, _error: *mut NSError| {
+            pending_down();
+            let text = if result.is_null() {
+                None
+            } else {
+                // SAFETY: WebKit passes a live object for the length of this call.
+                let object = unsafe { &*result };
+                object.downcast_ref::<NSString>().map(|text| text.to_string())
+            };
+            if let Some(done) = done.borrow_mut().take() {
+                done(text);
+            }
+        });
+        // SAFETY: a script string and a named content world, evaluated on the main thread; the block is copied.
+        unsafe {
+            let world = WKContentWorld::worldWithName(&NSString::from_str(world), self.mtm);
+            self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
+        }
+    }
+
+    /// Runs `body` as the body of an async function in the content world named `world`, and answers what it returns once any
+    /// promise has settled: its string, or `None` where it returned none. A throw answers `Err` with the page's words for it.
+    /// (`callAsyncJavaScript` awaits, which `evaluateJavaScript` does not.)
+    pub fn call_async(&self, world: &str, body: &str, done: impl FnOnce(Result<Option<String>, String>) + 'static) {
+        pending_up();
+        let done = RefCell::new(Some(done));
+        let block = RcBlock::new(move |result: *mut AnyObject, error: *mut NSError| {
+            pending_down();
+            let answer = if !error.is_null() {
+                // SAFETY: WebKit passes a live error for the length of this call.
+                let error = unsafe { &*error };
+                Err(thrown(error))
+            } else if result.is_null() {
+                Ok(None)
+            } else {
+                // SAFETY: WebKit passes a live object for the length of this call.
+                let object = unsafe { &*result };
+                Ok(object.downcast_ref::<NSString>().map(|text| text.to_string()))
+            };
+            if let Some(done) = done.borrow_mut().take() {
+                done(answer);
+            }
+        });
+        // SAFETY: a function body and no arguments, in a named content world, on the main thread; the block is copied.
+        unsafe {
+            let world = WKContentWorld::worldWithName(&NSString::from_str(world), self.mtm);
+            let none = NSDictionary::<NSString, AnyObject>::new();
+            self.view.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(&NSString::from_str(body), Some(&none), None, &world, Some(&block));
+        }
+    }
+}
+
+/// A script's throw in words: the page's own message where WebKit kept one, else WebKit's.
+fn thrown(error: &NSError) -> String {
+    let own = error.userInfo().objectForKey(&NSString::from_str("WKJavaScriptExceptionMessage")).and_then(|said| said.downcast_ref::<NSString>().map(|text| text.to_string()));
+    own.unwrap_or_else(|| error.localizedDescription().to_string())
 }
 
 impl Drop for Native {
     fn drop(&mut self) {
         LIVE.with(|live| live.set(live.get().saturating_sub(1)));
+        self.unwatch();
         if self.kit.take().is_some() {
             // SAFETY: the page's own content controller, on the main thread; the handler it holds is let go.
             unsafe {
