@@ -101,6 +101,10 @@ pub struct WebPage {
     store: Option<[u8; 16]>,
     /// Where the page's address, title and history changes go once it is made (`watch_changes`).
     changes: Option<async_channel::Sender<()>>,
+    /// Where a Job browser's page sends what it asks for once it is made (`hear_requests`).
+    asks: Option<async_channel::Sender<wk::Request>>,
+    /// What the page may do by the owner's choices for its host, which its tab keeps current (`set_policy`).
+    policy: wk::SharedPolicy,
 }
 
 impl EventEmitter<WebPageEvent> for WebPage {}
@@ -165,6 +169,8 @@ impl WebPage {
             _hearing: hearing,
             store: None,
             changes: None,
+            asks: None,
+            policy: Default::default(),
         }
     }
 
@@ -239,6 +245,39 @@ impl WebPage {
             None => self.changes = Some(told),
         }
         hear
+    }
+
+    /// Hears what the page asks for: a permission, each to be answered once. Ask once, before the page is made.
+    pub fn hear_requests(&mut self) -> async_channel::Receiver<wk::Request> {
+        let (tx, hear) = async_channel::unbounded();
+        self.asks = Some(tx);
+        hear
+    }
+
+    /// The page's content rule list, JSON for what its page may not reach (`None`: no list), which opens the gate on the page's first load.
+    pub fn set_rules(&self, json: Option<&str>) {
+        if let Some(native) = &self.native {
+            native.set_rules(json);
+        }
+    }
+
+    /// What the page may do, by the owner's choices for the host it shows now.
+    pub fn set_policy(&self, policy: wk::Policy) {
+        *self.policy.borrow_mut() = policy;
+    }
+
+    /// A popup or a download the owner was asked about and allowed.
+    pub fn carry_out(&self, act: wk::Act, address: &str) {
+        if let Some(native) = &self.native {
+            native.carry_out(act, address);
+        }
+    }
+
+    /// The keys, if the page holds them, go back to the window's own view.
+    pub fn release_keys(&self) {
+        if let Some(native) = &self.native {
+            native.release_keys();
+        }
     }
 
     /// Runs `body` as an async function's body in the content world named `world`, awaiting what it returns. The answer is its
@@ -326,7 +365,7 @@ impl WebPage {
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
-        self.native = Native::new(&options, size, events);
+        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests, policy: self.policy.clone(), scripts: vec![include_str!("../job_browser/location.js"), include_str!("../job_browser/local_network.js"), include_str!("../job_browser/fullscreen.js")] }));
         if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
             native.watch(told);
         }

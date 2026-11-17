@@ -8,7 +8,7 @@ notes = """
 
 **A card is the build note of its (branch, tip), seen from the Job's thread**, so an answer here is the note's answer in `get_build_notes`, and a mark on the note answers the card. `answer` is tagged by `kind`:
 
-- `looks_good`: the note's verdict is `good`, kept as `mark_build_note_looked_at` keeps it, and the Job, where it is live, is told the owner tried the branch at that tip and it looks good, so land it.
+- `looks_good`: the note's verdict is `good`, kept as `mark_build_note_looked_at` keeps it, and the Job, where it is live, is told the owner tried the branch at that tip and it looks good, so land it. **It is also his Approve**: Fleet keeps it as it keeps his Approve of an item the Job raised with `approves: true`, and it closes the Job's first open `you_approved` gate, once, where the plan was recorded before he answered. No plan group is tied to a preview, so it is never a particular group's; `needs_rework` and `remind` close no gate.
 - `needs_rework` with `words`: the note's verdict is `needs_work`, and his words go as `send_build_note_feedback` sends them: to the Job's thread as his message, or to a new Job started at once where that one has ended.
 - `remind` with `until`, the instant the card comes back: **Bridge works out `until`** from the Later choice he pressed (an hour, three hours, tomorrow morning, next week), as `operator_later` does. The card is `later` until then, and at `until` it comes back, `open`, drawn at that instant, which is the end of the thread. A second `remind` moves the time.
 
