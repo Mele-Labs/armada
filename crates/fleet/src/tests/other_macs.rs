@@ -74,6 +74,8 @@ async fn an_unshared_job_and_its_report_never_go_out_and_a_shared_one_does() {
     let rig = rig_placing(None);
     let _keeping = crate::thread_keeping::keep_the_threads(Arc::clone(&rig.fleet));
     let shop = project(&rig, "Shop").await;
+    // A second project holds the repository too, so a start naming none is in none.
+    project(&rig, "Yard").await;
     let in_shop = job_in(&rig, Some(&shop)).await;
     let in_none = job_in(&rig, None).await;
     reported(&rig, &in_shop).await;

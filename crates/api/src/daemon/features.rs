@@ -1,0 +1,64 @@
+//! A project's feature library: its areas and features, the sections Jobs write and what Fleet saw. Its own surface, for
+//! [`Projects`](super::Projects)' reason: a handler taking only this cannot reach for a Job.
+//! `docs/concepts/feature-catalog.md`.
+//!
+//! **`caller` places the project when none is named**, as a hosted session is placed for `all_done`: the project the
+//! Job was started for, else the projects that hold its repository. A call that places none and names none is
+//! [`Refusal::Unacceptable`]. The library lives on this Mac.
+
+use std::future::Future;
+
+use crate::daemon::Refusal;
+
+pub trait Features: Send + Sync + 'static {
+    /// `list_features` — the project's areas and features in order, each with the live Jobs on it and the oldest merge
+    /// a written section is stale since.
+    fn list_features(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
+
+    /// `get_feature_page` — one feature whole. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project
+    /// does not hold.
+    fn get_feature_page(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        feature: String,
+    ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
+
+    /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.
+    fn get_feature_brief(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        feature: String,
+    ) -> impl Future<Output = Result<ipc::FeatureBrief, Refusal>> + Send;
+
+    /// `get_features_of_path` — the features a repository-relative path belongs to, the longest prefix first.
+    fn get_features_of_path(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        manifest_id: Option<String>,
+        path: String,
+    ) -> impl Future<Output = Result<ipc::FeaturesOfPath, Refusal>> + Send;
+
+    /// `write_feature_sections` — the calling Job rewrites sections of a feature. [`Refusal::Unacceptable`] for a call
+    /// that places no hosted session, an ended one, an unknown slug (`fleet.feature_unknown`) or a blank text
+    /// (`fleet.feature_section_empty`).
+    fn write_feature_sections(
+        &self,
+        caller: Option<crate::Caller>,
+        write: ipc::WriteFeatureSections,
+    ) -> impl Future<Output = Result<ipc::FeatureSectionsWritten, Refusal>> + Send;
+
+    /// `upsert_features` — areas and features kept by slug, for the Operator's seeding. [`Refusal::Unacceptable`] for a
+    /// feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a blank part
+    /// (`fleet.feature_blank`), with nothing kept.
+    fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
+
+    /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
+    fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;
+}

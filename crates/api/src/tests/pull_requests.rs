@@ -49,3 +49,13 @@ async fn a_refresh_is_a_post_on_the_pull_request_and_answers_its_state() {
     let (status, _) = call(&app, "GET", "/pull_requests/armada/7/refresh").await;
     assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "a command is never a GET");
 }
+
+#[tokio::test]
+async fn one_commits_files_are_a_get_by_repository_number_and_commit_in_the_patches_shape() {
+    let app = wired();
+    let (status, body) = call(&app, "GET", "/pull_request_commit_patches/armada/7/3f9c1d2").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let patches: ipc::PullRequestFilePatches = ipc::decode("a commit's files", &body).expect("the patches shape");
+    let file = &patches.files[0];
+    assert_eq!((file.manifest_id.as_str(), file.number, file.path.as_str()), ("armada", 7, "3f9c1d2.rs"));
+}

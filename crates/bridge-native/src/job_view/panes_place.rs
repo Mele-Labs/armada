@@ -170,22 +170,38 @@ pub(super) fn next_pane_of(arrangement: &Arrangement, pane: &str) -> Option<Stri
 }
 
 /// The pane a view tab asked for stands in: the one that holds the thread, or the first or second pane of the
-/// column beside it. None where there is none, and the tab then opens as a split.
+/// column beside it. None where there is none, and the tab then opens as a split. Where the thread's neighbour is the
+/// side chat's own pane, the column is beside the split of the two.
 pub(super) fn pane_for(arrangement: &Arrangement, place: ViewPane) -> Option<String> {
     let thread = tree::holder_of(arrangement, "thread");
     if place == ViewPane::Thread {
         return thread.map(|pane| pane.id.clone());
     }
-    let beside = thread.and_then(|pane| sibling_of(&arrangement.root, &pane.id));
+    let mut beside = thread.and_then(|pane| sibling_of(&arrangement.root, &pane.id));
+    if beside.is_some_and(side_pane) {
+        let split = thread.and_then(|pane| parent_split_of(&arrangement.root, &pane.id)).map(|(split, _)| split);
+        beside = split.and_then(|split| sibling_of(&arrangement.root, &split));
+    }
     let panes = tree::panes_of(beside.unwrap_or(&arrangement.root));
     let at = usize::from(place == ViewPane::Bottom);
-    panes.get(at).map(|pane| pane.id.clone())
+    panes.into_iter().filter(|pane| !is_side(pane)).nth(at).map(|pane| pane.id.clone())
+}
+
+/// Whether a pane holds the side chat's tab and nothing else.
+fn is_side(pane: &tree::Pane) -> bool {
+    !pane.tabs.is_empty() && pane.tabs.iter().all(|tab| tab.kind == "terminal" && tab.terminal.as_deref().is_some_and(|key| key.starts_with("aside:")))
+}
+
+fn side_pane(node: &Node) -> bool {
+    matches!(node, Node::Pane(pane) if is_side(pane))
 }
 
 /// Which place a pane is, as a view tab names its places.
 pub(super) fn view_pane_of(arrangement: &Arrangement, pane: &str) -> ViewPane {
     if tree::holder_of(arrangement, "thread").is_some_and(|holder| holder.id == pane) {
         ViewPane::Thread
+    } else if tree::pane_by_id(arrangement, pane).is_some_and(is_side) {
+        ViewPane::Beside
     } else if pane_for(arrangement, ViewPane::Bottom).is_some_and(|second| second == pane) {
         ViewPane::Bottom
     } else {
@@ -428,6 +444,10 @@ impl JobView {
 
     /// The tab at the front of its pane, and the pane takes the focus.
     pub(super) fn activate_tab(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) {
+        // The Side chat tab among the thread's own opens its split.
+        if self.side_tab_pressed(tab, window, cx) {
+            return;
+        }
         let tab = tab.to_string();
         self.look(|arrangement| tree::activate(arrangement, &tab), cx);
         self.want_pane_reads(window, cx);
@@ -755,6 +775,36 @@ mod tests {
         // The foot stays the foot with a pane split off beside it.
         let split = tree::split_pane(&arrangement, &top.id, SplitInto::Right).into_owned();
         assert_eq!(pane_for(&split, ViewPane::Top).as_deref(), Some(top.id.as_str()));
+    }
+
+    /// The default screen with the side chat split off the thread's pane: the thread, the side chat's pane, then the column.
+    fn with_side_chat(arrangement: &Arrangement) -> (Arrangement, String) {
+        let thread = tree::holder_of(arrangement, "thread").expect("a thread").id.clone();
+        let held = put_terminal(arrangement, "aside:mock", Some(&thread), false);
+        let split = tree::split_pane(&held, &thread, SplitInto::Right).into_owned();
+        let beside = split.focus.clone();
+        let tab = tree::panes_of(&split.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.terminal.as_deref() == Some("aside:mock")).expect("the tab").id.clone();
+        (tree::move_tab_to_pane(&split, &tab, &beside, None).into_owned(), beside)
+    }
+
+    /// With the side chat split open, the column is still Top and Bottom, and the side chat's pane is neither.
+    #[test]
+    fn with_the_side_chat_split_open_top_and_bottom_are_still_the_column() {
+        let was = tree::default_arrangement();
+        let (_, top, foot) = column(&was);
+        let (top, foot) = (top.id.clone(), foot.id.clone());
+        let (arrangement, beside) = with_side_chat(&was);
+        assert_eq!(pane_for(&arrangement, ViewPane::Top), Some(top.clone()), "Top is the column's first pane");
+        assert_eq!(pane_for(&arrangement, ViewPane::Bottom), Some(foot.clone()), "Bottom is its second");
+        assert_eq!(view_pane_of(&arrangement, &beside), ViewPane::Beside, "the side chat's pane is neither");
+        assert_eq!(view_pane_of(&arrangement, &top), ViewPane::Top);
+        assert_eq!(view_pane_of(&arrangement, &foot), ViewPane::Bottom);
+        let thread = tree::holder_of(&arrangement, "thread").expect("a thread").id.clone();
+        assert_eq!(pane_for(&arrangement, ViewPane::Thread), Some(thread.clone()));
+        assert_eq!(view_pane_of(&arrangement, &thread), ViewPane::Thread);
+        // With no column beside the two, nothing is handed out as the column.
+        let alone = tree::close_pane(&tree::close_pane(&arrangement, &top).into_owned(), &foot).into_owned();
+        assert_eq!(pane_for(&alone, ViewPane::Bottom), None);
     }
 
     /// Where the thread stands alone there is no column: the foot has no pane, and the tab opens as a split.

@@ -2,7 +2,7 @@
 
 **Part of:** [Job](../session.md).
 
-**A session draws the person a diagram with `show_sketch`** (`title`, `scene`, optional `against`), a tool on the agent's door, in place of ASCII art.
+**A session draws the person a diagram with `show_sketch`** (`title`, `scene`, optional `against` and `asks`), a tool on the agent's door, in place of ASCII art.
 The scene is the format of `docs/concepts/sketch-pane.md`: `nodes`, `edges` and optional `strokes`.
 Fleet places a hosted session by its connection, as for `show_window`; a terminal session names its own id.
 
@@ -65,7 +65,7 @@ The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`,
 No window opens.
 Through the door the answer is a receipt of `session_id` and `sketch`.
 
-**Every sketch shown is put to the person on its card**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
+**Every sketch shown is put to the person on its card unless the call passed `asks: false`**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
 He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
 A note that only names one of the sketch's takes, such as `B` or `Take 2`, is a pick: it settles the sketch as approved and tells the job which take to go on from.
 A take is named by the lead of a mock's, a screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id, in a sketch of two or more mocks or screens.
@@ -83,6 +83,12 @@ Every part he has not answered waits on him with its own Approve and Ask for cha
 Drawing a title again replaces that drawing only; another title joins the open artifact.
 Fleet lists the artifact as one item in his Needs you, and Bridge pins it while it still asks. The pin is read again after each answer, so an answered artifact never stays pinned.
 A plan's sketch is not asked, because it is approved with the plan.
+
+**A sketch that only explains is shown with `asks: false`** (a cause, a map, a result; default `true`), so a Job's picture need not put a question to him.
+Fleet writes no `detail.asked`, so it raises no item in his Needs you, its card has no Approve or Ask for changes in either Bridge, and `answer_sketch` on it is refused, 409 `fleet.sketch_not_open`.
+It is still an artifact of the Job, in state `reading`, and opens like any sketch.
+It never joins the artifact that asks, and a redraw of its title carries no `asked`, whether the earlier drawing asked or not; a redraw that leaves `asks` out asks again.
+His note on it, by a right-click or a Shift+drag, is an ordinary message of his and changes nothing on the sketch, as the words of an `add_part` part with `asks: false` ask nothing.
 
 **Each drawing of a title is kept as a revision**, as a [document](../document.md)'s pages are, so a redraw loses nothing.
 Fleet writes the scene's text to `rN.json` under `<attachments>/sketches/<job>/<title>-<hash>/`, the title cleaned to one name and the hash its SHA-256 cut to 12 hex digits, so two titles that clean up alike never share a folder.

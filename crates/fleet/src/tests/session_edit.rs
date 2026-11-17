@@ -171,6 +171,7 @@ async fn an_edit_is_refused_for_what_it_is_not_allowed_to_change() {
                 notice: None,
                 queued: false,
                 edited_at: None,
+                aside: None,
                 sketches: Vec::new(),
             },
         )

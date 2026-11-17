@@ -1011,7 +1011,7 @@ where
     }
 
     /// The session a call is about: the hosted one holding the connection, else the named one.
-    pub(super) fn waiting_session(
+    pub(crate) fn waiting_session(
         &self,
         caller: Option<api::Caller>,
         named: Option<&ipc::SessionId>,
@@ -1106,13 +1106,15 @@ where
         let later = self.later_open_text(store, id)?;
         let unshown = self.picture_owed_text(store, id)?;
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
-        let code = match (&later, &unshown, &flying) {
-            (None, None, None) => return Ok(()),
-            (_, _, Some(_)) => crate::lifecycles::ending::IN_FLIGHT,
-            (Some(_), _, None) => super::later::LATER_OPEN,
-            (None, Some(_), None) => super::ways_checking::PICTURE_OWED,
+        let owed = crate::feature_library::sections_owed_text(store, id).map_err(|why| self.ledger_fault(why))?;
+        let code = match (&later, &unshown, &flying, &owed) {
+            (None, None, None, None) => return Ok(()),
+            (_, _, Some(_), _) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None, _) => super::later::LATER_OPEN,
+            (None, Some(_), None, _) => super::ways_checking::PICTURE_OWED,
+            (None, None, None, Some(_)) => crate::feature_library::OWED,
         };
-        let reasons: Vec<String> = [later, unshown, flying].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying, owed].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }

@@ -86,10 +86,15 @@ impl OperatorScreen {
         Self::new(jobs, page, Front::Jobs, None, window, cx)
     }
 
-    /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock.
+    /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock,
+    /// whose work lands on the walk's `Lands` steps.
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
-        let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::mock(window, cx));
+        let reviews = cx.new(|cx| {
+            let mut reviews = crate::reviews::ReviewsScreen::mock(window, cx);
+            reviews.walk(cx);
+            reviews
+        });
         Self::new(jobs, page, Front::Jobs, Some(reviews), window, cx)
     }
 

@@ -89,6 +89,11 @@ where
         for record in changed {
             self.publish(ipc::Event::SessionChanged(record));
         }
+        // Each pull request now held is filed under the features its files belong to.
+        for (owner, number) in &attached {
+            self.feature_pull_filed(served, *number, None).await;
+            self.feature_commits_filed(served, owner).await;
+        }
         // Auto land: the forge is asked after the store is let go. A refusal is told to the
         // Session, since nobody pressed anything to be answered.
         for (owner, number) in attached {

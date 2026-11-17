@@ -358,7 +358,7 @@ impl JobView {
                 .border_color(look.color(token::YOU_EDGE))
                 .bg(look.color(token::BG_RAISED))
                 .child(div().relative().child(div().absolute().inset_0().rounded(look.length(token::RADIUS_MD)).bg(look.color(token::YOU).opacity(0.08))).child(head))
-                .child(div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_2)).child(self.prose(format!("note-body:{}", note.id), &note.body, look, cx))),
+                .child(div().px(look.length(token::SPACE_3)).pb(look.length(token::SPACE_2)).child(self.pull_prose(format!("note-body:{}", note.id), &note.body, look, cx))),
             Role::Article,
             LABEL,
         )

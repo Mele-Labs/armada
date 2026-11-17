@@ -2,7 +2,7 @@
 //! standing. The forge is never called here: `gh` needs an account and a
 //! network, and what is under test is what the line means.
 
-use adapter_traits::{PullRequestFacts, PullRequestStanding};
+use adapter_traits::{MergeState, PullRequestFacts, PullRequestStanding};
 
 use crate::pull_request_facts::parsed;
 
@@ -15,7 +15,11 @@ fn with_body(state: &str, draft: &str, auto: &str, body: &str) -> String {
 }
 
 fn closing(state: &str, draft: &str, auto: &str, closes: &str, body: &str) -> String {
-    format!("{state}\t{draft}\t{auto}\tfleet/pr-acts\tmain\thttps://forge.invalid/a/b/pull/7\t{closes}\t{body}\tTake a draft out")
+    merging(state, draft, auto, "CLEAN", closes, body)
+}
+
+fn merging(state: &str, draft: &str, auto: &str, merge_state: &str, closes: &str, body: &str) -> String {
+    format!("{state}\t{draft}\t{auto}\t{merge_state}\tfleet/pr-acts\tmain\thttps://forge.invalid/a/b/pull/7\t{closes}\t{body}\tTake a draft out")
 }
 
 #[test]
@@ -31,8 +35,25 @@ fn an_open_pull_request_that_is_a_draft_is_a_draft() {
             url: "https://forge.invalid/a/b/pull/7".into(),
             body: None,
             closes: Vec::new(),
+            merge_state: MergeState::Clean,
         })
     );
+}
+
+/// **The forge's own verdict on a merge**, which passed checks do not give: a pull request waiting
+/// on a required review is `BLOCKED`. A word this build has no name for offers no merge.
+#[test]
+fn the_forges_merge_state_is_read_and_a_word_nobody_named_is_unknown() {
+    let merge_state = |word| parsed(&merging("OPEN", "false", "false", word, "", "")).expect("read").merge_state;
+    assert_eq!(merge_state("BLOCKED"), MergeState::Blocked);
+    assert_eq!(merge_state("BEHIND"), MergeState::Behind);
+    assert_eq!(merge_state("DIRTY"), MergeState::Dirty);
+    assert_eq!(merge_state("UNSTABLE"), MergeState::Unstable);
+    assert_eq!(merge_state("HAS_HOOKS"), MergeState::HasHooks);
+    assert_eq!(merge_state("DRAFT"), MergeState::Draft);
+    assert_eq!(merge_state("CLEAN"), MergeState::Clean);
+    assert_eq!(merge_state("SOMEDAY"), MergeState::Unknown);
+    assert_eq!(merge_state(""), MergeState::Unknown);
 }
 
 #[test]
@@ -79,7 +100,7 @@ fn a_short_or_blank_line_is_no_reading() {
     assert_eq!(parsed("OPEN\ttrue"), None);
     assert_eq!(parsed(""), None);
     assert_eq!(
-        parsed("OPEN\tfalse\tfalse\t\tmain\thttps://forge.invalid/a/b/pull/7\t\t\ttitle"),
+        parsed("OPEN\tfalse\tfalse\tCLEAN\t\tmain\thttps://forge.invalid/a/b/pull/7\t\t\ttitle"),
         None
     );
 }

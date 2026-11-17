@@ -1814,6 +1814,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "build_note_open_job",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Open Job",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥⌘O",
+    scope: "review sheet",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

@@ -1,19 +1,19 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
-use gpui::{div, prelude::*, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled};
+use gpui::{anchored, deferred, div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
 use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
-use gpui_component::input::Textarea;
+use gpui_component::input::{Input, Textarea};
 
-use super::model::{named, on_day, ChangeSet, Critique, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Summary, Viewed};
+use super::model::{named, on_day, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
-use super::{Ask, ReviewsScreen, HUNKS_AT};
+use super::{AskingReview, ReviewsScreen, HUNKS_AT};
 use crate::diff;
 use crate::job_view::pulls::state_chip;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
-use crate::titlebar::parts::{glyph, mono, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{card, glyph, icon_button, mono, spinner, tip, Btn, Weight};
 
 /// The glyph on a tab and in the Add tab menu.
 pub(super) fn glyph_of(kind: &str) -> &'static str {
@@ -46,6 +46,28 @@ fn file_mark(status: PullRequestFileStatus) -> (&'static str, Token, &'static st
         PullRequestFileStatus::Modified => ("pencil", token::FG_MUTED, "Modified"),
         PullRequestFileStatus::Renamed => ("file-text", token::FG_MUTED, "Renamed"),
     }
+}
+
+/// A check's state as its glyph, turning slowly while it runs as the inbox's does; gpui draws it
+/// still when reduce motion is on.
+fn check_lead(id: String, state: PullRequestCheckState, look: &Look) -> AnyElement {
+    let (name, ink, said) = check_mark(state);
+    if state != PullRequestCheckState::Running {
+        return mark(id, name, ink, said, look);
+    }
+    let turning = glyph(name, look.length(token::SPACE_4), look.color(ink)).with_animation(
+        SharedString::from(format!("{id}-turn")),
+        Animation::new(look.duration(token::DURATION_PULSE)).repeat(),
+        |mark, at| mark.with_transformation(Transformation::rotate(gpui::percentage(at))),
+    );
+    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said)).child(turning), Role::Image, said).into_any_element()
+}
+
+/// A check's state in words at a row's end: in its hue once settled, muted while it runs.
+fn check_words(state: PullRequestCheckState, said: String, look: &Look) -> AnyElement {
+    let (_, ink, _) = check_mark(state);
+    let ink = if state == PullRequestCheckState::Running { token::FG_MUTED } else { ink };
+    div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(ink)).child(SharedString::from(said)).into_any_element()
 }
 
 /// A state as a registry glyph that says itself in a tooltip.
@@ -147,8 +169,9 @@ fn band(id: String, title: &'static str, look: &Look) -> AnyElement {
     .into_any_element()
 }
 
-/// One row of a table: a glyph column, a narrow fixed key column, and what it says.
-fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: Vec<AnyElement>, said: Option<String>, look: &Look) -> AnyElement {
+/// One row of a table: a glyph column, a narrow fixed key column where the rows have one, what it
+/// says in the rest of the width, and what stands at its end.
+fn table_row(id: String, name: String, lead: AnyElement, key: Option<AnyElement>, rest: Vec<AnyElement>, end: Option<AnyElement>, said: Option<String>, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(id))
@@ -162,8 +185,9 @@ fn table_row(id: String, name: String, lead: AnyElement, key: AnyElement, rest: 
             .border_color(look.color(token::BORDER_SUBTLE))
             .text_size(look.length(token::TEXT_SM))
             .child(div().flex_none().w(look.length(token::SPACE_4)).child(lead))
-            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.).overflow_hidden().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(key))
-            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(rest)),
+            .children(key.map(|key| div().flex_none().w(look.length(token::SPACE_12) * 2.).overflow_hidden().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(key)))
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).children(rest))
+            .children(end),
         Role::Row,
         name,
     )
@@ -196,11 +220,138 @@ impl ReviewsScreen {
     fn critique_button(&self, id: &'static str, name: &'static str, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let running = matches!(page.critique, Critique::Running { .. });
         labelled(
-            Btn::new(id, name, Weight::Primary).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.ask(Ask::Critique, window, cx))),
+            Btn::new(id, name, Weight::Primary).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.open_review(name, window, cx))),
             Role::Button,
             name,
         )
         .into_any_element()
+    }
+
+    /// The sheet under Review these changes: what to look for, how hard, and anything to focus on.
+    pub(super) fn render_review_ask(&self, open: &AskingReview, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let caption = |id: &'static str, said: &'static str| {
+            labelled(
+                div()
+                    .id(id)
+                    .text_size(look.length(token::TEXT_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(said),
+                Role::Label,
+                said,
+            )
+        };
+        let muted = |id: &'static str, said: String| {
+            labelled(
+                div().id(id).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())),
+                Role::Label,
+                said,
+            )
+        };
+        let heading = labelled(
+            div()
+                .id("review-ask-title")
+                .text_size(look.length(token::TEXT_BASE))
+                .line_height(look.length(token::LEADING_BASE))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .child(open.title),
+            Role::Heading,
+            open.title,
+        );
+        let range = self.page().map_or_else(|| "the whole pull request".to_string(), |page| page.range().said);
+        let mut tools = div().flex().flex_col().gap(look.length(token::SPACE_1));
+        for tool in &self.review_tools {
+            let on = open.ask.has(&tool.id);
+            let ink = if on { look.color(token::ACCENT) } else { look.color(token::FG_MUTED) };
+            let id = tool.id.clone();
+            tools = tools.child(labelled(
+                div()
+                    .id(SharedString::from(format!("review-tool-{}", tool.id)))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL))
+                    .cursor_pointer()
+                    .text_size(look.length(token::TEXT_SM))
+                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_review_tool(&id, cx)))
+                    .child(glyph(if on { "square-check" } else { "square" }, look.length(token::SPACE_4), ink))
+                    .child(SharedString::from(tool.name.clone())),
+                Role::CheckBox,
+                tool.name.clone(),
+            ));
+        }
+        let picked = open.ask.effort;
+        let mut efforts = div().id("review-effort").flex().p(look.length(token::SPACE_1)).gap(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_LG)).bg(look.color(token::BG_SUNKEN));
+        for effort in Effort::ALL {
+            let on = effort == picked;
+            let ink = if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) };
+            efforts = efforts.child(labelled(
+                div()
+                    .id(SharedString::from(format!("review-effort-{}", effort.name())))
+                    .flex_1()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .h(look.length(token::H_CONTROL))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(ink)
+                    .when(on, |radio| radio.bg(look.color(token::BG_RAISED)).shadow(look.shadows(token::SHADOW_CARD)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                    .tooltip(tip(effort.costs()))
+                    .on_click(cx.listener(move |this, _, _, cx| this.pick_effort(effort, cx)))
+                    .child(effort.name()),
+                Role::RadioButton,
+                effort.name(),
+            ));
+        }
+        let focus = labelled(div().id("review-ask-focus").key_context(crate::keymap::TEXT_BOX).child(Input::new(&open.focus)), Role::TextInput, "Anything to focus on?");
+        let none = open.ask.tools.is_empty();
+        let start = labelled(
+            Btn::new("review-ask-start", "Start", Weight::Primary).icon("bot").disabled(none).draw(look, cx).when(none, |button| button.tooltip(tip("Tick something to look for"))).on_click(cx.listener(|this, _, window, cx| this.start_review(window, cx))),
+            Role::Button,
+            "Start review",
+        );
+        let cancel = labelled(
+            Btn::new("review-ask-cancel", "Cancel", Weight::Ghost).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.cancel_review(window, cx))),
+            Role::Button,
+            "Cancel",
+        );
+        let sheet = labelled(
+            card(look)
+                .id("review-ask")
+                .track_focus(&self.dialog)
+                .occlude()
+                .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    if crate::room::of(window, cx).contains(&event.position) {
+                        this.cancel_review(window, cx);
+                    }
+                }))
+                .w(look.length(token::W_DIALOG))
+                .p(look.length(token::SPACE_4))
+                .gap(look.length(token::SPACE_3))
+                .border_t(look.length(token::BORDER_WIDTH) * 2.)
+                .border_color(look.color(token::ACCENT))
+                .child(heading)
+                .child(muted("review-ask-range", format!("Reads {range}. Its suggestions come to Review comments.")))
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-what", "What to look for")).child(tools))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
+                        .child(caption("review-ask-effort", "Effort"))
+                        .child(labelled(efforts, Role::RadioGroup, "Effort"))
+                        .child(muted("review-ask-costs", picked.costs().to_string())),
+                )
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-focus-label", "Anything to focus on?")).child(focus))
+                .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(cancel).child(start)),
+            Role::Dialog,
+            open.title,
+        );
+        deferred(anchored().position(open.at).snap_to_window_with_margin(look.length(token::SPACE_3)).child(sheet)).with_priority(1).into_any_element()
     }
 
     /// What changed since he looked: new commits, the files they touched, replies to him, and checks.
@@ -240,7 +391,7 @@ impl ReviewsScreen {
             );
             return column
                 .child(notice)
-                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Critique the whole PR", page, look, cx)).child(whole))
+                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Review the whole PR", page, look, cx)).child(whole))
                 .into_any_element();
         }
         column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
@@ -257,8 +408,7 @@ impl ReviewsScreen {
                 div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(by)).into_any_element(),
             ];
             let lead = glyph("git-commit-horizontal", look.length(token::SPACE_4), look.color(token::STATUS_HANDED_IN)).into_any_element();
-            let key = div().into_any_element();
-            table = table.child(table_row(format!("changed-commit-{}", commit.sha), commit.headline.clone(), lead, key, rest, Some(format!("Commit {}", commit.sha)), look));
+            table = table.child(table_row(format!("changed-commit-{}", commit.sha), commit.headline.clone(), lead, None, rest, None, Some(format!("Commit {}", commit.sha)), look));
         }
         table = table.child(band("changed-band-files".into(), "Files changed", look));
         for (at, file) in page.files.iter().filter(|file| file.since).enumerate() {
@@ -275,7 +425,7 @@ impl ReviewsScreen {
                 // In a row of its own, so the chip keeps its own width.
                 rest.push(div().flex().child(chip(format!("changed-after-{at}"), "You had viewed it".into(), token::STATUS_HANDED_IN, token::STATUS_HANDED_IN_BG, look)).into_any_element());
             }
-            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), key, rest, None, look));
+            table = table.child(table_row(format!("changed-file-{at}"), file.path.clone(), mark(format!("changed-file-mark-{at}"), name, ink, said, look), Some(key), rest, None, None, look));
         }
         if page.kept {
             table = table.child(band("changed-band-replies".into(), "Replies to your comments", look));
@@ -291,7 +441,7 @@ impl ReviewsScreen {
                 ];
                 let key = div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).truncate().child(SharedString::from(reply.author.clone())).into_any_element();
                 let lead = glyph("message-square-reply", look.length(token::SPACE_4), look.color(token::ACCENT)).into_any_element();
-                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, key, rest, None, look));
+                table = table.child(table_row(format!("changed-reply-{at}"), format!("Reply on {place}"), lead, Some(key), rest, None, None, look));
             }
         }
         table = table.child(band("changed-band-checks".into(), "Checks", look));
@@ -299,15 +449,15 @@ impl ReviewsScreen {
             table = table.child(waiting("changed-checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
         }
         for (at, check) in page.checks.iter().enumerate() {
-            let (name, ink, said) = check_mark(check.state);
+            let (_, _, said) = check_mark(check.state);
             let state = match (check.state, check.seconds) {
                 (PullRequestCheckState::Running, Some(seconds)) if seconds >= 60 => format!("Running, {} min", seconds / 60),
                 _ => said.to_string(),
             };
             let rest = vec![div().child(SharedString::from(check.name.clone())).into_any_element()];
-            let key = div().text_color(look.color(ink)).child(SharedString::from(state.clone())).into_any_element();
             let row_name = format!("{}: {state}", check.name);
-            table = table.child(table_row(format!("changed-check-{at}"), row_name, mark(format!("changed-check-mark-{at}"), name, ink, said, look), key, rest, None, look));
+            let end = check_words(check.state, state, look);
+            table = table.child(table_row(format!("changed-check-{at}"), row_name, check_lead(format!("changed-check-mark-{at}"), check.state, look), None, rest, Some(end), None, look));
         }
         let table = labelled(table.id("changed-table"), Role::Table, "What changed");
         let diff = labelled(
@@ -316,7 +466,7 @@ impl ReviewsScreen {
             "Diff since you looked",
         );
         column
-            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Critique these changes", page, look, cx)).child(diff))
+            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Review these changes", page, look, cx)).child(diff))
             .child(table)
             .into_any_element()
     }
@@ -462,7 +612,8 @@ impl ReviewsScreen {
             let patch = if whole { file.patch.as_str() } else { file.patch_since.as_deref().unwrap_or(&file.patch) };
             let drawn = diff::file_diff_of(&file.path, Some(patch), None);
             let lines = drawn.files.first().map(|one| one.lines.clone()).unwrap_or_default();
-            diff::lines(SharedString::from(format!("file-diff-{at}-{whole}")), &lines, look)
+            let slots = diff::Slots { hues: self.hues_of(&file.path, &lines), ..Default::default() };
+            diff::lines_with(SharedString::from(format!("file-diff-{at}-{whole}")), &lines, look, slots)
         });
         labelled(frame(look).id(SharedString::from(format!("file-{at}"))).flex().flex_col().child(head).children(body), Role::Article, format!("File: {}", file.path)).into_any_element()
     }
@@ -523,6 +674,15 @@ impl ReviewsScreen {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(place_line(format!("draft-card-place-{}", draft.id), place.clone(), look))
+                .children(draft.excerpt.as_deref().map(|lines| {
+                    // The commented line is the excerpt's last, picked as a change set's hot line is.
+                    let slots = diff::Slots { picked: lines.len().checked_sub(1), wrap: true, hues: self.hues_of(&draft.path, lines), ..Default::default() };
+                    labelled(
+                        frame(look).id(SharedString::from(format!("draft-card-diff-{}", draft.id))).child(diff::lines_with(SharedString::from(format!("draft-diff-{}", draft.id)), lines, look, slots)),
+                        Role::Article,
+                        format!("Diff at {place}"),
+                    )
+                }))
                 .child(labelled(
                     div().id(SharedString::from(format!("draft-card-box-{}", draft.id))).key_context(crate::keymap::TEXT_BOX).w_full().text_size(look.length(token::TEXT_SM)).child(Textarea::new(&boxed.state)),
                     Role::TextInput,
@@ -537,19 +697,25 @@ impl ReviewsScreen {
 
     fn critique_part(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let muted = look.color(token::FG_MUTED);
+        // What he asked the review to look for and how hard, under its status or its heading.
+        let asked = |asked: &ReviewAsk| {
+            let said = asked.said(&self.review_tools);
+            let said = if asked.focus.is_empty() { said } else { format!("{said}. Focus: {}", asked.focus) };
+            labelled(div().id("findings-asked").text_size(look.length(token::TEXT_XS)).text_color(muted).child(SharedString::from(said.clone())), Role::Label, said)
+        };
         match &page.critique {
             Critique::None => div()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
                 .child(status("findings-none", "No suggestions on this pull request".into(), glyph("bot", look.length(token::SPACE_4), muted).into_any_element(), look))
-                .child(div().flex().child(self.critique_button("findings-critique", "Critique this pull request", page, look, cx)))
+                .child(div().flex().child(self.critique_button("findings-critique", "Review this pull request", page, look, cx)))
                 .into_any_element(),
-            Critique::Running { range } => div()
+            Critique::Running { range, asked: ask } => div()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(status("findings-running", "Critique running".into(), spinner("findings-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look))
+                .child(status("findings-running", "Review running".into(), spinner("findings-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look))
                 .child(labelled(
                     div()
                         .id("findings-range")
@@ -560,9 +726,11 @@ impl ReviewsScreen {
                     Role::Label,
                     format!("Reading {}", range.said),
                 ))
+                .child(asked(ask))
                 .into_any_element(),
-            Critique::Finished { range, findings } => {
-                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(heading_tipped("findings-head", format!("Suggestions on {}", range.said), Some(range.commits.clone()), look));
+            Critique::Finished { range, findings, asked: ask } => {
+                let head = div().flex().flex_col().gap(look.length(token::SPACE_1)).child(heading_tipped("findings-head", format!("Suggestions on {}", range.said), Some(range.commits.clone()), look)).child(asked(ask));
+                let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head);
                 // What already went sits folded under the heading, where a long list cannot push it out of sight.
                 column = column.children(self.sent_part(page, look, cx));
                 // A drafted one is among the drafts above, a sent one in its folded line below.
@@ -576,7 +744,7 @@ impl ReviewsScreen {
                     })
                     .collect();
                 if findings.is_empty() {
-                    column = column.child(status("findings-empty", "Critique found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
+                    column = column.child(status("findings-empty", "Review found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
                 } else if open.is_empty() {
                     column = column.child(words("findings-done", "No suggestions left".into(), look));
                 }
@@ -709,7 +877,8 @@ impl ReviewsScreen {
         column = column.child(div().pt(look.length(token::SPACE_2)).child(heading("overview-sets-head", "Change sets".into(), look)));
         let mut table = frame(look).flex().flex_col();
         for set in &page.overview.sets {
-            table = table.child(self.set_row(set, look, cx));
+            let mark = self.set_mark_of(page, &set.id);
+            table = table.child(self.set_row(set, &mark, look, cx));
         }
         if page.kept {
             table = table.child(waiting("overview-sets-wait", "Writing the change sets of the commits since you looked", &[0.4, 0.8], look));
@@ -790,7 +959,6 @@ impl ReviewsScreen {
             .pb(look.length(token::SPACE_3))
             .child(add)
             .child(show)
-            .child(div().flex_1())
             .child(drop);
         labelled(
             frame(look)
@@ -812,8 +980,110 @@ impl ReviewsScreen {
         self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(flag)).then(|| "Added as draft comment".to_string())
     }
 
-    /// A change set's row on the Overview: its glyph, title, purpose, and Review.
-    fn set_row(&self, set: &ChangeSet, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    /// One practice: its result's glyph, its words with what he said under them, and Wrong in a column
+    /// of its own, held empty where a row has none.
+    fn practice_row(&self, n: usize, practice: &Practice, kept: Kept, reason: Option<&str>, wrong: Option<Option<AnyElement>>, look: &Look) -> AnyElement {
+        let (name, ink, said) = kept_mark(kept);
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(SharedString::from(practice.said.clone()))
+            .children(reason.map(|reason| {
+                let you_said = format!("You said: {reason}");
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("practice-said-{n}")))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(SharedString::from(you_said.clone())),
+                    Role::Label,
+                    you_said,
+                )
+            }));
+        let column = wrong.map(|wrong| div().flex_none().w(look.length(token::LEADING_SM)).h(look.length(token::LEADING_SM)).children(wrong));
+        labelled(
+            div()
+                .id(SharedString::from(format!("practice-{n}")))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(mark(format!("practice-mark-{n}"), name, ink, said, look)))
+                .child(words)
+                .children(column),
+            Role::Row,
+            format!("{said}: {}", practice.said),
+        )
+        .into_any_element()
+    }
+
+    /// Wrong: a ghost glyph that opens Doesn't apply here and Check is wrong, or on a result he
+    /// corrected, Change the reason and Undo.
+    fn wrong_button(&self, at: PracticeAt, practice: &Practice, corrected: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let name = format!("Wrong: {}", practice.said);
+        let n = at.2;
+        labelled(
+            icon_button(SharedString::from(format!("practice-wrong-{n}")), "flag", look.color(token::FG_MUTED), look)
+                .size(look.length(token::LEADING_SM))
+                .rounded(look.length(token::RADIUS_SM))
+                .tooltip(tip(if corrected { "Change or undo what you said" } else { "Say this result is wrong" }))
+                .on_click(cx.listener({
+                    let name = name.clone();
+                    move |this, event: &gpui::ClickEvent, window, cx| {
+                        let point = super::under_label(Role::Button, &name, event.position(), window, cx);
+                        this.open_wrong(at.clone(), point, window, cx);
+                    }
+                })),
+            Role::Button,
+            name,
+        )
+        .into_any_element()
+    }
+
+    /// The reason, in one line, under the practice he called wrong: Save keeps it, Cancel drops it.
+    fn reason_field(&self, open: &super::Correcting, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let asks = open.wrong.asks();
+        let save = labelled(
+            Btn::new("practice-reason-save", "Save", Weight::Primary).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.save_correction(window, cx))),
+            Role::Button,
+            "Save reason",
+        );
+        let cancel = labelled(
+            Btn::new("practice-reason-cancel", "Cancel", Weight::Ghost).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.cancel_correcting(window, cx))),
+            Role::Button,
+            "Cancel reason",
+        );
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            // Under the practice's words, past its glyph.
+            .pl(look.length(token::SPACE_4) + look.length(token::SPACE_2))
+            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(open.wrong.said()))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(labelled(div().id("practice-reason").flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).child(Input::new(&open.field)), Role::TextInput, asks))
+                    .child(save)
+                    .child(cancel),
+            )
+            .into_any_element()
+    }
+
+    /// What the findings on a set come to, leaving out those he called Not a problem.
+    pub(super) fn set_mark_of(&self, page: &Page, set: &str) -> Mark {
+        let open: Vec<&Flag> = page.overview.flags.iter().filter(|flag| !self.dismissed.contains(&(page.number, flag.id.clone()))).collect();
+        Mark::of(set, &open)
+    }
+
+    /// A change set's row on the Overview: its glyph, title, what was found in it, purpose, and Review.
+    fn set_row(&self, set: &ChangeSet, mark: &Mark, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let id = set.id.clone();
         let review = labelled(
             Btn::new(SharedString::from(format!("set-review-{}", set.id)), "Review", Weight::Secondary)
@@ -833,7 +1103,7 @@ impl ReviewsScreen {
                 .border_b(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 // The glyph sits on the title's line; Review stays centred on the row.
-                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(set_mark(format!("set-mark-{}", set.id), set.mark, look.length(token::SPACE_4), look)))
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(set_mark(format!("set-mark-{}", set.id), mark, look.length(token::SPACE_4), look)))
                 .child(
                     div()
                         .flex_1()
@@ -842,7 +1112,20 @@ impl ReviewsScreen {
                         .flex_col()
                         .text_size(look.length(token::TEXT_SM))
                         .line_height(look.length(token::LEADING_SM))
-                        .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(set.title.clone())))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_wrap()
+                                .gap_x(look.length(token::SPACE_2))
+                                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(set.title.clone())))
+                                .when_some(mark.worst, |line, worst| {
+                                    line.child(labelled(
+                                        div().id(SharedString::from(format!("set-found-{}", set.id))).text_color(look.color(flag_hue(worst))).child(SharedString::from(mark.said.clone())),
+                                        Role::Label,
+                                        mark.said.clone(),
+                                    ))
+                                }),
+                        )
                         .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(set.line()))),
                 )
                 .child(div().flex_none().self_center().child(review)),
@@ -885,21 +1168,49 @@ impl ReviewsScreen {
             set.kept_note.clone(),
         );
         let mut practices = div().flex().flex_col().gap(look.length(token::SPACE_1));
+        let mut aside = Vec::new();
         for (n, practice) in set.practices.iter().enumerate() {
-            let (name, ink, said) = kept_mark(practice.kept);
-            practices = practices.child(labelled(
+            let at: PracticeAt = (page.number, set.id.clone(), n);
+            let fixed = self.corrections.get(&at);
+            let reason_field = self.correcting.as_ref().filter(|open| open.at == at).map(|open| self.reason_field(open, look, cx));
+            if let Some(fixed) = fixed.filter(|fixed| fixed.wrong == Wrong::DoesNotApply) {
+                let wrong = self.wrong_button(at.clone(), practice, true, look, cx);
+                aside.push(self.practice_row(n, practice, Kept::DoesNotApply, Some(&fixed.reason), Some(Some(wrong)), look));
+                aside.extend(reason_field);
+                continue;
+            }
+            let kept = if fixed.is_some() { practice.kept.flipped() } else { practice.kept };
+            // A result that does not apply has no reverse to call it; a corrected one can be undone.
+            let wrong = (fixed.is_some() || practice.kept != Kept::DoesNotApply).then(|| self.wrong_button(at.clone(), practice, fixed.is_some(), look, cx));
+            practices = practices.child(self.practice_row(n, practice, kept, fixed.map(|fixed| fixed.reason.as_str()), Some(wrong), look));
+            practices = practices.children(reason_field);
+        }
+        if !aside.is_empty() {
+            let open = self.aside_open.contains(&(page.number, set.id.clone()));
+            let said = format!("{} set aside", aside.len());
+            let (number, id) = (page.number, set.id.clone());
+            let fold = labelled(
                 div()
-                    .id(SharedString::from(format!("practice-{n}")))
+                    .id("practices-aside")
                     .flex()
-                    .items_start()
+                    .items_center()
                     .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::LEADING_SM))
                     .text_size(look.length(token::TEXT_SM))
                     .line_height(look.length(token::LEADING_SM))
-                    .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(mark(format!("practice-mark-{n}"), name, ink, said, look)))
-                    .child(div().flex_1().min_w_0().child(SharedString::from(practice.said.clone()))),
-                Role::Row,
-                format!("{said}: {}", practice.said),
-            ));
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .aria_expanded(open)
+                    .on_click(cx.listener(move |this, _, _, cx| this.fold_aside(number, id.clone(), cx)))
+                    .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                    .child(SharedString::from(said.clone())),
+                Role::Button,
+                said,
+            );
+            practices = practices.child(fold);
+            if open {
+                practices = practices.children(aside);
+            }
         }
         let lead: Vec<AnyElement> = vec![
             labelled(
@@ -924,7 +1235,7 @@ impl ReviewsScreen {
         for (n, hunk) in set.hunks.iter().enumerate() {
             let drawn = diff::file_diff_of(&hunk.path, Some(&hunk.patch), None);
             let lines = drawn.files.first().map(|one| one.lines.clone()).unwrap_or_default();
-            let slots = diff::Slots { picked: hunk.hot, ..Default::default() };
+            let slots = diff::Slots { picked: hunk.hot, hues: self.hues_of(&hunk.path, &lines), ..Default::default() };
             let code = labelled(
                 frame(look)
                     .id(SharedString::from(format!("hunk-{n}")))
@@ -945,6 +1256,22 @@ impl ReviewsScreen {
                             .text_size(look.length(token::TEXT_XS))
                             .child(div().min_w_0().truncate().child(SharedString::from(hunk.path.clone()))),
                     )
+                    .when(!hunk.caption.is_empty(), |code| {
+                        code.child(labelled(
+                            div()
+                                .id(SharedString::from(format!("hunk-caption-{n}")))
+                                .px(look.length(token::SPACE_3))
+                                .py(look.length(token::SPACE_1))
+                                .border_b(look.length(token::BORDER_WIDTH))
+                                .border_color(look.color(token::BORDER_SUBTLE))
+                                .text_size(look.length(token::TEXT_XS))
+                                .line_height(look.length(token::LEADING_XS))
+                                .text_color(look.color(token::FG_MUTED))
+                                .child(SharedString::from(hunk.caption.clone())),
+                            Role::Label,
+                            hunk.caption.clone(),
+                        ))
+                    })
                     .child(diff::lines_with(SharedString::from(format!("hunk-diff-{}-{n}", set.id)), &lines, look, slots)),
                 Role::Article,
                 format!("File: {}", hunk.path),
@@ -1177,7 +1504,7 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
         table = table.child(waiting("checks-wait", "Reading checks", &[0.4, 0.5, 0.3], look));
     }
     for (at, check) in page.checks.iter().enumerate() {
-        let (name, ink, said) = check_mark(check.state);
+        let (_, _, said) = check_mark(check.state);
         let took = check.seconds.map_or_else(String::new, |seconds| format!("{}m {}s", seconds / 60, seconds % 60));
         let rest = vec![div()
             .flex()
@@ -1185,8 +1512,8 @@ fn checks_tab(page: &Page, look: &Look) -> AnyElement {
             .child(div().flex_1().min_w_0().child(SharedString::from(check.name.clone())))
             .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(took)))
             .into_any_element()];
-        let key = div().text_color(look.color(ink)).child(said).into_any_element();
-        table = table.child(table_row(format!("check-{at}"), check.name.clone(), mark(format!("check-mark-{at}"), name, ink, said, look), key, rest, None, look));
+        let end = check_words(check.state, said.to_string(), look);
+        table = table.child(table_row(format!("check-{at}"), check.name.clone(), check_lead(format!("check-mark-{at}"), check.state, look), None, rest, Some(end), None, look));
     }
     labelled(table.id("checks-table"), Role::Table, "Checks").into_any_element()
 }
@@ -1238,15 +1565,17 @@ fn flag_hue(kind: FlagKind) -> Token {
     }
 }
 
-/// A change set's worst finding as a registry glyph that says itself in a tooltip.
-pub(super) fn set_mark(id: String, mark: Mark, size: gpui::Pixels, look: &Look) -> AnyElement {
-    let (name, ink, said) = match mark {
-        Mark::Blocked => ("circle-x", token::RUN_FAILED, "A blocker"),
-        Mark::Risky => ("triangle-alert", token::STATUS_AWAITING_REVIEW, "A risk"),
-        Mark::Clear => ("circle-check", token::RUN_PASSED, "Nothing blocks it"),
+/// A change set's worst finding in its card's glyph and hue, with the findings in its tooltip. A set
+/// with none takes a quiet mark.
+pub(super) fn set_mark(id: String, mark: &Mark, size: gpui::Pixels, look: &Look) -> AnyElement {
+    let (name, ink, said) = match mark.worst {
+        Some(kind) => (kind.glyph(), flag_hue(kind), mark.said.clone()),
+        None => ("circle-check", token::FG_SUBTLE, NOTHING_FOUND.to_string()),
     };
-    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said)).child(glyph(name, size, look.color(ink))), Role::Image, said).into_any_element()
+    labelled(div().id(SharedString::from(id)).flex_none().tooltip(tip(said.clone())).child(glyph(name, size, look.color(ink))), Role::Image, said).into_any_element()
 }
+
+const NOTHING_FOUND: &str = "No problems found";
 
 fn kept_mark(kept: Kept) -> (&'static str, Token, &'static str) {
     match kept {

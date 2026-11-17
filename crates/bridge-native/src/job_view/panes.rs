@@ -1011,7 +1011,7 @@ impl JobView {
     pub(super) fn render_panel_tab(&self, width: Pixels, window: &mut Window, cx: &Context<Self>) -> AnyElement {
         let Some(panel) = self.panes.panel.as_ref() else { return div().into_any_element() };
         if matches!(panel.of, Of::Pull(_)) {
-            return self.render_pull_panel(width, window, cx).unwrap_or_else(|| div().into_any_element());
+            return self.render_pull_panel(width, cx).unwrap_or_else(|| div().into_any_element());
         }
         let look = cx.look();
         let look = &look;

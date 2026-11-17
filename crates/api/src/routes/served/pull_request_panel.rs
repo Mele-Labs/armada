@@ -20,6 +20,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/pull_request_patches/:repository/:number",
     },
     Route {
+        operation: "get_pull_request_commit_patches",
+        method: "GET",
+        path: "/pull_request_commit_patches/:repository/:number/:commit",
+    },
+    Route {
         operation: "write_pull_request",
         method: "POST",
         path: "/pull_request_writes/:repository",

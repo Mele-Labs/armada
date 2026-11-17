@@ -78,6 +78,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("withdraw_for_you", shape::of::<crate::WithdrawForYou>()),
         ("withdraw_sketch", shape::of::<crate::WithdrawSketch>()),
         ("withdraw_window", shape::of::<crate::WithdrawWindow>()),
+        ("write_feature_sections", shape::of::<crate::WriteFeatureSections>()),
     ];
     for (operation, shape) in shapes {
         assert!(shape.starts_with('{') && shape.ends_with('}') && shape.contains(": "), "{operation}: {shape}");

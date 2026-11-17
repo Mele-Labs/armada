@@ -53,7 +53,7 @@ A Job another Mac holds is left off, with why.
 
 **In the native Bridge the dispatch sheet starts a Job in a project.**
 Its picker lists his projects by name, each with its repository on a line under the name, once for every repository the project holds.
-Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project.
+Under No project come every repository and folder Fleet serves, and a Job started from one of those has no project, except that a start naming none is put in the one project that holds its repository, where exactly one does.
 A window scoped to a project offers that project's rows alone, and a window on one repository in no project starts there.
 The words of the request choose the first row of the repository they name, a project's before none.
 Queue for later keeps the row's project with the idea, and the Job it starts is for that project, wherever the window is then.
@@ -176,7 +176,8 @@ The Machine's own word stays live: a Job reads the Machine's pull request mode a
 The wire is [Projects](../practices/protocol/projects.md), *Values*.
 
 > **Rule (13 Nov).** A Job another Job starts is for its starter's project and takes that project's values, and its repository becomes a whole member where it was not.
-> Why: a Job an agent started was in no project, so how its work lands was unset and he was asked every time. A starter in no project starts its Job in none.
+> Why: a Job an agent started was in no project, so how its work lands was unset and he was asked every time.
+> A starter in no project starts its Job in the one project that holds its repository, where exactly one does, and otherwise in none.
 > A fork or a handoff keeps its source Job's project, and a move into another repository adds that repository as a whole member.
 > Why: a Job that drops out of its project looks lost in a list grouped by project.
 

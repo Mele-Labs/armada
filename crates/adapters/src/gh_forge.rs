@@ -90,6 +90,10 @@ impl Forge for GhForge {
         crate::pull_reading::read(in_repo, gate)
     }
 
+    fn pull_list(&self, in_repo: &str, gate: &str) -> Result<adapter_traits::FollowedPulls, Option<String>> {
+        crate::pull_reading::read_bare(in_repo, gate).ok_or(None)
+    }
+
     fn followed_pull(
         &self,
         in_repo: &str,
@@ -213,6 +217,10 @@ impl Forge for GhForge {
         head: &str,
     ) -> Option<adapter_traits::ComparedPatches> {
         crate::pull_request_patch::read_compared(in_repo, base, head)
+    }
+
+    fn commit_patches(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::PatchedFile>> {
+        crate::pull_request_patch::read_commit(in_repo, commit)
     }
 
     fn pull_request_comments(&self, in_repo: &str, number: u64) -> Option<Vec<adapter_traits::PullComment>> {

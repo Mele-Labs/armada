@@ -308,11 +308,15 @@ async fn a_job_in_a_project_offers_its_pull_request_as_the_project_says_over_the
     // The repository says ready; the project says draft.
     let rig = a_rig("pr_mode: ready\n");
     let project = rig.project(Some(set(Some(core_model::PrMode::Draft), None))).await;
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.project(None).await;
     assert!(offered(&rig, &rig.job(Some(&project)).await).await, "the project's draft is over the repository's ready");
     assert!(!offered(&rig, &rig.job(None).await).await, "a Job in no project runs on the repository's");
     // The repository says draft; the project says ready.
     let rig = a_rig("pr_mode: draft\n");
     let project = rig.project(Some(set(Some(core_model::PrMode::Ready), None))).await;
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.project(None).await;
     assert!(!offered(&rig, &rig.job(Some(&project)).await).await, "the project's ready is over the repository's draft");
     assert!(offered(&rig, &rig.job(None).await).await);
     // Nothing above the Machine speaks: the Machine's word stands, and is read as it is now.
@@ -355,6 +359,8 @@ fn reviews_set(plans: &str, pull_requests: &str, walks: &str) -> ValuesSet {
 async fn a_job_freezes_how_its_project_reviews_work_and_keeps_it_when_the_project_is_edited() {
     let rig = a_rig("");
     let project = rig.project(Some(reviews_set("review_and_approve", "review", "off"))).await;
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.project(None).await;
     let job = rig.job(Some(&project)).await;
     let said = |job: &SessionRecord| job.hosted.clone().and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
     let first = said(&job);
@@ -523,6 +529,8 @@ async fn a_job_freezes_each_kind_with_its_own_layer() {
     let rig = a_rig("");
     rig.kit_values(KIT_REVIEWS);
     let project = rig.project(Some(plans_only("review_and_approve"))).await;
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.project(None).await;
     let job = rig.job(Some(&project)).await;
     let said = job.hosted.clone().and_then(|hosted| hosted.values).and_then(|values| values.reviews).expect("reviews");
     assert_eq!(

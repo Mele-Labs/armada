@@ -235,6 +235,9 @@ where
                 if attachment.kind.trim().is_empty() || attachment.target.trim().is_empty() {
                     return Err(self.ledger_unnamed("a kind and a target on an attachment"));
                 }
+                if attachment.kind == "artifact" {
+                    self.artifact_filed(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
+                }
                 // A branch or pull request read from a slot the lease is another's is theirs, but a
                 // pull request the session opened itself is its own wherever it stood: the mod read
                 // its address off `gh pr create`, so no directory is being trusted.
