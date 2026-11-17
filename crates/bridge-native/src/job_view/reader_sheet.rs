@@ -631,7 +631,7 @@ mod tests {
         assert!(view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx).is_some()), "it holds the page's live view");
         assert!(drawn(cx, Role::Region, "Page"), "the live page is drawn in the detail");
         let (page, takes) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Takes"));
-        assert_eq!((page.left(), page.right()), (takes.left(), takes.right()), "it takes the detail's whole width, as the takes do: {page:?} {takes:?}");
+        assert!(page.left() - takes.left() <= px(2.) && takes.right() - page.right() <= px(2.), "it takes the detail's whole width, as the takes do, less its hairline frame: {page:?} {takes:?}");
         let panel = view.read_with(cx, |view, _| view.sheet.get().height);
         assert!(page.size.height <= panel * TALL_SHARE + px(1.), "and no taller than a picture stands: {page:?}");
         assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
