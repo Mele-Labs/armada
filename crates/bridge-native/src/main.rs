@@ -65,6 +65,7 @@ mod notify;
 mod operator;
 mod pairing;
 mod palette;
+mod pasteboard;
 mod point;
 mod queued;
 mod restart_fleet;

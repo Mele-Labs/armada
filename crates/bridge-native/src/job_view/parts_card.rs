@@ -36,6 +36,8 @@ const JOIN: char = '\u{1f}';
 const ACROSS: usize = 3;
 /// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
 const SIDE_BY_SIDE: f32 = 520.;
+/// How long Copy reads Copied after a press.
+const COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(1500);
 /// How tall a picture may stand in the reading column, against the pane it is read in. In the review panel it is `reader_sheet::TALL_SHARE`.
 const TALL_SHARE: f32 = 0.6;
 
@@ -79,6 +81,9 @@ pub(super) struct PartsState {
     said: HashMap<String, SharedString>,
     /// Words parts he opened past their cut with Read more, by part.
     whole: std::collections::HashSet<String>,
+    /// The words part whose Copy reads Copied, and the wait that turns it back.
+    copied: Option<String>,
+    _copying: Option<gpui::Task<()>>,
 }
 
 /// The part as he reads it: his answer on it where Fleet's list has not caught up, on the revision he answered.
@@ -823,7 +828,7 @@ impl JobView {
                 .when(!c.sheet, |block| block.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)))
                 .when(c.sheet && !first, |block| block.pt(look.length(token::SPACE_4)))
                 .when(!first, |block| block.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
-                .child(self.measured(c, self.caption(c, &key, mark, name, part)))
+                .child(self.measured(c, self.caption(c, &key, mark, name, part, cx)))
                 .child(body)
                 .children(answer.map(|answer| self.measured(c, answer)))
                 .children(said.map(|said| self.measured(c, said))),
@@ -843,7 +848,7 @@ impl JobView {
     }
 
     /// The small caps caption with the kind's glyph, and the tag at the right.
-    fn caption(&self, c: &Ctx, key: &str, mark: &'static str, name: &'static str, part: &ArtifactPart) -> AnyElement {
+    fn caption(&self, c: &Ctx, key: &str, mark: &'static str, name: &'static str, part: &ArtifactPart, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let tag = Tag::of(part);
         let (said, answered) = tag_of(part);
@@ -882,7 +887,55 @@ impl JobView {
             .text_color(look.color(token::FG_SUBTLE))
             .child(glyph(look, mark, Size::Small, look.color(token::FG_SUBTLE)))
             .child(name.to_uppercase());
-        div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(caption, Role::Heading, name)).child(pill).into_any_element()
+        let copy = matches!(part.content, PartContent::Words { .. }).then(|| self.copy_button(c, key, cx));
+        div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(caption, Role::Heading, name)).child(pill).children(copy).into_any_element()
+    }
+
+    /// Copy at the end of a words part's caption, which puts the words on the pasteboard with their formatting.
+    fn copy_button(&self, c: &Ctx, key: &str, cx: &Context<Self>) -> AnyElement {
+        let said: &'static str = if c.state().copied.as_deref() == Some(key) { "Copied" } else { "Copy" };
+        let (job, held) = (c.job.clone(), key.to_string());
+        labelled(
+            act(c.look, format!("words-copy:{key}"), said, Kind::Ghost, "", true)
+                .tooltip(tip("Copy with formatting"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // The press is the button's alone, never the card's.
+                    cx.stop_propagation();
+                    this.copy_words(&job, &held, cx)
+                })),
+            Role::Button,
+            said,
+        )
+        .into_any_element()
+    }
+
+    /// The words of a part put on the pasteboard as markdown and as HTML, and its Copy reading Copied for a moment.
+    pub(super) fn copy_words(&mut self, job: &str, key: &str, cx: &mut Context<Self>) {
+        let Some((artifact, id)) = split_key(key) else { return };
+        let text = self.artifact_of(job, artifact).and_then(|one| one.parts.iter().find(|part| part.id == id)).and_then(|part| match &part.content {
+            PartContent::Words { text } => Some(text.clone()),
+            _ => None,
+        });
+        let Some(text) = text else { return };
+        crate::pasteboard::copy_words(&text, cx);
+        let (artifact, held) = (artifact.to_string(), key.to_string());
+        let back = {
+            let artifact = artifact.clone();
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(COPIED_FOR).await;
+                let _ = this.update(cx, |this, cx| {
+                    if let Some(state) = this.parts_state_mut().filter(|state| state.copied.as_deref() == Some(held.as_str())) {
+                        state.copied = None;
+                    }
+                    this.parts_changed(&artifact, cx);
+                });
+            })
+        };
+        if let Some(state) = self.parts_state_mut() {
+            state.copied = Some(key.to_string());
+            state._copying = Some(back);
+        }
+        self.parts_changed(&artifact, cx);
     }
 
     // ---- words ---------------------------------------------------------------------------------------------------
@@ -1711,6 +1764,26 @@ mod tests {
         view.update(cx, |view, cx| view.flip_whole_words(&key, cx));
         redraw(cx);
         assert!(drawn(cx, gpui::Role::Button, "Read more"), "Show less cuts them back");
+    }
+
+    #[gpui::test]
+    fn copy_on_words_puts_them_on_the_clipboard_and_reads_copied_for_a_moment(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        assert!(drawn(cx, gpui::Role::Button, "Copy"), "words carry Copy");
+        assert!(!drawn(cx, gpui::Role::Button, "Copied"));
+        let key = part_key("draft:Commit words", "commit");
+        view.update(cx, |view, cx| view.copy_words(JOB, &key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Copied"), "the press says it took");
+        let text = match held_part(&view, cx, "draft:Commit words", "commit").content {
+            PartContent::Words { text } => text,
+            _ => unreachable!("the commit part is words"),
+        };
+        assert_eq!(cx.read_from_clipboard().and_then(|item| item.text()), Some(text), "the markdown as written");
+        cx.executor().advance_clock(COPIED_FOR);
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Copy"), "and goes back to Copy");
+        assert!(!drawn(cx, gpui::Role::Button, "Copied"));
     }
 
     #[gpui::test]
