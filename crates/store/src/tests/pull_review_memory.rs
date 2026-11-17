@@ -1,7 +1,7 @@
 //! What the person remembers of a pull request between visits, kept across a restart.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptReviewLayout, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+use crate::{KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 
 fn seen(number: u64, head: &str, at: &str) -> KeptSeenHead {
     KeptSeenHead {
@@ -99,4 +99,57 @@ fn the_review_fleet_wrote_is_kept_per_pull_request_and_a_later_one_replaces_it()
     let mut kept = open(&dir).written_reviews().expect("read");
     kept.sort_by_key(|it| it.number);
     assert_eq!(kept, [written(41, "approved", "2026-11-13T10:00:00Z"), written(42, "changes_requested", "2026-11-13T09:30:00Z")]);
+}
+
+fn asked(number: u64, after_review: &str, at: &str) -> KeptReviewRequest {
+    KeptReviewRequest { repository: "example-org/harbour".to_string(), number, after_review: after_review.to_string(), told_at: at.to_string() }
+}
+
+#[test]
+fn a_review_request_told_is_kept_by_its_pull_request_and_the_review_before_it() {
+    let dir = TempDir::new();
+    {
+        let mut store = open(&dir);
+        store.keep_review_request_told(&asked(41, "", "2026-11-16T09:00:00Z")).expect("kept");
+        store.keep_review_request_told(&asked(41, "", "2026-11-16T09:05:00Z")).expect("kept");
+        store.keep_review_request_told(&asked(41, "2026-11-16T10:00:00Z", "2026-11-16T10:30:00Z")).expect("kept");
+    }
+    let mut kept = open(&dir).review_requests_told().expect("read");
+    kept.sort_by(|a, b| a.after_review.cmp(&b.after_review));
+    assert_eq!(kept, [asked(41, "", "2026-11-16T09:00:00Z"), asked(41, "2026-11-16T10:00:00Z", "2026-11-16T10:30:00Z")], "told again keeps the first instant");
+}
+
+fn opened(number: u64, at: &str) -> KeptPullOpened {
+    KeptPullOpened { manifest_id: "harbour".to_string(), number, opened_at: at.to_string() }
+}
+
+#[test]
+fn a_pull_request_opened_is_kept_at_its_latest_read() {
+    let dir = TempDir::new();
+    {
+        let mut store = open(&dir);
+        store.keep_pull_request_opened(&opened(41, "2026-11-16T09:00:00Z")).expect("kept");
+        store.keep_pull_request_opened(&opened(41, "2026-11-16T09:05:00Z")).expect("kept");
+        store.keep_pull_request_opened(&opened(42, "2026-11-16T09:01:00Z")).expect("kept");
+    }
+    let mut kept = open(&dir).pull_requests_opened().expect("read");
+    kept.sort_by_key(|it| it.number);
+    assert_eq!(kept, [opened(41, "2026-11-16T09:05:00Z"), opened(42, "2026-11-16T09:01:00Z")], "read again moves the instant");
+}
+
+#[test]
+fn requests_and_opens_no_longer_asked_of_him_are_forgotten() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_review_request_told(&asked(41, "", "2026-11-16T09:00:00Z")).expect("kept");
+    store.keep_review_request_told(&asked(41, "2026-11-16T10:00:00Z", "2026-11-16T10:30:00Z")).expect("kept");
+    store.keep_review_request_told(&asked(42, "", "2026-11-16T09:00:00Z")).expect("kept");
+    store.keep_pull_request_opened(&opened(41, "2026-11-16T09:05:00Z")).expect("kept");
+    store.keep_pull_request_opened(&opened(42, "2026-11-16T09:05:00Z")).expect("kept");
+
+    store.forget_review_requests_but(&[("example-org/harbour".to_string(), 42)]).expect("forgot");
+    store.forget_pull_requests_opened_but(&[("harbour".to_string(), 42)]).expect("forgot");
+
+    assert_eq!(store.review_requests_told().expect("read"), [asked(42, "", "2026-11-16T09:00:00Z")]);
+    assert_eq!(store.pull_requests_opened().expect("read"), [opened(42, "2026-11-16T09:05:00Z")]);
 }

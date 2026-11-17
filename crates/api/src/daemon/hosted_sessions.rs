@@ -382,7 +382,7 @@ pub trait HostedSessions: Send + Sync + 'static {
 
     /// `snooze_session`: snoozes a Job until an instant, or wakes it now with none.
     fn snooze_session(
-        &self,
+        self: std::sync::Arc<Self>,
         asked: ipc::SnoozeSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 

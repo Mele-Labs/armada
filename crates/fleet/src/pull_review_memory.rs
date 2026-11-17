@@ -156,7 +156,7 @@ where
             .collect();
     }
 
-    /// Keep the head he left a pull request at.
+    /// Keep the head he left a pull request at, and open a review call on it.
     pub(crate) async fn pull_seen_marked(&self, manifest_id: ManifestId, mark: MarkPullSeen) -> Result<PullSeen, Refusal> {
         if !is_commit(&mark.head) {
             return Err(self.memory_invalid(format!("{} is not a commit", mark.head)));
@@ -170,6 +170,7 @@ where
             seen_at: self.clock().now().as_str().to_string(),
         };
         self.store().lock().await.keep_seen_head(&kept).map_err(|why| self.memory_unkept(why))?;
+        self.calls_review_opened(&kept.manifest_id, kept.number);
         Ok(seen_of(kept))
     }
 

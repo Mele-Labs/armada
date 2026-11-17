@@ -243,8 +243,16 @@ The row carries a name and one line, and none of the rules.
 The active one carries a check with the tooltip *Active* and a heavier name.
 The job rules stand under the styles, set apart under *Always applied*, with no mark, and no count is drawn beside the list.
 
-**Write-back is decided and not built.** Kit writes to the harness's home rather than keeping a copy — one setup, Armada a window onto it — because two copies drift the moment either is touched and nobody can then say which a Job ran against.
-The cost is that Armada would be writing into a directory it does not own, holding work a person depends on outside Armada entirely, so the read landed first and carries no write at all. #41.
+**A piece's file is read, saved and opened through Fleet.** `get_kit_file`, `save_kit_file` and `open_kit_piece` name a piece as the inventory does, by `kind` and `name`, and Fleet finds its file in an inventory read for the call, so nothing on the wire carries a path.
+Kit writes to the harness's home rather than keeping a copy: one setup, Armada a window onto it, because two copies drift the moment either is touched and nobody can then say which a Job ran against.
+The cost is that Armada writes into a directory it does not own, holding work a person depends on outside Armada entirely, so the write is narrow.
+**A save is refused where the file moved since the read**, as the Manifest's is, because the disk at that moment must still hold the text the edit started from.
+**It is refused for a piece a plugin brought**, since the plugin's next update overwrites it, and for a piece with no file, which is a built in output style and Armada's job rules.
+A plugin's piece is still read, and opens in the editor or in Finder.
+**Open uses the person's editor**: `editor.command`, then `$VISUAL`, then `$EDITOR`, then the system's own opener, started on an argument list and never through a shell.
+A named editor that is not there is refused, so the setting does not look ignored.
+A plugin opens in Finder alone, at where it is installed, and a skill opens its `SKILL.md` in the editor and its folder in Finder.
+The inventory itself still carries no write. #41.
 
 **A Kit definition that does not fit a repository is left out there, and named.** One that will not parse, names a Check that repository does not declare, or shares its id with another Kit file, is set aside — two sharing an id are both left out, and named together.
 Fleet starts anyway and says at start which definition was left out, why, and whose runs instead: *Kit's `bug` was left out, because …; Armada's `bug` is used instead.* One bad Kit file never stops Fleet for every repository.

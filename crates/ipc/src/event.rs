@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
 use crate::asides::Aside;
+use crate::story::StoryChanged;
 use crate::operator_board::{OperatorBoardChanged, OperatorDispatched};
 use crate::operator_page::OperatorPageChanged;
 use crate::thought::WordsSent;
@@ -158,6 +159,9 @@ pub enum Event {
     // One aside after its answer grew or it ended or was told, whole, so a client replaces the one it holds by `aside_id`.
     #[serde(rename = "session.aside")]
     SessionAside(Aside),
+    // A Job's sorting, asks or story moved: the Job it names, for a client to read again.
+    #[serde(rename = "session.story")]
+    SessionStory(StoryChanged),
     // What calls the person, whole, and the news since the last one: when the list or the news moved.
     #[serde(rename = "calls.changed")]
     CallsChanged(CallsChanged),

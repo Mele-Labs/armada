@@ -13,7 +13,8 @@
 //! from what stands.
 //!
 //! **A Mac waiting to pair is handed in, not heard**: the Phone Gateway holds the claims, and puts every one waiting
-//! on `hold_mac_claims` whenever they change.
+//! on `hold_mac_claims` whenever they change. **So is a review asked of him**, by its own look at the forge:
+//! `review_requests`.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -260,6 +261,8 @@ pub(crate) struct Keeper {
     published: Vec<StandingCall>,
     /// The other Macs waiting for his Confirm here, as the Phone Gateway last handed them in.
     claims: Vec<MacClaimWaiting>,
+    /// The reviews asked of him by name, as the last look at the forge read them.
+    reviews: Vec<StandingCall>,
 }
 
 impl Keeper {
@@ -268,8 +271,8 @@ impl Keeper {
         for record in records {
             self.hear(record);
         }
-        // A Mac that asked to pair before the seed is news still: nothing of it stood before.
-        self.news.retain(|one| one.kind == CallArrivalKind::MacPairing);
+        // A Mac that asked to pair, or a review told, before the seed is news still: neither is read off a row.
+        self.news.retain(|one| matches!(one.kind, CallArrivalKind::MacPairing | CallArrivalKind::ReviewRequested));
         self.lines = lines;
         self.seeded = true;
     }
@@ -358,6 +361,25 @@ impl Keeper {
         self.claims = claims;
     }
 
+    /// Every review asked of him, whole, in place of those held, and the requests to tell. Which request
+    /// is news is the store's, so it survives a restart: `review_requests`.
+    pub(crate) fn hold_reviews(&mut self, calls: Vec<StandingCall>, told: Vec<CallArrival>) {
+        self.reviews = calls;
+        self.news.extend(told);
+    }
+
+    /// He opened or left a pull request a review call names: opened now, not at the next look. True
+    /// where a call moved.
+    pub(crate) fn review_opened(&mut self, manifest_id: &str, number: u64) -> bool {
+        let mut moved = false;
+        let names = |one: &StandingCall| one.review.as_ref().is_some_and(|it| it.manifest_id.as_str() == manifest_id && it.number == number);
+        for call in self.reviews.iter_mut().filter(|one| !one.opened && names(one)) {
+            call.opened = true;
+            moved = true;
+        }
+        moved
+    }
+
     /// A Mac waiting to pair: it asks him, so it is never opened. Its acts are the Gateway's.
     fn claim_call(claim: &MacClaimWaiting) -> StandingCall {
         let key = format!("mac:{}", claim.mac);
@@ -372,6 +394,7 @@ impl Keeper {
             tone: CallTone::Blocked,
             opened: false,
             mac: Some(claim.mac.clone()),
+            review: None,
         }
     }
 
@@ -416,6 +439,7 @@ impl Keeper {
         }
         self.line_calls(&mut calls);
         calls.extend(self.claims.iter().map(Self::claim_call));
+        calls.extend(self.reviews.iter().cloned());
         calls.sort_by(|a, b| a.since.cmp(&b.since).then_with(|| a.key.cmp(&b.key)));
         calls
     }
@@ -451,6 +475,7 @@ impl Keeper {
                 opened: opened(&item.since),
                 since: item.since,
                 mac: job.mac.clone(),
+                review: None,
             });
         }
         // A Job that needs him is a call whether or not it raised an item that is still unseen: its row's mark, which
@@ -469,6 +494,7 @@ impl Keeper {
                 opened: opened(&since),
                 since,
                 mac: job.mac.clone(),
+                review: None,
             });
         }
     }
@@ -550,6 +576,7 @@ impl Keeper {
             since,
             tone: CallTone::Waiting,
             mac: owner.and_then(|owner| owner.job.mac.clone()),
+            review: None,
         });
     }
 
@@ -668,6 +695,21 @@ where
             }
         }
         self.calls_told();
+    }
+
+    /// The reviews asked of him, read by the last look, and the requests it found new, then told.
+    pub(crate) fn calls_reviewed(&self, calls: Vec<StandingCall>, told: Vec<CallArrival>) {
+        self.hosts().calls.0.lock().expect("held across no panic").hold_reviews(calls, told);
+        self.calls_told();
+    }
+
+    /// He opened or left a pull request: a review call on it is opened. Told only where one moved, since
+    /// a page is read again while it is open.
+    pub(crate) fn calls_review_opened(&self, manifest_id: &str, number: u64) {
+        let moved = self.hosts().calls.0.lock().expect("held across no panic").review_opened(manifest_id, number);
+        if moved {
+            self.calls_told();
+        }
     }
 
     /// `hold_mac_claims`: the Macs waiting for his Confirm here, handed in whole by the Phone Gateway, then told.

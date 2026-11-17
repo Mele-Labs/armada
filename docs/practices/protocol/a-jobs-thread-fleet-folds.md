@@ -24,7 +24,9 @@ The `head` is what stands over the thread: the `asked` call, the `open_call`, th
 
 **The fold is by row order alone, and Electron Bridge's fold is the spec, item for item**: `itemsOf` and the rows its host hands it.
 What Electron works out from the record, such as what the plan says or an ask's offers, stays on the record; the thread says where a card stands and how.
-A tool row carries no call id and no result row, so a run of calls is the tool rows that came one after another, and any other row ends it.
+A tool row carries no call id and no result row, so a run of calls is the tool rows that came one after another, and any other row ends it but a thought.
+A `reasoning` row stays in the run when the next row is another call, or when nothing is written after it yet, since the agent thinks before almost every call and a run that ended at each thought folded every call away a second after it began.
+A thought before words, a question or a card is a row of its own.
 A tool row carries the call's own `description`, its one-line phrase, where the call's input had one, which a Bridge can show as the call's phrase; `text` is unchanged.
 A settled `ask` and a `window_ask` join the run as their own rows, where Electron folds a line of its own words.
 The calls no screen draws (the agent's task list, tool loading and `show_window`) are dropped before the fold.

@@ -23,6 +23,39 @@ const REPORT_FAILED: &str = "fleet.debug_report_failed";
 /// How long the CLI is asked its version, where no Job has told Fleet.
 const VERSION_WITHIN: Duration = Duration::from_secs(2);
 
+/// How far back the Jobs' own `gh` use is read: the hour a busy spell is judged by.
+const GH_HOUR_MILLIS: i64 = 3_600_000;
+/// Jobs the report names for their `gh` use.
+const GH_JOBS_NAMED: usize = 8;
+
+/// The Jobs' own `gh` over the last hour, from the turns kept for each: **a turn whose first call was a
+/// `gh` command**, which is what a turn's record holds. A turn of several `gh` calls counts once, so
+/// this is the floor of what they ran. `turns` is each Job's title and the instants of its such turns.
+fn jobs_gh_rows(turns: Vec<(String, Vec<String>)>) -> Vec<(String, String)> {
+    let mut per_minute: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let mut per_job: Vec<(usize, String)> = Vec::new();
+    for (title, ats) in turns {
+        for at in &ats {
+            *per_minute.entry(at.chars().take(16).collect()).or_default() += 1;
+        }
+        if !ats.is_empty() {
+            per_job.push((ats.len(), title));
+        }
+    }
+    let all: usize = per_job.iter().map(|(count, _)| count).sum();
+    let mut summary = format!("{all} turns led by gh in {} Jobs", per_job.len());
+    if let Some((minute, count)) = per_minute.iter().max_by_key(|(_, count)| **count) {
+        summary.push_str(&format!(", peak {count}/min at {}Z", minute.get(11..16).unwrap_or(minute)));
+    }
+    let mut rows = vec![("jobs' gh, last hour".to_string(), summary)];
+    per_job.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    let named: Vec<String> = per_job.iter().take(GH_JOBS_NAMED).map(|(count, title)| format!("{count:>5}  {title}")).collect();
+    if !named.is_empty() {
+        rows.push(("jobs, most gh".to_string(), named.join("\n")));
+    }
+    rows
+}
+
 /// A Job's title on one line, short enough to head a block.
 fn title_of(session: &KeptSession) -> String {
     let title = session.title.as_deref().unwrap_or("untitled");
@@ -91,7 +124,8 @@ where
     /// block, and none leaves the block out.
     pub(crate) async fn debug_report(&self, root: Option<String>) -> Result<ipc::DebugReport, Refusal> {
         let fault = |why: &str| self.hosted_fault(REPORT_FAILED, why);
-        let (jobs, place) = {
+        let hour_ago = self.now().epoch_millis().map(|now| crate::clock::rfc3339_utc(now - GH_HOUR_MILLIS));
+        let (jobs, place, gh_turns) = {
             let store = self.store().lock().await;
             let live = store
                 .find_sessions(&SessionSearch { state: Some(SessionState::Live), ..Default::default() })
@@ -106,8 +140,22 @@ where
                 Some(root) => store.run_memory_place(root).ok().flatten(),
                 None => None,
             };
-            (jobs, place)
+            let gh_turns: Vec<(String, Vec<String>)> = jobs
+                .iter()
+                .map(|(session, _, _)| {
+                    let turns = store.turn_usage(&session.id, hour_ago.as_deref(), None).unwrap_or_default();
+                    let led_by_gh = turns
+                        .into_iter()
+                        .filter(|turn| turn.bash_use.as_deref() == Some(ipc::BashUse::Forge.label()))
+                        .map(|turn| turn.at)
+                        .collect();
+                    (format!("{} ({})", title_of(session), session.id.chars().take(8).collect::<String>()), led_by_gh)
+                })
+                .collect();
+            (jobs, place, gh_turns)
         };
+        let mut forge_calls = adapters::forge_tally::report_rows();
+        forge_calls.extend(jobs_gh_rows(gh_turns));
         // The CLI's version as a Job's opening line gave it, newest Job first.
         let told = jobs.iter().filter_map(|(_, _, init)| init.as_ref()).map(|init| init.harness_version.clone()).find(|version| !version.is_empty());
         let jobs: Vec<JobFacts> = jobs.into_iter().map(|(session, hosted, init)| job_of(&session, hosted, init)).collect();
@@ -133,7 +181,7 @@ where
             debug_report::render(&debug_report::Facts {
                 home,
                 install,
-                fleet: Some(FleetFacts { protocol: ipc::ProtocolId::current().to_string(), mod_facts, repository, jobs }),
+                fleet: Some(FleetFacts { protocol: ipc::ProtocolId::current().to_string(), mod_facts, repository, jobs, forge_calls }),
                 trouble,
                 taken,
             })

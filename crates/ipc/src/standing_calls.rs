@@ -27,6 +27,10 @@ pub enum StandingCallKind {
     /// **The acts are the Phone Gateway's**: Confirm is `POST /admin/macs/pair/confirm` and Decline is
     /// `POST /admin/macs/forget`, each with `{ mac }` the call's `mac`. Never opened while it waits.
     MacPairing,
+    /// Somebody asked him by name to review a pull request, and he is still asked. `review` names it.
+    /// **Opened once he has opened the pull request since he was asked.** On the Dock count until
+    /// then, and counted apart by `StandingCalls::reviews_unopened`.
+    ReviewRequested,
 }
 
 /// How hard it holds. **Blocked** is a Job's turn held on him (a question, a permission, a plan,
@@ -42,7 +46,8 @@ pub enum CallTone {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StandingCall {
     /// Electron's own: `session:<id>:<item>`, `session:<id>:needs:<turn>`, `main:<root>`, `checkout:<root>`, `pull:<number>`;
-    /// and `mac:<id>` for a Mac waiting to pair.
+    /// `mac:<id>` for a Mac waiting to pair, and `review:<owner/name>#<number>` for a review asked of him, the
+    /// repository lowercase.
     pub key: String,
     /// Whom it is from, as `callOwnerOf` says it: `session:<id>` for a Job or for the Job already
     /// on a failure, else the key. **One badge for each owner.**
@@ -64,6 +69,24 @@ pub struct StandingCall {
     /// the Mac waiting to pair, which Confirm and Decline name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mac: Option<String>,
+    /// The pull request a `review_requested` call asks him to review. Absent on every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<ReviewAsked>,
+}
+
+/// A pull request somebody asked him by name to review, as the forge listed it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewAsked {
+    /// The served repository it is in, which the pull request routes name.
+    pub manifest_id: crate::ManifestId,
+    /// As the forge names it: `owner/name`.
+    pub repository: String,
+    pub number: u64,
+    pub title: String,
+    /// The pull request's author's login.
+    pub author: String,
+    /// Its page on the forge.
+    pub address: String,
 }
 
 /// `get_calls`: every call standing, oldest first.
@@ -74,7 +97,8 @@ pub struct StandingCalls {
 
 impl StandingCalls {
     /// The calls still to be opened for a badge, the one that began last in front, **one for each
-    /// owner**: `incomingOf`. A Job that asks him is never opened, so it stays here.
+    /// owner**: `incomingOf`. A Job that asks him is never opened, so it stays here. A review asked of
+    /// him is here until he opens it, and `reviews_unopened` counts it apart as well.
     pub fn unopened(&self) -> Vec<&StandingCall> {
         let mut unopened: Vec<&StandingCall> = self.calls.iter().filter(|one| !one.opened).collect();
         unopened.sort_by(|a, b| b.since.cmp(&a.since));
@@ -82,9 +106,14 @@ impl StandingCalls {
         unopened.retain(|one| owners.insert(one.owner.as_str()));
         unopened
     }
+
+    /// The pull requests asked of him by name that he has not opened: the reviews' own count.
+    pub fn reviews_unopened(&self) -> usize {
+        self.calls.iter().filter(|one| one.kind == StandingCallKind::ReviewRequested && !one.opened).count()
+    }
 }
 
-/// What a call is, to tell: a Job waiting, a Job Fleet gave up on, or another Mac waiting to pair.
+/// What a call is, to tell: a Job waiting, a Job Fleet gave up on, another Mac waiting to pair, or a review asked of him.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CallArrivalKind {
@@ -92,6 +121,9 @@ pub enum CallArrivalKind {
     Stopped,
     /// `session_id` is the call's key, `mac:<id>`, and names no Job.
     MacPairing,
+    /// Somebody asked him by name to review a pull request. `session_id` is the call's key,
+    /// `review:<owner/name>#<number>`, and names no Job; the call of that key carries the pull request.
+    ReviewRequested,
 }
 
 /// News: a thing that began to wait on him since the last publish. Told once.
@@ -99,13 +131,13 @@ pub enum CallArrivalKind {
 pub struct CallArrival {
     /// The Job's id, or on `mac_pairing` the call's key.
     pub session_id: SessionId,
-    /// The Job's title, or `Job`; on `mac_pairing` the call's title.
+    /// The Job's title, or `Job`; on `mac_pairing` and `review_requested` the call's title.
     pub title: String,
     pub text: String,
     pub tone: CallTone,
     pub kind: CallArrivalKind,
-    /// The call's key, as `StandingCall.key`. Set on `mac_pairing`, where `session_id` carries it too for
-    /// readers that do not read this yet.
+    /// The call's key, as `StandingCall.key`. Set on `mac_pairing` and `review_requested`, where `session_id`
+    /// carries it too for readers that do not read this yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
 }

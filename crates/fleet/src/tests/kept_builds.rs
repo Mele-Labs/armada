@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 use crate::kept_builds::{
     answers_health, kept_at, kept_tried, picked_changed, picked_in, rehearse, revert, revert_begun, revert_ended, revert_status_in,
     revertible, settle, swap_ended, swap_onto, swap_status_in, swappable, trying_in, undoing, RevertStatus, Reverted, Services, Settled,
-    BUILDS, CURRENT, PICKED, PREVIOUS, SNAPSHOT, STATUS,
+    BUILDS, CURRENT, PICKED, PREVIOUS, SNAPSHOT, STATUS, APP, FLEET, PLACED, fleet_program, placed,
 };
 use crate::tests::tmp::TempDir;
 
@@ -49,7 +49,10 @@ fn build(builds: &Path, name: &str, bridge: &str) {
 
 /// A build holding the preview's branches `jobs`, as `scripts/keep-build` writes the rows.
 fn build_of(builds: &Path, name: &str, bridge: &str, jobs: &[&str]) {
-    std::fs::create_dir_all(builds.join(name)).unwrap();
+    let bundled = builds.join(name).join(APP).join("Contents/MacOS");
+    std::fs::create_dir_all(&bundled).unwrap();
+    std::fs::write(bundled.join("armada"), format!("fleet of {name}")).unwrap();
+    std::fs::write(builds.join(name).join(APP).join("Contents/Info.plist"), format!("plist of {name}")).unwrap();
     let mut text = format!("built_at = \"2026-11-05T16:20:00Z\"\ncommit = \"{name}\"\nsource = \"main\"\nbridge = \"{bridge}\"\n");
     for branch in jobs {
         text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
@@ -57,7 +60,7 @@ fn build_of(builds: &Path, name: &str, bridge: &str, jobs: &[&str]) {
     std::fs::write(builds.join(name).join("build.toml"), text).unwrap();
 }
 
-/// A support folder whose Fleet runs from `builds/current`, on `new`, with `old` before it.
+/// A support folder whose Fleet runs from the copy placed from `current`, on `new`, with `old` before it.
 fn kept(new_bridge: &str, old_bridge: &str) -> (TempDir, PathBuf) {
     let home = TempDir::new();
     let support = home.path().join("Armada");
@@ -66,7 +69,8 @@ fn kept(new_bridge: &str, old_bridge: &str) -> (TempDir, PathBuf) {
     build(&builds, "old", old_bridge);
     std::os::unix::fs::symlink("new", builds.join(CURRENT)).unwrap();
     std::os::unix::fs::symlink("old", builds.join(PREVIOUS)).unwrap();
-    let runs = builds.join(CURRENT).join("armada");
+    placed(&support, "new").unwrap();
+    let runs = fleet_program(&support);
     std::fs::write(support.join(format!("{LABEL}.plist")), format!("<array><string>{}</string>", runs.display())).unwrap();
     std::fs::write(support.join(format!("{LABEL}.bridge.plist")), "bridge").unwrap();
     std::fs::write(support.join("armada.db"), "store").unwrap();
@@ -176,6 +180,45 @@ fn a_swap_onto_a_snapshot_boots_the_native_bridge_too_but_a_swap_back_leaves_it_
     *services.down_once.lock().unwrap() = Some(String::from("Fleet did not answer"));
     swap_onto(&support, LABEL, "1", &services).expect("swapped back");
     assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".native")));
+}
+
+#[test]
+fn a_revert_places_the_build_reverted_to_at_the_one_path_launchd_runs() {
+    let (_home, support) = kept("b2", "b1");
+    let program = fleet_program(&support);
+    assert_eq!(std::fs::read_to_string(&program).unwrap(), "fleet of new");
+    let running = std::fs::File::open(&program).unwrap();
+    let extra = support.join(FLEET).join(APP).join("Contents/_CodeSignature/CodeResources");
+    std::fs::create_dir_all(extra.parent().unwrap()).unwrap();
+    std::fs::write(&extra, "a file only the running bundle has").unwrap();
+
+    revert(&support, LABEL, "1", &Recorded::default()).expect("reverted");
+
+    assert_eq!(program, support.join("fleet/Armada Fleet.app/Contents/MacOS/armada"), "one path, whichever build");
+    assert_eq!(std::fs::read_to_string(&program).unwrap(), "fleet of old");
+    assert_eq!(std::fs::read_to_string(support.join(FLEET).join(APP).join("Contents/Info.plist")).unwrap(), "plist of old");
+    assert!(!extra.exists(), "a file the placed bundle does not have is removed");
+    assert_eq!(std::fs::read_to_string(support.join(FLEET).join(PLACED)).unwrap(), "old\n");
+    assert!(!std::fs::symlink_metadata(&program).unwrap().file_type().is_symlink(), "a real file, since macOS records the resolved path");
+    let mut was = String::new();
+    std::io::Read::read_to_string(&mut &running, &mut was).unwrap();
+    assert_eq!(was, "fleet of new", "the running Fleet keeps the file it was started from");
+    let leftovers: Vec<_> = std::fs::read_dir(support.join(FLEET)).unwrap().map(|one| one.unwrap().file_name()).collect();
+    assert_eq!(leftovers.len(), 2, "{leftovers:?}");
+}
+
+#[test]
+fn a_build_kept_without_fleets_bundle_is_refused_and_nothing_moves() {
+    let (_home, support) = kept("b2", "b1");
+    std::fs::remove_dir_all(support.join(BUILDS).join("old").join(APP)).unwrap();
+    let services = Recorded::default();
+
+    let refused = revert(&support, LABEL, "1", &services).expect_err("refused");
+
+    assert!(refused.contains("without its Armada Fleet.app"), "{refused}");
+    assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("new".to_string(), "old".to_string()));
+    assert_eq!(std::fs::read_to_string(fleet_program(&support)).unwrap(), "fleet of new");
+    assert!(services.did.lock().unwrap().is_empty());
 }
 
 #[test]

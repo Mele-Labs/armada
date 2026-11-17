@@ -382,6 +382,10 @@ where
         self.page_served(&manifest_id, served.root(), number).await
     }
 
+    async fn pull_request_opened(&self, manifest_id: ManifestId, number: u64) {
+        self.review_pull_opened(&manifest_id, number).await;
+    }
+
     async fn get_pull_request_file(
         &self,
         manifest_id: ManifestId,

@@ -367,6 +367,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/aside", post(crate::asides::ask_aside::<D>))
         .route("/sessions/asides", get(crate::asides::list_asides::<D>))
         .route("/sessions/aside/tell", post(crate::asides::tell_aside::<D>))
+        .route("/sessions/message_kinds", get(crate::story::list_message_kinds::<D>))
+        .route("/sessions/message_kind/set", post(crate::story::set_message_kind::<D>))
+        .route("/sessions/asks", get(crate::story::list_job_asks::<D>))
+        .route("/sessions/story", get(crate::story::get_job_story::<D>))
+        .route("/asks/change", post(crate::story::change_ask::<D>))
+        .route("/projects/asks", get(crate::story::list_feature_asks::<D>))
         .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
@@ -1040,6 +1046,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/kit/pieces/install", post(crate::kit::install_kit_piece::<D>))
         .route("/kit/pieces/remove", post(crate::kit::remove_kit_piece::<D>))
         .route("/kit/pieces/restore", post(crate::kit::restore_kit_piece::<D>))
+        .route("/kit/pieces/open", post(crate::kit_files::open_kit_piece::<D>))
+        .route("/kit/file", get(crate::kit_files::get_kit_file::<D>))
+        .route("/kit/file/save", post(crate::kit_files::save_kit_file::<D>))
         .route(
             "/sessions/:session_id/retro",
             get(crate::retros::get_session_retro::<D>).post(crate::retros::write_session_retro::<D>),

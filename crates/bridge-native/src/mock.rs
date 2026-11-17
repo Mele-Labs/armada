@@ -1199,7 +1199,7 @@ const OPTION_PICTURES_ASK: &str = r#"{"id":"agent-looks","text":"Which look do t
 
 /// A text file a mock Job showed, as `GET /sessions/shown` serves it.
 pub fn shown_text(path: &str) -> Option<String> {
-    path.ends_with("/mac-mark.md").then(|| "# Mac mark\n\nEach Jobs row carries a dot in its Mac's colour. The Mac's name is in the dot's tooltip.\n".to_string())
+    path.ends_with("/mac-mark.md").then(|| "# Mac mark\n\nA Jobs row on another Mac carries a muted laptop glyph. The Mac's name is in the row's hover card.\n".to_string())
 }
 
 /// A still the option-pictures walk's question shows, as `GET /sessions/shown` serves it.
