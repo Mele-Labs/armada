@@ -95,6 +95,10 @@ pub struct WebPage {
     _watching: Task<()>,
     /// The kit's posts, handed on as `WebPageEvent::Posted`.
     _hearing: Task<()>,
+    /// The store of sign-ins this page keeps, where it is not its manifest's (`for_job_browser`).
+    store: Option<[u8; 16]>,
+    /// Where the page's address, title and history changes go once it is made (`watch_changes`).
+    changes: Option<async_channel::Sender<()>>,
 }
 
 impl EventEmitter<WebPageEvent> for WebPage {}
@@ -116,6 +120,10 @@ impl WebPage {
         let watching = cx.spawn(async move |this, cx| {
             while let Ok(arrival) = arrivals.recv().await {
                 let kept = this.update(cx, |page, cx| {
+                    // A load that was replaced is not an end: the load that replaced it ends.
+                    if matches!(arrival, Nav::Cancelled) {
+                        return;
+                    }
                     if matches!(arrival, Nav::Finished) && page.shell {
                         if let Some(native) = &page.native {
                             native.evaluate(NO_SCROLLBARS, |_| {});
@@ -124,6 +132,7 @@ impl WebPage {
                     page.status = match arrival {
                         Nav::Finished => Status::Ready,
                         Nav::Failed(why) => Status::Failed(why),
+                        Nav::Cancelled => return,
                     };
                     cx.emit(WebPageEvent::Loaded);
                     cx.notify();
@@ -151,7 +160,133 @@ impl WebPage {
             deciding: None,
             _watching: watching,
             _hearing: hearing,
+            store: None,
+            changes: None,
         }
+    }
+
+    // ---- a Job's browser ----------------------------------------------------------------------------------------
+
+    /// A page of a Job's browser: empty (`about:blank`) until something loads in it, and keeping its sign-ins in the one store
+    /// every Job browser shares (`frame::job_browser_store_id`), never a manifest's.
+    pub fn for_job_browser(cx: &mut Context<Self>) -> Self {
+        let mut page = WebPage::new(None, Source::Url("about:blank".into()), cx);
+        page.store = Some(super::frame::job_browser_store_id());
+        page
+    }
+
+    /// Makes the page now, at `width` by `height` points, where nothing has drawn it yet. WebKit loads and runs a page that is in
+    /// no window, which is how an agent's act reaches a tab nobody is looking at. Does nothing where it is made already.
+    pub fn made_at(&mut self, width: f64, height: f64) {
+        self.make(Frame::new(0., 0., width.max(1.), height.max(1.)));
+    }
+
+    /// Loads `url`: now where the page is made, else once it is first drawn.
+    pub fn load_url(&mut self, url: &str, cx: &mut Context<Self>) {
+        match &self.native {
+            Some(native) => {
+                native.load_url(url);
+                self.status = Status::Loading;
+            }
+            None => {
+                if let Some((_, source, ..)) = &mut self.waiting {
+                    *source = Source::Url(url.to_string());
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    /// The page's address, or none while it has none.
+    pub fn url(&self) -> Option<String> {
+        self.native.as_ref().and_then(Native::url)
+    }
+
+    pub fn title(&self) -> String {
+        self.native.as_ref().map(Native::title).unwrap_or_default()
+    }
+
+    /// Whether the page can go back, and whether it can go forward.
+    pub fn history(&self) -> (bool, bool) {
+        self.native.as_ref().map_or((false, false), |native| (native.can_go_back(), native.can_go_forward()))
+    }
+
+    pub fn go_back(&mut self, cx: &mut Context<Self>) {
+        if let Some(native) = &self.native {
+            native.go_back();
+            self.status = Status::Loading;
+            cx.notify();
+        }
+    }
+
+    pub fn go_forward(&mut self, cx: &mut Context<Self>) {
+        if let Some(native) = &self.native {
+            native.go_forward();
+            self.status = Status::Loading;
+            cx.notify();
+        }
+    }
+
+    /// Hears the page's address, title and history move, including by a navigation inside the page. Ask once, before the page
+    /// is made or after.
+    pub fn watch_changes(&mut self) -> async_channel::Receiver<()> {
+        let (told, hear) = async_channel::unbounded();
+        match &self.native {
+            Some(native) => native.watch(told),
+            None => self.changes = Some(told),
+        }
+        hear
+    }
+
+    /// Runs `body` as an async function's body in the content world named `world`, awaiting what it returns. The answer is its
+    /// string, `None` where it returned none, or the page's words for a throw. A page not made answers an error at once.
+    pub fn call_async(&self, world: &str, body: &str) -> async_channel::Receiver<Result<Option<String>, String>> {
+        let (tx, rx) = async_channel::bounded(1);
+        match &self.native {
+            Some(native) => native.call_async(world, body, move |answer| {
+                let _ = tx.try_send(answer);
+            }),
+            None => {
+                let _ = tx.try_send(Err("The page is not open.".to_string()));
+            }
+        }
+        rx
+    }
+
+    /// Runs `script` in the content world named `world`; the answer is its string result (`None`: it threw or answered none).
+    pub fn evaluate_in(&self, world: &str, script: &str) -> async_channel::Receiver<Option<String>> {
+        let (tx, rx) = async_channel::bounded(1);
+        match &self.native {
+            Some(native) => native.evaluate_in(world, script, move |answer| {
+                let _ = tx.try_send(answer);
+            }),
+            None => {
+                let _ = tx.try_send(None);
+            }
+        }
+        rx
+    }
+
+    /// The viewport as a PNG, as the page is laid out (`None`: nothing could be taken).
+    pub fn png(&self) -> async_channel::Receiver<Option<Vec<u8>>> {
+        let (tx, rx) = async_channel::bounded(1);
+        match &self.native {
+            Some(native) => {
+                let (width, _) = native.size();
+                native.snapshot(None, width.max(1.), move |png| {
+                    let _ = tx.try_send(png);
+                });
+            }
+            None => {
+                let _ = tx.try_send(None);
+            }
+        }
+        rx
+    }
+
+    /// Whether a pane draws the page now, live or as a picture.
+    pub fn is_painted(&self) -> bool {
+        self.mode != Mode::Parked
     }
 
     /// The page, made and loading, where it was not yet.
@@ -159,9 +294,12 @@ impl WebPage {
         let Some((manifest, source, events, kit)) = self.waiting.take() else { return };
         // A sealed page keeps nothing and goes nowhere: no store of sign-ins, and every navigation after its text refused.
         let sealed = matches!(source, Source::Sealed(_));
-        let store = (!sealed).then(|| super::frame::store_id(manifest.as_deref()));
+        let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
         self.native = Native::new(&options, size, events);
+        if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
+            native.watch(told);
+        }
         match (&self.native, &source) {
             (Some(native), Source::Url(url)) => native.load_url(url),
             (Some(native), Source::File(path)) => native.load_file(path),
