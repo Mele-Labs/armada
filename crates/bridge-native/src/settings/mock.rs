@@ -606,6 +606,83 @@ impl MockFleet {
         self.projects.projects.push(ipc::Project { id: "pricing".into(), name: "Pricing".into(), rows: (5..=7).map(task).collect(), mac: Some("mac-air".into()), ..ipc::Project::default() });
     }
 
+    /// `merge_projects`: the gone project's tasks, repositories and values come into the kept one, a held task open, and
+    /// the gone project goes. Refused as Fleet refuses it.
+    pub fn merge_projects(&mut self, merge: ipc::MergeProjects) -> Result<Projects, Refused> {
+        let refused = |code: &str, said: &str| Refused { key: None, said: said.into(), code: Some(code.into()) };
+        let find = |id: &str| self.projects.projects.iter().position(|one| one.id == id).ok_or_else(|| refused("fleet.no_such_project", &format!("There is no project {id}")));
+        let (kept_at, gone_at) = (find(&merge.kept)?, find(&merge.gone)?);
+        let (kept, gone) = (&self.projects.projects[kept_at], &self.projects.projects[gone_at]);
+        if kept.name != gone.name {
+            return Err(refused("fleet.merge_names_differ", "The two projects have different names"));
+        }
+        if kept.id == gone.id || kept.mac.is_some() == gone.mac.is_some() {
+            return Err(refused("fleet.merge_not_a_pair", "A merge takes one project of this Mac's and one copy of another Mac's"));
+        }
+        if !kept.shared_with_macs {
+            return Err(refused("fleet.merge_kept_not_shared", "Share the project to keep with your other Macs first"));
+        }
+        let gone = self.projects.projects.remove(gone_at);
+        let kept_at = self.projects.projects.iter().position(|one| one.id == merge.kept).unwrap_or(kept_at);
+        let kept = &mut self.projects.projects[kept_at];
+        let mut rows = gone.rows;
+        for row in &mut rows {
+            if let ipc::ProjectRow::Task { state, held_by, .. } = row {
+                if *state == ipc::ProjectTaskState::Held {
+                    *state = ipc::ProjectTaskState::Open;
+                    *held_by = None;
+                }
+            }
+        }
+        kept.rows.extend(rows);
+        for member in gone.members {
+            if !kept.members.contains(&member) {
+                kept.members.push(member);
+            }
+        }
+        kept.values = match (kept.values.take(), gone.values) {
+            (Some(held), Some(other)) => Some(ValuesSet::merged(&held, &other, &merge.from_gone)),
+            (held, other) => held.or(other),
+        };
+        Ok(self.projects.clone())
+    }
+
+    /// For the walk of merging two projects of one name: this Mac's Pricing is shared once it says so, and mac-air's copy
+    /// holds a task for a Job there, a repository this Mac's lacks, and two values set differently.
+    pub fn mergeable_projects(&mut self) {
+        let task = |n: usize, held: bool| ipc::ProjectRow::Task {
+            id: format!("task-{n}"),
+            manifest_id: ipc::ManifestId::carried("pricing-web"),
+            title: format!("Task {n}"),
+            notes: String::new(),
+            state: if held { ipc::ProjectTaskState::Held } else { ipc::ProjectTaskState::Open },
+            held_by: held.then(|| ipc::ProjectHolder { session_id: "mock-04".into(), title: Some("Price tiers".into()) }),
+            parent: None,
+            issues: Vec::new(),
+            pulls: Vec::new(),
+        };
+        let member = |repository: &str| ipc::ProjectMember { manifest_id: ipc::ManifestId::carried(repository), folder: None };
+        let own = ipc::Project {
+            id: "pricing".into(),
+            name: "Pricing".into(),
+            rows: (1..=5).map(|n| task(n, false)).collect(),
+            members: vec![member("armada")],
+            values: Some(ValuesSet { delivery: Some("auto_land".into()), auto_merge: Some("always".into()), ..ValuesSet::default() }),
+            ..ipc::Project::default()
+        };
+        let copy = ipc::Project {
+            id: "pricing-air".into(),
+            name: "Pricing".into(),
+            rows: (6..=12).map(|n| task(n, n == 12)).collect(),
+            members: vec![member("armada"), member("pricing-web")],
+            values: Some(ValuesSet { delivery: Some("open_pr".into()), auto_merge: Some("never".into()), agent_starts: Some("ask_me".into()), ..ValuesSet::default() }),
+            mac: Some("mac-air".into()),
+            ..ipc::Project::default()
+        };
+        self.projects.projects.extend([own, copy]);
+        self.job_projects.extend([("mock-03", "pricing"), ("mock-04", "pricing-air")]);
+    }
+
     pub fn share_with_macs(&mut self, project: &str, on: bool) -> Result<Projects, Refused> {
         let one = self.projects.projects.iter_mut().find(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
         if let Some(why) = &one.unread {

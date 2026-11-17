@@ -42,6 +42,8 @@ where
             ProjectAct::LinkProjectIssue { link } => Projects::link_project_issue(self, link).await,
             ProjectAct::MoveProjectRow { row, to } => self.move_project_row_edited(row, to, edited).await,
             ProjectAct::RemoveProjectRow { row } => Projects::remove_project_row(self, row).await,
+            ProjectAct::Absorb { kept, gone, from_gone } => self.absorb_run(&kept, gone, &from_gone).await,
+            ProjectAct::GiveUp { gone, into, absorbed } => self.give_up_run(&gone, &into, &absorbed, None).await,
         }?;
         Ok(self.projects_for_other_mac(answered).sent())
     }

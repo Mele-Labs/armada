@@ -280,6 +280,7 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
+mod project_merging;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.

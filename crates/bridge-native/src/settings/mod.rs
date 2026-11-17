@@ -5,6 +5,7 @@ pub mod catalogue;
 pub(crate) mod change_band;
 pub(crate) mod definition;
 mod delete;
+mod merge;
 pub mod entries;
 pub(crate) mod gateway;
 mod keyboard;
