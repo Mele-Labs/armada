@@ -72,10 +72,11 @@ fn the_filter_keeps_the_features_it_names_and_drops_an_area_left_with_none() {
 }
 
 #[gpui::test]
-fn down_and_up_move_the_row_past_the_area_heads_and_enter_opens_the_feature(cx: &mut TestAppContext) {
+fn down_and_up_move_the_row_past_the_area_heads_and_the_page_follows_the_row(cx: &mut TestAppContext) {
     let (screen, cx) = open(cx);
     assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"));
-    assert!(screen.read_with(cx, |screen, _| screen.opened().is_none()), "nothing is open until Enter");
+    cx.run_until_parked();
+    assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.slug.clone())).as_deref(), Some("start-a-job"), "the page of the row the keys are on is open");
     cx.simulate_keystrokes("down");
     assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"));
     cx.simulate_keystrokes("down down");
@@ -90,10 +91,9 @@ fn down_and_up_move_the_row_past_the_area_heads_and_enter_opens_the_feature(cx: 
     assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"), "it stops at the first");
     cx.simulate_keystrokes("enter");
     assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.title.clone())).as_deref(), Some("Start a Job"));
-    // Moving the row leaves the page open until Enter picks another.
+    // Moving the row moves the page with it.
     cx.simulate_keystrokes("down");
-    assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.slug.clone())).as_deref(), Some("start-a-job"));
-    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
     assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.slug.clone())).as_deref(), Some("job-list-and-live-status"));
 }
 
@@ -161,12 +161,11 @@ fn every_element_is_found_by_its_role_and_name(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn enter_opens_the_feature_page_beside_the_list_and_another_one_replaces_it_and_counts_the_first_as_looked_at(cx: &mut TestAppContext) {
+fn the_selected_features_page_is_open_beside_the_list_and_moving_the_row_replaces_it_and_counts_the_first_as_looked_at(cx: &mut TestAppContext) {
     let (screen, cx) = open(cx);
     cx.update(|_, cx| super::looked::forget_all(cx));
-    assert!(screen.read_with(cx, |screen, _| screen.page.is_none()), "nothing is open until Enter");
-    cx.simulate_keystrokes("enter");
-    let page = screen.read_with(cx, |screen, _| screen.page.clone()).expect("Enter opens the page");
+    cx.run_until_parked();
+    let page = screen.read_with(cx, |screen, _| screen.page.clone()).expect("the page of the selected feature is open without Enter");
     assert_eq!(page.read_with(cx, |page, _| page.slug().to_string()), "start-a-job");
     assert!(drawn(cx, gpui::Role::Tab, "Who worked on it"), "the sections are down its side");
     assert!(drawn(cx, gpui::Role::Heading, "Start a Job"));
@@ -175,7 +174,8 @@ fn enter_opens_the_feature_page_beside_the_list_and_another_one_replaces_it_and_
     // The list keeps the keys until Tab; Enter on the feature that is open changes nothing.
     cx.simulate_keystrokes("enter");
     assert_eq!(screen.read_with(cx, |screen, _| screen.page.clone()).map(|one| one.entity_id()), Some(page.entity_id()));
-    cx.simulate_keystrokes("down enter");
+    cx.simulate_keystrokes("down");
+    cx.run_until_parked();
     let second = screen.read_with(cx, |screen, _| screen.page.clone()).expect("the next page");
     assert_eq!(second.read_with(cx, |page, _| page.slug().to_string()), "job-list-and-live-status", "the page is replaced");
     assert!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "start-a-job", cx)).is_some(), "the one he left is looked at now");

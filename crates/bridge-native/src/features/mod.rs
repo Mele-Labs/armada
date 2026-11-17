@@ -21,7 +21,7 @@ pub mod story_link;
 mod view;
 pub(crate) mod wire;
 
-use gpui::{prelude::*, App, Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
+use gpui::{prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState};
 use ipc::FeatureLibrary;
 
@@ -61,6 +61,8 @@ pub struct FeaturesScreen {
     list: ListState,
     /// The feature the keys are on, by slug.
     cursor: Option<String>,
+    /// The window the screen is in, so the page of the row the keys are on can be drawn when the library arrives.
+    window: AnyWindowHandle,
     /// The feature whose page is open beside the list, by slug.
     opened: Option<String>,
     /// That page, and what it says to this screen.
@@ -125,6 +127,7 @@ impl FeaturesScreen {
             listed: Listed::default(),
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             cursor: None,
+            window: window.window_handle(),
             opened: None,
             page: None,
             page_sub: None,
@@ -246,7 +249,23 @@ impl FeaturesScreen {
         if !self.cursor.as_deref().is_some_and(|slug| self.listed.find(slug).is_some()) {
             self.cursor = self.listed.shown.first().map(|one| one.row.slug.clone());
         }
+        self.preview(cx);
         cx.notify();
+    }
+
+    /// The page of the feature the keys are on draws beside the list as the row moves, with the keys staying on the list.
+    fn preview(&mut self, cx: &mut Context<Self>) {
+        let Some(slug) = self.cursor.clone().filter(|slug| self.opened.as_deref() != Some(slug.as_str())) else { return };
+        let (me, handle) = (cx.entity(), self.window);
+        cx.defer(move |cx| {
+            let _ = handle.update(cx, |_, window, cx| {
+                me.update(cx, |this, cx| {
+                    if this.cursor.as_deref() == Some(slug.as_str()) && this.opened.as_deref() != Some(slug.as_str()) && this.listed.find(&slug).is_some() {
+                        this.open_at(slug, window, cx);
+                    }
+                })
+            });
+        });
     }
 
     // ---- what the keys are on ----------------------------------------------------------------
@@ -294,6 +313,7 @@ impl FeaturesScreen {
             let head = line.checked_sub(1).filter(|before| matches!(self.listed.lines[*before], Line::Head { .. }));
             self.list.scroll_to_reveal_item(if by < 0 { head.unwrap_or(line) } else { line });
         }
+        self.preview(cx);
         cx.notify();
     }
 
