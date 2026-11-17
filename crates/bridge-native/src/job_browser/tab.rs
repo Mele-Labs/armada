@@ -62,6 +62,7 @@ pub struct BrowserTab {
 impl BrowserTab {
     pub fn new(job: SharedString, tab: String, last: LastShown, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(WebPage::for_job_browser);
+        crate::page_note::offer(&page, cx);
         let address = cx.new(|cx| InputState::new(window, cx).placeholder("Address"));
         let hear = page.update(cx, |page, _| page.watch_changes());
         let loaded = cx.subscribe_in(&page, window, |this, _, event: &WebPageEvent, window, cx| this.page_told(event, window, cx));
