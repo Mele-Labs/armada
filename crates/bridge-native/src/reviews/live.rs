@@ -213,7 +213,7 @@ impl ReviewsScreen {
             match answer {
                 Ok(lists) => {
                     this.me = lists.me.clone();
-                    let (rows, found) = map::inbox_of(&lists);
+                    let (mut rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
                         for (number, row) in found {
@@ -224,6 +224,10 @@ impl ReviewsScreen {
                                 }
                             }
                         }
+                    }
+                    // A review he started here marks its row even where the lists were read before Fleet kept the run.
+                    for row in rows.iter_mut() {
+                        row.reviewing |= this.ran_here.contains(&row.number);
                     }
                     this.inbox.rows = rows;
                     if let Some(number) = this.open {
@@ -514,6 +518,7 @@ impl ReviewsScreen {
         if finds.sets == Find::Running || finds.flags == Find::Running {
             return;
         }
+        self.mark_reviewing(number);
         if finds.sets == Find::Done {
             self.start_run(number, ReviewRunKind::Overview, "overview".into(), None, overview_again, window, cx);
         } else {
@@ -590,9 +595,10 @@ impl ReviewsScreen {
         });
     }
 
-    /// Send: the verdict, the summary and every draft as one review at the commit he read. A refusal
-    /// changes nothing: the drafts stay and the forge's words show beside Submit.
-    pub(super) fn live_submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
+    /// Send: the verdict, the summary and every draft as one review at the commit he read; `bare`
+    /// sends the verdict alone. A refusal changes nothing: the drafts stay and the forge's words show
+    /// beside Submit.
+    pub(super) fn live_submit(&mut self, verdict: Verdict, bare: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
         if self.live.as_ref().is_some_and(|live| live.writing) {
@@ -606,13 +612,13 @@ impl ReviewsScreen {
         let comments: Vec<ipc::PullReviewComment> = self
             .drafts
             .iter()
-            .filter(|draft| draft.number == number)
+            .filter(|draft| draft.number == number && !bare)
             .map(|draft| {
                 let body = self.boxes.get(&draft.id).map(|boxed| boxed.state.read(cx).value().to_string()).unwrap_or_else(|| draft.body.clone());
                 ipc::PullReviewComment::Line { path: draft.path.clone(), line: draft.line, side: ipc::DiffSide::Right, body, start_line: None }
             })
             .collect();
-        let summary = self.summary.as_ref().map(|boxed| boxed.state.read(cx).value().trim().to_string()).filter(|said| !said.is_empty());
+        let summary = self.summary.as_ref().filter(|_| !bare).map(|boxed| boxed.state.read(cx).value().trim().to_string()).filter(|said| !said.is_empty());
         let body = ipc::encode(&ipc::WritePullRequest { pull_request: number, kind, body: summary, comments, commit: pull.facts.head.clone(), session_id: None }).ok();
         let route = format!("/pull_request_writes/{}", encoded(&pull.row.manifest));
         if let Some(live) = self.live.as_mut() {
@@ -626,7 +632,7 @@ impl ReviewsScreen {
             }
             match answer {
                 Ok(_) => {
-                    this.sent_review(number, verdict, window, cx);
+                    this.sent_review(number, verdict, bare, window, cx);
                     this.live_read(number, window, cx);
                 }
                 Err(why) => {

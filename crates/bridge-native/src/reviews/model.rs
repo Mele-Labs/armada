@@ -11,18 +11,20 @@ use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestF
 pub enum Group {
     Requested,
     LookAgain,
+    Reviewing,
     Yours,
     Team,
     Done,
 }
 
 impl Group {
-    pub const ALL: [Group; 5] = [Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done];
+    pub const ALL: [Group; 6] = [Group::Requested, Group::LookAgain, Group::Reviewing, Group::Yours, Group::Team, Group::Done];
 
     pub fn said(self) -> &'static str {
         match self {
             Group::Requested => "Review requested from you",
             Group::LookAgain => "You reviewed, look again",
+            Group::Reviewing => "Reviewed with Armada",
             Group::Yours => "Yours",
             Group::Team => "Asked of your team",
             Group::Done => "Done",
@@ -33,6 +35,7 @@ impl Group {
         match self {
             Group::Requested => "eye",
             Group::LookAgain => "git-commit-horizontal",
+            Group::Reviewing => "bot",
             Group::Yours => "user",
             Group::Team => "users",
             Group::Done => "circle-check",
@@ -46,12 +49,14 @@ impl Group {
 }
 
 /// The group a pull request lands in: the first that takes it. `changed` is Fleet's inbox state
-/// "changed since you looked".
-pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool) -> Group {
+/// "changed since you looked"; `reviewing`, that he ran a review tool on it in Armada.
+pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool, reviewing: bool) -> Group {
     if lists.contains(&PullReviewList::Requested) {
         Group::Requested
     } else if mine != Verdict::NotReviewed && changed {
         Group::LookAgain
+    } else if reviewing || lists.contains(&PullReviewList::Reviewing) {
+        Group::Reviewing
     } else if lists.contains(&PullReviewList::Mine) {
         Group::Yours
     } else if lists.contains(&PullReviewList::Team) {
@@ -106,11 +111,13 @@ pub struct InboxRow {
     pub checks: PullReviewChecks,
     /// Where his own review stands.
     pub mine: Verdict,
+    /// He ran a review tool on it in Armada, at any head: the row's bot mark.
+    pub reviewing: bool,
 }
 
 impl InboxRow {
     pub fn group(&self) -> Group {
-        group_of(&self.lists, self.mine, self.changed)
+        group_of(&self.lists, self.mine, self.changed, self.reviewing)
     }
 
     /// The repository's own name, without its owner.
@@ -986,25 +993,36 @@ mod group_tests {
 
     #[test]
     fn requested_comes_first_even_when_he_reviewed_and_it_changed() {
-        assert_eq!(group_of(&[Requested, Mine], Verdict::Approved, true), Group::Requested);
-        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false), Group::Requested);
+        assert_eq!(group_of(&[Requested, Mine], Verdict::Approved, true, false), Group::Requested);
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, false), Group::Requested);
     }
 
     #[test]
     fn reviewed_and_changed_is_look_again_unless_requested() {
-        assert_eq!(group_of(&[Assigned], Verdict::ChangesRequested, true), Group::LookAgain);
-        assert_eq!(group_of(&[Mine, Team], Verdict::Commented, true), Group::LookAgain);
-        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, true), Group::Done);
-        assert_eq!(group_of(&[Assigned], Verdict::Approved, false), Group::Done);
+        assert_eq!(group_of(&[Assigned], Verdict::ChangesRequested, true, false), Group::LookAgain);
+        assert_eq!(group_of(&[Mine, Team], Verdict::Commented, true, false), Group::LookAgain);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, true, false), Group::Done);
+        assert_eq!(group_of(&[Assigned], Verdict::Approved, false, false), Group::Done);
+    }
+
+    #[test]
+    fn reviewed_with_armada_comes_after_requested_and_look_again_and_before_yours() {
+        // Still asked of him, it stays where he is asked; reviewed and changed, he looks again.
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, true), Group::Requested);
+        assert_eq!(group_of(&[Assigned], Verdict::Commented, true, true), Group::LookAgain);
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Team], Verdict::Approved, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Reviewing], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, false), Group::Yours);
     }
 
     #[test]
     fn mine_then_team_then_done() {
-        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false), Group::Yours);
-        assert_eq!(group_of(&[Team, Mine], Verdict::NotReviewed, false), Group::Yours);
-        assert_eq!(group_of(&[Team], Verdict::NotReviewed, false), Group::Team);
-        assert_eq!(group_of(&[Team, Assigned], Verdict::Approved, false), Group::Team);
-        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, false), Group::Done);
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, false), Group::Yours);
+        assert_eq!(group_of(&[Team, Mine], Verdict::NotReviewed, false, false), Group::Yours);
+        assert_eq!(group_of(&[Team], Verdict::NotReviewed, false, false), Group::Team);
+        assert_eq!(group_of(&[Team, Assigned], Verdict::Approved, false, false), Group::Team);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, false, false), Group::Done);
     }
 
     fn row(number: u64, lists: &[PullReviewList], updated_at: &str, asked_at: Option<&str>) -> InboxRow {
@@ -1021,6 +1039,7 @@ mod group_tests {
             lists: lists.to_vec(),
             checks: PullReviewChecks::Passed,
             mine: Verdict::NotReviewed,
+            reviewing: false,
         }
     }
 
@@ -1058,5 +1077,6 @@ mod group_tests {
     fn team_and_done_start_folded() {
         let folded: Vec<Group> = Group::ALL.into_iter().filter(|group| group.starts_folded()).collect();
         assert_eq!(folded, [Group::Team, Group::Done]);
+        assert_eq!(Group::ALL, [Group::Requested, Group::LookAgain, Group::Reviewing, Group::Yours, Group::Team, Group::Done]);
     }
 }
