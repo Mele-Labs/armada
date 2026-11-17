@@ -161,7 +161,7 @@ impl MockKit {
     /// allowed command is has none.
     pub fn file(&self, row: &Row) -> Result<ipc::KitFile, Refused> {
         if row.kind.file().is_none() {
-            return Err(Refused { key: None, said: "This piece has no file.".into(), code: Some(super::wire::FILE_NONE.into()) });
+            return Err(Refused { key: None, said: "This piece has no file.".into(), code: Some("fleet.kit_file_none".into()) });
         }
         let text = self.files.get(&row.id).cloned().unwrap_or_else(|| row.says.clone().unwrap_or_default());
         Ok(ipc::KitFile { path: row.opens().unwrap_or_default(), text, at: ipc::Instant::carried("2026-11-16T09:00:00Z"), plugin: row.plugin_id.clone() })
@@ -175,7 +175,7 @@ impl MockKit {
         }
         let now = self.file(row).map_err(|why| Saved::said(why.said))?;
         if now.text != read {
-            return Err(Saved { said: "The file changed on disk since you opened it.".into(), code: Some(super::wire::FILE_MOVED.into()), on_disk: Some(now.text) });
+            return Err(Saved { said: "The file changed on disk since you opened it.".into(), code: Some("fleet.kit_file_moved".into()), on_disk: Some(now.text) });
         }
         self.files.insert(row.id.clone(), text.to_string());
         self.file(row).map_err(|why| Saved::said(why.said))

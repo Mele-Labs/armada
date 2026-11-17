@@ -559,7 +559,7 @@ impl KitScreen {
     /// The file's text in a sunken pane with line numbers, as Fleet read it, or a textarea over it while it is edited. Where
     /// Fleet reads no file for the kind, the piece's own words stand in; where it says there is none, there is no pane.
     fn render_file(&self, row: &Row, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
-        if row.kind.file().is_none() || matches!(self.files.get(&row.id), Some(FileState::Refused { code, .. }) if code.as_deref() == Some(super::wire::FILE_NONE)) {
+        if row.kind.file().is_none() || matches!(self.files.get(&row.id), Some(FileState::Refused { code, .. }) if code.as_deref() == Some("fleet.kit_file_none")) {
             return self.render_facts(row, look, cx);
         }
         let pane = || div().id("kit-file").flex_1().min_h_0().flex().bg(look.color(token::BG_SUNKEN)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(px(20.));

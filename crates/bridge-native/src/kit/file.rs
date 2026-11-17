@@ -203,7 +203,7 @@ impl KitScreen {
                 self.editing = None;
                 self.focus(Pane::Detail, window, cx);
             }
-            Err(why) if why.code.as_deref() == Some(wire::FILE_MOVED) => {
+            Err(why) if why.code.as_deref() == Some("fleet.kit_file_moved") => {
                 self.refused = Some(SharedString::from(why.said));
                 self.moved = Some(why.on_disk);
             }

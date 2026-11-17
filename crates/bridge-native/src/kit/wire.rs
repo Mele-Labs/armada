@@ -66,10 +66,6 @@ pub fn install(port: u16, install: ipc::InstallKitPiece, cx: &App) -> Task<Resul
     request(port, Ask::Post("/kit/pieces/install".into(), body(&install)), "KitPieceInstalled", cx)
 }
 
-/// Fleet's codes for a file it would not read, save or open, which the pane words.
-pub const FILE_MOVED: &str = "fleet.kit_file_moved";
-pub const FILE_NONE: &str = "fleet.kit_file_none";
-
 /// Why a save did not take: Fleet's own words, its code, and what is on disk now where it says (`on_disk`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Saved {
