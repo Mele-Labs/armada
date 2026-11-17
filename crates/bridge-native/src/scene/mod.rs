@@ -560,21 +560,11 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(*rect, pill_w))).collect();
     let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
     let bounds = canvas_of(&rects, &marks, &badges, &ways, scene);
-    // A lane is a row of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
+    // Lanes one under another are rows of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
+    // Lanes the Drone set side by side are its columns, top to foot, the first from its left edge and the last to its right.
     let lanes: Vec<usize> = scene.nodes.iter().enumerate().filter(|(_, node)| node.kind == SceneKind::Lane).map(|(at, _)| at).collect();
-    let top = lanes.iter().copied().min_by(|a, b| rects[*a].y.total_cmp(&rects[*b].y));
-    let foot = lanes.iter().copied().max_by(|a, b| (rects[*a].y + rects[*a].h).total_cmp(&(rects[*b].y + rects[*b].h)));
-    for &at in &lanes {
-        rects[at].x = bounds.x;
-        rects[at].w = bounds.w;
-    }
-    if let Some(at) = top {
-        rects[at].h += rects[at].y - bounds.y;
-        rects[at].y = bounds.y;
-    }
-    if let Some(at) = foot {
-        rects[at].h = bounds.y + bounds.h - rects[at].y;
-    }
+    let columns = lanes.iter().any(|&a| lanes.iter().any(|&b| a != b && rects[b].x >= rects[a].x + rects[a].w));
+    stretch_lanes(&mut rects, &lanes, bounds, columns);
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
         .nodes
@@ -588,6 +578,39 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let glyphs = facts.iter().map(|facts| facts.mark).collect();
     let held = Rect { x: bounds.x + tile::CANVAS_PAD - tile::EDGE, y: bounds.y + tile::CANVAS_PAD - tile::EDGE, w: bounds.w - 2. * (tile::CANVAS_PAD - tile::EDGE), h: bounds.h - 2. * (tile::CANVAS_PAD - tile::EDGE) };
     Laid { rects, ways, bounds, held, marks, badges, glyphs, steps, mocks }
+}
+
+/// Lanes stretched to the canvas: rows run its width, the first from its top and the last to its foot; columns run its height,
+/// the first from its left and the last to its right.
+fn stretch_lanes(rects: &mut [Rect], lanes: &[usize], bounds: Rect, columns: bool) {
+    let span = |rect: &Rect| if columns { (rect.x, rect.x + rect.w) } else { (rect.y, rect.y + rect.h) };
+    let first = lanes.iter().copied().min_by(|a, b| span(&rects[*a]).0.total_cmp(&span(&rects[*b]).0));
+    let last = lanes.iter().copied().max_by(|a, b| span(&rects[*a]).1.total_cmp(&span(&rects[*b]).1));
+    for &at in lanes {
+        if columns {
+            rects[at].y = bounds.y;
+            rects[at].h = bounds.h;
+        } else {
+            rects[at].x = bounds.x;
+            rects[at].w = bounds.w;
+        }
+    }
+    if let Some(at) = first {
+        if columns {
+            rects[at].w += rects[at].x - bounds.x;
+            rects[at].x = bounds.x;
+        } else {
+            rects[at].h += rects[at].y - bounds.y;
+            rects[at].y = bounds.y;
+        }
+    }
+    if let Some(at) = last {
+        if columns {
+            rects[at].w = bounds.x + bounds.w - rects[at].x;
+        } else {
+            rects[at].h = bounds.y + bounds.h - rects[at].y;
+        }
+    }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -1605,6 +1628,70 @@ mod tests {
 
     fn rect_of_node(drawn: &Scene, laid: &Laid, id: &str) -> Rect {
         laid.rects[drawn.nodes.iter().position(|node| node.id == id).expect("a node")]
+    }
+
+    /// Two lanes side by side, as a Drone placed them for "How a merge crosses the link", each with its own box, and a box
+    /// under the first.
+    fn lay_side_by_side(cx: &mut gpui::TestAppContext) -> (Rc<Scene>, Rc<Laid>) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let wire = br#"{"nodes":[
+            {"id":"a","kind":"lane","x":0,"y":0,"w":420,"h":560,"title":"Mac that keeps"},
+            {"id":"b","kind":"lane","x":520,"y":0,"w":420,"h":560,"title":"Mac that gives up"},
+            {"id":"one","kind":"box","x":40,"y":80,"title":"Holds the claim","step":1},
+            {"id":"two","kind":"box","x":560,"y":80,"title":"Lets it go","step":2},
+            {"id":"three","kind":"box","x":60,"y":400,"title":"Merges","body":"The merge runs on the Mac that keeps the claim, after the other let it go."}
+        ],"edges":[{"id":"e1","from":"one","to":"two","step":1}]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", wire).expect("a raw scene");
+        let drawn = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("side-by-side"), &drawn, &look, window, cx)
+        });
+        (drawn, laid)
+    }
+
+    #[gpui::test]
+    fn lanes_set_side_by_side_stand_as_columns_each_holding_its_own_boxes(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_side_by_side(cx);
+        let (a, b) = (rect_of_node(&drawn, &laid, "a"), rect_of_node(&drawn, &laid, "b"));
+        assert!(gaps(a, b).0 >= 0., "the lanes stand side by side, not on each other: {a:?} {b:?}");
+        assert!(a.h >= 560. && b.h >= 560., "each keeps at least the height it was given: {a:?} {b:?}");
+        let centre = |rect: Rect| (rect.x + rect.w / 2., rect.y + rect.h / 2.);
+        let holds = |lane: Rect, id: &str| {
+            let (x, y) = centre(rect_of_node(&drawn, &laid, id));
+            x >= lane.x && x <= lane.x + lane.w && y >= lane.y && y <= lane.y + lane.h
+        };
+        assert!(holds(a, "one") && holds(a, "three"), "the first lane holds its two boxes");
+        assert!(holds(b, "two") && !holds(b, "one"), "the second holds its own box and not the first lane's");
+    }
+
+    #[gpui::test]
+    fn lanes_set_one_under_another_still_run_the_canvas_width(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let wire = br#"{"nodes":[
+            {"id":"a","kind":"lane","x":0,"y":0,"w":300,"h":200,"title":"Fleet"},
+            {"id":"b","kind":"lane","x":0,"y":260,"w":300,"h":200,"title":"Bridge"},
+            {"id":"one","kind":"box","x":40,"y":60,"title":"Reads"},
+            {"id":"two","kind":"box","x":400,"y":320,"title":"Draws"}
+        ],"edges":[]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", wire).expect("a raw scene");
+        let rows = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("rows"), &rows, &look, window, cx)
+        });
+        for id in ["a", "b"] {
+            let lane = rect_of_node(&rows, &laid, id);
+            assert!((lane.x - laid.bounds.x).abs() < 0.01 && (lane.w - laid.bounds.w).abs() < 0.01, "{id} runs edge to edge: {lane:?} in {:?}", laid.bounds);
+        }
     }
 
     #[gpui::test]
