@@ -29,6 +29,12 @@ const ADDRESSES: [&str; 9] = ["src", "srcset", "href", "xlink:href", "action", "
 const GLYPH: u32 = 16;
 const HTML_NS: &str = "http://www.w3.org/1999/xhtml";
 
+/// Under the kept sheets: the app's sans, so markup no sheet gives a face is not drawn in the web view's serif.
+const BASE: &str = "html{font-family:var(--font-sans,system-ui,sans-serif);}";
+/// Over everything: a mock is a still, so an animation stands at its end and a transition has none. An entry animation
+/// whose first frame is clear (`armada-dialog-in`) otherwise leaves the snapshot blank.
+const STILL: &str = "*,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;}";
+
 /// The page for a `mock`: its `html` and own `css`, the style set Fleet kept for it (`None` where it has none: no
 /// sheets, no fonts, no theme) and the theme the stylesheets switch on, as Classic sets `data-theme` on the root.
 pub fn page(html: &str, css: Option<&str>, kept: Option<&KeptStyles>, dark: bool) -> String {
@@ -50,6 +56,61 @@ pub fn page(html: &str, css: Option<&str>, kept: Option<&KeptStyles>, dark: bool
         None => String::new(),
     };
     format!("<!doctype html><html{theme}><head>{head}</head><body>{}</body></html>", sanitise(html))
+}
+
+/// The mock as a sheet in a page that holds it among its own words, a sketch on a document page: the kept sheets, its
+/// own css and the still, scoped to it so no rule reaches the page around it. The page carries the tokens and the face;
+/// a font, which no `@scope` can hold, is left out.
+pub(crate) fn sheet(html: &str, css: Option<&str>, kept: Option<&KeptStyles>) -> String {
+    let mut rules = String::new();
+    let sheets = kept.map(|kept| kept.sheets.iter().map(|sheet| sheet.css.as_str()).collect()).unwrap_or_else(Vec::new);
+    // A sheet whose braces do not pair would close the scope and reach the page, so it is left out.
+    for css in sheets.into_iter().chain(css).filter(|css| closed(css)) {
+        rules.push_str(&style_text(css));
+        rules.push('\n');
+    }
+    rules.push_str(STILL);
+    format!(r#"<div xmlns="{HTML_NS}" class="sk-mock"><style>@scope {{ {rules} }}</style>{}</div>"#, sanitise(html))
+}
+
+/// Whether every block a sheet opens it closes, and none it did not open, past its comments and strings.
+fn closed(css: &str) -> bool {
+    let (mut depth, mut chars) = (0u32, css.chars().peekable());
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                chars.next();
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut star = false;
+                loop {
+                    match chars.next() {
+                        None => return false,
+                        Some('/') if star => break,
+                        Some(one) => star = one == '*',
+                    }
+                }
+            }
+            '"' | '\'' => loop {
+                match chars.next() {
+                    None | Some('\n') => return false,
+                    Some('\\') => {
+                        chars.next();
+                    }
+                    Some(end) if end == c => break,
+                    Some(_) => {}
+                }
+            },
+            '{' => depth += 1,
+            '}' => match depth.checked_sub(1) {
+                Some(less) => depth = less,
+                None => return false,
+            },
+            _ => {}
+        }
+    }
+    depth == 0
 }
 
 /// A sheet's text safe inside a `<style>`: a `</style` in it would end the block, as `export-svg.ts` guards.
@@ -501,5 +562,13 @@ mod tests {
         let kept = KeptCache::default().read(None, "0123456789abcdef0123456789abcdef").expect("the mock answers");
         let out = page(r#"<span class="armada-chip">2 behind</span>"#, None, Some(&kept), true);
         assert!(out.contains(".armada-chip") && out.contains("2 behind"));
+    }
+
+    #[test]
+    fn a_sheet_that_would_close_the_mocks_scope_is_left_out() {
+        let kept = KeptStyles { sheets: vec![sheet(".one{}"), sheet("} body{display:none}"), sheet(r#"a{content:"}"}/* } */"#)], fonts: Vec::new() };
+        let out = super::sheet("<p>a</p>", Some(".own{"), Some(&kept));
+        assert!(!out.contains("display:none") && !out.contains(".own{"), "{out}");
+        assert!(out.contains(".one{}") && out.contains(r#"a{content:"}"}"#) && out.contains(STILL), "{out}");
     }
 }

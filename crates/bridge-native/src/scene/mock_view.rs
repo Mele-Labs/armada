@@ -227,6 +227,11 @@ pub(super) fn parts(mock: &Mock, width: f32, dark: bool, cx: &App) -> Option<Arc
     cx.try_global::<Pictures>()?.pages.get(&page_key(mock, width, dark)).map(|drawn| drawn.parts.clone())
 }
 
+/// The style set `hash` names, where a picture already read it; nothing is asked of Fleet.
+pub(super) fn kept_held(hash: &str, cx: &App) -> Option<Arc<KeptStyles>> {
+    cx.try_global::<Pictures>()?.kept.held(hash)
+}
+
 /// The picture to draw now, asking for the one the zoom wants. Until it comes, the nearest scale already made.
 pub(super) fn picture(mock: &Rc<Mock>, width: f32, zoom: f32, dark: bool, window: &Window, cx: &mut App) -> Option<Arc<RenderImage>> {
     let key = key_of(page_key(mock, width, dark), scale_for(window.scale_factor(), zoom));

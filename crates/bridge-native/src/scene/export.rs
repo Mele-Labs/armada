@@ -738,7 +738,7 @@ fn hairline_svg(kit: &Kit, x: f32, y: f32, w: f32, h: f32, out: &mut String) {
     );
 }
 
-/// One node, at its own origin (`nodeSvg`). `sheets` is each variant of a screen's markup, for a page.
+/// One node, at its own origin (`nodeSvg`). `sheets` is each variant of a screen's markup, or a mock's one, for a page.
 fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElement>>, sheets: &[(String, String)], mode: Mode, face: &Face) -> String {
     let look = kit.look;
     let (w, h) = (rect.w, rect.h);
@@ -799,7 +799,8 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
             }
             hairline_svg(kit, 0., top, w, h - top, &mut out);
         }
-        // A screen that does not read, and a mock, which the app cannot draw as a page yet: the frame and the name.
+        // A screen that does not read, and a mock: the frame and the name. A page draws a mock's markup on the frame, its
+        // rules scoped to it; resvg draws no `foreignObject`, so a picture keeps the frame bare.
         SceneKind::Screen | SceneKind::Mock => {
             let top = sheet_top(node);
             if let Some(title) = node.title.as_deref() {
@@ -807,6 +808,9 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
             }
             shadow_svg(kit, 0., top, w, h - top, &mut out);
             let _ = write!(out, r#"<rect x="0" y="{}" width="{}" height="{}" rx="{}" fill="{}"/>"#, n(top), n(w), n((h - top).max(0.)), n(tile::RADIUS), kit.sunken);
+            if let (SceneKind::Mock, Mode::Page, Some((_, markup))) = (node.kind, mode, sheets.first()) {
+                let _ = write!(out, r#"<foreignObject x="0" y="{}" width="{}" height="{}">{markup}</foreignObject>"#, n(top), n(w), n((h - top).max(0.)));
+            }
             hairline_svg(kit, 0., top, w, h - top, &mut out);
         }
         SceneKind::Box | SceneKind::Code => draw_tile(kit, node, rect, face, &mut out),
@@ -1054,6 +1058,15 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
                 std::iter::once(("rest".to_string(), screen_markup(tree, None))).chain(at.into_iter().map(|at| (at.to_string(), screen_markup(tree, Some(at))))).collect()
             }
             _ => Vec::new(),
+        })
+        .zip(&scene.nodes)
+        .map(|(sheets, node)| match (node.kind, node.html.as_deref(), mode) {
+            // A mock's markup with its rules, and the style set a picture of it already read; nothing new is fetched.
+            (SceneKind::Mock, Some(html), Mode::Page) => {
+                let kept = node.kept.as_deref().and_then(|hash| super::mock_view::kept_held(hash, cx));
+                vec![("rest".to_string(), super::mock_page::sheet(html, node.css.as_deref(), kept.as_deref()))]
+            }
+            _ => sheets,
         })
         .collect();
 
@@ -1931,5 +1944,26 @@ mod tests {
             assert!(!svg.contains(&format!(">{word}<")), "{word} is not written in the picture");
         }
         assert!(svg.contains(">rs<"), "a block of code names its language");
+    }
+
+    #[gpui::test]
+    fn a_page_draws_a_mocks_markup_with_its_rules_scoped_and_a_picture_keeps_the_frame_bare(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let text = r#"{"nodes":[{"id":"m","kind":"mock","x":0,"y":0,"w":320,"h":200,"title":"Merge into","html":"<button class=\"go\" onclick=\"x()\">Merge</button>","css":".go{color:red}"}],"edges":[]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
+        let drawn = raw.scene().expect("it reads");
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let key = SharedString::from("mock");
+        let page = cx.update(|window, cx| inline(&key, &drawn, "Merge", window, cx));
+        let held = page.split("<foreignObject").nth(1).and_then(|rest| rest.split("</foreignObject>").next()).unwrap_or_else(|| panic!("a foreignObject: {page}"));
+        assert!(held.contains(r#"<div xmlns="http://www.w3.org/1999/xhtml" class="sk-mock"><style>@scope { .go{color:red}"#), "{held}");
+        assert!(held.contains(r#"<button class="go">Merge</button>"#), "the markup, cleaned: {held}");
+        assert!(page.contains(">Merge into<"), "the title stays over the frame: {page}");
+        let picture = cx.update(|window, cx| svg(&key, &drawn, window, cx));
+        assert!(!picture.contains("foreignObject") && !picture.contains(">Merge<"), "{picture}");
+        assert!(picture.contains(">Merge into<"), "{picture}");
     }
 }
