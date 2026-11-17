@@ -25,7 +25,9 @@ const READERS: [&str; 3] = ["crates/bridge-native", "apps/pocket", "packages/pro
 const PLACES: usize = 3;
 
 /// How many pull requests' changed types are held in memory, so a reading costs the forge one ask.
-const HELD: usize = 16;
+/// **More than one reading ever names**: every merge of the last hours is read again each pass,
+/// and a hold cleared within a pass asked the forge for all of them each time.
+const HELD: usize = 256;
 
 const QUEUED: &str = "wire_queued";
 const MERGED: &str = "wire_merged";

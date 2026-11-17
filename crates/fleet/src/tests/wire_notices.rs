@@ -251,3 +251,38 @@ async fn a_merge_is_not_told_to_a_branch_that_already_has_it() {
     assert!(said.starts_with("Wire change merged into main: #7."), "{said}");
     assert!(rig.wire_words_to(&after).await.is_empty(), "a branch cut after the merge already reads the change");
 }
+
+#[tokio::test]
+async fn each_merge_of_the_last_hours_is_asked_of_the_forge_once_however_many_there_are() {
+    let rig = a_rig();
+    // Read nothing it changes, so it is never told, and every merge stays waiting on it.
+    let _elsewhere = rig.a_job_in_slot(4, "docs/notes.md", "more").await;
+    rig.the_forge_says(PullQueue::Waiting);
+    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    let merged: Vec<_> = (1..=40)
+        .map(|number| crate::main_hub::MergedPulled {
+            pull: RecentlyMerged {
+                number,
+                title: FromOutside::verbatim("A merge"),
+                branch: FromOutside::verbatim(&format!("armada/{number}")),
+                url: FromOutside::verbatim(&format!("https://forge.invalid/armada/pull/{number}")),
+                author: None,
+                merged_at: FromOutside::verbatim(rig.fleet.now().as_str()),
+                commit: None,
+            },
+        })
+        .collect();
+    rig.fleet.sweeping().lock().await.merged.insert(rig.root(), merged);
+
+    rig.reads().await;
+    rig.reads().await;
+
+    let asked = rig
+        .fleet
+        .vcs()
+        .delivered()
+        .into_iter()
+        .filter(|one| matches!(one, testkit::Delivered::ReadPullRequestPatches { .. }))
+        .count();
+    assert_eq!(asked, 40, "a second reading asks again of none");
+}
