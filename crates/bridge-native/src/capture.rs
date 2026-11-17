@@ -725,6 +725,35 @@ mod tests {
         assert_eq!(spot(right, false, room, card, px(8.)).x, px(1080.));
     }
 
+    #[gpui::test]
+    fn escape_with_nothing_held_goes_on_and_with_a_box_begun_puts_the_box_away(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: false };
+        let (capture, cx) = cx.add_window_view(|_, cx| Capture::new(Rc::new(Cell::new(None)), words, None, cx));
+        let heard = Rc::new(std::cell::RefCell::new(Vec::new()));
+        cx.update(|window, cx| {
+            let into = Rc::clone(&heard);
+            cx.subscribe(&capture, move |_, event: &CaptureEvent, _| {
+                into.borrow_mut().push(match event {
+                    CaptureEvent::Noted(_) => "noted",
+                    CaptureEvent::Closed => "closed",
+                    CaptureEvent::Passed => "passed",
+                })
+            })
+            .detach();
+            window.focus(&capture.read(cx).focus_handle(cx), cx);
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("escape");
+        assert_eq!(*heard.borrow(), ["passed"], "nothing held: the key is the panel's under it, and the layer stays on");
+        capture.update(cx, |capture, _| capture.from = Some(point(px(10.), px(10.))));
+        cx.simulate_keystrokes("escape");
+        assert_eq!(*heard.borrow(), ["passed", "closed"], "a box begun: Esc puts it away");
+    }
+
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
         let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
         Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None, parent: None, path: Vec::new(), painted: 0 }

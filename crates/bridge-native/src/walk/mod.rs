@@ -1779,13 +1779,9 @@ pub static WALKS: &[Walk] = &[
         scenario: "artifact-asides",
         steps: &[
             press_on("A Job's one artifact asks which way an aside opens", "row", "Edit the merge line", "status", "Asking"),
-            step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
-            press_on("Needs you holds the question about it", "button", "Needs you", "button", "Open Asides"),
-            press_on("A press on the question's words opens the review panel, the artifact picked", "button", "Open Asides", "dialog", "Review"),
+            press_on("A press on the question about it opens the review panel, the artifact picked", "button", "Open Asides", "dialog", "Review"),
             step("The two takes stand side by side, each picture across its tile", Verb::Look, "radio", "Pick A \u{b7} Beside the thread"),
-            step("\u{2325}\u{2318}A turns annotating on over the panel", Verb::Key("alt-cmd-a"), "status", "Annotating"),
-            step("Esc with no note begun shuts the panel, and annotating stays on", Verb::Key("escape"), "button", "Needs you"),
-            step("Annotating is still on", Verb::Look, "status", "Annotating"),
+            step("Esc shuts the panel: the thread is as it was", Verb::Key("escape"), "button", "Open Asides"),
         ],
     },
     Walk {
