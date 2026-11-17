@@ -455,7 +455,7 @@ impl Layer {
 
     /// A fresh capture over the screen, with the keys on it.
     fn arm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true };
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true, pages: true };
         let capture = cx.new(|cx| Capture::new(Rc::clone(&self.area), words, Some(KEEP_NOTE.into()), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
@@ -473,6 +473,7 @@ impl Layer {
             Held::Element(drawn) => capture::role_word(drawn.role).unwrap_or("element").to_lowercase(),
             Held::Region(_) => "region".to_string(),
             Held::Window { .. } => "window".to_string(),
+            Held::Page(page) => page.tag().to_string(),
         };
         let tools = noted.tools.clone().unwrap_or_else(|| cx.new(|_| Tools::new(Scope::Window)));
         let now = store::now();
@@ -483,6 +484,7 @@ impl Layer {
             Held::Element(drawn) => (format!("{} \"{}\"", on, drawn.name), drawn.name.to_string(), Some(path.clone())),
             Held::Region(_) => ("region".to_string(), String::new(), Some(path.clone())),
             Held::Window { .. } => ("window".to_string(), String::new(), None),
+            Held::Page(page) => (page.read.selector.clone(), page.read.words.name.clone(), Some(path.clone())),
         };
         let mut raw = json!({
             "id": key, "status": "open", "text": noted.said, "component": null, "owners": [], "ownersFrom": "parent",
@@ -495,6 +497,12 @@ impl Layer {
         let mut pictures: Vec<(String, Vec<u8>)> = Vec::new();
         if matches!(noted.held, Held::Window { .. }) {
             raw["scope"] = json!("window");
+        }
+        // A part of a Job's page is told as the page told it, with its address; a box over a page has the address alone.
+        if let Held::Page(page) = &noted.held {
+            page.write_into(&mut raw);
+        } else if let Some(address) = &noted.address {
+            raw["address"] = json!(address);
         }
         if let Some((picture, _)) = &noted.picture {
             let mut png = Vec::new();

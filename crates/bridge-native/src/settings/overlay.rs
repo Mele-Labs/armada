@@ -93,6 +93,13 @@ pub struct Scope {
     /// The confirm's keys: Delete, then Cancel.
     pub delete_stop: FocusHandle,
     pub cancel_stop: FocusHandle,
+    /// A merge of two same-named projects, asked and not yet answered, and its card's keys: Swap, the share switch, one
+    /// per differing value, then Merge (Cancel is `cancel_stop`).
+    pub merging: Option<super::merge::Merging>,
+    pub merge_swap: FocusHandle,
+    pub merge_share: FocusHandle,
+    pub merge_values: Vec<FocusHandle>,
+    pub merge_confirm: FocusHandle,
     /// The Learned chip's key: Enter and Space take the keys to the value it is about (`SettingsOverlay::go_to`).
     pub learned: FocusHandle,
     /// The page's scroll, so a row asked for is brought into view.
@@ -104,7 +111,7 @@ pub struct Scope {
 impl Scope {
     fn new(cx: &mut App) -> Scope {
         let cells = super::project::KEYS.into_iter().flat_map(|key| [(key, Column::Every), (key, Column::Own)]).map(|cell| (cell, cx.focus_handle().tab_stop(true))).collect();
-        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle(), learned: cx.focus_handle().tab_stop(true), page_scroll: gpui::ScrollHandle::new(), reveal: Rc::new(Cell::new(None)) }
+        Scope { project: None, every: None, values: None, projects: None, saving: None, refused: None, share_refused: None, cells, picker: cx.focus_handle().tab_stop(true), deleting: None, delete_stop: cx.focus_handle(), cancel_stop: cx.focus_handle(), merging: None, merge_swap: cx.focus_handle(), merge_share: cx.focus_handle(), merge_values: ipc::VALUE_KEYS.iter().map(|_| cx.focus_handle()).collect(), merge_confirm: cx.focus_handle(), learned: cx.focus_handle().tab_stop(true), page_scroll: gpui::ScrollHandle::new(), reveal: Rc::new(Cell::new(None)) }
     }
 }
 
@@ -333,6 +340,7 @@ impl SettingsOverlay {
         self.keys = None;
         self.popup = None;
         self.scope.deleting = None;
+        self.scope.merging = None;
         self.mods.panel = None;
         match self.back_to.take() {
             Some(handle) => window.focus(&handle, cx),
@@ -755,7 +763,7 @@ impl SettingsOverlay {
 
     /// Open the picker's menu under it.
     pub fn open_picker(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let rows = super::project::picker_rows(&self.scope.project, self.scope.projects.as_ref());
+        let rows = super::project::picker_rows(&self.scope.project, self.scope.projects.as_ref(), crate::pairing::macs(cx));
         let name = self.scope.project.as_ref().map_or("Every project".to_string(), |(_, name)| name.clone());
         let at = super::view::bounds_of(window, cx, gpui::Role::ComboBox, &format!("Editing {name}")).map(|bounds| bounds.bottom_left()).unwrap_or_default();
         let back = window.focused(cx);
@@ -773,8 +781,13 @@ impl SettingsOverlay {
                     crate::dispatch::screen::open_new_project(cx);
                     return;
                 }
-                "delete" => {
-                    this.ask_delete(window, cx);
+                id if super::project::row_act(id).is_some() => {
+                    let Some((act, n)) = super::project::row_act(id) else { return };
+                    let Some(project) = this.scope.projects.as_ref().and_then(|all| all.projects.get(n)).map(|one| one.id.clone()) else { return };
+                    match act {
+                        super::project::RowAct::Delete => this.ask_delete(&project, window, cx),
+                        super::project::RowAct::Merge => this.ask_merge(&project, window, cx),
+                    }
                     return;
                 }
                 id => {
@@ -789,7 +802,7 @@ impl SettingsOverlay {
         let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
             this.popup = None;
             // A sheet or a confirm the pick opened has the keys now.
-            if this.open && this.scope.deleting.is_none() {
+            if this.open && this.scope.deleting.is_none() && this.scope.merging.is_none() {
                 match &back {
                     _ if moved.get() => window.focus(&this.scope.picker, cx),
                     Some(back) => window.focus(back, cx),
@@ -1027,6 +1040,10 @@ impl SettingsOverlay {
         }
         // A project's Delete, asked, takes every key until it is answered.
         if self.delete_key(key, window, cx) {
+            return true;
+        }
+        // A merge's card, asked, takes every key until it is answered.
+        if self.merge_key(key, window, cx) {
             return true;
         }
         // A choice's list open over Settings takes its own keys.

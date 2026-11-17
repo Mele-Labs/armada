@@ -817,6 +817,30 @@ impl JobView {
     /// The Job's Thread tab (1.1), for a strip. Its mark says the state, its title is the label, and
     /// More opens the menu. `tab_id` is the tab's place in the panes, `front` whether it is the pane's front tab.
     pub(super) fn thread_tab(&self, id: &SharedString, tab_id: &str, front: bool, cx: &mut Context<Self>) -> gpui::Div {
+        // The working mark spins in a view of its own (`own_frames`).
+        let spinner = match mark_of(self.record(id, cx), self.head.overlays.get(id.as_str())) {
+            Some((_, _, hue, true)) => {
+                let look = cx.look();
+                let (ink, glyph, spin) = (look.color(hue), look.length(token::SPACE_4), look.duration(token::DURATION_SPIN));
+                Some(self.own_frames(
+                    format!("head-working:{id}"),
+                    move |_, _| {
+                        svg()
+                            .path(icon_path("loader-circle"))
+                            .size(glyph)
+                            .text_color(ink)
+                            .with_animation(
+                                "head-working",
+                                Animation::new(spin).repeat(),
+                                |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
+                            )
+                            .into_any_element()
+                    },
+                    cx,
+                ))
+            }
+            _ => None,
+        };
         let look = cx.look();
         let job = self.record(id, cx);
         let overlay = self.head.overlays.get(id.as_str());
@@ -827,19 +851,9 @@ impl JobView {
         let state = mark.map(|(icon, said, hue, working)| {
             let said_in: SharedString = format!("{said} \u{b7} {id}").into();
             let ink = look.color(hue);
-            let drawn = if working {
-                svg()
-                    .path(icon_path("loader-circle"))
-                    .size(glyph)
-                    .text_color(ink)
-                    .with_animation(
-                        "head-working",
-                        Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
-                        |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
-                    )
-                    .into_any_element()
-            } else {
-                svg().path(icon_path(icon)).size(glyph).text_color(ink).into_any_element()
+            let drawn = match spinner.filter(|_| working) {
+                Some(spinner) => spinner,
+                None => svg().path(icon_path(icon)).size(glyph).text_color(ink).into_any_element(),
             };
             labelled(div().id("head-state").flex_none().child(drawn).tooltip(tip(said_in)), Role::Image, said)
         });

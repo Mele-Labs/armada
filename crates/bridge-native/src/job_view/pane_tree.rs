@@ -24,9 +24,9 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 }
 
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
-pub(crate) const JOB_TAB_KINDS: [&str; 31] = [
+pub(crate) const JOB_TAB_KINDS: &[&str] = &[
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
-    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "custom", "draft", "walk", "document", "subagent", "artifact",
+    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "custom", "draft", "walk", "document", "subagent", "artifact",
     "loadout",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
@@ -1031,7 +1031,7 @@ pub(crate) fn arrive_walk(arrangement: &Arrangement, label: &str, page: &str, be
 
 /// A kept arrangement as a Job's, or None where it is not one (Classic's `isArrangement` over `JOB_TAB_KINDS`).
 pub(crate) fn revive(value: &serde_json::Value) -> Option<Arrangement> {
-    revive_with(value, &JOB_TAB_KINDS, &[])
+    revive_with(value, JOB_TAB_KINDS, &[])
 }
 
 /// A kept arrangement of a family with these kinds, the kinds `renamed` names put under the kinds they open now first (Classic's `renamedIn` then `isArrangement`).

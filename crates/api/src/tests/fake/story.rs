@@ -3,6 +3,8 @@
 
 use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind, SortedBy, Instant};
 
+use ipc::{JobQuestion, JobQuestions, MarkAnswerRead};
+
 use super::FakeDaemon;
 use crate::{Refusal, Story};
 
@@ -42,5 +44,13 @@ impl Story for FakeDaemon {
 
     async fn file_ask(&self, _caller: Option<crate::Caller>, file: FileAsk) -> Result<Ask, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.feature_project", format!("no project is named {}", file.project), crate::tests::shapes::run_id())))
+    }
+
+    async fn list_job_questions(&self, session_id: SessionId) -> Result<JobQuestions, Refusal> {
+        Ok(JobQuestions { session_id, questions: Vec::new() })
+    }
+
+    async fn mark_answer_read(&self, mark: MarkAnswerRead) -> Result<JobQuestion, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised("fleet.no_such_question", format!("no question is named {}", mark.row_id), crate::tests::shapes::run_id())))
     }
 }

@@ -14,6 +14,7 @@ mod aa;
 mod acts;
 mod artifacts_tab;
 mod for_you_tab;
+mod questions;
 mod reader_sheet;
 mod band_card;
 mod bands;
@@ -85,6 +86,7 @@ mod reader_edit;
 mod reader_page;
 mod web_walk;
 pub(crate) mod rows;
+mod row_views;
 mod judge_tab;
 mod lanes;
 mod lanes_copy;
@@ -180,6 +182,7 @@ pub fn bind(cx: &mut App) {
     head::bind(cx);
     lanes_copy::bind(cx);
     web_walk::bind(cx);
+    job_browser::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -424,6 +427,8 @@ pub struct JobView {
     artifacts: artifacts_tab::Artifacts,
     /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
     for_you: for_you_tab::ForYouTab,
+    /// His questions to each Job and their answers, as Fleet last read them.
+    questions: questions::Questions,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -535,6 +540,8 @@ pub struct JobView {
     linked: RefCell<HashMap<String, rows::Linked>>,
     /// One more each time this view is drawn whole, so a frame drawn from its cache is told apart (`labels::kept`).
     drawn: Rc<std::cell::Cell<u64>>,
+    /// The thread's rows as views of their own, so a pulse draws its row and not the thread (`row_views`).
+    rows: row_views::Rows,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -573,6 +580,8 @@ impl JobView {
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
             composer.catalog.scripts = catalogue.talk;
         }
+        // Told it changed, the view draws its rows whole next; a frame that only moves a pulse takes them from the cache.
+        subscriptions.push(cx.observe_self(|this, _| this.rows.changed()));
         // Each draws this view again: it is drawn from a cache (`JobsScreen::render`).
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| {
             this.followed(window, cx);
@@ -595,10 +604,12 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                this.questions_replied(window, cx);
                 cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::StoryMoved, window, cx| this.questions_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
             subscriptions.push(job_browser::follow(fleet, window, cx));
         }
@@ -680,6 +691,7 @@ impl JobView {
             aged: false,
             artifacts: artifacts_tab::Artifacts::default(),
             for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
+            questions: questions::Questions::mock(if mock_on { crate::mock::questions() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -740,6 +752,7 @@ impl JobView {
             find: None,
             linked: Default::default(),
             drawn: Rc::default(),
+            rows: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -865,7 +878,7 @@ impl JobView {
         for id in self.list.update(cx, |list, _| list.take_gone()) {
             self.pages.remove(&id);
             self.row_tabs.remove(&id);
-            self.forget_browsers(&id);
+            self.forget_browsers(&id, cx);
             self.mock.remove(id.as_ref());
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);
@@ -1273,6 +1286,7 @@ impl JobView {
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.drawn.set(self.drawn.get() + 1);
+        self.rows.begin(&self.shown);
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
@@ -1303,6 +1317,7 @@ impl Render for JobView {
         self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
+        self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
@@ -1359,7 +1374,7 @@ impl Render for JobView {
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
+                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.thread_row(ix, window, cx))).size_full())
                     .child(fade(&look, true))
                     .child(fade(&look, false)),
                 Role::Region,

@@ -1,0 +1,16 @@
+[operations.list_job_questions]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The questions the owner asked a Job, each with the reply that answers it and whether he read that answer"
+notes = """
+`GET /sessions/questions?session_id=`. `JobQuestions` `{ session_id, questions }`, the unanswered first and each group newest first, each a `JobQuestion` `{ row_id, words, asked_at, answer? }`, and `answer` a `JobAnswer` `{ reply_row, excerpt, answered_at, read }`. Since 17 Nov 2026.
+
+A question is a message of his sorted `question` (`list_message_kinds`), by Fleet or by his `set_message_kind`. **`answer` is absent until a reply of the Job's is read as answering it**: when the Job's turn ends, a small model reads the question and the Job's last message after it, and a failed or unclear read is tried again on the loop's next passes, three in all, then at the next turn's end. `reply_row` is the id of the agent's `message` row, which `get_job_thread` takes as `before` or `upto`, so a client scrolls its thread to it. `excerpt` is the reply's first prose, about 300 characters, code and tables left out. `read` starts false and is set by `mark_answer_read`.
+
+`SessionRecord.answer_unread` says whether any answer of the Job's is unread, for a list's row. A change publishes `session.story`, and one that moves `answer_unread` publishes `session.changed` too.
+
+404 `fleet.no_such_session` where Fleet hosts no such Job.
+
+`agent_access` is `No`: his questions and what he read are his.
+"""

@@ -167,7 +167,7 @@ async fn an_edit_is_refused_for_what_is_not_a_project_a_file_that_would_not_read
 }
 
 #[tokio::test]
-async fn delete_takes_the_file_away_where_fleet_keeps_it_and_leaves_a_synced_one() {
+async fn delete_takes_the_file_away_where_fleet_keeps_it_and_from_a_synced_folder() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let kit = fleet.add_project(named("Kit's", None, None)).await.expect("added").projects[0].id.clone();
@@ -179,7 +179,7 @@ async fn delete_takes_the_file_away_where_fleet_keeps_it_and_leaves_a_synced_one
     assert!(!file(&home, &kit).exists(), "the file Fleet kept itself goes");
     let left = fleet.delete_project(theirs.clone()).await.expect("deleted");
     assert!(left.projects.is_empty());
-    assert!(synced_at.join("projects").join(format!("{theirs}.yml")).is_file(), "a synced folder's is the person's, and stays");
+    assert!(!synced_at.join("projects").join(format!("{theirs}.yml")).exists(), "a synced folder's goes too, so nothing stale is left");
     fleet.projects_reload().await;
     assert!(fleet.projects_held().files().is_empty(), "and is not read again");
 }

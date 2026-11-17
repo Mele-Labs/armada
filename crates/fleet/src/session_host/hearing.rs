@@ -476,6 +476,8 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref(), carded).await;
+            // His open questions are read against the reply on the notice loop, off this turn.
+            self.questions_due_at(id).await;
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }

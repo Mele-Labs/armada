@@ -88,6 +88,7 @@ impl Sessions for FakeDaemon {
             pull_request_drafts: Vec::new(),
             claim_waits: Vec::new(),
             claims_unsent: false,
+            answer_unread: false,
         })
     }
 

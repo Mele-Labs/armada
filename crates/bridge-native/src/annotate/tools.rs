@@ -667,6 +667,8 @@ pub fn scope_of(held: &Held) -> Scope {
         }
         Held::Region(_) => Scope::Region,
         Held::Window { .. } => Scope::Window,
+        // The tools change native elements; a page's part has nothing of that to offer.
+        Held::Page(_) => Scope::Region,
     }
 }
 

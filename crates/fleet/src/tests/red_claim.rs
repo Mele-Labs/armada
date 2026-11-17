@@ -58,6 +58,9 @@ impl adapter_traits::Bucket for Held {
     fn put(&self, name: &str, body: &[u8]) -> Result<(), adapter_traits::BucketError> {
         self.0.put(name, body)
     }
+    fn delete(&self, name: &str) -> Result<(), adapter_traits::BucketError> {
+        self.0.delete(name)
+    }
 }
 
 /// The view a machine holds, handed out as the store.
