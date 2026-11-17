@@ -69,15 +69,18 @@ impl FeatureOverlay {
     }
 
     /// How many layers are stacked; the top one is the one drawn.
+    #[cfg(test)]
     pub fn depth(&self) -> usize {
         self.stack.len()
     }
 
+    #[cfg(test)]
     pub fn top(&self) -> Option<&Content> {
         self.stack.last().map(|layer| &layer.content)
     }
 
     /// The title line of the top layer, and where it was opened from.
+    #[cfg(test)]
     pub fn titles(&self) -> Option<(&str, &str)> {
         self.stack.last().map(|layer| (layer.title.as_str(), layer.from.as_str()))
     }

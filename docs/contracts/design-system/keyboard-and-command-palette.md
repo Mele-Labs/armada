@@ -65,7 +65,7 @@ is the back-fill by hand that this section existed to prevent.
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
 ⌥K       change the kind of a message of his in the open Job's thread: Bug, Change request, Idea, Fix, Revision, Answer or Talk, in the native Bridge only
 ⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
-⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
+⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 ⌘D       split the focused pane of the open Job, the new pane to its right

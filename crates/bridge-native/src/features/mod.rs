@@ -2,11 +2,8 @@
 //! and a stale mark, in a list on the left and a slot for the feature's page on the right.
 //!
 //! What is read is Fleet's own: `list_features`. `model.rs` works out the lines the list draws from it and
-//! nothing there touches the screen. The screen is an entity with a `within` handle, ready to be mounted as a
-//! tab of the project page; commit by commit the page slot is filled.
-
-// Nothing mounts the screen until the project page does.
-#![allow(dead_code)]
+//! nothing there touches the screen. The screen is an entity with a `within` handle, a place of its own in the
+//! title bar's strip (`operator/screen.rs`).
 
 pub(crate) mod asks;
 mod looked;
@@ -17,6 +14,8 @@ pub mod overlay;
 pub mod page;
 pub(crate) mod page_model;
 mod page_view;
+// Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
+#[allow(dead_code)]
 pub mod shots;
 pub mod story_link;
 mod view;
@@ -162,11 +161,15 @@ impl FeaturesScreen {
 
     /// Read the library from Fleet again, keeping what is drawn until the answer comes. A project that is
     /// not the one on screen draws the skeleton.
+    // The door for the palette and a project page; nothing opens it yet.
+    #[allow(dead_code)]
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         self.read(cx);
     }
 
     /// Show another project, or follow the title bar again with none.
+    // The door for a project page; the title bar's pick is all that moves the project today.
+    #[allow(dead_code)]
     pub fn set_project(&mut self, project: Option<String>, cx: &mut Context<Self>) {
         if self.explicit != project {
             self.explicit = project;
@@ -253,6 +256,7 @@ impl FeaturesScreen {
     }
 
     /// The feature whose page is open beside the list.
+    #[cfg(test)]
     pub fn opened(&self) -> Option<&ipc::FeatureRow> {
         let slug = self.opened.as_deref()?;
         self.listed.find(slug).map(|at| &self.listed.shown[at].row).or_else(|| match &self.library {
@@ -261,9 +265,19 @@ impl FeaturesScreen {
         })
     }
 
-    /// The project the library on screen belongs to, by Fleet's id.
-    pub fn project(&self) -> Option<&str> {
-        self.library_project.as_deref()
+    /// Whether the screen is in front, following Fleet.
+    #[cfg(test)]
+    pub fn entered(&self) -> bool {
+        self.entered
+    }
+
+    /// Why the library was not read, where it was not.
+    #[cfg(test)]
+    pub fn not_read(&self) -> Option<&str> {
+        match &self.library {
+            Load::Failed(why) => Some(why),
+            _ => None,
+        }
     }
 
     /// J and K, Down and Up: the next or the previous feature, past the area heads.

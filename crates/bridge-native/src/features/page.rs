@@ -147,18 +147,17 @@ impl FeaturePageView {
         }
     }
 
+    #[cfg(test)]
     pub fn slug(&self) -> &str {
         &self.slug
     }
 
-    pub fn project(&self) -> &str {
-        &self.project
-    }
-
+    #[cfg(test)]
     pub fn section(&self) -> Section {
         self.section
     }
 
+    #[cfg(test)]
     pub fn chip(&self) -> Chip {
         self.chip
     }

@@ -199,3 +199,44 @@ pub fn shoot_beside(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The whole window at 1400 wide with Features in front on the mock library, reached the way a press on the
+/// strip's Features reaches it.
+pub fn shoot_mounted(dir: &Path) -> Result<(), String> {
+    use crate::jobs::{JobsList, JobsScreen};
+    use crate::operator::screen::{Front, OperatorScreen};
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    let held: Rc<RefCell<Option<gpui::Entity<OperatorScreen>>>> = Rc::default();
+    let keep = held.clone();
+    let handle = cx
+        .open_window(size(px(1400.), px(820.)), move |window, cx| {
+            let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+            let list = cx.new(|cx| JobsList::mock(&records, cx));
+            let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+            let screen = cx.new(|cx| OperatorScreen::mock_reviews(jobs, window, cx));
+            *keep.borrow_mut() = Some(screen.clone());
+            screen
+        })
+        .map_err(|why| why.to_string())?;
+    let screen = held.borrow().clone().ok_or("the screen was not made")?;
+    for _ in 0..2 {
+        cx.run_until_parked();
+        cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+    }
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.activate_window();
+        screen.update(cx, |screen, cx| screen.bring(Some(Front::Features), window, cx));
+    })
+    .map_err(|why| why.to_string())?;
+    for _ in 0..3 {
+        cx.run_until_parked();
+        cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+    }
+    let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+    let path = dir.join("features-mounted-1400.png");
+    picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))
+}
