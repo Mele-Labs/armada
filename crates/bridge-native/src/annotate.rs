@@ -13,7 +13,6 @@
 //!
 //! **Available only in a development build**, as Electron's is ([`dev_build`]).
 
-mod beside;
 pub mod live;
 mod panel;
 pub mod store;
@@ -131,8 +130,6 @@ pub(crate) struct Note {
     /// The Job it went to, once Fleet took it.
     pub sent: Option<SharedString>,
     pub tools: Entity<Tools>,
-    /// The features it belongs to, read when its card is shown.
-    pub(crate) features: beside::Features,
 }
 
 /// A note as it was saved, for a layer that reads them again when it comes on.
@@ -179,7 +176,11 @@ struct Menu {
     _dismissed: Subscription,
 }
 
+mod beside;
+
 pub struct Layer {
+    /// The features of the opened note: chips under its card and their page beside it.
+    beside: Entity<beside::Beside>,
     on: bool,
     /// The screen the layer sits over, where aim and a box may hold.
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -195,10 +196,6 @@ pub struct Layer {
     sending_session: Option<SharedString>,
     /// The note whose card is open.
     pub(crate) opened: Option<u32>,
-    /// Where the opened note's features are read from, the reads under way and the page open beside its card.
-    features: beside::Held,
-    /// Where the opened card was last drawn, so a page can stand beside it.
-    card_box: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
     menu: Option<Menu>,
@@ -232,6 +229,7 @@ pub struct Layer {
 impl Layer {
     pub fn new(area: Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<Offered>, cx: &mut Context<Self>) -> Layer {
         Layer {
+            beside: beside::Beside::new(cx),
             on: false,
             area,
             screen: None,
@@ -242,8 +240,6 @@ impl Layer {
             loading: None,
             sending_session: None,
             opened: None,
-            features: beside::Held::default(),
-            card_box: Rc::default(),
             targets,
             menu: None,
             split_at: Rc::default(),
@@ -321,7 +317,6 @@ impl Layer {
             status: if raw["status"] == "done" { Status::Done } else { Status::Open },
             sent: text(&raw["sent"]["title"]).map(Into::into),
             tools,
-            features: beside::Features::default(),
             raw,
         }
     }
@@ -340,7 +335,7 @@ impl Layer {
         }));
     }
 
-    pub(crate) fn read_back(&mut self, found: Vec<Value>, cx: &mut Context<Self>) {
+    fn read_back(&mut self, found: Vec<Value>, cx: &mut Context<Self>) {
         for raw in found {
             if self.notes.iter().any(|note| raw["id"].as_str() == Some(note.key.as_str())) {
                 continue;
@@ -412,7 +407,6 @@ impl Layer {
             self.capture = None;
             self.menu = None;
             self.opened = None;
-            self.put_away_beside(cx);
             self.paste = None;
             self.listing = false;
             if let Some(keys) = self.keys_were.take() {
@@ -439,7 +433,6 @@ impl Layer {
             return;
         }
         self.opened = None;
-        self.put_away_beside(cx);
         self.paste = None;
         let screen = self.screen.clone();
         if let Some((capture, _)) = &self.capture {
@@ -456,7 +449,6 @@ impl Layer {
             self.toggle(window, cx);
         }
         self.opened = None;
-        self.put_away_beside(cx);
         self.paste = None;
         if let Some((capture, _)) = &self.capture {
             capture.update(cx, |capture, cx| capture.element_at_point(at, window, cx));
@@ -552,7 +544,6 @@ impl Layer {
             status: Status::Open,
             sent: None,
             tools,
-            features: beside::Features::default(),
         });
         self.persist(id, pictures, cx);
         self.said = None;
@@ -582,7 +573,6 @@ impl Layer {
         self.sending_ids = ids;
         self.said = None;
         self.opened = None;
-        self.put_away_beside(cx);
         self.paste = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
@@ -607,7 +597,6 @@ impl Layer {
                 raw: note.raw.clone(),
                 window: note.window,
                 number: at + 1,
-                features: note.features.slugs(),
                 picture: match (&note.picture, note.raw["screenshot"].as_str(), &self.dir) {
                     (Some((picture, scale)), _, _) => live::Picture::Held(Arc::clone(picture), *scale, note.ring),
                     (None, Some(name), Some(dir)) => live::Picture::File(dir.join(name)),
@@ -687,7 +676,6 @@ impl Layer {
         self.selected.remove(&id);
         if self.opened == Some(id) {
             self.opened = None;
-            self.put_away_beside(cx);
             self.paste = None;
         }
         cx.notify();
@@ -699,9 +687,7 @@ impl Layer {
             self.close_card(window, cx);
             return;
         }
-        self.put_away_beside(cx);
         self.opened = Some(id);
-        self.read_features(id, cx);
         self.deleting_card = false;
         let card = self.card_focus.clone();
         window.defer(cx, move |window, cx| window.focus(&card, cx));
@@ -722,7 +708,6 @@ impl Layer {
 
     fn close_card(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.opened = None;
-        self.put_away_beside(cx);
         self.paste = None;
         self.deleting_card = false;
         self.refocus(window, cx);
@@ -1021,25 +1006,13 @@ impl Render for Layer {
                 .id("note-card")
                 .occlude()
                 .track_focus(&self.card_focus)
-                .key_context(crate::generated::actions::ActionScope::Features.key_context().unwrap_or_default())
-                .on_action(cx.listener(|this, act: &crate::keymap::Act, window, cx| {
-                    if !(act.is("note_feature") && this.open_next_feature(window, cx)) {
-                        cx.propagate();
-                    }
-                }))
                 .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" {
                         cx.stop_propagation();
-                        // The page beside the card goes first: each Esc takes one layer of it, and then the card.
-                        if this.has_beside() {
-                            this.back_beside(window, cx);
-                        } else {
-                            this.close_card(window, cx);
-                        }
+                        this.close_card(window, cx);
                     }
                 }))
                 .on_drop(move |paths: &ExternalPaths, _, cx| tools::dropped(&dropped, paths, cx))
-                .relative()
                 .w(look.length(token::SPACE_8) * 14.)
                 .max_h(view.height - gap * 2.)
                 .overflow_y_scroll()
@@ -1058,8 +1031,6 @@ impl Render for Layer {
                 )
                 .child(div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(note.path.clone()))
                 .child(div().text_size(look.length(token::TEXT_SM)).child(note.said.clone()))
-                .child(self.measure_card())
-                .children(self.chips(id, look, window, cx))
                 .child(note.tools.clone())
                 .children(note.sent.clone().map(|title| {
                     div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(format!("Sent to Job {title}"))
@@ -1116,7 +1087,7 @@ impl Render for Layer {
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
             .children(pins)
             .children(opened)
-            .children(self.beside_panel(window, cx))
+            .map(|root| beside::attach(root, self, window, cx))
             .children(panel)
             .child(self.bar(cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
@@ -1262,9 +1233,6 @@ impl Layer {
         self.search = Some((search, typed));
     }
 }
-
-#[cfg(test)]
-mod feature_tests;
 
 #[cfg(test)]
 mod tests {

@@ -18,8 +18,6 @@ pub struct Outgoing {
     pub window: bool,
     /// Its place among the notes sent together, the number burned beside its ring.
     pub number: usize,
-    /// The features the note maps to, by slug: each is a `Feature:` line in the note's words, so the Job is handed its page.
-    pub features: Vec<String>,
     pub picture: Picture,
 }
 
@@ -101,9 +99,10 @@ fn note_of(out: &Outgoing, ink: Ink) -> SessionNote {
         said.extend(changed);
     }
     // The line the hooks read a feature's page by (`docs/concepts/feature-catalog.md`, Handing a Job its pages).
-    if !out.features.is_empty() {
+    let features = super::beside::slugs_of(&out.key);
+    if !features.is_empty() {
         said.push(String::new());
-        said.extend(out.features.iter().take(crate::features::of_path::MOST).map(|slug| format!("Feature: {slug}")));
+        said.extend(features.iter().take(crate::features::of_path::MOST).map(|slug| format!("Feature: {slug}")));
     }
     let location = raw["location"].as_str().unwrap_or("/").to_string();
     let screen = raw["screen"].as_str().map(str::to_string);
@@ -211,25 +210,26 @@ pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgo
 mod tests {
     use super::*;
 
-    fn out(features: &[&str]) -> Outgoing {
+    fn out(key: &str, features: &[&str]) -> Outgoing {
+        super::super::beside::remember(key, features.iter().map(|slug| slug.to_string()).collect());
         let raw = serde_json::json!({ "text": "The row clips its title", "selector": "div.row", "element": { "tag": "div", "text": "" }, "screen": "Jobs" });
-        Outgoing { key: "k".into(), raw, window: false, number: 1, features: features.iter().map(|slug| slug.to_string()).collect(), picture: Picture::None }
+        Outgoing { key: key.into(), raw, window: false, number: 1, picture: Picture::None }
     }
 
     #[test]
     fn a_note_goes_to_the_job_with_a_feature_line_for_each_feature_it_maps_to() {
-        let said = note_of(&out(&["job-list-and-live-status", "pause-resume-stop-snooze"]), Ink([0; 4], [0; 4])).said;
+        let said = note_of(&out("live-two", &["job-list-and-live-status", "pause-resume-stop-snooze"]), Ink([0; 4], [0; 4])).said;
         assert_eq!(said, "The row clips its title\n\nFeature: job-list-and-live-status\nFeature: pause-resume-stop-snooze");
     }
 
     #[test]
     fn a_note_with_no_feature_goes_as_it_did() {
-        assert_eq!(note_of(&out(&[]), Ink([0; 4], [0; 4])).said, "The row clips its title");
+        assert_eq!(note_of(&out("live-none", &[]), Ink([0; 4], [0; 4])).said, "The row clips its title");
     }
 
     #[test]
     fn no_more_feature_lines_go_than_a_read_hands_a_job() {
-        let said = note_of(&out(&["a", "b", "c", "d"]), Ink([0; 4], [0; 4])).said;
+        let said = note_of(&out("live-four", &["a", "b", "c", "d"]), Ink([0; 4], [0; 4])).said;
         assert_eq!(said.lines().filter(|line| line.starts_with("Feature: ")).count(), 3);
     }
 }

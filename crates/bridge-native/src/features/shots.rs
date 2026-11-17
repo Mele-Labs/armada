@@ -162,7 +162,7 @@ pub fn shoot_beside(dir: &Path) -> Result<(), String> {
                     "box": { "x": 330, "y": 150, "width": 360, "height": 56 }, "window": { "width": 1400, "height": 820 },
                     "createdAt": "2026-11-17T10:15:00.000Z", "updatedAt": "2026-11-17T10:15:00.000Z",
                 });
-                layer.read_back(vec![note], cx);
+                layer.read_notes(vec![note], cx);
                 layer.open_note(1, window, cx);
             });
         })
@@ -183,7 +183,7 @@ pub fn shoot_beside(dir: &Path) -> Result<(), String> {
         }
         if step >= 2 {
             cx.update_window(handle.into(), |_, window, cx| {
-                if let Some(overlay) = layer.read(cx).features_overlay().cloned() {
+                if let Some(overlay) = layer.read(cx).features_overlay(cx) {
                     overlay.update(cx, |overlay, cx| overlay.push_story(ipc::SessionId::carried(crate::job_view::story::mock::JOB), "ask-3".into(), window, cx));
                 }
             })

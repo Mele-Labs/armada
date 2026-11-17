@@ -3,8 +3,8 @@ use std::rc::Rc;
 use gpui::{Entity, Modifiers, Role, TestAppContext, VisualTestContext};
 use serde_json::{json, Value};
 
-use super::beside::Features;
-use super::Layer;
+use super::slugs_of;
+use crate::annotate::Layer;
 use crate::features::overlay::Source;
 
 fn ready(cx: &mut TestAppContext) {
@@ -75,7 +75,7 @@ fn focus_card(layer: &Entity<Layer>, cx: &mut VisualTestContext) {
 }
 
 fn beside(layer: &Entity<Layer>, cx: &mut VisualTestContext) -> Option<String> {
-    layer.read_with(cx, |layer, _| layer.beside_slug().map(str::to_string))
+    layer.read_with(cx, |layer, cx| layer.beside_slug(cx))
 }
 
 #[gpui::test]
@@ -88,18 +88,18 @@ fn a_note_with_two_features_draws_a_chip_for_each(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn a_note_that_maps_to_no_feature_draws_no_chip_and_no_bones(cx: &mut TestAppContext) {
-    let (layer, cx) = open(cx, vec![note("a", Some("apps/desktop/src/renderer/src/elsewhere/Zebra.tsx"), Some("Zebra"))]);
+    let (layer, cx) = open(cx, vec![note("no-feature", Some("apps/desktop/src/renderer/src/elsewhere/Zebra.tsx"), Some("Zebra"))]);
     assert!(!drawn(cx, Role::Button, "Feature: Job list and live status"));
     assert!(!drawn(cx, Role::Image, "Loading"));
-    assert!(layer.read_with(cx, |layer, _| matches!(&layer.notes[0].features, Features::Read(chips) if chips.is_empty())));
-    assert!(layer.read_with(cx, |layer, _| layer.notes[0].features.slugs().is_empty()));
+    assert_eq!(layer.read_with(cx, |layer, cx| layer.beside.read(cx).reads.get("no-feature").map(|read| matches!(read, super::Read::Done(chips) if chips.is_empty()))), Some(true), "it was read, and maps to none");
+    assert!(slugs_of("no-feature").is_empty());
 }
 
 #[gpui::test]
 fn where_no_file_maps_the_component_names_the_feature(cx: &mut TestAppContext) {
-    let (layer, cx) = open(cx, vec![note("a", None, Some("ThreadComposerView"))]);
+    let (_, cx) = open(cx, vec![note("by-component", None, Some("ThreadComposerView"))]);
     assert!(drawn(cx, Role::Button, "Feature: Thread and composer"));
-    assert_eq!(layer.read_with(cx, |layer, _| layer.notes[0].features.slugs()), ["thread-and-composer"]);
+    assert_eq!(slugs_of("by-component"), ["thread-and-composer"]);
 }
 
 #[gpui::test]
@@ -114,14 +114,14 @@ fn a_note_is_read_when_its_card_is_shown_and_not_before(cx: &mut TestAppContext)
         layer.update(cx, |layer, cx| {
             layer.feature_source(Source::Mock, cx);
             layer.toggle(window, cx);
-            layer.read_back(vec![note("a", Some(TWO), None)], cx);
+            layer.read_back(vec![note("when-shown", Some(TWO), None)], cx);
         })
     });
     cx.run_until_parked();
-    assert!(layer.read_with(cx, |layer, _| matches!(layer.notes[0].features, Features::Unread)));
+    assert!(layer.read_with(cx, |layer, cx| layer.beside.read(cx).reads.is_empty()), "no card was shown, so nothing was read");
     cx.update(|window, cx| layer.update(cx, |layer, cx| layer.open_note(1, window, cx)));
     settle(cx);
-    assert_eq!(layer.read_with(cx, |layer, _| layer.notes[0].features.slugs().len()), 2);
+    assert_eq!(slugs_of("when-shown").len(), 2);
 }
 
 #[gpui::test]
@@ -168,7 +168,7 @@ fn a_press_on_the_other_chip_replaces_the_page(cx: &mut TestAppContext) {
     cx.simulate_click(second.center(), Modifiers::none());
     settle(cx);
     assert_eq!(beside(&layer, cx).as_deref(), Some("pause-resume-stop-snooze"), "one page at a time");
-    assert_eq!(layer.read_with(cx, |layer, cx| layer.features_overlay().map(|overlay| overlay.read(cx).depth())), Some(1), "in the one overlay");
+    assert_eq!(layer.read_with(cx, |layer, cx| layer.features_overlay(cx).map(|overlay| overlay.read(cx).depth())), Some(1), "in the one overlay");
 }
 
 #[gpui::test]
@@ -192,7 +192,7 @@ fn the_key_opens_the_first_feature_and_then_the_next(cx: &mut TestAppContext) {
 
 #[gpui::test]
 fn the_key_does_nothing_on_a_note_with_no_feature(cx: &mut TestAppContext) {
-    let (layer, cx) = open(cx, vec![note("a", None, None)]);
+    let (layer, cx) = open(cx, vec![note("nothing", None, None)]);
     focus_card(&layer, cx);
     cx.simulate_keystrokes("f");
     settle(cx);
@@ -205,13 +205,10 @@ fn tab_reaches_the_chips_and_enter_opens_one(cx: &mut TestAppContext) {
     let (layer, cx) = open(cx, vec![note("a", Some(TWO), None)]);
     focus_card(&layer, cx);
     let on_chip = |layer: &Entity<Layer>, cx: &mut VisualTestContext| {
-        cx.update(|window, cx| match &layer.read(cx).notes[0].features {
-            Features::Read(chips) => chips.iter().position(|chip| chip.focus_handle().is_focused(window)),
-            _ => None,
-        })
+        cx.update(|window, cx| layer.read(cx).beside.read(cx).on_chip(window))
     };
     let mut reached = None;
-    for _ in 0..6 {
+    for _ in 0..12 {
         cx.simulate_keystrokes("tab");
         cx.run_until_parked();
         if let Some(at) = on_chip(&layer, cx) {
@@ -228,7 +225,7 @@ fn tab_reaches_the_chips_and_enter_opens_one(cx: &mut TestAppContext) {
         window.dispatch_event(gpui::KeyUpEvent { keystroke: gpui::Keystroke::parse("enter").expect("a key") }.to_platform_input(), cx);
     });
     settle(cx);
-    let slugs = layer.read_with(cx, |layer, _| layer.notes[0].features.slugs());
+    let slugs = slugs_of("a");
     assert_eq!(beside(&layer, cx).as_deref(), Some(slugs[at].as_str()));
 }
 
@@ -263,7 +260,7 @@ fn a_story_opened_from_the_page_replaces_it_and_one_esc_goes_back(cx: &mut TestA
     focus_card(&layer, cx);
     cx.simulate_keystrokes("f");
     settle(cx);
-    let overlay = layer.read_with(cx, |layer, _| layer.features_overlay().cloned()).expect("the page is open");
+    let overlay = layer.read_with(cx, |layer, cx| layer.features_overlay(cx)).expect("the page is open");
     cx.update(|window, cx| overlay.update(cx, |overlay, cx| overlay.push_story(ipc::SessionId::carried(crate::job_view::story::mock::JOB), "ask-3".into(), window, cx)));
     settle(cx);
     assert_eq!(overlay.read_with(cx, |overlay, _| overlay.depth()), 2);
@@ -287,7 +284,7 @@ fn opening_another_note_puts_the_page_of_the_first_away(cx: &mut TestAppContext)
     cx.update(|window, cx| layer.update(cx, |layer, cx| layer.open_note(2, window, cx)));
     settle(cx);
     assert_eq!(beside(&layer, cx), None);
-    assert!(layer.read_with(cx, |layer, _| layer.features_overlay().is_none()));
+    assert!(layer.read_with(cx, |layer, cx| layer.features_overlay(cx).is_none()));
 }
 
 #[gpui::test]
@@ -313,16 +310,16 @@ fn the_page_stands_to_the_right_of_a_card_where_it_fits_else_to_the_left() {
     let gap = px(8.);
     let want = px(832.);
     let card = Bounds { origin: point(px(100.), px(200.)), size: size(px(448.), px(300.)) };
-    assert_eq!(super::beside::side(card, room, gap, want), (px(556.), px(832.)));
+    assert_eq!(super::side(card, room, gap, want), (px(556.), px(832.)));
     let right = Bounds { origin: point(px(900.), px(200.)), size: size(px(448.), px(300.)) };
-    assert_eq!(super::beside::side(right, room, gap, want), (px(900. - 8. - 832.), px(832.)));
+    assert_eq!(super::side(right, room, gap, want), (px(900. - 8. - 832.), px(832.)));
     // Neither side holds it: the side with more room, at what it has.
     let narrow = Bounds { origin: point(px(0.), px(36.)), size: size(px(1100.), px(780.)) };
-    let (x, wide) = super::beside::side(Bounds { origin: point(px(100.), px(200.)), size: size(px(448.), px(300.)) }, narrow, gap, want);
+    let (x, wide) = super::side(Bounds { origin: point(px(100.), px(200.)), size: size(px(448.), px(300.)) }, narrow, gap, want);
     assert_eq!((x, wide), (px(556.), px(1100. - 8. - 556.)));
     // Neither holds even three fifths of it: it stands at the right edge over the card.
     let tight = Bounds { origin: point(px(0.), px(36.)), size: size(px(900.), px(780.)) };
-    let (x, wide) = super::beside::side(Bounds { origin: point(px(100.), px(200.)), size: size(px(448.), px(300.)) }, tight, gap, want);
+    let (x, wide) = super::side(Bounds { origin: point(px(100.), px(200.)), size: size(px(448.), px(300.)) }, tight, gap, want);
     assert_eq!(wide, want * 0.6);
     assert!((x + wide - px(900. - 8.)).abs() < px(0.01));
 }
