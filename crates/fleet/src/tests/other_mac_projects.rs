@@ -15,9 +15,9 @@ use super::session_host::{rig_placing, Rig};
 use super::share::{project, shared};
 use crate::phone::{OtherMacRead, PhoneSwitch};
 
-const WORK: &str = "mac-work";
+pub(super) const WORK: &str = "mac-work";
 
-fn task_row(id: &str, title: &str, manifest: &ipc::ManifestId) -> ProjectRow {
+pub(super) fn task_row(id: &str, title: &str, manifest: &ipc::ManifestId) -> ProjectRow {
     ProjectRow::Task {
         id: id.to_string(),
         manifest_id: manifest.clone(),
@@ -32,19 +32,19 @@ fn task_row(id: &str, title: &str, manifest: &ipc::ManifestId) -> ProjectRow {
 }
 
 /// A project Work shares, as Work says it.
-fn theirs(id: &str, name: &str, rows: Vec<ProjectRow>) -> Project {
+pub(super) fn theirs(id: &str, name: &str, rows: Vec<ProjectRow>) -> Project {
     Project { id: id.to_string(), name: name.to_string(), rows, shared_with_macs: true, ..Default::default() }
 }
 
-async fn hold(rig: &Rig, projects: Vec<Project>) {
+pub(super) async fn hold(rig: &Rig, projects: Vec<Project>) {
     Arc::clone(&rig.fleet).hold_other_mac_projects(OtherMacProjects { mac: WORK.into(), projects }).await.expect("held");
 }
 
-async fn listed(rig: &Rig) -> ipc::Projects {
+pub(super) async fn listed(rig: &Rig) -> ipc::Projects {
     rig.fleet.list_projects().await.expect("listed")
 }
 
-fn titles_of(projects: &ipc::Projects, project: &str) -> Vec<String> {
+pub(super) fn titles_of(projects: &ipc::Projects, project: &str) -> Vec<String> {
     let one = projects.projects.iter().find(|one| one.id == project).expect("the project");
     one.rows
         .iter()
@@ -55,7 +55,7 @@ fn titles_of(projects: &ipc::Projects, project: &str) -> Vec<String> {
         .collect()
 }
 
-fn state_in(projects: &ipc::Projects, row: &str) -> ProjectTaskState {
+pub(super) fn state_in(projects: &ipc::Projects, row: &str) -> ProjectTaskState {
     projects
         .projects
         .iter()
@@ -181,25 +181,25 @@ async fn a_copy_refuses_what_only_the_mac_that_holds_it_may_change() {
 }
 
 /// The Gateway as a stand-in: what Fleet sent which Mac, and what the Mac answers. `None` is a Mac that sleeps.
-struct Link {
+pub(super) struct Link {
     sent: Mutex<Vec<(String, String, ProjectActFromMac)>>,
     reply: Mutex<Option<(u16, Vec<u8>)>>,
 }
 
 impl Link {
-    fn new() -> Arc<Link> {
+    pub(super) fn new() -> Arc<Link> {
         Arc::new(Link { sent: Mutex::new(Vec::new()), reply: Mutex::new(None) })
     }
 
-    fn answers(&self, status: u16, body: &impl serde::Serialize) {
+    pub(super) fn answers(&self, status: u16, body: &impl serde::Serialize) {
         *self.reply.lock().expect("not poisoned") = Some((status, ipc::encode(body).expect("encodes").into_bytes()));
     }
 
-    fn sleeps(&self) {
+    pub(super) fn sleeps(&self) {
         *self.reply.lock().expect("not poisoned") = None;
     }
 
-    fn calls(&self) -> Vec<ProjectActFromMac> {
+    pub(super) fn calls(&self) -> Vec<ProjectActFromMac> {
         self.sent.lock().expect("not poisoned").iter().map(|(_, _, one)| one.clone()).collect()
     }
 }
@@ -222,7 +222,7 @@ impl PhoneSwitch for Link {
 }
 
 fn holder_says(rows: Vec<ProjectRow>) -> ipc::Projects {
-    ipc::Projects { projects: vec![theirs("p-notes", "Notes", rows)], loose: Vec::new(), left_out: Vec::new() }
+    ipc::Projects { projects: vec![theirs("p-notes", "Notes", rows)], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
 }
 
 fn edit_of(title: &str) -> ProjectTask {
@@ -355,7 +355,7 @@ async fn shop_with_a_task(rig: &Rig) -> (String, String) {
     (shop, row)
 }
 
-fn act(act: ProjectAct, at: Option<i64>) -> ProjectActFromMac {
+pub(super) fn act(act: ProjectAct, at: Option<i64>) -> ProjectActFromMac {
     ProjectActFromMac { act, at }
 }
 

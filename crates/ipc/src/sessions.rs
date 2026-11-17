@@ -1694,6 +1694,10 @@ pub struct SessionRecord {
     /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub claims_unsent: bool,
+    /// Whether a reply of the Job's answers a question of his that he has not read yet, for the dot on the Job's row.
+    /// `list_job_questions` names which. Absent where none waits. Since 17 Nov 2026. `docs/concepts/job-story.md`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub answer_unread: bool,
 }
 
 /// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is

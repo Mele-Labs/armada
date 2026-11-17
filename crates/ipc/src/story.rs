@@ -1,8 +1,9 @@
 //! What the owner said in a Job, sorted by kind, the asks that came of it, and a Job's story.
 //! `docs/concepts/job-story.md` has the rules, `crates/ipc/operations/list_message_kinds.toml` and its neighbours the routes.
 //!
-//! **A message of his is one of four kinds**, sorted by a small model after it is delivered and changed by one press: a
-//! `new_ask`, a `revision` of an ask, an `answer` to one, or `talk`. An ask keeps his first words and every revision.
+//! **A message of his is one of five kinds**, sorted by a small model after it is delivered and changed by one press: a
+//! `new_ask`, a `revision` of an ask, an `answer` to one, a `question` to the Job, or `talk`. An ask keeps his first words
+//! and every revision. A question is linked to the reply of the Job's that answers it, and that answer is read or not.
 //! Feature slugs are plain strings: the library that names them is another surface's.
 
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,8 @@ pub enum MessageKind {
     Revision,
     /// A pick, an approval or a reply, joined to the ask it answers.
     Answer,
+    /// Asks the Job something he wants an answer to, rather than work. Linked to the reply that answers it.
+    Question,
     /// Stays in the thread and opens nothing.
     Talk,
 }
@@ -67,7 +70,7 @@ pub struct MessageSorting {
     /// The kind of the ask a `new_ask` opened. Absent for every other kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ask_kind: Option<AskKind>,
-    /// The ask a `new_ask` opened, or a `revision` or an `answer` joined. Absent for `talk`.
+    /// The ask a `new_ask` opened, or a `revision` or an `answer` joined. Absent for `question` and `talk`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ask_id: Option<String>,
     /// The title of that ask.
@@ -261,8 +264,50 @@ pub struct JobStory {
     pub lead: Vec<String>,
 }
 
-/// `session.story`: a Job's sorting, asks or story moved. A client reads `list_message_kinds`, `list_job_asks` and
-/// `get_job_story` again for the Job it shows. An ask handed on moves both Jobs, so both are published.
+/// The reply of the Job's that answers a question of his.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobAnswer {
+    /// The id of the agent's `message` row in the Job's thread: what `get_job_thread`'s `before` and `upto` take, and
+    /// what a thread item drawing that row carries.
+    pub reply_row: String,
+    /// The reply's first prose, at most about 300 characters, code and tables left out.
+    pub excerpt: String,
+    /// When Fleet read the reply as answering.
+    pub answered_at: Instant,
+    /// He has read it: `mark_answer_read` was called for it. Every answer starts unread.
+    pub read: bool,
+}
+
+/// One question of his in a Job, and its answer where one came.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobQuestion {
+    /// His message's row id in the Job's thread.
+    pub row_id: String,
+    /// His words, as he last wrote them.
+    pub words: String,
+    pub asked_at: Instant,
+    /// Absent while no reply of the Job's has been read as answering it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<JobAnswer>,
+}
+
+/// What `list_job_questions` answers: the questions he asked in a Job, the unanswered first, each group newest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobQuestions {
+    pub session_id: SessionId,
+    pub questions: Vec<JobQuestion>,
+}
+
+/// `mark_answer_read`: he read the answer to the question at `row_id`, by jumping to it or seeing it drawn.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkAnswerRead {
+    pub session_id: SessionId,
+    /// His question's row id.
+    pub row_id: String,
+}
+
+/// `session.story`: a Job's sorting, asks, questions or story moved. A client reads `list_message_kinds`, `list_job_asks`,
+/// `list_job_questions` and `get_job_story` again for the Job it shows. An ask handed on moves both Jobs, so both are published.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoryChanged {
     pub session_id: SessionId,
