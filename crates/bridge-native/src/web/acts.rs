@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn a_taken_name_gets_a_number_before_its_extension() {
-        let folder = Path::new("/Users/x/Downloads");
+        let folder = Path::new("/Users/user/Downloads");
         let taken = |names: &'static [&'static str]| move |path: &Path| names.iter().any(|name| folder.join(name) == path);
         assert_eq!(unique_path(folder, "a.pdf", taken(&[])), folder.join("a.pdf"));
         assert_eq!(unique_path(folder, "a.pdf", taken(&["a.pdf"])), folder.join("a (1).pdf"));
