@@ -582,17 +582,17 @@ impl Layer {
         cx.notify();
     }
 
-    /// The live Job whose Browser tab every one of these notes was made over, if it is one Job.
-    pub(crate) fn own_job(&self, ids: &[u32]) -> Option<Offered> {
-        own_of(ids.iter().map(|id| self.note(*id).and_then(|note| note.raw["job"].as_str())), &self.targets)
-    }
-
     /// The live Jobs the picker lists, as Fleet says them now.
     pub fn set_targets(&mut self, targets: Vec<Offered>, cx: &mut Context<Self>) {
         if self.targets != targets {
             self.targets = targets;
             cx.notify();
         }
+    }
+
+    /// The live Job whose Browser tab every one of these notes was made over, if it is one Job.
+    pub(crate) fn own_job(&self, ids: &[u32]) -> Option<Offered> {
+        own_of(ids.iter().map(|id| self.note(*id).and_then(|note| note.raw["job"].as_str())), &self.targets)
     }
 
     /// The pending send's notes as the live send needs them, numbered in the order they were written.
@@ -802,16 +802,6 @@ impl Layer {
     }
 }
 
-/// The live Job every one of these notes' Jobs is, the Job whose Browser tab each was made over.
-fn own_of<'a>(jobs: impl IntoIterator<Item = Option<&'a str>>, targets: &[Offered]) -> Option<Offered> {
-    let mut jobs = jobs.into_iter();
-    let first = jobs.next()??;
-    if !jobs.all(|job| job == Some(first)) {
-        return None;
-    }
-    targets.iter().find(|one| one.id.as_ref() == first).cloned()
-}
-
 /// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
 /// parts. A press on the first sends to a new Job, a press on the caret opens the menu.
 #[allow(clippy::too_many_arguments)]
@@ -941,6 +931,16 @@ pub(crate) fn sends(
         .gap(look.length(token::SPACE_2))
         .child(labelled(to, Role::Button, name.to_string()))
         .child(started)
+}
+
+/// The live Job every one of these notes' Jobs is, the Job whose Browser tab each was made over.
+fn own_of<'a>(jobs: impl IntoIterator<Item = Option<&'a str>>, targets: &[Offered]) -> Option<Offered> {
+    let mut jobs = jobs.into_iter();
+    let first = jobs.next()??;
+    if !jobs.all(|job| job == Some(first)) {
+        return None;
+    }
+    targets.iter().find(|one| one.id.as_ref() == first).cloned()
 }
 
 impl Render for Layer {
