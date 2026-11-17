@@ -995,3 +995,44 @@ async fn a_repository_that_does_not_allow_auto_merge_says_so_in_the_forges_words
 
 // -------------------------------------------------------------- review
 
+
+#[tokio::test]
+async fn the_pull_reading_asks_for_the_merge_queue_once_however_many_pull_requests_are_held() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home));
+    let (id, root) = manifest(&fleet);
+    a_session_holding_pull_request_12(&fleet, "s1").await;
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s1"),
+            fact: SessionFact::Attached {
+                attachment: AttachmentReport { kind: "pr".into(), target: "13".into(), detail: Default::default() },
+            },
+        })
+        .await
+        .expect("attached");
+    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    forge_ran(&fleet, passed());
+    fleet.vcs().main_ci.queue_is(Some(vec![adapter_traits::QueueEntry {
+        number: 13,
+        position: 1,
+        state: adapter_traits::QueueState::Queued,
+        head: None,
+        enqueued_at: None,
+    }]));
+
+    fleet.pull_ledger_kept_current(&id, &root).await;
+
+    assert_eq!(fleet.vcs().main_ci.times_asked_for_the_queue(), 1);
+    let queued = |number: &str| {
+        let fleet = Arc::clone(&fleet);
+        let number = number.to_string();
+        async move {
+            let rows = fleet.store().lock().await.attachments_at("pr", &number, None).unwrap();
+            rows[0].detail.get("queued").cloned()
+        }
+    };
+    assert_eq!(queued("12").await.as_deref(), Some("false"));
+    assert_eq!(queued("13").await.as_deref(), Some("true"));
+}
