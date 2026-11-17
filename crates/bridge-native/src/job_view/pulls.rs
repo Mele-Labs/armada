@@ -155,7 +155,7 @@ pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> 
 /// The repository path and number of a forge pull request's address, as Classic's `PULL` reads one
 /// (`shared-panel/store.ts`): `https://<host>/<owner>/<name>/pull/<number>`, nothing after the number
 /// but one slash. Any other address, `/files` after the number or an issue's, is not one.
-pub(super) fn pull_address(address: &str) -> Option<(&str, u64)> {
+pub(crate) fn pull_address(address: &str) -> Option<(&str, u64)> {
     let rest = address.strip_prefix("https://").or_else(|| address.strip_prefix("http://"))?;
     let (host, path) = rest.split_once('/')?;
     let path = path.strip_suffix('/').unwrap_or(path);
@@ -169,7 +169,7 @@ pub(super) fn pull_address(address: &str) -> Option<(&str, u64)> {
 /// The Manifest a pull request's repository path names, by the name its `armada.yml`'s directory has,
 /// as Classic's `repositoryOf` matches it. A repository no Manifest is read from has none. Classic's
 /// fall back to the only Manifest there is is left out: it would open another repository's number.
-pub(super) fn manifest_named(repositories: &[ipc::RepositorySummary], repository: &str) -> Option<String> {
+pub(crate) fn manifest_named(repositories: &[ipc::RepositorySummary], repository: &str) -> Option<String> {
     let whole = repository.to_lowercase();
     let name = repository.rsplit('/').next().unwrap_or(repository).to_lowercase();
     repositories
