@@ -448,6 +448,19 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Keep an Approve he gave where no waiting item stands to dismiss, such as his looks-good on a Ready to
+    /// try card. A gate reads it as it reads any other.
+    pub fn keep_approval(&self, session_id: &str, approval: &KeptApproval) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO session_waiting_approvals (session_id, item_id, text, at) VALUES (?1, ?2, ?3, ?4)",
+                params![session_id, approval.item_id, approval.text, approval.at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping his approval of a preview"))
+            .map_err(WriteError::Database)
+    }
+
     /// Dismiss an item he approved, keeping the Approve in the same write, so a gate never reads the
     /// item gone without it.
     pub fn approve_waiting(&mut self, session_id: &str, approval: &KeptApproval) -> Result<(), WriteError> {
