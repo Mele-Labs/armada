@@ -12,9 +12,8 @@ use crate::landing::{landing_of, unknown, LandingRead};
 use crate::pull_request_facts::{facts_of, merge_state_word, FactsRead};
 
 /// The closing references are read a hundred at a time, as `gh` reads them.
-const FACTS: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
-    pullRequest(number:$number){state isDraft autoMergeRequest{enabledAt} mergeStateStatus headRefName baseRefName url title body \
-    closingIssuesReferences(first:100){nodes{number}}}}}";
+pub(super) const FACT_FIELDS: &str = "state isDraft autoMergeRequest{enabledAt} mergeStateStatus headRefName baseRefName url title body \
+    closingIssuesReferences(first:100){nodes{number}}";
 
 const LANDING: &str = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){\
     pullRequest(number:$number){number title state mergeable baseRefName baseRefOid headRefOid mergedAt}}}";
@@ -46,7 +45,7 @@ pub(super) fn facts(
     repository: &GitHubRepository,
     number: u64,
 ) -> Result<Option<PullRequestFacts>, ApiFailure> {
-    let found: InRepository<Facts> = api.graphql(FACTS, &Named::of(repository).asked(number))?;
+    let found: InRepository<Facts> = api.graphql(&super::review_state::unasked(FACT_FIELDS), &Named::of(repository).asked(number))?;
     Ok(found.pull().and_then(facts_from))
 }
 

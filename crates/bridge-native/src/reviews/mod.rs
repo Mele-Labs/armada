@@ -8,7 +8,7 @@ pub mod layout;
 mod live;
 mod markdown;
 mod mock;
-mod model;
+pub(crate) mod model;
 mod panes;
 mod tabs;
 pub mod walk;

@@ -1,7 +1,7 @@
 //! A pull request's side panel, opened from its row (`PullRequestPanel`, `shared-panel/pull-request.tsx`):
 //! the head, its title, what it is and where it is going, the act that moves it on, the plates beside it,
-//! the tabs Overview, Comments, Checks, Files and Commits, and the comment box at its foot. The Review tab comes
-//! with the Reviews screen.
+//! the tabs Overview, Comments, Checks, Files, Commits and Review, and the comment box at its foot. Review is
+//! the author's "since you looked" (`pr_review`), the reading the Reviews screen gives a reviewer.
 
 use std::collections::HashSet;
 
@@ -25,7 +25,7 @@ mod pr_draft;
 use crate::look::{token, ActiveLook, Look, Token};
 
 /// The panel's tabs. Electron's Conversation (`TABS`) is split here: Overview holds the description, and
-/// Comments what was said and the threads. Review joins them with the Reviews screen.
+/// Comments what was said and the threads. Review says what changed since its author last looked.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum PullTab {
     Overview,
@@ -33,10 +33,11 @@ pub(super) enum PullTab {
     Checks,
     Files,
     Commits,
+    Review,
 }
 
 impl PullTab {
-    const ALL: [PullTab; 5] = [PullTab::Overview, PullTab::Comments, PullTab::Checks, PullTab::Files, PullTab::Commits];
+    const ALL: [PullTab; 6] = [PullTab::Overview, PullTab::Comments, PullTab::Checks, PullTab::Files, PullTab::Commits, PullTab::Review];
 
     fn word(self) -> &'static str {
         match self {
@@ -45,6 +46,7 @@ impl PullTab {
             PullTab::Checks => "Checks",
             PullTab::Files => "Files",
             PullTab::Commits => "Commits",
+            PullTab::Review => "Review",
         }
     }
 }
@@ -103,6 +105,12 @@ pub(super) struct PullPanel {
     pub noted: bool,
     /// The commit Files shows alone, pressed in Commits. None shows every file.
     pub commit: Option<CommitShown>,
+    /// The range since the author last looked, read once the Review tab is entered (`pr_review`).
+    pub since: Option<Result<super::pr_review::Since, String>>,
+    /// Diff since you looked is open under the Review tab's commits.
+    pub since_shown: bool,
+    /// Mark as seen was pressed and Fleet has not answered.
+    pub marking: bool,
     _typing: Subscription,
     _copied: Option<Task<()>>,
 }
@@ -353,7 +361,7 @@ fn checks_fact(pull: &Pull) -> (&'static str, &'static str, Tone) {
 }
 
 /// A review's verdict as a glyph, its word and its hue (`VERDICT`); a reviewer with none is waiting.
-fn verdict_look(verdict: Option<PullRequestVerdict>) -> (&'static str, &'static str, Option<Tone>) {
+pub(super) fn verdict_look(verdict: Option<PullRequestVerdict>) -> (&'static str, &'static str, Option<Tone>) {
     match verdict {
         None => ("clock", "Waiting", None),
         Some(PullRequestVerdict::Approved) => ("check", "Approved", Some(Tone::Success)),
@@ -672,6 +680,9 @@ impl JobView {
             _noting: None,
             noted: false,
             commit: None,
+            since: None,
+            since_shown: false,
+            marking: false,
             _typing: typing,
             _copied: None,
         };
@@ -723,6 +734,7 @@ impl JobView {
             self.want_pull_patches(window, cx);
             self.want_pull_reach(window, cx);
             self.want_pull_notes(window, cx);
+            self.want_pull_since(window, cx);
             cx.notify();
             return;
         }
@@ -741,6 +753,7 @@ impl JobView {
                 this.want_pull_patches(window, cx);
                 this.want_pull_reach(window, cx);
                 this.want_pull_notes(window, cx);
+                this.want_pull_since(window, cx);
                 cx.notify();
             }),
         );
@@ -763,7 +776,7 @@ impl JobView {
     }
 
     /// A commit pressed in Commits: Files opens on the files it changed alone, read from Fleet.
-    fn show_commit(&mut self, sha: String, headline: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn show_commit(&mut self, sha: String, headline: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.pull_panel_mut() else { return };
         panel.commit = Some(CommitShown { sha, headline, files: None });
         (panel.files_at, panel.current) = (None, None);
@@ -808,7 +821,7 @@ impl JobView {
         Some(div().flex().flex_col().gap(look.length(token::SPACE_3)).child(labelled(div().id("pull-files-commit").child(bar), Role::Group, format!("Files in {}", commit.headline))).children(body).into_any_element())
     }
 
-    fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn pull_tab(&mut self, tab: PullTab, window: &mut Window, cx: &mut Context<Self>) {
         let entered = self.pull_panel_mut().map(|panel| {
             let entered = tab == PullTab::Files && panel.tab != PullTab::Files;
             panel.tab = tab;
@@ -819,6 +832,7 @@ impl JobView {
         if entered == Some(true) {
             self.want_pull_notes(window, cx);
         }
+        self.want_pull_since(window, cx);
         cx.notify();
     }
 
@@ -1616,6 +1630,7 @@ impl JobView {
             PullTab::Checks => pull_checks(page, look, cx),
             PullTab::Files => self.pull_files_shown(panel, page, tree_inside, look, cx),
             PullTab::Commits => pull_commits(page, look, cx),
+            PullTab::Review => self.pull_review(panel, page, look, cx),
         };
         shown.map(|shown| labelled(div().id("pull-tab-panel").child(shown), Role::TabPanel, panel.tab.word()).into_any_element())
     }
@@ -1943,7 +1958,7 @@ impl JobView {
 }
 
 /// Checks: each of the forge's checks, how long it ran, and its log (`Checks`). None, nothing drawn.
-fn pull_checks(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Option<AnyElement> {
+pub(super) fn pull_checks(page: &PullRequestPage, look: &Look, cx: &Context<JobView>) -> Option<AnyElement> {
     if page.checks.is_empty() {
         return None;
     }

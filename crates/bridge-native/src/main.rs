@@ -74,6 +74,7 @@ mod reviews;
 mod runtime_file;
 mod scene;
 mod settings;
+mod since_looked;
 mod sketch;
 mod slot_wait;
 mod snooze;

@@ -153,6 +153,16 @@ pub fn asked_from<T>(at: &'static Location<'static>, work: impl FnOnce() -> T) -
     work()
 }
 
+/// `work` for another thread, its calls counted as asked from this thread's caller: a spawned
+/// thread starts with none.
+pub(crate) fn carried<T>(work: impl FnOnce() -> T) -> impl FnOnce() -> T {
+    let from = ASKED_FROM.with(Cell::get);
+    move || {
+        let _restored = Restored(ASKED_FROM.with(|it| it.replace(from)));
+        work()
+    }
+}
+
 /// One call that reached GitHub, and the refusal's words and limit where it was rate-limited.
 pub(crate) fn counted(at: &'static Location<'static>, api: Api, outcome: Outcome, limited: Option<(String, Option<RateLimit>)>) {
     let key = Key { asked_from: ASKED_FROM.with(Cell::get), call: Place::of(at), api, outcome };
@@ -419,6 +429,17 @@ mod tests {
         let (first, second) = (line.find(&Place::of(busy).to_string()), line.find(&Place::of(quiet).to_string()));
         assert!(first.is_some() && first < second, "{line}");
         assert!(line.ends_with("; left graphql 4800"), "{line}");
+    }
+
+    #[test]
+    fn a_thread_spawned_for_the_work_counts_its_calls_against_the_caller_that_spawned_it() {
+        let at = here();
+        let (bare, carried) = asked_from(at, || {
+            let bare = std::thread::spawn(|| ASKED_FROM.with(Cell::get)).join().unwrap();
+            (bare, std::thread::spawn(carried(|| ASKED_FROM.with(Cell::get))).join().unwrap())
+        });
+        assert_eq!(bare, None);
+        assert_eq!(carried, Some(Place::of(at)));
     }
 
     #[test]
