@@ -135,7 +135,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-view-composer" | "owner-fixes" | "thread-presses" | "sent-messages" => include_bytes!("../fixtures/jobs-composer.json"),
         // The same Jobs: Audit the docs index waiting on a Job on another Mac, Native Bridge foundation on a person
         // in beads, and Fix the merge line freshness chip with its claims not sent (`claim-waits.json`).
-        "claim-waits" => include_bytes!("../fixtures/jobs-composer.json"),
+        "claim-waits" | "side-chat" => include_bytes!("../fixtures/jobs-composer.json"),
         // The same Jobs, Audit the docs index waiting for a worktree slot, second in line (`slot_wait`).
         "slot-wait" => include_bytes!("../fixtures/jobs-composer.json"),
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
@@ -348,10 +348,13 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.activity = Some(ipc::SessionActivity { now: Some("Reading page_votes.rs".into()), ..Default::default() });
         }
     }
-    // The first Job needs him and is snoozed until the afternoon: it keeps its items and raises nothing.
+    // The first Job needs him and is snoozed until the afternoon: Fleet pauses it, and it keeps its items and raises nothing.
     if scenario == "jobs-snoozed" {
         if let (Some(one), Some(now)) = (sessions.iter_mut().find(|one| one.id.as_str() == "mock-01"), fixed_now()) {
             one.snoozed_until = Some(crate::snooze::instant_of((now + chrono::Duration::minutes(148)).with_timezone(&chrono::Utc)));
+            if let Some(hosted) = one.hosted.as_mut() {
+                hosted.paused = Some(ipc::SessionPaused { at: crate::snooze::instant_of(now.with_timezone(&chrono::Utc)), resuming: false });
+            }
         }
     }
     if scenario == "claim-waits" {
@@ -607,7 +610,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" | "slot-wait" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "owner-fixes" | "job-panes" | "job-pulls" | "job-issues" | "job-system" | "claim-waits" | "slot-wait" | "side-chat" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -1120,6 +1123,26 @@ pub fn patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
     pulls.pulls.into_iter().find(|one| one.key == key).map(|one| one.patches)
 }
 
+/// One commit's files as `GET /pull_request_commit_patches/:repository/:number/:commit` answers them, by
+/// `manifest#number@commit`.
+pub fn commit_patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        patches: ipc::PullRequestFilePatches,
+    }
+    #[derive(Deserialize)]
+    struct Commits {
+        commits: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let commits = ipc::decode::<Commits>("commit patches", include_bytes!("../fixtures/pulls-commit-patches.json")).unwrap_or_else(|why| panic!("the commit patches fixture does not decode: {why}"));
+    commits.commits.into_iter().find(|one| one.key == key).map(|one| one.patches)
+}
+
 /// A pull request's page as `GET /pull_request_details/:repository/:number` answers it, by
 /// `manifest#number`: Armada Classic's mock pages, narrowed to three.
 pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
@@ -1555,6 +1578,58 @@ fn mock_glyph(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         NeedsYouAct::Steps { .. } => glyph(Kind::Steps, "Steps"),
         _ => glyph(Kind::Waiting, "Waiting on you"),
     }
+}
+
+/// The asides the mock holds for a Job, as `GET /sessions/asides` answers them: the second Job of the side chat's
+/// scenario holds one in each state, and every other Job none, so a walk starts with an empty side chat.
+pub fn asides(job: &str) -> Vec<ipc::Aside> {
+    if !scenario_is("side-chat") || job != "mock-02" {
+        return Vec::new();
+    }
+    ipc::decode::<ipc::AsideList>("AsideList", include_bytes!("../fixtures/side-chat-asides.json")).map(|list| list.asides).unwrap_or_else(|why| panic!("the asides fixture does not decode: {why}"))
+}
+
+/// The aside a Fleet that took `ask` answers with, as the mock plays it: answered at once, by what the words name.
+pub fn asked(ask: &ipc::AskAside, n: usize) -> ipc::Aside {
+    let said = ask.question.to_lowercase();
+    let (reads, answer): (Vec<&str>, &str) = if ask.quote.is_some() {
+        (Vec::new(), "A write-clash probe checks that two Jobs are not writing the same file. The gate runs it before a merge.")
+    } else if said.contains("migration") {
+        (vec!["Read crates/store/migrations"], "The migration was already on main (20261114T0500Z). It only adds a column the Job never reads.")
+    } else if said.contains("fork") {
+        (vec!["Grep fork in crates/store"], "Yes. A fork reads the same table, so nothing changes for it.")
+    } else {
+        (Vec::new(), "Nothing in this Job's thread says.")
+    };
+    let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    ipc::Aside {
+        aside_id: format!("mock-aside-new-{n}"),
+        session_id: ask.session_id.clone(),
+        question: ask.question.clone(),
+        quote: ask.quote.clone(),
+        answer: answer.to_string(),
+        state: ipc::AsideState::Answered,
+        failed: None,
+        asked_at: at.clone(),
+        answered_at: Some(at),
+        told_at: None,
+        reads: reads.into_iter().map(str::to_string).collect(),
+    }
+}
+
+/// The aside as Fleet answers `tell_aside`: the same, with `told_at` set.
+pub fn told(aside: &ipc::Aside) -> ipc::Aside {
+    let mut told = aside.clone();
+    told.told_at = Some(ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)));
+    told
+}
+
+/// The message Fleet writes into the Job's thread for a told aside, as his own (`told_words` in Fleet's
+/// `session_host/asides.rs`): a normal message of his, with no row kind of its own.
+pub fn told_words(aside: &ipc::Aside) -> String {
+    let quote = |text: &str| text.trim().lines().map(|line| format!("> {line}")).collect::<Vec<_>>().join("\n");
+    let quoted = aside.quote.as_deref().map(|text| format!("On this text from the thread:\n\n{}\n\n", quote(text))).unwrap_or_default();
+    format!("Aside, answered on a read-only copy of this Job:\n\n{quoted}{}\n\n{}", quote(&aside.question), aside.answer.trim())
 }
 
 #[cfg(test)]

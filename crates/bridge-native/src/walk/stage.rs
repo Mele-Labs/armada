@@ -255,6 +255,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
     match step.verb {
         // The walk window has pressed in the page already, and waited for it (`WalkWindow::play_to`).
         Verb::Look | Verb::Later(_) | Verb::InPage(_) | Verb::InPageSelect(_) => Ok(()),
+        Verb::Lands => {
+            let screen = crate::reviews::walked(cx).ok_or_else(|| Missed("no reviews screen is drawn to land".into()))?;
+            screen.update(cx, |screen, cx| screen.land(window, cx));
+            Ok(())
+        }
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
         Verb::Fresh | Verb::FreshIn(..) | Verb::Reopen => Ok(()),
         Verb::Width(points) => {

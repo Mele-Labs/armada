@@ -1,7 +1,7 @@
 //! The inbox column: Search or ask, the Lists filter, and the pull requests in their four groups.
 //! A refresh keeps the last inbox drawn under a Refreshing mark.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Transformation, Window};
 use ipc::PullReviewChecks;
 
 use super::model::{Group, InboxRow, Verdict};
@@ -279,12 +279,21 @@ impl ReviewsScreen {
             meta.push_str(&if count == 1 { " · 1 new commit".to_string() } else { format!(" · {count} new commits") });
         }
         meta.push_str(&format!(" · {}", row.age));
+        let running = row.checks == PullReviewChecks::Running;
         let checks = checks_mark(row.checks).map(|(name, ink, said)| {
-            labelled(
-                div().id(SharedString::from(format!("checks-{number}"))).tooltip(tip(said)).child(glyph(name, look.length(token::SPACE_4), look.color(ink))),
-                Role::Image,
-                said,
-            )
+            let mark = glyph(name, look.length(token::SPACE_4), look.color(ink));
+            // Running checks turn slowly; gpui draws the mark still when reduce motion is on.
+            let mark = if running {
+                mark.with_animation(
+                    SharedString::from(format!("checks-turn-{number}")),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat(),
+                    |mark, at| mark.with_transformation(Transformation::rotate(gpui::percentage(at))),
+                )
+                .into_any_element()
+            } else {
+                mark.into_any_element()
+            };
+            labelled(div().id(SharedString::from(format!("checks-{number}"))).tooltip(tip(said)).child(mark), Role::Image, said)
         });
         let weight = if open { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let card = row_card(look, SharedString::from(format!("pr-row-{number}")), open, focused, true, look.length(token::SPACE_2))

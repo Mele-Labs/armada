@@ -766,7 +766,7 @@ pub static STEPS: &[Step] = &[
 ];
 
 /// `native-claims-store`: Settings › Claims store under Storefront. Deploy asks for a Cloudflare token, a paste Cloudflare cannot
-/// read asks again, a token typed and Deploy again put a store up with the Macs signed in to it, Use none takes it away, and Join by address is refused in
+/// read asks again, a token typed and Deploy again put a store up with the Macs signed in to it and the Deploy row reads Update the store, Use none takes it away, and Join by address is refused in
 /// Fleet's words.
 pub const CLAIMS_STORE: &str = "native-claims-store";
 
@@ -782,6 +782,8 @@ pub static CLAIMS_STORE_STEPS: &[Step] = &[
     press_on("Deploy again: Cloudflare cannot read it as a token, so the ask comes back with a sentence that says so", "button", "Deploy again", "status", "Cloudflare could not read that as an API token. Paste the token it shows once after Create Token."),
     step("The token is typed into the emptied masked field", Verb::Type("cfut_mock_token"), "textbox", "Cloudflare token"),
     press_on("Deploy again puts the store up, and the Macs signed in to it are listed", "button", "Deploy again", "list", "Macs signed in"),
+    step("The Deploy row now reads Update the store: the address it is on, and that claims and joined Macs stay", Verb::Look, "button", "Update"),
+    press_on("Copy writes the store's address to the clipboard and reads Copied for a moment", "button", "Copy the address", "button", "Copied"),
     press_on("Use none: its Jobs send nothing, and the Macs go with the store", "button", "Use none", "status", "None"),
     step("Join by address: the address typed", Verb::Type("https://armada-store-acme-platform.mele.workers.dev"), "textbox", "Address"),
     step("And the team", Verb::Type("acme/platform"), "textbox", "Team"),

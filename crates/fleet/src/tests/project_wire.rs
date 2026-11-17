@@ -260,6 +260,8 @@ async fn a_job_started_for_a_project_keeps_it_and_serves_it() {
     assert_eq!(kept.project.as_deref(), Some(id.as_str()), "and on the hosting row, so a restart keeps it");
     let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed");
     assert!(listed.sessions.iter().any(|one| one.hosted.as_ref().is_some_and(|hosted| hosted.project.as_deref() == Some(id.as_str()))), "list_sessions carries it");
+    // A second project holds the repository too, so a start naming none is in none.
+    rig.fleet.add_project(named("Yard", Some(vec![ProjectMember { manifest_id: at.clone(), folder: None }]), None)).await.expect("added");
     let plain = rig.fleet.start_session(start(&rig, "None", Vec::new())).await.expect("started");
     assert!(plain.hosted.expect("hosted").project.is_none(), "a Job started for none says none");
 }

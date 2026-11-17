@@ -7,9 +7,10 @@
 //! The scene is checked before anything is written: Bridge draws one that fails as an empty frame
 //! and says nothing, so this is where the agent hears of it.
 //!
-//! **Every sketch shown is put to the person on its card**, and Fleet raises it in his Needs you as
-//! `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`: `answer_sketch` approves it or
-//! sends it back, and a redraw of the title asks again.
+//! **Every sketch shown is put to the person on its card unless it was shown with `asks: false`**, and Fleet
+//! raises it in his Needs you as `sketch:<title>` ([`sketch_items`]), never the agent's `waiting_for`:
+//! `answer_sketch` approves it or sends it back, and a redraw of the title asks again. A sketch that asks
+//! nothing never waits on him, and a redraw of its title asks nothing either.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -123,25 +124,30 @@ where
         };
         let existing = earlier.or_else(|| by_title(&sketch.title));
         let target = existing.map_or_else(|| format!("{TARGET_PREFIX}{}", sketch.title), |one| one.target.clone());
+        // A sketch that asks nothing is no part of an artifact that does, so a redraw of one that joined leaves it.
+        let kept_keys: &[&str] = if show.asks { &[ipc::ARTIFACT_IN, ipc::ARTIFACT_PARTS] } else { &[ipc::ARTIFACT_PARTS] };
         let carried: Vec<(String, String)> = existing
             .map(|one| {
-                [ipc::ARTIFACT_IN, ipc::ARTIFACT_PARTS]
-                    .into_iter()
-                    .filter_map(|key| Some((key.to_string(), one.detail.get(key)?.clone())))
+                kept_keys
+                    .iter()
+                    .filter_map(|key| Some((key.to_string(), one.detail.get(*key)?.clone())))
                     .collect()
             })
             .unwrap_or_default();
         // **One open artifact per Job**: a drawing shown while one still asks him is a part of it.
         let joins = match existing {
             Some(_) => None,
-            None => self.artifact_joined(&id, &harness, &target, &sketch.title, true).await?,
+            None if show.asks => self.artifact_joined(&id, &harness, &target, &sketch.title, true).await?,
+            None => None,
         };
         let revisions = self.scene_kept(&id, target.trim_start_matches(TARGET_PREFIX), &sketch).await;
         let mut attachment = sketch_attachment(sketch);
         attachment.target = target;
         attachment.detail.extend(carried);
         attachment.detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
-        attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
+        if show.asks {
+            attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
+        }
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
         if let Some(revisions) = revisions {
             attachment.detail.insert("revisions".into(), revisions);
@@ -435,7 +441,7 @@ where
         let sketch = held.ok_or_else(|| not_open(format!("this job holds no sketch `{target}`")))?;
         let title = sketch.detail.get("title").cloned().unwrap_or_else(|| target.trim_start_matches(TARGET_PREFIX).to_string());
         if sketch.detail.get(SKETCH_ASKED).map(String::as_str) != Some("true") {
-            return Err(not_open(format!("the sketch `{title}` was not put to the person: a plan's is approved with the plan")));
+            return Err(not_open(format!("the sketch `{title}` asks nothing: a plan's is approved with the plan, and a note on one that only explains reaches the job as a message")));
         }
         if sketch.detail.get(SKETCH_DRAWN) != Some(&said.drawn) {
             return Err(self.redrawn(&title));

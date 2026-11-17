@@ -145,9 +145,14 @@ where
                     vcs.open_pull_requests_by(root, &gate, &author)
                 })
                 .await;
-            // A forge silent on this keeps what the listing gave.
-            let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
-            listed.extend(theirs.into_iter().flatten().filter(|pull| !shown.contains(&pull.number)));
+            // A forge silent on this keeps what the listing gave. **One both name is drawn as this
+            // reads it**, with the review decision the listing leaves out.
+            for pull in theirs.into_iter().flatten() {
+                match listed.iter_mut().find(|it| it.number == pull.number) {
+                    Some(shown) => *shown = pull,
+                    None => listed.push(pull),
+                }
+            }
         }
         let shown: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
         for number in self.held_beyond(served, &shown).await {

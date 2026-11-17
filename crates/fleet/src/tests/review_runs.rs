@@ -56,6 +56,7 @@ pub(super) fn a_fleet_reading(home: &TempDir, judge: Arc<FakeJudge>, diff: PullR
     fittings.judge = judge;
     let fleet = Fleet::assembled(fittings);
     fleet.vcs().now_pull_request(Some(PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
         standing: PullRequestStanding::Open,
         branch: "fleet/pr-acts".into(),
         base: "main".into(),

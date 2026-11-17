@@ -73,3 +73,19 @@ fn git_subcommand<'a>(words: &[&'a str]) -> Option<&'a str> {
     }
     None
 }
+
+/// Words that search code or file names.
+const SEARCHES: &[&str] = &["grep", "rg", "find", "egrep", "fgrep", "ag", "ack"];
+
+/// Whether the first real command in `command` searches the code: `grep`, `rg`, `find` or `git grep`.
+pub fn is_code_search(command: &str) -> bool {
+    let words = words_after_the_leading_cds(command);
+    let Some((first, rest)) = words.split_first() else {
+        return false;
+    };
+    let word = first.rsplit('/').next().unwrap_or(first);
+    match word {
+        "git" => git_subcommand(rest) == Some("grep"),
+        _ => SEARCHES.contains(&word),
+    }
+}

@@ -94,7 +94,8 @@ pub struct StartSession {
     /// The project of his the Job is for, by id: `list_projects` names them. **The Job keeps it** and
     /// serves it as `hosted.project`, until `set_session_project` moves it. Refused 404 `fleet.no_such_project` where he has none by that id, and
     /// 422 `fleet.project_not_member` where the Job's repository is not one of its members. Not read
-    /// with `fork` or `root`.
+    /// with `fork` or `root`. **Absent or blank, Fleet puts the Job in the one project of his that holds its
+    /// repository**, and in none where none does or more than one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
 }
@@ -694,6 +695,11 @@ pub enum SessionRow {
         /// and on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         edited_at: Option<Instant>,
+        /// The side question (`Aside::aside_id`) whose answer the person told the Job with these words
+        /// (`tell_aside`), so the thread says they came from the side chat. Absent on every other
+        /// message, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        aside: Option<String>,
     },
     /// A tool call, one line.
     Tool {

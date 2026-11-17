@@ -1,0 +1,48 @@
+{
+  "commits": [
+    {
+      "key": "armada#2209@3fc86fa",
+      "files": [
+        {
+          "manifest_id": "armada",
+          "number": 2209,
+          "path": "apps/desktop/src/main/forge.ts",
+          "patch": "@@ -30,7 +30,8 @@\n export function openLink(address: string) {\n-  return shell.openExternal(address);\n+  if (isPullRequest(address)) return openInPanel(address);\n+  return shell.openExternal(address);\n }"
+        }
+      ]
+    },
+    {
+      "key": "armada#2209@ed96c0f",
+      "files": [
+        {
+          "manifest_id": "armada",
+          "number": 2209,
+          "path": "apps/desktop/src/main/forge.ts",
+          "patch": "@@ -30,8 +30,9 @@\n export function openLink(address: string) {\n-  if (isPullRequest(address)) return openInPanel(address);\n+  const where = settings().links.openPullRequestsIn;\n+  if (where === \"armada\" && isPullRequest(address)) return openInPanel(address);\n   return shell.openExternal(address);\n }"
+        }
+      ]
+    },
+    {
+      "key": "armada#2209@3d35bd9",
+      "files": [
+        {
+          "manifest_id": "armada",
+          "number": 2209,
+          "path": "crates/config/settings.toml",
+          "patch": "@@ -12,3 +12,5 @@\n [links]\n # Where a link to an issue opens.\n openIssuesIn = \"browser\"\n+# Where a link to a pull request opens: armada or browser.\n+openPullRequestsIn = \"armada\""
+        }
+      ]
+    },
+    {
+      "key": "armada#2209@9a01c2e",
+      "files": [
+        {
+          "manifest_id": "armada",
+          "number": 2209,
+          "path": "crates/config/settings.toml",
+          "patch": "@@ -14,3 +14,7 @@\n openPullRequestsIn = \"armada\"\n+\n+[links.panel]\n+width = \"wide\"\n+remember = true"
+        }
+      ]
+    }
+  ]
+}

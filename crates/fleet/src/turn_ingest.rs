@@ -133,8 +133,9 @@ where
                 let store = self.store().lock().await;
                 let carried = store.transcript_carried(&key).ok().flatten();
                 // An offset kept before `carried` existed carries nothing: read from the top, so
-                // old turns gain their shares. A read always keeps a carry, so this is once.
-                if carried.is_none() {
+                // old turns gain their shares. A read always keeps a carry, so this is once. So is a
+                // transcript read before searches were counted, so old turns gain their figure.
+                if carried.is_none() || !store.transcript_searched(&key).unwrap_or(true) {
                     (0, None, None)
                 } else {
                     (store.transcript_offset(&key).ok().flatten().unwrap_or(0), store.transcript_input_at(&key).ok().flatten(), carried)

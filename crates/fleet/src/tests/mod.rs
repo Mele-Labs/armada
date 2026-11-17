@@ -16,6 +16,7 @@
 //! - `peer` is the primitive `concurrency` rests on: a call attributed by the
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
+mod feature_library;
 mod pre_pr;
 mod job_command;
 mod judge;
@@ -50,6 +51,7 @@ mod phone;
 mod showing_file;
 mod sketching;
 mod sketch_answers;
+mod sketch_asks;
 mod sketch_styles;
 mod sketch_takes;
 mod design_catalogue;
@@ -335,6 +337,7 @@ mod autopilot_decisions;
 mod autopilot_decisions_repository;
 mod autopilot_reports;
 mod autopilot_project;
+mod start_default_project;
 mod autopilot_reviewing;
 mod operator_ends;
 mod operator_page_head;
