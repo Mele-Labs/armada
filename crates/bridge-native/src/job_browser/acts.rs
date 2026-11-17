@@ -134,6 +134,30 @@ pub fn is_web(url: &str) -> bool {
     lower.starts_with("http://") || lower.starts_with("https://")
 }
 
+/// What the owner typed in the address, as an address to open: as it is where it names http or https, else with `https://`
+/// before a name with a dot in it, and `http://` before this Mac's or the local network's own (`localhost`, `*.local`, an IPv4
+/// address). None for anything else: another scheme, or words.
+pub fn typed_address(typed: &str) -> Option<String> {
+    let typed = typed.trim();
+    if is_web(typed) {
+        return Some(typed.to_string());
+    }
+    if typed.is_empty() || typed.contains("://") || typed.contains(char::is_whitespace) {
+        return None;
+    }
+    let host = typed.split(['/', '?', '#']).next().unwrap_or(typed);
+    let name = host.rsplit_once(':').filter(|(_, port)| !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit())).map_or(host, |(name, _)| name);
+    let name = name.to_ascii_lowercase();
+    let ipv4 = name.split('.').count() == 4 && name.split('.').all(|part| part.parse::<u8>().is_ok());
+    if name == "localhost" || name.ends_with(".localhost") || name.ends_with(".local") || ipv4 {
+        Some(format!("http://{typed}"))
+    } else if name.contains('.') && !name.starts_with('.') && !name.ends_with('.') {
+        Some(format!("https://{typed}"))
+    } else {
+        None
+    }
+}
+
 /// Whether a picture may be written to `path`: absolute, and a PNG.
 pub fn png_path(path: &str) -> bool {
     path.starts_with('/') && path.ends_with(".png")
@@ -613,6 +637,21 @@ mod tests {
         assert!(!is_web("javascript:alert(1)"));
         assert!(!is_web("example.com"));
         assert!(!is_web("http:/x"));
+    }
+
+    #[test]
+    fn a_typed_address_without_its_scheme_opens_as_the_web() {
+        assert_eq!(typed_address("fast.com").as_deref(), Some("https://fast.com"));
+        assert_eq!(typed_address(" github.com/Mele-Labs?tab=1 ").as_deref(), Some("https://github.com/Mele-Labs?tab=1"));
+        assert_eq!(typed_address("localhost:5173/x").as_deref(), Some("http://localhost:5173/x"));
+        assert_eq!(typed_address("192.168.1.20:8080").as_deref(), Some("http://192.168.1.20:8080"));
+        assert_eq!(typed_address("printer.local").as_deref(), Some("http://printer.local"));
+        assert_eq!(typed_address("HTTP://Example.com").as_deref(), Some("HTTP://Example.com"));
+        assert_eq!(typed_address("file:///tmp/x"), None);
+        assert_eq!(typed_address("javascript:alert(1)"), None);
+        assert_eq!(typed_address("two words"), None);
+        assert_eq!(typed_address("intranet"), None);
+        assert_eq!(typed_address(""), None);
     }
 
     #[test]

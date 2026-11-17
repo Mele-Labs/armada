@@ -6,13 +6,22 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString}
 use gpui_component::input::Textarea;
 
 use super::inbox::verdict_hue;
-use super::model::{Page, Verdict};
+use super::model::{self, Page, PullState, Verdict};
 use super::panes::{grey, place_line};
 use super::{panel, ReviewsScreen};
 use crate::job_view::pulls::state_chip;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, Look, Token};
 use crate::titlebar::parts::{icon_button, mono, tip, Btn, Weight};
+
+/// The head's state chip hue: the registry's open pull request, and grey once it is a draft or ended.
+fn pull_hue(state: PullState) -> Token {
+    match state {
+        PullState::Open => token::STEP_RUNNING,
+        PullState::Draft | PullState::Closed => token::STATUS_NOT_STARTED,
+        PullState::Gone => token::FG_MUTED,
+    }
+}
 
 impl ReviewsScreen {
     pub(super) fn render_head(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
@@ -28,17 +37,46 @@ impl ReviewsScreen {
             Role::Heading,
             title,
         );
-        let meta = div()
-            .font_family(mono(look))
-            .text_size(look.length(token::TEXT_XS))
-            .text_color(look.color(token::FG_MUTED))
-            .truncate()
-            .child(SharedString::from(format!("{} · {} wants {} into {}", page.repository, page.author, page.branch, page.base)));
+        let chip = |chip: gpui::Stateful<gpui::Div>| chip.h(look.length(token::H_BADGE)).text_size(look.length(token::TEXT_XS));
+        let author = labelled(chip(state_chip(look, "page-author".into(), "user", format!("Opened by {}", page.author), page.author.clone(), token::FG_MUTED)), Role::Label, format!("Author: {}", page.author));
+        let branch = format!("{} → {}", page.branch, page.base);
+        let branch = labelled(
+            chip(state_chip(look, "page-branch".into(), "git-branch", format!("{} wants {} into {}", page.author, page.branch, page.base), branch.clone(), token::ACCENT)).font_family(mono(look)),
+            Role::Label,
+            format!("Branch: {branch}"),
+        );
+        let pull = PullState::of(page.draft, page.ended);
+        let state = labelled(chip(state_chip(look, "page-state".into(), pull.glyph(), pull.said().into(), pull.said(), pull_hue(pull))), Role::Status, pull.said());
+        let repository = labelled(
+            div().id("page-repository").min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(page.repository.clone())),
+            Role::Label,
+            format!("Repository: {}", page.repository),
+        );
+        let meta = div().flex().items_center().gap(look.length(token::SPACE_2)).min_w_0().child(author).child(branch).child(state).child(repository);
+        // The address goes to the clipboard or the browser; a page Fleet gave none has neither.
+        let copied = self.copied.as_ref().is_some_and(|(number, _)| *number == page.number);
+        let acts = (!page.address.is_empty()).then(|| {
+            let copy = labelled(
+                icon_button("page-copy-link", if copied { "check" } else { "link" }, look.color(if copied { token::RUN_PASSED } else { token::FG_MUTED }), look)
+                    .tooltip(tip(if copied { "Link copied" } else { "Copy link" }))
+                    .on_click(cx.listener(|this, _, window, cx| this.copy_link(window, cx))),
+                Role::Button,
+                "Copy link",
+            );
+            let browse = labelled(
+                icon_button("page-open-browser", "external-link", look.color(token::FG_MUTED), look).tooltip(tip("Open in browser")).on_click(cx.listener(|this, _, _, cx| this.open_in_browser(cx))),
+                Role::Button,
+                "Open in browser",
+            );
+            let said = copied.then(|| labelled(div().id("page-copied").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Link copied"), Role::Status, "Link copied"));
+            div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(said).child(copy).child(browse)
+        });
+        let title_row = div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(heading)).children(acts);
         panel(look)
             .flex_none()
             .flex()
             .flex_col()
-            .child(div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).pb(look.length(token::SPACE_2)).flex().flex_col().gap(look.length(token::SPACE_1)).child(heading).child(meta))
+            .child(div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).pb(look.length(token::SPACE_2)).flex().flex_col().gap(look.length(token::SPACE_2)).child(title_row).child(meta))
             .child(self.render_bar(page, look, cx))
             .into_any_element()
     }
@@ -50,6 +88,19 @@ impl ReviewsScreen {
         let said = mine.chip();
         let chip = |chip: gpui::Stateful<gpui::Div>| chip.h(look.length(token::H_BADGE)).text_size(look.length(token::TEXT_XS));
         let state = labelled(chip(state_chip(look, "mine-state".into(), mine.verdict.glyph(), mine.tip(), said.clone(), hue)), Role::Status, said);
+        // Who is still asked: his own chip where he is, then the others in a muted line.
+        let asked = model::asked(&page.reviewers, &self.me);
+        let asked_you = asked.you.then(|| {
+            let said = "Review requested from you";
+            labelled(chip(state_chip(look, "mine-asked".into(), "user-check", said.into(), said, token::ACCENT)), Role::Status, said)
+        });
+        let asked_others = asked.others.map(|others| {
+            labelled(
+                div().id("mine-asked-others").min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(others.clone())),
+                Role::Label,
+                others,
+            )
+        });
         // What came since waits in grey on a kept page; a page that ended says how, in its place.
         let since = match (page.ended, page.kept) {
             (Some(ended), _) => {
@@ -93,6 +144,8 @@ impl ReviewsScreen {
                 .border_t(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .child(state)
+                .children(asked_you)
+                .children(asked_others)
                 .children(since)
                 .children(drafted)
                 .child(div().flex_1())

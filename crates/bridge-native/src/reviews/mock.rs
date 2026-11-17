@@ -3,13 +3,13 @@
 //! a real company's, repository's or ticket's.
 
 use ipc::{
-    DiffSide, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict,
-    PullReviewChecks, PullReviewList, PullReviewThread, PullReviewThreadComment,
+    DiffSide, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullRequestReviewer, PullRequestReviewerKind,
+    PullRequestVerdict, PullReviewChecks, PullReviewList, PullReviewThread, PullReviewThreadComment,
 };
 
 use super::model::{
     self,
-    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Group, Hunk, Inbox, InboxRow, Kept, Mine, Overview, Page, PageFile, Practice, Reply, Seen, Span,
+    ChangeSet, Critique, DraftOf, Explain, Finding, Flag, FlagKind, Hunk, Inbox, InboxRow, Kept, Mine, Overview, Page, PageFile, Practice, Reply, Rewrite, Seen, Span,
     Summary, Verdict, Viewed,
 };
 
@@ -17,14 +17,16 @@ use super::model::{
 pub const LAST_OPEN: u64 = 2190;
 
 #[allow(clippy::too_many_arguments)]
-fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, group: Group, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks, mine: Verdict) -> InboxRow {
+fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, changed: bool, new_commits: Option<u32>, lists: &[PullReviewList], checks: PullReviewChecks, mine: Verdict) -> InboxRow {
     InboxRow {
         number,
         repository: repository.into(),
         title: title.into(),
         author: author.into(),
         age: age.into(),
-        group,
+        updated_at: String::new(),
+        asked_at: None,
+        changed,
         new_commits,
         lists: lists.to_vec(),
         checks,
@@ -48,23 +50,32 @@ pub fn asked() -> ipc::StandingCalls {
 pub fn inbox() -> Inbox {
     use PullReviewList::*;
     let rows = vec![
-        row(2231, "harbor/ledger-api", "Say which stage of an invoice failed", "mira", "30m", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", Group::FirstLook, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", Group::FirstLook, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
-        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", Group::Changed, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
-        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", Group::Changed, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
-        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", Group::Waiting, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
-        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", Group::Waiting, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
-        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", Group::Done, None, &[Requested], PullReviewChecks::Passed, Verdict::Approved),
-        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", Group::Done, None, &[Team], PullReviewChecks::Passed, Verdict::Approved),
+        row(2231, "harbor/ledger-api", "Say which stage of an invoice failed", "mira", "30m", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", true, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
+        row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", false, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
+        row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", true, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
+        row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", false, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", false, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
+        row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
+        row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
     ];
+    // When each was asked of him: oldest first under Review requested, not as the list came.
+    let asked = [(2231, "2026-11-16T09:30:00Z"), (2214, "2026-11-16T09:00:00Z"), (2198, "2026-11-14T15:00:00Z"), (2190, "2026-11-12T10:00:00Z")];
+    let rows = rows
+        .into_iter()
+        .map(|mut row| {
+            row.asked_at = asked.iter().find(|(number, _)| *number == row.number).map(|(_, at)| at.to_string());
+            row
+        })
+        .collect();
     Inbox { rows, refreshing: true }
 }
 
-/// What the refresh reads: Split the invoice job got a commit, so it moves to Changed.
+/// What the refresh reads: Split the invoice job got a commit, it stays under review requested.
 pub fn refreshed(mut inbox: Inbox) -> Inbox {
     if let Some(row) = inbox.rows.iter_mut().find(|row| row.number == 2190) {
-        row.group = Group::Changed;
+        row.changed = true;
         row.new_commits = Some(1);
         row.age = "just now".into();
         // Its test check started on the new commit.
@@ -76,6 +87,23 @@ pub fn refreshed(mut inbox: Inbox) -> Inbox {
 
 fn commit(sha: &str, headline: &str, author: &str, at: &str) -> PullRequestCommit {
     PullRequestCommit { sha: sha.into(), headline: headline.into(), author: Some(author.into()), at: Some(at.into()) }
+}
+
+/// His own login on the mock forge, as his reviews and comments are signed.
+pub const ME: &str = "you";
+
+/// A person asked to review, and their latest review where they have one.
+fn person(login: &str, verdict: Option<PullRequestVerdict>) -> PullRequestReviewer {
+    PullRequestReviewer { login: login.into(), kind: PullRequestReviewerKind::Person, verdict, name: None, url: None, team: None }
+}
+
+fn team(slug: &str) -> PullRequestReviewer {
+    PullRequestReviewer { login: slug.into(), kind: PullRequestReviewerKind::Team, verdict: None, name: None, url: None, team: None }
+}
+
+/// Where a mock pull request is on the forge.
+fn address(repository: &str, number: u64) -> String {
+    format!("https://example.com/{repository}/pull/{number}")
 }
 
 /// `seconds` is how long it took, or for a running one how long it has run.
@@ -254,6 +282,7 @@ fn retry_page() -> Page {
         threads: vec![
             thread("t1", "src/webhooks/retry.rs", 9, &[("you", "Add jitter, or every client retries at once."), ("tobias", "Done. The wait doubles and adds up to 250 ms of jitter.")]),
             thread("t2", "src/webhooks/queue.rs", 13, &[("you", "What happens when the queue is full?"), ("tobias", "Kept it. The queue drops its oldest once it is full.")]),
+            thread("t3", "src/webhooks/retry.rs", 21, &[("reviewbot", "<!-- reviewbot: finding 41 -->\n### Unbounded retry\n\nThe loop has **no cap** on attempts. See `max_attempts`.\n\n<details><summary>Trace</summary>\nretry::run -> queue::push -> retry::run\n</details>\n\n<div><a href=\"https://example.com/acme/billing/fix/41\"><picture><source srcset=\"https://example.com/badge.png\"><img alt=\"Fix in editor\" src=\"https://example.com/badge.png\"></picture></a></div>")]),
         ],
         critique: Critique::None,
         summary: Summary::None,
@@ -262,6 +291,9 @@ fn retry_page() -> Page {
         notes: vec!["Ask for a test that waits for the second attempt.".into()],
         kept: false,
         ended: None,
+        reviewers: vec![person(ME, Some(PullRequestVerdict::Commented)), person("jun", None)],
+        address: address("harbor/ledger-api", 2198),
+        draft: false,
     }
 }
 
@@ -341,11 +373,14 @@ fn avatar_page() -> Page {
         threads: Vec::new(),
         critique: Critique::None,
         summary: Summary::None,
-        overview: Overview::default(),
+        overview: Overview { why: "Avatars are fetched on every page. This keeps them for the session.".into(), ..Overview::default() },
         holder: None,
         notes: Vec::new(),
         kept: false,
         ended: None,
+        reviewers: vec![person(ME, Some(PullRequestVerdict::ChangesRequested)), team("web-shell-team")],
+        address: address("harbor/web-shell", 865),
+        draft: false,
     }
 }
 
@@ -379,11 +414,14 @@ fn limits_page() -> Page {
         threads: Vec::new(),
         critique: Critique::None,
         summary: Summary::None,
-        overview: Overview::default(),
+        overview: Overview { why: "Exports are limited to ten a minute for each account.".into(), ..Overview::default() },
         holder: None,
         notes: Vec::new(),
         kept: false,
         ended: None,
+        reviewers: vec![person(ME, None), person("tobias", None)],
+        address: address("harbor/ledger-api", 2214),
+        draft: false,
     }
 }
 
@@ -444,6 +482,9 @@ fn invoice_page() -> Page {
         notes: Vec::new(),
         kept: false,
         ended: None,
+        reviewers: vec![person(ME, Some(PullRequestVerdict::Commented)), person("tobias", Some(PullRequestVerdict::Approved))],
+        address: address("harbor/ledger-api", 2190),
+        draft: false,
     }
 }
 
@@ -474,6 +515,16 @@ pub fn page(number: u64) -> Option<Page> {
         2231 => stage_page(),
         _ => {
             let row = inbox().rows.into_iter().find(|row| row.number == number)?;
+            // Asked of his team, of him, or of a teammate when he wrote it; a reviewed one keeps his verdict.
+            let reviewers = match (row.author == ME, row.mine) {
+                (true, _) => vec![person("priya", None)],
+                (false, Verdict::NotReviewed) if row.lists.contains(&PullReviewList::Team) => vec![team("web-shell-team")],
+                (false, Verdict::NotReviewed) => vec![person(ME, None)],
+                (false, Verdict::Commented) => vec![person(ME, Some(PullRequestVerdict::Commented))],
+                (false, Verdict::ChangesRequested) => vec![person(ME, Some(PullRequestVerdict::ChangesRequested))],
+                (false, Verdict::Approved) => vec![person(ME, Some(PullRequestVerdict::Approved))],
+            };
+            let address = address(&row.repository, number);
             Page {
                 number,
                 repository: row.repository,
@@ -506,6 +557,9 @@ pub fn page(number: u64) -> Option<Page> {
                 notes: Vec::new(),
                 kept: false,
                 ended: None,
+                reviewers,
+                address,
+                draft: number == 143,
             }
         }
     })
@@ -617,6 +671,7 @@ fn stage_overview() -> Overview {
                 hunk("docs/api/invoices.md", "Says what the new field means, last, after the change it describes.", STAGE_DOCS, None, None),
             ]),
         ],
+        read: true,
     }
 }
 
@@ -658,6 +713,9 @@ fn stage_page() -> Page {
         notes: Vec::new(),
         kept: false,
         ended: None,
+        reviewers: vec![person(ME, None), person("tobias", None), team("ledger-reviewers")],
+        address: address("harbor/ledger-api", 2231),
+        draft: false,
     }
 }
 
@@ -689,6 +747,7 @@ fn retry_overview() -> Overview {
                 (DoesNotApply, "A test for each new error. No error added."),
             ], vec![hunk("tests/webhooks_retry.rs", "Proves the first retry waits half a second, after the wait it tests is in place.", FIRST_WAIT, None, None), hunk("docs/webhooks.md", "Tells readers a delivery is now tried up to five times, last, once the change it describes is done.", "-A failed delivery is tried again three times.\n+A failed delivery is tried again up to five times.\n", None, None)]),
         ],
+        read: true,
     }
 }
 
@@ -711,6 +770,7 @@ fn invoice_overview() -> Overview {
                 Some("z1"),
             )]),
         ],
+        read: true,
     }
 }
 
@@ -725,6 +785,37 @@ pub fn explanation(number: u64, set: &str, explain: Explain) -> String {
         (2231, "api", Explain::HowItWorks) => "GET /invoices returns each invoice's stage, or null where nothing failed.",
         (_, _, Explain::HowItWorks) => "This set works as its purpose says. Nothing in it reaches past the files it touches.",
         (_, _, Explain::HowToTest) => "Run the tests for these files, then try the change by hand on a copy of the data.",
+    }
+    .into()
+}
+
+/// What Find problems writes when he starts it on a pull request it has not read: #2214's one change
+/// set with a risk, and nothing on any other.
+pub fn found(number: u64) -> Overview {
+    use Kept::*;
+    let mut overview = Overview { read: true, ..Overview::default() };
+    if number == 2214 {
+        overview.flags = vec![flag("w1", FlagKind::Risk, "limits", "Nothing resets the count", "The limit reads a count, but no code sets it back to zero each minute.", "src/export/limits.rs", 3, "Reset the count each minute", "allowed() reads a count that nothing resets. Reset it at the start of each minute, or count only the last minute's exports.")];
+        overview.sets = vec![set("limits", "Export limit", "Allows ten exports a minute for each account.", 1, "the API", kept_note("src/export/", "docs/api.md", "Tuesday"), &[
+            (Met, "A limit is a named constant"),
+            (Missed, "A limit has a test at its edge. No test calls allowed(10)."),
+        ], vec![hunk("src/export/limits.rs", "Names the limit, then checks a count against it.", "+pub const PER_MINUTE: u32 = 10;\n+\n+pub fn allowed(count: u32) -> bool {\n+    count < PER_MINUTE\n+}\n", Some(3), Some("w1"))])];
+    }
+    overview
+}
+
+/// What Summarize, Explain or Simplify writes about a pull request's description.
+pub fn rewrite(number: u64, rewrite: Rewrite) -> String {
+    match (number, rewrite) {
+        (2198, Rewrite::Summarize) => "Failed webhooks now wait longer before each retry: half a second, doubling, up to thirty seconds, with jitter.",
+        (2198, Rewrite::Explain) => "A webhook that fails is sent again later. It used to be tried three times, two seconds apart, so an endpoint that was restarting missed every try.\n\nNow each wait is twice the last, starting at **half a second** and capped at **thirty seconds**. A little random jitter keeps clients that failed together from retrying together.",
+        (2198, Rewrite::Simplify) => "A failed webhook used to be tried three times, two seconds apart. Now it waits longer each time, up to thirty seconds.",
+        (2231, Rewrite::Summarize) => "Each invoice now records the stage it failed in, and the API returns that stage.",
+        (2231, Rewrite::Explain) => "An invoice job runs in stages. When one fails, support could not tell which.\n\nThis adds a `stage` column to invoices, fills it from the job log, saves it when a stage fails, and returns it on `GET /invoices`. A retry then starts from that stage.",
+        (2231, Rewrite::Simplify) => "Invoices now remember which step failed, and the API shows it.",
+        (_, Rewrite::Summarize) => "The description says what changes and why, in a few lines.",
+        (_, Rewrite::Explain) => "The description names the change and the reason for it. The files tab shows where it lands.",
+        (_, Rewrite::Simplify) => "This pull request makes the change its title names.",
     }
     .into()
 }
