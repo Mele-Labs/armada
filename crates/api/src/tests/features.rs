@@ -80,6 +80,15 @@ async fn a_project_is_seeded_by_its_id_and_a_body_without_one_is_undecodable() {
 }
 
 #[tokio::test]
+async fn a_feature_is_merged_or_renamed_over_post() {
+    let (status, said) = call(&app(), "POST", "/features/change", r#"{"project":"p1","feature":"rank-votes","into":"voting-on-takes"}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"feature":"rank-votes","merged_into":"voting-on-takes"}"#);
+    let (status, _) = call(&app(), "POST", "/features/change", r#"{"project":"p1"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn the_weekly_figure_is_read_with_or_without_the_number_of_weeks() {
     let (status, said) = call(&app(), "GET", "/usage/first_edit_searches", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");

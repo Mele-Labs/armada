@@ -65,6 +65,11 @@ pub trait Features: Send + Sync + 'static {
     /// holds features (`fleet.feature_seeded`).
     fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
 
+    /// `change_feature` — the Operator merges a feature into another or renames it. [`Refusal::Unacceptable`]
+    /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
+    /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
+    fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;
+
     /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
     fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;
 }

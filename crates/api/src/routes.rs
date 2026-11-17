@@ -923,6 +923,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/write_sections", post(crate::features::write_feature_sections::<D>))
         .route("/features/upsert", post(crate::features::upsert_features::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
+        .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/usage/first_edit_searches", get(crate::features::get_first_edit_searches::<D>))
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))

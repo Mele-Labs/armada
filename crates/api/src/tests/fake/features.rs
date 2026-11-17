@@ -2,7 +2,7 @@
 //! what arrived. What Fleet keeps and works out is `fleet::feature_library`'s, against a real store.
 
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
+    ChangeFeature, FeatureAreaRow, FeatureChanged, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
@@ -67,6 +67,10 @@ impl Features for FakeDaemon {
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         Ok(FeaturesSeeded { created: Vec::new(), areas: 0, dropped: Vec::new() })
+    }
+
+    async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
+        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
     }
 
     async fn get_first_edit_searches(&self, _weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

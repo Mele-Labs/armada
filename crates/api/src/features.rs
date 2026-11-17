@@ -107,6 +107,18 @@ pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+/// The Operator merges or renames a feature. **Placed by its connection**, as `raise_card` is.
+pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let change: ipc::ChangeFeature = match ipc::decode_body("a change to a feature", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().change_feature(crate::acting::asking(), change).await {
+        Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_first_edit_searches<D: Features>(State(served): State<Served<D>>, Query(asked): Query<Weeks>) -> Response {
     match served.daemon().get_first_edit_searches(asked.weeks).await {
         Ok(figure) => answer(StatusCode::OK, &figure, served.run_id()),

@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
 use super::{held, Arrival, Arrived, Source};
 use crate::daemon::Fleet;
-use crate::feature_library::{features_of_note, Seed};
+use crate::feature_library::{features_of_note, pending_facts, Seed};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -27,7 +27,7 @@ where
         if !self.operator_on() {
             return;
         }
-        for arrival in self.seeds_offered().await {
+        for arrival in self.seeds_offered().await.into_iter().chain(self.pending_offered().await) {
             self.hand_once(arrival).await;
         }
     }
@@ -45,6 +45,50 @@ where
             lines.push_str(&format!("\nFeatures it points to in project {project}: {on}"));
         }
         lines
+    }
+
+    /// The pending features, each as an arrival that names who named it, the files filed under it and the features whose
+    /// prefixes cover those files. **The Operator brings the owner one card for each**: confirm it, merge it into an existing
+    /// feature, or rename it.
+    async fn pending_offered(&self) -> Vec<Arrival> {
+        let store = self.store().lock().await;
+        let pending = store.pending_features().unwrap_or_default();
+        let mut offered = Vec::new();
+        for feature in pending {
+            let Ok(facts) = pending_facts(&store, &feature) else { continue };
+            let project = self.projects_held().running().find(|one| one.id().as_str() == feature.project).map(|one| one.name().as_str().to_string()).unwrap_or_default();
+            let named = match facts.jobs.is_empty() {
+                true => String::from("No Job is on record as naming it."),
+                false => facts.jobs.iter().map(|(job, title, via)| format!("Job {job} \"{title}\" named it through {via}.")).collect::<Vec<_>>().join(" "),
+            };
+            let files = match facts.files.is_empty() {
+                true => String::from("No file is filed under it."),
+                false => format!("Files filed under it: {}.", facts.files.join(", ")),
+            };
+            let owners = match facts.owners.is_empty() {
+                true => String::from("No other feature's prefix covers them."),
+                false => format!(
+                    "Features whose prefixes cover them: {}.",
+                    facts.owners.iter().map(|(slug, files)| format!("{slug} ({files})")).collect::<Vec<_>>().join(", ")
+                ),
+            };
+            offered.push(Arrival {
+                id: format!("feature:{}:{}", feature.project, feature.slug),
+                arrived: Arrived::Feature,
+                source: Source::Fleet,
+                session_id: String::new(),
+                manifest_id: String::new(),
+                subject: format!("`{}` is not in {project}'s library", feature.slug),
+                words: format!(
+                    "Feature `{slug}` in project {project} (id {id}) is pending. {named} {files} {owners} Bring him one card: confirm it, \
+                     merge it into an existing feature, or rename it. After he chooses, confirm with `upsert_features` (state confirmed, with \
+                     an area, a title and a line), merge with `change_feature` and `into`, or rename with `change_feature` and `slug`.",
+                    slug = feature.slug,
+                    id = feature.project,
+                ),
+            });
+        }
+        offered
     }
 
     /// The projects that hold Armada's repository and no feature, as arrivals.

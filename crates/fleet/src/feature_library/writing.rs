@@ -15,10 +15,10 @@ use crate::daemon::Fleet;
 const SECTION_EMPTY: &str = "fleet.feature_section_empty";
 const AREA_UNKNOWN: &str = "fleet.feature_area_unknown";
 const BLANK: &str = "fleet.feature_blank";
-const SLUG: &str = "fleet.feature_slug";
+pub(super) const SLUG: &str = "fleet.feature_slug";
 
 /// A slug is what a commit's `Feature:` trailer can carry: lowercase letters, digits, dashes, underscores, dots and slashes.
-fn slug_ok(slug: &str) -> bool {
+pub(super) fn slug_ok(slug: &str) -> bool {
     !slug.is_empty() && slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '/' | '.'))
 }
 
@@ -68,7 +68,7 @@ where
         let mut found = None;
         for project in &projects {
             let loaded = Loaded::read(&store, project).map_err(|why| self.ledger_fault(why))?;
-            if let Some(feature) = loaded.feature(write.feature.trim()) {
+            if let Some(feature) = loaded.feature_named(write.feature.trim()) {
                 found = Some(feature.clone());
                 break;
             }
@@ -137,6 +137,7 @@ where
             let state = match (feature.state, before) {
                 (Some(ipc::FeatureState::Confirmed), _) => store::feature_state::CONFIRMED,
                 (Some(ipc::FeatureState::Seeded), _) => store::feature_state::SEEDED,
+                (Some(ipc::FeatureState::Pending), _) => store::feature_state::PENDING,
                 (None, Some(held)) if held.state == store::feature_state::CONFIRMED => store::feature_state::CONFIRMED,
                 (None, _) => store::feature_state::SEEDED,
             };

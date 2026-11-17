@@ -180,17 +180,23 @@ where
         }
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
-        for project in self.projects_of_job_in(&store, job) {
-            let Ok(loaded) = Loaded::read(&store, &project) else {
+        self.commits_filed_in(&mut store, job, &named, &now);
+    }
+
+    /// `named`, the commits of `job` that name features, filed. **A slug the library lacks files under a pending feature**,
+    /// made now for the Operator to bring to the owner.
+    pub(crate) fn commits_filed_in(&self, store: &mut Store, job: &str, named: &[adapters::feature_commits::NamingCommit], now: &str) {
+        for project in self.projects_of_job_in(store, job) {
+            let Ok(loaded) = Loaded::read(store, &project) else {
                 continue;
             };
-            for commit in &named {
+            for commit in named {
                 for slug in &commit.features {
-                    let Some(feature) = loaded.feature(slug).cloned() else {
+                    let Some(feature) = self.feature_or_pending(store, &loaded, slug, now) else {
                         continue;
                     };
                     for path in &commit.files {
-                        let _ = store.keep_feature_write(&feature.id, job, path, &now);
+                        let _ = store.keep_feature_write(&feature.id, job, path, now);
                     }
                     for (kind, target) in [(feature_link_kind::COMMIT, commit.sha.as_str()), (feature_link_kind::JOB, job)] {
                         let _ = store.put_feature_link(&KeptFeatureLink {
@@ -201,7 +207,7 @@ where
                             title: String::new(),
                             state: String::new(),
                             via: "trailer".to_string(),
-                            at: now.clone(),
+                            at: now.to_string(),
                         });
                     }
                 }
@@ -226,7 +232,7 @@ where
             let Ok(loaded) = Loaded::read(store, &project) else {
                 continue;
             };
-            let Some(feature) = loaded.feature(slug) else {
+            let Some(feature) = self.feature_or_pending(store, &loaded, slug, now) else {
                 continue;
             };
             let _ = store.put_feature_link(&KeptFeatureLink {

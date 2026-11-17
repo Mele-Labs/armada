@@ -5,7 +5,9 @@
 use std::collections::BTreeSet;
 
 use api::{Features, Projects, Refusal, Story};
-use ipc::{AreaSeed, AskKind, AskState, FeatureSeed, FileAsk, NewProject, ProjectMember, SeedFeatures, UpsertFeatures};
+use adapters::feature_commits::NamingCommit;
+use api::{HostedSessions, Sessions};
+use ipc::{AreaSeed, AskKind, AskState, ChangeFeature, FeatureSeed, FeatureState, FileAsk, NewProject, ProjectMember, SeedFeatures, SessionId, StartSession, UpsertFeatures};
 
 use super::operator_session::switched;
 use super::peer::Placing;
@@ -273,4 +275,238 @@ async fn a_note_points_to_the_features_of_the_files_it_was_drawn_from_and_failin
     assert!(told.contains(&format!("project {project}: {VOTING}")), "{told}");
     let arrival = crate::operator::Note { id: "n-1".into(), manifest_id: manifest, text: "Too tight".into(), screen: Some("takes".into()), component: None, features: told }.arrival();
     assert!(arrival.words.contains("Left on the takes screen") && arrival.words.contains(VOTING), "{}", arrival.words);
+}
+
+// A feature a Job names that the library does not hold, and what the Operator does with it.
+
+async fn a_job_in(rig: &Rig, project: &str) -> SessionId {
+    let start = StartSession {
+        project: Some(project.to_string()),
+        manifest_id: rig.manifest.clone(),
+        title: Some("Rank the takes".into()),
+        model: None,
+        effort: None,
+        mode: None,
+        root: None,
+        fork: None,
+        request: None,
+        after: None,
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+    };
+    let id = rig.fleet.start_session(start).await.expect("started").id;
+    rig.send(&id, "go on").await;
+    id
+}
+
+fn trailer(slug: &str, sha: &str, files: &[&str]) -> NamingCommit {
+    NamingCommit { sha: sha.to_string(), features: vec![slug.to_string()], files: files.iter().map(|one| one.to_string()).collect() }
+}
+
+async fn commits_filed(rig: &Rig, job: &SessionId, named: &[NamingCommit]) {
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+    rig.fleet.commits_filed_in(&mut store, job.as_str(), named, &now);
+}
+
+async fn state_of(rig: &Rig, project: &str, slug: &str) -> Option<(FeatureState, String)> {
+    let library = rig.fleet.list_features(None, Some(project.to_string())).await.expect("listed");
+    library.areas.into_iter().flat_map(|area| area.features).find(|row| row.slug == slug).map(|row| (row.state, row.area))
+}
+
+#[tokio::test]
+async fn a_slug_a_job_names_that_the_library_lacks_is_filed_under_a_pending_feature_and_an_unseeded_project_files_nothing() {
+    let rig = rig();
+    let project = a_project(&rig).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"])]).await;
+    assert!(!rig.fleet.store().lock().await.project_has_features(&project).unwrap(), "a project with no library makes no pending feature, so its seeded-at is never moved");
+
+    libraried(&rig, &project).await;
+    let before = rig.fleet.store().lock().await.features_in(&project).expect("read");
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"])]).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"]), trailer("not a slug", "abc2", &[])]).await;
+
+    assert_eq!(state_of(&rig, &project, "rank-votes").await, Some((FeatureState::Pending, "pending".to_string())));
+    assert_eq!(state_of(&rig, &project, VOTING).await.map(|one| one.0), Some(FeatureState::Seeded), "a feature that was there is as it was");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string()).await.expect("page");
+    assert_eq!(page.files.iter().map(|one| one.path.as_str()).collect::<Vec<_>>(), ["crates/pages/voting/ranks.rs"]);
+    assert!(page.links.iter().any(|one| one.target == "abc1" && one.via == "trailer"), "{:?}", page.links);
+    let after = rig.fleet.store().lock().await.features_in(&project).expect("read");
+    assert_eq!(after.len(), before.len() + 1, "one pending feature, named twice");
+    for old in before {
+        assert_eq!(after.iter().find(|one| one.slug == old.slug).map(|one| one.added_at.clone()), Some(old.added_at), "the catalog is never back-dated");
+    }
+}
+
+#[tokio::test]
+async fn an_act_that_names_a_feature_the_library_lacks_files_its_artifact_under_a_pending_one() {
+    let rig = rig();
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    let detail = std::collections::BTreeMap::from([("feature".to_string(), "phone-voting".to_string()), ("form".to_string(), "sketch".to_string())]);
+    let now = rig.fleet.now().as_str().to_string();
+    rig.fleet.artifact_filed(&mut *rig.fleet.store().lock().await, job.as_str(), "sketches/phone.html", &detail, &now);
+
+    assert_eq!(state_of(&rig, &project, "phone-voting").await.map(|one| one.0), Some(FeatureState::Pending));
+    let page = rig.fleet.get_feature_page(None, Some(project), "phone-voting".to_string()).await.expect("page");
+    assert!(page.links.iter().any(|one| one.target == "sketches/phone.html" && one.via == "artifact"));
+}
+
+#[tokio::test]
+async fn the_operator_is_told_of_a_pending_feature_once_with_who_named_it_and_the_features_that_cover_its_files() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"])]).await;
+
+    rig.fleet.sources_handed().await;
+    eventually(|| async { heard(&rig, "rank-votes") >= 1 }).await;
+    assert_eq!(heard(&rig, "Rank the takes"), 1, "names the Job");
+    assert_eq!(heard(&rig, "crates/pages/voting/ranks.rs"), 1, "names the file");
+    assert_eq!(heard(&rig, "voting-on-takes (1)"), 1, "and the feature whose prefix covers it");
+    assert_eq!(heard(&rig, "change_feature"), 1);
+    rig.fleet.sources_handed().await;
+    assert_eq!(heard(&rig, "rank-votes"), 1, "told once");
+}
+
+#[tokio::test]
+async fn a_pending_feature_merged_into_another_moves_what_it_holds_and_its_old_slug_files_under_the_target() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"])]).await;
+    let ask = rig.fleet.file_ask(the_operator(), filing(&project, "Rank them", &[VOTING])).await.expect("filed");
+    rig.fleet.change_ask(ipc::ChangeAsk { ask_id: ask.ask_id.clone(), state: None, kind: None, title: None, features: Some(vec!["rank-votes".to_string(), VOTING.to_string()]) }).await.expect("filed twice");
+
+    let change = |into: Option<&str>, slug: Option<&str>, title: Option<&str>| ChangeFeature {
+        project: project.clone(),
+        feature: "rank-votes".to_string(),
+        into: into.map(String::from),
+        slug: slug.map(String::from),
+        title: title.map(String::from),
+    };
+    let refused = rig.fleet.change_feature(a_job(), change(Some(VOTING), None, None)).await.expect_err("not the Operator");
+    assert_eq!(code(refused).1, "fleet.not_the_operator");
+    for (one, expected) in [
+        (change(Some(VOTING), Some("x"), None), (422, "fleet.feature_change")),
+        (change(None, None, None), (422, "fleet.feature_change")),
+        (change(Some("rank-votes"), None, None), (422, "fleet.feature_change")),
+        (change(Some("no-such"), None, None), (404, "fleet.feature_unknown")),
+        (change(None, Some("Not A Slug"), None), (422, "fleet.feature_slug")),
+        (change(None, Some(ACTIONS), None), (409, "fleet.feature_slug_taken")),
+    ] {
+        let refused = rig.fleet.change_feature(the_operator(), one).await.expect_err("refused");
+        assert_eq!(code(refused), (expected.0, expected.1.to_string()));
+    }
+    assert!(state_of(&rig, &project, "rank-votes").await.is_some(), "nothing was kept");
+
+    let done = rig.fleet.change_feature(the_operator(), change(Some(VOTING), None, None)).await.expect("merged");
+    assert_eq!((done.feature.as_str(), done.merged_into.as_deref()), (VOTING, Some(VOTING)));
+    assert!(state_of(&rig, &project, "rank-votes").await.is_none(), "it is gone");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string()).await.expect("page");
+    assert!(page.links.iter().any(|one| one.target == "abc1"), "its commit is the target's now");
+    assert!(page.files.iter().any(|one| one.path == "crates/pages/voting/ranks.rs"), "and its file");
+    let asks = rig.fleet.list_feature_asks(project.clone(), Some(VOTING.to_string())).await.expect("listed");
+    assert_eq!(asks.asks[0].features, [VOTING.to_string()], "an ask on both is on the target once");
+    let by_alias = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string()).await.expect("the old slug reads");
+    assert_eq!(by_alias.feature.slug, VOTING);
+
+    let before = rig.fleet.store().lock().await.features_in(&project).expect("read").len();
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc3", &["crates/pages/voting/more.rs"])]).await;
+    assert_eq!(rig.fleet.store().lock().await.features_in(&project).expect("read").len(), before, "the old slug makes no new pending feature");
+    let page = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string()).await.expect("page");
+    assert!(page.links.iter().any(|one| one.target == "abc3"), "it filed under the target");
+}
+
+#[tokio::test]
+async fn a_pending_feature_is_confirmed_by_an_upsert_and_keeps_what_was_filed_under_it() {
+    let rig = rig();
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &["crates/pages/voting/ranks.rs"])]).await;
+    let id = rig.fleet.store().lock().await.feature_named(&project, "rank-votes").expect("read").expect("pending").id;
+
+    let confirm = UpsertFeatures {
+        project: project.clone(),
+        areas: Vec::new(),
+        features: vec![FeatureSeed {
+            slug: "rank-votes".to_string(),
+            area: "takes".to_string(),
+            title: "Rank votes".to_string(),
+            summary: "Order the takes by votes.".to_string(),
+            state: Some(FeatureState::Confirmed),
+            paths: vec!["crates/pages/voting/ranks.rs".to_string()],
+            entry_points: Vec::new(),
+            manifest_id: None,
+        }],
+    };
+    rig.fleet.upsert_features(confirm).await.expect("confirmed");
+    assert_eq!(state_of(&rig, &project, "rank-votes").await, Some((FeatureState::Confirmed, "takes".to_string())));
+    let kept = rig.fleet.store().lock().await.feature_named(&project, "rank-votes").expect("read").expect("held");
+    assert_eq!(kept.id, id, "the same feature");
+    let page = rig.fleet.get_feature_page(None, Some(project), "rank-votes".to_string()).await.expect("page");
+    assert!(page.links.iter().any(|one| one.target == "abc1"), "what was filed stays");
+}
+
+#[tokio::test]
+async fn a_feature_renamed_keeps_its_old_slug_as_an_alias_and_its_asks_follow_it() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let ask = rig.fleet.file_ask(the_operator(), filing(&project, "Buttons on a page", &[ACTIONS])).await.expect("filed");
+
+    let rename = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: Some("page-buttons".to_string()), title: Some("Page buttons".to_string()) };
+    let done = rig.fleet.change_feature(the_operator(), rename).await.expect("renamed");
+    assert_eq!((done.feature.as_str(), done.merged_into), ("page-buttons", None));
+    assert!(state_of(&rig, &project, ACTIONS).await.is_none() && state_of(&rig, &project, "page-buttons").await.is_some());
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), ACTIONS.to_string()).await.expect("the old slug reads");
+    assert_eq!((page.feature.slug.as_str(), page.feature.title.as_str()), ("page-buttons", "Page buttons"));
+    let asks = rig.fleet.list_feature_asks(project.clone(), Some("page-buttons".to_string())).await.expect("listed");
+    assert_eq!(asks.asks.iter().map(|one| one.ask_id.clone()).collect::<Vec<_>>(), [ask.ask_id]);
+    assert_eq!(asks.asks[0].features, ["page-buttons".to_string()]);
+
+    let retitle = ChangeFeature { project, feature: "page-buttons".to_string(), into: None, slug: None, title: Some("Buttons".to_string()) };
+    assert_eq!(rig.fleet.change_feature(the_operator(), retitle).await.expect("retitled").feature, "page-buttons");
+}
+
+#[tokio::test]
+async fn two_seeded_features_that_are_one_merge_with_their_code_and_the_target_keeps_its_date() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let was = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("held");
+
+    let merge = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: Some(VOTING.to_string()), slug: None, title: None };
+    rig.fleet.change_feature(the_operator(), merge).await.expect("merged");
+    let now = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("held");
+    assert_eq!((now.id.as_str(), now.added_at.as_str(), now.state.as_str()), (was.id.as_str(), was.added_at.as_str(), "seeded"));
+    assert_eq!(now.paths, ["crates/pages/actions".to_string(), "crates/pages/voting".to_string()], "both own the target's code now");
+
+    let undo = UpsertFeatures {
+        project: project.clone(),
+        areas: Vec::new(),
+        features: vec![FeatureSeed {
+            slug: ACTIONS.to_string(),
+            area: "takes".to_string(),
+            title: ACTIONS.to_string(),
+            summary: "One line.".to_string(),
+            state: None,
+            paths: vec!["crates/pages/actions".to_string()],
+            entry_points: Vec::new(),
+            manifest_id: None,
+        }],
+    };
+    rig.fleet.upsert_features(undo).await.expect("kept again");
+    assert_eq!(state_of(&rig, &project, ACTIONS).await.map(|one| one.0), Some(FeatureState::Seeded), "a merge is undone by keeping the old feature again");
+    assert!(rig.fleet.store().lock().await.feature_aliases(&project).expect("read").is_empty(), "and the alias goes");
 }

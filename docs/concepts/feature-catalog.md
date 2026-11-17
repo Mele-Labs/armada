@@ -45,7 +45,7 @@ Fleet does not read the code graph, so a file is mapped by three things it can s
 > Why: a file that serves two features is in both pages, and a wide prefix must not take a file a narrow one claims.
 
 A `Feature:` trailer is one or more lines in a commit's last paragraph, each naming one slug or several separated by commas.
-A trailer naming a slug the project does not hold files nothing.
+A trailer naming a slug the project does not hold files under a pending feature, in a project that has a library; see [A feature a Job names that does not exist](#a-feature-a-job-names-that-does-not-exist).
 
 ## Stale
 
@@ -72,6 +72,30 @@ A Job whose work changed no feature's files is never held, and neither is a Job 
 A Job that started before a feature entered the catalog is never held for it, because approving a plan is not consent to change a Job already running.
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
+
+## A feature a Job names that does not exist
+
+A Job names features in a `Feature:` trailer and in the `feature` of a sketch, page, walk or draft.
+A slug the library does not hold is filed under a **pending** feature, made at once, so nothing the Job did is lost.
+A pending feature is listed under the area `pending`, with no prefix and no line.
+
+> **Rule.** A pending feature is made only in a library that has a feature already.
+> Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
+
+Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
+The Operator brings him one card, with three options.
+
+| Option | What the Operator does |
+|---|---|
+| Confirm | `upsert_features` with state `confirmed`, an area, a title and a line. The feature keeps what was filed under it |
+| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections and asks move to the target, which keeps its id, its state and its `added_at` |
+| Rename | `change_feature` with `slug` and `title` |
+
+> **Rule.** A merged or renamed slug stays as an alias of the feature it became.
+> Why: a trailer already in git names the old slug, and Fleet reads it again each time, so without the alias it would make the pending feature again.
+
+The Operator may also merge two seeded features that are one, and tells him on a card that carries what was absorbed, with an Undo that keeps it again through `upsert_features`.
+That keeps the feature and its prefixes and entry points, and takes the alias away, but the links, files and asks that moved stay with the target.
 
 ## Seeding
 
@@ -102,6 +126,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
+| `change_feature` | The Operator merges a feature into another or renames it |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
@@ -116,6 +141,5 @@ What the library would hold in the clear there is in [Central store](../contract
 ## Not built
 
 - A commit hook that refuses a commit without a `Feature:` trailer.
-- A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.

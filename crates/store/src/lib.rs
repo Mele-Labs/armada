@@ -59,6 +59,7 @@ mod bug_reports;
 /// What a Job asked the Operator with `raise_conflict` and `ask_held`.
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
+mod feature_changes;
 mod features;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;

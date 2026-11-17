@@ -3,7 +3,7 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Features, Refusal};
 use ipc::{
-    FeatureBrief, FeatureLibrary, FeatureOfPath, FeaturePage, FeatureSectionsWritten, FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches,
+    ChangeFeature, FeatureBrief, FeatureChanged, FeatureLibrary, FeatureOfPath, FeaturePage, FeatureSectionsWritten, FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches,
     PathHow, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
@@ -96,6 +96,10 @@ where
 
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
+    }
+
+    async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
+        self.feature_changed(caller, change).await
     }
 
     async fn get_first_edit_searches(&self, weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

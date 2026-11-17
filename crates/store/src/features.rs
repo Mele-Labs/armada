@@ -13,6 +13,8 @@ use crate::open::Store;
 pub mod feature_state {
     pub const SEEDED: &str = "seeded";
     pub const CONFIRMED: &str = "confirmed";
+    /// Named by a Job's trailer or act and not in the catalog yet: the Operator brings it to the owner on a card.
+    pub const PENDING: &str = "pending";
 }
 
 /// The sections a Job writes, as the table names them.
@@ -219,6 +221,7 @@ impl Store {
             ],
         )
         .map_err(failed(doing))?;
+        tx.execute("DELETE FROM feature_aliases WHERE project = ?1 AND alias = ?2", params![feature.project, feature.slug]).map_err(failed(doing))?;
         tx.execute("DELETE FROM feature_paths WHERE feature_id = ?1", [&id]).map_err(failed(doing))?;
         for prefix in &feature.paths {
             tx.execute("INSERT OR IGNORE INTO feature_paths (feature_id, prefix) VALUES (?1, ?2)", params![id, prefix]).map_err(failed(doing))?;
@@ -256,6 +259,25 @@ impl Store {
             }
         }
         Ok(features)
+    }
+
+    /// Every feature of every project that is pending, oldest first, without its prefixes.
+    pub fn pending_features(&self) -> Result<Vec<KeptFeature>, WriteError> {
+        let doing = "reading the pending features";
+        let mut statement = self
+            .conn
+            .prepare(&format!("SELECT {FEATURE} FROM features WHERE state = ?1 ORDER BY added_at, slug"))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([feature_state::PENDING], feature_row).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// The slugs `project`'s features were known by, each with the slug it is now.
+    pub fn feature_aliases(&self, project: &str) -> Result<Vec<(String, String)>, WriteError> {
+        let doing = "reading a project's feature aliases";
+        let mut statement = self.conn.prepare("SELECT alias, slug FROM feature_aliases WHERE project = ?1 ORDER BY alias").map_err(failed(doing))?;
+        let rows = statement.query_map([project], |row| Ok((row.get(0)?, row.get(1)?))).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
     /// The feature `slug` names in `project`.

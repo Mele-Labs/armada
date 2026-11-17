@@ -39,6 +39,8 @@ pub enum Arrived {
     Held,
     /// A project holds Armada's own repository and no feature library.
     Seed,
+    /// A Job named a feature the project's library does not hold.
+    Feature,
 }
 
 impl Arrived {
@@ -62,6 +64,7 @@ impl Arrived {
             Arrived::Conflict => "conflict",
             Arrived::Held => "held",
             Arrived::Seed => "seed",
+            Arrived::Feature => "feature",
         }
     }
 
@@ -86,6 +89,7 @@ impl Arrived {
             Arrived::Conflict => "A Job raised a conflict with another Job",
             Arrived::Held => "A Job asked whether work should land",
             Arrived::Seed => "A project holds Armada's repository and no feature library",
+            Arrived::Feature => "A Job named a feature the library does not hold",
         }
     }
 }

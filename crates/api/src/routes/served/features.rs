@@ -42,6 +42,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/features/seed",
     },
+    Route {
+        operation: "change_feature",
+        method: "POST",
+        path: "/features/change",
+    },
     // Beside the other usage reads, which are not under `/jobs` either: the question is asked of every Job at once.
     Route {
         operation: "get_first_edit_searches",
