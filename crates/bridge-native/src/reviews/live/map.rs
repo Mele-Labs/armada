@@ -440,9 +440,78 @@ fn cut(patch: &str, old_start: u64, new_start: u64) -> Option<String> {
     out.map(|lines| lines.join("\n"))
 }
 
+/// The rate limit's code, as Fleet answers a read that every list was held back from.
+pub const RATE_LIMITED: &str = "fleet.review_lists_rate_limited";
+
+/// What the inbox says for a refused read: Fleet's sentence, a rate limit with its time and, on a second line, when it reads again.
+pub fn refused_words(error: &ipc::WireError) -> String {
+    if error.code != RATE_LIMITED {
+        return error.message.clone();
+    }
+    let until = match error.fields.get("until") {
+        Some(ipc::WireValue::Str(until)) => crate::settings::time::stamp_at(until),
+        _ => None,
+    };
+    let title = until.map_or_else(|| error.message.clone(), |until| format!("{} until {until}", error.message));
+    format!("{title}\n{RATE_LIMIT_LIFTS}")
+}
+
+/// Said under a rate limit's title: nothing for him to do.
+pub const RATE_LIMIT_LIFTS: &str = "Reviews will read again by itself when the limit lifts.";
+
+/// The banner over rows kept from an earlier read while GitHub is rate-limiting us.
+pub fn kept_banner(lists: &PullReviewLists) -> Option<String> {
+    let limit = lists.rate_limited.as_ref()?;
+    let until = limit.until.as_ref().and_then(|until| crate::settings::time::stamp_at(until.as_str()));
+    let from = crate::settings::time::stamp_at(&lists.fetched_at)?;
+    Some(match until {
+        Some(until) => format!("GitHub is rate-limiting us until {until}. These are from {from}."),
+        None => format!("GitHub is rate-limiting us. These are from {from}."),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn limited(until: Option<&str>) -> ipc::WireError {
+        let mut error = ipc::WireError::raised(RATE_LIMITED, "GitHub is rate-limiting us", ipc::RunId::carried("run-1"));
+        if let Some(until) = until {
+            error.fields.insert("until".into(), ipc::WireValue::Str(until.into()));
+        }
+        error
+    }
+
+    #[test]
+    fn a_rate_limit_with_a_time_says_it_and_when_reading_resumes() {
+        let at = "2026-11-17T14:02:00.000Z";
+        let time = crate::settings::time::stamp_at(at).unwrap();
+        assert_eq!(refused_words(&limited(Some(at))), format!("GitHub is rate-limiting us until {time}\nReviews will read again by itself when the limit lifts."));
+    }
+
+    #[test]
+    fn a_rate_limit_with_no_time_says_only_that() {
+        assert_eq!(refused_words(&limited(None)), "GitHub is rate-limiting us\nReviews will read again by itself when the limit lifts.");
+    }
+
+    #[test]
+    fn no_token_and_no_answer_say_fleets_own_sentence() {
+        let none = ipc::WireError::raised("fleet.review_lists_unreadable", "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.", ipc::RunId::carried("run-1"));
+        assert_eq!(refused_words(&none), "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.");
+    }
+
+    #[test]
+    fn kept_rows_under_a_rate_limit_say_both_times() {
+        let mut lists = lists(Vec::new(), Vec::new());
+        assert_eq!(kept_banner(&lists), None);
+        let until = "2026-11-17T14:02:00.000Z";
+        lists.fetched_at = "2026-11-17T13:40:00.000Z".into();
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: Some(ipc::Instant::carried(until)) });
+        let (a, b) = (crate::settings::time::stamp_at(until).unwrap(), crate::settings::time::stamp_at("2026-11-17T13:40:00.000Z").unwrap());
+        assert_eq!(kept_banner(&lists), Some(format!("GitHub is rate-limiting us until {a}. These are from {b}.")));
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None });
+        assert_eq!(kept_banner(&lists), Some(format!("GitHub is rate-limiting us. These are from {b}.")));
+    }
 
     #[test]
     fn a_hunk_is_cut_from_its_file_by_its_starts() {

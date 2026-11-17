@@ -55,6 +55,8 @@ pub(super) struct Live {
     tools: HashMap<String, Vec<model::ReviewTool>>,
     /// Why the inbox could not be read, until a read lands.
     pub inbox_said: Option<String>,
+    /// Over rows kept from an earlier read, while GitHub is rate-limiting us.
+    pub inbox_banner: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
     pub writing: bool,
@@ -73,7 +75,7 @@ enum Verb {
 
 /// Fleet's own reason for a refusal, as a sentence he reads.
 fn refusal(status: u16, bytes: &[u8]) -> String {
-    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| map::refused_words(&error))
 }
 
 async fn fetch<T: DeserializeOwned>(port: u16, verb: Verb, path: &str, body: Option<String>, name: &'static str) -> Result<T, String> {
@@ -125,6 +127,7 @@ impl ReviewsScreen {
             pulls: HashMap::new(),
             tools: HashMap::new(),
             inbox_said: None,
+            inbox_banner: None,
             write_said: HashMap::new(),
             writing: false,
             chained: HashSet::new(),
@@ -216,6 +219,7 @@ impl ReviewsScreen {
                     let (rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
+                        live.inbox_banner = map::kept_banner(&lists);
                         for (number, row) in found {
                             match live.pulls.get_mut(&number) {
                                 Some(pull) => pull.row = row,
@@ -675,6 +679,11 @@ impl ReviewsScreen {
     /// Why Review changes was refused on this pull request, and whether it is being sent.
     pub(super) fn live_write(&self, number: u64) -> (Option<&str>, bool) {
         self.live.as_ref().map_or((None, false), |live| (live.write_said.get(&number).map(String::as_str), live.writing))
+    }
+
+    /// The banner over the inbox's rows where they are the last read, kept.
+    pub(super) fn live_inbox_banner(&self) -> Option<String> {
+        self.live.as_ref()?.inbox_banner.clone()
     }
 
     /// What the inbox says in place of its rows while there are none: reading, or why it could not be read.
