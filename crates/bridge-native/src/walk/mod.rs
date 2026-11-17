@@ -1731,6 +1731,23 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-page-panel-keys",
+        title: "A page read in the review panel: one Esc shuts the panel, whether or not he pressed in the page",
+        screen: Screen::Jobs,
+        scenario: "reader",
+        steps: &[
+            press_on("A Job that put a page to him and a draft", "row", "Draft the release note", "article", "Draft: Release note for 0.42"),
+            step("The page's card stands above the draft", Verb::Wheel("region", "Thread", -300), "article", "Document: Stale branch design, Revision 2"),
+            step("Open reads the page in the review panel across the window", Verb::OpenIn("Document: Stale branch design, Revision 2", "Open"), "dialog", "Review"),
+            step("Esc straight away shuts the panel: the thread has the keys", Verb::Key("escape"), "region", "Thread"),
+            step("The panel is gone", Verb::Absent("dialog", "Review"), "region", "Thread"),
+            step("Open reads it again", Verb::OpenIn("Document: Stale branch design, Revision 2", "Open"), "dialog", "Review"),
+            in_page("A press in the page: Discuss opens a box for words under its row", "button", "Discuss", None, true),
+            step("Esc shuts the panel from inside the page", Verb::Key("escape"), "region", "Thread"),
+            step("The panel is gone", Verb::Absent("dialog", "Review"), "region", "Thread"),
+        ],
+    },
+    Walk {
         name: "native-reader-room",
         title: "The reader on a laptop: one header line, and the notes margin only while N is on",
         screen: Screen::Jobs,
