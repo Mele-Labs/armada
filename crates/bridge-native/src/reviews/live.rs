@@ -33,6 +33,9 @@ pub(super) struct Row {
     pub branch: String,
     pub author: String,
     pub holder: Option<PullReviewHolder>,
+    /// Where it is on the forge.
+    pub address: String,
+    pub draft: bool,
 }
 
 /// One pull request as Fleet last answered for it.
@@ -260,6 +263,8 @@ impl ReviewsScreen {
                 branch: String::new(),
                 author: asked.author.clone(),
                 holder: None,
+                address: asked.address.clone(),
+                draft: false,
             },
             facts: map::Facts::default(),
             notes: Vec::new(),

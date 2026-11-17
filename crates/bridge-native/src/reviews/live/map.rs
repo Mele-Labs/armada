@@ -158,6 +158,8 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                     branch: row.branch.clone(),
                     author: row.author.clone(),
                     holder: row.holder.clone(),
+                    address: row.address.clone(),
+                    draft: row.draft,
                 },
             ));
         }
@@ -256,11 +258,32 @@ pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[Pull
         threads: detail.threads.clone(),
         critique: Critique::None,
         summary: Summary::None,
-        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new() },
+        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new(), read: false },
         holder: row.holder.as_ref().map(|holder| holder.title.clone()),
         notes: notes.iter().filter(|note| note.sent_to.is_none() && note.status == ipc::NoteStatus::Open).map(|note| format!("{}:{} {}", note.path, note.line, note.body)).collect(),
         kept: false,
         ended: None,
+        reviewers: detail.reviewers.clone(),
+        address: row.address.clone(),
+        draft: row.draft,
+    }
+}
+
+/// What the latest Ask of these words at the page's head answered, or why Fleet refused it. None
+/// where it was never asked. Fleet keeps the words lower-cased and single-spaced.
+pub fn answer_of(facts: &Facts, question: &str) -> Option<model::Answer> {
+    let words = |said: &str| said.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let question = words(question);
+    let head = facts.head.as_deref().unwrap_or_default();
+    let run = facts.runs.iter().filter(|run| run.kind == ReviewRunKind::Ask && run.head == head && words(&run.name) == question).max_by(|a, b| a.started_at.cmp(&b.started_at));
+    match run {
+        Some(run) => Some(match (&run.state, &run.result) {
+            (ReviewRunState::Queued | ReviewRunState::Running, _) => model::Answer::Writing,
+            (ReviewRunState::Done, Some(ReviewResult::Text { body })) => model::Answer::Written(body.clone()),
+            (ReviewRunState::Failed, _) => model::Answer::Failed(run.failed.clone().unwrap_or_else(|| "The run ended without a result".into())),
+            (ReviewRunState::Done, _) => model::Answer::Failed("The run ended without a result".into()),
+        }),
+        None => facts.refused.iter().find(|(kind, asked, _)| *kind == ReviewRunKind::Ask && words(asked) == question).map(|(_, _, why)| model::Answer::Failed(why.clone())),
     }
 }
 
@@ -566,8 +589,62 @@ mod tests {
             viewed,
             ..PullRequestPage::default()
         };
-        let row = Row { manifest: "ledger-api".into(), repository: "harbor/ledger-api".into(), title: "t".into(), branch: "b".into(), author: "mira".into(), holder: None };
-        page_of(1, &row, &detail, &[], None, &[])
+        page_of(1, &row(), &detail, &[], None, &[])
+    }
+
+    fn row() -> Row {
+        Row {
+            manifest: "ledger-api".into(),
+            repository: "harbor/ledger-api".into(),
+            title: "t".into(),
+            branch: "b".into(),
+            author: "mira".into(),
+            holder: None,
+            address: "https://example.com/harbor/ledger-api/pull/1".into(),
+            draft: true,
+        }
+    }
+
+    #[test]
+    fn a_page_carries_its_reviewers_its_address_and_whether_it_is_a_draft() {
+        let tobias = ipc::PullRequestReviewer { login: "tobias".into(), kind: ipc::PullRequestReviewerKind::Person, verdict: None, name: None, url: None, team: None };
+        let detail = PullRequestPage { reviewers: vec![tobias.clone()], ..PullRequestPage::default() };
+        let page = page_of(1, &row(), &detail, &[], None, &[]);
+        assert_eq!((page.reviewers, page.address.as_str(), page.draft), (vec![tobias], "https://example.com/harbor/ledger-api/pull/1", true));
+    }
+
+    fn ask(name: &str, head: &str, at: &str, state: ReviewRunState, body: Option<&str>) -> ReviewRun {
+        ReviewRun {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            number: 1,
+            kind: ReviewRunKind::Ask,
+            name: name.into(),
+            head: head.into(),
+            since: None,
+            state,
+            started_at: at.into(),
+            finished_at: None,
+            failed: (state == ReviewRunState::Failed).then(|| "The bay stopped".into()),
+            result: body.map(|body| ReviewResult::Text { body: body.into() }),
+            cost_micros: None,
+        }
+    }
+
+    #[test]
+    fn an_ask_answers_its_latest_run_at_the_head_whatever_the_case_of_its_words() {
+        let question = "Summarize this pull request's description";
+        let kept = "summarize this pull request's description";
+        let facts = |runs: Vec<ReviewRun>, refused: Vec<(ReviewRunKind, String, String)>| Facts { head: Some("h2".into()), runs, refused, ..Facts::default() };
+        let older = ask(kept, "h1", "2026-11-17T09:00:00Z", ReviewRunState::Done, Some("Old head"));
+        let first = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Done, Some("First"));
+        let again = ask(kept, "h2", "2026-11-17T11:00:00Z", ReviewRunState::Running, None);
+        assert_eq!(answer_of(&facts(vec![older.clone()], Vec::new()), question), None, "a run at another head is not this commit's");
+        assert_eq!(answer_of(&facts(vec![older, first.clone()], Vec::new()), question), Some(model::Answer::Written("First".into())));
+        assert_eq!(answer_of(&facts(vec![first, again], Vec::new()), question), Some(model::Answer::Writing));
+        let failed = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Failed, None);
+        assert_eq!(answer_of(&facts(vec![failed], Vec::new()), question), Some(model::Answer::Failed("The bay stopped".into())));
+        let refused = vec![(ReviewRunKind::Ask, question.to_string(), "Fleet is busy".to_string())];
+        assert_eq!(answer_of(&facts(Vec::new(), refused), question), Some(model::Answer::Failed("Fleet is busy".into())));
     }
 
     #[test]

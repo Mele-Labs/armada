@@ -4,7 +4,7 @@
 //! inbox state of each pull request, the diff since he looked and the critique of a range. Each type
 //! says which of those it stands for. Wire types are reused where they already fit.
 
-use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullReviewChecks, PullReviewList, PullReviewThread};
+use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullRequestReviewer, PullRequestReviewerKind, PullReviewChecks, PullReviewList, PullReviewThread};
 
 /// The four inbox groups, in the order they are drawn. Fleet's inbox state of a pull request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -547,6 +547,8 @@ pub struct Overview {
     pub why: String,
     pub flags: Vec<Flag>,
     pub sets: Vec<ChangeSet>,
+    /// Find problems has read this commit. The mock's own; the live page asks Fleet's runs.
+    pub read: bool,
 }
 
 /// What a change set's Explain tools are asked.
@@ -599,6 +601,150 @@ pub struct Page {
     pub kept: bool,
     /// The refresh found it closed, or gone from the forge.
     pub ended: Option<Ended>,
+    /// Who is asked to review, and who reviewed unasked, as the forge lists them.
+    pub reviewers: Vec<PullRequestReviewer>,
+    /// Where it is on the forge. Empty where Fleet did not say.
+    pub address: String,
+    pub draft: bool,
+}
+
+/// Where the pull request stands on the forge, as the head's state chip says it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PullState {
+    Open,
+    Draft,
+    Closed,
+    Gone,
+}
+
+impl PullState {
+    /// How it ended wins over whether it was a draft.
+    pub fn of(draft: bool, ended: Option<Ended>) -> PullState {
+        match (ended, draft) {
+            (Some(Ended::Closed), _) => PullState::Closed,
+            (Some(Ended::Gone), _) => PullState::Gone,
+            (None, true) => PullState::Draft,
+            (None, false) => PullState::Open,
+        }
+    }
+
+    pub fn said(self) -> &'static str {
+        match self {
+            PullState::Open => "Open",
+            PullState::Draft => "Draft",
+            PullState::Closed => "Closed",
+            PullState::Gone => "No longer on the forge",
+        }
+    }
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            PullState::Open => "git-pull-request",
+            PullState::Draft => "git-pull-request-draft",
+            PullState::Closed => "git-pull-request-closed",
+            PullState::Gone => "circle-slash",
+        }
+    }
+}
+
+/// Who is still asked to review, as Your review says it: whether he is, and the others.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Asked {
+    pub you: bool,
+    /// `Also asked: tobias, @payments-team` beside his own chip, `Asked: …` without it. None when
+    /// nobody else is asked.
+    pub others: Option<String>,
+}
+
+/// Still asked is a reviewer with no review: the forge drops a person from its requests once they
+/// review, and a team never has one. `me` is his own login.
+pub fn asked(reviewers: &[PullRequestReviewer], me: &str) -> Asked {
+    // A person who reviewed is no longer asked; a team never answers, so it stays asked.
+    let still: Vec<&PullRequestReviewer> = reviewers.iter().filter(|reviewer| reviewer.verdict.is_none()).collect();
+    let mine = |reviewer: &&PullRequestReviewer| reviewer.kind == PullRequestReviewerKind::Person && reviewer.login.eq_ignore_ascii_case(me);
+    let you = still.iter().any(mine);
+    let others: Vec<String> = still
+        .iter()
+        .filter(|reviewer| !mine(reviewer))
+        .map(|reviewer| match reviewer.kind {
+            PullRequestReviewerKind::Team => format!("@{}", reviewer.login),
+            PullRequestReviewerKind::Person => reviewer.login.clone(),
+        })
+        .collect();
+    let lead = if you { "Also asked" } else { "Asked" };
+    Asked { you, others: (!others.is_empty()).then(|| format!("{lead}: {}", others.join(", "))) }
+}
+
+/// The page's files under their folders, folders in path order and files by name within each. A
+/// file at the top of the repository is under the folder `""`.
+pub fn by_folder(files: &[PageFile]) -> Vec<(String, Vec<&PageFile>)> {
+    let mut folders: std::collections::BTreeMap<&str, Vec<&PageFile>> = std::collections::BTreeMap::new();
+    for file in files {
+        let folder = file.path.rsplit_once('/').map_or("", |(folder, _)| folder);
+        folders.entry(folder).or_default().push(file);
+    }
+    folders
+        .into_iter()
+        .map(|(folder, mut files)| {
+            files.sort_by(|a, b| a.path.cmp(&b.path));
+            (folder.to_string(), files)
+        })
+        .collect()
+}
+
+/// What the description's hover buttons ask of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Rewrite {
+    Summarize,
+    Explain,
+    Simplify,
+}
+
+impl Rewrite {
+    pub const ALL: [Rewrite; 3] = [Rewrite::Summarize, Rewrite::Explain, Rewrite::Simplify];
+
+    /// As its button says it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "Summarize",
+            Rewrite::Explain => "Explain",
+            Rewrite::Simplify => "Simplify",
+        }
+    }
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "scroll-text",
+            Rewrite::Explain => "circle-question-mark",
+            Rewrite::Simplify => "sliders-horizontal",
+        }
+    }
+
+    /// The small label over its answer.
+    pub fn label(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "Summary",
+            Rewrite::Explain => "Explanation",
+            Rewrite::Simplify => "Simpler",
+        }
+    }
+
+    /// The question Fleet's Ask run is put, in words it keeps lower-cased.
+    pub fn question(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "summarize this pull request's description in two or three sentences, in markdown",
+            Rewrite::Explain => "explain this pull request's description to a reader new to this code: what it changes and why, in markdown",
+            Rewrite::Simplify => "rewrite this pull request's description in plain, simpler words, keeping every fact, in markdown",
+        }
+    }
+}
+
+/// An answer to a question put to the pull request, while it is written and once it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Answer {
+    Writing,
+    Written(String),
+    Failed(String),
 }
 
 /// How a kept pull request ended before he came back to it.
@@ -724,5 +870,56 @@ mod tests {
         assert_eq!(Mark::of("a", &flags), Mark { worst: Some(FlagKind::Blocker), said: "1 blocker and 2 risks".into() });
         assert_eq!(Mark::of("b", &flags), Mark { worst: Some(FlagKind::PossibleBug), said: "1 possible bug".into() });
         assert_eq!(Mark::of("c", &flags), Mark::default());
+    }
+
+    #[test]
+    fn the_state_chip_says_how_it_ended_before_whether_it_is_a_draft() {
+        assert_eq!(PullState::of(false, None), PullState::Open);
+        assert_eq!(PullState::of(true, None), PullState::Draft);
+        assert_eq!(PullState::of(true, Some(Ended::Closed)), PullState::Closed);
+        assert_eq!(PullState::of(false, Some(Ended::Gone)), PullState::Gone);
+    }
+
+    fn reviewer(login: &str, kind: PullRequestReviewerKind, verdict: Option<ipc::PullRequestVerdict>) -> PullRequestReviewer {
+        PullRequestReviewer { login: login.into(), kind, verdict, name: None, url: None, team: None }
+    }
+
+    #[test]
+    fn the_asked_line_names_the_others_still_asked_and_marks_a_team() {
+        use PullRequestReviewerKind::{Person, Team};
+        let reviewers = [
+            reviewer("Wren", Person, None),
+            reviewer("tobias", Person, None),
+            reviewer("jun", Person, Some(ipc::PullRequestVerdict::Approved)),
+            reviewer("payments-team", Team, None),
+        ];
+        assert_eq!(asked(&reviewers, "wren"), Asked { you: true, others: Some("Also asked: tobias, @payments-team".into()) });
+        assert_eq!(asked(&reviewers, "kit"), Asked { you: false, others: Some("Asked: Wren, tobias, @payments-team".into()) });
+        assert_eq!(asked(&reviewers[..1], "wren"), Asked { you: true, others: None });
+        assert_eq!(asked(&reviewers[2..3], "wren"), Asked { you: false, others: None });
+    }
+
+    #[test]
+    fn files_sit_under_their_folders_in_path_order() {
+        let file = |path: &str| PageFile {
+            path: path.into(),
+            status: PullRequestFileStatus::Modified,
+            additions: 1,
+            deletions: 0,
+            viewed: Viewed::No,
+            since: false,
+            patch: String::new(),
+            patch_since: None,
+        };
+        let files = [file("src/jobs/retry.rs"), file("README.md"), file("src/db/schema.rs"), file("src/jobs/invoice.rs")];
+        let folders: Vec<(String, Vec<&str>)> = by_folder(&files).into_iter().map(|(folder, files)| (folder, files.iter().map(|file| file.path.as_str()).collect())).collect();
+        assert_eq!(
+            folders,
+            [
+                (String::new(), vec!["README.md"]),
+                ("src/db".to_string(), vec!["src/db/schema.rs"]),
+                ("src/jobs".to_string(), vec!["src/jobs/invoice.rs", "src/jobs/retry.rs"]),
+            ]
+        );
     }
 }
