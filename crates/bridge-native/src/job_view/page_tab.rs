@@ -329,6 +329,11 @@ pub(crate) fn page_in_front(cx: &gpui::App) -> Option<Entity<PageTab>> {
     cx.try_global::<Opened>()?.0.iter().rev().find_map(gpui::WeakEntity::upgrade)
 }
 
+/// What the panel keeps a live page under: the Job and the page it names.
+fn panel_key(job: &str, page: &str) -> String {
+    format!("{job}\u{1f}{page}")
+}
+
 impl JobView {
     /// Each document tab of Job `id` holds its page, read from Fleet once as the tab opens; a tab that closed lets its
     /// page go, so opening it again reads what he did on it since.
@@ -361,30 +366,20 @@ impl JobView {
         self.sync_readers(id, window, cx);
     }
 
-    /// The page parts of the artifact chosen in the review panel each hold a live page, read from Fleet once the artifact is
-    /// picked and let go with the panel, so the panel draws the page as its tab does and never a picture of it. A page whose
-    /// revision the Job drew again is read again.
-    pub(super) fn sync_panel_pages(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    /// The pages the item chosen in the review panel reads, a document's own or those of an artifact's page parts, each hold a live
+    /// page, read from Fleet once the item is picked and let go with the panel, so the panel draws the page as its tab does and
+    /// never a picture of it. A page whose revision the Job drew again is read again, and a document he opens is told seen.
+    pub(super) fn sync_panel_pages(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let chosen = self.review_chosen().filter(|_| self.review_open());
-        let wanted: Vec<(String, u32, String)> = chosen
-            .as_ref()
-            .and_then(super::reader_sheet::artifact_in)
-            .and_then(|artifact| self.artifact_of(id, artifact))
-            .map(|one| {
-                one.parts
-                    .iter()
-                    .filter_map(|part| match &part.content {
-                        ipc::PartContent::Page { path } => Some((path.clone(), part.revision, one.title.clone())),
-                        _ => None,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+        let wanted: Vec<(String, u32, String)> = chosen.as_ref().map(|item| self.panel_pages_of(item, cx)).unwrap_or_default();
+        let job = chosen.as_ref().map(|item| SharedString::from(item.job.clone()));
+        let is_document = chosen.as_ref().is_some_and(|item| item.kind == super::review::Kind::Document);
         let Some(review) = self.review_mut() else { return };
-        review.pages.retain(|page, (tab, _)| wanted.iter().any(|(want, revision, _)| want == page && *revision == tab.read(cx).revision()));
-        let new: Vec<(String, u32, String)> = wanted.into_iter().filter(|(page, _, _)| !review.pages.contains_key(page)).collect();
+        review.pages.retain(|key, (tab, _)| wanted.iter().any(|(page, revision, _)| job.as_ref().is_some_and(|job| *key == panel_key(job, page)) && *revision == tab.read(cx).revision()));
+        let Some(job) = job else { return };
+        let new: Vec<(String, u32, String)> = wanted.into_iter().filter(|(page, _, _)| !review.pages.contains_key(&panel_key(&job, page))).collect();
         for (page, revision, title) in new {
-            let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision, title));
+            let tab = cx.new(|_| PageTab::new(job.clone(), page.clone(), revision, title));
             let carrying = cx.subscribe_in(&tab, window, |this, tab, event: &PageTabEvent, window, cx| match event {
                 PageTabEvent::Posted(posted) => this.carry(tab.clone(), posted.clone(), window, cx),
                 PageTabEvent::Read => {}
@@ -394,15 +389,43 @@ impl JobView {
             opened.push(tab.downgrade());
             cx.set_global(Opened(opened));
             if let Some(review) = self.review_mut() {
-                review.pages.insert(page, (tab.clone(), carrying));
+                review.pages.insert(panel_key(&job, &page), (tab.clone(), carrying));
             }
             self.fetch_page(tab, window, cx);
+            if is_document {
+                self.panel_seen(&job, &page, revision, window, cx);
+            }
         }
     }
 
-    /// The live page the review panel holds for page `page` at `revision`, where it has one.
-    pub(super) fn panel_page(&self, page: &str, revision: u32, cx: &gpui::App) -> Option<Entity<PageTab>> {
-        self.review()?.pages.get(page).map(|(tab, _)| tab).filter(|tab| tab.read(cx).revision() == revision).cloned()
+    /// He opened revision `revision` of document `page`: Fleet is told, as the reader tells it, so a page he was to read stops
+    /// waiting.
+    fn panel_seen(&mut self, job: &SharedString, page: &str, revision: u32, window: &mut Window, cx: &mut Context<Self>) {
+        if self.artifact_of(job, page).and_then(|one| one.seen).is_some_and(|seen| seen >= revision) {
+            return;
+        }
+        if self.fleet.is_none() {
+            self.artifacts_seen_post(job, page, revision);
+            return;
+        }
+        let body = ipc::encode(&ipc::MarkArtifactSeen { session_id: ipc::SessionId::carried(job.to_string()), artifact: page.to_string(), revision });
+        let artifact = page.to_string();
+        self.post(
+            "/sessions/artifacts/seen".to_string(),
+            body,
+            window,
+            cx,
+            Box::new(move |_, answer, _, _| {
+                if let Err(why) = answer {
+                    crate::log::Note::warn("Fleet did not take that he opened a revision").field("artifact", artifact).field("revision", revision).field("why", why).emit();
+                }
+            }),
+        );
+    }
+
+    /// The live page the review panel holds for page `page` of Job `job` at `revision`, where it has one.
+    pub(super) fn panel_page(&self, job: &str, page: &str, revision: u32, cx: &gpui::App) -> Option<Entity<PageTab>> {
+        self.review()?.pages.get(&panel_key(job, page)).map(|(tab, _)| tab).filter(|tab| tab.read(cx).revision() == revision).cloned()
     }
 
     /// The page, sealed, as Fleet serves it (`get_artifact_page`), or Fleet's refusal of it.

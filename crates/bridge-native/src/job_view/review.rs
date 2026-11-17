@@ -493,6 +493,10 @@ impl JobView {
                 // The shown Job's artifacts of parts that still ask stand with what else waits on him, and the one he opened.
                 if job == first {
                     items.extend(self.artifact_items(job, opened));
+                    // A document he opened is read in the panel, with the item that waits on him for it, else one of its own.
+                    if let Some(page) = opened.filter(|page| !items.iter().any(|item| page_of_item(&item.id) == Some(*page))) {
+                        items.extend(self.document_item(job, page, cx));
+                    }
                 }
                 // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
                 let mut seen = std::collections::HashSet::new();
@@ -539,7 +543,7 @@ impl JobView {
         if let Some(one) = lone_page(&items).map(|one| one.id.clone()) {
             self.set_needs(false, None, window, cx);
             match self.sole_document(&id, cx) {
-                Some(page) if page_of_item(&one) == Some(page.as_str()) => self.open_document_tab(&page, window, cx),
+                Some(page) if page_of_item(&one) == Some(page.as_str()) => self.open_document(&page, window, cx),
                 _ => self.go_to_card(&id, &one, cx),
             }
             return;
@@ -630,7 +634,7 @@ impl JobView {
                 review.opened = artifact.map(str::to_string).or(review.opened.take());
             }
             self.review_sync(window, cx);
-            if let Some(key) = artifact.map(|artifact| super::reader_sheet::key_of_artifact(&id, artifact)).or_else(|| pick.map(|pick| key_of(&id, pick))) {
+            if let Some(key) = artifact.map(|artifact| self.opened_key(&id, artifact, cx)).or_else(|| pick.map(|pick| key_of(&id, pick))) {
                 self.review_choose(&key, window, cx);
             }
             return;
@@ -662,7 +666,7 @@ impl JobView {
             self.pages.entry(SharedString::from(group.job.clone())).or_insert_with(Page::new);
         }
         let first = match (artifact, pick) {
-            (Some(artifact), _) => Some(super::reader_sheet::key_of_artifact(&id, artifact)),
+            (Some(artifact), _) => Some(self.opened_key(&id, artifact, cx)),
             (None, Some(pick)) => Some(key_of(&id, pick)),
             (None, None) => groups.first().and_then(|group| group.items.first()).map(Item::key),
         };
@@ -812,7 +816,7 @@ impl JobView {
         review.items().filter(|item| !item.read && item.kind != Kind::Artifact && review.row(&item.key()).verdict.is_none()).cloned().collect()
     }
 
-    /// Open: the page he is to read, in the reader, with the sheet shut.
+    /// Open: a Job's builds to try, on their card, with the sheet shut.
     fn review_read(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((item, row)) = self.review_current() else { return };
         if item.kind == Kind::Ready && row.verdict.is_none() {
@@ -820,9 +824,6 @@ impl JobView {
             self.go_to_ready(&item.job, &format!("try:{}", item.job), window, cx);
             return;
         }
-        let Some(page) = page_of_item(&item.id).map(str::to_string).filter(|_| item.read && row.verdict.is_none()) else { return };
-        self.close_review(window, cx);
-        self.open_document_tab(&page, window, cx);
     }
 
     // ---- answers ---------------------------------------------------------------------------
@@ -1065,9 +1066,7 @@ impl JobView {
         if open && current.as_ref().is_some_and(|(item, _)| item.kind == Kind::Ready) {
             stops.push(focus.dismiss.clone());
             stops.push(focus.approve.clone());
-        } else if open && current.as_ref().is_some_and(|(item, _)| item.read) {
-            stops.push(focus.approve.clone());
-        } else if open {
+        } else if open && !current.as_ref().is_some_and(|(item, _)| item.read) {
             stops.push(focus.dismiss.clone());
             if current.as_ref().is_some_and(|(item, _)| item.send_back) {
                 stops.push(focus.changes.clone());
@@ -1116,10 +1115,10 @@ impl JobView {
     fn review_menu(&mut self, key: &str, at: gpui::Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(review) = self.review() else { return };
         let Some(item) = review.item(key).cloned() else { return };
-        if review.row(key).verdict.is_some() || item.kind == Kind::Artifact {
+        if review.row(key).verdict.is_some() || item.kind == Kind::Artifact || item.read {
             return;
         }
-        let mut entries = if item.read || item.kind == Kind::Ready { vec![Entry::Act { id: "open", label: "Open".into(), icon: Some("scroll-text"), danger: false }] } else { vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }] };
+        let mut entries = if item.kind == Kind::Ready { vec![Entry::Act { id: "open", label: "Open".into(), icon: Some("scroll-text"), danger: false }] } else { vec![Entry::Act { id: "approve", label: "Approve".into(), icon: Some("check"), danger: false }] };
         if item.send_back {
             entries.push(Entry::Act { id: "changes", label: "Ask for changes".into(), icon: Some("pencil"), danger: false });
         }
@@ -1511,7 +1510,7 @@ impl JobView {
             "Answers",
         );
 
-        let staged = self.review_stage(item, look, cx);
+        let staged = self.review_stage(item, look, cx).or_else(|| self.review_page_stage(item, cx));
         let make_body = || {
             div()
             .id(SharedString::from(format!("review-body:{key}")))
@@ -1549,7 +1548,7 @@ impl JobView {
     /// The chosen item's own answers, for the foot: none where it is answered, an artifact (its parts answer where they stand)
     /// or an item he is only to read, which has Open.
     fn review_item_acts(&self, item: &Item, row: &Row, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        if row.verdict.is_some() || item.kind == Kind::Artifact || !self.item_asks(item, cx) {
+        if row.verdict.is_some() || item.kind == Kind::Artifact || item.read || !self.item_asks(item, cx) {
             return None;
         }
         let focus = &self.review_focus;
@@ -1559,8 +1558,6 @@ impl JobView {
             acts.child(self.review_button(look, "review-dismiss", "Dismiss", Tone::Ghost, None, false, "D", &focus.dismiss, true, Self::review_dismiss, cx))
                 .child(self.review_button(look, "review-open", "Open", Tone::Primary, None, false, "\u{21b5}", &focus.approve, true, Self::review_read, cx))
                 .into_any_element()
-        } else if item.read {
-            acts.child(self.review_button(look, "review-open", "Open", Tone::Primary, None, false, "\u{21b5}", &focus.approve, true, Self::review_read, cx)).into_any_element()
         } else {
             acts.child(self.review_button(look, "review-dismiss", "Dismiss", Tone::Ghost, None, false, "D", &focus.dismiss, true, Self::review_dismiss, cx))
                 .when(item.send_back, |acts| acts.child(self.review_button(look, "review-changes", "Ask for changes", Tone::Secondary, None, false, "C", &focus.changes, true, Self::review_changes, cx)))
@@ -1741,7 +1738,7 @@ impl JobView {
         let acts = chosen.and_then(|(item, row)| self.review_item_acts(item, row, look, cx));
         let acts_shown = acts.is_some();
         let enlarge = chosen.is_some_and(|(item, _)| self.review_enlarge(item, cx).is_some());
-        let asking = review.items().any(|item| item.kind != Kind::Artifact && review.row(&item.key()).verdict.is_none());
+        let asking = review.items().any(|item| item.kind != Kind::Artifact && !item.read && review.row(&item.key()).verdict.is_none());
         let focus = &self.review_focus;
         let hint = div()
             .flex()

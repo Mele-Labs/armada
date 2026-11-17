@@ -410,7 +410,7 @@ impl JobView {
             }
         }
         // The panel's page parts are pages, which are live entities too.
-        self.sync_panel_pages(job, window, cx);
+        self.sync_panel_pages(window, cx);
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
@@ -813,7 +813,7 @@ impl JobView {
         };
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
         // Words, buttons and a still of a page stand at the measure in the sheet; takes, a drawing and a live page take its width.
-        let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(path, part.revision, cx).is_some());
+        let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(&c.job, path, part.revision, cx).is_some());
         let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
         labelled(
             div()
@@ -1508,7 +1508,7 @@ impl JobView {
     /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
     fn page_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, path: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
-        if let Some(live) = c.sheet.then(|| self.panel_page(path, part.revision, cx)).flatten() {
+        if let Some(live) = c.sheet.then(|| self.panel_page(&c.job, path, part.revision, cx)).flatten() {
             return div()
                 .id(SharedString::from(format!("page:{key}")))
                 .w_full()
@@ -1530,7 +1530,7 @@ impl JobView {
         };
         let page = path.to_string();
         labelled(
-            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document_tab(&page, window, cx))),
+            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document(&page, window, cx))),
             Role::Button,
             format!("Open page {path}"),
         )
