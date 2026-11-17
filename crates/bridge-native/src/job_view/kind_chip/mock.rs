@@ -112,7 +112,7 @@ pub(crate) fn apply(held: &mut Held, set: &SetMessageKind) -> Result<MessageSort
                 Some(id)
             }
         },
-        MessageKind::Talk => None,
+        MessageKind::Question | MessageKind::Talk => None,
     };
     if let Some(opened) = opened.filter(|id| set.kind != MessageKind::NewAsk || joined.as_deref() != Some(id)) {
         held.asks.retain(|ask| ask.ask_id != opened);

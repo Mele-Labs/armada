@@ -235,7 +235,7 @@ where
             .into_iter()
             .filter(|one| one.mac.is_some() || (one.unread.is_none() && self.project_shared(&one.id)))
             .collect();
-        Projects { projects: seen, loose: Vec::new(), left_out: Vec::new() }
+        Projects { projects: seen, loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
     }
 
     /// The repositories the phone is named: those in a project it sees.
@@ -281,7 +281,7 @@ where
             .into_iter()
             .filter(|one| one.mac.is_none() && one.unread.is_none() && self.project_shared(&one.id))
             .collect();
-        Crosses(Projects { projects: shared, loose: Vec::new(), left_out: Vec::new() })
+        Crosses(Projects { projects: shared, loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() })
     }
 
     /// A task act from another Mac goes on only where its row, or its project, is in a shared project of this
@@ -305,6 +305,9 @@ where
         match act {
             ProjectAct::AddProjectTask { task, .. } => project_shared(task.project.as_deref()),
             ProjectAct::LinkProjectIssue { link } => project_shared(link.project.as_deref()),
+            // A merge is for projects this Mac shares: the one it keeps, and the one it gives up.
+            ProjectAct::Absorb { kept, .. } => project_shared(Some(kept)),
+            ProjectAct::GiveUp { gone, .. } => project_shared(Some(gone)),
             ProjectAct::MoveProjectRow { row, to } => {
                 row_shared(row)?;
                 match &to.project {

@@ -55,6 +55,7 @@ pub(crate) fn kind_word(kind: MessageKind) -> &'static str {
         MessageKind::NewAsk => "new_ask",
         MessageKind::Revision => "revision",
         MessageKind::Answer => "answer",
+        MessageKind::Question => "question",
         MessageKind::Talk => "talk",
     }
 }
@@ -83,6 +84,7 @@ fn kind_of(word: &str) -> Option<MessageKind> {
         "new_ask" | "new ask" => Some(MessageKind::NewAsk),
         "revision" => Some(MessageKind::Revision),
         "answer" => Some(MessageKind::Answer),
+        "question" => Some(MessageKind::Question),
         "talk" => Some(MessageKind::Talk),
         _ => None,
     }
@@ -135,14 +137,15 @@ pub(crate) fn question(words: &str, asks: &[OpenAsk], turns: &[Turn], correction
          new_ask: asks for something new: a bug to fix, a change, an idea, or a repair.\n\
          revision: changes or adds to an open ask listed below.\n\
          answer: a pick, an approval or a reply to something the agent asked or showed, joined to the open ask it is about.\n\
-         talk: anything else, such as a question, thanks or discussion. It opens nothing.\n\n\
+         question: asks the agent something the person wants an answer to (why, what, how, is it, does it), rather than asking for work.\n\
+         talk: anything else, such as thanks or discussion. It opens nothing.\n\n\
          Ask kinds: bug (something is broken), change_request (something to change or build), idea (something to consider), fix (a repair he names).\n\n\
          Open asks of this job:\n{listed}\n\n\
          The last turns before the message:\n{before}\n\n\
          {examples}\
          The message:\n{words}\n\n\
          Answer in four lines and nothing else:\n\
-         {KIND} new_ask, revision, answer or talk\n\
+         {KIND} new_ask, revision, answer, question or talk\n\
          {ASK_KIND} bug, change_request, idea or fix for a new_ask, else none\n\
          {ASK} the number of the open ask a revision or answer joins, else none\n\
          {TITLE} for a new_ask, a title of at most eight words in the person's own terms, else none",
@@ -183,6 +186,6 @@ pub(crate) fn read_of(reply: &str, words: &str, asks: &[OpenAsk]) -> Option<Sort
                 None => Sorted { kind: MessageKind::Talk, ask_kind: None, ask: None, title: None },
             }
         }
-        MessageKind::Talk => Sorted { kind, ask_kind: None, ask: None, title: None },
+        MessageKind::Question | MessageKind::Talk => Sorted { kind, ask_kind: None, ask: None, title: None },
     })
 }

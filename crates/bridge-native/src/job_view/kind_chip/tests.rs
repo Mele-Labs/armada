@@ -78,12 +78,12 @@ fn rows(entries: &[Entry]) -> Vec<(String, Option<bool>, Option<String>)> {
 }
 
 #[test]
-fn the_first_menu_lists_the_seven_kinds_with_the_current_one_marked() {
+fn the_first_menu_lists_the_eight_kinds_with_the_current_one_marked() {
     let held = mock::held(JOB);
     let current = held.sortings.iter().find(|one| one.row_id == FIX).expect("sorted");
     let said = rows(&model::kind_entries(current, &held.asks));
     let labels: Vec<&str> = said.iter().map(|(label, _, _)| label.as_str()).collect();
-    assert_eq!(labels, ["Bug", "Change request", "Idea", "Fix", "Revision", "Answer", "Talk"]);
+    assert_eq!(labels, ["Bug", "Change request", "Idea", "Fix", "Revision", "Answer", "Question", "Talk"]);
     assert_eq!(said.iter().filter(|(_, ticked, _)| *ticked == Some(true)).map(|(label, _, _)| label.as_str()).collect::<Vec<_>>(), ["Fix"], "one is marked");
     assert!(said.iter().all(|(_, _, off)| off.is_none()), "the Job holds open asks, so every line can be picked");
 }

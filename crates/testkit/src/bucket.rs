@@ -3,7 +3,8 @@
 //!
 //! [`FakeBucket::view`] is a second handle on the same objects with a switch of its own, so "this
 //! machine cannot reach the bucket" and "another machine already wrote there" are each one
-//! statement. A handle can also be set to refuse writes only, which is a key that may read.
+//! statement. A handle can also be set to refuse writes only, which is a key that may read, or to
+//! refuse deletes only, which is a key that may read and write.
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -14,6 +15,7 @@ use adapter_traits::{Bucket, BucketError};
 const WORKS: u8 = 0;
 const UNREACHABLE: u8 = 1;
 const READ_ONLY: u8 = 2;
+const NO_DELETE: u8 = 3;
 
 /// Objects in memory, by name.
 #[derive(Debug, Default)]
@@ -43,6 +45,11 @@ impl FakeBucket {
         self.mode.store(if read_only { READ_ONLY } else { WORKS }, Ordering::SeqCst);
     }
 
+    /// While set, reads and writes answer and every delete is refused: a key with no delete right.
+    pub fn set_no_delete(&self, no_delete: bool) {
+        self.mode.store(if no_delete { NO_DELETE } else { WORKS }, Ordering::SeqCst);
+    }
+
     /// An object, whichever handle wrote it.
     pub fn object(&self, name: &str) -> Option<Vec<u8>> {
         self.objects.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(name).cloned()
@@ -58,7 +65,7 @@ impl FakeBucket {
         self.objects.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(name.to_string(), body.to_vec());
     }
 
-    /// The calls this handle took, `get name` or `put name`, **including those that failed**.
+    /// The calls this handle took, `get name`, `put name` or `delete name`, **including those that failed**.
     pub fn calls(&self) -> Vec<String> {
         self.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
@@ -88,6 +95,18 @@ impl Bucket for FakeBucket {
             }
         }
     }
+
+    fn delete(&self, name: &str) -> Result<(), BucketError> {
+        self.took(format!("delete {name}"));
+        match self.mode.load(Ordering::SeqCst) {
+            UNREACHABLE => Err(BucketError::Unreachable("the fake bucket is switched off".to_string())),
+            READ_ONLY | NO_DELETE => Err(BucketError::Refused("status 403: the key may not delete here".to_string())),
+            _ => {
+                self.objects.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(name);
+                Ok(())
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -106,5 +125,21 @@ mod tests {
         b.set_read_only(true);
         assert!(b.get("runs/shop.toml").is_ok());
         assert!(!b.put("runs/shop.toml", b"two").expect_err("refused").is_unreachable());
+    }
+
+    #[test]
+    fn a_delete_removes_the_object_for_every_handle_and_a_key_with_no_delete_right_is_refused() {
+        let a = FakeBucket::new();
+        let b = a.view();
+        a.put("runs/shop.toml", b"one").expect("written");
+        b.set_no_delete(true);
+        assert!(b.put("runs/other.toml", b"two").is_ok());
+        assert!(b.delete("runs/shop.toml").expect_err("refused").said().contains("may not delete"));
+        assert_eq!(a.object("runs/shop.toml"), Some(b"one".to_vec()));
+        b.set_no_delete(false);
+        b.delete("runs/shop.toml").expect("deleted");
+        assert_eq!(a.object("runs/shop.toml"), None);
+        assert!(a.delete("runs/shop.toml").is_ok(), "one that is not there is already deleted");
+        assert_eq!(b.calls(), ["put runs/other.toml", "delete runs/shop.toml", "delete runs/shop.toml"]);
     }
 }

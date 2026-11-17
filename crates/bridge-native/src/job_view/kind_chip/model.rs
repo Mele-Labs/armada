@@ -42,6 +42,7 @@ pub(crate) fn label(sorting: &MessageSorting) -> &'static str {
         MessageKind::NewAsk => ask_label(ask_kind_of(sorting)),
         MessageKind::Revision => "Revision",
         MessageKind::Answer => "Answer",
+        MessageKind::Question => "Question",
         MessageKind::Talk => "Talk",
     }
 }
@@ -49,7 +50,7 @@ pub(crate) fn label(sorting: &MessageSorting) -> &'static str {
 pub(crate) fn hue(sorting: &MessageSorting) -> Hue {
     match sorting.kind {
         MessageKind::NewAsk => ask_hue(ask_kind_of(sorting)),
-        MessageKind::Revision | MessageKind::Answer | MessageKind::Talk => Hue::Neutral,
+        MessageKind::Revision | MessageKind::Answer | MessageKind::Question | MessageKind::Talk => Hue::Neutral,
     }
 }
 
@@ -67,17 +68,19 @@ pub(crate) enum Choice {
     Ask(AskKind),
     Revision,
     Answer,
+    Question,
     Talk,
 }
 
 /// The first menu's lines, in the order the mock lists them.
-pub(crate) const CHOICES: [Choice; 7] = [
+pub(crate) const CHOICES: [Choice; 8] = [
     Choice::Ask(AskKind::Bug),
     Choice::Ask(AskKind::ChangeRequest),
     Choice::Ask(AskKind::Idea),
     Choice::Ask(AskKind::Fix),
     Choice::Revision,
     Choice::Answer,
+    Choice::Question,
     Choice::Talk,
 ];
 
@@ -91,6 +94,7 @@ impl Choice {
             Choice::Ask(AskKind::Fix) => "kind:fix",
             Choice::Revision => "kind:revision",
             Choice::Answer => "kind:answer",
+            Choice::Question => "kind:question",
             Choice::Talk => "kind:talk",
         }
     }
@@ -104,6 +108,7 @@ impl Choice {
             Choice::Ask(kind) => ask_label(kind),
             Choice::Revision => "Revision",
             Choice::Answer => "Answer",
+            Choice::Question => "Question",
             Choice::Talk => "Talk",
         }
     }
@@ -114,6 +119,7 @@ impl Choice {
             Choice::Ask(kind) => sorting.kind == MessageKind::NewAsk && ask_kind_of(sorting) == kind,
             Choice::Revision => sorting.kind == MessageKind::Revision,
             Choice::Answer => sorting.kind == MessageKind::Answer,
+            Choice::Question => sorting.kind == MessageKind::Question,
             Choice::Talk => sorting.kind == MessageKind::Talk,
         }
     }
@@ -173,6 +179,7 @@ pub(crate) fn request(job: &str, row_id: &str, choice: Choice, ask: Option<&str>
     let (kind, ask_kind, ask_id) = match choice {
         Choice::Ask(kind) => (MessageKind::NewAsk, Some(kind), None),
         Choice::Talk => (MessageKind::Talk, None, None),
+        Choice::Question => (MessageKind::Question, None, None),
         Choice::Revision => (MessageKind::Revision, None, Some(ask?.to_string())),
         Choice::Answer => (MessageKind::Answer, None, Some(ask?.to_string())),
     };

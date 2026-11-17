@@ -305,6 +305,8 @@ export type SessionRecord = {
   claim_waits?: ClaimWait[];
   /** Whether the Job holds claims its project's store has not taken yet, because the store did not answer. Absent where all are sent. Since 14 Nov 2026. */
   claims_unsent?: boolean;
+  /** Whether a reply of the Job's answers a question of his that he has not read yet. Absent where none waits. Since 17 Nov 2026. */
+  answer_unread?: boolean;
 };
 
 /**

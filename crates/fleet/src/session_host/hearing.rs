@@ -365,9 +365,8 @@ where
             }
             DroneEvent::Called { tool, detail, call } => {
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
-                if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
-                    self.delivered(id, to, message).await;
-                }
+                // Sent once the sender's thread holds the call: a Job on his other Mac is a round trip away.
+                let sent = adapters::sent_message(&tool, &shown).map(|(to, message)| (to.to_string(), message.to_string()));
                 let home = std::env::var("HOME").unwrap_or_default();
                 if let Some(path) = adapters::written_document(&tool, &shown, &home) {
                     self.artifact_made(id, path, "file").await;
@@ -396,6 +395,9 @@ where
                     runtime.state().check_calls.called(&call, row.id());
                 }
                 self.row_put(id, row).await;
+                if let Some((to, message)) = sent {
+                    self.delivered(id, &to, &message).await;
+                }
             }
             // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
             DroneEvent::Answered { call, failed } => {
@@ -474,6 +476,8 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref(), carded).await;
+            // His open questions are read against the reply on the notice loop, off this turn.
+            self.questions_due_at(id).await;
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }

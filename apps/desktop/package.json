@@ -18,6 +18,7 @@
     "mock": "vite --config vite.mock.config.ts --open",
     "walk": "node capture/walk.mjs",
     "trace-map": "node scripts/trace-map.mjs",
+    "job-browser-page": "node scripts/job-browser-page.mjs",
     "typecheck": "tsc -b",
     "test": "vitest run"
   },
