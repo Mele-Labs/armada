@@ -112,7 +112,7 @@ impl Zone {
             Zone::Judge => ("scale", "Judge"),
             Zone::Artifacts => ("shapes", "Artifacts"),
             Zone::ForYou => ("user-check", "For you"),
-            Zone::Qa => ("message-circle-question", "Q&A"),
+            Zone::Qa => ("messages-square", "Q&A"),
         }
     }
 }

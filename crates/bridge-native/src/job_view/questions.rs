@@ -13,7 +13,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, FontWeight, KeyDow
 use ipc::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead, SessionId, SessionRow, StoryChanged, ThreadItem};
 
 use super::artifacts_tab::step;
-use super::rows::{clock, eyebrow, tip};
+use super::rows::{eyebrow, tip};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -71,6 +71,11 @@ fn empty(job: &str) -> JobQuestions {
 /// His words on one line, as the pinned line says them.
 fn one_line(words: &str) -> String {
     words.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A time as `today 08:07` or `9 Nov 08:07`, after `what`: `Answered today 08:07`. `what` alone where it is not a time.
+fn said_at(what: &str, at: &str) -> String {
+    crate::since_looked::when(at).map_or_else(|| what.to_string(), |(day, time)| format!("{what} {day} {time}"))
 }
 
 impl JobView {
@@ -314,8 +319,7 @@ impl JobView {
         if read.questions.is_empty() {
             return None;
         }
-        let now = Local::now();
-        let cards: Vec<AnyElement> = read.questions.iter().map(|one| self.question_card(id, page, one, look, now, window, cx)).collect();
+        let cards: Vec<AnyElement> = read.questions.iter().map(|one| self.question_card(id, page, one, look, window, cx)).collect();
         let keyed = id.to_string();
         Some(
             labelled(
@@ -337,9 +341,9 @@ impl JobView {
         )
     }
 
-    /// One question's card: his words and when he asked, then the answer's first words and when it came, or that none has.
-    #[allow(clippy::too_many_arguments)]
-    fn question_card(&self, job: &SharedString, page: &Page, one: &JobQuestion, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
+    /// One question's card: his words across the card and when he asked under them, then the answer's first words and when
+    /// it came, or that none has.
+    fn question_card(&self, job: &SharedString, page: &Page, one: &JobQuestion, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let spot = page.keys.spot(&format!("qa:{}", one.row_id), cx);
         let on = spot.focus.is_focused(window);
         let edge = look.length(token::BORDER_WIDTH);
@@ -356,16 +360,14 @@ impl JobView {
                 "Answer not read",
             )
         }));
-        let asked = clock(one.asked_at.as_str(), now).unwrap_or_default();
         let head = div()
             .flex()
-            .items_start()
-            .gap(look.length(token::SPACE_2))
-            .child(div().flex_1().min_w_0().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).line_clamp(2).text_ellipsis().child(SharedString::from(one_line(&one.words))))
-            .child(small(token::FG_SUBTLE).flex_none().child(SharedString::from(asked)));
+            .flex_col()
+            .child(div().min_w_0().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).line_clamp(2).text_ellipsis().child(SharedString::from(one_line(&one.words))))
+            .child(small(token::FG_SUBTLE).child(SharedString::from(said_at("Asked", one.asked_at.as_str()))));
         let under = match &one.answer {
             Some(answer) => {
-                let when = clock(answer.answered_at.as_str(), now).map_or_else(|| "Answered".to_string(), |at| format!("Answered {at}"));
+                let when = said_at("Answered", answer.answered_at.as_str());
                 div()
                     .flex()
                     .flex_col()
@@ -407,10 +409,10 @@ impl JobView {
     // ---- in the thread ---------------------------------------------------------------------
 
     /// The answer folded under his question at `row`, inside his message: when it came, its first words and Jump.
-    pub(super) fn folded_answer(&self, page: &Page, row: &str, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn folded_answer(&self, page: &Page, row: &str, look: &Look, _now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.shown.as_ref()?;
         let answer = self.question(job, row)?.answer.as_ref()?;
-        let when = clock(answer.answered_at.as_str(), now).map_or_else(|| "Answered".to_string(), |at| format!("Answered {at}"));
+        let when = said_at("Answered", answer.answered_at.as_str());
         let spot = page.keys.spot(&format!("answer-jump:{row}"), cx);
         let jump = self.jump_button(&format!("answer-jump:{row}"), &spot.focus, job, row, look, cx);
         Some(

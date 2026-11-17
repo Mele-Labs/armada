@@ -26,7 +26,7 @@ pub(super) struct AddMenu {
 const KINDS: [(&str, &str, &str); 22] = [
     ("thread", "Thread", "message-square"),
     ("for_you", "For you", "user-check"),
-    ("qa", "Q&A", "message-circle-question"),
+    ("qa", "Q&A", "messages-square"),
     ("done", "Done", "circle-check"),
     ("now", "Now", "activity"),
     ("open", "Open", "circle"),
