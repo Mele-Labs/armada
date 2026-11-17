@@ -145,7 +145,11 @@ where
         attachment.target = target;
         attachment.detail.extend(carried);
         attachment.detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
-        if show.asks {
+        // In an artifact that holds takes his pick is the one answer, so a drawing in it only informs.
+        let root = attachment.detail.get(ipc::ARTIFACT_IN).cloned().unwrap_or_else(|| attachment.target.clone());
+        let in_takes = super::artifact_parts::holds_takes(&attachment.detail)
+            || held.iter().any(|one| one.target == root && super::artifact_parts::holds_takes(&one.detail));
+        if show.asks && !in_takes {
             attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
         }
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));

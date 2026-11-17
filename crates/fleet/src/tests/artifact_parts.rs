@@ -110,7 +110,7 @@ async fn one_artifact_grows_a_drawing_takes_and_words_and_each_ask_is_answered_a
     rig.fleet.add_part(None, takes(&id, "Cache design")).await.unwrap();
     rig.fleet.add_part(None, buttons(&id, "Cache design")).await.unwrap();
 
-    // One artifact, four parts, and the buttons ask nothing.
+    // One artifact, four parts. The buttons ask nothing, and nor does the drawing once takes joined it.
     let held = artifacts(&rig, &id).await;
     assert_eq!(held.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["sketch:Cache design"]);
     let artifact = &held[0];
@@ -118,7 +118,7 @@ async fn one_artifact_grows_a_drawing_takes_and_words_and_each_ask_is_answered_a
     assert_eq!(
         parts,
         [
-            ("sketch:Cache design", PartKind::Drawing, true),
+            ("sketch:Cache design", PartKind::Drawing, false),
             ("notes", PartKind::Words, true),
             ("layout", PartKind::Takes, true),
             ("go", PartKind::Buttons, false),
@@ -128,19 +128,23 @@ async fn one_artifact_grows_a_drawing_takes_and_words_and_each_ask_is_answered_a
 
     // One Needs you item, naming what is open, never counting it.
     let list = his_list(&rig, &id).await;
-    assert_eq!(list, [("sketch:Cache design".to_string(), "Cache design: Cache design, notes, layout".to_string())]);
+    assert_eq!(list, [("sketch:Cache design".to_string(), "Cache design: notes, layout".to_string())]);
 
     // Words: Approve alone. The Job is told naming the artifact and the part, and the item names what is left.
     let notes = artifact.parts.iter().find(|part| part.id == "notes").unwrap();
     let after = Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Cache design", "notes", &notes.drawn, PartHow::Approved)).await.unwrap();
     assert_eq!(after.state, ArtifactState::Asking, "two asks are still open");
     assert_eq!(told(&rig.rows(&id).await).pop().unwrap(), "Approved part \"notes\" of \"Cache design\".\nGo on from it as written.");
-    assert_eq!(his_list(&rig, &id).await, [("sketch:Cache design".to_string(), "Cache design: Cache design, layout".to_string())]);
+    assert_eq!(his_list(&rig, &id).await, [("sketch:Cache design".to_string(), "Cache design: layout".to_string())]);
 
-    // The drawing: Ask for changes, with a note, is its answer alone.
+    // The drawing informs: it has nothing to answer.
     let drawing = after.parts.iter().find(|part| part.content.kind() == PartKind::Drawing).unwrap();
-    Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Cache design", "sketch:Cache design", &drawing.drawn, PartHow::SentBack)).await.unwrap();
-    assert_eq!(told(&rig.rows(&id).await).pop().unwrap(), "Sent back sketch: Cache design\nChange it.\nDraw it again with show_sketch under the same title.");
+    let Err(Refusal::Unacceptable(informs)) =
+        Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Cache design", "sketch:Cache design", &drawing.drawn, PartHow::SentBack)).await
+    else {
+        panic!("a drawing beside takes asks nothing")
+    };
+    assert_eq!(informs.code, "fleet.part_not_open");
 
     // A takes part is answered with a pick, and a plain Approve of the whole is refused while one waits.
     let layout = artifacts(&rig, &id).await[0].parts.iter().find(|part| part.id == "layout").cloned().unwrap();
@@ -157,12 +161,12 @@ async fn one_artifact_grows_a_drawing_takes_and_words_and_each_ask_is_answered_a
     approve.drawn = layout.revision.to_string();
     let done = Arc::clone(&rig.fleet).answer_part(AnswerPart { drawn: layout.drawn.clone(), ..approve }).await.unwrap();
 
-    // Every ask answered: the artifact settles, sent back because one part was, and leaves his list.
-    assert_eq!((done.state, done.item.as_deref()), (ArtifactState::SentBack, None));
+    // Every ask answered: the artifact settles approved and leaves his list.
+    assert_eq!((done.state, done.item.as_deref()), (ArtifactState::Approved, None));
     let states: Vec<(&str, PartState)> = done.parts.iter().map(|part| (part.id.as_str(), part.state)).collect();
     assert_eq!(
         states,
-        [("sketch:Cache design", PartState::SentBack), ("notes", PartState::Approved), ("layout", PartState::Picked), ("go", PartState::Open)]
+        [("sketch:Cache design", PartState::Open), ("notes", PartState::Approved), ("layout", PartState::Picked), ("go", PartState::Open)]
     );
     assert!(his_list(&rig, &id).await.is_empty());
     let said = told(&rig.rows(&id).await);
@@ -175,6 +179,66 @@ async fn one_artifact_grows_a_drawing_takes_and_words_and_each_ask_is_answered_a
         panic!("answered already");
     };
     assert_eq!(again.code, "fleet.part_not_open");
+}
+
+/// His pick of take `b` on the takes part `layout` of the artifact at `root`, as he reads it now.
+async fn picked(rig: &Rig, id: &SessionId, root: &str) -> Result<ipc::JobArtifact, Refusal> {
+    let layout = artifacts(rig, id).await.into_iter().find(|one| one.id == root).unwrap().parts.into_iter().find(|part| part.id == "layout").unwrap();
+    let mut pick = answer(id, root, "layout", &layout.drawn, PartHow::Picked);
+    pick.take = Some("b".into());
+    Arc::clone(&rig.fleet).answer_part(pick).await
+}
+
+#[tokio::test]
+async fn a_sketch_with_takes_leaves_needs_you_on_one_pick_whichever_was_shown_first() {
+    // The sketch first, then the takes: the drawing stops asking once they join.
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Catalog", None)).await.unwrap();
+    assert_eq!(his_list(&rig, &id).await, [("sketch:Catalog".to_string(), "Catalog".to_string())]);
+    rig.fleet.add_part(None, takes(&id, "Catalog")).await.unwrap();
+    assert_eq!(his_list(&rig, &id).await, [("sketch:Catalog".to_string(), "Catalog: layout".to_string())], "the takes alone ask");
+    let done = picked(&rig, &id, "sketch:Catalog").await.unwrap();
+    assert_eq!((done.state, done.item.as_deref()), (ArtifactState::Approved, None));
+    assert!(his_list(&rig, &id).await.is_empty(), "one pick settles it");
+
+    // The takes first, then a sketch: it joins and asks nothing.
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.add_part(None, takes(&id, "Catalog")).await.unwrap();
+    rig.fleet.show_sketch(None, drawn(&id, "Catalog context", None)).await.unwrap();
+    let held = artifacts(&rig, &id).await;
+    assert_eq!(held.len(), 1, "one artifact: {:?}", held.iter().map(|one| &one.id).collect::<Vec<_>>());
+    let drawing = held[0].parts.iter().find(|part| part.content.kind() == PartKind::Drawing).expect("the drawing joined");
+    assert!(!drawing.asks, "a drawing beside takes informs");
+    let root = held[0].id.clone();
+    assert_eq!(his_list(&rig, &id).await.len(), 1);
+    picked(&rig, &id, &root).await.unwrap();
+    assert!(his_list(&rig, &id).await.is_empty(), "one pick settles it");
+}
+
+#[tokio::test]
+async fn words_that_ask_beside_a_sketch_and_takes_still_wait_after_the_pick_and_approve_all_is_refused_for_the_takes() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_sketch(None, drawn(&id, "Catalog", None)).await.unwrap();
+    rig.fleet.add_part(None, takes(&id, "Catalog")).await.unwrap();
+    rig.fleet.add_part(None, words(&id, "Catalog", "notes", "Group by area.")).await.unwrap();
+
+    // Approve of the whole never stands in for the pick.
+    let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Catalog".into(), how: ipc::ItemHow::Approve, notes: Vec::new() };
+    let whole = Arc::clone(&rig.fleet).answer_items(ipc::AnswerItems { items: vec![item] }, Vec::new()).await;
+    let ipc::ItemSettled::Refused { message, .. } = &whole.outcomes[0].outcome else { panic!("an Approve of the whole is refused while a pick is open") };
+    assert!(message.contains("send a pick"), "{message}");
+
+    // The pick answers the takes; the words still ask.
+    let after = picked(&rig, &id, "sketch:Catalog").await.unwrap();
+    assert_eq!(after.state, ArtifactState::Asking);
+    assert_eq!(his_list(&rig, &id).await, [("sketch:Catalog".to_string(), "Catalog: notes".to_string())]);
+    let notes = after.parts.iter().find(|part| part.id == "notes").unwrap();
+    let done = Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Catalog", "notes", &notes.drawn, PartHow::Approved)).await.unwrap();
+    assert_eq!(done.state, ArtifactState::Approved);
+    assert!(his_list(&rig, &id).await.is_empty());
 }
 
 #[tokio::test]

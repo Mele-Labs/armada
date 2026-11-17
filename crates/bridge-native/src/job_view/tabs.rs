@@ -27,6 +27,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("thread", "Thread", "message-square"),
     ("browser", "Browser", "globe"),
     ("for_you", "For you", "user-check"),
+    ("qa", "Q&A", "messages-square"),
     ("done", "Done", "circle-check"),
     ("now", "Now", "activity"),
     ("open", "Open", "circle"),

@@ -1504,6 +1504,18 @@ destructive = false
 confirms = false
 notes = "Steps to the previous match of the thread's find bar while it is open, from the first round to the last. ⇧Enter in the bar does the same. Native only."
 
+[actions.thread_question]
+kind = "Action"
+tier = "Global"
+verb = "Go to your question"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Scrolls the open Job's thread to the person's previous question with ⌥↑, or the next with ⌥↓, from the item at the top of the view: a message of his that Fleet sorted as a question (`list_job_questions`). Nothing moves past the first or the last. In the message box the keys stay the box's. Native only. Approved by the owner in a sketch on 17 Nov 2026."
+
 [actions.handoff_retry]
 kind = "Action"
 tier = "Contextual"

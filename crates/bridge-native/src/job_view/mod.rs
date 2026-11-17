@@ -14,6 +14,7 @@ mod aa;
 mod acts;
 mod artifacts_tab;
 mod for_you_tab;
+mod questions;
 mod reader_sheet;
 mod band_card;
 mod bands;
@@ -429,6 +430,8 @@ pub struct JobView {
     artifacts: artifacts_tab::Artifacts,
     /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
     for_you: for_you_tab::ForYouTab,
+    /// His questions to each Job and their answers, as Fleet last read them.
+    questions: questions::Questions,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -604,10 +607,12 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                this.questions_replied(window, cx);
                 cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::StoryMoved, window, cx| this.questions_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
             subscriptions.push(job_browser::follow(fleet, window, cx));
         }
@@ -689,6 +694,7 @@ impl JobView {
             aged: false,
             artifacts: artifacts_tab::Artifacts::default(),
             for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
+            questions: questions::Questions::mock(if mock_on { crate::mock::questions() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -1314,6 +1320,7 @@ impl Render for JobView {
         self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
+        self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
