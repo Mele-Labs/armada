@@ -146,6 +146,15 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.pull_request_facts(in_repo, pull_request)
     }
 
+    fn pull_request_standing(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        gate: &str,
+    ) -> Option<(adapter_traits::PullRequestFacts, adapter_traits::WhatTheForgeRan)> {
+        self.forge.pull_request_standing(in_repo, pull_request, gate)
+    }
+
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
         self.forge.mark_ready(in_repo, pull_request)
     }

@@ -417,6 +417,17 @@ impl Forge for ApiForge {
         self.read(in_repo, |api, repository| standing::facts(api, repository, number), gh)
     }
 
+    fn pull_request_standing(
+        &self,
+        in_repo: &str,
+        pull_request: &str,
+        gate: &str,
+    ) -> Option<(adapter_traits::PullRequestFacts, adapter_traits::WhatTheForgeRan)> {
+        let gh = |gh: &GhForge| gh.pull_request_standing(in_repo, pull_request, gate);
+        let Some(number) = self.pull_number(in_repo, pull_request) else { return gh(&self.gh) };
+        self.read(in_repo, |api, repository| review_state::standing(api, repository, number, gate), gh)
+    }
+
     fn mark_ready(&self, in_repo: &str, pull_request: &str) -> Result<(), String> {
         self.written_on_pull(
             in_repo,
