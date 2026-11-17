@@ -124,6 +124,11 @@ impl Layer {
         self.beside.update(cx, |beside, cx| beside.from_source(source, opened, cx));
     }
 
+    /// Whether a source of features was given, so a note's card draws its chips.
+    pub(crate) fn has_feature_source(&self, cx: &App) -> bool {
+        self.beside.read(cx).from.is_some()
+    }
+
     /// Notes read back from where they are kept, as the layer reads them when it comes on.
     pub(crate) fn read_notes(&mut self, found: Vec<Value>, cx: &mut Context<Self>) {
         self.read_back(found, cx);
