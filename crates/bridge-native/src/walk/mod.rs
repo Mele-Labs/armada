@@ -1200,7 +1200,7 @@ pub static WALKS: &[Walk] = &[
             step("The line stays inside the card", Verb::Fits("region", "Claims"), "row", "Waiting on nick's Mac Home: Fix the flaky queue test"),
             press_on("A Job that takes an item a person is assigned in beads names the person and the item, and carries on once they are unassigned", "row", "Native Bridge foundation", "row", "Waiting on alice: armada-zasx.5"),
             step("It has waited two hours", Verb::Look, "timer", "2 h"),
-            press_on("A Job whose claims did not reach the project's store says so", "row", "Fix the merge line freshness chip", "row", "Claims not sent yet"),
+            press_on("A Job whose claims did not reach the project's store says what that means for others", "row", "Fix the merge line freshness chip", "row", "Other Jobs cannot see what this Job holds yet"),
             step("It waits on no item, so no wait line stands", Verb::Absent("row", "Waiting on alice: armada-zasx.5"), "region", "Claims"),
         ],
     },

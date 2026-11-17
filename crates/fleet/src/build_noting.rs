@@ -19,7 +19,7 @@ use ipc::{
     Instant, ManifestId, MarkBuildNoteLookedAt, NoteVerdict, PreviewStep, ReadyAnswer, ReadyApproved, ReadyState, SendBuildNoteFeedback,
     SendSessionMessage, SessionId, StartSession, ThreadReadyToTry, WireError,
 };
-use store::{KeptBuildNote, SessionState};
+use store::{KeptApproval, KeptBuildNote, SessionState};
 
 use crate::thread_keeping::Change;
 
@@ -299,6 +299,12 @@ where
                 let note = self.store().lock().await.build_note_of(&asked.branch, &asked.tip).map_err(|why| self.ledger_fault(why))?;
                 let note = note.ok_or_else(|| self.card_unknown(&asked.branch, &asked.tip))?;
                 self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at, Some(verdict_kept(NoteVerdict::Good))).map_err(|why| self.ledger_fault(why))?;
+                // His looks-good is his Approve, as an item the Job raised asking for it is: it closes the Job's first
+                // open `you_approved` gate. A preview names no plan group, so no group is picked for it.
+                let approval = KeptApproval { item_id: card_id(&asked.branch, &asked.tip), text: format!("Ready to try: {}", note.about), at: at.clone() };
+                self.store().lock().await.keep_approval(session, &approval).map_err(|why| self.ledger_fault(why))?;
+                // Nothing on the Job's row moved for the keeper to hear, as an item going from its list does, so it is swept now.
+                self.gates_kept(session).await;
                 let live = self.store().lock().await.session(session).ok().flatten().is_some_and(|row| row.state != SessionState::Ended);
                 if live {
                     let _ = self.told_news_by_fleet(session, &landing_text(&note), ipc::Notice::BuildMoved).await;
