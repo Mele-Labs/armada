@@ -3,7 +3,8 @@
 //! records fold to for the same pull request. `github_answers/` holds both: a `.json` is the API's
 //! answer, a `.tsv` what `gh`'s reduction printed for it. `page_2190`, `patches_2190` and
 //! `review_list` are this repository's own, trimmed; `*_reviewed` are made up, because nothing
-//! here has been reviewed on the forge.
+//! here has been reviewed on the forge, and so is `review_list_asked`, whose `.tsv` is what jq
+//! printed for it through `LINES`.
 
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
@@ -22,6 +23,8 @@ use crate::ApiForge;
 
 const LIST: &str = include_str!("github_answers/review_list.json");
 const LIST_GH: &str = include_str!("github_answers/review_list.tsv");
+const ASKED: &str = include_str!("github_answers/review_list_asked.json");
+const ASKED_GH: &str = include_str!("github_answers/review_list_asked.tsv");
 const PAGE: &str = include_str!("github_answers/page_2190.json");
 const PAGE_GH: &str = include_str!("github_answers/page_2190.tsv");
 const REVIEWED: &str = include_str!("github_answers/page_reviewed.json");
@@ -104,7 +107,7 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
     let ask = |list| ReviewListAsk { list, login: "NickMele", repositories: &repositories, most: 50 };
 
     let requested = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)).unwrap();
-    assert_eq!(requested, listed_folded(&lines(LIST_GH), Teams::Unwanted));
+    assert_eq!(requested, listed_folded(&lines(LIST_GH), Teams::Unwanted, "NickMele"));
     assert_eq!(requested.len(), 6, "the node that is no pull request is dropped");
     let mine = requested[0].my_latest.as_ref().expect("the person's own latest review");
     assert_eq!(mine.said, adapter_traits::LatestReviewSaid::Commented);
@@ -114,12 +117,38 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
     // The person is on Platform, the second team asked of #2712, and on no team asked of #2711.
     let team = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Team)).unwrap();
     let held = vec!["mele-labs/platform".to_string()];
-    assert_eq!(team, listed_folded(&lines(LIST_GH), Teams::Held(&held)));
+    assert_eq!(team, listed_folded(&lines(LIST_GH), Teams::Held(&held), "NickMele"));
     let named: Vec<Option<&str>> = team.iter().map(|row| row.team.as_deref()).collect();
     assert_eq!(named, vec![None, None, Some("Platform"), Some("Reviewers"), None, None]);
 
     let searched = &server.seen()[0].body;
     assert!(searched.contains(r#""q":"is:pr is:open sort:updated-desc repo:mele-labs/armada user-review-requested:NickMele""#), "{searched}");
+}
+
+#[test]
+fn the_time_he_was_asked_over_the_api_is_the_time_gh_reads_and_only_the_lists_that_ask_him_read_it() {
+    let server = serve(|seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") => ok(ASKED),
+        ("GET", "/user/teams?per_page=100") => ok(r#"[{"slug":"billing-reviewers","organization":{"login":"acme"}}]"#),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = checkout("https://github.com/acme/billing.git");
+    let repositories = vec!["acme/billing".to_string()];
+    let ask = |list| ReviewListAsk { list, login: "mira", repositories: &repositories, most: 50 };
+
+    let requested = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)).unwrap();
+    assert_eq!(requested, listed_folded(&lines(ASKED_GH), Teams::Unwanted, "mira"));
+    assert_eq!(requested[0].asked_at.as_deref(), Some("2026-11-14T09:00:00Z"));
+    let team = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Team)).unwrap();
+    let held = vec!["acme/billing-reviewers".to_string()];
+    assert_eq!(team, listed_folded(&lines(ASKED_GH), Teams::Held(&held), "mira"));
+    assert_eq!(team[0].asked_at.as_deref(), Some("2026-11-12T09:00:00Z"));
+    forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Assigned)).unwrap();
+
+    let searches: Vec<String> = server.seen().into_iter().filter(|seen| seen.target == "/graphql").map(|seen| seen.body).collect();
+    let asked: Vec<bool> = searches.iter().map(|body| body.contains(r#""asked":true"#)).collect();
+    assert_eq!(asked, [true, true, false], "{searches:?}");
 }
 
 #[test]

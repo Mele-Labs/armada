@@ -27,6 +27,7 @@ pub(super) fn pull(number: u64, repository: &str) -> ListedPull {
         review: ReviewStanding::None,
         team: None,
         my_latest: None,
+        asked_at: None,
     }
 }
 
@@ -173,4 +174,44 @@ async fn a_list_keeps_the_most_the_wire_allows() {
     let lists = fleet.get_review_lists(None).await.expect("read");
     assert_eq!(lists.mine.len(), MOST_PER_LIST);
     assert_eq!(lists.mine[0].number, 1, "the forge's order is kept");
+}
+
+#[tokio::test]
+async fn the_forges_time_he_was_asked_rides_the_row() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    signed_in_as(&fleet, "mira");
+    let mut asked = pull(41, SLUG);
+    asked.asked_at = Some("2026-11-14T09:00:00Z".into());
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![asked]);
+    for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
+        fleet.vcs().now_review_list(list, Vec::new());
+    }
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert_eq!(lists.requested[0].asked_at.as_deref(), Some("2026-11-14T09:00:00Z"));
+}
+
+#[tokio::test]
+async fn where_the_forge_gave_no_time_a_request_by_name_is_dated_from_when_fleet_told_him() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    signed_in_as(&fleet, "mira");
+    let mut dated = pull(13, SLUG);
+    dated.asked_at = Some("2026-11-01T09:00:00Z".into());
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(12, SLUG), dated]);
+    fleet.vcs().now_review_list(ReviewList::Team, vec![pull(14, SLUG)]);
+    for list in [ReviewList::Assigned, ReviewList::Mine] {
+        fleet.vcs().now_review_list(list, Vec::new());
+    }
+    fleet.review_requests_looked().await;
+    let told = {
+        let store = fleet.store().lock().await;
+        let kept = store.review_requests_told().expect("read");
+        kept.into_iter().find(|it| it.number == 12).expect("told of #12").told_at
+    };
+
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    let asked: Vec<(u64, Option<&str>)> = lists.requested.iter().map(|row| (row.number, row.asked_at.as_deref())).collect();
+    assert_eq!(asked, [(12, Some(told.as_str())), (13, Some("2026-11-01T09:00:00Z"))], "the forge's own time is kept");
+    assert_eq!(lists.team[0].asked_at, None, "Fleet tells only of a request by name");
 }
