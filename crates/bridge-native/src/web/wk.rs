@@ -21,7 +21,7 @@ use objc2_app_kit::{
     NSEventType, NSImage, NSResponder, NSView, NSWindow,
 };
 use objc2_foundation::{
-    NSData, NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
+    NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
     NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
@@ -441,7 +441,7 @@ impl Native {
     pub fn pdf(&self, done: impl FnOnce(Result<Vec<u8>, String>) + 'static) {
         pending_up();
         let done = RefCell::new(Some(done));
-        let block = RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
+        let block = RcBlock::new(move |data: *mut objc2_foundation::NSData, error: *mut NSError| {
             pending_down();
             let made = if data.is_null() {
                 // SAFETY: WebKit passes a live error, or null, for the length of this call.
