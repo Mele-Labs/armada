@@ -51,7 +51,7 @@ enum Sent {
     Unreachable,
 }
 
-fn row_id(row: &ProjectRow) -> &str {
+pub(crate) fn row_id(row: &ProjectRow) -> &str {
     match row {
         ProjectRow::Task { id, .. } | ProjectRow::Issue { id, .. } => id,
     }
@@ -133,6 +133,21 @@ fn overlaid(project: &mut Project, act: &ProjectAct) {
         ProjectAct::RemoveProjectRow { row } => {
             project.rows.retain(|one| row_id(one) != row && parent_of(one) != Some(row.as_str()));
         }
+        // A merge shows at once: the kept project has the gone one's tasks, a held one open, as the holder will keep them.
+        ProjectAct::Absorb { kept, gone, .. } if *kept == project.id => {
+            for row in &gone.rows {
+                if project.rows.iter().all(|one| row_id(one) != row_id(row)) {
+                    let mut shown = row.clone();
+                    if let ProjectRow::Task { state, held_by, .. } = &mut shown {
+                        if *state == ProjectTaskState::Held {
+                            *state = ProjectTaskState::Open;
+                        }
+                        *held_by = None;
+                    }
+                    project.rows.push(shown);
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -198,8 +213,9 @@ where
         Ok(kept.into_iter().filter_map(waiting_of).collect())
     }
 
-    /// The copies, with what he edited on each while its Mac could not be reached shown on it.
-    async fn project_copies(&self) -> Result<Vec<Project>, Refusal> {
+    /// The copies, with what he edited on each while its Mac could not be reached shown on it. **A copy a queued
+    /// `GiveUp` takes away is not listed**, and the kept one shows the tasks of the project a queued `Absorb` takes in.
+    pub(crate) async fn project_copies(&self) -> Result<Vec<Project>, Refusal> {
         let mut copies = self.copies_held().await?;
         if copies.is_empty() {
             return Ok(copies);
@@ -211,8 +227,24 @@ where
             for project in copies.iter_mut().filter(|one| one.mac.as_deref() == Some(queued.mac.as_str())) {
                 overlaid(project, act);
             }
+            if let ProjectAct::GiveUp { gone, .. } = act {
+                copies.retain(|one| !(one.mac.as_deref() == Some(queued.mac.as_str()) && one.id == *gone));
+            }
         }
         Ok(copies)
+    }
+
+    /// The ids of this Mac's own projects that a queued `Absorb` is taking into a copy: **listed no more**, since the
+    /// copy shows their tasks, until the Mac that keeps the copy answers and the project is deleted here.
+    async fn merging_away(&self) -> std::collections::BTreeSet<String> {
+        let queued = self.queued_acts(None).await.unwrap_or_default();
+        queued
+            .into_iter()
+            .filter_map(|one| match one.act {
+                Waiting::Project(ProjectAct::Absorb { gone, .. }) => Some(gone.id),
+                _ => None,
+            })
+            .collect()
     }
 
     /// His projects on the wire: this Mac's own, then the copies his other Macs hold. **Every
@@ -220,6 +252,8 @@ where
     /// changed.
     pub(crate) async fn projects_on_the_wire(&self, kept: store::KeptProjects) -> ipc::Projects {
         let mut projects = self.own_projects_on_the_wire(kept).await;
+        let away = self.merging_away().await;
+        projects.projects.retain(|one| !away.contains(&one.id));
         if let Ok(copies) = self.project_copies().await {
             projects.projects.extend(copies);
         }
@@ -251,7 +285,10 @@ where
     /// Mac keeps a row by that id itself.
     pub(crate) async fn copy_of_row(&self, row: &str) -> Result<Option<String>, Refusal> {
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
-        if kept.projects.iter().flat_map(|one| &one.rows).chain(&kept.loose).any(|one| one.id == row) {
+        let away = self.merging_away().await;
+        // A row of a project being merged into a copy is the copy's now, though this Mac still keeps it until that Mac answers.
+        let own = kept.projects.iter().filter(|one| !away.contains(&one.id)).flat_map(|one| &one.rows);
+        if own.chain(&kept.loose).any(|one| one.id == row) {
             return Ok(None);
         }
         let copies = self.project_copies().await?;
@@ -343,7 +380,7 @@ where
             | ProjectAct::LinkTaskPull { row, .. }
             | ProjectAct::UnlinkTaskPull { row, .. } => task_row(row).map(drop),
             ProjectAct::RemoveProjectRow { row } | ProjectAct::MoveProjectRow { row, .. } => find(row).map(drop).ok_or_else(|| missing(row)),
-            ProjectAct::LinkProjectIssue { .. } => Ok(()),
+            ProjectAct::LinkProjectIssue { .. } | ProjectAct::Absorb { .. } | ProjectAct::GiveUp { .. } => Ok(()),
         }
     }
 
@@ -416,7 +453,12 @@ where
 
     /// An act on a project Mac `mac` holds, which is the Mac's to run. Sent to it where it answers, and
     /// otherwise **queued and shown on the copy at once**, to be sent when it next speaks. Answers his projects.
-    pub(crate) async fn act_on_copy(&self, mac: &str, mut act: ProjectAct) -> Result<ipc::Projects, Refusal> {
+    pub(crate) async fn act_on_copy(&self, mac: &str, act: ProjectAct) -> Result<ipc::Projects, Refusal> {
+        self.act_on_copy_told(mac, act).await.map(|(projects, _)| projects)
+    }
+
+    /// [`Fleet::act_on_copy`], and whether the Mac answered it now, and not later from the queue.
+    pub(crate) async fn act_on_copy_told(&self, mac: &str, mut act: ProjectAct) -> Result<(ipc::Projects, bool), Refusal> {
         self.copy_act_checked(mac, &act).await?;
         if let ProjectAct::EditProjectTask { row, task, fields } = &mut act {
             *fields = Some(self.edited_fields(mac, row, task).await?);
@@ -428,18 +470,20 @@ where
             match self.send_project_act(mac, &ProjectActFromMac { act: act.clone(), at: Some(at) }).await? {
                 Sent::Answered(answer) => {
                     self.copies_kept(mac, answer.projects).await?;
-                    return self.projects_relayed().await;
+                    return Ok((self.projects_relayed().await?, true));
                 }
                 Sent::Refused(refusal) => return Err(refusal),
                 Sent::Unreachable => {}
             }
         }
         if let ProjectAct::AddProjectTask { id, .. } | ProjectAct::AddProjectSubtask { id, .. } = &mut act {
-            *id = Some(self.minted());
+            if id.is_none() {
+                *id = Some(self.minted());
+            }
         }
         let body = self.encoded(&act)?;
         self.store().lock().await.queue_project_act(mac, at, &body).map_err(|why| self.ledger_fault(why))?;
-        self.projects_relayed().await
+        Ok((self.projects_relayed().await?, false))
     }
 
     /// Whether edits wait for Mac `mac`.
@@ -464,8 +508,16 @@ where
                 break;
             };
             match next.act {
-                Waiting::Project(act) => match self.send_project_act(&mac, &ProjectActFromMac { act, at: Some(next.at) }).await {
-                    Ok(Sent::Answered(answer)) => last = Some(answer.projects),
+                Waiting::Project(act) => {
+                    let merging = matches!(act, ProjectAct::Absorb { .. }).then(|| act.clone());
+                    match self.send_project_act(&mac, &ProjectActFromMac { act, at: Some(next.at) }).await {
+                    Ok(Sent::Answered(answer)) => {
+                        last = Some(answer.projects);
+                        // This Mac's own part of a merge, once the other Mac has the tasks. Behind the acts queued now.
+                        if let Some(act) = merging {
+                            self.merge_finished(&mac, &act).await;
+                        }
+                    }
                     Ok(Sent::Refused(refusal)) => {
                         let said = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a queued edit was refused by the Mac that holds its project, and dropped")
                             .with_field("mac", FieldValue::Str(mac.clone()))
@@ -473,7 +525,8 @@ where
                         crate::transcript::note_aloud(&said);
                     }
                     Ok(Sent::Unreachable) | Err(_) => break,
-                },
+                    }
+                }
                 Waiting::Job { id, act } => {
                     jobs_moved = true;
                     match self.job_act_flushed(&mac, next.seq, MacAct { id, act, at: next.at }).await {

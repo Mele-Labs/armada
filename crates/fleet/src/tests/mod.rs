@@ -180,6 +180,7 @@ mod share;
 mod phone_share;
 mod other_macs;
 mod other_mac_projects;
+mod project_merging;
 mod two_macs;
 mod session_dispute_reading;
 mod story;

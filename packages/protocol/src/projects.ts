@@ -184,6 +184,17 @@ export type EditProject = {
   shared_with_macs?: boolean;
 };
 
+/**
+ * `POST /projects/merge`: two projects of one name, one this Mac's own and one a copy of another Mac's, made one. `kept` stays,
+ * whichever it is, and `gone` goes. `from_gone` names the value keys (a field of `ValuesSet`) where `gone`'s value wins over a
+ * different one of `kept`'s; a key left out keeps `kept`'s. `kept` must be shared with his other Macs.
+ */
+export type MergeProjects = {
+  kept: string;
+  gone: string;
+  from_gone?: string[];
+};
+
 /** `POST /projects/rows/:row/edit` and `POST /projects/rows/:row/subtasks` (a task under the top-level task `row`): title and notes, whole. */
 export type ProjectTask = {
   title: string;

@@ -130,11 +130,33 @@ A task edited, added, ticked, linked, moved within the project or removed on the
 An edit on the holding Mac reaches the copy the same way.
 
 > **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task or moved into it, and a task's repository.
+> A merge keeps this rule: each Mac changes only what it holds, and the other Mac's part crosses as an act.
 > Why: the file is on that Mac, and a Job of the other Mac is not this Mac's to link until acts cross between Macs.
 
 > **Rule (13 Nov).** An edit made on a copy while the holding Mac is asleep shows on the copy at once and is sent when that Mac wakes, oldest first.
 > Where both Macs changed the same field of one task during the sleep (title, notes, state or place), the later edit wins on both, and he is never asked.
 > Why: he chose that edits are never refused and he is never asked; a clash needs two edits to one field of one task within one sleep.
+
+### Merging two projects of one name
+
+**Each Mac holds its own project of a name, so a shared project shows twice on the other Mac, once as its own and once as a copy.**
+One Merge, pressed on either Mac, makes them one.
+The request names the project to keep and the project that goes, and either may be this Mac's own or the copy.
+
+> **Rule (17 Nov).** Merge needs the project to keep to be shared with his other Macs, and the Bridge offers the switch first.
+> Why: a project that is not shared cannot take tasks from another Mac, and the other Mac could not list it afterwards.
+
+- The Mac that holds the kept project takes the gone project's tasks, members and values.
+  A task keeps its id and its state, except that a held task comes over open, because linking a Job on one Mac to a task on the other is not built.
+  Members are joined.
+  A key only the gone project sets is copied, a key only the kept project sets stays, and for a key both set to different values he picks one project's, key by key.
+- The Mac that holds the gone project moves its Jobs into the kept project, keeping their frozen values.
+  It sends any task added to the gone project after the kept Mac took its copy, and then deletes the project, its tasks and its file, wherever the file is kept except a bucket.
+- Each Mac moves only its own Jobs, so a Job started on the other Mac in the copy moves there.
+- The Mac he pressed it on lists one project from the press, the kept one with both sets of tasks.
+  Where the other Mac is asleep it is told when it wakes, in the order of the other acts waiting for it, and nothing waits on it here.
+
+The merge ends with one project on each Mac: the kept one, its own on one Mac and a copy on the other.
 
 Sync never ticks a task: a copy is only what the holding Mac says, and a tick crosses only as his own.
 The Operator's call is handed the open tasks of every project, the copies' among them, and only reads them.

@@ -305,6 +305,9 @@ where
         match act {
             ProjectAct::AddProjectTask { task, .. } => project_shared(task.project.as_deref()),
             ProjectAct::LinkProjectIssue { link } => project_shared(link.project.as_deref()),
+            // A merge is for projects this Mac shares: the one it keeps, and the one it gives up.
+            ProjectAct::Absorb { kept, .. } => project_shared(Some(kept)),
+            ProjectAct::GiveUp { gone, .. } => project_shared(Some(gone)),
             ProjectAct::MoveProjectRow { row, to } => {
                 row_shared(row)?;
                 match &to.project {

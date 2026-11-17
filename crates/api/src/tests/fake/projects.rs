@@ -184,6 +184,12 @@ impl Projects for FakeDaemon {
         Ok(ipc::KitValuesSaved { file: "kit/values.yml".to_string(), values: save.values })
     }
 
+    async fn merge_projects(&self, merge: ipc::MergeProjects) -> Result<ipc::Projects, Refusal> {
+        held(&merge.kept)?;
+        held(&merge.gone)?;
+        Ok(echoed(&merge.kept, format!("merge_projects {} {} {}", merge.kept, merge.gone, merge.from_gone.join(","))))
+    }
+
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
         held(&project)?;
         Ok(echoed(&project, "delete_project".to_string()))

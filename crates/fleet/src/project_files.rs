@@ -230,9 +230,19 @@ where
     /// Take the file of project `id` away where Fleet keeps it itself: Kit's. A synced folder's and a
     /// bucket's are the person's, and are left.
     pub(crate) async fn project_file_removed(&self, id: &str) -> Result<(), Refusal> {
+        self.project_file_taken_away(id, false).await
+    }
+
+    /// Take the file of project `id` away wherever it is kept as a folder: Kit's, and a synced folder. **A
+    /// bucket's is left**, since a bucket Fleet is handed is read and written and nothing more.
+    pub(crate) async fn project_file_removed_everywhere(&self, id: &str) -> Result<(), Refusal> {
+        self.project_file_taken_away(id, true).await
+    }
+
+    async fn project_file_taken_away(&self, id: &str, synced_too: bool) -> Result<(), Refusal> {
         let (place, at) = self.project_kept(id).await?;
         let places::Where::Folder(base) = at else { return Ok(()) };
-        if place != ProjectPlace::ThisMac || !file_safe(id) {
+        if (!synced_too && place != ProjectPlace::ThisMac) || !file_safe(id) {
             return Ok(());
         }
         let path = places::project_file(&base, id);

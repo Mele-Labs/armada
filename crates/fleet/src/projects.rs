@@ -44,7 +44,7 @@ const NOT_A_PULL: &str = "fleet.project_pull_unreadable";
 
 /// A row written into a project, a project of his and not the loose tasks: the project's id and the repositories of the
 /// row and its subtasks, as Fleet names them.
-type Put = (String, Vec<String>);
+pub(crate) type Put = (String, Vec<String>);
 
 /// What the tracker said of one issue: open or closed, and its title.
 type Said = (IssueState, String);
@@ -101,7 +101,7 @@ fn task_state(state: KeptTaskState) -> (ProjectTaskState, Option<ProjectHolder>)
 
 /// What the trackers said of each issue, and the forges of each pull request, by repository. **An issue read through
 /// a project's own tracker is under that project's key**, since the repository's tracker would say something else.
-type SaidBy = BTreeMap<String, BTreeMap<String, Said>>;
+pub(crate) type SaidBy = BTreeMap<String, BTreeMap<String, Said>>;
 
 /// The key an issue read is kept under: the repository's, or the project's and then the repository's where the
 /// project names a tracker.
@@ -111,11 +111,11 @@ fn said_key(project: Option<&str>, manifest: &str) -> String {
         None => manifest.to_string(),
     }
 }
-type PulledBy = BTreeMap<String, BTreeMap<u64, PullSaid>>;
+pub(crate) type PulledBy = BTreeMap<String, BTreeMap<u64, PullSaid>>;
 
 /// A row on the wire. A task's links are read from the repository each was linked in, which is not
 /// its task's once the task has moved.
-fn row_on_the_wire(row: KeptProjectRow, project: Option<&str>, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
+pub(crate) fn row_on_the_wire(row: KeptProjectRow, project: Option<&str>, said_by: &SaidBy, pulled_by: &PulledBy) -> ProjectRow {
     let manifest_id = ManifestId::carried(row.manifest_id.clone());
     match row.item {
         KeptRowItem::Task { title, notes, state, parent, issues, pulls } => {
@@ -162,7 +162,7 @@ fn row_on_the_wire(row: KeptProjectRow, project: Option<&str>, said_by: &SaidBy,
     }
 }
 
-fn member_on_the_wire(member: &core_model::Member) -> ProjectMember {
+pub(crate) fn member_on_the_wire(member: &core_model::Member) -> ProjectMember {
     ProjectMember {
         manifest_id: ManifestId::from(member.repository()),
         folder: member.folder_of().map(|folder| folder.as_str().to_string()),
@@ -200,11 +200,11 @@ fn left_out_is(one: &config::ProjectLeftOut, id: &str) -> bool {
 }
 
 /// What a write put in `project`, where it is one of his: none for the loose tasks.
-fn put_in(project: &str, repositories: Vec<String>) -> Option<Put> {
+pub(crate) fn put_in(project: &str, repositories: Vec<String>) -> Option<Put> {
     (project != LOOSE_PROJECT).then(|| (project.to_string(), repositories))
 }
 
-fn rows_of(kept: &KeptProjects) -> impl Iterator<Item = &KeptProjectRow> {
+pub(crate) fn rows_of(kept: &KeptProjects) -> impl Iterator<Item = &KeptProjectRow> {
     kept.projects.iter().flat_map(|project| &project.rows).chain(&kept.loose)
 }
 
@@ -532,7 +532,7 @@ where
     /// [`Fleet::projects_written_reading`], where the write may say it put a row of `repositories` in the project it
     /// returns. **A project's members are the repositories its tasks name**, so any of them the project does not
     /// hold becomes a whole member, written to its file, before the answer.
-    async fn projects_written_following<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
+    pub(crate) async fn projects_written_following<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
     where
         F: FnOnce(&mut Store, &KeptProjects) -> Result<Option<Put>, Refusal> + Send,
     {
@@ -886,6 +886,10 @@ where
         // Through `edit_project`, so the file is written, checked and published as every edit of a project's values is.
         let values = crate::values::values_set(&values).unwrap_or_default();
         self.edit_project(project, EditProject { values: Some(values), ..EditProject::default() }).await
+    }
+
+    async fn merge_projects(&self, merge: ipc::MergeProjects) -> Result<ipc::Projects, Refusal> {
+        self.projects_merged(merge).await
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
