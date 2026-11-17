@@ -506,6 +506,9 @@ impl ReviewsScreen {
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
+        if self.is_live() {
+            self.live_tools(number);
+        }
         self.sheet = false;
         self.whole = !changed || gone;
         self.bring_kind("pr-overview", cx);
