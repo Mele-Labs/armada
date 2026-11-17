@@ -112,7 +112,7 @@ pub(super) fn read(api: &GitHubApi, ask: &ReviewListAsk<'_>) -> Result<Option<Ve
     }
     // The teams the person is on do not wait on the search, nor it on them.
     let (found, held) = std::thread::scope(|scope| {
-        let held = scope.spawn(|| my_teams(api));
+        let held = scope.spawn(crate::forge_tally::carried(|| my_teams(api)));
         let found: Result<Searched, ApiFailure> = api.graphql(QUERY, &asked);
         (found, joined(held))
     });
