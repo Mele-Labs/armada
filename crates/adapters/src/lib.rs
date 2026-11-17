@@ -245,7 +245,7 @@ pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use store_peers::signed_for_peer;
-pub use starting::{inferred_base, inside_a_repository, start_repository};
+pub use starting::{inferred_base, inside_a_repository, start_linked_repository, start_repository};
 pub use test_map::NextestCoverage;
 pub use api_forge::{ApiForge, ApiTrackers};
 pub use gh_forge::GhForge;

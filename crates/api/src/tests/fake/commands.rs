@@ -153,6 +153,19 @@ impl Commands for FakeDaemon {
         })
     }
 
+    /// Makes nothing: served at the folder `owner/name` names.
+    async fn link_repository(
+        self: std::sync::Arc<Self>,
+        asked: ipc::LinkRepository,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        Ok(ipc::RepositorySummary {
+            root: format!("/linked/{}/{}", asked.owner, asked.name),
+            records_root: String::from("/records"),
+            manifest: None,
+            implicit_id: Some(ipc::ManifestId::carried("linked")),
+        })
+    }
+
     /// Clones nothing: served under `parent`, at the folder a URL of `shop` names.
     async fn clone_repository(
         self: std::sync::Arc<Self>,
