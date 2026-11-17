@@ -9,7 +9,7 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ReviewList, ReviewListAsk, Said};
+use adapter_traits::{ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ListFailure, ReviewList, ReviewListAsk, Said};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -366,4 +366,60 @@ fn one_commits_files_are_read_from_the_commit_endpoint_and_a_commit_the_forge_la
     assert_eq!(forge.commit_patches(&root, "aaaa1111"), Some(listed(&lines(PATCHES_GH))));
     assert_eq!(forge.commit_patches(&root, "cccc3333"), None);
     assert_eq!(forge.commit_patches(&root, "not a sha"), None);
+}
+
+#[test]
+fn a_review_list_the_api_would_not_give_says_why_and_a_limit_says_when() {
+    let server = serve(|seen| {
+        if seen.body.contains("user-review-requested:") {
+            Reply {
+                status: 403,
+                headers: vec![("retry-after", "120".to_string())],
+                body: r#"{"message":"You have exceeded a secondary rate limit"}"#.to_string(),
+            }
+        } else {
+            ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#)
+        }
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let repositories = vec!["mele-labs/armada".to_string()];
+    let ask = |list| ReviewListAsk { list, login: "NickMele", repositories: &repositories, most: 50 };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+
+    match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)) {
+        Err(ListFailure::RateLimited { until: Some(until) }) => assert!((now + 115..=now + 125).contains(&until), "until {until}, now {now}"),
+        other => panic!("the limit and its retry-after, not {other:?}"),
+    }
+    // Held now: the next list is not asked, and says the same, with the hold's time.
+    match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Mine)) {
+        Err(ListFailure::RateLimited { until: Some(until) }) => assert!(until > now + 60, "{until}"),
+        other => panic!("held, not {other:?}"),
+    }
+    assert_eq!(server.seen().len(), 1);
+}
+
+#[test]
+fn a_graphql_rate_limit_is_a_limit_with_a_time_and_not_a_token_problem() {
+    let server = serve(|_| ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#));
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let repositories = vec!["mele-labs/armada".to_string()];
+    let ask = ReviewListAsk { list: ReviewList::Mine, login: "NickMele", repositories: &repositories, most: 50 };
+    match forge.pull_review_list(&repo.root_str(), &ask) {
+        Err(ListFailure::RateLimited { until: Some(_) }) => {}
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn each_api_failure_is_a_list_failure_a_person_can_be_told() {
+    assert_eq!(ApiFailure::NoToken("x".into()).listed(), ListFailure::NoToken);
+    assert_eq!(ApiFailure::Unreachable("x".into()).listed(), ListFailure::Unreachable);
+    let refused = ApiFailure::Refused { status: 429, said: "slow down".into(), limit: None };
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: None });
+    let spent = crate::github_api::RateLimit { remaining: Some(0), reset_at: Some(4_102_444_800), retry_after: None };
+    let refused = ApiFailure::Refused { status: 403, said: "API rate limit exceeded".into(), limit: Some(spent) };
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: Some(4_102_444_800) });
+    assert!(matches!(ApiFailure::Refused { status: 502, said: "bad".into(), limit: None }.listed(), ListFailure::Other(_)));
 }

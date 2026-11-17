@@ -538,12 +538,18 @@ impl Forge for ApiForge {
         &self,
         in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
-        self.read(
-            in_repo,
-            |api, _| review_lists::read(api, ask),
-            |gh| gh.pull_review_list(in_repo, ask),
-        )
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
+        use adapter_traits::ListFailure;
+        if self.on_github(in_repo).is_none() {
+            return self.gh.pull_review_list(in_repo, ask);
+        }
+        match review_lists::read(&self.api, ask) {
+            Ok(Some(rows)) => Ok(rows),
+            Ok(None) => Err(ListFailure::Other("The search would not mean what it says.".to_string())),
+            // `gh` holds its own sign-in; when it too has nothing, there is no token to speak of.
+            Err(ApiFailure::NoToken(_)) => self.gh.pull_review_list(in_repo, ask).map_err(|_| ListFailure::NoToken),
+            Err(failure) => Err(failure.listed()),
+        }
     }
 
     fn resolve_review_thread(

@@ -39,6 +39,21 @@ pub struct ReviewListAsk<'a> {
     pub most: usize,
 }
 
+/// Why a review list was not read.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ListFailure {
+    /// The forge refused for its rate limit. `until` is when to try again, in seconds since the
+    /// epoch: its `retry-after`, else the reset of a spent window, else the client's own hold.
+    /// **Absent where it named no time.**
+    RateLimited { until: Option<u64> },
+    /// No token for this machine.
+    NoToken,
+    /// Nothing answered.
+    Unreachable,
+    /// Anything else, in words a person can read.
+    Other(String),
+}
+
 /// What a pull request's forge checks have come to. Not Armada's Checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListedChecks {

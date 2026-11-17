@@ -261,7 +261,7 @@ where
                 )
             })
             .await
-            .ok_or_else(|| unreadable("the forge would not list the open pull requests"))?;
+            .map_err(|failure| unreadable(&crate::pull_review_kept::failure_said(&failure)))?;
         let pulls = pulls
             .into_iter()
             .filter(|pull| named.iter().any(|it| it.slug.eq_ignore_ascii_case(&pull.repository)))

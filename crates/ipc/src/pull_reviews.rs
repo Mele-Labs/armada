@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::ManifestId;
+use crate::ids::{Instant, ManifestId};
 use crate::pull_requests::PullRequestReviewState;
 
 /// The four lists. A pull request can be on several.
@@ -94,9 +94,24 @@ pub struct PullReviewLists {
     pub mine: Vec<PullReviewRow>,
     /// The lists the forge would not answer. **Their rows above are empty and say nothing**, so
     /// a reader keeps what it last held for them. All four silent is a 500
-    /// `fleet.review_lists_unreadable` and no body.
+    /// `fleet.review_lists_unreadable` and no body. **GitHub's rate limit with nothing kept to show**
+    /// is a 500 `fleet.review_lists_rate_limited` instead, its `fields.until` the time to try again
+    /// as RFC 3339, absent where none was named; a no token or an unanswering GitHub is the
+    /// first code with a sentence that says which.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub silent: Vec<PullReviewList>,
+    /// Present where **GitHub is rate-limiting us and these are the lists Fleet last read**, at
+    /// `fetched_at`, not read now. Fleet asks nothing until the hold lifts. Absent for a live read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limited: Option<PullReviewRateLimited>,
+}
+
+/// The rate limit that keeps the lists from being read again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullReviewRateLimited {
+    /// When Fleet asks again: what GitHub said, else Fleet's own wait. Absent where it named no time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// The most rows one list keeps. The forge is asked for exactly this many, so a list at the cap
