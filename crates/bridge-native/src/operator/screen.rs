@@ -353,6 +353,11 @@ pub fn link_state(cx: &App) -> Option<(Option<bool>, Option<Vec<ipc::RepositoryS
     Some((held.deep_links, held.repositories.clone()))
 }
 
+/// The Fleet a link is linked through, where the screen has one.
+pub fn link_fleet(cx: &App) -> Option<Entity<FleetConnection>> {
+    cx.try_global::<Here>()?.0.upgrade()?.read(cx).fleet.clone()
+}
+
 /// A banner's press on a review asked of him: [`OperatorScreen::open_review`] from outside the screen.
 pub fn open_asked(asked: Option<ipc::ReviewAsked>, cx: &mut App) {
     let Some(Here(me, handle)) = cx.try_global::<Here>().map(|here| Here(here.0.clone(), here.1)) else { return };

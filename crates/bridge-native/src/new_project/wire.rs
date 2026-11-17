@@ -158,6 +158,16 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Waiting("/repositories/clone".into(), said, CLONE_PATIENCE), "RepositorySummary", cx))
     }
 
+    /// `POST /repositories/link`: the repository a pull request link names, read through without adding it. Fleet
+    /// answers a served one as it is, else makes an unlisted stub.
+    pub fn link_repository(&self, owner: String, name: String, cx: &App) -> Task<Result<RepositorySummary, String>> {
+        if let Wire::Mock(_) = self {
+            return Task::ready(Err(format!("The walk's Fleet serves no {owner}/{name}")));
+        }
+        let said = body(&ipc::LinkRepository { owner, name });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/repositories/link".into(), said), "RepositorySummary", cx))
+    }
+
     /// `POST /repositories/create`: a new folder under `parent`, started as a git repository.
     pub fn create_repository(&mut self, name: String, parent: String, cx: &App) -> Task<Result<RepositorySummary, String>> {
         if let Wire::Mock(mock) = self {

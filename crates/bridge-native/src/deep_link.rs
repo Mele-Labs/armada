@@ -5,7 +5,7 @@
 //! sends the scheme here. A link is read, then held until Fleet has said whether `features.deepLinks`
 //! is on and which repositories it serves, and then it opens that pull request in Reviews
 //! ([`decide`]). A link is ignored while the switch is off. One naming a repository Fleet has no
-//! Manifest for is [`Fate::Unserved`].
+//! Manifest for is read through an unlisted stub Fleet makes (`link_repository`), so it opens too.
 
 use gpui::App;
 
@@ -78,18 +78,29 @@ pub fn decide(link: &PullLink, deep_links: Option<bool>, repositories: Option<&[
         (Some(true), Some(served)) => {
             let repository = format!("{}/{}", link.owner, link.name);
             match crate::job_view::pulls::manifest_named(served, &repository) {
-                Some(manifest) => Fate::Open(ipc::ReviewAsked {
-                    manifest_id: ipc::ManifestId::carried(&manifest),
-                    address: format!("https://github.com/{repository}/pull/{}", link.number),
-                    repository,
-                    number: link.number,
-                    title: String::new(),
-                    author: String::new(),
-                }),
+                Some(manifest) => Fate::Open(asked(link, &manifest)),
                 None => Fate::Unserved,
             }
         }
     }
+}
+
+/// The review a link asks for in the repository `manifest` names.
+fn asked(link: &PullLink, manifest: &str) -> ipc::ReviewAsked {
+    let repository = format!("{}/{}", link.owner, link.name);
+    ipc::ReviewAsked {
+        manifest_id: ipc::ManifestId::carried(manifest),
+        address: format!("https://github.com/{repository}/pull/{}", link.number),
+        repository,
+        number: link.number,
+        title: String::new(),
+        author: String::new(),
+    }
+}
+
+/// What a repository Fleet linked is read through: its Manifest's id where it is served for real, else the one Fleet gives a repository with none.
+fn manifest_of(summary: &ipc::RepositorySummary) -> Option<String> {
+    summary.manifest.as_ref().map(|manifest| manifest.id.as_str().to_string()).or_else(|| summary.implicit_id.as_ref().map(|id| id.as_str().to_string()))
 }
 
 /// The link waiting for Fleet to answer, or for the window to be up.
@@ -97,6 +108,21 @@ pub fn decide(link: &PullLink, deep_links: Option<bool>, repositories: Option<&[
 struct Waiting(Option<PullLink>);
 
 impl gpui::Global for Waiting {}
+
+/// A link to a repository no Manifest serves: Fleet reads it through an unlisted stub (`POST /repositories/link`),
+/// and the review opens on that; a refusal is said in a toast.
+fn link_through_fleet(link: PullLink, cx: &mut App) {
+    let Some(fleet) = crate::operator::screen::link_fleet(cx) else { return };
+    let task = crate::new_project::wire::Wire::Live(fleet).link_repository(link.owner.clone(), link.name.clone(), cx);
+    cx.spawn(async move |cx| match task.await {
+        Ok(summary) => match manifest_of(&summary) {
+            Some(manifest) => cx.update(|cx| crate::operator::screen::open_asked(Some(asked(&link, &manifest)), cx)),
+            None => cx.update(|cx| crate::toasts::tell(format!("Armada could not read {}/{}.", link.owner, link.name), cx)),
+        },
+        Err(said) => cx.update(|cx| crate::toasts::tell(said, cx)),
+    })
+    .detach();
+}
 
 /// Take a link to the window: held until there is something to decide it with.
 pub fn deliver(link: &PullLink, cx: &mut App) {
@@ -125,10 +151,7 @@ pub fn settle(cx: &mut App) {
         }
         Fate::Unserved => {
             cx.set_global(Waiting(None));
-            Note::warn("a pull request link names a repository no Manifest serves")
-                .field("owner", link.owner.as_str())
-                .field("name", link.name.as_str())
-                .emit();
+            link_through_fleet(link, cx);
         }
     }
 }
