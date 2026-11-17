@@ -680,7 +680,7 @@ if $dry_run; then
   kept_lock=$(shasum -a 256 "$src/pnpm-lock.yaml" 2>/dev/null | cut -c1-16 || true)
   echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada in Armada Fleet.app (bundle id dev.armada.fleet, signed by scripts/signing-identity), a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
   echo "would have the kept build open a copy of $support/armada.db first, and swap nothing if it cannot"
-  echo "would copy its Armada Fleet.app to $support/fleet, renaming each file over the last build's, and point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds, then unregister every other bundle Launch Services lists under $builds and register current's Armada.app and the placed Fleet"
+  echo "would copy its Armada Fleet.app to $support/fleet, renaming each file over the last build's, and point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds, then unregister every other bundle Launch Services lists under $builds and register current's native Bridge, where it keeps one, and the placed Fleet"
   echo "would write $plist: [$fleet_program, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would wait up to 60 s for the new Fleet to answer /health, and otherwise mark the build and swap back onto the one before"
