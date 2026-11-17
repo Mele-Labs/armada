@@ -149,7 +149,7 @@ where
                 vcs.pull_review_list(root, &ReviewListAsk { list: ReviewList::Requested, login: &me, repositories: &repositories, most: MOST_PER_LIST })
             })
             .await;
-        let Some(pulls) = asked else {
+        let Ok(pulls) = asked else {
             return skipped("the forge did not answer");
         };
         // The forge's own latest review of his names the request; the one Fleet wrote is only for the inbox.

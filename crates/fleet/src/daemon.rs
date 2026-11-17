@@ -78,6 +78,8 @@ pub struct Fleet<H, V, W> {
     models_held: crate::models_read::ModelsHeld,
     /// What turns the Phone Gateway on and off. See [`crate::phone`].
     phone_held: crate::phone::PhoneHeld,
+    /// The Reviews lists last read, and the forge's wait on reading them again. See [`crate::pull_review_kept`].
+    review_lists_kept: crate::pull_review_kept::Kept,
     /// The shared home's adapters. See [`crate::home`].
     home_held: crate::home::HomeHeld,
     /// The default model's step down, never held but for what the store keeps. See [`crate::model_downshifting`].
