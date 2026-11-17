@@ -760,6 +760,18 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_page_that_is_an_artifacts_only_part_takes_the_whole_detail_and_one_among_parts_keeps_its_share(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(bounds_of(cx, Role::Region, "Page").size.height <= panel * TALL_SHARE + px(1.), "among other parts it stands at its share");
+        view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| part.id == PAGE), cx));
+        redraw(cx);
+        let (page, band) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Answers"));
+        assert!(page.top() - band.bottom() <= px(2.), "alone, it starts under the band: {band:?} {page:?}");
+        assert!(page.size.height > panel * TALL_SHARE, "and takes more than a picture's share of the panel: {page:?}");
+    }
+
+    #[gpui::test]
     fn a_vote_and_a_press_the_panels_page_posts_are_carried_to_fleet_and_its_answer_goes_back(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         let tab = view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx)).expect("the panel's live page");
